@@ -7,10 +7,12 @@ import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal';
 import authConfig from './auth.config';
 import { devGoogleCredentials } from './auth.local';
 
-const siteUrl = process.env.SITE_URL || 'http://localhost:5173';
+const siteUrl = process.env.SITE_URL || 'https://hwis.vercel.app';
 
 const isDev =
-	!process.env.NODE_ENV || process.env.NODE_ENV === 'development' || siteUrl.includes('localhost');
+	!process.env.NODE_ENV ||
+	process.env.NODE_ENV === 'development' ||
+	process.env.SITE_URL?.includes('localhost');
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
