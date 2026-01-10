@@ -1,6 +1,7 @@
 import { createAuthClient } from 'better-auth/svelte';
-import { convexClient } from "@convex-dev/better-auth/client/plugins";
+import { convexClient } from '@convex-dev/better-auth/client/plugins';
 
 export const authClient = createAuthClient({
-  plugins: [convexClient()],
+	baseURL: import.meta.env?.VITE_SITE_URL || 'https://hwis.vercel.app',
+	plugins: [convexClient()]
 });
