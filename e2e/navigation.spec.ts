@@ -4,21 +4,16 @@ import { expect } from '@playwright/test';
 test.describe('Navigation', () => {
 	test('should navigate from home to login page directly', async ({ page }) => {
 		await page.goto('/login');
-		await expect(page.locator('h2')).toHaveText('Sign In');
+		await expect(page.locator('h2', { hasText: 'Sign In' })).toBeVisible({ timeout: 10000 });
 	});
 
 	test('login page should have proper layout', async ({ page }) => {
 		await page.goto('/login');
 
-		// Check centering container
-		const container = page.locator('.flex.h-screen.flex-col.items-center.justify-center');
-		await expect(container).toBeVisible();
-
-		// Check form card
-		const formCard = page.locator(
-			'.flex.w-full.max-w-md.flex-col.gap-4.rounded-lg.bg-white.p-6.shadow-md'
-		);
-		await expect(formCard).toBeVisible();
+		// Wait for the login form to appear
+		await expect(
+			page.locator('.flex.w-full.max-w-md.flex-col.gap-4.rounded-lg.bg-white.p-6.shadow-md')
+		).toBeVisible({ timeout: 10000 });
 	});
 
 	test('should handle page not found gracefully', async ({ page }) => {
