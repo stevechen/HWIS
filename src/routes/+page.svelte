@@ -4,6 +4,8 @@
 	import { useQuery } from 'convex-svelte';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 
+	const query = useQuery(api.tasks.get, {});
+
 	let { data } = $props();
 
 	// Auth state store
@@ -169,5 +171,21 @@
 				Sign out
 			</button>
 		</div>
+
+		{#if query.isLoading}
+			Loading...
+		{:else if query.error}
+			failed to load: {query.error.toString()}
+		{:else}
+			<ul>
+				{#each query.data as task}
+					<li>
+						{task.isCompleted ? '☑' : '☐'}
+						<span>{task.text}</span>
+						<span>assigned by {task.assigner}</span>
+					</li>
+				{/each}
+			</ul>
+		{/if}
 	{/if}
 </div>
