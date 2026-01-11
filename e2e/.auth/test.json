@@ -1,0 +1,15 @@
+{
+  "cookies": [
+    {
+      "name": "hwis_test_auth",
+      "value": "true",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}

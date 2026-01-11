@@ -1,0 +1,61 @@
+<script lang="ts">
+	import { useConvexClient } from 'convex-svelte';
+	import { api } from '$convex/_generated/api';
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+
+	const client = useConvexClient();
+	const auth = useAuth();
+
+	let status = $state('Checking auth...');
+	let error = $state<string | null>(null);
+	let authUserId = $state<string | null>(null);
+
+	onMount(async () => {
+		await new Promise((r) => setTimeout(r, 1000));
+
+		if (!auth.isAuthenticated) {
+			status = 'Not authenticated. Please sign in first.';
+			await new Promise((r) => setTimeout(r, 2000));
+			goto('/login');
+			return;
+		}
+
+		const sessionUser = (auth as any).session?.user;
+		if (sessionUser?._id) {
+			authUserId = sessionUser._id;
+		}
+
+		status = 'Setting you as admin...';
+
+		try {
+			status = 'Creating profile with your name...';
+			await client.mutation(api.onboarding.ensureUserProfile, {});
+
+			status = 'Setting you as admin...';
+			await client.mutation(api.onboarding.setMyRole, {
+				role: 'admin',
+				status: 'active'
+			});
+
+			status = `Success! Profile created/updated with your name.`;
+			await new Promise((r) => setTimeout(r, 3000));
+			goto('/');
+		} catch (err: any) {
+			error = err.message || 'Unknown error';
+			status = 'Error occurred';
+			console.error('Setup error:', err);
+		}
+	});
+</script>
+
+<div class="flex h-screen flex-col items-center justify-center gap-4 p-4">
+	<p class="text-lg">{status}</p>
+	{#if authUserId}
+		<p class="text-muted-foreground text-sm">Auth User ID: {authUserId}</p>
+	{/if}
+	{#if error}
+		<p class="text-red-600">Error: {error}</p>
+	{/if}
+</div>

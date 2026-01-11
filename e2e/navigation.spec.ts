@@ -10,10 +10,10 @@ test.describe('Navigation', () => {
 	test('login page should have proper layout', async ({ page }) => {
 		await page.goto('/login');
 
-		// Wait for the login form to appear
-		await expect(
-			page.locator('.flex.w-full.max-w-md.flex-col.gap-4.rounded-lg.bg-white.p-6.shadow-md')
-		).toBeVisible({ timeout: 10000 });
+		// Wait for the login form to appear - check for the Google button instead of specific CSS classes
+		await expect(page.locator('button', { hasText: 'Sign in with Google' })).toBeVisible({
+			timeout: 10000
+		});
 	});
 
 	test('should handle page not found gracefully', async ({ page }) => {
@@ -21,6 +21,21 @@ test.describe('Navigation', () => {
 
 		// SvelteKit should show 404 page
 		const pageContent = await page.content();
-		expect(pageContent).toContain('404' || 'Page' || 'not found' || 'Error');
+		expect(pageContent).toContain('404');
+	});
+
+	test('login page should display Google SSO button', async ({ page }) => {
+		await page.goto('/login');
+		await expect(page.locator('button', { hasText: 'Sign in with Google' })).toBeVisible({
+			timeout: 10000
+		});
+	});
+
+	test('login page should display domain restriction note', async ({ page }) => {
+		await page.goto('/login');
+		const note = page.getByText('Only for HWIS staffs', { exact: false });
+		await expect(note).toBeVisible({
+			timeout: 10000
+		});
 	});
 });

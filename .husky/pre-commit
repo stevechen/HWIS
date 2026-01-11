@@ -1,4 +1,2 @@
 #!/bin/bash
-. "$(dirname "$0")/../.husky/_/husky.sh"
-
 npm run test:e2e

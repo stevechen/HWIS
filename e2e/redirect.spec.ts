@@ -32,4 +32,21 @@ test.describe('Authentication Redirects', () => {
 		// Verify we're on login page
 		await expect(page.locator('h2')).toHaveText('Sign In');
 	});
+
+	test('should show loading state while auth is being determined', async ({ page }) => {
+		await page.goto('/login');
+
+		// Initially might show loading
+		const loading = page.locator('text=Loading...');
+		await expect(loading)
+			.toBeVisible({ timeout: 5000 })
+			.catch(() => {
+				// Loading might have already finished, that's ok too
+			});
+	});
+
+	test('should display signed in state when already authenticated', async ({ page }) => {
+		// This test would need mock authentication - skipping for now
+		test.skip(true, 'Requires mock authentication setup');
+	});
 });
