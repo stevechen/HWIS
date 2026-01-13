@@ -8,7 +8,7 @@ export const viewer = query({
 		let authUser;
 		try {
 			authUser = await authComponent.safeGetAuthUser(ctx);
-		} catch (e) {
+		} catch {
 			return null;
 		}
 		if (!authUser) return null;
@@ -42,7 +42,7 @@ export const list = query({
 		let authUser;
 		try {
 			authUser = await authComponent.getAuthUser(ctx);
-		} catch (e) {
+		} catch {
 			throw new Error('Unauthorized');
 		}
 		if (!authUser._id) throw new Error('Unauthorized');
@@ -78,7 +78,7 @@ export const update = mutation({
 		let authUser;
 		try {
 			authUser = await authComponent.getAuthUser(ctx);
-		} catch (e) {
+		} catch {
 			throw new Error('Unauthorized');
 		}
 		if (!authUser._id) throw new Error('Unauthorized');

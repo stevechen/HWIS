@@ -10,7 +10,7 @@
 	onMount(() => {
 		const checkAuth = () => {
 			if (!sessionData?.isPending && sessionData?.data) {
-				goto('/', { replaceState: true });
+				void goto('/', { replaceState: true });
 			}
 		};
 

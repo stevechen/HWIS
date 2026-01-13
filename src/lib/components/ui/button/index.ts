@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import Root from './button.svelte';
 import { buttonVariants } from './button.svelte';
 import type { VariantProps } from 'class-variance-authority';

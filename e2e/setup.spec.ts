@@ -1,4 +1,4 @@
-import { test as setup, expect } from '@playwright/test';
+import { test as setup } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 
@@ -42,7 +42,8 @@ setup('setup test users', async () => {
 
 	console.log('Test users created:', result);
 
-	const sessionCookie = `convex_session_token=${result.teacherSessionToken}; Path=/; HttpOnly; SameSite=Lax`;
+	// Session cookie for debugging if needed
+	// const sessionCookie = `convex_session_token=${result.teacherSessionToken}; Path=/; HttpOnly; SameSite=Lax`;
 
 	const teacherStorageState = {
 		cookies: [

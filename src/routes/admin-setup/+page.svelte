@@ -18,13 +18,8 @@
 		if (!auth.isAuthenticated) {
 			status = 'Not authenticated. Please sign in first.';
 			await new Promise((r) => setTimeout(r, 2000));
-			goto('/login');
+			void goto('/login');
 			return;
-		}
-
-		const sessionUser = (auth as any).session?.user;
-		if (sessionUser?._id) {
-			authUserId = sessionUser._id;
 		}
 
 		status = 'Setting you as admin...';
@@ -41,9 +36,10 @@
 
 			status = `Success! Profile created/updated with your name.`;
 			await new Promise((r) => setTimeout(r, 3000));
-			goto('/');
-		} catch (err: any) {
-			error = err.message || 'Unknown error';
+			void goto('/');
+			return;
+		} catch (err) {
+			error = (err as Error).message || 'Unknown error';
 			status = 'Error occurred';
 			console.error('Setup error:', err);
 		}

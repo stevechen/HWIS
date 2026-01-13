@@ -6,12 +6,10 @@
 		ArrowLeft,
 		Search,
 		X,
-		Calendar as CalendarIcon,
 		GripVertical,
 		ChevronsUpDown,
 		FileText,
-		Columns,
-		Check
+		Columns
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
@@ -19,7 +17,6 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Input from '$lib/components/ui/input';
 	import * as Popover from '$lib/components/ui/popover';
-	import { RangeCalendar } from '$lib/components/ui/range-calendar';
 	import * as Select from '$lib/components/ui/select';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { browser } from '$app/environment';
@@ -64,8 +61,6 @@
 	const STORAGE_KEY = 'audit-table-columns';
 	const VISIBLE_COLUMNS_KEY = 'audit-visible-columns';
 
-	const alwaysVisibleColumns = ['studentName', 'performerId', 'action'];
-
 	const allColumns: Column[] = [
 		{ key: 'timestamp', label: 'Time', sortable: true, defaultVisible: true, optional: true },
 		{ key: 'studentId', label: 'ID', sortable: true, defaultVisible: false, optional: true },
@@ -109,10 +104,9 @@
 	let columns = $state<Column[]>(allColumns.filter((c) => c.defaultVisible));
 	let allAvailableColumns = $state<Column[]>(allColumns);
 	let draggedColumn = $state<ColumnKey | null>(null);
-	let isDatePopoverOpen = $state(false);
 	let dateRange = $state<{
-		start: any;
-		end: any;
+		start: Date | null;
+		end: Date | null;
 	}>({ start: null, end: null });
 	let isColumnSelectorOpen = $state(false);
 
@@ -150,10 +144,6 @@
 
 	function isColumnVisible(key: ColumnKey): boolean {
 		return columns.some((col) => col.key === key);
-	}
-
-	function isColumnOptional(key: ColumnKey): boolean {
-		return allColumns.find((c) => c.key === key)?.optional ?? true;
 	}
 
 	function toggleColumn(key: ColumnKey) {
@@ -331,13 +321,13 @@
 			case 'studentId':
 				return 'w-20';
 			case 'studentName':
-				return 'flex-1 min-w-[180px]';
+				return 'flex-1 min-w-45';
 			case 'studentGrade':
 				return 'w-16';
 			case 'action':
 				return 'w-24';
 			case 'performerId':
-				return 'flex-1 min-w-[150px]';
+				return 'flex-1 min-w-36';
 			case 'category':
 				return 'w-32';
 			case 'subCategory':
@@ -384,7 +374,7 @@
 		if (auth.isLoading) return;
 
 		if (!auth.isAuthenticated) {
-			goto('/');
+			void goto('/');
 			return;
 		}
 
@@ -393,7 +383,8 @@
 			currentUser.data?.role !== 'admin' &&
 			currentUser.data?.role !== 'super'
 		) {
-			goto('/');
+			void goto('/');
+			return;
 		}
 	});
 </script>
@@ -401,7 +392,7 @@
 <div class="container mx-auto max-w-[1400px] py-8">
 	<header class="mb-8 flex items-start justify-between">
 		<div class="flex items-start gap-6">
-			<Button variant="outline" onclick={() => goto('/admin')}>
+			<Button variant="outline" onclick={() => void goto('/admin')}>
 				<ArrowLeft class="mr-2 h-4 w-4" />
 				Back to Admin
 			</Button>
@@ -418,7 +409,7 @@
 				</Button>
 			{/if}
 			<Popover.Root bind:open={isColumnSelectorOpen}>
-				<Popover.Trigger asChild>
+				<Popover.Trigger>
 					<Button variant="outline">
 						<Columns class="mr-2 h-4 w-4" />
 						Columns
@@ -428,7 +419,7 @@
 					<div class="flex items-center border-b px-3 py-2">
 						<span class="text-sm font-medium">Show Columns</span>
 					</div>
-					<div class="max-h-[300px] overflow-y-auto py-1">
+					<div class="max-h-72 overflow-y-auto py-1">
 						{#each allAvailableColumns.filter((c) => c.optional) as column (column.key)}
 							<label
 								class="hover:bg-accent flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm"
@@ -572,7 +563,7 @@
 											{:else if column.key === 'points'}
 												<span class="font-medium">{log.points ?? '-'}</span>
 											{:else if column.key === 'details'}
-												<span class="text-muted-foreground block max-w-[200px] truncate">
+												<span class="text-muted-foreground block max-w-52 truncate">
 													{log.details || '-'}
 												</span>
 											{/if}

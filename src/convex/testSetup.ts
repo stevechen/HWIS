@@ -1,5 +1,4 @@
 import { mutation } from './_generated/server';
-import { v } from 'convex/values';
 import { authComponent } from './auth';
 
 interface TestUser {

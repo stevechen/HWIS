@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 const hasTeacherAuth = fs.existsSync(path.join(process.cwd(), 'e2e/.auth/teacher.json'));
-const hasAdminAuth = fs.existsSync(path.join(process.cwd(), 'e2e/.auth/admin.json'));
+// hasAdminAuth is used conditionally below
 
 const config: PlaywrightTestConfig = {
 	testDir: 'e2e',

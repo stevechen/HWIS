@@ -20,8 +20,8 @@
 			await client.mutation(api.categories.seed, {});
 			await client.mutation(api.students.seed, {});
 			seedMessage = 'Success! Students and categories seeded.';
-		} catch (err: any) {
-			seedMessage = 'Error: ' + err.message;
+		} catch (err) {
+			seedMessage = 'Error: ' + (err as Error).message;
 		} finally {
 			seeding = false;
 		}
@@ -81,7 +81,9 @@
 				>
 			</Card.Header>
 			<Card.Content>
-				<Button variant="outline" class="w-full" disabled>Manage Students (Coming Soon)</Button>
+				<Button variant="outline" class="w-full" onclick={() => goto('/admin/students')}>
+					Manage Students
+				</Button>
 			</Card.Content>
 		</Card.Root>
 

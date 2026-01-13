@@ -1,6 +1,5 @@
 import { expect, test, describe } from 'vitest';
 import { convexTest } from 'convex-test';
-import { api, internal } from './_generated/api';
 import schema from './schema';
 import { modules } from './test.setup';
 
@@ -24,8 +23,7 @@ describe('audit logs (database operations)', () => {
 				chineseName: '張三',
 				studentId: 'STU001',
 				grade: 10,
-				isActive: true,
-				isGraduated: false
+				status: 'Enrolled'
 			});
 		});
 
@@ -429,9 +427,7 @@ describe('audit logs (database operations)', () => {
 });
 
 describe('audit action labels', () => {
-	test('ACTION_LABELS has all expected actions', async () => {
-		const t = convexTest(schema, modules);
-
+	test('ACTION_LABELS has all expected actions', () => {
 		const expectedLabels = [
 			'create_evaluation',
 			'delete_evaluation',
@@ -442,12 +438,6 @@ describe('audit action labels', () => {
 			'delete_student',
 			'seed_data'
 		];
-
-		for (const action of expectedLabels) {
-			const logs = await t.run(async (ctx) => {
-				return await ctx.db.query('audit_logs').collect();
-			});
-		}
 
 		expect(expectedLabels).toHaveLength(8);
 	});

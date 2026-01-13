@@ -10,9 +10,9 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
 
-	const currentUser = useQuery(api.users.viewer, {});
 	const categoriesQuery = useQuery(api.categories.list, {});
 	const client = useConvexClient();
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const apiAny = api as any;
 
 	let showForm = $state(false);
@@ -22,7 +22,11 @@
 	let subCategories = $state<string[]>([]);
 	let newSubCategory = $state('');
 	let isSubmitting = $state(false);
-	let categoryToDelete = $state<any>(null);
+	let categoryToDelete = $state<{
+		_id: Id<'point_categories'>;
+		name: string;
+		subCategories: string[];
+	} | null>(null);
 	let relatedCount = $state(0);
 	let subCategoryWarning = $state<{ subCategory: string; count: number } | null>(null);
 
@@ -34,7 +38,11 @@
 		showForm = true;
 	}
 
-	function startEdit(category: any) {
+	function startEdit(category: {
+		_id: Id<'point_categories'>;
+		name: string;
+		subCategories: string[];
+	}) {
 		categoryName = category.name;
 		originalCategoryName = category.name;
 		subCategories = [...category.subCategories];
@@ -110,7 +118,11 @@
 		}
 	}
 
-	function confirmDelete(category: any) {
+	function confirmDelete(category: {
+		_id: Id<'point_categories'>;
+		name: string;
+		subCategories: string[];
+	}) {
 		categoryToDelete = category;
 		relatedCount = 0;
 		checkRelatedCount();
@@ -139,12 +151,15 @@
 			isSubmitting = false;
 		}
 	}
+	function handleBackToAdmin() {
+		void goto('/admin');
+	}
 </script>
 
 <div class="container mx-auto max-w-6xl py-8">
 	<header class="mb-8 flex items-start justify-between">
 		<div class="flex items-start gap-6">
-			<Button variant="outline" onclick={() => goto('/admin')}>← Back to Admin</Button>
+			<Button variant="outline" onclick={handleBackToAdmin}>← Back to Admin</Button>
 			<div>
 				<h1 class="text-foreground mb-1 text-2xl font-semibold">Categories</h1>
 				<p class="text-muted-foreground">Manage point categories and sub-categories.</p>
@@ -169,7 +184,7 @@
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
-					{#each categoriesQuery.data as category}
+					{#each categoriesQuery.data as category (category._id)}
 						<Table.Row>
 							<Table.Cell>
 								<span class="font-medium">{category.name}</span>
@@ -179,7 +194,7 @@
 									{#if category.subCategories.length === 0}
 										<span class="text-muted-foreground text-sm">—</span>
 									{:else}
-										{#each category.subCategories as sub}
+										{#each category.subCategories as sub (sub)}
 											<Badge variant="secondary" class="text-xs">{sub}</Badge>
 										{/each}
 									{/if}
@@ -243,7 +258,7 @@
 					>
 					{#if subCategories.length > 0}
 						<div class="mb-3 flex flex-wrap gap-2">
-							{#each subCategories as sub, i}
+							{#each subCategories as sub, i (sub)}
 								<Badge variant="secondary" class="flex items-center gap-1 pl-2">
 									{sub}
 									<Button

@@ -24,12 +24,12 @@
 <div class="mx-auto max-w-3xl p-8">
 	<header class="mb-8 flex items-center justify-between">
 		<div class="flex items-center gap-4">
-			<Button variant="outline" onclick={() => goto('/')}>← Back</Button>
+			<Button variant="outline" onclick={() => void goto('/')}>← Back</Button>
 			<h1 class="text-foreground text-2xl font-semibold">Evaluation History</h1>
 		</div>
 		<div class="flex items-center gap-2">
 			<ThemeToggle />
-			<Button onclick={() => goto('/evaluations/new')}>
+			<Button onclick={() => void goto('/evaluations/new')}>
 				<Plus class="mr-2 h-4 w-4" />
 				New Evaluation
 			</Button>
@@ -44,12 +44,12 @@
 				<p class="text-muted-foreground mb-6">
 					No evaluations found. Start by awarding some points!
 				</p>
-				<Button onclick={() => goto('/evaluations/new')}>Give Points</Button>
+				<Button onclick={() => void goto('/evaluations/new')}>Give Points</Button>
 			</Card.Content>
 		</Card.Root>
 	{:else}
 		<div class="flex flex-col gap-4">
-			{#each evaluations.data || [] as eval_}
+			{#each evaluations.data || [] as eval_ (eval_._id)}
 				<Card.Root>
 					<Card.Content class="p-5">
 						<div class="mb-4 flex items-start justify-between">

@@ -11,7 +11,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 			_id: 'test-user-id',
 			name: 'Test Teacher',
 			email: 'teacher@hwis.test',
-			emailVerified: true,
 			role: 'teacher' as const,
 			status: 'active' as const
 		};
@@ -19,8 +18,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	} else {
 		try {
 			event.locals.token = await getToken(createAuth, event.cookies);
-		} catch (e) {
-			event.locals.token = null;
+		} catch {
+			event.locals.token = undefined;
 		}
 		event.locals.isTestMode = false;
 	}

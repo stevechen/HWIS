@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { authComponent } from './auth';
@@ -29,7 +30,7 @@ export const create = mutation({
 		let authUser;
 		try {
 			authUser = await authComponent.getAuthUser(ctx);
-		} catch (e) {
+		} catch {
 			throw new Error('Unauthorized');
 		}
 		const authId = authUser._id;
@@ -86,7 +87,7 @@ export const remove = mutation({
 		let authUser;
 		try {
 			authUser = await authComponent.getAuthUser(ctx);
-		} catch (e) {
+		} catch {
 			throw new Error('Unauthorized');
 		}
 		const authId = authUser._id;
@@ -129,7 +130,7 @@ export const listRecent = query({
 		let authUser;
 		try {
 			authUser = await authComponent.safeGetAuthUser(ctx);
-		} catch (e) {
+		} catch {
 			return [];
 		}
 		if (!authUser) return [];
@@ -149,15 +150,30 @@ export const listRecent = query({
 			.order('desc')
 			.take(args.limit || 50);
 
-		const results: any[] = [];
+		const results: {
+			/* eslint-disable @typescript-eslint/no-explicit-any */
+			_id: any;
+			studentName: string;
+			studentIdCode: string;
+			value: number;
+			category: string;
+			subCategory: string;
+			details: string;
+			timestamp: number;
+		}[] = [];
 		for (const eval_ of evaluations) {
 			const student = await ctx.db.get(eval_.studentId);
 			results.push({
-				...eval_,
+				_id: eval_._id,
 				studentName: student
 					? `${student.englishName} (${student.chineseName})`
 					: 'Unknown Student',
-				studentIdCode: student?.studentId || 'N/A'
+				studentIdCode: student?.studentId || 'N/A',
+				value: eval_.value,
+				category: eval_.category,
+				subCategory: eval_.subCategory,
+				details: eval_.details,
+				timestamp: eval_.timestamp
 			});
 		}
 		return results;

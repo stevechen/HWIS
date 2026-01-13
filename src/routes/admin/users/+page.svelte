@@ -10,28 +10,30 @@
 	import * as Select from '$lib/components/ui/select';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 
+	import type { Id } from '$convex/_generated/dataModel';
+
 	const currentUser = useQuery(api.users.viewer, {});
 	const usersQuery = useQuery(api.users.list, {});
 	const client = useConvexClient();
 	const auth = useAuth();
 
-	let updatingId = $state<string | null>(null);
+	let updatingId = $state<Id<'users'> | null>(null);
 	let roleStates = $state<Record<string, string>>({});
 
-	async function updateUserRole(id: any, role: 'super' | 'admin' | 'teacher' | 'student') {
+	async function updateUserRole(id: Id<'users'>, role: 'super' | 'admin' | 'teacher' | 'student') {
 		updatingId = id;
 		try {
 			await client.mutation(api.users.update, { id, role });
-			roleStates[id] = role;
+			roleStates[id as string] = role;
 		} catch (err) {
 			console.error(err);
-			roleStates[id] = usersQuery.data?.find((u) => u._id === id)?.role || 'student';
+			roleStates[id as string] = usersQuery.data?.find((u) => u._id === id)?.role || 'teacher';
 		} finally {
 			updatingId = null;
 		}
 	}
 
-	async function updateUserStatus(id: any, status: any) {
+	async function updateUserStatus(id: Id<'users'>, status: 'pending' | 'active' | 'deactivated') {
 		updatingId = id;
 		try {
 			await client.mutation(api.users.update, { id, status });
@@ -66,7 +68,7 @@
 		if (auth.isLoading) return;
 
 		if (!auth.isAuthenticated) {
-			goto('/');
+			void goto('/');
 			return;
 		}
 
@@ -75,15 +77,19 @@
 			currentUser.data?.role !== 'admin' &&
 			currentUser.data?.role !== 'super'
 		) {
-			goto('/');
+			void goto('/');
 		}
 	});
+
+	function handleBackToAdmin() {
+		void goto('/admin');
+	}
 </script>
 
 <div class="container mx-auto max-w-6xl py-8">
 	<header class="mb-8 flex items-start justify-between">
 		<div class="flex items-start gap-6">
-			<Button variant="outline" onclick={() => goto('/admin')}>← Back to Admin</Button>
+			<Button variant="outline" onclick={handleBackToAdmin}>← Back to Admin</Button>
 			<div>
 				<h1 class="text-foreground mb-1 text-2xl font-semibold">Manage Users</h1>
 				<p class="text-muted-foreground">Review and manage access levels for teachers and staff.</p>
@@ -102,14 +108,14 @@
 			<Table.Root>
 				<Table.Header>
 					<Table.Row>
-						<Table.Head class="w-[200px]">Name</Table.Head>
+						<Table.Head class="w-50">Name</Table.Head>
 						<Table.Head>Role</Table.Head>
 						<Table.Head>Status</Table.Head>
 						<Table.Head class="text-right">Actions</Table.Head>
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
-					{#each usersQuery.data as user}
+					{#each usersQuery.data as user (user._id)}
 						<Table.Row>
 							<Table.Cell>
 								<span class="font-medium">{user.name || 'Unknown'}</span>
@@ -121,15 +127,15 @@
 									onValueChange={(val) =>
 										updateUserRole(user._id, val as 'super' | 'admin' | 'teacher' | 'student')}
 									disabled={updatingId === user._id ||
-										user._id === currentUser.data?._id ||
+										user._id === (currentUser.data?._id as Id<'users'> | undefined) ||
 										user.role === 'super'}
 								>
-									<Select.Trigger class="h-8 w-[130px] text-sm" placeholder="Select role">
+									<Select.Trigger class="h-8 w-33 text-sm" placeholder="Select role">
 										{roles.find((r) => r.value === (roleStates[user._id] ?? user.role))?.label ||
 											'Select role'}
 									</Select.Trigger>
 									<Select.Content>
-										{#each roles as role}
+										{#each roles as role (role.value)}
 											<Select.Item value={role.value}>{role.label}</Select.Item>
 										{/each}
 									</Select.Content>
@@ -158,7 +164,8 @@
 											variant="ghost"
 											size="icon"
 											onclick={() => updateUserStatus(user._id, 'deactivated')}
-											disabled={updatingId === user._id || user._id === currentUser.data?._id}
+											disabled={updatingId === user._id ||
+												user._id === (currentUser.data?._id as Id<'users'> | undefined)}
 											title="Deactivate User"
 										>
 											<XCircle class="h-4 w-4 text-red-600" />

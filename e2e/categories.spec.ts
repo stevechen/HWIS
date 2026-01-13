@@ -255,7 +255,6 @@ test.describe('Categories Management', () => {
 		test('can delete category with related evaluations', async ({ page }) => {
 			const initialCount = await page.locator('table tbody tr').count();
 			const firstCategoryCell = page.locator('table tbody td').first();
-			const categoryName = await firstCategoryCell.textContent();
 			await firstCategoryCell.locator('xpath=..').locator('button[title="Delete"]').click();
 			await page.waitForTimeout(500);
 			const warning = page.getByText('related evaluation');

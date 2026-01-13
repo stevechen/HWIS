@@ -12,8 +12,7 @@ test('evaluations table operations work correctly', async () => {
 			chineseName: '張三',
 			studentId: 'STU001',
 			grade: 10,
-			isActive: true,
-			isGraduated: false
+			status: 'Enrolled'
 		});
 	});
 
@@ -61,8 +60,7 @@ test('evaluations query by teacherId works correctly', async () => {
 			chineseName: '李四',
 			studentId: 'STU002',
 			grade: 11,
-			isActive: true,
-			isGraduated: false
+			status: 'Enrolled'
 		});
 	});
 
@@ -108,8 +106,7 @@ test('evaluations query by studentId works correctly', async () => {
 			chineseName: '測試學生',
 			studentId: 'STU003',
 			grade: 12,
-			isActive: true,
-			isGraduated: false
+			status: 'Enrolled'
 		});
 	});
 

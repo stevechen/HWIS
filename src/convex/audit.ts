@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { authComponent } from './auth';
@@ -43,7 +44,7 @@ export const list = query({
 		let authUser;
 		try {
 			authUser = await authComponent.safeGetAuthUser(ctx);
-		} catch (e) {
+		} catch {
 			return [];
 		}
 		if (!authUser) return [];

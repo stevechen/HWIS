@@ -14,7 +14,8 @@
 	const client = useConvexClient();
 
 	const isLoggedIn = $derived(auth.isAuthenticated);
-	const isLoading = $derived(auth.isLoading || $session.isPending || dbUser.isLoading);
+	// isLoading is derived but currently unused - keeping for potential future use
+	// const _isLoading = $derived(auth.isLoading || $session.isPending || dbUser.isLoading);
 	const userName = $derived($session.data?.user.name);
 	const hasProfile = $derived(!!dbUser.data?.authId);
 	const isApproved = $derived(
@@ -46,7 +47,7 @@
 
 	async function signOut() {
 		await authClient.signOut();
-		goto('/login');
+		void goto('/login');
 	}
 </script>
 
@@ -73,7 +74,7 @@
 					<div class="flex flex-col items-center justify-center gap-4">
 						<h2 class="text-xl font-semibold">Homework & Welfare Incentive System</h2>
 						<p class="text-gray-600">Please sign in to continue</p>
-						<Button onclick={() => goto('/login')}>Sign in</Button>
+						<Button onclick={() => void goto('/login')}>Sign in</Button>
 					</div>
 				</Card.Content>
 			</Card.Root>
@@ -106,12 +107,12 @@
 						<div class="flex flex-col items-center justify-center gap-4">
 							<p class="text-gray-600">Welcome, {userName}!</p>
 							{#if dbUser.data?.role === 'admin' || dbUser.data?.role === 'super'}
-								<Button onclick={() => goto('/admin')}>Admin Dashboard</Button>
+								<Button onclick={() => void goto('/admin')}>Admin Dashboard</Button>
 							{/if}
-							<Button onclick={() => goto('/evaluations')}>View Evaluations</Button>
-							<Button variant="outline" onclick={() => goto('/evaluations/new')}>
-								New Evaluation
-							</Button>
+							<Button onclick={() => void goto('/evaluations')}>View Evaluations</Button>
+							<Button variant="outline" onclick={() => void goto('/evaluations/new')}
+								>New Evaluation</Button
+							>
 						</div>
 					</Card.Content>
 				</Card.Root>

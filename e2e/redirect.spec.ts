@@ -45,7 +45,7 @@ test.describe('Authentication Redirects', () => {
 			});
 	});
 
-	test('should display signed in state when already authenticated', async ({ page }) => {
+	test('should display signed in state when already authenticated', async () => {
 		// This test would need mock authentication - skipping for now
 		test.skip(true, 'Requires mock authentication setup');
 	});

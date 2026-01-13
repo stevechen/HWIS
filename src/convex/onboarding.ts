@@ -2,14 +2,6 @@ import { mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { authComponent } from './auth';
 
-interface UserProfile {
-	_id: any;
-	authId?: string;
-	name?: string;
-	role?: 'super' | 'admin' | 'teacher' | 'student';
-	status?: 'pending' | 'active' | 'deactivated';
-}
-
 export const ensureUserProfile = mutation({
 	args: {},
 	handler: async (ctx) => {
@@ -169,7 +161,7 @@ export const setUserRoleByAuthId = mutation({
 			.withIndex('by_authId', (q) => q.eq('authId', args.authId))
 			.first();
 
-		const updates: any = {};
+		const updates: Record<string, unknown> = {};
 		if (args.role) updates.role = args.role;
 		if (args.status) updates.status = args.status;
 		if (args.name) updates.name = args.name;
