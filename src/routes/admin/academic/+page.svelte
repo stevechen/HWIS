@@ -4,10 +4,9 @@
 	import { api as apiAny } from '$convex/_generated/api';
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
-	import { ArrowLeft, Archive, RotateCcw } from '@lucide/svelte';
+	import { Archive, RotateCcw } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
-	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Select from '$lib/components/ui/select';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import * as Card from '$lib/components/ui/card';
@@ -82,27 +81,27 @@
 </script>
 
 <div class="bg-background min-h-screen">
-	<header class="bg-card border-b shadow-sm">
-		<div class="mx-auto max-w-4xl px-4 py-4 sm:px-6 lg:px-8">
-			<div class="flex items-center justify-between">
+	<header class="bg-card shadow-sm border-b">
+		<div class="mx-auto px-4 sm:px-6 lg:px-8 py-4 max-w-4xl">
+			<div class="flex justify-between items-center">
 				<div class="flex items-center gap-4">
 					<Button variant="outline" onclick={() => goto('/admin')}>← Back to Admin</Button>
-					<h1 class="text-foreground text-2xl font-bold">Archive & Reset</h1>
+					<h1 class="font-bold text-foreground text-2xl">Archive & Reset</h1>
 				</div>
 				<ThemeToggle />
 			</div>
 		</div>
 	</header>
 
-	<main class="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-		<div class="grid gap-6 md:grid-cols-2">
+	<main class="mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-4xl">
+		<div class="gap-6 grid md:grid-cols-2">
 			<Card.Root>
 				<Card.Header>
-					<div class="mb-2 flex items-center gap-3">
+					<div class="flex items-center gap-3 mb-2">
 						<div
-							class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900"
+							class="flex justify-center items-center bg-blue-100 dark:bg-blue-900 rounded-lg w-10 h-10"
 						>
-							<RotateCcw class="h-5 w-5 text-blue-600 dark:text-blue-400" />
+							<RotateCcw class="w-5 h-5 text-blue-600 dark:text-blue-400" />
 						</div>
 						<Card.Title>Advance Academic Year</Card.Title>
 					</div>
@@ -113,10 +112,10 @@
 				</Card.Header>
 				<Card.Content>
 					<div
-						class="mb-4 rounded bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+						class="bg-blue-50 dark:bg-blue-950 mb-4 p-4 rounded text-blue-700 dark:text-blue-300 text-sm"
 					>
 						<p class="font-medium">This will:</p>
-						<ul class="mt-2 list-disc space-y-1 pl-4">
+						<ul class="space-y-1 mt-2 pl-4 list-disc">
 							<li>Advance all enrolled students to the next grade</li>
 							<li>Mark grade 12 students as "Graduated"</li>
 							<li>Add graduation year to their notes</li>
@@ -132,7 +131,7 @@
 					</Button>
 					{#if advanceResult}
 						<div
-							class="mt-4 rounded bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-300"
+							class="bg-green-50 dark:bg-green-950 mt-4 p-3 rounded text-green-700 dark:text-green-300 text-sm"
 						>
 							<p class="font-medium">{advanceResult.message}</p>
 							{#if advanceResult.updated}
@@ -145,11 +144,11 @@
 
 			<Card.Root>
 				<Card.Header>
-					<div class="mb-2 flex items-center gap-3">
+					<div class="flex items-center gap-3 mb-2">
 						<div
-							class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900"
+							class="flex justify-center items-center bg-red-100 dark:bg-red-900 rounded-lg w-10 h-10"
 						>
-							<Archive class="h-5 w-5 text-red-600 dark:text-red-400" />
+							<Archive class="w-5 h-5 text-red-600 dark:text-red-400" />
 						</div>
 						<Card.Title>Archive Old Graduates</Card.Title>
 					</div>
@@ -181,11 +180,11 @@
 							</Select.Root>
 						</div>
 						<div
-							class="rounded bg-yellow-50 p-4 text-sm text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300"
+							class="bg-yellow-50 dark:bg-yellow-950 p-4 rounded text-yellow-700 dark:text-yellow-300 text-sm"
 						>
 							<p class="font-medium">This will permanently delete:</p>
-							<p class="mt-1 text-lg font-bold">{new Date().getFullYear() - archiveYears}</p>
-							<p class="mt-1 text-xs opacity-80">
+							<p class="mt-1 font-bold text-lg">{new Date().getFullYear() - archiveYears}</p>
+							<p class="opacity-80 mt-1 text-xs">
 								({graduatesToArchive.length} graduates older than {archiveYears} year{archiveYears >
 								1
 									? 's'
@@ -202,7 +201,7 @@
 						</Button>
 						{#if archiveResult}
 							<div
-								class="rounded bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-300"
+								class="bg-green-50 dark:bg-green-950 p-3 rounded text-green-700 dark:text-green-300 text-sm"
 							>
 								<p class="font-medium">{archiveResult.message}</p>
 								{#if archiveResult.archived && archiveResult.archived.length > 0}
@@ -218,77 +217,95 @@
 </div>
 
 <!-- Advance Year Confirmation Dialog -->
-<Dialog.Root bind:open={showAdvanceDialog}>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>Advance Academic Year</Dialog.Title>
-		</Dialog.Header>
-		<div class="py-4">
-			<div
-				class="rounded bg-yellow-50 p-4 text-sm text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300"
-			>
-				<p class="font-medium">This will:</p>
-				<ul class="mt-2 list-disc pl-4">
-					<li>Advance all enrolled students to the next grade</li>
-					<li>Mark grade 12 students as "Graduated"</li>
-					<li>Add graduation year to their notes</li>
-				</ul>
+{#if showAdvanceDialog}
+	<div class="z-50 fixed inset-0 flex justify-center items-center" popover="auto">
+		<div
+			class="fixed inset-0 bg-black/50"
+			onclick={() => (showAdvanceDialog = false)}
+			role="button"
+			tabindex="0"
+			onkeydown={(e) => e.key === 'Escape' && (showAdvanceDialog = false)}
+		></div>
+		<div class="z-50 relative bg-background shadow-lg border rounded-lg w-full max-w-lg">
+			<div class="p-6">
+				<h2 class="font-semibold text-lg">Advance Academic Year</h2>
+				<div class="py-4">
+					<div
+						class="bg-yellow-50 dark:bg-yellow-950 p-4 rounded text-yellow-700 dark:text-yellow-300 text-sm"
+					>
+						<p class="font-medium">This will:</p>
+						<ul class="mt-2 pl-4 list-disc">
+							<li>Advance all enrolled students to the next grade</li>
+							<li>Mark grade 12 students as "Graduated"</li>
+							<li>Add graduation year to their notes</li>
+						</ul>
+					</div>
+				</div>
+				<div class="flex justify-end gap-2">
+					<Button variant="outline" onclick={() => (showAdvanceDialog = false)}>Cancel</Button>
+					<Button
+						onclick={() => {
+							showAdvanceDialog = false;
+							handleAdvanceYear();
+						}}
+						disabled={isAdvancing}
+					>
+						{isAdvancing ? 'Processing...' : 'Confirm & Advance'}
+					</Button>
+				</div>
 			</div>
 		</div>
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (showAdvanceDialog = false)}>Cancel</Button>
-			<Button
-				onclick={() => {
-					showAdvanceDialog = false;
-					handleAdvanceYear();
-				}}
-				disabled={isAdvancing}
-			>
-				{isAdvancing ? 'Processing...' : 'Confirm & Advance'}
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+	</div>
+{/if}
 
 <!-- Archive Confirmation Dialog -->
-<Dialog.Root bind:open={showArchiveDialog}>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>Archive Old Graduates</Dialog.Title>
-		</Dialog.Header>
-		<div class="py-4">
-			<div class="rounded bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-				<p class="font-medium">
-					This will permanently delete {graduatesToArchive.length} graduates.
-				</p>
-				<p class="mt-2">This action cannot be undone.</p>
-				<p class="mt-1 text-xs opacity-80">
-					Graduates who graduated before {new Date().getFullYear() - archiveYears} will be deleted.
-				</p>
-			</div>
-			{#if graduatesToArchive.length > 0}
-				<div class="mt-4 max-h-40 overflow-auto rounded border p-2 text-sm">
-					<p class="mb-2 font-medium">Students to be deleted:</p>
-					{#each graduatesToArchive as student}
-						<div class="border-b py-1 last:border-b-0">
-							{student.englishName} ({student.studentId}) - Graduated
+{#if showArchiveDialog}
+	<div class="z-50 fixed inset-0 flex justify-center items-center" popover="auto">
+		<div
+			class="fixed inset-0 bg-black/50"
+			onclick={() => (showArchiveDialog = false)}
+			role="button"
+			tabindex="0"
+			onkeydown={(e) => e.key === 'Escape' && (showArchiveDialog = false)}
+		></div>
+		<div class="z-50 relative bg-background shadow-lg border rounded-lg w-full max-w-md">
+			<div class="p-6">
+				<h2 class="font-semibold text-lg">Archive Old Graduates</h2>
+				<div class="py-4">
+					<div class="bg-red-50 dark:bg-red-950 p-4 rounded text-red-700 dark:text-red-300 text-sm">
+						<p class="font-medium">
+							This will permanently delete {graduatesToArchive.length} graduates.
+						</p>
+						<p class="mt-2">This action cannot be undone.</p>
+						<p class="opacity-80 mt-1 text-xs">
+							Graduates who graduated before {new Date().getFullYear() - archiveYears} will be deleted.
+						</p>
+					</div>
+					{#if graduatesToArchive.length > 0}
+						<div class="mt-4 p-2 border rounded max-h-40 overflow-auto text-sm">
+							<p class="mb-2 font-medium">Students to be deleted:</p>
+							{#each graduatesToArchive as student}
+								<div class="py-1 border-b last:border-b-0">
+									{student.englishName} ({student.studentId}) - Graduated
+								</div>
+							{/each}
 						</div>
-					{/each}
+					{/if}
 				</div>
-			{/if}
+				<div class="flex justify-end gap-2">
+					<Button variant="outline" onclick={() => (showArchiveDialog = false)}>Cancel</Button>
+					<Button
+						variant="destructive"
+						onclick={() => {
+							showArchiveDialog = false;
+							handleArchive();
+						}}
+						disabled={isArchiving}
+					>
+						{isArchiving ? 'Archiving...' : 'Archive & Delete'}
+					</Button>
+				</div>
+			</div>
 		</div>
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (showArchiveDialog = false)}>Cancel</Button>
-			<Button
-				variant="destructive"
-				onclick={() => {
-					showArchiveDialog = false;
-					handleArchive();
-				}}
-				disabled={isArchiving}
-			>
-				{isArchiving ? 'Archiving...' : 'Archive & Delete'}
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+	</div>
+{/if}
