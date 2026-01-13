@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
+	import type { Id } from '$convex/_generated/dataModel';
 	import { goto } from '$app/navigation';
 	import { Plus, Trash2, Pencil, X } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -8,41 +9,34 @@
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Popover from '$lib/components/ui/popover';
 
 	const currentUser = useQuery(api.users.viewer, {});
 	const categoriesQuery = useQuery(api.categories.list, {});
 	const client = useConvexClient();
+	const apiAny = api as any;
 
 	let showForm = $state(false);
-	let editingId = $state<string | null>(null);
+	let editingId = $state<Id<'point_categories'> | null>(null);
+	let originalCategoryName = $state('');
 	let categoryName = $state('');
 	let subCategories = $state<string[]>([]);
 	let newSubCategory = $state('');
 	let isSubmitting = $state(false);
-	let deleteDialogOpen = $state(false);
 	let categoryToDelete = $state<any>(null);
-
-	$effect(() => {
-		if (
-			currentUser.isLoading === false &&
-			currentUser.data?.role !== 'admin' &&
-			currentUser.data?.role !== 'super'
-		) {
-			goto('/');
-		}
-	});
+	let relatedCount = $state(0);
+	let subCategoryWarning = $state<{ subCategory: string; count: number } | null>(null);
 
 	function startAdd() {
 		categoryName = '';
 		subCategories = [];
 		editingId = null;
+		originalCategoryName = '';
 		showForm = true;
 	}
 
 	function startEdit(category: any) {
 		categoryName = category.name;
+		originalCategoryName = category.name;
 		subCategories = [...category.subCategories];
 		editingId = category._id;
 		showForm = true;
@@ -53,6 +47,35 @@
 		categoryName = '';
 		subCategories = [];
 		editingId = null;
+		originalCategoryName = '';
+		subCategoryWarning = null;
+	}
+
+	async function removeSubCategory(index: number) {
+		const subToRemove = subCategories[index];
+
+		if (originalCategoryName && editingId) {
+			const count = await client.query(apiAny.categories.getSubCategoryEvaluationCount, {
+				categoryName: originalCategoryName,
+				subCategory: subToRemove
+			});
+
+			if (count > 0) {
+				subCategoryWarning = { subCategory: subToRemove, count };
+				return;
+			}
+		}
+
+		subCategories = subCategories.filter((_, i) => i !== index);
+	}
+
+	function confirmRemoveSubCategory() {
+		if (!subCategoryWarning) return;
+		const index = subCategories.indexOf(subCategoryWarning!.subCategory);
+		if (index > -1) {
+			subCategories = subCategories.filter((_, i) => i !== index);
+		}
+		subCategoryWarning = null;
 	}
 
 	function addSubCategory() {
@@ -60,10 +83,6 @@
 			subCategories = [...subCategories, newSubCategory.trim()];
 			newSubCategory = '';
 		}
-	}
-
-	function removeSubCategory(index: number) {
-		subCategories = subCategories.filter((_, i) => i !== index);
 	}
 
 	async function handleSubmit() {
@@ -93,7 +112,16 @@
 
 	function confirmDelete(category: any) {
 		categoryToDelete = category;
-		deleteDialogOpen = true;
+		relatedCount = 0;
+		checkRelatedCount();
+	}
+
+	async function checkRelatedCount() {
+		if (!categoryToDelete) return;
+		const count = await client.query(apiAny.categories.getEvaluationCount, {
+			categoryName: categoryToDelete.name
+		});
+		relatedCount = count;
 	}
 
 	async function handleDelete() {
@@ -104,7 +132,6 @@
 			await client.mutation(api.categories.remove, {
 				id: categoryToDelete._id
 			});
-			deleteDialogOpen = false;
 			categoryToDelete = null;
 		} catch (err) {
 			console.error(err);
@@ -136,9 +163,9 @@
 			<Table.Root>
 				<Table.Header>
 					<Table.Row>
-						<Table.Head class="w-[200px]">Category</Table.Head>
+						<Table.Head class="w-50">Category</Table.Head>
 						<Table.Head>Sub-Categories</Table.Head>
-						<Table.Head class="w-[100px] text-right">Actions</Table.Head>
+						<Table.Head class="w-25 text-right">Actions</Table.Head>
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
@@ -232,6 +259,26 @@
 						</div>
 					{/if}
 
+					{#if subCategoryWarning}
+						<div
+							class="mb-3 rounded border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-950"
+						>
+							<p class="text-sm text-yellow-800 dark:text-yellow-200">
+								<strong>{subCategoryWarning.count}</strong> evaluation{subCategoryWarning.count !==
+								1
+									? 's'
+									: ''} use "{subCategoryWarning.subCategory}". Removing it will make those
+								evaluations show an invalid sub-category.
+							</p>
+							<div class="mt-2 flex gap-2">
+								<Button size="sm" variant="outline" onclick={() => (subCategoryWarning = null)}>
+									Cancel
+								</Button>
+								<Button size="sm" onclick={confirmRemoveSubCategory}>Remove Anyway</Button>
+							</div>
+						</div>
+					{/if}
+
 					<div class="flex max-w-md gap-2">
 						<Input
 							bind:value={newSubCategory}
@@ -257,19 +304,55 @@
 		</Button>
 	{/if}
 
-	<Dialog.Root bind:open={deleteDialogOpen}>
-		<Dialog.Content>
-			<Dialog.Title>Delete Category</Dialog.Title>
-			<Dialog.Description>
-				Are you sure you want to delete "{categoryToDelete?.name}"? This will also delete all
-				{categoryToDelete?.subCategories.length} related evaluation records. This action cannot be undone.
-			</Dialog.Description>
-			<Dialog.Footer>
-				<Button variant="outline" onclick={() => (deleteDialogOpen = false)}>Cancel</Button>
-				<Button variant="destructive" onclick={handleDelete} disabled={isSubmitting}>
-					{isSubmitting ? 'Deleting...' : 'Delete'}
-				</Button>
-			</Dialog.Footer>
-		</Dialog.Content>
-	</Dialog.Root>
+	{#if categoryToDelete}
+		<div
+			class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+			onclick={() => (categoryToDelete = null)}
+			onkeydown={(e) => e.key === 'Escape' && (categoryToDelete = null)}
+			role="button"
+			tabindex="0"
+		>
+			<div
+				class="bg-popover text-popover-foreground mx-4 w-full max-w-md rounded-lg border p-6 shadow-lg"
+				onclick={(e) => e.stopPropagation()}
+				onkeydown={(e) => e.key === 'Escape' && (categoryToDelete = null)}
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+			>
+				<h3 class="mb-2 text-lg font-semibold">Delete Category</h3>
+				<p class="text-muted-foreground mb-4">
+					Are you sure you want to delete "{categoryToDelete.name}"?
+				</p>
+				{#if categoryToDelete.subCategories.length > 0 || relatedCount > 0}
+					<div
+						class="mb-4 rounded border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-950"
+					>
+						{#if categoryToDelete.subCategories.length > 0}
+							<p class="text-sm text-yellow-800 dark:text-yellow-200">
+								This category has <strong>{categoryToDelete.subCategories.length}</strong>
+								sub-category{categoryToDelete.subCategories.length !== 1 ? 's' : ''}.
+							</p>
+						{/if}
+						{#if relatedCount > 0}
+							<p class="mt-1 text-sm text-yellow-800 dark:text-yellow-200">
+								This will also delete <strong>{relatedCount}</strong> related evaluation record{relatedCount !==
+								1
+									? 's'
+									: ''}.
+							</p>
+						{/if}
+					</div>
+				{:else}
+					<p class="text-muted-foreground mb-4 text-sm">This action cannot be undone.</p>
+				{/if}
+				<div class="flex justify-end gap-2">
+					<Button variant="outline" onclick={() => (categoryToDelete = null)}>Cancel</Button>
+					<Button variant="destructive" onclick={handleDelete} disabled={isSubmitting}>
+						{isSubmitting ? 'Deleting...' : 'Delete'}
+					</Button>
+				</div>
+			</div>
+		</div>
+	{/if}
 </div>

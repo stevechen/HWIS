@@ -8,6 +8,34 @@ export const list = query({
 	}
 });
 
+export const getEvaluationCount = query({
+	args: { categoryName: v.string() },
+	handler: async (ctx, args) => {
+		const allEvaluations = await ctx.db.query('evaluations').collect();
+		let count = 0;
+		for (const e of allEvaluations) {
+			if (e.category === args.categoryName) {
+				count++;
+			}
+		}
+		return count;
+	}
+});
+
+export const getSubCategoryEvaluationCount = query({
+	args: { categoryName: v.string(), subCategory: v.string() },
+	handler: async (ctx, args) => {
+		const allEvaluations = await ctx.db.query('evaluations').collect();
+		let count = 0;
+		for (const e of allEvaluations) {
+			if (e.category === args.categoryName && e.subCategory === args.subCategory) {
+				count++;
+			}
+		}
+		return count;
+	}
+});
+
 export const seed = mutation({
 	args: {},
 	handler: async (ctx) => {

@@ -47,9 +47,12 @@ export default defineSchema({
 		chineseName: v.string(),
 		studentId: v.string(),
 		grade: v.number(),
-		isActive: v.boolean(),
-		isGraduated: v.boolean()
-	}).index('by_studentId', ['studentId']),
+		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled'), v.literal('Graduated')),
+		note: v.optional(v.string())
+	})
+		.index('by_studentId', ['studentId'])
+		.index('by_grade', ['grade'])
+		.index('by_status', ['status']),
 
 	audit_logs: defineTable({
 		action: v.string(),
