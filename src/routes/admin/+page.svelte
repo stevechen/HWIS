@@ -2,7 +2,15 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { goto } from '$app/navigation';
-	import { Database, GraduationCap, Users, FileText, Tags, ShieldAlert } from '@lucide/svelte';
+	import {
+		Database,
+		GraduationCap,
+		Users,
+		FileText,
+		Tags,
+		ShieldAlert,
+		CloudBackup
+	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Card from '$lib/components/ui/card';
@@ -107,6 +115,21 @@
 		<Card.Root>
 			<Card.Header>
 				<div class="text-primary mb-2 flex items-center gap-3">
+					<CloudBackup class="h-5 w-5" />
+					<Card.Title class="text-lg">Backup & Restore</Card.Title>
+				</div>
+				<Card.Description>Create backups, restore data, or clear database.</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				<Button variant="outline" class="w-full" onclick={() => goto('/admin/backup')}>
+					Manage Backups
+				</Button>
+			</Card.Content>
+		</Card.Root>
+
+		<Card.Root>
+			<Card.Header>
+				<div class="text-primary mb-2 flex items-center gap-3">
 					<FileText class="h-5 w-5" />
 					<Card.Title class="text-lg">Audit Log</Card.Title>
 				</div>
@@ -147,7 +170,9 @@
 				>
 			</Card.Header>
 			<Card.Content>
-				<Button variant="destructive" class="w-full" disabled>New School Year (Coming Soon)</Button>
+				<Button variant="destructive" class="w-full" onclick={() => goto('/admin/academic')}>
+					New School Year
+				</Button>
 			</Card.Content>
 		</Card.Root>
 	</div>

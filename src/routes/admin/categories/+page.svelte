@@ -320,17 +320,17 @@
 	{/if}
 
 	{#if categoryToDelete}
-		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-			onclick={() => (categoryToDelete = null)}
-			onkeydown={(e) => e.key === 'Escape' && (categoryToDelete = null)}
-			role="button"
-			tabindex="0"
-		>
+		<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 			<div
-				class="bg-popover text-popover-foreground mx-4 w-full max-w-md rounded-lg border p-6 shadow-lg"
-				onclick={(e) => e.stopPropagation()}
+				class="absolute inset-0 bg-black/50"
+				onclick={() => (categoryToDelete = null)}
 				onkeydown={(e) => e.key === 'Escape' && (categoryToDelete = null)}
+				role="button"
+				tabindex="0"
+			></div>
+			<div
+				class="bg-background relative w-full max-w-md rounded-lg border p-6 shadow-lg"
+				onclick={(e) => e.stopPropagation()}
 				role="dialog"
 				aria-modal="true"
 				tabindex="-1"

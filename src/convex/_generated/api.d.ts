@@ -10,7 +10,9 @@
 
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
+import type * as backup from "../backup.js";
 import type * as categories from "../categories.js";
+import type * as driveBackup from "../driveBackup.js";
 import type * as evaluations from "../evaluations.js";
 import type * as http from "../http.js";
 import type * as onboarding from "../onboarding.js";
@@ -28,7 +30,9 @@ import type {
 declare const fullApi: ApiFromModules<{
   audit: typeof audit;
   auth: typeof auth;
+  backup: typeof backup;
   categories: typeof categories;
+  driveBackup: typeof driveBackup;
   evaluations: typeof evaluations;
   http: typeof http;
   onboarding: typeof onboarding;

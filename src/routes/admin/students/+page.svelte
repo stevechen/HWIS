@@ -425,7 +425,7 @@
 
 <!-- Add/Edit Dialog -->
 {#if showForm}
-	<div class="fixed inset-0 z-50 flex items-center justify-center">
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<div
 			class="fixed inset-0 bg-black/50"
 			onclick={() => (showForm = false)}
@@ -433,7 +433,7 @@
 			tabindex="0"
 			onkeydown={(e) => e.key === 'Escape' && (showForm = false)}
 		></div>
-		<div class="bg-background relative z-50 w-full max-w-lg rounded-lg border shadow-lg">
+		<div class="bg-background relative w-full max-w-lg rounded-lg border p-6 shadow-lg">
 			<div class="p-6">
 				<h2 class="text-lg font-semibold">{editingId ? 'Edit Student' : 'Add New Student'}</h2>
 				<div class="grid gap-4 py-4">
@@ -508,7 +508,7 @@
 
 <!-- Delete Confirmation Dialog -->
 {#if showDelete}
-	<div class="fixed inset-0 z-50 flex items-center justify-center">
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<div
 			class="fixed inset-0 bg-black/50"
 			onclick={() => (showDelete = false)}
@@ -516,7 +516,7 @@
 			tabindex="0"
 			onkeydown={(e) => e.key === 'Escape' && (showDelete = false)}
 		></div>
-		<div class="bg-background relative z-50 w-full max-w-md rounded-lg border shadow-lg">
+		<div class="bg-background relative w-full max-w-md rounded-lg border p-6 shadow-lg">
 			<div class="p-6">
 				<h2 class="text-lg font-semibold">Delete Student</h2>
 				<div class="py-4">
@@ -573,7 +573,7 @@
 
 <!-- Import Dialog -->
 {#if showImport}
-	<div class="fixed inset-0 z-50 flex items-center justify-center">
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<div
 			class="fixed inset-0 bg-black/50"
 			onclick={() => {
@@ -588,7 +588,7 @@
 				e.key === 'Escape' &&
 				((showImport = false), (importFile = null), (importPreview = []), (importResult = null))}
 		></div>
-		<div class="bg-background relative z-50 w-full max-w-lg rounded-lg border shadow-lg">
+		<div class="bg-background relative w-full max-w-lg rounded-lg border p-6 shadow-lg">
 			<div class="p-6">
 				<h2 class="text-lg font-semibold">Import Students from Excel</h2>
 				<div class="grid gap-4 py-4">
@@ -692,7 +692,7 @@
 
 <!-- Disable Student Confirmation Dialog -->
 {#if showDisable}
-	<div class="fixed inset-0 z-50 flex items-center justify-center">
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<div
 			class="fixed inset-0 bg-black/50"
 			onclick={() => (showDisable = false)}
@@ -700,7 +700,7 @@
 			tabindex="0"
 			onkeydown={(e) => e.key === 'Escape' && (showDisable = false)}
 		></div>
-		<div class="bg-background relative z-50 w-full max-w-md rounded-lg border shadow-lg">
+		<div class="bg-background relative w-full max-w-md rounded-lg border p-6 shadow-lg">
 			<div class="p-6">
 				<h2 class="text-lg font-semibold">Disable Student?</h2>
 				<div class="py-4">
