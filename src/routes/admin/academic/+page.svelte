@@ -123,10 +123,13 @@
 				>
 					<p class="font-medium">This will:</p>
 					<ul class="mt-2 list-disc pl-4">
-						<li>Advance all enrolled students to the next grade</li>
+						<li>Create a backup of all data</li>
 						<li>Clear ALL evaluations</li>
+						<li>Delete ALL grade 12 students (Enrolled and Not Enrolled)</li>
+						<li>Delete ALL Not Enrolled students (grades 7-11)</li>
+						<li>Advance enrolled students (grades 7-11) to the next grade</li>
 					</ul>
-					<p class="mt-2">Make sure you have a backup first!</p>
+					<p class="mt-2 font-medium">This action cannot be undone!</p>
 				</div>
 			</div>
 			<div class="flex justify-end gap-2">

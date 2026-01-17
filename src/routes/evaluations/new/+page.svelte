@@ -11,6 +11,15 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Select from '$lib/components/ui/select';
 
+	function getCurrentSemesterId(): string {
+		const now = new Date();
+		const year = now.getFullYear();
+		const month = now.getMonth() + 1;
+		const half = month < 2 || month > 8 ? 'H1' : 'H2';
+		const semesterYear = half === 'H1' ? year : year - 1;
+		return `${semesterYear}-${half}`;
+	}
+
 	let searchQuery = $state('');
 	let selectedStudentIds = new SvelteSet<Id<'students'>>();
 	let categoryId = $state('');
@@ -68,7 +77,7 @@
 				category: selectedCategory!.name,
 				subCategory,
 				details,
-				semesterId: '2025-H1'
+				semesterId: getCurrentSemesterId()
 			});
 
 			void goto('/');
