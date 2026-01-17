@@ -9,7 +9,7 @@ set -e
 mkdir -p e2e/.auth
 
 echo "Setting up test users..."
-RESULT=$(npx convex run testSetup:setupTestUsers 2>&1)
+RESULT=$(bun convex run testSetup:setupTestUsers 2>&1)
 
 if [ -z "$RESULT" ] || echo "$RESULT" | grep -q "error"; then
   echo "Error setting up test users: $RESULT"
@@ -92,7 +92,7 @@ echo ""
 echo "Test users set up successfully!"
 echo ""
 echo "To run authenticated tests:"
-echo "  npm run test:e2e:auth"
+echo "  bun run test:e2e:auth"
 echo ""
 echo "To clean up test users:"
-echo "  npx convex run testSetup:cleanupTestUsers"
+echo "  bun convex run testSetup:cleanupTestUsers"

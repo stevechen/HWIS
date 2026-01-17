@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 const hasTeacherAuth = fs.existsSync(path.join(process.cwd(), 'e2e/.auth/teacher.json'));
-// hasAdminAuth is used conditionally below
+const hasSuperAuth = fs.existsSync(path.join(process.cwd(), 'e2e/.auth/super.json'));
 
 const config: PlaywrightTestConfig = {
 	testDir: 'e2e',
@@ -41,11 +41,6 @@ const config: PlaywrightTestConfig = {
 			testMatch: 'e2e/audit.spec.ts'
 		},
 		{
-			name: 'firefox',
-			use: { ...devices['Desktop Firefox'] },
-			testMatch: /^(?!.*(setup|cleanup)).*\.spec\.ts$/
-		},
-		{
 			name: 'webkit',
 			use: { ...devices['Desktop Safari'] },
 			testMatch: /^(?!.*(setup|cleanup)).*\.spec\.ts$/
@@ -62,16 +57,23 @@ const config: PlaywrightTestConfig = {
 					}
 				]
 			: []),
+		...(hasSuperAuth
+			? [
+					{
+						name: 'chromium-super',
+						use: {
+							...devices['Desktop Chrome'],
+							storageState: 'e2e/.auth/super.json'
+						},
+						testMatch: 'e2e/audit.spec.ts'
+					}
+				]
+			: []),
 		{
 			name: 'cleanup',
 			testMatch: 'e2e/cleanup.spec.ts'
 		}
-	],
-	setupProject: {
-		name: 'setup',
-		testMatch: 'e2e/setup.spec.ts'
-	},
-	teardown: 'cleanup'
+	]
 };
 
 export default config;

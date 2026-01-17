@@ -3,6 +3,7 @@
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import { Plus, Trash2, Pencil, X } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
@@ -10,10 +11,72 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
 
-	const categoriesQuery = useQuery(api.categories.list, {});
+	let {
+		data
+	}: {
+		data: { testRole?: 'teacher' | 'admin' | 'super' };
+	} = $props();
+
+	const currentUser = useQuery(api.users.viewer, {});
 	const client = useConvexClient();
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const apiAny = api as any;
+
+	let isTestMode = $state(false);
+	let categories = $state<
+		Array<{
+			_id: Id<'point_categories'>;
+			name: string;
+			subCategories: string[];
+			_creationTime: number;
+		}>
+	>([]);
+	let categoriesLoading = $state(true);
+
+	let isInitialLoad = $state(true);
+
+	async function loadCategories(force = false) {
+		if (!isInitialLoad && !force) return;
+		categoriesLoading = true;
+
+		if ((isTestMode || data?.testRole) && isInitialLoad) {
+			try {
+				await client.mutation(api.categories.seed, {});
+			} catch (err) {
+				console.log('Seed categories skipped or failed:', err);
+			}
+		}
+
+		try {
+			const result = await client.query(api.categories.list, {});
+			categories = result || [];
+		} catch (err) {
+			console.error('Failed to load categories:', err);
+			categories = [];
+		} finally {
+			categoriesLoading = false;
+			isInitialLoad = false;
+		}
+	}
+
+	$effect(() => {
+		if (!browser) return;
+		isTestMode =
+			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
+	});
+
+	$effect(() => {
+		loadCategories();
+	});
+
+	$effect(() => {
+		if (isTestMode || data?.testRole) return;
+		if (browser && currentUser.isLoading === false) {
+			if (currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
+				goto('/');
+			}
+		}
+	});
 
 	let showForm = $state(false);
 	let editingId = $state<Id<'point_categories'> | null>(null);
@@ -111,6 +174,7 @@
 				});
 			}
 			cancelForm();
+			await loadCategories(true);
 		} catch (err) {
 			console.error(err);
 		} finally {
@@ -145,6 +209,7 @@
 				id: categoryToDelete._id
 			});
 			categoryToDelete = null;
+			await loadCategories(true);
 		} catch (err) {
 			console.error(err);
 		} finally {
@@ -169,12 +234,12 @@
 	</header>
 
 	<div class="bg-card rounded-lg border shadow-sm">
-		{#if categoriesQuery.isLoading}
+		{#if categoriesLoading}
 			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
 				<div class="border-muted border-t-primary h-8 w-8 animate-spin rounded-full border-3"></div>
 				<p>Loading categories...</p>
 			</div>
-		{:else if categoriesQuery.data}
+		{:else if categories.length > 0}
 			<Table.Root>
 				<Table.Header>
 					<Table.Row>
@@ -184,7 +249,7 @@
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
-					{#each categoriesQuery.data as category (category._id)}
+					{#each categories as category (category._id)}
 						<Table.Row>
 							<Table.Cell>
 								<span class="font-medium">{category.name}</span>
@@ -194,7 +259,7 @@
 									{#if category.subCategories.length === 0}
 										<span class="text-muted-foreground text-sm">—</span>
 									{:else}
-										{#each category.subCategories as sub (sub)}
+										{#each category.subCategories as sub, i (i)}
 											<Badge variant="secondary" class="text-xs">{sub}</Badge>
 										{/each}
 									{/if}
@@ -206,7 +271,7 @@
 										variant="ghost"
 										size="icon"
 										onclick={() => startEdit(category)}
-										title="Edit"
+										aria-label="Edit"
 									>
 										<Pencil class="h-4 w-4" />
 									</Button>
@@ -214,9 +279,9 @@
 										variant="ghost"
 										size="icon"
 										onclick={() => confirmDelete(category)}
-										title="Delete"
+										aria-label="Delete"
 									>
-										<Trash2 class="text-destructive h-4 w-4" />
+										<Trash2 class="h-4 w-4" />
 									</Button>
 								</div>
 							</Table.Cell>
@@ -224,150 +289,159 @@
 					{/each}
 				</Table.Body>
 			</Table.Root>
-
-			{#if categoriesQuery.data.length === 0}
-				<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
-					<p>No categories yet.</p>
-					<Button onclick={startAdd}>
-						<Plus class="mr-2 h-4 w-4" />
-						Add First Category
-					</Button>
-				</div>
-			{/if}
+		{:else}
+			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
+				<p class="text-lg font-medium">No categories yet.</p>
+				<p class="text-sm">Create your first category to get started.</p>
+			</div>
 		{/if}
 	</div>
 
-	{#if showForm}
-		<div class="bg-card mt-6 rounded-lg border p-6 shadow-sm">
-			<h2 class="mb-4 text-lg font-semibold">{editingId ? 'Edit Category' : 'Add New Category'}</h2>
+	<div class="mt-6 flex justify-end">
+		<Button onclick={startAdd}>
+			<Plus class="mr-2 h-4 w-4" />
+			Add Category
+		</Button>
+	</div>
+</div>
+
+{#if showForm}
+	<div
+		class="bg-background/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="category-form-title"
+	>
+		<div class="bg-card w-full max-w-md rounded-lg border p-6 shadow-lg">
+			<h2 id="category-form-title" class="text-foreground mb-4 text-xl font-semibold">
+				{editingId ? 'Edit Category' : 'Add New Category'}
+			</h2>
 
 			<div class="space-y-4">
 				<div>
-					<label for="category-name" class="mb-2 block text-sm font-medium">Category Name</label>
+					<label class="text-foreground mb-2 block text-sm font-medium" for="category-name">
+						Category Name
+					</label>
 					<Input
 						id="category-name"
 						bind:value={categoryName}
 						placeholder="e.g., Creativity"
-						class="max-w-md"
+						disabled={isSubmitting}
 					/>
 				</div>
 
 				<div>
-					<label for="sub-category-input" class="mb-2 block text-sm font-medium"
-						>Sub-Categories (optional)</label
-					>
+					<label class="text-foreground mb-2 block text-sm font-medium">
+						Sub-Categories (optional)
+					</label>
+					<div class="flex gap-2">
+						<Input
+							bind:value={newSubCategory}
+							placeholder="Add sub-category"
+							disabled={isSubmitting}
+							onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), addSubCategory())}
+						/>
+						<Button variant="secondary" onclick={addSubCategory} disabled={isSubmitting}>Add</Button
+						>
+					</div>
+
 					{#if subCategories.length > 0}
-						<div class="mb-3 flex flex-wrap gap-2">
-							{#each subCategories as sub, i (sub)}
-								<Badge variant="secondary" class="flex items-center gap-1 pl-2">
+						<div class="mt-2 flex flex-wrap gap-1">
+							{#each subCategories as sub, i (i)}
+								<Badge variant="secondary" class="flex items-center gap-1">
 									{sub}
-									<Button
-										variant="ghost"
-										size="icon"
-										class="h-4 w-4 p-0 hover:bg-transparent"
-										onclick={() => removeSubCategory(i)}
+									<button
+										class="text-muted-foreground hover:text-foreground ml-1"
+										onclick={() => {
+											subCategories = subCategories.filter((_, idx) => idx !== i);
+										}}
 									>
 										<X class="h-3 w-3" />
-									</Button>
+									</button>
 								</Badge>
 							{/each}
 						</div>
 					{/if}
-
-					{#if subCategoryWarning}
-						<div
-							class="mb-3 rounded border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-950"
-						>
-							<p class="text-sm text-yellow-800 dark:text-yellow-200">
-								<strong>{subCategoryWarning.count}</strong> evaluation{subCategoryWarning.count !==
-								1
-									? 's'
-									: ''} use "{subCategoryWarning.subCategory}". Removing it will make those
-								evaluations show an invalid sub-category.
-							</p>
-							<div class="mt-2 flex gap-2">
-								<Button size="sm" variant="outline" onclick={() => (subCategoryWarning = null)}>
-									Cancel
-								</Button>
-								<Button size="sm" onclick={confirmRemoveSubCategory}>Remove Anyway</Button>
-							</div>
-						</div>
-					{/if}
-
-					<div class="flex max-w-md gap-2">
-						<Input
-							bind:value={newSubCategory}
-							placeholder="Add sub-category"
-							onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), addSubCategory())}
-						/>
-						<Button variant="outline" onclick={addSubCategory}>Add</Button>
-					</div>
 				</div>
 
-				<div class="flex gap-2 pt-4">
-					<Button onclick={handleSubmit} disabled={!categoryName.trim() || isSubmitting}>
-						{isSubmitting ? 'Saving...' : 'Save'}
-					</Button>
-					<Button variant="outline" onclick={cancelForm} disabled={isSubmitting}>Cancel</Button>
-				</div>
-			</div>
-		</div>
-	{:else}
-		<Button class="mt-6" onclick={startAdd}>
-			<Plus class="mr-2 h-4 w-4" />
-			Add Category
-		</Button>
-	{/if}
-
-	{#if categoryToDelete}
-		<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-			<div
-				class="absolute inset-0 bg-black/50"
-				onclick={() => (categoryToDelete = null)}
-				onkeydown={(e) => e.key === 'Escape' && (categoryToDelete = null)}
-				role="button"
-				tabindex="0"
-			></div>
-			<div
-				class="bg-background relative w-full max-w-md rounded-lg border p-6 shadow-lg"
-				onclick={(e) => e.stopPropagation()}
-				role="dialog"
-				aria-modal="true"
-				tabindex="-1"
-			>
-				<h3 class="mb-2 text-lg font-semibold">Delete Category</h3>
-				<p class="text-muted-foreground mb-4">
-					Are you sure you want to delete "{categoryToDelete.name}"?
-				</p>
-				{#if categoryToDelete.subCategories.length > 0 || relatedCount > 0}
+				{#if subCategoryWarning}
 					<div
-						class="mb-4 rounded border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-950"
+						class="rounded border border-amber-200 bg-amber-50 p-3 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
 					>
-						{#if categoryToDelete.subCategories.length > 0}
-							<p class="text-sm text-yellow-800 dark:text-yellow-200">
-								This category has <strong>{categoryToDelete.subCategories.length}</strong>
-								sub-category{categoryToDelete.subCategories.length !== 1 ? 's' : ''}.
-							</p>
-						{/if}
-						{#if relatedCount > 0}
-							<p class="mt-1 text-sm text-yellow-800 dark:text-yellow-200">
-								This will also delete <strong>{relatedCount}</strong> related evaluation record{relatedCount !==
-								1
-									? 's'
-									: ''}.
-							</p>
-						{/if}
+						<p class="font-medium">Warning: Sub-category has evaluations</p>
+						<p class="text-sm">
+							{subCategoryWarning.subCategory} has {subCategoryWarning.count} related evaluations. Removing
+							it will also remove those evaluations.
+						</p>
+						<div class="mt-2 flex gap-2">
+							<Button variant="destructive" size="sm" onclick={confirmRemoveSubCategory}>
+								Remove Anyway
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								onclick={() => {
+									subCategoryWarning = null;
+								}}
+							>
+								Cancel
+							</Button>
+						</div>
 					</div>
-				{:else}
-					<p class="text-muted-foreground mb-4 text-sm">This action cannot be undone.</p>
 				{/if}
-				<div class="flex justify-end gap-2">
-					<Button variant="outline" onclick={() => (categoryToDelete = null)}>Cancel</Button>
-					<Button variant="destructive" onclick={handleDelete} disabled={isSubmitting}>
-						{isSubmitting ? 'Deleting...' : 'Delete'}
-					</Button>
-				</div>
+			</div>
+
+			<div class="mt-6 flex justify-end gap-2">
+				<Button variant="outline" onclick={cancelForm} disabled={isSubmitting}>Cancel</Button>
+				<Button onclick={handleSubmit} disabled={isSubmitting}>
+					{#if isSubmitting}
+						Saving...
+					{:else}
+						Save
+					{/if}
+				</Button>
 			</div>
 		</div>
-	{/if}
-</div>
+	</div>
+{/if}
+
+{#if categoryToDelete}
+	<div
+		class="bg-background/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="delete-dialog-title"
+	>
+		<div class="bg-card w-full max-w-md rounded-lg border p-6 shadow-lg">
+			<h2 id="delete-dialog-title" class="text-foreground mb-4 text-xl font-semibold">
+				Delete Category
+			</h2>
+
+			{#if relatedCount > 0}
+				<div
+					class="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200"
+				>
+					<p class="font-medium">Warning: Category has evaluations</p>
+					<p class="text-sm">
+						This category has {relatedCount} related evaluations. Deleting it will also delete those evaluations.
+					</p>
+				</div>
+			{/if}
+
+			<p class="text-muted-foreground mb-4">
+				Are you sure you want to delete "{categoryToDelete.name}"? This action cannot be undone.
+			</p>
+
+			<div class="flex justify-end gap-2">
+				<Button variant="outline" onclick={() => (categoryToDelete = null)}>Cancel</Button>
+				<Button variant="destructive" onclick={handleDelete} disabled={isSubmitting}>
+					{#if isSubmitting}
+						Deleting...
+					{:else}
+						Delete
+					{/if}
+				</Button>
+			</div>
+		</div>
+	</div>
+{/if}

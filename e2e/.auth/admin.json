@@ -1,25 +1,15 @@
 {
-  "cookies": [
-    {
-      "name": "convex_session_token",
-      "value": "test_admin_session_1768309582363",
-      "domain": "localhost",
-      "path": "/",
-      "expires": -1,
-      "httpOnly": true,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "hwis_test_auth",
-      "value": "true",
-      "domain": "localhost",
-      "path": "/",
-      "expires": -1,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    }
-  ],
-  "origins": []
+	"cookies": [
+		{
+			"name": "better-auth.session_token",
+			"value": "ckZzQm95mUqNIpSAalylBU2W8H1ou39p.nYey6fTx95EEhgF7e9xTJy%2B8NlQPmqGOai59AO%2BTNVc%3D",
+			"domain": "localhost",
+			"path": "/",
+			"expires": -1,
+			"httpOnly": true,
+			"secure": false,
+			"sameSite": "Lax"
+		}
+	],
+	"origins": []
 }

@@ -14,6 +14,16 @@ const isDev =
 	process.env.NODE_ENV === 'development' ||
 	process.env.SITE_URL?.includes('localhost');
 
+const trustedOriginsEnv =
+	process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(',').map((o) => o.trim()) || [];
+
+const trustedOrigins = [
+	...(isDev ? ['http://localhost:5173'] : []),
+	siteUrl,
+	'https://*.vercel.app',
+	...trustedOriginsEnv
+];
+
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
 export const authComponent = createClient<DataModel>(components.betterAuth);
@@ -21,7 +31,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth);
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
 	return betterAuth({
 		baseURL: siteUrl,
-		trustedOrigins: ['http://localhost:5173', siteUrl, 'https://*.vercel.app'],
+		trustedOrigins,
 		database: authComponent.adapter(ctx),
 		emailAndPassword: {
 			enabled: true,

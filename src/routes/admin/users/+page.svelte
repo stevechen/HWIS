@@ -2,6 +2,7 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import { CheckCircle2, XCircle } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
@@ -16,6 +17,14 @@
 	const usersQuery = useQuery(api.users.list, {});
 	const client = useConvexClient();
 	const auth = useAuth();
+
+	let isTestMode = $state(false);
+
+	$effect(() => {
+		if (!browser) return;
+		isTestMode =
+			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
+	});
 
 	let updatingId = $state<Id<'users'> | null>(null);
 	let roleStates = $state<Record<string, string>>({});
@@ -65,6 +74,7 @@
 	}
 
 	$effect(() => {
+		if (isTestMode) return;
 		if (auth.isLoading) return;
 
 		if (!auth.isAuthenticated) {

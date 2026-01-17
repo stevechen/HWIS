@@ -19,7 +19,7 @@ test.describe('Authentication Redirects', () => {
 		await expect(page).toHaveURL(/\/login/);
 
 		// Should show sign in heading, not redirecting
-		await expect(page.locator('h2')).toHaveText('Sign In');
+		await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible({ timeout: 10000 });
 	});
 
 	test('redirect should preserve callbackUrl query param', async ({ page }) => {
@@ -30,7 +30,7 @@ test.describe('Authentication Redirects', () => {
 		await expect(page).toHaveURL(/\/login/);
 
 		// Verify we're on login page
-		await expect(page.locator('h2')).toHaveText('Sign In');
+		await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible({ timeout: 10000 });
 	});
 
 	test('should show loading state while auth is being determined', async ({ page }) => {
@@ -44,9 +44,15 @@ test.describe('Authentication Redirects', () => {
 				// Loading might have already finished, that's ok too
 			});
 	});
+});
 
-	test('should display signed in state when already authenticated', async () => {
-		// This test would need mock authentication - skipping for now
-		test.skip(true, 'Requires mock authentication setup');
+test.describe('Authenticated User', () => {
+	test.use({ storageState: 'e2e/.auth/test.json' });
+
+	test('should display signed in state when already authenticated', async ({ page }) => {
+		await page.goto('/');
+
+		// Should be on home page (not redirected to login)
+		await expect(page).toHaveURL('/');
 	});
 });

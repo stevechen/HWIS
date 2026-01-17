@@ -4,9 +4,7 @@ import { v } from 'convex/values';
 export const list = query({
 	args: {
 		search: v.optional(v.string()),
-		status: v.optional(
-			v.union(v.literal('Enrolled'), v.literal('Not Enrolled'), v.literal('Graduated'))
-		),
+		status: v.optional(v.union(v.literal('Enrolled'), v.literal('Not Enrolled'))),
 		grade: v.optional(v.number()),
 		_trigger: v.optional(v.number())
 	},
@@ -37,7 +35,7 @@ export const create = mutation({
 		chineseName: v.string(),
 		studentId: v.string(),
 		grade: v.number(),
-		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled'), v.literal('Graduated')),
+		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
 		note: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -48,6 +46,10 @@ export const create = mutation({
 
 		if (existing) {
 			throw new Error('Student ID already exists');
+		}
+
+		if (args.grade < 7 || args.grade > 12) {
+			throw new Error('Grade must be between 7 and 12');
 		}
 
 		return await ctx.db.insert('students', {
@@ -68,7 +70,7 @@ export const update = mutation({
 		chineseName: v.string(),
 		studentId: v.string(),
 		grade: v.number(),
-		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled'), v.literal('Graduated')),
+		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
 		note: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -136,7 +138,7 @@ export const removeWithCascade = mutation({
 export const changeStatus = mutation({
 	args: {
 		id: v.id('students'),
-		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled'), v.literal('Graduated'))
+		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled'))
 	},
 	handler: async (ctx, args) => {
 		await ctx.db.patch(args.id, { status: args.status });
@@ -151,7 +153,7 @@ export const importFromExcel = mutation({
 				chineseName: v.string(),
 				studentId: v.string(),
 				grade: v.number(),
-				status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled'), v.literal('Graduated')),
+				status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
 				note: v.optional(v.string())
 			})
 		)
@@ -219,7 +221,7 @@ export const seed = mutation({
 				chineseName: '魏大維',
 				studentId: 'S1004',
 				grade: 12,
-				status: 'Graduated' as const,
+				status: 'Not Enrolled' as const,
 				note: ''
 			},
 			{
@@ -255,6 +257,27 @@ export const getById = query({
 	}
 });
 
+export const checkStudentIdExists = query({
+	args: { studentId: v.string(), excludeId: v.optional(v.id('students')) },
+	handler: async (ctx, args) => {
+		let existing;
+		if (args.excludeId) {
+			existing = await ctx.db
+				.query('students')
+				.filter((q) =>
+					q.and(q.eq(q.field('studentId'), args.studentId), q.neq(q.field('_id'), args.excludeId))
+				)
+				.first();
+		} else {
+			existing = await ctx.db
+				.query('students')
+				.filter((q) => q.eq(q.field('studentId'), args.studentId))
+				.first();
+		}
+		return { exists: !!existing };
+	}
+});
+
 export const checkStudentHasEvaluations = query({
 	args: { id: v.id('students') },
 	handler: async (ctx, args) => {
@@ -285,7 +308,7 @@ export const bulkImportWithDuplicateCheck = mutation({
 				chineseName: v.string(),
 				studentId: v.string(),
 				grade: v.number(),
-				status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled'), v.literal('Graduated')),
+				status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
 				note: v.optional(v.string())
 			})
 		),
@@ -299,8 +322,19 @@ export const bulkImportWithDuplicateCheck = mutation({
 			errors: [] as { studentId: string; reason: string }[]
 		};
 
-		// Check all students first for duplicates
-		const duplicates = [];
+		// Check for duplicates within the batch (same file)
+		const seenIds = new Set<string>();
+		const batchDuplicates: { studentId: string; rowNumber: number }[] = [];
+
+		args.students.forEach((student, index) => {
+			if (seenIds.has(student.studentId)) {
+				batchDuplicates.push({ studentId: student.studentId, rowNumber: index + 2 }); // +2 for header + 0-index
+			}
+			seenIds.add(student.studentId);
+		});
+
+		// Check all students for duplicates against database
+		const databaseDuplicates: { studentId: string; existingName: string; newName: string }[] = [];
 
 		for (const student of args.students) {
 			const existing = await ctx.db
@@ -309,7 +343,7 @@ export const bulkImportWithDuplicateCheck = mutation({
 				.first();
 
 			if (existing) {
-				duplicates.push({
+				databaseDuplicates.push({
 					studentId: student.studentId,
 					existingName: existing.englishName,
 					newName: student.englishName
@@ -317,16 +351,31 @@ export const bulkImportWithDuplicateCheck = mutation({
 			}
 		}
 
-		// If halt mode and duplicates found, return detailed error
-		if (args.mode === 'halt' && duplicates.length > 0) {
+		// Combine all duplicates
+		const allDuplicates = [
+			...databaseDuplicates.map((d) => ({ ...d, rowNumber: undefined as number | undefined })),
+			...batchDuplicates.map((d) => ({
+				studentId: d.studentId,
+				existingName: '',
+				newName: '',
+				rowNumber: d.rowNumber
+			}))
+		];
+
+		// If halt mode and any duplicates found, return detailed error
+		if (args.mode === 'halt' && allDuplicates.length > 0) {
 			return {
 				success: false,
 				error: 'duplicate_found',
-				message: `Found ${duplicates.length} duplicate student ID(s)`,
-				duplicates: duplicates.map((d) => ({
+				message: `Found ${allDuplicates.length} duplicate student ID(s)`,
+				duplicates: databaseDuplicates.map((d) => ({
 					studentId: d.studentId,
 					existingStudent: d.existingName,
 					newStudent: d.newName
+				})),
+				batchDuplicates: batchDuplicates.map((d) => ({
+					studentId: d.studentId,
+					rowNumber: d.rowNumber
 				}))
 			};
 		}
@@ -378,14 +427,6 @@ export const advanceGrades = mutation({
 			if (student.grade < 12) {
 				await ctx.db.patch(student._id, { grade: student.grade + 1 });
 				updates.push(student.studentId);
-			} else {
-				await ctx.db.patch(student._id, {
-					status: 'Graduated',
-					note: student.note
-						? `${student.note} | Graduated ${new Date().getFullYear()}`
-						: `Graduated ${new Date().getFullYear()}`
-				});
-				updates.push(`${student.studentId} (graduated)`);
 			}
 		}
 
@@ -393,25 +434,21 @@ export const advanceGrades = mutation({
 	}
 });
 
-export const archiveOldGraduates = mutation({
+export const archiveOldStudents = mutation({
 	args: { years: v.optional(v.number()) },
 	handler: async (ctx, args) => {
 		const cutoffYear = new Date().getFullYear() - (args.years || 1);
 
-		const graduates = await ctx.db
+		const oldStudents = await ctx.db
 			.query('students')
-			.filter((q) => q.eq(q.field('status'), 'Graduated'))
+			.filter((q) => q.eq(q.field('status'), 'Not Enrolled'))
 			.collect();
 
 		const toDelete = [];
 
-		for (const student of graduates) {
-			const match = student.note?.match(/Graduated (\d{4})/);
-			if (match) {
-				const gradYear = parseInt(match[1]);
-				if (gradYear < cutoffYear) {
-					toDelete.push(student);
-				}
+		for (const student of oldStudents) {
+			if (student.grade < cutoffYear - 2000 + 7) {
+				toDelete.push(student);
 			}
 		}
 
@@ -425,7 +462,7 @@ export const archiveOldGraduates = mutation({
 		}
 
 		return {
-			message: `Archived ${exported.length} old graduates`,
+			message: `Archived ${exported.length} old students`,
 			archived: exported.map((s) => s.studentId)
 		};
 	}

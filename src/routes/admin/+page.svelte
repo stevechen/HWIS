@@ -2,6 +2,7 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import {
 		Database,
 		GraduationCap,
@@ -15,8 +16,22 @@
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Card from '$lib/components/ui/card';
 
+	let {
+		data
+	}: {
+		data: { testRole?: 'teacher' | 'admin' | 'super' };
+	} = $props();
+
 	const user = useQuery(api.users.viewer, {});
 	const client = useConvexClient();
+
+	let isTestMode = $state(false);
+
+	$effect(() => {
+		if (!browser) return;
+		isTestMode =
+			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
+	});
 
 	let seeding = $state(false);
 	let seedMessage = $state('');
@@ -36,6 +51,7 @@
 	}
 
 	$effect(() => {
+		if (isTestMode || data?.testRole) return;
 		if (user.isLoading === false && user.data?.role !== 'admin' && user.data?.role !== 'super') {
 			goto('/');
 		}

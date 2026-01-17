@@ -28,9 +28,11 @@ test.describe('Evaluations (public/unauthenticated)', () => {
 
 	test('should show login page structure', async ({ page }) => {
 		await page.goto('/login');
-		await expect(page.locator('button', { hasText: 'Sign in with Google' })).toBeVisible({
+		await page.waitForURL(/\/login/, { timeout: 15000 });
+		await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible({
 			timeout: 10000
 		});
-		await expect(page.locator('text=Only for HWIS staffs')).toBeVisible({ timeout: 5000 });
+		const note = page.getByText('Only for HWIS staffs', { exact: false });
+		await expect(note).toBeVisible({ timeout: 10000 });
 	});
 });

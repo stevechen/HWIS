@@ -4,7 +4,7 @@
 	import type { Id } from '$convex/_generated/dataModel';
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
-	import { Plus, Trash2, Pencil, Search, Upload, AlertTriangle } from '@lucide/svelte';
+	import { Plus, Trash2, Pencil, Search, Upload, AlertTriangle, Check, X } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Table from '$lib/components/ui/table';
@@ -20,7 +20,7 @@
 		chineseName: string;
 		studentId: string;
 		grade: number;
-		status: 'Enrolled' | 'Not Enrolled' | 'Graduated';
+		status: 'Enrolled' | 'Not Enrolled';
 		note: string;
 	};
 
@@ -42,13 +42,13 @@
 
 	// Form state
 	let editingId = $state<Id<'students'> | null>(null);
-	let originalStatus = $state<'Enrolled' | 'Not Enrolled' | 'Graduated' | null>(null);
+	let originalStatus = $state<'Enrolled' | 'Not Enrolled' | null>(null);
 	let formStudentId = $state('');
 	let formEnglishName = $state('');
 	let formChineseName = $state('');
 	let formGrade = $state(7);
 	let formGradeStr = $state('7');
-	let formStatus = $state<'Enrolled' | 'Not Enrolled' | 'Graduated'>('Enrolled');
+	let formStatus = $state<'Enrolled' | 'Not Enrolled'>('Enrolled');
 	let formNote = $state('');
 	let isSubmitting = $state(false);
 	let formError = $state('');
@@ -69,10 +69,40 @@
 	let isImporting = $state(false);
 	let importError = $state('');
 
+	// Duplicate check state
+	let isCheckingId = $state(false);
+	let idAvailability = $state<'available' | 'taken' | 'unknown'>('unknown');
+	let lastCheckedId = $state('');
+	let showAvailabilityMsg = $state(false);
+
 	const grades = [7, 8, 9, 10, 11, 12];
-	const statuses = ['Enrolled', 'Not Enrolled', 'Graduated'] as const;
+	const statuses = ['Enrolled', 'Not Enrolled'] as const;
+
+	let {
+		data
+	}: {
+		data: { testRole?: 'teacher' | 'admin' | 'super' };
+	} = $props();
+
+	let isTestMode = $state(false);
 
 	$effect(() => {
+		if (!browser) return;
+		isTestMode =
+			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
+	});
+
+	$effect(() => {
+		if (isTestMode || data?.testRole) return;
+		if (browser && currentUser.isLoading === false) {
+			if (currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
+				goto('/');
+			}
+		}
+	});
+
+	$effect(() => {
+		if (isTestMode) return;
 		if (browser && currentUser.isLoading === false) {
 			if (currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
 				goto('/');
@@ -90,6 +120,9 @@
 		formNote = '';
 		editingId = null;
 		formError = '';
+		idAvailability = 'unknown';
+		lastCheckedId = '';
+		showAvailabilityMsg = false;
 	}
 
 	function startEdit(student: any) {
@@ -103,7 +136,52 @@
 		originalStatus = student.status;
 		editingId = student._id;
 		formError = '';
+		idAvailability = 'unknown';
+		lastCheckedId = '';
+		showAvailabilityMsg = false;
 	}
+
+	async function checkIdAvailability() {
+		if (!formStudentId.trim()) return;
+		isCheckingId = true;
+		showAvailabilityMsg = true;
+		try {
+			const result = await client.query(apiAny.students.checkStudentIdExists, {
+				studentId: formStudentId.trim(),
+				excludeId: editingId || undefined
+			});
+			idAvailability = result.exists ? 'taken' : 'available';
+			lastCheckedId = formStudentId.trim();
+		} catch {
+			idAvailability = 'unknown';
+		} finally {
+			isCheckingId = false;
+		}
+	}
+
+	$effect(() => {
+		if (!formStudentId || formStudentId.trim() === lastCheckedId || !showForm) return;
+
+		const timer = setTimeout(async () => {
+			if (!formStudentId.trim()) return;
+			isCheckingId = true;
+			try {
+				const result = await client.query(apiAny.students.checkStudentIdExists, {
+					studentId: formStudentId.trim(),
+					excludeId: editingId || undefined
+				});
+				idAvailability = result.exists ? 'taken' : 'available';
+				lastCheckedId = formStudentId.trim();
+				showAvailabilityMsg = true;
+			} catch {
+				idAvailability = 'unknown';
+			} finally {
+				isCheckingId = false;
+			}
+		}, 500);
+
+		return () => clearTimeout(timer);
+	});
 
 	async function handleSubmit() {
 		formError = '';
@@ -114,6 +192,10 @@
 		}
 		if (!formEnglishName.trim()) {
 			formError = 'English name is required';
+			return;
+		}
+		if (formGrade < 7 || formGrade > 12) {
+			formError = 'Grade must be between 7 and 12';
 			return;
 		}
 
@@ -231,7 +313,7 @@
 					chineseName: row.chinesename || row.chinese || '',
 					studentId: row.studentid || row.id || '',
 					grade: parseInt(row.grade) || 7,
-					status: (row.status as 'Enrolled' | 'Not Enrolled' | 'Graduated') || 'Enrolled',
+					status: (row.status as 'Enrolled' | 'Not Enrolled') || 'Enrolled',
 					note: row.note || ''
 				});
 			}
@@ -365,13 +447,7 @@
 							<Table.Cell>{student.chineseName}</Table.Cell>
 							<Table.Cell>{student.grade}</Table.Cell>
 							<Table.Cell>
-								<Badge
-									variant={student.status === 'Enrolled'
-										? 'default'
-										: student.status === 'Graduated'
-											? 'secondary'
-											: 'outline'}
-								>
+								<Badge variant={student.status === 'Enrolled' ? 'default' : 'outline'}>
 									{student.status}
 								</Badge>
 							</Table.Cell>
@@ -387,6 +463,7 @@
 											startEdit(student);
 											showForm = true;
 										}}
+										aria-label="Edit"
 									>
 										<Pencil class="h-4 w-4" />
 									</Button>
@@ -398,6 +475,7 @@
 												confirmDisable(student);
 												showDisable = true;
 											}}
+											aria-label="Disable"
 											title="Disable student"
 										>
 											<AlertTriangle class="h-4 w-4 text-orange-500" />
@@ -410,6 +488,7 @@
 											confirmDelete(student);
 											showDelete = true;
 										}}
+										aria-label="Delete"
 									>
 										<Trash2 class="h-4 w-4 text-red-500" />
 									</Button>
@@ -425,7 +504,12 @@
 
 <!-- Add/Edit Dialog -->
 {#if showForm}
-	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center p-4"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="student-form-title"
+	>
 		<div
 			class="fixed inset-0 bg-black/50"
 			onclick={() => (showForm = false)}
@@ -435,7 +519,9 @@
 		></div>
 		<div class="bg-background relative w-full max-w-lg rounded-lg border p-6 shadow-lg">
 			<div class="p-6">
-				<h2 class="text-lg font-semibold">{editingId ? 'Edit Student' : 'Add New Student'}</h2>
+				<h2 id="student-form-title" class="text-lg font-semibold">
+					{editingId ? 'Edit Student' : 'Add New Student'}
+				</h2>
 				<div class="grid gap-4 py-4">
 					{#if formError}
 						<div
@@ -447,7 +533,49 @@
 					<div class="grid grid-cols-2 gap-4">
 						<div class="space-y-2">
 							<Label for="studentId">Student ID *</Label>
-							<Input id="studentId" bind:value={formStudentId} placeholder="e.g., S1001" />
+							<div class="flex gap-2">
+								<div class="relative flex-1">
+									<Input
+										id="studentId"
+										bind:value={formStudentId}
+										placeholder="e.g., S1001"
+										class={idAvailability === 'taken'
+											? 'border-red-500 pr-8'
+											: idAvailability === 'available'
+												? 'border-green-500 pr-8'
+												: 'pr-8'}
+									/>
+									{#if idAvailability === 'available'}
+										<Check
+											class="absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2 text-green-500"
+										/>
+									{:else if idAvailability === 'taken'}
+										<X class="absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2 text-red-500" />
+									{/if}
+								</div>
+								<Button
+									variant="outline"
+									size="default"
+									onclick={checkIdAvailability}
+									disabled={!formStudentId.trim() || isCheckingId}
+									title="Check if student ID is available"
+								>
+									{#if isCheckingId}
+										<span
+											class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+										></span>
+									{:else}
+										<Check class="h-4 w-4" />
+									{/if}
+								</Button>
+							</div>
+							{#if showAvailabilityMsg}
+								{#if idAvailability === 'available'}
+									<p class="text-xs text-green-600 dark:text-green-400">Student ID is available</p>
+								{:else if idAvailability === 'taken'}
+									<p class="text-xs text-red-600 dark:text-red-400">Student ID already exists</p>
+								{/if}
+							{/if}
 						</div>
 						<div class="space-y-2">
 							<Label for="grade">Grade *</Label>
@@ -508,7 +636,12 @@
 
 <!-- Delete Confirmation Dialog -->
 {#if showDelete}
-	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center p-4"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="delete-student-title"
+	>
 		<div
 			class="fixed inset-0 bg-black/50"
 			onclick={() => (showDelete = false)}
@@ -518,7 +651,7 @@
 		></div>
 		<div class="bg-background relative w-full max-w-md rounded-lg border p-6 shadow-lg">
 			<div class="p-6">
-				<h2 class="text-lg font-semibold">Delete Student</h2>
+				<h2 id="delete-student-title" class="text-lg font-semibold">Delete Student</h2>
 				<div class="py-4">
 					{#if deleteHasRelated}
 						<div
@@ -573,7 +706,12 @@
 
 <!-- Import Dialog -->
 {#if showImport}
-	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center p-4"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="import-students-title"
+	>
 		<div
 			class="fixed inset-0 bg-black/50"
 			onclick={() => {
@@ -590,7 +728,7 @@
 		></div>
 		<div class="bg-background relative w-full max-w-lg rounded-lg border p-6 shadow-lg">
 			<div class="p-6">
-				<h2 class="text-lg font-semibold">Import Students from Excel</h2>
+				<h2 id="import-students-title" class="text-lg font-semibold">Import Students from Excel</h2>
 				<div class="grid gap-4 py-4">
 					<p class="text-muted-foreground text-sm">
 						Upload a CSV file with columns: englishName, chineseName, studentId, grade, status, note
@@ -653,12 +791,34 @@
 								<p class="font-medium text-green-700 dark:text-green-300">{importResult.summary}</p>
 							{:else}
 								<p class="font-medium text-red-700 dark:text-red-300">{importResult.message}</p>
-								{#if importResult.duplicates}
-									<ul class="mt-2 list-disc pl-4">
-										{#each importResult.duplicates as d}
-											<li>{d.studentId}: existing="{d.existingStudent}", new="{d.newStudent}"</li>
-										{/each}
-									</ul>
+								{#if importResult.batchDuplicates && importResult.batchDuplicates.length > 0}
+									<div class="mt-2">
+										<p class="font-medium text-red-600 dark:text-red-300">
+											Duplicates within import file:
+										</p>
+										<ul class="list-disc pl-4">
+											{#each importResult.batchDuplicates as d}
+												<li>
+													Row {d.rowNumber}: studentId "{d.studentId}"
+												</li>
+											{/each}
+										</ul>
+									</div>
+								{/if}
+								{#if importResult.duplicates && importResult.duplicates.length > 0}
+									<div class="mt-2">
+										<p class="font-medium text-red-600 dark:text-red-300">
+											Duplicates with existing students:
+										</p>
+										<ul class="list-disc pl-4">
+											{#each importResult.duplicates as d}
+												<li>
+													"{d.studentId}": existing="{d.existingStudent}", new="
+													{d.newStudent}"
+												</li>
+											{/each}
+										</ul>
+									</div>
 								{/if}
 							{/if}
 						</div>
@@ -692,7 +852,12 @@
 
 <!-- Disable Student Confirmation Dialog -->
 {#if showDisable}
-	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center p-4"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="disable-student-title"
+	>
 		<div
 			class="fixed inset-0 bg-black/50"
 			onclick={() => (showDisable = false)}
@@ -702,7 +867,7 @@
 		></div>
 		<div class="bg-background relative w-full max-w-md rounded-lg border p-6 shadow-lg">
 			<div class="p-6">
-				<h2 class="text-lg font-semibold">Disable Student?</h2>
+				<h2 id="disable-student-title" class="text-lg font-semibold">Disable Student?</h2>
 				<div class="py-4">
 					<p class="text-muted-foreground">
 						Mark <strong>{studentToDisable?.englishName}</strong> ({studentToDisable?.studentId}) as

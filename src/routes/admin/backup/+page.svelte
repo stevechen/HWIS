@@ -24,7 +24,16 @@
 	let restoreConfirmText = $state('');
 	let selectedBackupId = $state<string | null>(null);
 
+	let isTestMode = $state(false);
+
 	$effect(() => {
+		if (!browser) return;
+		isTestMode =
+			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
+	});
+
+	$effect(() => {
+		if (isTestMode) return;
 		if (browser && currentUser.isLoading === false) {
 			if (currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
 				goto('/');

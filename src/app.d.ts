@@ -15,6 +15,7 @@ declare global {
 				  }
 				| undefined;
 			isTestMode: boolean;
+			testRole: 'teacher' | 'admin' | 'super' | undefined;
 		}
 		// interface PageData {}
 		// interface PageState {}

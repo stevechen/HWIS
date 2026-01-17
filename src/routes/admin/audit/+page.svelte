@@ -377,14 +377,14 @@
 			void goto('/');
 			return;
 		}
+	});
 
-		if (
-			currentUser.isLoading === false &&
-			currentUser.data?.role !== 'admin' &&
-			currentUser.data?.role !== 'super'
-		) {
-			void goto('/');
-			return;
+	$effect(() => {
+		// Always check user role, even in test mode with auth cookie
+		if (currentUser.isLoading === false) {
+			if (currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
+				void goto('/');
+			}
 		}
 	});
 </script>

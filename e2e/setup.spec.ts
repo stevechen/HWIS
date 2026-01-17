@@ -29,6 +29,27 @@ async function callConvexMutation(
 	return response.json();
 }
 
+async function callConvexQuery(token: string, query: string, args: Record<string, unknown> = {}) {
+	const response = await fetch(`${CONVEX_URL}/api/query`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({
+			path: query,
+			args
+		})
+	});
+
+	if (!response.ok) {
+		const error = await response.text();
+		throw new Error(`Convex query failed: ${error}`);
+	}
+
+	return response.json();
+}
+
 setup('setup test users', async () => {
 	const convexToken = process.env.CONVEX_AUTH_TOKEN;
 	if (!convexToken) {
@@ -42,6 +63,12 @@ setup('setup test users', async () => {
 
 	console.log('Test users created:', result);
 
+	// Seed categories if they don't exist
+	console.log('Seeding categories...');
+	await callConvexMutation(convexToken, 'categories:seed', {});
+	const categories = await callConvexQuery(convexToken, 'categories:list', {});
+	console.log('Categories seeded:', categories.length);
+
 	// Session cookie for debugging if needed
 	// const sessionCookie = `convex_session_token=${result.teacherSessionToken}; Path=/; HttpOnly; SameSite=Lax`;
 
@@ -54,6 +81,16 @@ setup('setup test users', async () => {
 				path: '/',
 				expires: -1,
 				httpOnly: true,
+				secure: false,
+				sameSite: 'Lax'
+			},
+			{
+				name: 'hwis_test_auth',
+				value: 'true:role=teacher',
+				domain: 'localhost',
+				path: '/',
+				expires: -1,
+				httpOnly: false,
 				secure: false,
 				sameSite: 'Lax'
 			}
@@ -70,6 +107,16 @@ setup('setup test users', async () => {
 				path: '/',
 				expires: -1,
 				httpOnly: true,
+				secure: false,
+				sameSite: 'Lax'
+			},
+			{
+				name: 'hwis_test_auth',
+				value: 'true:role=admin',
+				domain: 'localhost',
+				path: '/',
+				expires: -1,
+				httpOnly: false,
 				secure: false,
 				sameSite: 'Lax'
 			}
