@@ -6,7 +6,14 @@ type TestRole = 'admin' | 'super' | 'teacher';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const testAuthCookie = event.cookies.get('hwis_test_auth') || '';
-	const isTestMode = testAuthCookie.length > 0;
+	const sessionToken = event.cookies.get('convex_session_token') || '';
+
+	// Detect test mode from EITHER source:
+	// 1. hwis_test_auth cookie (e.g., "admin", "super", "true")
+	// 2. convex_session_token that looks like a test token (contains "test_")
+	const isTestAuthCookiePresent = testAuthCookie.length > 0;
+	const isTestSessionToken = sessionToken.includes('test_');
+	const isTestMode = isTestAuthCookiePresent || isTestSessionToken;
 
 	let testRole: TestRole = 'teacher';
 	if (isTestMode) {
@@ -14,6 +21,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const roleValue = testAuthCookie.split(';')[0].trim();
 		if (['admin', 'super'].includes(roleValue)) {
 			testRole = roleValue as TestRole;
+		} else if (isTestSessionToken) {
+			// Infer role from session token if it looks like a test token
+			if (sessionToken.includes('super')) {
+				testRole = 'super';
+			} else if (sessionToken.includes('admin')) {
+				testRole = 'admin';
+			}
 		} else {
 			// Check for role= in the full cookie value
 			const roleMatch = testAuthCookie.match(/role=(\w+)/);
@@ -26,7 +40,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (isTestMode) {
 		const roleName =
 			testRole === 'super' ? 'Super Admin' : testRole === 'admin' ? 'Admin' : 'Teacher';
-		event.locals.token = 'test-token-mock';
+		event.locals.token = 'test-token-admin-mock';
 		event.locals.user = {
 			_id: 'test-user-id',
 			name: `Test ${roleName}`,

@@ -4,20 +4,15 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { browser } from '$app/environment';
-	import { onMount } from 'svelte';
 	import { createSvelteAuthClient } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { authClient } from '$lib/auth-client';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import type { Snippet } from 'svelte';
+	import { onMount } from 'svelte';
 
-	let {
-		children,
-		data
-	}: { children: Snippet; data: { isLoginPage?: boolean; isTestMode?: boolean } } = $props();
+	let { children, data }: { children: Snippet; data: { isLoginPage?: boolean } } = $props();
 
 	createSvelteAuthClient({ authClient });
-
-	const testMode = $derived(data.isTestMode ?? false);
 
 	let cookieTestMode = $state(false);
 
@@ -29,75 +24,13 @@
 	const isLoginPage = $derived(data.isLoginPage || String(page.url.pathname) === '/login');
 
 	onMount(() => {
-		cookieTestMode =
-			testMode ||
-			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=true')) !==
-				undefined;
-
-		(window as any).e2e = {
-			resetAll: async () => {
-				try {
-					const { ConvexHttpClient } = await import('convex/browser');
-					const { api } = await import('$convex/_generated/api');
-					const client = new ConvexHttpClient('/');
-					await client.mutation(api.testE2E.e2eResetAll, {});
-				} catch (e) {
-					console.log('Seeding error:', e);
-				}
-			},
-			seedAll: async () => {
-				try {
-					const { ConvexHttpClient } = await import('convex/browser');
-					const { api } = await import('$convex/_generated/api');
-					const client = new ConvexHttpClient('/');
-					await client.mutation(api.testE2E.e2eSeedAll, {});
-				} catch (e) {
-					console.log('Seeding error:', e);
-				}
-			},
-			clearAuditOnly: async () => {
-				try {
-					const { ConvexHttpClient } = await import('convex/browser');
-					const { api } = await import('$convex/_generated/api');
-					const client = new ConvexHttpClient('/');
-					await client.mutation(api.testE2E.e2eClearAuditOnly, {});
-				} catch (e) {
-					console.log('Seeding error:', e);
-				}
-			},
-			seedCategoriesForDelete: async () => {
-				try {
-					const { ConvexHttpClient } = await import('convex/browser');
-					const { api } = await import('$convex/_generated/api');
-					const client = new ConvexHttpClient('/');
-					const result = await client.mutation(api.testE2E.e2eSeedCategoriesForDelete, {});
-					console.log('Seed categories result:', result);
-				} catch (e) {
-					console.log('Seeding error:', e);
-				}
-			},
-			seedStudentsForDisable: async () => {
-				try {
-					const { ConvexHttpClient } = await import('convex/browser');
-					const { api } = await import('$convex/_generated/api');
-					const client = new ConvexHttpClient('/');
-					await client.mutation(api.testE2E.e2eSeedStudentsForDisable, {});
-				} catch (e) {
-					console.log('Seeding error:', e);
-				}
-			},
-			seedAuditLogs: async (authId?: string) => {
-				try {
-					const { ConvexHttpClient } = await import('convex/browser');
-					const { api } = await import('$convex/_generated/api');
-					const client = new ConvexHttpClient('/');
-					await client.mutation(api.testE2E.e2eSeedAuditLogs, { authId });
-				} catch (e) {
-					console.log('Seeding error:', e);
-				}
-			}
-		};
+		document.body.classList.add('hydrated');
 	});
+
+	if (browser) {
+		cookieTestMode =
+			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
+	}
 
 	$effect(() => {
 		if (!browser || !authDetermined || isLoginPage || cookieTestMode) return;

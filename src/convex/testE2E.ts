@@ -1,4 +1,4 @@
-import { mutation } from './_generated/server';
+import { mutation, query } from './_generated/server';
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 
@@ -26,6 +26,23 @@ export const e2eResetAll = mutation({
 		}
 
 		return { message: 'All test data cleaned' };
+	}
+});
+
+export const e2eResetCategoriesAndEvals = mutation({
+	args: {},
+	handler: async (ctx) => {
+		const allCategories = await ctx.db.query('point_categories').collect();
+		for (const c of allCategories) {
+			await ctx.db.delete(c._id);
+		}
+
+		const allEvaluations = await ctx.db.query('evaluations').collect();
+		for (const e of allEvaluations) {
+			await ctx.db.delete(e._id);
+		}
+
+		return { message: 'Categories and evaluations cleaned' };
 	}
 });
 
@@ -251,6 +268,77 @@ export const e2eSeedCategoriesForDelete = mutation({
 	}
 });
 
+export const e2eCreateEvaluationForCategory = mutation({
+	args: { categoryName: v.string() },
+	handler: async (ctx, args) => {
+		console.log('[e2e] Starting e2eCreateEvaluationForCategory for:', args.categoryName);
+
+		// Get the category
+		const categories = await ctx.db.query('point_categories').collect();
+		const category = categories.find((c) => c.name === args.categoryName);
+		console.log(
+			'[e2e] Found category:',
+			category ? category.name : 'NOT FOUND',
+			'subCats:',
+			category?.subCategories
+		);
+
+		if (!category) {
+			return { success: false, error: 'Category not found' };
+		}
+
+		// Get an enrolled student
+		const students = await ctx.db.query('students').collect();
+		console.log('[e2e] Total students:', students.length);
+		const enrolledStudents = students.filter((s) => s.status === 'Enrolled');
+		console.log('[e2e] Enrolled students:', enrolledStudents.length);
+		const student = enrolledStudents[0];
+
+		if (!student) {
+			return { success: false, error: 'No enrolled student found' };
+		}
+
+		// Get a teacher
+		const users = await ctx.db.query('users').collect();
+		const teacher = users.find((u) => u.role === 'teacher' || u.role === 'admin');
+		console.log('[e2e] Found teacher:', teacher ? teacher.name : 'NOT FOUND');
+
+		const teacherId = teacher?._id || 'test-teacher-id';
+
+		// Create evaluation
+		const subCategory = category.subCategories?.[0] || 'TestSub';
+		console.log(
+			'[e2e] Creating evaluation with category:',
+			category.name,
+			'subCategory:',
+			subCategory
+		);
+
+		await ctx.db.insert('evaluations', {
+			studentId: student._id,
+			teacherId: teacherId as Id<'users'>,
+			value: 1,
+			category: category.name,
+			subCategory,
+			details: 'Test evaluation for e2e test',
+			timestamp: Date.now(),
+			semesterId: '2025-H1'
+		});
+
+		console.log('[e2e] Evaluation created successfully');
+		return { success: true, category: category.name, student: student.englishName };
+	}
+});
+
+export const e2eCheckEvaluationExists = query({
+	args: { categoryName: v.string() },
+	handler: async (ctx, args) => {
+		const evaluations = await ctx.db.query('evaluations').collect();
+		const matching = evaluations.filter((e) => e.category === args.categoryName);
+		return { count: matching.length, categoryName: args.categoryName };
+	}
+});
+
 export const e2eSeedStudentsForDisable = mutation({
 	args: {},
 	handler: async (ctx) => {
@@ -383,5 +471,33 @@ export const e2eSeedAuditLogs = mutation({
 		});
 
 		return { message: 'Audit logs seeded', performerAuthId: authId };
+	}
+});
+
+export const e2eCreateEvaluationInternal = mutation({
+	args: {
+		studentId: v.id('students'),
+		value: v.number(),
+		category: v.string(),
+		subCategory: v.string(),
+		details: v.string(),
+		semesterId: v.string()
+	},
+	handler: async (ctx, args) => {
+		const users = await ctx.db.query('users').collect();
+		const teacher = users.find((u) => u.role === 'teacher' || u.role === 'admin');
+
+		await ctx.db.insert('evaluations', {
+			studentId: args.studentId,
+			teacherId: teacher?._id as Id<'users'>,
+			value: args.value,
+			category: args.category,
+			subCategory: args.subCategory,
+			details: args.details,
+			timestamp: Date.now(),
+			semesterId: args.semesterId
+		});
+
+		return { success: true };
 	}
 });

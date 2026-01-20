@@ -2,7 +2,7 @@
   "cookies": [
     {
       "name": "hwis_test_auth",
-      "value": "true",
+      "value": "teacher",
       "domain": "localhost",
       "path": "/",
       "expires": -1,

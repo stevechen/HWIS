@@ -310,4 +310,157 @@ describe('backup clearing logic', () => {
 		expect(categories[0].name).toBe('Restored Category');
 		expect(categories[0].subCategories).toEqual(['Sub1', 'Sub2']);
 	});
+
+	test('advanceGradesAndClearEvaluations deletes grade 12 and not enrolled, advances remaining', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('students', {
+				englishName: 'Grade 7 Enrolled',
+				chineseName: '七年級在校',
+				studentId: 'STU001',
+				grade: 7,
+				status: 'Enrolled'
+			});
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('students', {
+				englishName: 'Grade 11 Enrolled',
+				chineseName: '十一年級在校',
+				studentId: 'STU002',
+				grade: 11,
+				status: 'Enrolled'
+			});
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('students', {
+				englishName: 'Grade 12 Enrolled',
+				chineseName: '十二年級在校',
+				studentId: 'STU003',
+				grade: 12,
+				status: 'Enrolled'
+			});
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('students', {
+				englishName: 'Grade 12 Not Enrolled',
+				chineseName: '十二年級非在校',
+				studentId: 'STU004',
+				grade: 12,
+				status: 'Not Enrolled'
+			});
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('students', {
+				englishName: 'Grade 10 Not Enrolled',
+				chineseName: '十年級非在校',
+				studentId: 'STU005',
+				grade: 10,
+				status: 'Not Enrolled'
+			});
+		});
+
+		const teacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'teacher-auth-id',
+				name: 'Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const studentId = await t.run(async (ctx) => {
+			return (await ctx.db.query('students').collect())[0]._id;
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId,
+				value: 1,
+				category: 'Creativity',
+				subCategory: 'Leadership',
+				details: 'Great work',
+				timestamp: Date.now(),
+				semesterId: '2025-H1'
+			});
+		});
+
+		await t.run(async (ctx) => {
+			const students = await ctx.db.query('students').collect();
+			const evaluations = await ctx.db.query('evaluations').collect();
+			const users = await ctx.db.query('users').collect();
+			const categories = await ctx.db.query('point_categories').collect();
+
+			await ctx.db.insert('backups', {
+				filename: `backup-${Date.now()}.json`,
+				data: { students, evaluations, users, categories },
+				createdAt: Date.now()
+			});
+
+			for (const evaluation of evaluations) {
+				await ctx.db.delete(evaluation._id);
+			}
+
+			const auditLogs = await ctx.db.query('audit_logs').collect();
+			for (const log of auditLogs) {
+				if (log.targetTable === 'evaluations') {
+					await ctx.db.delete(log._id);
+				}
+			}
+
+			const grade12Students = await ctx.db
+				.query('students')
+				.filter((q) => q.eq(q.field('grade'), 12))
+				.collect();
+			for (const student of grade12Students) {
+				await ctx.db.delete(student._id);
+			}
+
+			const notEnrolledStudents = await ctx.db
+				.query('students')
+				.filter((q) => q.eq(q.field('status'), 'Not Enrolled'))
+				.collect();
+			for (const student of notEnrolledStudents) {
+				await ctx.db.delete(student._id);
+			}
+
+			const enrolledStudents = await ctx.db
+				.query('students')
+				.filter((q) => q.eq(q.field('status'), 'Enrolled'))
+				.collect();
+
+			for (const student of enrolledStudents) {
+				if (student.grade >= 7 && student.grade <= 11) {
+					await ctx.db.patch(student._id, { grade: student.grade + 1 });
+				}
+			}
+		});
+
+		const students = await t.run(async (ctx) => {
+			return await ctx.db.query('students').collect();
+		});
+
+		const evaluations = await t.run(async (ctx) => {
+			return await ctx.db.query('evaluations').collect();
+		});
+
+		const backups = await t.run(async (ctx) => {
+			return await ctx.db.query('backups').collect();
+		});
+
+		expect(students).toHaveLength(2);
+		expect(students.find((s) => s.studentId === 'STU001')?.grade).toBe(8);
+		expect(students.find((s) => s.studentId === 'STU002')?.grade).toBe(12);
+		expect(students.find((s) => s.studentId === 'STU003')).toBeUndefined();
+		expect(students.find((s) => s.studentId === 'STU004')).toBeUndefined();
+		expect(students.find((s) => s.studentId === 'STU005')).toBeUndefined();
+
+		expect(evaluations).toHaveLength(0);
+		expect(backups).toHaveLength(1);
+	});
 });

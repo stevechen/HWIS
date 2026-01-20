@@ -21,9 +21,20 @@ echo "Result: $RESULT"
 # Extract session tokens
 TEACHER_TOKEN=$(echo $RESULT | jq -r '.teacherSessionToken')
 ADMIN_TOKEN=$(echo $RESULT | jq -r '.adminSessionToken')
+SUPER_TOKEN=$(echo $RESULT | jq -r '.superSessionToken')
 
 if [ "$TEACHER_TOKEN" = "null" ] || [ -z "$TEACHER_TOKEN" ]; then
   echo "Error: Failed to get teacher session token"
+  exit 1
+fi
+
+if [ "$ADMIN_TOKEN" = "null" ] || [ -z "$ADMIN_TOKEN" ]; then
+  echo "Error: Failed to get admin session token"
+  exit 1
+fi
+
+if [ "$SUPER_TOKEN" = "null" ] || [ -z "$SUPER_TOKEN" ]; then
+  echo "Error: Failed to get super session token"
   exit 1
 fi
 
@@ -46,7 +57,7 @@ cat > e2e/.auth/teacher.json << EOF
     },
     {
       "name": "hwis_test_auth",
-      "value": "true",
+      "value": "teacher",
       "domain": "localhost",
       "path": "/",
       "expires": -1,
@@ -75,7 +86,55 @@ cat > e2e/.auth/admin.json << EOF
     },
     {
       "name": "hwis_test_auth",
-      "value": "true",
+      "value": "admin",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}
+EOF
+
+# Super admin storage state
+cat > e2e/.auth/super.json << EOF
+{
+  "cookies": [
+    {
+      "name": "convex_session_token",
+      "value": "$SUPER_TOKEN",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "hwis_test_auth",
+      "value": "super",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}
+EOF
+
+# Test storage state (uses teacher role for basic auth)
+cat > e2e/.auth/test.json << EOF
+{
+  "cookies": [
+    {
+      "name": "hwis_test_auth",
+      "value": "teacher",
       "domain": "localhost",
       "path": "/",
       "expires": -1,
@@ -90,6 +149,9 @@ EOF
 
 echo ""
 echo "Test users set up successfully!"
+echo ""
+echo "Created auth files:"
+ls -la e2e/.auth/
 echo ""
 echo "To run authenticated tests:"
 echo "  bun run test:e2e:auth"

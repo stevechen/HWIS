@@ -3,6 +3,7 @@
 	import { api } from '$convex/_generated/api';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 
 	const client = useConvexClient();
@@ -22,19 +23,21 @@
 			return;
 		}
 
-		status = 'Setting you as admin...';
+		const requestedRole = page.url.searchParams.get('role') || 'admin';
+
+		status = `Setting you as ${requestedRole}...`;
 
 		try {
 			status = 'Creating profile with your name...';
 			await client.mutation(api.onboarding.ensureUserProfile, {});
 
-			status = 'Setting you as admin...';
+			status = `Setting you as ${requestedRole}...`;
 			await client.mutation(api.onboarding.setMyRole, {
-				role: 'admin',
+				role: requestedRole,
 				status: 'active'
 			});
 
-			status = `Success! Profile created/updated with your name.`;
+			status = `Success! Profile created/updated. You are now ${requestedRole}.`;
 			await new Promise((r) => setTimeout(r, 3000));
 			void goto('/');
 			return;

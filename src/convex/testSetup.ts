@@ -52,6 +52,17 @@ export const setupTestUsers = mutation({
 			}
 		});
 
+		const superUser = await adapter.create({
+			model: 'user',
+			data: {
+				name: 'Test Super Admin',
+				email: 'super@hwis.test',
+				emailVerified: true,
+				createdAt: now,
+				updatedAt: now
+			}
+		});
+
 		const existingTeacher = await ctx.db
 			.query('users')
 			.withIndex('by_authId', (q) => q.eq('authId', teacherUser.id))
@@ -84,8 +95,25 @@ export const setupTestUsers = mutation({
 			await ctx.db.patch(existingAdmin._id, { role: 'admin', status: 'active' });
 		}
 
+		const existingSuper = await ctx.db
+			.query('users')
+			.withIndex('by_authId', (q) => q.eq('authId', superUser.id))
+			.first();
+
+		if (!existingSuper) {
+			await ctx.db.insert('users', {
+				authId: superUser.id,
+				name: 'Test Super Admin',
+				role: 'super',
+				status: 'active'
+			});
+		} else {
+			await ctx.db.patch(existingSuper._id, { role: 'super', status: 'active' });
+		}
+
 		const teacherSessionToken = `test_teacher_session_${Date.now()}`;
 		const adminSessionToken = `test_admin_session_${Date.now()}`;
+		const superSessionToken = `test_super_session_${Date.now()}`;
 		const expiresAt = now + 24 * 60 * 60 * 1000;
 
 		await adapter.create({
@@ -110,11 +138,24 @@ export const setupTestUsers = mutation({
 			}
 		});
 
+		await adapter.create({
+			model: 'session',
+			data: {
+				userId: superUser.id,
+				token: superSessionToken,
+				expiresAt,
+				createdAt: now,
+				updatedAt: now
+			}
+		});
+
 		return {
 			teacherUserId: teacherUser.id,
 			adminUserId: adminUser.id,
+			superUserId: superUser.id,
 			teacherSessionToken,
 			adminSessionToken,
+			superSessionToken,
 			expiresAt
 		};
 	}

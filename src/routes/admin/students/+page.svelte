@@ -223,6 +223,7 @@
 			}
 			showForm = false;
 		} catch (e: any) {
+			console.error('handleSubmit error:', e);
 			formError = e.message || 'Failed to save student';
 		} finally {
 			isSubmitting = false;
@@ -369,6 +370,7 @@
 						onclick={() => {
 							showImport = true;
 						}}
+						aria-label="Import students from file"
 					>
 						<Upload class="mr-2 h-4 w-4" />
 						Import
@@ -379,6 +381,7 @@
 							startAdd();
 							showForm = true;
 						}}
+						aria-label="Add new student"
 					>
 						<Plus class="mr-2 h-4 w-4" />
 						Add Student
@@ -396,16 +399,17 @@
 					placeholder="Search by name or student ID..."
 					class="pl-9"
 					bind:value={searchQuery}
+					aria-label="Search by name or student ID"
 				/>
 			</div>
 			<div class="flex gap-2">
-				<NativeSelect.Root bind:value={selectedGrade}>
+				<NativeSelect.Root bind:value={selectedGrade} aria-label="Filter by grade">
 					<NativeSelect.Option value="">All Grades</NativeSelect.Option>
 					{#each grades as grade}
 						<NativeSelect.Option value={grade.toString()}>Grade {grade}</NativeSelect.Option>
 					{/each}
 				</NativeSelect.Root>
-				<NativeSelect.Root bind:value={selectedStatus}>
+				<NativeSelect.Root bind:value={selectedStatus} aria-label="Filter by status">
 					<NativeSelect.Option value="">All Status</NativeSelect.Option>
 					{#each statuses as status}
 						<NativeSelect.Option value={status}>{status}</NativeSelect.Option>
@@ -463,7 +467,7 @@
 											startEdit(student);
 											showForm = true;
 										}}
-										aria-label="Edit"
+										aria-label="Edit {student.englishName}"
 									>
 										<Pencil class="h-4 w-4" />
 									</Button>
@@ -475,7 +479,7 @@
 												confirmDisable(student);
 												showDisable = true;
 											}}
-											aria-label="Disable"
+											aria-label="Set {student.englishName} to not enrolled"
 											title="Disable student"
 										>
 											<AlertTriangle class="h-4 w-4 text-orange-500" />
@@ -488,7 +492,7 @@
 											confirmDelete(student);
 											showDelete = true;
 										}}
-										aria-label="Delete"
+										aria-label="Delete {student.englishName}"
 									>
 										<Trash2 class="h-4 w-4 text-red-500" />
 									</Button>
@@ -525,6 +529,7 @@
 				<div class="grid gap-4 py-4">
 					{#if formError}
 						<div
+							role="alert"
 							class="rounded bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400"
 						>
 							{formError}
@@ -581,6 +586,7 @@
 							<Label for="grade">Grade *</Label>
 							<NativeSelect.Root
 								bind:value={formGradeStr}
+								aria-label="Grade"
 								onchange={(e) => {
 									const target = e.target as HTMLSelectElement;
 									formGrade = Number(target.value);
@@ -604,7 +610,7 @@
 					</div>
 					<div class="space-y-2">
 						<Label for="status">Status</Label>
-						<NativeSelect.Root bind:value={formStatus}>
+						<NativeSelect.Root bind:value={formStatus} aria-label="Status">
 							<NativeSelect.Option value="" disabled>Select status</NativeSelect.Option>
 							{#each statuses as status}
 								<NativeSelect.Option value={status}>{status}</NativeSelect.Option>

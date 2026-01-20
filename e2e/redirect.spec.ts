@@ -1,5 +1,6 @@
 import { test } from '@playwright/test';
 import { expect } from '@playwright/test';
+import { setTestAuth } from './auth.helpers';
 
 test.describe('Authentication Redirects', () => {
 	test('should redirect to /login when visiting / while unauthenticated', async ({ page }) => {
@@ -19,7 +20,7 @@ test.describe('Authentication Redirects', () => {
 		await expect(page).toHaveURL(/\/login/);
 
 		// Should show sign in heading, not redirecting
-		await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible({ timeout: 10000 });
+		await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
 	});
 
 	test('redirect should preserve callbackUrl query param', async ({ page }) => {
@@ -30,7 +31,7 @@ test.describe('Authentication Redirects', () => {
 		await expect(page).toHaveURL(/\/login/);
 
 		// Verify we're on login page
-		await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible({ timeout: 10000 });
+		await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
 	});
 
 	test('should show loading state while auth is being determined', async ({ page }) => {
@@ -39,7 +40,7 @@ test.describe('Authentication Redirects', () => {
 		// Initially might show loading
 		const loading = page.locator('text=Loading...');
 		await expect(loading)
-			.toBeVisible({ timeout: 5000 })
+			.toBeVisible()
 			.catch(() => {
 				// Loading might have already finished, that's ok too
 			});
@@ -48,6 +49,11 @@ test.describe('Authentication Redirects', () => {
 
 test.describe('Authenticated User', () => {
 	test.use({ storageState: 'e2e/.auth/test.json' });
+
+	test.beforeEach(async ({ page }) => {
+		// Add test auth cookie as fallback (handles expired tokens)
+		await setTestAuth(page, 'teacher');
+	});
 
 	test('should display signed in state when already authenticated', async ({ page }) => {
 		await page.goto('/');

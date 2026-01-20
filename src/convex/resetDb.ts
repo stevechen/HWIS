@@ -8,10 +8,12 @@ export const resetDatabase = mutation({
 			user: { fields: undefined }
 		});
 
+		// Get all Better Auth users
+		const adapterUsers = await adapter.findMany({ model: 'user', where: [] });
+
 		// Delete test users (@hwis.test emails)
-		const existingUsers = await adapter.findMany({ model: 'user', where: [] });
 		let deletedUsers = 0;
-		for (const user of existingUsers as any[]) {
+		for (const user of adapterUsers as any[]) {
 			if (user.email && (user.email.includes('hwis.test') || user.email.includes('test'))) {
 				await adapter.deleteMany({
 					model: 'session',
@@ -30,7 +32,7 @@ export const resetDatabase = mutation({
 		const allUsers = await ctx.db.query('users').collect();
 		let deletedConvexUsers = 0;
 		for (const user of allUsers) {
-			const existingUser = await (adapter as any).findUnique({ model: 'user', id: user.authId });
+			const existingUser = (adapterUsers as any[]).find((u) => u.id === user.authId);
 			if (!existingUser) {
 				await ctx.db.delete(user._id);
 				deletedConvexUsers++;

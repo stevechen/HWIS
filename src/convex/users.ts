@@ -15,10 +15,16 @@ export const viewer = query({
 
 		if (!authUser._id) {
 			// Check for test mode by looking up a special test user
-			const testUser = await ctx.db
-				.query('users')
-				.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
-				.first();
+			// Try both possible authIds for test users
+			const testUser =
+				(await ctx.db
+					.query('users')
+					.withIndex('by_authId', (q) => q.eq('authId', 'test-user-id'))
+					.first()) ||
+				(await ctx.db
+					.query('users')
+					.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+					.first());
 
 			if (testUser) {
 				return {
@@ -35,7 +41,7 @@ export const viewer = query({
 			const email = authUserAny.email || '';
 
 			let role: 'admin' | 'super' | 'teacher' | 'student' = 'teacher';
-			if (token === 'test-token-mock' || email.includes('@hwis.test')) {
+			if (token === 'test-token-admin-mock' || email.includes('@hwis.test')) {
 				if (email.startsWith('super@') || token.includes('super')) {
 					role = 'super';
 				} else if (email.startsWith('admin@') || token.includes('admin')) {
@@ -190,5 +196,68 @@ export const setUserRole = mutation({
 			role: args.role,
 			status: args.status
 		});
+	}
+});
+
+export const setRoleByEmail = mutation({
+	args: {
+		email: v.string(),
+		role: v.optional(
+			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
+		),
+		status: v.optional(v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated')))
+	},
+	handler: async (ctx, args) => {
+		const allUsers = await ctx.db.query('users').collect();
+		const user = allUsers.find((u) => u.authId === args.email);
+		if (!user) {
+			throw new Error(`User not found for email: ${args.email}`);
+		}
+		await ctx.db.patch(user._id, {
+			role: args.role,
+			status: args.status
+		});
+		return { success: true, userId: user._id, role: args.role };
+	}
+});
+
+export const setRoleByToken = mutation({
+	args: {
+		token: v.string(),
+		role: v.optional(
+			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
+		),
+		status: v.optional(v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated')))
+	},
+	handler: async (ctx, args) => {
+		try {
+			const decodedToken = decodeURIComponent(args.token);
+			const parts = decodedToken.split('.');
+			if (parts.length !== 2) {
+				throw new Error('Invalid token format');
+			}
+			const payload = parts[1];
+			const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+			const decoded = JSON.parse(json);
+			const authId = decoded.sub || decoded.userId || decoded.email;
+			if (!authId) {
+				throw new Error('Could not extract user ID from token');
+			}
+
+			const allUsers = await ctx.db.query('users').collect();
+			const user = allUsers.find((u) => u.authId === authId);
+
+			if (!user) {
+				throw new Error(`User not found for authId: ${authId}`);
+			}
+
+			await ctx.db.patch(user._id, {
+				role: args.role,
+				status: args.status
+			});
+			return { success: true, userId: user._id, role: args.role, authId };
+		} catch (e: any) {
+			throw new Error(`Failed to set role: ${e.message}`);
+		}
 	}
 });

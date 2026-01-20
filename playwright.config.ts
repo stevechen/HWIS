@@ -13,7 +13,7 @@ const config: PlaywrightTestConfig = {
 	workers: process.env.CI ? 1 : undefined,
 	reporter: 'html',
 	webServer: {
-		command: 'npm run dev',
+		command: 'bun run dev',
 		url: 'http://localhost:5173',
 		reuseExistingServer: !process.env.CI,
 		timeout: 120000

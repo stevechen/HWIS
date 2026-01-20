@@ -123,6 +123,7 @@
 						placeholder="Filter by name or ID..."
 						bind:value={searchQuery}
 						class="pl-10"
+						aria-label="Search students"
 					/>
 				</div>
 
@@ -180,7 +181,7 @@
 					<label class="mb-2 block text-sm font-medium">
 						Category
 						<Select.Root type="single" bind:value={categoryId}>
-							<Select.Trigger class="mt-1">
+							<Select.Trigger class="mt-1" aria-label="Select category">
 								{selectedCategory?.name || 'Select Category'}
 							</Select.Trigger>
 							<Select.Content>
@@ -198,7 +199,7 @@
 							<label class="mb-2 block text-sm font-medium">
 								Sub-Category
 								<Select.Root type="single" bind:value={subCategory}>
-									<Select.Trigger class="mt-1">
+									<Select.Trigger class="mt-1" aria-label="Select sub-category">
 										{subCategory || 'Select Sub-Category'}
 									</Select.Trigger>
 									<Select.Content>
@@ -222,6 +223,7 @@
 								type="button"
 								variant={points === p ? 'default' : 'outline'}
 								onclick={() => (points = p)}
+								aria-label={p > 0 ? `Award ${p} points` : `Deduct ${Math.abs(p)} points`}
 							>
 								{p > 0 ? '+' : ''}{p}
 							</Button>
@@ -247,7 +249,12 @@
 					</div>
 				{/if}
 
-				<Button class="w-full" onclick={handleSubmit} disabled={loading}>
+				<Button
+					class="w-full"
+					onclick={handleSubmit}
+					disabled={loading}
+					aria-label="Submit evaluation for {selectedStudentIds.size} student(s)"
+				>
 					{#if loading}
 						Saving...
 					{:else}

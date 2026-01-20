@@ -1,5 +1,5 @@
 import { query, mutation } from './_generated/server';
-import { v, GenericId } from 'convex/values';
+import { v, type GenericId } from 'convex/values';
 
 export const exportData = query({
 	args: {},
@@ -168,17 +168,28 @@ export const clearEvaluations = mutation({
 export const advanceGradesAndClearEvaluations = mutation({
 	args: {},
 	handler: async (ctx) => {
-		const students = await ctx.db
-			.query('students')
-			.filter((q) => q.eq(q.field('status'), 'Enrolled'))
-			.collect();
-
-		for (const student of students) {
-			await ctx.db.patch(student._id, { grade: student.grade + 1 });
-		}
-
+		const students = await ctx.db.query('students').collect();
 		const evaluations = await ctx.db.query('evaluations').collect();
-		for (const evaluation of evaluations) {
+		const users = await ctx.db.query('users').collect();
+		const categories = await ctx.db.query('point_categories').collect();
+
+		const backup = {
+			exportedAt: new Date().toISOString(),
+			version: '1.0',
+			students,
+			evaluations,
+			users,
+			categories
+		};
+
+		await ctx.db.insert('backups', {
+			filename: `backup-${Date.now()}.json`,
+			data: backup as object,
+			createdAt: Date.now()
+		});
+
+		const allEvaluations = await ctx.db.query('evaluations').collect();
+		for (const evaluation of allEvaluations) {
 			await ctx.db.delete(evaluation._id);
 		}
 
@@ -191,8 +202,37 @@ export const advanceGradesAndClearEvaluations = mutation({
 			}
 		}
 
+		const grade12Students = await ctx.db
+			.query('students')
+			.filter((q) => q.eq(q.field('grade'), 12))
+			.collect();
+		for (const student of grade12Students) {
+			await ctx.db.delete(student._id);
+		}
+
+		const notEnrolledStudents = await ctx.db
+			.query('students')
+			.filter((q) => q.eq(q.field('status'), 'Not Enrolled'))
+			.collect();
+		for (const student of notEnrolledStudents) {
+			await ctx.db.delete(student._id);
+		}
+
+		const enrolledStudents = await ctx.db
+			.query('students')
+			.filter((q) => q.eq(q.field('status'), 'Enrolled'))
+			.collect();
+
+		let gradesAdvanced = 0;
+		for (const student of enrolledStudents) {
+			if (student.grade >= 7 && student.grade <= 11) {
+				await ctx.db.patch(student._id, { grade: student.grade + 1 });
+				gradesAdvanced++;
+			}
+		}
+
 		return {
-			message: `Advanced grades for ${students.length} students and cleared ${evaluations.length} evaluations and ${auditLogsCleared} audit logs`
+			message: `Advanced grades for ${gradesAdvanced} students, deleted ${grade12Students.length} grade 12 students, deleted ${notEnrolledStudents.length} not enrolled students, cleared ${allEvaluations.length} evaluations and ${auditLogsCleared} audit logs`
 		};
 	}
 });

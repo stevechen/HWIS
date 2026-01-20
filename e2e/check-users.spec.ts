@@ -1,13 +1,10 @@
 import { test as setup, expect } from '@playwright/test';
-import { seedBaseline } from './convex-client';
 
 setup.use({ storageState: 'e2e/.auth/admin.json' });
 
-setup('seed test data and verify setup', async ({ page }) => {
+setup('check test users in database', async ({ page }) => {
 	await page.goto('http://localhost:5173/');
 	await page.waitForSelector('body.hydrated');
-
-	await seedBaseline();
 
 	await page.goto('http://localhost:5173/admin/academic');
 	await page.waitForSelector('body.hydrated');

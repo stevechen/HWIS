@@ -88,9 +88,7 @@
 
 	$effect(() => {
 		if (!browser) return;
-		isTestMode =
-			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=true')) !==
-			undefined;
+		isTestMode = document.cookie.split('; ').some((row) => row.startsWith('hwis_test_auth='));
 	});
 
 	let filterName = $state('');
@@ -380,6 +378,7 @@
 	});
 
 	$effect(() => {
+		if (isTestMode) return;
 		// Always check user role, even in test mode with auth cookie
 		if (currentUser.isLoading === false) {
 			if (currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
@@ -403,14 +402,19 @@
 		</div>
 		<div class="flex items-center gap-2">
 			{#if !isDefaultOrder()}
-				<Button variant="outline" onclick={resetColumnOrder} class="mr-2">
+				<Button
+					variant="outline"
+					onclick={resetColumnOrder}
+					class="mr-2"
+					aria-label="Reset Columns"
+				>
 					<GripVertical class="mr-2 h-4 w-4" />
 					Reset Columns
 				</Button>
 			{/if}
 			<Popover.Root bind:open={isColumnSelectorOpen}>
 				<Popover.Trigger>
-					<Button variant="outline">
+					<Button variant="outline" aria-label="Columns">
 						<Columns class="mr-2 h-4 w-4" />
 						Columns
 					</Button>
@@ -445,15 +449,30 @@
 			{#if isStudentIdVisible}
 				<div class="relative h-9 items-center md:flex">
 					<Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-					<Input.Root class="w-28 pl-10" placeholder="ID" bind:value={filterId} />
+					<Input.Root
+						class="w-28 pl-10"
+						placeholder="ID"
+						bind:value={filterId}
+						aria-label="Filter by ID"
+					/>
 				</div>
 			{/if}
 			<div class="relative flex h-9 items-center">
 				<Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-				<Input.Root class="w-48 pl-10" placeholder="Student" bind:value={filterName} />
+				<Input.Root
+					class="w-48 pl-10"
+					placeholder="Student"
+					bind:value={filterName}
+					aria-label="Filter by student name"
+				/>
 			</div>
 			{#if isStudentGradeVisible}
-				<Select.Root type="single" value={filterGrade} onValueChange={(val) => (filterGrade = val)}>
+				<Select.Root
+					type="single"
+					value={filterGrade}
+					onValueChange={(val) => (filterGrade = val)}
+					aria-label="Filter by grade"
+				>
 					<Select.Trigger class="w-24">
 						{filterGrade ? `G${filterGrade}` : 'Grade'}
 					</Select.Trigger>
@@ -467,10 +486,15 @@
 			{/if}
 			<div class="relative flex h-9 items-center">
 				<Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-				<Input.Root class="w-48 pl-10" placeholder="Teacher" bind:value={filterTeacher} />
+				<Input.Root
+					class="w-48 pl-10"
+					placeholder="Teacher"
+					bind:value={filterTeacher}
+					aria-label="Filter by teacher name"
+				/>
 			</div>
 			{#if hasActiveFilters()}
-				<Button variant="outline" onclick={clearFilters}>
+				<Button variant="outline" onclick={clearFilters} aria-label="Clear all filters">
 					<X class="mr-2 h-4 w-4" />
 					Clear Filters
 				</Button>

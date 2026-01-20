@@ -281,11 +281,16 @@ export const checkStudentIdExists = query({
 export const checkStudentHasEvaluations = query({
 	args: { id: v.id('students') },
 	handler: async (ctx, args) => {
+		console.log('checkStudentHasEvaluations called with id:', args.id);
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.filter((q) => q.eq(q.field('studentId'), args.id))
 			.collect();
-
+		console.log(
+			'Found evaluations:',
+			evaluations.length,
+			evaluations.map((e) => ({ id: e._id, studentId: e.studentId }))
+		);
 		return {
 			hasEvaluations: evaluations.length > 0,
 			count: evaluations.length

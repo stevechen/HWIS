@@ -47,8 +47,9 @@ export default defineSchema({
 		chineseName: v.string(),
 		studentId: v.string(),
 		grade: v.number(),
-		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled'), v.literal('Graduated')),
-		note: v.optional(v.string())
+		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
+		note: v.optional(v.string()),
+		e2eTag: v.optional(v.string())
 	})
 		.index('by_studentId', ['studentId'])
 		.index('by_grade', ['grade'])
@@ -61,7 +62,8 @@ export default defineSchema({
 		targetId: v.string(),
 		oldValue: v.optional(v.any()),
 		newValue: v.optional(v.any()),
-		timestamp: v.number()
+		timestamp: v.number(),
+		e2eTag: v.optional(v.string())
 	})
 		.index('by_timestamp', ['timestamp'])
 		.index('by_performerId', ['performerId'])
@@ -69,7 +71,8 @@ export default defineSchema({
 
 	point_categories: defineTable({
 		name: v.string(),
-		subCategories: v.array(v.string())
+		subCategories: v.array(v.string()),
+		e2eTag: v.optional(v.string())
 	}),
 
 	evaluations: defineTable({
@@ -80,7 +83,8 @@ export default defineSchema({
 		subCategory: v.string(),
 		details: v.string(),
 		timestamp: v.number(),
-		semesterId: v.string()
+		semesterId: v.string(),
+		e2eTag: v.optional(v.string())
 	})
 		.index('by_studentId', ['studentId'])
 		.index('by_teacherId', ['teacherId'])
