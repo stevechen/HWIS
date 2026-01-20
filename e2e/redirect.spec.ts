@@ -2,48 +2,28 @@ import { test } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { setTestAuth } from './auth.helpers';
 
-test.describe('Authentication Redirects', () => {
-	test('should redirect to /login when visiting / while unauthenticated', async ({ page }) => {
-		await page.goto('/');
-
-		// Wait for either redirect or loading state
-		await page.waitForURL(/\/login|\/\?redirected=true/);
-
-		// If redirected, should end up on /login
-		await expect(page).toHaveURL(/\/login/);
-	});
-
-	test('login page should not redirect to itself', async ({ page }) => {
+test.describe('Login Page', () => {
+	test('does not redirect to itself', async ({ page }) => {
 		await page.goto('/login');
-
-		// Should stay on login page
+		await page.waitForSelector('body.hydrated');
 		await expect(page).toHaveURL(/\/login/);
-
-		// Should show sign in heading, not redirecting
 		await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
 	});
 
-	test('redirect should preserve callbackUrl query param', async ({ page }) => {
+	test('preserves callbackUrl after redirect', async ({ page }) => {
 		await page.goto('/?callbackUrl=/tasks');
-
-		// Should redirect to /login (the query param is used for the OAuth callback, not kept in URL)
 		await page.waitForURL(/\/login/);
 		await expect(page).toHaveURL(/\/login/);
-
-		// Verify we're on login page
 		await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
 	});
 
-	test('should show loading state while auth is being determined', async ({ page }) => {
+	test('shows loading state during auth check', async ({ page }) => {
 		await page.goto('/login');
-
-		// Initially might show loading
-		const loading = page.locator('text=Loading...');
+		await page.waitForSelector('body.hydrated');
+		const loading = page.getByText('Loading...');
 		await expect(loading)
-			.toBeVisible()
-			.catch(() => {
-				// Loading might have already finished, that's ok too
-			});
+			.toBeVisible({ timeout: 5000 })
+			.catch(() => {});
 	});
 });
 
@@ -51,14 +31,12 @@ test.describe('Authenticated User', () => {
 	test.use({ storageState: 'e2e/.auth/test.json' });
 
 	test.beforeEach(async ({ page }) => {
-		// Add test auth cookie as fallback (handles expired tokens)
 		await setTestAuth(page, 'teacher');
+		await page.goto('/');
+		await page.waitForSelector('body.hydrated');
 	});
 
-	test('should display signed in state when already authenticated', async ({ page }) => {
-		await page.goto('/');
-
-		// Should be on home page (not redirected to login)
+	test('stays on home page when authenticated', async ({ page }) => {
 		await expect(page).toHaveURL('/');
 	});
 });

@@ -2,34 +2,41 @@ import { test } from '@playwright/test';
 import { expect } from '@playwright/test';
 
 test.describe('Navigation', () => {
-	test('should navigate from home to login page directly', async ({ page }) => {
+	test('navigates directly to login page', async ({ page }) => {
 		await page.goto('/login');
+		await page.waitForSelector('body.hydrated');
 		await expect(page.locator('h2', { hasText: 'Sign In' })).toBeVisible();
 	});
 
-	test('login page should have proper layout', async ({ page }) => {
-		await page.goto('/login');
-
-		// Wait for the login form to appear - check for the Google button instead of specific CSS classes
-		await expect(page.locator('button', { hasText: 'Sign in with Google' })).toBeVisible();
-	});
-
-	test('should handle page not found gracefully', async ({ page }) => {
+	test('shows 404 for unknown routes', async ({ page }) => {
 		await page.goto('/nonexistent');
-
-		// SvelteKit should show 404 page
+		await page.waitForSelector('body.hydrated');
 		const pageContent = await page.content();
 		expect(pageContent).toContain('404');
 	});
+});
 
-	test('login page should display Google SSO button', async ({ page }) => {
+test.describe('Login Page', () => {
+	test.beforeEach(async ({ page }) => {
 		await page.goto('/login');
+		await page.waitForSelector('body.hydrated');
+	});
+
+	test('displays sign in heading', async ({ page }) => {
+		await expect(page.locator('h2', { hasText: 'Sign In' })).toBeVisible();
+	});
+
+	test('displays Google SSO button', async ({ page }) => {
 		await expect(page.locator('button', { hasText: 'Sign in with Google' })).toBeVisible();
 	});
 
-	test('login page should display domain restriction note', async ({ page }) => {
-		await page.goto('/login');
-		const note = page.getByText('Only for HWIS staffs', { exact: false });
+	test('displays Google logo in button', async ({ page }) => {
+		const googleButton = page.locator('button', { hasText: 'Sign in with Google' });
+		await expect(googleButton.locator('svg')).toBeVisible();
+	});
+
+	test('displays domain restriction note', async ({ page }) => {
+		const note = page.getByText(/only.*hwis.*staffs/i);
 		await expect(note).toBeVisible();
 	});
 });

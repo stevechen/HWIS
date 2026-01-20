@@ -3,35 +3,44 @@ import { expect } from '@playwright/test';
 
 test.describe('Permission Tests', () => {
 	test.describe('Unauthenticated Access', () => {
-		test('should redirect to /login when visiting /admin/* while unauthenticated', async ({
-			page
-		}) => {
-			await page.goto('/admin/students');
-
-			await page.waitForURL(/\/login/);
-			await expect(page).toHaveURL(/\/login/);
-
-			await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
-		});
-
-		test('should redirect to /login when visiting /evaluations/* while unauthenticated', async ({
-			page
-		}) => {
-			await page.goto('/evaluations');
-
-			await page.waitForURL(/\/login/);
-			await expect(page).toHaveURL(/\/login/);
-
-			await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
-		});
-
-		test('should redirect to /login when visiting / while unauthenticated', async ({ page }) => {
+		test.beforeEach(async ({ page }) => {
 			await page.goto('/');
+			await page.waitForSelector('body.hydrated');
+		});
 
+		test('redirects to /login for /admin/* routes', async ({ page }) => {
+			await page.goto('/admin/students');
 			await page.waitForURL(/\/login/);
 			await expect(page).toHaveURL(/\/login/);
-
 			await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
+		});
+
+		test('redirects to /login for root path', async ({ page }) => {
+			await page.goto('/');
+			await page.waitForURL(/\/login/);
+			await expect(page).toHaveURL(/\/login/);
+			await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
+		});
+
+		test('redirects to /login for /evaluations routes', async ({ page }) => {
+			await page.goto('/evaluations');
+			await page.waitForURL(/\/login/);
+			await expect(page).toHaveURL(/\/login/);
+			await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
+		});
+
+		test('redirects to /login for /evaluations/new', async ({ page }) => {
+			await page.goto('/evaluations/new');
+			await page.waitForURL(/\/login/);
+			await expect(page).toHaveURL(/\/login/);
+			await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
+		});
+
+		test('displays login page structure', async ({ page }) => {
+			await page.goto('/login');
+			await page.waitForSelector('body.hydrated');
+			await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
+			await expect(page.locator('button', { hasText: 'Sign in with Google' })).toBeVisible();
 		});
 	});
 });
