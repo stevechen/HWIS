@@ -44,7 +44,6 @@
 
 	let showForm = $state(false);
 	let editingId = $state<Id<'point_categories'> | null>(null);
-	let originalCategoryName = $state('');
 	let categoryName = $state('');
 	let subCategories = $state<string[]>([]);
 	let newSubCategory = $state('');
@@ -54,14 +53,12 @@
 		name: string;
 		subCategories: string[];
 	} | null>(null);
-	let relatedCount = $state(0);
 	let subCategoryWarning = $state<{ subCategory: string; count: number } | null>(null);
 
 	function startAdd() {
 		categoryName = '';
 		subCategories = [];
 		editingId = null;
-		originalCategoryName = '';
 		showForm = true;
 	}
 
@@ -71,7 +68,6 @@
 		subCategories: string[];
 	}) {
 		editingId = category._id;
-		originalCategoryName = category.name;
 		categoryName = category.name;
 		subCategories = [...category.subCategories];
 		showForm = true;
@@ -128,7 +124,6 @@
 		subCategories: string[];
 	}) {
 		categoryToDelete = category;
-		relatedCount = 0;
 		subCategoryWarning = null;
 
 		if (category.subCategories.length > 0) {

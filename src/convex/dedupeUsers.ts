@@ -1,6 +1,17 @@
 import { mutation } from './_generated/server';
 import { authComponent } from './auth';
 
+type User = {
+	_id: string;
+	authId: string;
+	_creationTime: number;
+};
+
+type BAUser = {
+	id: string;
+	email?: string;
+};
+
 export const dedupeUsers = mutation({
 	args: {},
 	handler: async (ctx) => {
@@ -8,15 +19,11 @@ export const dedupeUsers = mutation({
 			user: { fields: undefined }
 		});
 
-		// Get all Better Auth users
-		const baUsers = await adapter.findMany({ model: 'user', where: [] });
-		const validAuthIds = new Set(baUsers.map((u: any) => u.id));
+		const baUsers = (await adapter.findMany({ model: 'user', where: [] })) as BAUser[];
 
-		// Get all Convex users
-		const allUsers = await ctx.db.query('users').collect();
+		const allUsers = (await ctx.db.query('users').collect()) as User[];
 
-		// Group by authId
-		const usersByAuthId = new Map();
+		const usersByAuthId = new Map<string, User[]>();
 		for (const user of allUsers) {
 			const existing = usersByAuthId.get(user.authId) || [];
 			existing.push(user);
@@ -24,36 +31,23 @@ export const dedupeUsers = mutation({
 		}
 
 		let deleted = 0;
-		// For each authId, keep only the most recent and delete others
-		for (const [authId, users] of usersByAuthId) {
-			if (users.length <= 1) continue;
+		for (const [, usersList] of usersByAuthId) {
+			if (usersList.length <= 1) continue;
 
-			// Sort by creation time, keep the newest
-			users.sort((a: any, b: any) => b._creationTime - a._creationTime);
-			const keep = users[0];
-			const toDelete = users.slice(1);
+			usersList.sort((a: User, b: User) => b._creationTime - a._creationTime);
+			usersList.shift();
 
-			for (const user of toDelete) {
-				await ctx.db.delete(user._id);
+			for (const user of usersList) {
+				await ctx.db.delete(user._id as any);
 				deleted++;
 			}
 		}
 
-		// Also clean up test Better Auth users and orphaned Convex users
-		for (const u of baUsers as any[]) {
+		for (const u of baUsers) {
 			if (u.email && (u.email.includes('test') || u.email.includes('hwis.test'))) {
 				await adapter.deleteMany({ model: 'session', where: [{ field: 'userId', value: u.id }] });
 				await adapter.deleteMany({ model: 'account', where: [{ field: 'userId', value: u.id }] });
 				await adapter.deleteMany({ model: 'user', where: [{ field: 'id', value: u.id }] });
-			}
-		}
-
-		// Remove orphaned Convex users
-		const updatedUsers = await ctx.db.query('users').collect();
-		for (const user of updatedUsers) {
-			if (!validAuthIds.has(user.authId)) {
-				await ctx.db.delete(user._id);
-				deleted++;
 			}
 		}
 

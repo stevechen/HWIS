@@ -8,7 +8,7 @@ describe('students.create', () => {
 	it('creates a student with valid data', async () => {
 		const t = convexTest(schema, modules);
 
-		const studentId = await t.mutation(api.students.create, {
+		await t.mutation(api.students.create, {
 			englishName: 'Test Student',
 			chineseName: '測試學生',
 			studentId: 'S9999',
@@ -16,7 +16,7 @@ describe('students.create', () => {
 			status: 'Enrolled'
 		});
 
-		const students = await t.query(api.students.list);
+		const students = await t.query(api.students.list, {});
 		expect(students).toHaveLength(1);
 		expect(students[0].englishName).toBe('Test Student');
 		expect(students[0].studentId).toBe('S9999');
@@ -87,7 +87,7 @@ describe('students.update', () => {
 			status: 'Enrolled'
 		});
 
-		const student = (await t.query(api.students.list))[0];
+		const student = (await t.query(api.students.list, {}))[0];
 
 		await t.mutation(api.students.update, {
 			id: student._id,
@@ -98,7 +98,7 @@ describe('students.update', () => {
 			status: 'Not Enrolled'
 		});
 
-		const updatedStudent = (await t.query(api.students.list))[0];
+		const updatedStudent = (await t.query(api.students.list, {}))[0];
 		expect(updatedStudent.englishName).toBe('Updated Name');
 		expect(updatedStudent.grade).toBe(11);
 		expect(updatedStudent.status).toBe('Not Enrolled');
@@ -148,12 +148,12 @@ describe('students.remove', () => {
 			status: 'Enrolled'
 		});
 
-		let students = await t.query(api.students.list);
+		let students = await t.query(api.students.list, {});
 		expect(students).toHaveLength(1);
 
 		await t.mutation(api.students.remove, { id: studentId });
 
-		students = await t.query(api.students.list);
+		students = await t.query(api.students.list, {});
 		expect(students).toHaveLength(0);
 	});
 
@@ -212,7 +212,7 @@ describe('students.changeStatus', () => {
 			status: 'Not Enrolled'
 		});
 
-		const student = (await t.query(api.students.list))[0];
+		const student = (await t.query(api.students.list, {}))[0];
 		expect(student.status).toBe('Not Enrolled');
 	});
 
@@ -232,7 +232,7 @@ describe('students.changeStatus', () => {
 			status: 'Enrolled'
 		});
 
-		const student = (await t.query(api.students.list))[0];
+		const student = (await t.query(api.students.list, {}))[0];
 		expect(student.status).toBe('Enrolled');
 	});
 });
@@ -265,7 +265,7 @@ describe('students.list', () => {
 			status: 'Enrolled'
 		});
 
-		const students = await t.query(api.students.list);
+		const students = await t.query(api.students.list, {});
 		expect(students).toHaveLength(3);
 		expect(students[0].englishName).toBe('Alice');
 		expect(students[1].englishName).toBe('Bob');
@@ -397,7 +397,7 @@ describe('students.removeWithCascade', () => {
 		expect(result.deletedStudent).toBe('Cascade Student');
 		expect(result.deletedEvaluations).toBe(2);
 
-		const students = await t.query(api.students.list);
+		const students = await t.query(api.students.list, {});
 		expect(students).toHaveLength(0);
 	});
 
@@ -409,5 +409,194 @@ describe('students.removeWithCascade', () => {
 				id: 'fake-student-id' as any
 			});
 		}).rejects.toThrowError();
+	});
+});
+
+describe('students edge cases', () => {
+	it('creates students with all valid grades (7-12)', async () => {
+		const t = convexTest(schema, modules);
+
+		for (let grade = 7; grade <= 12; grade++) {
+			await t.mutation(api.students.create, {
+				englishName: `Student Grade ${grade}`,
+				chineseName: `${grade}年級學生`,
+				studentId: `S_GRADE_${grade}`,
+				grade,
+				status: 'Enrolled'
+			});
+		}
+
+		const students = await t.query(api.students.list, {});
+		expect(students).toHaveLength(6);
+
+		const grades = students.map((s) => s.grade);
+		expect(grades).toContain(7);
+		expect(grades).toContain(8);
+		expect(grades).toContain(9);
+		expect(grades).toContain(10);
+		expect(grades).toContain(11);
+		expect(grades).toContain(12);
+	});
+
+	it('creates student with note', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.students.create, {
+			englishName: 'Student With Note',
+			chineseName: '有備註學生',
+			studentId: 'S_NOTE001',
+			grade: 10,
+			status: 'Enrolled',
+			note: 'Special accommodations required'
+		});
+
+		const students = await t.query(api.students.list, {});
+		expect(students).toHaveLength(1);
+		expect(students[0].note).toBe('Special accommodations required');
+	});
+
+	it('creates student without note (empty string)', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.students.create, {
+			englishName: 'Student No Note',
+			chineseName: '無備註學生',
+			studentId: 'S_NOTE002',
+			grade: 11,
+			status: 'Enrolled',
+			note: ''
+		});
+
+		const students = await t.query(api.students.list, {});
+		expect(students).toHaveLength(1);
+		expect(students[0].note).toBe('');
+	});
+
+	it('updates only specific fields (preserves others)', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.students.create, {
+			englishName: 'Original Name',
+			chineseName: '原名',
+			studentId: 'S_UPDATE01',
+			grade: 10,
+			status: 'Enrolled',
+			note: 'Original note'
+		});
+
+		const student = (await t.query(api.students.list, {}))[0];
+
+		await t.mutation(api.students.update, {
+			id: student._id,
+			englishName: 'New Name',
+			chineseName: '原名',
+			studentId: 'S_UPDATE01',
+			grade: 10,
+			status: 'Enrolled'
+		});
+
+		const updated = (await t.query(api.students.list, {}))[0];
+		expect(updated.englishName).toBe('New Name');
+		expect(updated.chineseName).toBe('原名');
+		expect(updated.note).toBe('Original note');
+	});
+
+	it('search matches both English and Chinese names', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.students.create, {
+			englishName: 'Michael Chen',
+			chineseName: '陳邁克',
+			studentId: 'S_SEARCH01',
+			grade: 10,
+			status: 'Enrolled'
+		});
+
+		await t.mutation(api.students.create, {
+			englishName: 'John Wang',
+			chineseName: '王約翰',
+			studentId: 'S_SEARCH02',
+			grade: 11,
+			status: 'Enrolled'
+		});
+
+		const byEnglish = await t.query(api.students.list, { search: 'Michael' });
+		expect(byEnglish).toHaveLength(1);
+		expect(byEnglish[0].englishName).toBe('Michael Chen');
+
+		const byChinese = await t.query(api.students.list, { search: '陳' });
+		expect(byChinese).toHaveLength(1);
+		expect(byChinese[0].chineseName).toBe('陳邁克');
+	});
+
+	it('search is case insensitive', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.students.create, {
+			englishName: 'Test Student',
+			chineseName: '測試學生',
+			studentId: 'S_CASE01',
+			grade: 10,
+			status: 'Enrolled'
+		});
+
+		const upper = await t.query(api.students.list, { search: 'TEST' });
+		expect(upper).toHaveLength(1);
+
+		const lower = await t.query(api.students.list, { search: 'test' });
+		expect(lower).toHaveLength(1);
+
+		const mixed = await t.query(api.students.list, { search: 'TeSt' });
+		expect(mixed).toHaveLength(1);
+	});
+
+	it('handles multiple status transitions', async () => {
+		const t = convexTest(schema, modules);
+
+		const studentId = await t.mutation(api.students.create, {
+			englishName: 'Transition Student',
+			chineseName: '轉變學生',
+			studentId: 'S_TRANS01',
+			grade: 10,
+			status: 'Enrolled'
+		});
+
+		await t.mutation(api.students.changeStatus, { id: studentId, status: 'Not Enrolled' });
+		let student = (await t.query(api.students.list, {}))[0];
+		expect(student.status).toBe('Not Enrolled');
+
+		await t.mutation(api.students.changeStatus, { id: studentId, status: 'Enrolled' });
+		student = (await t.query(api.students.list, {}))[0];
+		expect(student.status).toBe('Enrolled');
+	});
+
+	it('filters by combined grade and status', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.students.create, {
+			englishName: 'Grade 10 Enrolled',
+			chineseName: '十年級在校',
+			studentId: 'S_COMB01',
+			grade: 10,
+			status: 'Enrolled'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'Grade 10 Not Enrolled',
+			chineseName: '十年級不在校',
+			studentId: 'S_COMB02',
+			grade: 10,
+			status: 'Not Enrolled'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'Grade 11 Enrolled',
+			chineseName: '十一年級在校',
+			studentId: 'S_COMB03',
+			grade: 11,
+			status: 'Enrolled'
+		});
+
+		const grade10Enrolled = await t.query(api.students.list, { grade: 10, status: 'Enrolled' });
+		expect(grade10Enrolled).toHaveLength(1);
+		expect(grade10Enrolled[0].englishName).toBe('Grade 10 Enrolled');
 	});
 });

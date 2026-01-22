@@ -31,7 +31,7 @@ export async function clearTestAuth(page: Page) {
 	}
 }
 
-export async function setTestAuthFromStorageState(page: Page, storageState: string) {
+export async function setTestAuthFromStorageState(page: Page) {
 	await page.context().addCookies([
 		{
 			name: 'hwis_test_auth',

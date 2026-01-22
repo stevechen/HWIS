@@ -6,20 +6,21 @@ This document provides comprehensive guidance for AI agents working on the HWIS 
 
 ```bash
 # Run unit tests (fast, no server needed)
-npm run test:unit
+bun run test:unit
 
 # Run e2e tests (requires dev server running)
-npm run test:e2e
+bun run test:e2e
 
 # Run all tests
-npm run test:all
+bun run test:all
 ```
 
 ## Test Architecture
 
 ### Stack
 
-- **Unit Tests**: Vitest + convex-test (fast, deterministic, no network calls)
+- **Unit Tests (Browser)**: Vitest + vitest-browser-svelte (real Chromium, semantic locators)
+- **Unit Tests (Server)**: Vitest + convex-test (fast, deterministic, no network calls)
 - **E2E Tests**: Playwright (real browser, tests full UI flows)
 - **Auth**: Better Auth with Google OAuth
 
@@ -28,267 +29,157 @@ npm run test:all
 ```
 HWIS/
 ├── src/
-│   ├── lib/
-│   │   └── e2e-utils.ts      # Test utilities (Convex client helpers)
-│   └── convex/
-│       ├── testSetup.ts      # Creates test users in Convex
-│       ├── testCleanup.ts    # Cleans up test data
-│       ├── testE2E.ts        # E2E-specific test functions
-│       └── dataFactory.ts    # Creates test data (students, categories, etc.)
+│   ├── convex/
+│   │   └── *.test.ts           # Server-side unit tests (convex-test)
+│   └── routes/
+│       └── admin/
+│           └── +page.svelte    # Components under test
+├── tests/
+│   └── routes/
+│       └── admin/
+│           └── *.test.ts       # Browser unit tests (vitest-browser-svelte)
 ├── e2e/
-│   ├── convex-client.ts      # Import THIS in tests for data helpers
-│   ├── auth.helpers.ts       # Auth helpers (setTestAuth, etc.)
-│   ├── students.shared.ts    # Shared student test utilities
-│   ├── helpers.ts            # getTestSuffix() utility
-│   └── *.spec.ts             # Playwright test files
-└── TESTING.md                # This file
+│   └── *.spec.ts               # Playwright E2E tests
+└── TESTING.md                  # This file
 ```
 
-## Key Testing Principles
+## Browser Unit Tests (vitest-browser-svelte)
 
-### 1. Hydration Flag (Critical)
+### New Locator Pattern (Required)
 
-The app adds `body.hydrated` class when SvelteKit client-side hydration is complete. Always wait for this before interacting with the UI:
-
-```typescript
-test.beforeEach(async ({ page }) => {
-	await page.goto('/admin/categories');
-	await page.waitForSelector('body.hydrated'); // Wait for hydration!
-});
-```
-
-**Why?** SvelteKit renders SSR HTML first, then hydrates. Without waiting, tests may interact with non-interactive SSR content.
-
-### 2. Auto-Waiting with Web-First Assertions
-
-**NEVER use `page.waitForTimeout()`.** Use web-first assertions instead:
+Tests run in real Chromium using semantic locators:
 
 ```typescript
-// BAD - arbitrary timeout
-await page.waitForTimeout(3000);
-await expect(page.getByText('New Data')).toBeVisible();
+import { page } from 'vitest/browser';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render } from 'vitest-browser-svelte';
 
-// GOOD - Playwright auto-retries until condition met (default 5s timeout)
-await expect(page.getByText('New Data')).toBeVisible();
-```
+vi.mock('convex-svelte', () => ({
+	useQuery: vi.fn((_api: unknown) => {
+		const apiStr = JSON.stringify(_api);
+		if (apiStr.includes('viewer')) {
+			return { data: { role: 'admin' }, loading: false, error: null };
+		}
+		return { data: [], loading: false, error: null };
+	}),
+	useConvexClient: vi.fn(() => ({
+		mutation: vi.fn().mockResolvedValue(undefined),
+		query: vi.fn().mockResolvedValue({})
+	}))
+}));
 
-Web-first assertions automatically poll until:
+vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
+	useAuth: vi.fn(() => ({
+		isLoading: false,
+		isAuthenticated: true,
+		data: { user: { name: 'Test Admin' } }
+	}))
+}));
 
-- Element is visible
-- Text matches
-- Count equals expected value
-- etc.
+import StudentsPage from '$src/routes/admin/students/+page.svelte';
 
-This works perfectly with Convex subscriptions - Playwright will retry until Convex pushes the new data. The default 5s timeout is sufficient for most cases.
-
-### 3. Data Isolation
-
-Always use unique `e2eTag` for each test to prevent parallel workers from interfering:
-
-```typescript
-const suffix = getTestSuffix('mytest'); // e.g., "mytest_123456_abc"
-const categoryName = `Category_${suffix}`;
-
-await createCategory({
-	name: categoryName,
-	e2eTag: `e2e-test_${suffix}`
-});
-```
-
-### 4. No Reload Needed After Server-Side Data Creation
-
-With web-first assertions, you don't need to reload after creating data via server API:
-
-```typescript
-// Create data via server API
-await createCategory({ name: 'Test', e2eTag: 'test' });
-
-// Web-first assertion auto-retries until Convex subscription updates
-await expect(page.getByText('Test')).toBeVisible();
-```
-
-## Writing E2E Tests
-
-### Use Convenience Imports (Recommended)
-
-Import from `e2e/convex-client.ts`:
-
-```typescript
-import { test, expect } from '@playwright/test';
-import { createCategory, cleanupTestData, getTestSuffix } from './convex-client';
-import { cleanupE2EData } from './students.shared';
-
-test.describe('Categories @categories', () => {
-	test.beforeEach(async ({ page }) => {
-		await page.goto('/admin/categories');
-		await page.waitForSelector('body.hydrated');
+describe('Students Page', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
 	});
 
-	test.afterEach(async () => {
-		await cleanupE2EData(page, 'test');
+	it('renders page title as heading', async () => {
+		render(StudentsPage);
+		await expect
+			.element(page.getByRole('heading', { name: 'Student Management' }))
+			.toBeInTheDocument();
 	});
 
-	test('can add category', async ({ page }) => {
-		const suffix = getTestSuffix('add');
-		const categoryName = `Category_${suffix}`;
-
-		await page.getByRole('button', { name: 'Add new category' }).click();
-		await page.getByLabel('Category Name').fill(categoryName);
-		await page.getByRole('button', { name: 'Save' }).click();
-
-		// Web-first assertion - waits for Convex subscription update
-		await expect(page.getByText(categoryName)).toBeVisible();
+	it('shows back to admin button', async () => {
+		render(StudentsPage);
+		await expect.element(page.getByRole('button', { name: 'Back to Admin' })).toBeInTheDocument();
 	});
 
-	test('can delete category with cascade', async ({ page }) => {
-		const suffix = getTestSuffix('delCasc');
-		const categoryName = `Category_${suffix}`;
-
-		// Create category via server API
-		await createCategoryWithSubs({
-			name: categoryName,
-			subCategories: ['Sub1'],
-			e2eTag: `e2e-test_${suffix}`
-		});
-
-		// Web-first assertion - no reload needed
-		await expect(page.getByRole('row', { name: categoryName })).toBeVisible();
-
-		// Click delete button
-		const row = page.locator('table tbody tr', { hasText: categoryName });
-		await row.getByRole('button', { name: 'Delete' }).click();
-		await expect(page.getByRole('dialog')).toBeVisible();
-
-		// Verify warning appears (Convex query result)
-		await expect(page.getByText(/This category has sub-categories with evaluations/)).toBeVisible({
-			timeout: 5000
-		});
+	it('renders search input', async () => {
+		render(StudentsPage);
+		const searchInput = page.getByPlaceholder('Search by name or student ID...');
+		await expect.element(searchInput).toBeInTheDocument();
 	});
 });
 ```
 
-**Available imports from `e2e/convex-client.ts`:**
+### Key Principles
 
-- `seedBaseline()` - Seeds users, categories
-- `createStudent(opts)` - Create student with ID
-- `createCategory(opts)` - Create category
-- `createCategoryWithSubs(opts)` - Category with subcategories
-- `createEvalForCategory(name)` - Create evaluation for category
-- `createEvaluationForStudent(data)` - Create evaluation for student
-- `cleanupTestData(tag)` - Cleanup by e2eTag
-- `cleanupAll()` - Nuclear cleanup
-- `cleanupAuditLogs()` - Cleanup audit logs
-- `resetAll()` - Reset all test data
-- `setRoleByEmail(email, role)` - Set user role
-- `setMyRole(role)` - Set current user role
+1. **Use Semantic Locators** (priority order):
+   - `page.getByRole('heading')` - for headings
+   - `page.getByRole('button')` - for buttons
+   - `page.getByRole('textbox')` - for inputs
+   - `page.getByRole('combobox')` - for dropdowns
+   - `page.getByPlaceholder()` - for placeholder text
+   - `page.getByText()` - fallback for static text
 
-**From `e2e/students.shared.ts`:**
-
-- `cleanupE2EData(page, testId)` - Cleanup test data (handles errors gracefully)
-- `getTestSuffix(testId)` - Generate unique test suffix
-- `expect` - Playwright expect for assertions
-
-## Auth in Tests
-
-### Setting Test Auth
-
-Use `setTestAuth` from `e2e/auth.helpers.ts`:
-
-```typescript
-import { setTestAuth } from './auth.helpers';
-
-test.beforeEach(async ({ page }) => {
-	await setTestAuth(page, 'admin'); // 'admin', 'super', or 'teacher'
-});
-```
-
-Or use pre-generated auth files:
-
-```typescript
-test.use({ storageState: 'e2e/.auth/admin.json' });
-```
-
-### Auth Files
-
-Pre-generated auth files in `e2e/.auth/`:
-
-- `admin.json` - Admin user session for most tests
-- `super.json` - Super admin session for audit page
-- `teacher.json` - Teacher session for evaluations
-- `test.json` - Generic test session
-
-## Test Data Management
-
-### Tagging Test Data
-
-All test data should include an `e2eTag` for cleanup:
-
-```typescript
-await createStudent({
-	studentId: 'S_123',
-	englishName: 'Test',
-	grade: 10,
-	e2eTag: `test_${getTestSuffix('mytest')}`
-});
-```
-
-### Generating Unique IDs
-
-Use `getTestSuffix()` from `e2e/helpers.ts`:
-
-```typescript
-import { getTestSuffix } from './helpers';
-
-const suffix = getTestSuffix('mytest'); // e.g., "mytest_123456_abc123"
-const studentId = `S_${suffix}`;
-```
-
-### Cleanup Strategy
-
-1. **Per-test cleanup** - Clean up in `test.afterEach`:
+2. **Await All Assertions**:
 
    ```typescript
-   test.afterEach(async () => {
-   	await cleanupTestData(getTestSuffix('testId'));
-   });
+   // Required - always await expect.element()
+   await expect.element(page.getByRole('heading')).toBeInTheDocument();
    ```
 
-2. **Nuclear cleanup** - Run cleanup via Convex CLI:
+3. **Mock Convex Properly**:
 
-   ```bash
-   # Nuke all test data (users, students, evaluations, categories, audit logs)
-   npx convex run testCleanup:cleanupAll
+   ```typescript
+   vi.mock('convex-svelte', () => ({
+   	useQuery: vi.fn((_api: unknown) => {
+   		const apiStr = JSON.stringify(_api);
+   		if (apiStr.includes('viewer')) {
+   			return { data: { role: 'admin' }, loading: false, error: null };
+   		}
+   		return { data: [], loading: false, error: null };
+   	}),
+   	useConvexClient: vi.fn(() => ({
+   		mutation: vi.fn().mockResolvedValue(undefined),
+   		query: vi.fn().mockResolvedValue({})
+   	}))
+   }));
 
-   # Full database reset + re-seed default data
-   npx convex run resetDb:resetDatabase
+   vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
+   	useAuth: vi.fn(() => ({
+   		isLoading: false,
+   		isAuthenticated: true,
+   		data: { user: { name: 'Test Admin' } }
+   	}))
+   }));
    ```
 
-3. **Per-table cleanup** - Via Convex dashboard or CLI:
+4. **Test Static Structure Only**:
+   - Headers, buttons, form labels, table structures
+   - Avoid testing Convex-dynamic content (doesn't render with mocks)
 
-   ```bash
-   # Clean up test data by e2eTag
-   npx convex run testCleanup:cleanupAllTestData
-
-   # Clean up orphaned test users
-   npx convex run testCleanup:cleanupAllTestUsers
-
-   # Clean up audit logs
-   npx convex run testCleanup:cleanupAuditLogs
+5. **Use `isLoading: true`** for pages with auth redirects:
+   ```typescript
+   useQuery: vi.fn(() => ({
+   	data: { role: 'admin' },
+   	isLoading: true, // Prevents redirect during test
+   	loading: true,
+   	error: null
+   }));
    ```
 
-## Unit Tests (Vitest)
+### Running Browser Tests
+
+```bash
+# Run all browser unit tests
+bunx vitest run --project=client
+
+# Run specific test file
+bunx vitest run tests/routes/admin/students/student-table.test.ts
+
+# Run with UI
+bunx vitest run --ui
+```
+
+## Server Unit Tests (convex-test)
 
 ### Location
 
 - `src/convex/students.test.ts` - Student CRUD tests
 - `src/convex/categories.test.ts` - Category tests
-
-### Running
-
-```bash
-npm run test:unit              # Run all unit tests
-npx vitest run src/convex/students.test.ts  # Specific file
-```
+- `src/convex/*.test.ts` - Other Convex function tests
 
 ### Pattern
 
@@ -305,126 +196,137 @@ test('creates student', async () => {
 });
 ```
 
-## Debugging Tests
-
-### Verbose Output
+### Running Server Tests
 
 ```bash
-DEBUG=pw:api npx playwright test --reporter=line
+# Run all server unit tests
+bunx vitest run --project=server
+
+# Run specific file
+bunx vitest run src/convex/students.test.ts
 ```
 
-### Error Context
+## E2E Tests (Playwright)
 
-Playwright generates `error-context.md` files in `test-results/` when tests fail. Check these for:
+### Use Convenience Imports
 
-- Page snapshot at failure point
-- DOM structure
-- Console logs
-
-### Test Isolation
-
-Each test gets a fresh Convex database. Use unique `e2eTag` to avoid conflicts.
-
-### Common Issues & Solutions
-
-| Issue                   | Solution                                                                                 |
-| ----------------------- | ---------------------------------------------------------------------------------------- |
-| Auth failures           | Check `e2e/.auth/*.json` files exist. Use `setTestAuth(page, 'role')` as fallback        |
-| Hydration not complete  | Use `await page.waitForSelector('body.hydrated')` before interacting                     |
-| Data not appearing      | Don't use `waitForTimeout()` - use `await expect(locator).toBeVisible()`                 |
-| Test times out          | Use web-first assertions with timeout: `expect(locator).toBeVisible({ timeout: 30000 })` |
-| Wrong element found     | Use specific selectors: `page.getByRole('row', { name: 'Target' }).getByRole('button')`  |
-| Convex subscription lag | Web-first assertions auto-retry - no reload needed                                       |
-
-### Timing Issues with Convex
-
-If Convex data isn't appearing:
-
-1. **Wait for hydration first**:
-
-   ```typescript
-   await page.waitForSelector('body.hydrated');
-   ```
-
-2. **Use web-first assertions** (they auto-retry):
-
-   ```typescript
-   await expect(page.getByText('New Data')).toBeVisible({ timeout: 15000 });
-   ```
-
-3. **Avoid fixed timeouts** - they don't adapt to actual conditions and slow down tests.
-
-## Adding New Test Utilities
-
-### Step 1: Add to `src/lib/e2e-utils.ts`
+Import from `e2e/convex-client.ts`:
 
 ```typescript
-export function getE2EUtils(): E2EUtils {
-	const client = new ConvexHttpClient(CONVEX_URL);
-	return {
-		// ... existing methods
-		myNewMethod: async () => {
-			// implementation
-			return await client.mutation(api.myModule.myFunction, {});
-		}
-	};
-}
+import { test, expect } from '@playwright/test';
+import { createCategory, cleanupTestData, getTestSuffix } from './convex-client';
+
+test.describe('Categories @categories', () => {
+	test.beforeEach(async ({ page }) => {
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated'); // Critical!
+	});
+
+	test('can add category', async ({ page }) => {
+		const suffix = getTestSuffix('add');
+		const categoryName = `Category_${suffix}`;
+
+		await page.getByRole('button', { name: 'Add new category' }).click();
+		await page.getByLabel('Category Name').fill(categoryName);
+		await page.getByRole('button', { name: 'Save' }).click();
+
+		// Web-first assertion - waits for Convex subscription update
+		await expect(page.getByText(categoryName)).toBeVisible();
+	});
+});
 ```
 
-### Step 2: Export from `e2e/convex-client.ts`
+### Available E2E Imports
+
+From `e2e/convex-client.ts`:
+
+- `seedBaseline()` - Seeds users, categories
+- `createStudent(opts)` - Create student with ID
+- `createCategory(opts)` - Create category
+- `createCategoryWithSubs(opts)` - Category with subcategories
+- `createEvaluationForStudent(data)` - Create evaluation for student
+- `cleanupTestData(tag)` - Cleanup by e2eTag
+- `cleanupAll()` - Nuclear cleanup
+
+### Running E2E Tests
+
+```bash
+# Run all e2e tests (requires dev server)
+bun run test:e2e
+
+# Run specific test
+bunx playwright test e2e/students.spec.ts
+
+# Run with single worker (more stable)
+bunx playwright test e2e/students.spec.ts --workers=1
+```
+
+## All Test Commands
+
+```bash
+# Browser unit tests (locator pattern)
+bunx vitest run --config vite.config.ts
+
+# Server unit tests (convex-test)
+bunx vitest run src/convex/*.test.ts
+
+# E2E tests (Playwright)
+bun run test:e2e
+
+# Full test suite
+bun run test:all
+```
+
+## Data Isolation
+
+### E2E Tests
+
+Use unique `e2eTag` for each test:
 
 ```typescript
-export async function myNewMethod() {
-	const utils = getUtils();
-	return await utils.myNewMethod();
-}
+const suffix = getTestSuffix('mytest'); // e.g., "mytest_123456_abc"
+const categoryName = `Category_${suffix}`;
+
+await createCategory({
+	name: categoryName,
+	e2eTag: `e2e-test_${suffix}`
+});
 ```
 
-### Step 3: Use in Tests
+### Cleanup
 
-```typescript
-import { myNewMethod } from './convex-client';
-await myNewMethod();
+```bash
+# Nuclear cleanup
+bunx convex run testCleanup:cleanupAll
+
+# Full database reset
+bunx convex run resetDb:resetDatabase
 ```
 
-## Environment Variables
+## Common Issues & Solutions
 
-| Variable               | Description                                            |
-| ---------------------- | ------------------------------------------------------ |
-| `CONVEX_URL`           | Convex dev server (default: http://localhost:3210)     |
-| `CONVEX_AUTH_TOKEN`    | Admin token for cleanup operations                     |
-| `GOOGLE_CLIENT_ID`     | Google OAuth client ID (dev: from `auth.local.ts`)     |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret (dev: from `auth.local.ts`) |
+| Issue                  | Solution                                                  |
+| ---------------------- | --------------------------------------------------------- |
+| Auth failures          | Check `e2e/.auth/*.json` files exist                      |
+| Hydration not complete | Use `await page.waitForSelector('body.hydrated')`         |
+| Data not appearing     | Use `await expect(locator).toBeVisible()`                 |
+| Locator not found      | Use semantic queries: `getByRole()`, `getByPlaceholder()` |
+| Test times out         | Use web-first assertions with timeout                     |
+| Wrong element found    | Use specific selectors with name option                   |
+| Version mismatch       | Ensure `@vitest/browser` and `vitest` versions match      |
 
 ## CI/CD Pipeline
 
 Tests run on every PR:
 
-1. **Unit tests** - Fast, no server needed
-
-   ```bash
-   npm run test:unit
-   ```
-
-2. **E2E tests** - Requires dev server
-
-   ```bash
-   npm run test:e2e
-   ```
-
-Full test suite:
-
-```bash
-npm run test:all
-```
+1. **Browser unit tests** - Vitest with real Chromium
+2. **Server unit tests** - Vitest with convex-test
+3. **E2E tests** - Playwright (requires dev server)
 
 ## Related Documentation
 
-- [Playwright Documentation](https://playwright.dev/docs)
-- [Vitest Documentation](https://vitest.dev/guide/)
+- [Vitest Browser Mode](https://vitest.dev/guide/browser/)
+- [vitest-browser-svelte](https://github.com/vitest-dev/vitest-browser-svelte)
+- [Playwright](https://playwright.dev/docs)
 - [Convex Testing](https://docs.convex.dev/testing)
 - [Better Auth](https://www.better-auth.com/docs)
-
----
-
-**For AI Agents**: All tests should import utilities from `e2e/convex-client.ts` and follow the hydration + web-first assertion patterns described above.

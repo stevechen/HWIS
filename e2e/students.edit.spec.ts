@@ -13,11 +13,11 @@ test.describe('Edit Student @students', () => {
 		await page.waitForSelector('body.hydrated');
 	});
 
-	test.afterEach(async ({ page }) => {
+	test.afterEach(async () => {
 		const suffix = getTestSuffix('editStudent');
 		try {
 			await cleanupTestData(suffix);
-		} catch (e) {
+		} catch {
 			console.log(`[TEST] Cleanup skipped for editStudent`);
 		}
 	});

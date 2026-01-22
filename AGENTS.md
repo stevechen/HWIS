@@ -24,19 +24,87 @@ After completing the code, ask the user if they want a playground link. Only cal
 
 ## Testing
 
-### Unit Tests (Convex functions)
+### Browser Unit Tests (vitest-browser-svelte)
+
+Tests run in real Chromium using semantic locators:
+
+```typescript
+import { page } from 'vitest/browser';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render } from 'vitest-browser-svelte';
+
+vi.mock('convex-svelte', () => ({
+	useQuery: vi.fn(() => ({
+		data: [],
+		loading: false,
+		error: null
+	})),
+	useConvexClient: vi.fn(() => ({
+		mutation: vi.fn().mockResolvedValue(undefined),
+		query: vi.fn().mockResolvedValue({})
+	}))
+}));
+
+import StudentsPage from '$src/routes/admin/students/+page.svelte';
+
+describe('Students Page', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('renders page title as heading', async () => {
+		render(StudentsPage);
+		await expect
+			.element(page.getByRole('heading', { name: 'Student Management' }))
+			.toBeInTheDocument();
+	});
+
+	it('shows back to admin button', async () => {
+		render(StudentsPage);
+		await expect.element(page.getByRole('button', { name: 'Back to Admin' })).toBeInTheDocument();
+	});
+
+	it('renders search input', async () => {
+		render(StudentsPage);
+		const searchInput = page.getByPlaceholder('Search by name or student ID...');
+		await expect.element(searchInput).toBeInTheDocument();
+	});
+
+	it('renders filter dropdowns', async () => {
+		render(StudentsPage);
+		const gradeFilter = page.getByRole('combobox', { name: /filter by grade/i });
+		await expect.element(gradeFilter).toBeInTheDocument();
+	});
+});
+```
+
+**Key principles:**
+
+1. Use semantic locators: `getByRole()`, `getByPlaceholder()`, `getByText()`
+2. Always await assertions: `await expect.element(locator).toBeInTheDocument()`
+3. Test static structure only (headers, buttons, forms) - not Convex-dynamic content
+4. Mock Convex with `loading: false` to prevent hydration issues
+5. Use `isLoading: true` for pages with auth redirects
+
+**Running:**
+
+```bash
+bunx vitest run --config vite.config.ts
+```
+
+### Server Unit Tests (convex-test)
 
 Unit tests use `convex-test` library for fast, deterministic testing of Convex functions without network calls.
 
 ```bash
 # Run all unit tests
-npx vitest run
+bunx vitest run
 
 # Run only students tests
-npx vitest run src/convex/students.test.ts
+bunx vitest run src/convex/students.test.ts
 
 # Run only categories tests
-npx vitest run src/convex/categories.test.ts
+bunx vitest run src/convex/categories.test.ts
 ```
 
 **Test files location:** `src/convex/{students,categories}.test.ts`
@@ -55,13 +123,13 @@ E2E tests run against a live Convex dev server.
 
 ```bash
 # Run all e2e tests
-npx playwright test e2e
+bunx playwright test e2e
 
 # Run specific test file
-npx playwright test e2e/students.spec.ts
+bunx playwright test e2e/students.spec.ts
 
 # Run with single worker (more stable)
-npx playwright test e2e/students.spec.ts --workers=1
+bunx playwright test e2e/students.spec.ts --workers=1
 ```
 
 **Recommended patterns:**
@@ -89,12 +157,15 @@ npx playwright test e2e/students.spec.ts --workers=1
 ### Running All Tests
 
 ```bash
-# Run unit tests only
-npx vitest run
+# Run browser unit tests (locator pattern, real Chromium)
+bunx vitest run --config vite.config.ts
+
+# Run server unit tests (convex-test)
+bunx vitest run src/convex/*.test.ts
 
 # Run e2e tests (requires dev server running)
-npm run test:e2e
+bun run test:e2e
 
 # Run unit tests then e2e tests
-npm run test:all
+bun run test:all
 ```

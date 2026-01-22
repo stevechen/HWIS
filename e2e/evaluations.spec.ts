@@ -1,10 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { getTestSuffix } from './helpers';
 import { setTestAuth } from './auth.helpers';
 import { createStudent, cleanupTestData } from './convex-client';
 
 async function createStudentForEval(
-	page: any,
+	page: Page,
 	suffix: string,
 	englishName: string,
 	chineseName: string,
@@ -49,7 +49,9 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 		const suffix = getTestSuffix('eval');
 		try {
 			await cleanupTestData(suffix);
-		} catch (e) {}
+		} catch {
+			// Ignore cleanup errors
+		}
 	});
 
 	test('displays new evaluation page', async ({ page }) => {

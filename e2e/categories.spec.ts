@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { getTestSuffix } from './helpers';
 import {
 	createCategory,

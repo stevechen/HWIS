@@ -15,11 +15,11 @@ test.describe('Delete Student @students', () => {
 		await page.waitForSelector('body.hydrated');
 	});
 
-	test.afterEach(async ({ page }) => {
+	test.afterEach(async () => {
 		const suffix = getTestSuffix('deleteStud');
 		try {
 			await cleanupTestData(suffix);
-		} catch (e) {
+		} catch {
 			console.log(`[TEST] Cleanup skipped for deleteStud`);
 		}
 	});
@@ -97,7 +97,7 @@ test.describe('Delete Student @students', () => {
 			e2eTag: `e2e-test_${suffix}`
 		});
 
-		const evalResult = await createEvaluationForStudent({
+		void await createEvaluationForStudent({
 			studentId,
 			e2eTag: `e2e-test_${suffix}`
 		});
@@ -138,7 +138,7 @@ test.describe('Delete Student @students', () => {
 			e2eTag: `e2e-test_${suffix}`
 		});
 
-		const evalResult = await createEvaluationForStudent({
+		void await createEvaluationForStudent({
 			studentId,
 			e2eTag: `e2e-test_${suffix}`
 		});
@@ -178,7 +178,7 @@ test.describe('Delete Student @students', () => {
 			e2eTag: `e2e-test_${suffix}`
 		});
 
-		const evalResult = await createEvaluationForStudent({
+		void await createEvaluationForStudent({
 			studentId,
 			e2eTag: `e2e-test_${suffix}`
 		});

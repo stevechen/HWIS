@@ -1,4 +1,4 @@
-import { test as setup, expect } from '@playwright/test';
+import { test as setup } from '@playwright/test';
 
 setup('create admin auth', async ({ page }) => {
 	await page.goto('/login');

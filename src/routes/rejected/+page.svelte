@@ -1,9 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import type { Snippet } from 'svelte';
-
-	let { data }: { children?: Snippet } = $props();
 
 	let cookieTestMode = $state(false);
 

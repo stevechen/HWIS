@@ -1,5 +1,5 @@
 import { ConvexHttpClient } from 'convex/browser';
-import { api, internal } from '$convex/_generated/api';
+import { api } from '$convex/_generated/api';
 
 const CONVEX_URL = 'https://cool-buffalo-717.convex.cloud';
 
@@ -75,32 +75,32 @@ export function getE2EUtils(): E2EUtils {
 		async resetAll() {
 			try {
 				await client.mutation(api.testE2E.e2eResetAll, {});
-			} catch (e) {
-				console.log('Reset all error:', e);
+			} catch {
+				console.log('Reset all error');
 			}
 		},
 
 		async resetCategoriesAndEvals() {
 			try {
 				await client.mutation(api.testE2E.e2eResetCategoriesAndEvals, {});
-			} catch (e) {
-				console.log('Reset categories and evals error:', e);
+			} catch {
+				console.log('Reset categories and evals error');
 			}
 		},
 
 		async seedAll() {
 			try {
 				await client.mutation(api.testE2E.e2eSeedAll, {});
-			} catch (e) {
-				console.log('Seed all error:', e);
+			} catch {
+				console.log('Seed all error');
 			}
 		},
 
 		async clearAuditOnly() {
 			try {
 				await client.mutation(api.testE2E.e2eClearAuditOnly, {});
-			} catch (e) {
-				console.log('Clear audit error:', e);
+			} catch {
+				console.log('Clear audit error');
 			}
 		},
 
@@ -109,25 +109,25 @@ export function getE2EUtils(): E2EUtils {
 				const result = await client.mutation(api.testE2E.e2eSeedCategoriesForDelete, {});
 				console.log('Seed categories for delete result:', result);
 				return result;
-			} catch (e) {
-				console.log('Seed categories for delete error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Seed categories for delete error');
+				return { error: 'Error' };
 			}
 		},
 
 		async seedStudentsForDisable() {
 			try {
 				await client.mutation(api.testE2E.e2eSeedStudentsForDisable, {});
-			} catch (e) {
-				console.log('Seed students for disable error:', e);
+			} catch {
+				console.log('Seed students for disable error');
 			}
 		},
 
 		async seedAuditLogs(authId?: string) {
 			try {
 				await client.mutation(api.testE2E.e2eSeedAuditLogs, { authId });
-			} catch (e) {
-				console.log('Seed audit logs error:', e);
+			} catch {
+				console.log('Seed audit logs error');
 			}
 		},
 
@@ -136,9 +136,9 @@ export function getE2EUtils(): E2EUtils {
 				const result = await client.mutation(api.dataFactory.cleanupAll, {});
 				console.log('Cleanup all result:', result);
 				return result;
-			} catch (e) {
-				console.log('Cleanup all error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Cleanup all error');
+				return { error: 'Error' };
 			}
 		},
 
@@ -147,9 +147,9 @@ export function getE2EUtils(): E2EUtils {
 				const result = await client.mutation(api.dataFactory.cleanupAll, { tag });
 				console.log('Cleanup test data result:', result);
 				return result;
-			} catch (e) {
-				console.log('Cleanup test data error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Cleanup test data error');
+				return { error: 'Error' };
 			}
 		},
 
@@ -158,8 +158,8 @@ export function getE2EUtils(): E2EUtils {
 				const result = await client.mutation(api.dataFactory.seedBaseline, {});
 				console.log('Seed baseline result:', result);
 				return result;
-			} catch (e) {
-				console.log('Seed baseline error:', e);
+			} catch {
+				console.log('Seed baseline error');
 				return { success: false, timestamp: Date.now() };
 			}
 		},
@@ -169,9 +169,9 @@ export function getE2EUtils(): E2EUtils {
 				const result = await client.mutation(api.testCleanup.cleanupAllTestUsers, {});
 				console.log('Cleanup test users result:', result);
 				return result;
-			} catch (e) {
-				console.log('Cleanup test users error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Cleanup test users error');
+				return { error: 'Error' };
 			}
 		},
 
@@ -180,45 +180,45 @@ export function getE2EUtils(): E2EUtils {
 				const result = await client.mutation(api.testCleanup.cleanupAuditLogs, {});
 				console.log('Cleanup audit logs result:', result);
 				return result;
-			} catch (e) {
-				console.log('Cleanup audit logs error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Cleanup audit logs error');
+				return { error: 'Error' };
 			}
 		},
 
 		async createStudent(opts?: CreateStudentOptions) {
 			try {
 				return await client.mutation(api.dataFactory.createStudent, opts || {});
-			} catch (e) {
-				console.log('Create student error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Create student error');
+				return { error: 'Error' };
 			}
 		},
 
 		async createStudentWithId(opts: CreateStudentOptions) {
 			try {
 				return await client.mutation(api.dataFactory.createStudentWithId, opts);
-			} catch (e) {
-				console.log('Create student with ID error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Create student with ID error');
+				return { error: 'Error' };
 			}
 		},
 
 		async createCategory(opts?: CreateCategoryOptions) {
 			try {
 				return await client.mutation(api.dataFactory.createCategory, opts || {});
-			} catch (e) {
-				console.log('Create category error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Create category error');
+				return { error: 'Error' };
 			}
 		},
 
 		async createCategoryWithSubs(opts: CreateCategoryWithSubsOptions) {
 			try {
 				return await client.mutation(api.dataFactory.createCategoryWithSubs, opts);
-			} catch (e) {
-				console.log('Create category with subs error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Create category with subs error');
+				return { error: 'Error' };
 			}
 		},
 
@@ -229,54 +229,54 @@ export function getE2EUtils(): E2EUtils {
 				});
 				console.log('Create evaluation for category result:', result);
 				return result;
-			} catch (e) {
-				console.log('Create evaluation for category error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Create evaluation for category error');
+				return { error: 'Error' };
 			}
 		},
 
 		async checkEvaluationExists(categoryName: string) {
 			try {
 				return await client.query(api.testE2E.e2eCheckEvaluationExists, { categoryName });
-			} catch (e) {
-				console.log('Check evaluation exists error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Check evaluation exists error');
+				return { error: 'Error' };
 			}
 		},
 
 		async createEvaluationForStudent(data: CreateEvaluationForStudentData) {
 			try {
 				return await client.mutation(api.dataFactory.createEvaluationForStudent, data);
-			} catch (e) {
-				console.log('Create evaluation for student error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Create evaluation for student error');
+				return { error: 'Error' };
 			}
 		},
 
 		async setRoleByEmail(email: string, role: string) {
 			try {
 				return await client.mutation(api.users.setRoleByEmail, { email, role: role as any });
-			} catch (e) {
-				console.log('Set role by email error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Set role by email error');
+				return { error: 'Error' };
 			}
 		},
 
 		async setMyRole(role: string) {
 			try {
 				return await client.mutation(api.onboarding.setMyRole, { role: role as any });
-			} catch (e) {
-				console.log('Set my role error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Set my role error');
+				return { error: 'Error' };
 			}
 		},
 
 		async setRoleByToken(token: string, role: string) {
 			try {
 				return await client.mutation(api.users.setRoleByToken, { token, role: role as any });
-			} catch (e) {
-				console.log('Set role by token error:', e);
-				return { error: String(e) };
+			} catch {
+				console.log('Set role by token error');
+				return { error: 'Error' };
 			}
 		}
 	};

@@ -23,11 +23,11 @@ test.describe('Student List @students', () => {
 			await page.waitForSelector('body.hydrated');
 		});
 
-		test.afterEach(async ({ page }) => {
+		test.afterEach(async () => {
 			const suffix = getTestSuffix('listAccess');
 			try {
 				await cleanupTestData(suffix);
-			} catch (e) {
+			} catch {
 				console.log(`[TEST] Cleanup skipped for listAccess`);
 			}
 		});

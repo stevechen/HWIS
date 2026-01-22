@@ -1,4 +1,4 @@
-import { expect, test, describe, beforeEach } from 'vitest';
+import { expect, test, describe } from 'vitest';
 import { convexTest } from 'convex-test';
 import schema from './schema';
 import { modules } from './test.setup';
@@ -45,8 +45,8 @@ describe('checkStudentIdExists query', () => {
 	test('excludes specific student ID when checking during edit', async () => {
 		const t = convexTest(schema, modules);
 
-		const studentId = await t.run(async (ctx) => {
-			return await ctx.db.insert('students', {
+		await t.run(async (_ctx) => {
+			await _ctx.db.insert('students', {
 				englishName: 'Edit Test',
 				chineseName: '編輯測試',
 				studentId: 'EDIT001',
@@ -69,25 +69,6 @@ describe('checkStudentIdExists query', () => {
 describe('bulkImportWithDuplicateCheck mutation - batch duplicates', () => {
 	test('detects duplicates within the same import batch', async () => {
 		const t = convexTest(schema, modules);
-
-		const students = [
-			{
-				englishName: 'Student A',
-				chineseName: '學生A',
-				studentId: 'BATCH001',
-				grade: 9,
-				status: 'Enrolled' as const,
-				note: ''
-			},
-			{
-				englishName: 'Student B',
-				chineseName: '學生B',
-				studentId: 'BATCH001',
-				grade: 10,
-				status: 'Enrolled' as const,
-				note: ''
-			}
-		];
 
 		const result = await t.run(async (ctx) => {
 			return await ctx.db
@@ -125,8 +106,6 @@ describe('bulkImportWithDuplicateCheck mutation - batch duplicates', () => {
 	});
 
 	test('returns batch duplicate information with row numbers', async () => {
-		const t = convexTest(schema, modules);
-
 		const seenIds = new Set<string>();
 		const batchDuplicates: { studentId: string; rowNumber: number }[] = [];
 

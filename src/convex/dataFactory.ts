@@ -1,16 +1,11 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
-import type { Id } from './_generated/dataModel';
 
 // Data factory helper functions for E2E testing
 const TABLES = ['students', 'point_categories', 'evaluations', 'audit_logs'] as const;
 
 function getE2ETag(): string {
 	return `e2e-test_${Date.now().toString().slice(-6)}`;
-}
-
-function makeE2ETag(baseName: string): string {
-	return `${baseName}_${Date.now().toString().slice(-6)}`;
 }
 
 function generateUniqueId(prefix: string): string {
@@ -331,7 +326,7 @@ export const createCategory = mutation({
 		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const tag = args.e2eTag || getE2ETag();
+		void (args.e2eTag || getE2ETag());
 		return await ctx.db.insert('point_categories', {
 			name: args.name ?? `Category_${Date.now().toString().slice(-6)}`,
 			subCategories: args.subCategories ?? []
@@ -346,7 +341,7 @@ export const createCategoryWithSubs = mutation({
 		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const tag = args.e2eTag || getE2ETag();
+		void (args.e2eTag || getE2ETag());
 		return await ctx.db.insert('point_categories', {
 			name: args.name,
 			subCategories: args.subCategories

@@ -10,7 +10,7 @@ describe('categories.create', () => {
 	it('creates a category with subCategories', async () => {
 		const t = convexTest(schema, modules);
 
-		const categoryId = await t.mutation(api.categories.create, {
+		await t.mutation(api.categories.create, {
 			name: 'Test Category',
 			subCategories: ['Sub1', 'Sub2', 'Sub3']
 		});
@@ -40,7 +40,7 @@ describe('categories.update', () => {
 	it('updates category name and subCategories', async () => {
 		const t = convexTest(schema, modules);
 
-		const categoryId = await t.mutation(api.categories.create, {
+		await t.mutation(api.categories.create, {
 			name: 'Original Category',
 			subCategories: ['Original Sub']
 		});
@@ -100,7 +100,7 @@ describe('categories.remove', () => {
 	it('removes category and cascades to delete related evaluations', async () => {
 		const t = convexTest(schema, modules);
 
-		const categoryId = await t.mutation(api.categories.create, {
+		await t.mutation(api.categories.create, {
 			name: 'Category With Evals',
 			subCategories: ['Sub']
 		});
@@ -198,7 +198,6 @@ describe('categories.getEvaluationCount', () => {
 			subCategories: ['Sub']
 		});
 
-		const category = (await t.query(api.categories.list))[0];
 		const count = await t.query(api.categories.getEvaluationCount, {
 			categoryName: 'Empty Category'
 		});
@@ -321,5 +320,87 @@ describe('categories.getSubCategoryEvaluationCount', () => {
 
 		expect(countA).toBe(1);
 		expect(countB).toBe(1);
+	});
+});
+
+describe('categories edge cases', () => {
+	it('creates multiple categories with unique names', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.categories.create, {
+			name: 'First Category',
+			subCategories: ['Sub1']
+		});
+		await t.mutation(api.categories.create, {
+			name: 'Second Category',
+			subCategories: ['Sub2']
+		});
+		await t.mutation(api.categories.create, {
+			name: 'Third Category',
+			subCategories: []
+		});
+
+		const categories = await t.query(api.categories.list);
+		expect(categories).toHaveLength(3);
+		const names = categories.map((c) => c.name);
+		expect(names).toContain('First Category');
+		expect(names).toContain('Second Category');
+		expect(names).toContain('Third Category');
+	});
+
+	it('handles categories with many subCategories', async () => {
+		const t = convexTest(schema, modules);
+
+		const manySubs = Array.from({ length: 10 }, (_, i) => `SubCategory_${i + 1}`);
+
+		await t.mutation(api.categories.create, {
+			name: 'Many Subs Category',
+			subCategories: manySubs
+		});
+
+		const categories = await t.query(api.categories.list);
+		expect(categories).toHaveLength(1);
+		expect(categories[0].subCategories).toHaveLength(10);
+	});
+
+	it('updates only name, preserving subCategories', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.categories.create, {
+			name: 'Original Name',
+			subCategories: ['Preserved Sub']
+		});
+
+		const category = (await t.query(api.categories.list))[0];
+
+		await t.mutation(api.categories.update, {
+			id: category._id,
+			name: 'New Name',
+			subCategories: ['Preserved Sub']
+		});
+
+		const updated = (await t.query(api.categories.list))[0];
+		expect(updated.name).toBe('New Name');
+		expect(updated.subCategories).toEqual(['Preserved Sub']);
+	});
+
+	it('replaces all subCategories with new set', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.categories.create, {
+			name: 'Replace Subs',
+			subCategories: ['Old Sub 1', 'Old Sub 2']
+		});
+
+		const category = (await t.query(api.categories.list))[0];
+
+		await t.mutation(api.categories.update, {
+			id: category._id,
+			name: 'Replace Subs',
+			subCategories: ['New Sub 1', 'New Sub 2', 'New Sub 3']
+		});
+
+		const updated = (await t.query(api.categories.list))[0];
+		expect(updated.subCategories).toEqual(['New Sub 1', 'New Sub 2', 'New Sub 3']);
 	});
 });
