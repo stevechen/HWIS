@@ -1,5 +1,27 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
+import { authComponent } from './auth';
+
+async function requireAuthenticatedUser(ctx: any) {
+	const authUser = await authComponent.getAuthUser(ctx);
+	if (!authUser?._id) {
+		throw new Error('Unauthorized');
+	}
+	return authUser;
+}
+
+async function requireAdminRole(ctx: any) {
+	const authUser = await requireAuthenticatedUser(ctx);
+	const userDoc = await ctx.db
+		.query('users')
+		.withIndex('by_authId', (q: any) => q.eq('authId', authUser._id))
+		.first();
+	const role = userDoc?.role;
+	if (role !== 'admin' && role !== 'super') {
+		throw new Error('Forbidden: Admin or super role required');
+	}
+	return authUser;
+}
 
 export const list = query({
 	args: {
@@ -9,6 +31,8 @@ export const list = query({
 		_trigger: v.optional(v.number())
 	},
 	handler: async (ctx, args) => {
+		await requireAuthenticatedUser(ctx);
+
 		const students = await ctx.db.query('students').collect();
 
 		return students
@@ -159,6 +183,7 @@ export const importFromExcel = mutation({
 		)
 	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx);
 		const results = [];
 
 		for (const student of args.students) {
@@ -188,6 +213,7 @@ export const importFromExcel = mutation({
 export const seed = mutation({
 	args: {},
 	handler: async (ctx) => {
+		await requireAdminRole(ctx);
 		const existing = await ctx.db.query('students').collect();
 		if (existing.length > 0) return { message: 'Students already seeded', count: existing.length };
 
@@ -245,6 +271,7 @@ export const seed = mutation({
 export const getById = query({
 	args: { id: v.id('students') },
 	handler: async (ctx, args) => {
+		await requireAuthenticatedUser(ctx);
 		const student = await ctx.db.get(args.id);
 		if (!student) return null;
 
@@ -320,6 +347,7 @@ export const bulkImportWithDuplicateCheck = mutation({
 		mode: v.union(v.literal('halt'), v.literal('skip'), v.literal('update'))
 	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx);
 		const results = {
 			created: [] as string[],
 			updated: [] as string[],
@@ -421,6 +449,7 @@ export const bulkImportWithDuplicateCheck = mutation({
 export const advanceGrades = mutation({
 	args: {},
 	handler: async (ctx) => {
+		await requireAdminRole(ctx);
 		const students = await ctx.db
 			.query('students')
 			.filter((q) => q.eq(q.field('status'), 'Enrolled'))
@@ -442,6 +471,7 @@ export const advanceGrades = mutation({
 export const archiveOldStudents = mutation({
 	args: { years: v.optional(v.number()) },
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx);
 		const cutoffYear = new Date().getFullYear() - (args.years || 1);
 
 		const oldStudents = await ctx.db

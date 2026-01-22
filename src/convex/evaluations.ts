@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { authComponent } from './auth';
@@ -197,14 +197,6 @@ function getWeekNumber(timestamp: number): number {
 	return Math.floor(diff / oneWeek) + 1;
 }
 
-function formatDate(timestamp: number): string {
-	return new Date(timestamp).toLocaleDateString('en-US', {
-		month: 'short',
-		day: 'numeric',
-		year: 'numeric'
-	});
-}
-
 function formatDateRange(fridayTimestamp: number): string {
 	const friday = new Date(fridayTimestamp);
 	const monday = new Date(friday);
@@ -223,6 +215,16 @@ function formatDateRange(fridayTimestamp: number): string {
 export const getWeeklyReportsList = query({
 	args: {},
 	handler: async (ctx) => {
+		let authUser;
+		try {
+			authUser = await authComponent.safeGetAuthUser(ctx);
+		} catch {
+			throw new Error('Unauthorized');
+		}
+		if (!authUser?._id) {
+			throw new Error('Unauthorized');
+		}
+
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_timestamp', (q) => q)
@@ -254,6 +256,16 @@ export const getWeeklyReportsList = query({
 export const getWeeklyReportDetail = query({
 	args: { fridayDate: v.number() },
 	handler: async (ctx, args) => {
+		let authUser;
+		try {
+			authUser = await authComponent.safeGetAuthUser(ctx);
+		} catch {
+			throw new Error('Unauthorized');
+		}
+		if (!authUser?._id) {
+			throw new Error('Unauthorized');
+		}
+
 		const startOfWeek = args.fridayDate;
 		const endOfWeek = args.fridayDate + 7 * 24 * 60 * 60 * 1000 - 1;
 

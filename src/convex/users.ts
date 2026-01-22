@@ -2,6 +2,27 @@ import { v } from 'convex/values';
 import { query, mutation } from './_generated/server';
 import { authComponent } from './auth';
 
+async function requireAuthenticatedUser(ctx: any) {
+	const authUser = await authComponent.getAuthUser(ctx);
+	if (!authUser?._id) {
+		throw new Error('Unauthorized');
+	}
+	return authUser;
+}
+
+async function requireAdminRole(ctx: any) {
+	const authUser = await requireAuthenticatedUser(ctx);
+	const userDoc = await ctx.db
+		.query('users')
+		.withIndex('by_authId', (q: any) => q.eq('authId', authUser._id))
+		.first();
+	const role = userDoc?.role;
+	if (role !== 'admin' && role !== 'super') {
+		throw new Error('Forbidden: Admin or super role required');
+	}
+	return authUser;
+}
+
 export const viewer = query({
 	args: {},
 	handler: async (ctx) => {
@@ -14,8 +35,6 @@ export const viewer = query({
 		if (!authUser) return null;
 
 		if (!authUser._id) {
-			// Check for test mode by looking up a special test user
-			// Try both possible authIds for test users
 			const testUser =
 				(await ctx.db
 					.query('users')
@@ -35,29 +54,7 @@ export const viewer = query({
 				};
 			}
 
-			// Fallback: check token/email for test mode
-			const authUserAny = authUser as any;
-			const token = authUserAny.token || '';
-			const email = authUserAny.email || '';
-
-			let role: 'admin' | 'super' | 'teacher' | 'student' = 'teacher';
-			if (token === 'test-token-admin-mock' || email.includes('@hwis.test')) {
-				if (email.startsWith('super@') || token.includes('super')) {
-					role = 'super';
-				} else if (email.startsWith('admin@') || token.includes('admin')) {
-					role = 'admin';
-				} else if (email.startsWith('teacher@') || token.includes('teacher')) {
-					role = 'teacher';
-				} else if (email.startsWith('student@') || token.includes('student')) {
-					role = 'student';
-				}
-			}
-			return {
-				...authUser,
-				authId: null,
-				role,
-				status: 'active'
-			};
+			return null;
 		}
 
 		const dbUser = await ctx.db
@@ -69,7 +66,7 @@ export const viewer = query({
 			...authUser,
 			authId: dbUser?.authId ?? null,
 			role: dbUser?.role ?? 'teacher',
-			status: dbUser?.status ?? 'active'
+			status: dbUser?.status ?? 'pending'
 		};
 	}
 });
@@ -168,6 +165,7 @@ export const seedTestAdmin = mutation({
 		userId: v.id('users')
 	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx);
 		const existing = await ctx.db.get(args.userId);
 		if (!existing) {
 			await ctx.db.insert('users', {
@@ -192,6 +190,7 @@ export const setUserRole = mutation({
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated')))
 	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx);
 		await ctx.db.patch(args.userId, {
 			role: args.role,
 			status: args.status
@@ -208,6 +207,7 @@ export const setRoleByEmail = mutation({
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated')))
 	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx);
 		const allUsers = await ctx.db.query('users').collect();
 		const user = allUsers.find((u) => u.authId === args.email);
 		if (!user) {
@@ -230,6 +230,7 @@ export const setRoleByToken = mutation({
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated')))
 	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx);
 		try {
 			const decodedToken = decodeURIComponent(args.token);
 			const parts = decodedToken.split('.');

@@ -1,9 +1,32 @@
 import { query, mutation } from './_generated/server';
 import { v, type GenericId } from 'convex/values';
+import { authComponent } from './auth';
+
+async function requireAuthenticatedUser(ctx: any) {
+	const authUser = await authComponent.getAuthUser(ctx);
+	if (!authUser?._id) {
+		throw new Error('Unauthorized');
+	}
+	return authUser;
+}
+
+async function requireAdminRole(ctx: any) {
+	const authUser = await requireAuthenticatedUser(ctx);
+	const userDoc = await ctx.db
+		.query('users')
+		.withIndex('by_authId', (q: any) => q.eq('authId', authUser._id))
+		.first();
+	const role = userDoc?.role;
+	if (role !== 'admin' && role !== 'super') {
+		throw new Error('Forbidden: Admin or super role required');
+	}
+	return authUser;
+}
 
 export const exportData = query({
 	args: {},
 	handler: async (ctx) => {
+		await requireAdminRole(ctx);
 		const students = await ctx.db.query('students').collect();
 		const evaluations = await ctx.db.query('evaluations').collect();
 		const users = await ctx.db.query('users').collect();
@@ -22,6 +45,7 @@ export const exportData = query({
 export const createBackup = mutation({
 	args: {},
 	handler: async (ctx) => {
+		await requireAdminRole(ctx);
 		const students = await ctx.db.query('students').collect();
 		const evaluations = await ctx.db.query('evaluations').collect();
 		const users = await ctx.db.query('users').collect();
@@ -60,6 +84,7 @@ interface BackupRecord {
 export const restoreFromBackup = mutation({
 	args: { backupId: v.id('backups') },
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx);
 		const backup = (await ctx.db.get(args.backupId)) as BackupRecord | null;
 		if (!backup) throw new Error('Backup not found');
 
@@ -107,6 +132,7 @@ export const restoreFromBackup = mutation({
 export const clearAllData = mutation({
 	args: {},
 	handler: async (ctx) => {
+		await requireAdminRole(ctx);
 		const students = await ctx.db.query('students').collect();
 		const evaluations = await ctx.db.query('evaluations').collect();
 		const categories = await ctx.db.query('point_categories').collect();
@@ -137,6 +163,7 @@ export const listBackups = query({
 export const deleteBackup = mutation({
 	args: { backupId: v.id('backups') },
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx);
 		await ctx.db.delete(args.backupId);
 		return { message: 'Backup deleted' };
 	}
@@ -145,6 +172,7 @@ export const deleteBackup = mutation({
 export const clearEvaluations = mutation({
 	args: {},
 	handler: async (ctx) => {
+		await requireAdminRole(ctx);
 		const evaluations = await ctx.db.query('evaluations').collect();
 		for (const evaluation of evaluations) {
 			await ctx.db.delete(evaluation._id);
@@ -168,6 +196,7 @@ export const clearEvaluations = mutation({
 export const advanceGradesAndClearEvaluations = mutation({
 	args: {},
 	handler: async (ctx) => {
+		await requireAdminRole(ctx);
 		const students = await ctx.db.query('students').collect();
 		const evaluations = await ctx.db.query('evaluations').collect();
 		const users = await ctx.db.query('users').collect();

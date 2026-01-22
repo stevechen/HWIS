@@ -1,9 +1,32 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
+import { authComponent } from './auth';
+
+async function requireAuthenticatedUser(ctx: any) {
+	const authUser = await authComponent.getAuthUser(ctx);
+	if (!authUser?._id) {
+		throw new Error('Unauthorized');
+	}
+	return authUser;
+}
+
+async function requireAdminRole(ctx: any) {
+	const authUser = await requireAuthenticatedUser(ctx);
+	const userDoc = await ctx.db
+		.query('users')
+		.withIndex('by_authId', (q: any) => q.eq('authId', authUser._id))
+		.first();
+	const role = userDoc?.role;
+	if (role !== 'admin' && role !== 'super') {
+		throw new Error('Forbidden: Admin or super role required');
+	}
+	return authUser;
+}
 
 export const list = query({
 	args: {},
 	handler: async (ctx) => {
+		await requireAuthenticatedUser(ctx);
 		return await ctx.db.query('point_categories').collect();
 	}
 });
@@ -39,6 +62,7 @@ export const getSubCategoryEvaluationCount = query({
 export const seed = mutation({
 	args: {},
 	handler: async (ctx) => {
+		await requireAdminRole(ctx);
 		const existing = await ctx.db.query('point_categories').collect();
 		if (existing.length > 0) return;
 
@@ -63,6 +87,7 @@ export const create = mutation({
 		subCategories: v.array(v.string())
 	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx);
 		return await ctx.db.insert('point_categories', {
 			name: args.name,
 			subCategories: args.subCategories
@@ -77,6 +102,7 @@ export const update = mutation({
 		subCategories: v.array(v.string())
 	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx);
 		await ctx.db.patch(args.id, {
 			name: args.name,
 			subCategories: args.subCategories
@@ -89,6 +115,7 @@ export const remove = mutation({
 		id: v.id('point_categories')
 	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx);
 		const category = await ctx.db.get(args.id);
 		if (!category) throw new Error('Category not found');
 

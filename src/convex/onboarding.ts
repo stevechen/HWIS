@@ -2,6 +2,27 @@ import { mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { authComponent } from './auth';
 
+async function requireAuthenticatedUser(ctx: any) {
+	const authUser = await authComponent.getAuthUser(ctx);
+	if (!authUser?._id) {
+		throw new Error('Unauthorized');
+	}
+	return authUser;
+}
+
+async function requireAdminRole(ctx: any) {
+	const authUser = await requireAuthenticatedUser(ctx);
+	const userDoc = await ctx.db
+		.query('users')
+		.withIndex('by_authId', (q: any) => q.eq('authId', authUser._id))
+		.first();
+	const role = userDoc?.role;
+	if (role !== 'admin' && role !== 'super') {
+		throw new Error('Forbidden: Admin or super role required');
+	}
+	return authUser;
+}
+
 export const ensureUserProfile = mutation({
 	args: {},
 	handler: async (ctx) => {
@@ -86,6 +107,7 @@ export const createUserProfile = mutation({
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated')))
 	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx);
 		const existing = await ctx.db
 			.query('users')
 			.withIndex('by_authId', (q) => q.eq('authId', args.authId))
@@ -110,6 +132,7 @@ export const createUserProfile = mutation({
 export const deleteAllUserProfiles = mutation({
 	args: {},
 	handler: async (ctx) => {
+		await requireAdminRole(ctx);
 		const allUsers = await ctx.db.query('users').collect();
 		for (const user of allUsers) {
 			await ctx.db.delete(user._id);
