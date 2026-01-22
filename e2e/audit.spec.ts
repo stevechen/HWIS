@@ -16,7 +16,6 @@ test.describe('Audit Log Page (super admin)', () => {
 			localStorage.removeItem('audit-visible-columns');
 		});
 
-		await page.reload();
 		await page.waitForSelector('body.hydrated');
 		await expect(page.getByRole('heading', { name: 'Audit Log' })).toBeVisible();
 	});
