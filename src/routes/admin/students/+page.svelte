@@ -405,13 +405,13 @@
 			<div class="flex gap-2">
 				<NativeSelect.Root bind:value={selectedGrade} aria-label="Filter by grade">
 					<NativeSelect.Option value="">All Grades</NativeSelect.Option>
-					{#each grades as grade}
+					{#each grades as grade (grade)}
 						<NativeSelect.Option value={grade.toString()}>Grade {grade}</NativeSelect.Option>
 					{/each}
 				</NativeSelect.Root>
 				<NativeSelect.Root bind:value={selectedStatus} aria-label="Filter by status">
 					<NativeSelect.Option value="">All Status</NativeSelect.Option>
-					{#each statuses as status}
+					{#each statuses as status (status)}
 						<NativeSelect.Option value={status}>{status}</NativeSelect.Option>
 					{/each}
 				</NativeSelect.Root>
@@ -444,7 +444,7 @@
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
-					{#each filteredStudents as student}
+					{#each filteredStudents as student (student._id)}
 						<Table.Row>
 							<Table.Cell class="font-medium">{student.studentId}</Table.Cell>
 							<Table.Cell>{student.englishName}</Table.Cell>
@@ -594,7 +594,7 @@
 								}}
 							>
 								<NativeSelect.Option value="" disabled>Select grade</NativeSelect.Option>
-								{#each grades as grade}
+								{#each grades as grade (grade)}
 									<NativeSelect.Option value={grade.toString()}>{grade}</NativeSelect.Option>
 								{/each}
 							</NativeSelect.Root>
@@ -612,7 +612,7 @@
 						<Label for="status">Status</Label>
 						<NativeSelect.Root bind:value={formStatus} aria-label="Status">
 							<NativeSelect.Option value="" disabled>Select status</NativeSelect.Option>
-							{#each statuses as status}
+							{#each statuses as status (status)}
 								<NativeSelect.Option value={status}>{status}</NativeSelect.Option>
 							{/each}
 						</NativeSelect.Root>
@@ -767,15 +767,15 @@
 								<table class="w-full text-xs">
 									<thead>
 										<tr>
-											{#each Object.keys(importPreview[0]) as header}
+											{#each Object.keys(importPreview[0]) as header (header)}
 												<th class="text-left">{header}</th>
 											{/each}
 										</tr>
 									</thead>
 									<tbody>
-										{#each importPreview as row}
+										{#each importPreview as row (row)}
 											<tr>
-												{#each Object.values(row) as value}
+												{#each Object.values(row) as value (value)}
 													<td class="pr-2">{value}</td>
 												{/each}
 											</tr>
@@ -803,7 +803,7 @@
 											Duplicates within import file:
 										</p>
 										<ul class="list-disc pl-4">
-											{#each importResult.batchDuplicates as d}
+											{#each importResult.batchDuplicates as d (d.studentId)}
 												<li>
 													Row {d.rowNumber}: studentId "{d.studentId}"
 												</li>
@@ -817,7 +817,7 @@
 											Duplicates with existing students:
 										</p>
 										<ul class="list-disc pl-4">
-											{#each importResult.duplicates as d}
+											{#each importResult.duplicates as d (d.studentId)}
 												<li>
 													"{d.studentId}": existing="{d.existingStudent}", new="
 													{d.newStudent}"

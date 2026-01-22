@@ -383,6 +383,7 @@
 
 		const headers = ['Student ID', 'English Name', 'Chinese Name', 'Grade', 'Total Points'];
 
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Set is used for non-reactive CSV generation
 		const categoryHeaders = new Set<string>();
 		students.forEach((s: any) => {
 			Object.keys(s.pointsByCategory).forEach((cat) => categoryHeaders.add(cat));
@@ -464,7 +465,7 @@
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
-							{#each reports as report (report.weekNumber + '-' + report.fridayDate)}
+							{#each reports as report (report.fridayDate)}
 								<Table.Row class="cursor-pointer" onclick={() => openReport(report)} tabindex="0">
 									<Table.Cell class="text-center font-medium">{report.weekNumber}</Table.Cell>
 									<Table.Cell>{report.formattedDate}</Table.Cell>
@@ -529,7 +530,7 @@
 					</div>
 					<NativeSelect.Root bind:value={filterGrade} aria-label="Filter by grade">
 						<NativeSelect.Option value="">All Grades</NativeSelect.Option>
-						{#each availableGrades as grade}
+						{#each availableGrades as grade (grade)}
 							<NativeSelect.Option value={grade.toString()}>Grade {grade}</NativeSelect.Option>
 						{/each}
 					</NativeSelect.Root>

@@ -227,7 +227,7 @@
 					</Table.Row>
 				{:else}
 					<Table.Row>
-						<Table.Cell colspan="3" class="text-center py-8">
+						<Table.Cell colspan={3} class="text-center py-8">
 							<p class="text-muted-foreground">No categories yet.</p>
 						</Table.Cell>
 					</Table.Row>

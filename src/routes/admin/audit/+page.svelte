@@ -471,7 +471,6 @@
 					type="single"
 					value={filterGrade}
 					onValueChange={(val) => (filterGrade = val)}
-					aria-label="Filter by grade"
 				>
 					<Select.Trigger class="w-24">
 						{filterGrade ? `G${filterGrade}` : 'Grade'}

@@ -33,7 +33,7 @@
 
 			status = `Setting you as ${requestedRole}...`;
 			await client.mutation(api.onboarding.setMyRole, {
-				role: requestedRole,
+				role: requestedRole as 'super' | 'admin' | 'teacher' | 'student',
 				status: 'active'
 			});
 

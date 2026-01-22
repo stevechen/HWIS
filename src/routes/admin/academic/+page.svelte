@@ -11,8 +11,6 @@
 
 	let client = useConvexClient();
 	let currentUser = useQuery(api.users.viewer, {});
-	let refreshTrigger = $state(0);
-	let studentsQuery = useQuery(api.students.list, () => ({ _trigger: refreshTrigger }));
 
 	let isAdvancing = $state(false);
 	let advanceResult = $state<any>(null);
@@ -31,7 +29,7 @@
 	});
 
 	function refreshStudents() {
-		refreshTrigger++;
+		
 	}
 
 	async function handleAdvanceYear() {
