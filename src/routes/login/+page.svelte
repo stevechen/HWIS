@@ -7,18 +7,11 @@
 
 	let sessionData = $state<typeof $session | null>(null);
 
+	// Layout handles redirection if authenticated
 	onMount(() => {
-		const checkAuth = () => {
-			if (!sessionData?.isPending && sessionData?.data) {
-				void goto('/', { replaceState: true });
-			}
-		};
-
 		const unsubscribe = session.subscribe((value) => {
 			sessionData = value;
-			checkAuth();
 		});
-
 		return unsubscribe;
 	});
 
@@ -31,6 +24,11 @@
 		if (result.error) {
 			console.error('Sign out error:', result.error);
 		}
+	}
+
+	function devLogin() {
+		document.cookie = 'hwis_test_auth=super; path=/; max-age=3600';
+		window.location.href = '/';
 	}
 </script>
 
@@ -65,6 +63,17 @@
 				</svg>
 				Sign in with Google
 			</button>
+
+			{#if import.meta.env.DEV}
+				<div class="mt-4 border-t pt-4">
+					<button
+						onclick={devLogin}
+						class="flex w-full items-center justify-center gap-2 rounded-md border border-orange-300 bg-orange-50 px-4 py-2 font-medium text-orange-700 transition-colors hover:bg-orange-100 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+					>
+						🚀 Dev Login (Super Admin)
+					</button>
+				</div>
+			{/if}
 
 			<p class="mt-4 text-center text-sm text-gray-500">Only for HWIS staffs</p>
 		</div>

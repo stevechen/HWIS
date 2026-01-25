@@ -9,10 +9,19 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 
+	let { data }: { data: { testRole?: string } } = $props();
+
+	const isTestMode = $derived(!!data.testRole);
+
 	const client = useConvexClient();
-	let currentUser = useQuery(api.users.viewer, {});
+	const currentUser = useQuery(api.users.viewer, () => ({
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
 	let refreshTrigger = $state(0);
-	let backupsQuery = useQuery(api.backup.listBackups, { _trigger: refreshTrigger });
+	const backupsQuery = useQuery(api.backup.listBackups, () => ({
+		_trigger: refreshTrigger,
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
 
 	let showForceBackupDialog = $state(false);
 	let showRestoreDialog = $state(false);
@@ -23,14 +32,6 @@
 	let backupResult = $state<{ message: string } | null>(null);
 	let restoreConfirmText = $state('');
 	let selectedBackupId = $state<string | null>(null);
-
-	let isTestMode = $state(false);
-
-	$effect(() => {
-		if (!browser) return;
-		isTestMode =
-			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
-	});
 
 	$effect(() => {
 		if (isTestMode) return;
@@ -45,7 +46,9 @@
 		isForcingBackup = true;
 		backupResult = null;
 		try {
-			const result = await client.mutation(api.backup.createBackup, {});
+			const result = await client.mutation(api.backup.createBackup, {
+				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+			});
 			backupResult = result;
 			refreshTrigger++;
 		} catch (e) {
@@ -66,7 +69,8 @@
 		isRestoring = true;
 		try {
 			await client.mutation(api.backup.restoreFromBackup, {
-				backupId: selectedBackupId as any
+				backupId: selectedBackupId as any,
+				testToken: isTestMode ? 'test-token-admin-mock' : undefined
 			});
 			showRestoreDialog = false;
 			refreshTrigger++;
@@ -80,7 +84,9 @@
 	async function handleClearAll() {
 		isClearing = true;
 		try {
-			await client.mutation(api.backup.clearAllData, {});
+			await client.mutation(api.backup.clearAllData, {
+				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+			});
 		} catch (e) {
 			alert('Failed: ' + (e instanceof Error ? e.message : String(e)));
 		} finally {
@@ -200,7 +206,8 @@
 											onclick={async () => {
 												if (confirm('Delete?')) {
 													await client.mutation(api.backup.deleteBackup, {
-														backupId: backup._id as any
+														backupId: backup._id as any,
+														testToken: isTestMode ? 'test-token-admin-mock' : undefined
 													});
 													refreshTrigger++;
 												}

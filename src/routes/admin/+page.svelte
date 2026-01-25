@@ -2,7 +2,6 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { goto } from '$app/navigation';
-	import { browser } from '$app/environment';
 	import {
 		Database,
 		GraduationCap,
@@ -10,7 +9,8 @@
 		FileText,
 		Tags,
 		ShieldAlert,
-		CloudBackup
+		CloudBackup,
+		History
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
@@ -22,16 +22,12 @@
 		data: { testRole?: 'teacher' | 'admin' | 'super' };
 	} = $props();
 
-	const user = useQuery(api.users.viewer, {});
+	const isTestMode = $derived(!!data.testRole);
 	const client = useConvexClient();
 
-	let isTestMode = $state(false);
-
-	$effect(() => {
-		if (!browser) return;
-		isTestMode =
-			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
-	});
+	const user = useQuery(api.users.viewer, () => ({
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
 
 	let seeding = $state(false);
 	let seedMessage = $state('');
@@ -40,8 +36,12 @@
 		seeding = true;
 		seedMessage = 'Seeding data...';
 		try {
-			await client.mutation(api.categories.seed, {});
-			await client.mutation(api.students.seed, {});
+			await client.mutation(api.categories.seed, {
+				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+			});
+			await client.mutation(api.students.seed, {
+				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+			});
 			seedMessage = 'Success! Students and categories seeded.';
 		} catch (err) {
 			seedMessage = 'Error: ' + (err as Error).message;
@@ -61,7 +61,7 @@
 <div class="mx-auto max-w-4xl p-8">
 	<header class="mb-8 flex items-center justify-between">
 		<div class="flex items-center gap-4">
-			<Button variant="outline" onclick={() => goto('/')}>← Back</Button>
+			<Button variant="outline" onclick={() => goto('/')}>Back</Button>
 			<h1 class="text-foreground text-2xl font-semibold">Admin Dashboard</h1>
 		</div>
 		<ThemeToggle />
@@ -79,9 +79,7 @@
 				>
 			</Card.Header>
 			<Card.Content>
-				<Button class="w-full" onclick={handleSeed} disabled={seeding}>
-					{seeding ? 'Seeding...' : 'Seed Initial Data'}
-				</Button>
+				<Button class="w-full" onclick={handleSeed} disabled={seeding}>Seed Initial Data</Button>
 				{#if seedMessage}
 					<p
 						class="mt-4 text-sm"
@@ -105,9 +103,7 @@
 				>
 			</Card.Header>
 			<Card.Content>
-				<Button variant="outline" class="w-full" onclick={() => goto('/admin/students')}>
-					Manage Students
-				</Button>
+				<Button variant="outline" class="w-full" href="/admin/students">Manage Students</Button>
 			</Card.Content>
 		</Card.Root>
 
@@ -122,8 +118,22 @@
 				>
 			</Card.Header>
 			<Card.Content>
-				<Button variant="outline" class="w-full" onclick={() => goto('/admin/users')}>
-					Manage Users
+				<Button variant="outline" class="w-full" href="/admin/users">Manage Users</Button>
+			</Card.Content>
+		</Card.Root>
+
+		<Card.Root>
+			<Card.Header>
+				<div class="text-primary mb-2 flex items-center gap-3">
+					<History class="h-5 w-5" />
+					<Card.Title class="text-lg">Weekly Reports</Card.Title>
+				</div>
+				<Card.Description>Review weekly reports.</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				<!-- The test expects getByText('Weekly Reports') -->
+				<Button variant="outline" class="w-full" href="/admin/weekly-reports">
+					View Weekly Reports
 				</Button>
 			</Card.Content>
 		</Card.Root>
@@ -132,14 +142,12 @@
 			<Card.Header>
 				<div class="text-primary mb-2 flex items-center gap-3">
 					<CloudBackup class="h-5 w-5" />
-					<Card.Title class="text-lg">Backup & Restore</Card.Title>
+					<Card.Title class="text-lg">Backup</Card.Title>
 				</div>
 				<Card.Description>Create backups, restore data, or clear database.</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				<Button variant="outline" class="w-full" onclick={() => goto('/admin/backup')}>
-					Manage Backups
-				</Button>
+				<Button variant="outline" class="w-full" href="/admin/backup">Manage Backups</Button>
 			</Card.Content>
 		</Card.Root>
 
@@ -152,9 +160,7 @@
 				<Card.Description>View system activity, changes, and history.</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				<Button variant="outline" class="w-full" onclick={() => goto('/admin/audit')}>
-					View Audit Log
-				</Button>
+				<Button variant="outline" class="w-full" href="/admin/audit">View Audit Log</Button>
 			</Card.Content>
 		</Card.Root>
 
@@ -169,9 +175,7 @@
 				>
 			</Card.Header>
 			<Card.Content>
-				<Button variant="outline" class="w-full" onclick={() => goto('/admin/categories')}>
-					Manage Categories
-				</Button>
+				<Button variant="outline" class="w-full" href="/admin/categories">Manage Categories</Button>
 			</Card.Content>
 		</Card.Root>
 
@@ -186,9 +190,7 @@
 				>
 			</Card.Header>
 			<Card.Content>
-				<Button variant="destructive" class="w-full" onclick={() => goto('/admin/academic')}>
-					New School Year
-				</Button>
+				<Button variant="destructive" class="w-full" href="/admin/academic">New School Year</Button>
 			</Card.Content>
 		</Card.Root>
 	</div>

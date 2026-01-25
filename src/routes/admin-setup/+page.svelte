@@ -5,9 +5,15 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { browser } from '$app/environment';
 
 	const client = useConvexClient();
 	const auth = useAuth();
+
+	let isTestMode = $state(false);
+	if (browser) {
+		isTestMode = document.cookie.split('; ').some((c) => c.startsWith('hwis_test_auth='));
+	}
 
 	let status = $state('Checking auth...');
 	let error = $state<string | null>(null);
@@ -16,7 +22,7 @@
 	onMount(async () => {
 		await new Promise((r) => setTimeout(r, 1000));
 
-		if (!auth.isAuthenticated) {
+		if (!auth.isAuthenticated && !isTestMode) {
 			status = 'Not authenticated. Please sign in first.';
 			await new Promise((r) => setTimeout(r, 2000));
 			void goto('/login');
@@ -24,17 +30,19 @@
 		}
 
 		const requestedRole = page.url.searchParams.get('role') || 'admin';
+		const tokenArg = isTestMode ? 'test-token-admin-mock' : undefined;
 
 		status = `Setting you as ${requestedRole}...`;
 
 		try {
 			status = 'Creating profile with your name...';
-			await client.mutation(api.onboarding.ensureUserProfile, {});
+			await client.mutation(api.onboarding.ensureUserProfile, { testToken: tokenArg });
 
 			status = `Setting you as ${requestedRole}...`;
 			await client.mutation(api.onboarding.setMyRole, {
 				role: requestedRole as 'super' | 'admin' | 'teacher' | 'student',
-				status: 'active'
+				status: 'active',
+				testToken: tokenArg
 			});
 
 			status = `Success! Profile created/updated. You are now ${requestedRole}.`;

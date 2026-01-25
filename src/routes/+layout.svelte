@@ -9,28 +9,44 @@
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
+	import DebugAuth from '$lib/components/DebugAuth.svelte';
 
-	let { children, data }: { children: Snippet; data: { isLoginPage?: boolean } } = $props();
+	let {
+		children,
+		data
+	}: {
+		children: Snippet;
+		data: { isLoginPage?: boolean; testRole?: string; mockUser?: any; mockToken?: string };
+	} = $props();
 
 	createSvelteAuthClient({ authClient });
 
-	let cookieTestMode = $state(false);
+	const cookieTestMode = $derived(!!data.testRole);
 
 	const auth = useAuth();
-	const isLoading = $derived(auth.isLoading && !cookieTestMode);
-	const isAuthenticated = $derived(auth.isAuthenticated || cookieTestMode);
+	let safetyTimeout = $state(false);
+
+	// Use mock data if available to prevent SSR fetch loops
+	const user = $derived(data.mockUser);
+	const isLoading = $derived(!data.mockUser && auth.isLoading && !cookieTestMode && !safetyTimeout);
+	const isAuthenticated = $derived(!!data.mockUser || auth.isAuthenticated || cookieTestMode);
+
 	const authDetermined = $derived(!isLoading);
+
+	$effect(() => {
+		if (browser) {
+			const timer = setTimeout(() => {
+				safetyTimeout = true;
+			}, 3000); // 3s fallback
+			return () => clearTimeout(timer);
+		}
+	});
 
 	const isLoginPage = $derived(data.isLoginPage || String(page.url.pathname) === '/login');
 
 	onMount(() => {
 		document.body.classList.add('hydrated');
 	});
-
-	if (browser) {
-		cookieTestMode =
-			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
-	}
 
 	$effect(() => {
 		if (!browser || !authDetermined || isLoginPage || cookieTestMode) return;
@@ -57,4 +73,8 @@
 	</div>
 {:else}
 	{@render children?.()}
+{/if}
+
+{#if import.meta.env.DEV}
+	<DebugAuth />
 {/if}

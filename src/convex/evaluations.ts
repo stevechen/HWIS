@@ -1,7 +1,7 @@
  
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { authComponent } from './auth';
+import { authComponent, getAuthenticatedUser, requireAuthenticatedUser, requireUserProfile } from './auth';
 
 export const getUserByAuthId = query({
 	args: { authId: v.string() },
@@ -24,27 +24,13 @@ export const create = mutation({
 		category: v.string(),
 		subCategory: v.string(),
 		details: v.string(),
-		semesterId: v.string()
+		semesterId: v.string(),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		let authUser;
-		try {
-			authUser = await authComponent.getAuthUser(ctx);
-		} catch {
-			throw new Error('Unauthorized');
-		}
-		const authId = authUser._id;
-
-		const userDoc = await ctx.db
-			.query('users')
-			.withIndex('by_authId', (q) => q.eq('authId', authId))
-			.first();
-
-		if (!userDoc) {
-			throw new Error('User profile not found. Please contact an administrator.');
-		}
-
+		const userDoc = await requireUserProfile(ctx, args.testToken);
 		const teacherId = userDoc._id;
+
 		const timestamp = Date.now();
 		const evaluationIds: string[] = [];
 
@@ -82,24 +68,12 @@ export const create = mutation({
 });
 
 export const remove = mutation({
-	args: { id: v.id('evaluations') },
+	args: { 
+		id: v.id('evaluations'),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
-		let authUser;
-		try {
-			authUser = await authComponent.getAuthUser(ctx);
-		} catch {
-			throw new Error('Unauthorized');
-		}
-		const authId = authUser._id;
-
-		const userDoc = await ctx.db
-			.query('users')
-			.withIndex('by_authId', (q) => q.eq('authId', authId))
-			.first();
-
-		if (!userDoc) {
-			throw new Error('User profile not found');
-		}
+		const userDoc = await requireUserProfile(ctx, args.testToken);
 
 		const evaluation = await ctx.db.get(args.id);
 		if (!evaluation) {
@@ -125,17 +99,15 @@ export const remove = mutation({
 });
 
 export const listRecent = query({
-	args: { limit: v.optional(v.number()) },
+	args: { 
+		limit: v.optional(v.number()),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
-		let authUser;
-		try {
-			authUser = await authComponent.safeGetAuthUser(ctx);
-		} catch {
-			return [];
-		}
+		const authUser = await getAuthenticatedUser(ctx, args.testToken);
 		if (!authUser) return [];
 
-		const authId = authUser._id;
+		const authId = authUser.authId || (authUser as any)._id;
 
 		const userDoc = await ctx.db
 			.query('users')
@@ -213,17 +185,10 @@ function formatDateRange(fridayTimestamp: number): string {
 }
 
 export const getWeeklyReportsList = query({
-	args: {},
-	handler: async (ctx) => {
-		let authUser;
-		try {
-			authUser = await authComponent.safeGetAuthUser(ctx);
-		} catch {
-			throw new Error('Unauthorized');
-		}
-		if (!authUser?._id) {
-			throw new Error('Unauthorized');
-		}
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		const authUser = await getAuthenticatedUser(ctx, args.testToken);
+		if (!authUser) return [];
 
 		const evaluations = await ctx.db
 			.query('evaluations')
@@ -254,17 +219,13 @@ export const getWeeklyReportsList = query({
 });
 
 export const getWeeklyReportDetail = query({
-	args: { fridayDate: v.number() },
+	args: { 
+		fridayDate: v.number(),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
-		let authUser;
-		try {
-			authUser = await authComponent.safeGetAuthUser(ctx);
-		} catch {
-			throw new Error('Unauthorized');
-		}
-		if (!authUser?._id) {
-			throw new Error('Unauthorized');
-		}
+		const authUser = await getAuthenticatedUser(ctx, args.testToken);
+		if (!authUser) return [];
 
 		const startOfWeek = args.fridayDate;
 		const endOfWeek = args.fridayDate + 7 * 24 * 60 * 60 * 1000 - 1;

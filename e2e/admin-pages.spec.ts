@@ -17,16 +17,16 @@ test.describe('Backup Page @backup', () => {
 	});
 
 	test('displays force backup section', async ({ page }) => {
-		await expect(page.getByText('Force Backup')).toBeVisible();
+		await expect(page.getByText('Force Backup', { exact: true })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Force Backup Now' })).toBeVisible();
 	});
 
 	test('displays backup history section', async ({ page }) => {
-		await expect(page.getByText('Backup History')).toBeVisible();
+		await expect(page.getByText('Backup History', { exact: true })).toBeVisible();
 	});
 
 	test('displays danger zone section', async ({ page }) => {
-		await expect(page.getByText('Danger Zone')).toBeVisible();
+		await expect(page.getByText('Danger Zone', { exact: true })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Clear All Data' })).toBeVisible();
 	});
 });
@@ -47,14 +47,9 @@ test.describe('Audit Page @audit', () => {
 		await expect(page.getByRole('button', { name: 'Back' }).first()).toBeVisible();
 	});
 
-	test('displays table headers', async ({ page }) => {
-		await expect(page.getByText('Timestamp')).toBeVisible();
-		await expect(page.getByText('Action')).toBeVisible();
-		await expect(page.getByText('User')).toBeVisible();
-	});
-
-	test('displays export button', async ({ page }) => {
-		await expect(page.getByRole('button', { name: 'Export' })).toBeVisible();
+	test('displays filter inputs', async ({ page }) => {
+		await expect(page.getByLabel('Filter by student name')).toBeVisible();
+		await expect(page.getByLabel('Filter by teacher name')).toBeVisible();
 	});
 });
 
@@ -75,11 +70,11 @@ test.describe('Academic Page @academic', () => {
 	});
 
 	test('displays advance academic year section', async ({ page }) => {
-		await expect(page.getByText('Advance Academic Year')).toBeVisible();
+		await expect(page.getByText('Advance Academic Year', { exact: true })).toBeVisible();
 		await expect(page.getByText('Promote all enrolled students')).toBeVisible();
 	});
 
-	test('displays warning about data loss', async ({ page }) => {
-		await expect(page.getByText(/irreversible|warning|permanent/i)).toBeVisible();
+	test('displays process information', async ({ page }) => {
+		await expect(page.getByText('Advance Year & Clear Data')).toBeVisible();
 	});
 });

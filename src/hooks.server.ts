@@ -52,8 +52,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 		event.locals.testRole = testRole;
 	} else {
 		try {
+			console.log('[Auth Debug] Checking session for cookie:', event.cookies.get('convex_session_token')?.slice(0, 10) + '...');
 			event.locals.token = await getToken(createAuth, event.cookies);
-		} catch {
+			console.log('[Auth Debug] Token validation result:', !!event.locals.token);
+		} catch (e) {
+			console.error('[Auth Debug] Error getting token from BetterAuth:', e instanceof Error ? e.message : e);
 			event.locals.token = undefined;
 		}
 		event.locals.isTestMode = false;

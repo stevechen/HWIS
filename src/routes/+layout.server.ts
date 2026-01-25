@@ -1,18 +1,31 @@
+import { redirect } from '@sveltejs/kit';
+
 export const load = async ({
 	cookies,
-	url
+	url,
+	locals
 }: {
 	cookies: { get: (name: string) => string | undefined };
 	url: URL;
+	locals: { token?: string };
 }) => {
 	const testAuthCookie = cookies.get('hwis_test_auth') || '';
 	const sessionToken = cookies.get('convex_session_token') || '';
 
-	// Detect test mode from EITHER source:
-	// 1. hwis_test_auth cookie (e.g., "admin", "super", "true")
-	// 2. convex_session_token that looks like a test token (contains "test_")
+	const isLoginPage = url.pathname === '/login';
+	const isLandingPage = url.pathname === '/';
+
+	// Detect test mode
 	const isTestAuthCookiePresent = testAuthCookie.length > 0;
 	const isTestSessionToken = sessionToken.includes('test_');
+	const isTestMode = isTestAuthCookiePresent || isTestSessionToken;
+
+	// Redirect logic for SSR protection
+	const isAuthenticated = !!locals.token || isTestMode;
+
+	if (!isAuthenticated && !isLoginPage && !isLandingPage) {
+		throw redirect(302, '/login');
+	}
 
 	let testRole: 'teacher' | 'admin' | 'super' | undefined = undefined;
 	if (isTestAuthCookiePresent || isTestSessionToken) {
@@ -38,6 +51,8 @@ export const load = async ({
 
 	return {
 		isLoginPage: url.pathname === '/login',
-		testRole
+		testRole,
+		mockToken: locals.token,
+		mockUser: (locals as any).user
 	};
 };

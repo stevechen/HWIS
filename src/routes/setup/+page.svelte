@@ -4,17 +4,23 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { browser } from '$app/environment';
 
 	const client = useConvexClient();
 	const auth = useAuth();
 	/* eslint-disable @typescript-eslint/no-explicit-any */
 	const apiAny = api as any;
 
+	let isTestMode = $state(false);
+	if (browser) {
+		isTestMode = document.cookie.split('; ').some((c) => c.startsWith('hwis_test_auth='));
+	}
+
 	let status = $state('Checking auth...');
 	let error = $state<string | null>(null);
 
 	onMount(async () => {
-		if (!auth.isAuthenticated) {
+		if (!auth.isAuthenticated && !isTestMode) {
 			status = 'Not authenticated. Please sign in first.';
 			await new Promise((r) => setTimeout(r, 2000));
 			void goto('/login');
@@ -22,16 +28,20 @@
 		}
 
 		status = 'Creating profile...';
+		const tokenArg = isTestMode ? 'test-token-admin-mock' : undefined;
 
 		try {
-			const result = await client.mutation(apiAny.onboarding.ensureUserProfile, {});
+			const result = await client.mutation(apiAny.onboarding.ensureUserProfile, {
+				testToken: tokenArg
+			});
 			console.log('Profile ensured:', result);
 
 			if (result.created) {
 				status = 'Profile created! Promoting to admin...';
 				await client.mutation(api.onboarding.setMyRole, {
 					role: 'admin',
-					status: 'active'
+					status: 'active',
+					testToken: tokenArg
 				});
 			}
 

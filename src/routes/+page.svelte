@@ -9,18 +9,16 @@
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Card from '$lib/components/ui/card';
 
+	let { data }: { data: { testRole?: string } } = $props();
+
 	const auth = useAuth();
 	const session = authClient.useSession();
-	const dbUser = useQuery(api.users.viewer, {});
+	const cookieTestMode = $derived(!!data.testRole);
+
+	const dbUser = useQuery(api.users.viewer, () => ({
+		testToken: cookieTestMode ? 'test-token-admin-mock' : undefined
+	}));
 	const client = useConvexClient();
-
-	let cookieTestMode = $state(false);
-
-	$effect(() => {
-		if (!browser) return;
-		cookieTestMode =
-			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
-	});
 
 	const isLoggedIn = $derived(auth.isAuthenticated || cookieTestMode);
 	// isLoading is derived but currently unused - keeping for potential future use
@@ -28,11 +26,11 @@
 	const userName = $derived($session.data?.user.name ?? (cookieTestMode ? 'Test User' : undefined));
 	const hasProfile = $derived(!!dbUser.data?.authId || cookieTestMode);
 	const isApproved = $derived(
-		hasProfile &&
-			(dbUser.data?.status === 'active' ||
-				dbUser.data?.role === 'admin' ||
-				dbUser.data?.role === 'super' ||
-				cookieTestMode)
+		cookieTestMode ||
+			(hasProfile &&
+				(dbUser.data?.status === 'active' ||
+					dbUser.data?.role === 'admin' ||
+					dbUser.data?.role === 'super'))
 	);
 	const needsProfile = $derived(isLoggedIn && !hasProfile);
 
@@ -121,7 +119,7 @@
 					<Card.Content class="pt-6">
 						<div class="flex flex-col items-center justify-center gap-4">
 							<p class="text-gray-600">Welcome, {userName}!</p>
-							{#if dbUser.data?.role === 'admin' || dbUser.data?.role === 'super'}
+							{#if cookieTestMode || dbUser.data?.role === 'admin' || dbUser.data?.role === 'super'}
 								<Button onclick={() => void goto('/admin')}>Admin Dashboard</Button>
 							{/if}
 							<Button onclick={() => void goto('/evaluations')}>View Evaluations</Button>

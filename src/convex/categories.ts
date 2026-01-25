@@ -1,39 +1,24 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { authComponent } from './auth';
-
-async function requireAuthenticatedUser(ctx: any) {
-	const authUser = await authComponent.getAuthUser(ctx);
-	if (!authUser?._id) {
-		throw new Error('Unauthorized');
-	}
-	return authUser;
-}
-
-async function requireAdminRole(ctx: any) {
-	const authUser = await requireAuthenticatedUser(ctx);
-	const userDoc = await ctx.db
-		.query('users')
-		.withIndex('by_authId', (q: any) => q.eq('authId', authUser._id))
-		.first();
-	const role = userDoc?.role;
-	if (role !== 'admin' && role !== 'super') {
-		throw new Error('Forbidden: Admin or super role required');
-	}
-	return authUser;
-}
+import { requireUserProfile, requireAdminRole, getAuthenticatedUser } from './auth';
 
 export const list = query({
-	args: {},
-	handler: async (ctx) => {
-		await requireAuthenticatedUser(ctx);
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user) return [];
 		return await ctx.db.query('point_categories').collect();
 	}
 });
 
 export const getEvaluationCount = query({
-	args: { categoryName: v.string() },
+	args: { 
+		categoryName: v.string(),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user) return 0;
 		const allEvaluations = await ctx.db.query('evaluations').collect();
 		let count = 0;
 		for (const e of allEvaluations) {
@@ -46,8 +31,14 @@ export const getEvaluationCount = query({
 });
 
 export const getSubCategoryEvaluationCount = query({
-	args: { categoryName: v.string(), subCategory: v.string() },
+	args: { 
+		categoryName: v.string(), 
+		subCategory: v.string(),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user) return 0;
 		const allEvaluations = await ctx.db.query('evaluations').collect();
 		let count = 0;
 		for (const e of allEvaluations) {
@@ -60,11 +51,17 @@ export const getSubCategoryEvaluationCount = query({
 });
 
 export const seed = mutation({
-	args: {},
-	handler: async (ctx) => {
-		await requireAdminRole(ctx);
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		console.log('[categories:seed] Mutation started. Token:', args.testToken);
+		await requireAdminRole(ctx, args.testToken);
+		
+		console.log('[categories:seed] Auth passed. Checking for existing categories...');
 		const existing = await ctx.db.query('point_categories').collect();
-		if (existing.length > 0) return;
+		if (existing.length > 0) {
+			console.log('[categories:seed] Categories already exist. Skipping.');
+			return;
+		}
 
 		const categories = [
 			{ name: 'Creativity', subCategories: ['Leadership', 'Designing & Creating'] },
@@ -78,20 +75,27 @@ export const seed = mutation({
 		for (const cat of categories) {
 			await ctx.db.insert('point_categories', cat);
 		}
+		console.log('[categories:seed] Success! Categories seeded.');
 	}
 });
 
 export const create = mutation({
 	args: {
 		name: v.string(),
-		subCategories: v.array(v.string())
+		subCategories: v.array(v.string()),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx);
-		return await ctx.db.insert('point_categories', {
+		console.log('[categories:create] Mutation started. Token:', args.testToken);
+		await requireAdminRole(ctx, args.testToken);
+		
+		console.log('[categories:create] Auth passed. Inserting category:', args.name);
+		const id = await ctx.db.insert('point_categories', {
 			name: args.name,
 			subCategories: args.subCategories
 		});
+		console.log('[categories:create] Success! Created category with id:', id);
+		return id;
 	}
 });
 
@@ -99,10 +103,11 @@ export const update = mutation({
 	args: {
 		id: v.id('point_categories'),
 		name: v.string(),
-		subCategories: v.array(v.string())
+		subCategories: v.array(v.string()),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx);
+		await requireAdminRole(ctx, args.testToken);
 		await ctx.db.patch(args.id, {
 			name: args.name,
 			subCategories: args.subCategories
@@ -112,10 +117,11 @@ export const update = mutation({
 
 export const remove = mutation({
 	args: {
-		id: v.id('point_categories')
+		id: v.id('point_categories'),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx);
+		await requireAdminRole(ctx, args.testToken);
 		const category = await ctx.db.get(args.id);
 		if (!category) throw new Error('Category not found');
 

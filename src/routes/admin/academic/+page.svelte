@@ -9,34 +9,37 @@
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Card from '$lib/components/ui/card';
 
-	let client = useConvexClient();
-	let currentUser = useQuery(api.users.viewer, {});
+	const client = useConvexClient();
+	let { data }: { data: { testRole?: string } } = $props();
+
+	const isTestMode = $derived(!!data.testRole);
+
+	let currentUser = useQuery(api.users.viewer, () => ({
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
 
 	let isAdvancing = $state(false);
 	let advanceResult = $state<any>(null);
 	let showAdvanceDialog = $state(false);
 
-	let isTestMode = $state(false);
 	$effect(() => {
+		if (isTestMode) return;
 		if (browser && currentUser.isLoading === false) {
-			if (typeof document !== 'undefined') {
-				isTestMode = document.cookie.split('; ').some((c) => c.startsWith('hwis_test_auth='));
-			}
-			if (!isTestMode && currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
+			if (currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
 				goto('/');
 			}
 		}
 	});
 
-	function refreshStudents() {
-		
-	}
+	function refreshStudents() {}
 
 	async function handleAdvanceYear() {
 		isAdvancing = true;
 		advanceResult = null;
 		try {
-			const result = await client.mutation(apiAny.backup.advanceGradesAndClearEvaluations, {});
+			const result = await client.mutation(apiAny.backup.advanceGradesAndClearEvaluations, {
+				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+			});
 			advanceResult = result;
 			refreshStudents();
 		} catch (e: any) {
