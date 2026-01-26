@@ -8,7 +8,10 @@ export default defineSchema({
 		role: v.optional(
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated')))
+		status: v.optional(
+			v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))
+		),
+		e2eTag: v.optional(v.string())
 	}).index('by_authId', ['authId']),
 
 	sessions: defineTable({

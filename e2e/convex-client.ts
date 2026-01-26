@@ -107,6 +107,24 @@ export async function checkEvaluationExists(categoryName: string) {
 	return await utils.checkEvaluationExists(categoryName);
 }
 
+export async function createWeeklyReportTestData() {
+	const utils = getUtils();
+	const client = (utils as any).client;
+	if (!client) {
+		throw new Error('E2E client not available');
+	}
+	return await client.mutation('testData/weeklyReports:createWeeklyReportTestData', {});
+}
+
+export async function cleanupWeeklyReportTestData() {
+	const utils = getUtils();
+	const client = (utils as any).client;
+	if (!client) {
+		throw new Error('E2E client not available');
+	}
+	return await client.mutation('testData/weeklyReports:cleanupWeeklyReportTestData', {});
+}
+
 export function getE2EUtilsClient() {
 	return getUtils();
 }

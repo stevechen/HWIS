@@ -2,8 +2,6 @@ import type { Handle } from '@sveltejs/kit';
 import { createAuth } from '$convex/auth.js';
 import { getToken } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 
-type TestRole = 'admin' | 'super' | 'teacher';
-
 export const handle: Handle = async ({ event, resolve }) => {
 	const testAuthCookie = event.cookies.get('hwis_test_auth') || '';
 	const sessionToken = event.cookies.get('convex_session_token') || '';
@@ -15,12 +13,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const isTestSessionToken = sessionToken.includes('test_');
 	const isTestMode = isTestAuthCookiePresent || isTestSessionToken;
 
-	let testRole: TestRole = 'teacher';
+	let testRole: 'admin' | 'super' | 'teacher' = 'teacher';
 	if (isTestMode) {
 		// Support formats: "true", "true;role=admin", "admin", "super"
 		const roleValue = testAuthCookie.split(';')[0].trim();
 		if (['admin', 'super'].includes(roleValue)) {
-			testRole = roleValue as TestRole;
+			testRole = roleValue as typeof testRole;
 		} else if (isTestSessionToken) {
 			// Infer role from session token if it looks like a test token
 			if (sessionToken.includes('super')) {
@@ -32,7 +30,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			// Check for role= in the full cookie value
 			const roleMatch = testAuthCookie.match(/role=(\w+)/);
 			if (roleMatch && ['admin', 'super', 'teacher'].includes(roleMatch[1])) {
-				testRole = roleMatch[1] as TestRole;
+				testRole = roleMatch[1] as typeof testRole;
 			}
 		}
 	}
@@ -52,11 +50,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 		event.locals.testRole = testRole;
 	} else {
 		try {
-			console.log('[Auth Debug] Checking session for cookie:', event.cookies.get('convex_session_token')?.slice(0, 10) + '...');
 			event.locals.token = await getToken(createAuth, event.cookies);
-			console.log('[Auth Debug] Token validation result:', !!event.locals.token);
 		} catch (e) {
-			console.error('[Auth Debug] Error getting token from BetterAuth:', e instanceof Error ? e.message : e);
+			console.error(
+				'[Auth Debug] Error getting token from BetterAuth:',
+				e instanceof Error ? e.message : e
+			);
 			event.locals.token = undefined;
 		}
 		event.locals.isTestMode = false;

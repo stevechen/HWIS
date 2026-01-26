@@ -1,13 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { getTestSuffix, cleanupE2EData } from './students.shared';
-import { setTestAuth } from './auth.helpers';
 import { createStudent } from './convex-client';
 
 test.describe('Add Student @students', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	test.beforeEach(async ({ page }) => {
-		await setTestAuth(page, 'admin');
 
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');

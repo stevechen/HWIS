@@ -1,0 +1,4 @@
+Tip: You can try out Convex without creating an account by clearing the CONVEX_DEPLOYMENT environment variable.
+Welcome to developing with Convex, let's get you logged in.
+✖ Cannot prompt for input in non-interactive terminals. (Device name:)
+error: "convex" exited with code 1

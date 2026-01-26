@@ -7,9 +7,14 @@
 	import { createSvelteAuthClient } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { authClient } from '$lib/auth-client';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { setupConvex } from 'convex-svelte';
+	import { PUBLIC_CONVEX_URL } from '$env/static/public';
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
 	import DebugAuth from '$lib/components/DebugAuth.svelte';
+
+	// Initialize Convex client - must be called before any useQuery() calls
+	setupConvex(PUBLIC_CONVEX_URL);
 
 	let {
 		children,

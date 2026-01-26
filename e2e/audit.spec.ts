@@ -1,13 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { setTestAuth } from './auth.helpers';
 import { cleanupAuditLogs } from './convex-client';
 
 test.describe('Audit Log Page (super admin)', () => {
 	test.use({ storageState: 'e2e/.auth/super.json' });
 
 	test.beforeEach(async ({ page }) => {
-		await setTestAuth(page, 'super');
-
 		await page.goto('/admin/audit');
 		await page.waitForSelector('body.hydrated');
 

@@ -52,22 +52,22 @@ describe('Audit Page', () => {
 	});
 
 	it('renders page title as heading', async () => {
-		render(AuditPage);
+		render(AuditPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByRole('heading', { name: 'Audit Log' })).toBeInTheDocument();
 	});
 
 	it('shows back to admin button', async () => {
-		render(AuditPage);
+		render(AuditPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByRole('button', { name: 'Back to Admin' })).toBeInTheDocument();
 	});
 
 	it('renders page structure', async () => {
-		render(AuditPage);
+		render(AuditPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByRole('heading', { name: 'Audit' })).toBeInTheDocument();
 	});
 
 	it('shows theme toggle button', async () => {
-		render(AuditPage);
+		render(AuditPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByRole('button', { name: 'Toggle theme' })).toBeInTheDocument();
 	});
 });

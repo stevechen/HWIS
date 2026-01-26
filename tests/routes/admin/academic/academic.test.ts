@@ -40,17 +40,17 @@ describe('Academic Page', () => {
 	});
 
 	it('renders page title as heading', async () => {
-		render(AcademicPage);
+		render(AcademicPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByRole('heading', { name: 'Year-End Reset' })).toBeInTheDocument();
 	});
 
 	it('shows back button', async () => {
-		render(AcademicPage);
+		render(AcademicPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByRole('button', { name: 'Back' })).toBeInTheDocument();
 	});
 
 	it('renders promote students description', async () => {
-		render(AcademicPage);
+		render(AcademicPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByText('Promote all enrolled students')).toBeInTheDocument();
 	});
 });

@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { convexTest } from 'convex-test';
+import { convexTest, modules } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const modules = import.meta.glob('./**/*.ts') as any;
 
 describe('categories.create', () => {
 	it('creates a category with subCategories', async () => {

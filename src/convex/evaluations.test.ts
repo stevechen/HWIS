@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest';
-import { convexTest } from 'convex-test';
+import { convexTest, modules } from './test.setup';
 import schema from './schema';
-import { modules } from './test.setup';
 
 test('evaluations table operations work correctly', async () => {
 	const t = convexTest(schema, modules);

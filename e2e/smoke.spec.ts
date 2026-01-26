@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { setTestAuth } from './auth.helpers';
 import { getTestSuffix } from './helpers';
 import { createStudent, cleanupTestData } from './convex-client';
 
@@ -7,7 +6,6 @@ test.describe('Smoke Tests @smoke', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
 	test.beforeEach(async ({ page }) => {
-		await setTestAuth(page, 'teacher');
 	});
 
 	test.afterEach(async () => {
@@ -131,7 +129,6 @@ test.describe('Student Table UI Tests @students', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	test.beforeEach(async ({ page }) => {
-		await setTestAuth(page, 'admin');
 	});
 
 	test.afterEach(async () => {

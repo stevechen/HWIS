@@ -1,6 +1,3 @@
 {
-  "functions": "src/convex/",
-  "auth": {
-    "module": "auth.config"
-  }
+  "functions": "src/convex/"
 }

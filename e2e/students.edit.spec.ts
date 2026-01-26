@@ -1,14 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { getTestSuffix } from './students.shared';
-import { setTestAuth } from './auth.helpers';
+// Mock auth removed - using real storageState files now
 import { createStudent, cleanupTestData } from './convex-client';
 
 test.describe('Edit Student @students', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	test.beforeEach(async ({ page }) => {
-		await setTestAuth(page, 'admin');
-
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
 	});

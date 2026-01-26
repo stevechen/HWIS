@@ -62,17 +62,17 @@ describe('Users Page', () => {
 	});
 
 	it('shows back to admin button', async () => {
-		render(UsersPage);
+		render(UsersPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByRole('button', { name: 'Back to Admin' })).toBeInTheDocument();
 	});
 
 	it('renders page title as heading', async () => {
-		render(UsersPage);
+		render(UsersPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByRole('heading', { name: 'Manage Users' })).toBeInTheDocument();
 	});
 
 	it('renders page description', async () => {
-		render(UsersPage);
+		render(UsersPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByText('teachers and staff')).toBeInTheDocument();
 	});
 });

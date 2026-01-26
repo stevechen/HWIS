@@ -1,7 +1,6 @@
 import { expect, test, describe } from 'vitest';
-import { convexTest } from 'convex-test';
+import { convexTest, modules } from './test.setup';
 import schema from './schema';
-import { modules } from './test.setup';
 
 describe('audit logs (database operations)', () => {
 	test('audit.list returns empty array when no logs exist', async () => {

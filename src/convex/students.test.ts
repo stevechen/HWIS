@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { convexTest } from 'convex-test';
+import { convexTest, modules } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
-import { modules } from './test.setup';
 
 describe('students.create', () => {
 	it('creates a student with valid data', async () => {
@@ -429,7 +428,7 @@ describe('students edge cases', () => {
 		const students = await t.query(api.students.list, {});
 		expect(students).toHaveLength(6);
 
-		const grades = students.map((s) => s.grade);
+		const grades = students.map((s: { grade: number }) => s.grade);
 		expect(grades).toContain(7);
 		expect(grades).toContain(8);
 		expect(grades).toContain(9);

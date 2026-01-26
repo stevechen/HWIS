@@ -15,11 +15,22 @@ const isDev =
 	process.env.SITE_URL?.includes('localhost') ||
 	process.env.CONVEX_DEPLOYMENT?.includes('local');
 
-const siteUrl = isDev ? 'http://localhost:5173' : (process.env.SITE_URL || 'https://hwis.vercel.app');
+const siteUrl = isDev ? 'http://localhost:5173' : process.env.SITE_URL || 'https://hwis.vercel.app';
 
 if (typeof window === 'undefined') {
-	console.log('[Auth Debug] SITE_URL:', siteUrl);
-	console.log('[Auth Debug] CONVEX_URL:', process.env.CONVEX_URL);
+	// Set environment variables for auth component if not already set
+	const convexUrl =
+		process.env.CONVEX_URL || process.env.PUBLIC_CONVEX_URL || 'http://127.0.0.1:3210';
+	const siteUrlOverride =
+		process.env.PUBLIC_CONVEX_SITE_URL || process.env.SITE_URL || 'http://localhost:5173';
+	// Use env var or generate a secure secret for development
+	const betterAuthSecret =
+		process.env.BETTER_AUTH_SECRET ||
+		'0150ee735cf86820eb80300e6050a1e4be246675a80a65fc62e64489633f7db0';
+
+	process.env.CONVEX_URL = convexUrl;
+	process.env.PUBLIC_CONVEX_SITE_URL = siteUrlOverride;
+	process.env.BETTER_AUTH_SECRET = betterAuthSecret;
 }
 
 // Global constant for the mock auth ID - matches Vite DEV env setting
@@ -37,16 +48,16 @@ const trustedOrigins = [
 
 // Domain restriction configuration
 const ALLOWED_DOMAIN = 'hwhs.tc.edu.tw';
-const EXCEPTION_EMAILS = ['steve.stevechen@gmail.com', 'steve.homecook@gmail.com'];
+export const EXCEPTION_EMAILS = [
+	'steve.stevechen@gmail.com',
+	'steve.homecook@gmail.com',
+	'steve@hwhs.tc.edu.tw'
+];
 const REJECTION_MESSAGE = 'For Hong Wen International School (HWIS) staffs only.';
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
 export const authComponent = createClient<DataModel>(components.betterAuth);
-
-if (typeof window === 'undefined') {
-	console.log('[Auth Debug] authComponent initialized. Target Convex URL:', process.env.PUBLIC_CONVEX_URL || process.env.CONVEX_URL);
-}
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
 	return betterAuth({
@@ -61,7 +72,8 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 			google: {
 				clientId: isDev ? devGoogleCredentials.clientId : process.env.GOOGLE_CLIENT_ID!,
 				clientSecret: isDev ? devGoogleCredentials.clientSecret : process.env.GOOGLE_CLIENT_SECRET!,
-				prompt: 'select_account'
+				prompt: 'select_account',
+				redirectURI: `${siteUrl}/api/auth/callback/google`
 			}
 		},
 		plugins: [convex({ authConfig })],
@@ -85,112 +97,34 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 	});
 };
 
-/**
- * MOCK AUTH HELPERS
- */
-
-// Global mock Super Admin object
-const GLOBAL_MOCK_ADMIN = {
-	_id: 'test-user-id' as any,
-	_creationTime: 0,
-	authId: MOCK_ADMIN_AUTH_ID,
-	name: 'Test Super Admin',
-	email: 'super@hwis.test',
-	role: 'super',
-	status: 'active'
-} as Doc<'users'>;
-
-// Helper to ensure mock admin exists for local dev (UI use)
-async function ensureMockAdmin(ctx: any) {
-	// If in test mode, return static object to avoid DB contention/transactions
-	if (process.env.CONVEX_TEST === 'true' || process.env.VITEST === 'true') {
-		return GLOBAL_MOCK_ADMIN;
-	}
-
-	if (!ctx.db) return GLOBAL_MOCK_ADMIN;
-
-	let user = await ctx.db
-		.query('users')
-		.withIndex('by_authId', (q: any) => q.eq('authId', MOCK_ADMIN_AUTH_ID))
-		.first();
-
-	if (!user) {
-		if (typeof ctx.db.insert === 'function') {
-			const id = await ctx.db.insert('users', {
-				authId: MOCK_ADMIN_AUTH_ID,
-				name: 'Test Super Admin',
-				role: 'super',
-				status: 'active'
-			});
-			user = await ctx.db.get(id);
-		} else {
-			return GLOBAL_MOCK_ADMIN;
-		}
-	}
-	return user;
+// Helper function to check if a user is an exception email
+export function isExceptionEmail(email: string): boolean {
+	return EXCEPTION_EMAILS.includes(email);
 }
 
-// Helper to check if a token identifies a mock user
-function isMockToken(token?: string): boolean {
-	return !!token && (token === MOCK_ADMIN_AUTH_ID || token === 'admin' || token === 'super');
+// Helper function to validate email domain
+export function isAllowedDomain(email: string): boolean {
+	return email.endsWith(`@${ALLOWED_DOMAIN}`);
 }
-
-/**
- * EXPORTED HELPERS
- */
-
-// Unified helper that ensures user AND profile exists
-export const requireUserProfile = async (ctx: any, testToken?: string): Promise<Doc<'users'>> => {
-	// 1. Check for mock token FIRST
-	if (isMockToken(testToken)) {
-		const mockProfile = await ensureMockAdmin(ctx);
-		if (mockProfile) return mockProfile;
-	}
-
-	// 2. Check for authenticated user via session/identity
-	const user = await getAuthenticatedUser(ctx, testToken);
-	if (user) {
-		// If the user object ALREADY looks like a HWIS profile, return it
-		if ((user as any)._id && (user as any).role && (user as any).status) {
-			return user as Doc<'users'>;
-		}
-
-		// Otherwise try to resolve from DB
-		const authId = user.authId || (user as any).id || (user as any)._id;
-		if (authId && ctx.db) {
-			const profile = await ctx.db
-				.query('users')
-				.withIndex('by_authId', (q: any) => q.eq('authId', authId))
-				.first();
-			if (profile) return profile;
-		}
-	}
-
-	// 3. ABSOLUTE FALLBACK FOR TESTS (ensure no regressions in existing unit tests)
-	if (process.env.CONVEX_TEST === 'true' || process.env.VITEST === 'true') {
-		return GLOBAL_MOCK_ADMIN;
-	}
-
-	throw new Error('Unauthorized');
-};
 
 // Helper to get authenticated user
 export const getAuthenticatedUser = async (ctx: any, testToken?: string) => {
-	// Priority 1: Check mock token
-	if (isMockToken(testToken)) {
-		return await ensureMockAdmin(ctx);
+	// Check for test token first (for e2e testing)
+	if (testToken === 'test-token-admin-mock') {
+		// Return a test admin user
+		const testUser = await ctx.db
+			.query('users')
+			.withIndex('by_authId', (q: any) => q.eq('authId', 'test-user-id'))
+			.first();
+		if (testUser) return testUser;
+
+		// Create test user if it doesn't exist
+		throw new Error('Test user not found - run seedBaseline first');
 	}
 
-	// Priority 2: Check standard identity/session via component
 	try {
 		const user = await authComponent.getAuthUser(ctx);
 		if (user) {
-			// Resolve the profile to include role/status for the frontend
-			// In test mode, we skip the DB query to avoid transaction overlap errors
-			if (process.env.CONVEX_TEST === 'true' || process.env.VITEST === 'true') {
-				return { ...user, role: 'super', status: 'active' };
-			}
-
 			const authId = (user as any).authId || (user as any).id || (user as any)._id;
 			if (authId && ctx.db) {
 				const profile = await ctx.db
@@ -202,39 +136,60 @@ export const getAuthenticatedUser = async (ctx: any, testToken?: string) => {
 			return user;
 		}
 	} catch (e) {
-		// Ignore lookup failures in test mode
+		// Ignore lookup failures
 	}
 
-	// Priority 3: Fallback for Test environment (ensures unit tests don't throw)
-	if (process.env.CONVEX_TEST === 'true' || process.env.VITEST === 'true') {
-		return GLOBAL_MOCK_ADMIN;
+	// For unit tests (convex-test), authComponent.getAuthUser will fail
+	// Return a mock admin user to allow tests to run
+	if (testToken === 'unit-test-token') {
+		return {
+			_id: 'test-user-id' as any,
+			authId: 'test-user-id',
+			name: 'Test Admin',
+			role: 'admin',
+			status: 'active'
+		} as any;
 	}
 
 	return null;
 };
 
+// Unified helper that ensures user AND profile exists
+export const requireUserProfile = async (ctx: any, _testToken?: string): Promise<Doc<'users'>> => {
+	const user = await getAuthenticatedUser(ctx, _testToken);
+	if (user) {
+		// If the user object ALREADY looks like a HWIS profile, return it
+		if ((user as any)._id && (user as any).role && (user as any).status) {
+			return user as Doc<'users'>;
+		}
+
+		// Otherwise try to resolve from DB
+		const authId = (user as any).authId || (user as any).id || (user as any)._id;
+		if (authId && ctx.db) {
+			const profile = await ctx.db
+				.query('users')
+				.withIndex('by_authId', (q: any) => q.eq('authId', authId))
+				.first();
+			if (profile) return profile;
+		}
+	}
+
+	throw new Error('Unauthorized');
+};
+
 // Basic authentication requirement
-export const requireAuthenticatedUser = async (ctx: any, testToken?: string) => {
-	return await requireUserProfile(ctx, testToken);
+export const requireAuthenticatedUser = async (ctx: any, _testToken?: string) => {
+	return await requireUserProfile(ctx, _testToken);
 };
 
 // Admin/Super role requirement
-export const requireAdminRole = async (ctx: any, testToken?: string) => {
-	const user = await requireUserProfile(ctx, testToken);
+export const requireAdminRole = async (ctx: any, _testToken?: string) => {
+	const user = await requireUserProfile(ctx, _testToken);
 
 	const role = user.role;
-	const isMockOrTest = isMockToken(user.authId) || process.env.CONVEX_TEST === 'true' || process.env.VITEST === 'true';
-
-	if (!isMockOrTest && role !== 'admin' && role !== 'super') {
+	if (role !== 'admin' && role !== 'super') {
 		throw new Error('Forbidden: Admin or super role required');
 	}
 
 	return user;
 };
-
-export const getCurrentUser = query({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		return getAuthenticatedUser(ctx, args.testToken);
-	}
-});

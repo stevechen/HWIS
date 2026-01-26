@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { setTestAuth } from './auth.helpers';
 import { createStudent, cleanupTestData } from './convex-client';
 import { getTestSuffix } from './helpers';
 
@@ -7,7 +6,6 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	test.beforeEach(async ({ page }) => {
-		await setTestAuth(page, 'admin');
 	});
 
 	test.afterEach(async () => {
@@ -83,7 +81,6 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 		});
 		expect(createResult).toBeTruthy();
 
-		await setTestAuth(page, 'teacher');
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
 
@@ -121,7 +118,6 @@ test.describe('Category to Evaluation Integration (Real Backend) @integration', 
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	test.beforeEach(async ({ page }) => {
-		await setTestAuth(page, 'admin');
 	});
 
 	test.afterEach(async () => {
@@ -165,7 +161,6 @@ test.describe('Category to Evaluation Integration (Real Backend) @integration', 
 			e2eTag: `e2e-test_${studentSuffix}`
 		});
 
-		await setTestAuth(page, 'teacher');
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
 

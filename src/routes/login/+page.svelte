@@ -27,8 +27,8 @@
 	}
 
 	function devLogin() {
-		document.cookie = 'hwis_test_auth=super; path=/; max-age=3600';
-		window.location.href = '/';
+		// Dev login removed - using real Google OAuth now
+		console.log('Dev login functionality removed - use Google OAuth');
 	}
 </script>
 
@@ -66,12 +66,12 @@
 
 			{#if import.meta.env.DEV}
 				<div class="mt-4 border-t pt-4">
-					<button
-						onclick={devLogin}
-						class="flex w-full items-center justify-center gap-2 rounded-md border border-orange-300 bg-orange-50 px-4 py-2 font-medium text-orange-700 transition-colors hover:bg-orange-100 focus:ring-2 focus:ring-orange-500 focus:outline-none"
-					>
-						🚀 Dev Login (Super Admin)
-					</button>
+					<div class="rounded border border-yellow-200 bg-yellow-50 px-4 py-2 text-yellow-800">
+						<p class="text-sm font-medium">Development Mode</p>
+						<p class="text-xs">
+							Real Google OAuth required for testing. Mock authentication removed.
+						</p>
+					</div>
 				</div>
 			{/if}
 

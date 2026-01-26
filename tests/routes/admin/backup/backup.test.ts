@@ -34,36 +34,36 @@ describe('Backup Page', () => {
 	});
 
 	it('renders page title as heading', async () => {
-		render(BackupPage);
+		render(BackupPage, { props: { data: { testRole: 'admin' } } });
 		await expect
 			.element(page.getByRole('heading', { name: 'Backup Management' }))
 			.toBeInTheDocument();
 	});
 
 	it('shows back to admin button', async () => {
-		render(BackupPage);
+		render(BackupPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByRole('button', { name: 'Back to Admin' })).toBeInTheDocument();
 	});
 
 	it('renders clear all data button', async () => {
-		render(BackupPage);
+		render(BackupPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByRole('button', { name: 'Clear All Data' })).toBeInTheDocument();
 	});
 
 	it('has force backup button', async () => {
-		render(BackupPage);
+		render(BackupPage, { props: { data: { testRole: 'admin' } } });
 		await expect
 			.element(page.getByRole('button', { name: 'Force Backup Now' }))
 			.toBeInTheDocument();
 	});
 
 	it('shows database backup description', async () => {
-		render(BackupPage);
+		render(BackupPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByText('database')).toBeInTheDocument();
 	});
 
 	it('shows theme toggle button', async () => {
-		render(BackupPage);
+		render(BackupPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByRole('button', { name: 'Toggle theme' })).toBeInTheDocument();
 	});
 });

@@ -1,6 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
 import { getTestSuffix } from './helpers';
-import { setTestAuth } from './auth.helpers';
 import { createStudent, cleanupTestData } from './convex-client';
 
 async function createStudentForEval(
@@ -39,7 +38,6 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
 	test.beforeEach(async ({ page }) => {
-		await setTestAuth(page, 'teacher');
 
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');

@@ -25,7 +25,7 @@ describe('Admin Dashboard', () => {
 	});
 
 	it('renders page title as heading', async () => {
-		render(AdminDashboard);
+		render(AdminDashboard, { props: { data: { testRole: 'admin' } } });
 		await expect
 			.element(page.getByRole('heading', { name: 'Admin Dashboard' }))
 			.toBeInTheDocument();

@@ -23,7 +23,7 @@
 		}
 		if (!browser) return;
 		const url = new URL(window.location.href);
-		isDemoMode = url.searchParams.get('demo') === 'true' || isTestMode;
+		isDemoMode = url.searchParams.get('demo') === 'true';
 	});
 
 	let dialogElement: HTMLDialogElement | undefined = $state();
@@ -463,7 +463,7 @@
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
-							{#each reports as report (report.fridayDate)}
+							{#each reports as report (report.fridayDate.toString())}
 								<Table.Row class="cursor-pointer" onclick={() => openReport(report)} tabindex="0">
 									<Table.Cell class="text-center font-medium">{report.weekNumber}</Table.Cell>
 									<Table.Cell>{report.formattedDate}</Table.Cell>
