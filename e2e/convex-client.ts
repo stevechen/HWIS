@@ -109,22 +109,12 @@ export async function checkEvaluationExists(categoryName: string) {
 
 export async function createWeeklyReportTestData() {
 	const utils = getUtils();
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const client = (utils as any).client;
-	if (!client) {
-		throw new Error('E2E client not available');
-	}
-	return await client.mutation('testData/weeklyReports:createWeeklyReportTestData', {});
+	return await utils.createWeeklyReportTestData();
 }
 
 export async function cleanupWeeklyReportTestData() {
 	const utils = getUtils();
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const client = (utils as any).client;
-	if (!client) {
-		throw new Error('E2E client not available');
-	}
-	return await client.mutation('testData/weeklyReports:cleanupWeeklyReportTestData', {});
+	return await utils.cleanupWeeklyReportTestData();
 }
 
 export function getE2EUtilsClient() {

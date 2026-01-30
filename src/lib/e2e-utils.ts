@@ -70,6 +70,8 @@ export interface E2EUtils {
 	setRoleByEmail: (email: string, role: string) => Promise<any>;
 	setMyRole: (role: string) => Promise<any>;
 	setRoleByToken: (token: string, role: string) => Promise<any>;
+	createWeeklyReportTestData: () => Promise<any>;
+	cleanupWeeklyReportTestData: () => Promise<any>;
 }
 
 export function getE2EUtils(): E2EUtils {
@@ -300,6 +302,34 @@ export function getE2EUtils(): E2EUtils {
 				return await client.mutation(api.users.setRoleByToken, { token, role: role as any });
 			} catch {
 				console.log('Set role by token error');
+				return { error: 'Error' };
+			}
+		},
+
+		async createWeeklyReportTestData() {
+			try {
+				const result = await client.mutation(
+					api.testData.weeklyReports.createWeeklyReportTestData,
+					{}
+				);
+				console.log('Create weekly report test data result:', result);
+				return result;
+			} catch {
+				console.log('Create weekly report test data error');
+				return { error: 'Error' };
+			}
+		},
+
+		async cleanupWeeklyReportTestData() {
+			try {
+				const result = await client.mutation(
+					api.testData.weeklyReports.cleanupWeeklyReportTestData,
+					{}
+				);
+				console.log('Cleanup weekly report test data result:', result);
+				return result;
+			} catch {
+				console.log('Cleanup weekly report test data error');
 				return { error: 'Error' };
 			}
 		}

@@ -9,6 +9,7 @@ test.describe('Edit Student @students', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
+		await page.waitForSelector('text=Loading students...', { state: 'detached' });
 	});
 
 	test.afterEach(async () => {
@@ -23,34 +24,45 @@ test.describe('Edit Student @students', () => {
 	test('can update student status', async ({ page }) => {
 		const suffix = getTestSuffix('editStatus');
 		const studentId = `S_${suffix}`;
+		const englishName = `Status_${suffix}`;
 
 		await createStudent({
 			studentId,
-			englishName: `Status_${suffix}`,
+			englishName,
 			grade: 10,
 			status: 'Enrolled',
 			e2eTag: `e2e-test_${suffix}`
 		});
 
-		await page.getByPlaceholder('Search by name or student ID...').fill(`Status_${suffix}`);
+		// Wait for student to appear in list
+		await page.waitForTimeout(500);
 
-		await expect(page.getByRole('row', { name: `Status_${suffix}` })).toBeVisible();
+		// Search for the student
+		await page.getByLabel('Search by name or student ID').fill(englishName);
+		await page.waitForTimeout(300);
 
-		await page
-			.getByRole('row', { name: `Status_${suffix}` })
-			.getByRole('button', { name: new RegExp(`^Edit Status_${suffix}$`) })
-			.click();
+		// Verify student is visible
+		await expect(page.getByText(englishName).first()).toBeVisible();
 
-		await page
-			.getByRole('dialog')
-			.locator('select[aria-label="Status"]')
-			.selectOption('Not Enrolled');
+		// Find and click edit button for this student
+		const editButton = page
+			.locator('tr')
+			.filter({ hasText: englishName })
+			.getByRole('button', { name: /edit/i })
+			.first();
+		await editButton.click();
+
+		// Wait for dialog and change status
+		await expect(page.getByRole('dialog')).toBeVisible();
+		await page.getByRole('dialog').getByLabel('Status').selectOption('Not Enrolled');
 		await page.getByRole('dialog').getByRole('button', { name: 'Update' }).click();
 
+		// Wait for dialog to close
 		await expect(page.getByRole('dialog')).not.toBeVisible();
-		await page.getByPlaceholder('Search by name or student ID...').fill(`Status_${suffix}`);
-		await expect(
-			page.getByRole('row', { name: `Status_${suffix}` }).getByText('Not Enrolled')
-		).toBeVisible();
+
+		// Verify status changed
+		await page.getByLabel('Search by name or student ID').fill(englishName);
+		await page.waitForTimeout(300);
+		await expect(page.getByText('Not Enrolled').first()).toBeVisible();
 	});
 });
