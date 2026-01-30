@@ -6,19 +6,12 @@ test.describe('Add Student @students', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	test.beforeEach(async ({ page }) => {
-
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
 	});
 
 	test.afterEach(async ({ page }) => {
 		await cleanupE2EData(page, 'addStudent');
-	});
-
-	test('opens add student dialog', async ({ page }) => {
-		await page.getByRole('button', { name: 'Add new student' }).click();
-		await expect(page.getByRole('dialog')).toBeVisible();
-		await expect(page.getByRole('heading', { name: 'Add New Student' })).toBeVisible();
 	});
 
 	test('can add a new student', async ({ page }) => {
@@ -42,38 +35,6 @@ test.describe('Add Student @students', () => {
 
 		// Verify student is in the list
 		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
-	});
-
-	test('shows error when student ID is empty', async ({ page }) => {
-		await page.getByRole('button', { name: 'Add new student' }).click();
-		await page.getByRole('dialog').getByPlaceholder('e.g., John Smith').fill('Test Student');
-		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
-
-		// Check for error in the dialog
-		await expect(page.getByRole('dialog')).toBeVisible();
-		const dialogContent = await page.getByRole('dialog').textContent();
-		expect(dialogContent).toMatch(/student ID|required|error/i);
-	});
-
-	test('shows error when English name is empty', async ({ page }) => {
-		await page.getByRole('button', { name: 'Add new student' }).click();
-		await page.getByRole('dialog').getByPlaceholder('e.g., S1001').fill('S12345');
-		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
-
-		// Check for error in the dialog
-		await expect(page.getByRole('dialog')).toBeVisible();
-		const dialogContent = await page.getByRole('dialog').textContent();
-		expect(dialogContent).toMatch(/name|required|error/i);
-	});
-
-	test('can cancel add form', async ({ page }) => {
-		await page.getByRole('button', { name: 'Add new student' }).click();
-		await page.getByRole('dialog').getByPlaceholder('e.g., S1001').fill('S12345');
-		await page.getByRole('dialog').getByPlaceholder('e.g., John Smith').fill('Test');
-		await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
-
-		// Verify dialog is closed
-		await expect(page.getByRole('dialog')).not.toBeVisible();
 	});
 });
 

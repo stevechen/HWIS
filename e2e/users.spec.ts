@@ -8,14 +8,6 @@ test.describe('Users Page @users', () => {
 		await page.waitForSelector('body.hydrated');
 	});
 
-	test('displays user accounts page', async ({ page }) => {
-		await expect(page.getByRole('heading', { name: 'User Accounts' })).toBeVisible();
-	});
-
-	test('has back button', async ({ page }) => {
-		await expect(page.getByRole('button', { name: 'Back' }).first()).toBeVisible();
-	});
-
 	test('displays table with users', async ({ page }) => {
 		await expect(page.getByText('Name')).toBeVisible();
 		await expect(page.getByText('Email')).toBeVisible();

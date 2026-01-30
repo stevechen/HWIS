@@ -2,32 +2,40 @@ import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 
+const mockUsers = [
+	{
+		_id: 'u001',
+		_creationTime: Date.now(),
+		name: 'John Teacher',
+		email: 'john@school.edu',
+		role: 'teacher',
+		status: 'active'
+	},
+	{
+		_id: 'u002',
+		_creationTime: Date.now() - 86400000,
+		name: 'Jane Admin',
+		email: 'jane@school.edu',
+		role: 'admin',
+		status: 'active'
+	},
+	{
+		_id: 'u003',
+		_creationTime: Date.now() - 172800000,
+		name: 'Pending User',
+		email: 'pending@school.edu',
+		role: 'teacher',
+		status: 'pending'
+	}
+];
+
+const mockUser = {
+	data: { role: 'admin', _id: 'u002' },
+	loading: false,
+	error: null
+};
+
 vi.mock('convex-svelte', () => {
-	const mockUsers = [
-		{
-			_id: 'u001',
-			_creationTime: Date.now(),
-			name: 'John Teacher',
-			email: 'john@school.edu',
-			role: 'teacher',
-			status: 'active'
-		},
-		{
-			_id: 'u002',
-			_creationTime: Date.now() - 86400000,
-			name: 'Jane Admin',
-			email: 'jane@school.edu',
-			role: 'admin',
-			status: 'active'
-		}
-	];
-
-	const mockUser = {
-		data: { role: 'admin' },
-		loading: false,
-		error: null
-	};
-
 	return {
 		useQuery: vi.fn((_api: unknown) => {
 			const apiStr = JSON.stringify(_api);

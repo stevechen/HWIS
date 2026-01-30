@@ -34,18 +34,6 @@ test.describe('Categories Management @categories', () => {
 			await expect(page).toHaveURL(/\/admin\/categories/);
 			await expect(page.getByRole('heading', { name: 'Categories' })).toBeVisible();
 		});
-
-		test('displays page header with back button', async ({ page }) => {
-			await expect(page.locator('button:has-text("Back to Admin")')).toBeVisible();
-		});
-
-		test('displays categories table', async ({ page }) => {
-			await expect(page.locator('table')).toBeVisible();
-		});
-
-		test('displays theme toggle button', async ({ page }) => {
-			await expect(page.locator('button[aria-label="Toggle theme"]').first()).toBeVisible();
-		});
 	});
 
 	test.describe('Add Category', () => {

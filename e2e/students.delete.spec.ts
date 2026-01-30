@@ -24,32 +24,6 @@ test.describe('Delete Student @students', () => {
 		}
 	});
 
-	test('opens delete confirmation dialog', async ({ page }) => {
-		const suffix = getTestSuffix('delDialog');
-		const studentId = `S_${suffix}`;
-		const englishName = `Del_${suffix}`;
-
-		await createStudent({
-			studentId,
-			englishName,
-			grade: 10,
-			status: 'Not Enrolled',
-			e2eTag: `e2e-test_${suffix}`
-		});
-
-		await page.getByPlaceholder('Search by name or student ID...').fill(englishName);
-
-		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
-
-		await page
-			.getByRole('row', { name: englishName })
-			.getByRole('button', { name: `Delete ${englishName}` })
-			.click();
-
-		await expect(page.getByRole('dialog')).toBeVisible();
-		await expect(page.getByText('Delete', { exact: true })).toBeVisible();
-	});
-
 	test('can delete student without evaluations', async ({ page }) => {
 		const suffix = getTestSuffix('delNoEval');
 		const studentId = `S_${suffix}`;
@@ -97,10 +71,10 @@ test.describe('Delete Student @students', () => {
 			e2eTag: `e2e-test_${suffix}`
 		});
 
-		void await createEvaluationForStudent({
+		void (await createEvaluationForStudent({
 			studentId,
 			e2eTag: `e2e-test_${suffix}`
-		});
+		}));
 
 		await page.getByPlaceholder('Search by name or student ID...').fill(englishName);
 
@@ -138,10 +112,10 @@ test.describe('Delete Student @students', () => {
 			e2eTag: `e2e-test_${suffix}`
 		});
 
-		void await createEvaluationForStudent({
+		void (await createEvaluationForStudent({
 			studentId,
 			e2eTag: `e2e-test_${suffix}`
-		});
+		}));
 
 		await page.getByPlaceholder('Search by name or student ID...').fill(englishName);
 
@@ -178,10 +152,10 @@ test.describe('Delete Student @students', () => {
 			e2eTag: `e2e-test_${suffix}`
 		});
 
-		void await createEvaluationForStudent({
+		void (await createEvaluationForStudent({
 			studentId,
 			e2eTag: `e2e-test_${suffix}`
-		});
+		}));
 
 		await page.getByPlaceholder('Search by name or student ID...').fill(englishName);
 

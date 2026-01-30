@@ -101,4 +101,31 @@ describe('Students Page', () => {
 		render(StudentsPage, { props: { data: { testRole: 'admin' } } });
 		await expect.element(page.getByRole('button', { name: 'Import' })).toBeInTheDocument();
 	});
+
+	describe('Form Validation', () => {
+		it('shows error when student ID is empty', async () => {
+			render(StudentsPage, { props: { data: { testRole: 'admin' } } });
+			await page.getByRole('button', { name: 'Add new student' }).click();
+			await page.getByRole('textbox', { name: 'English Name *' }).fill('Test Student');
+			await page.getByRole('button', { name: 'Create' }).click();
+			await expect.element(page.getByText('Student ID is required')).toBeInTheDocument();
+		});
+
+		it('shows error when English name is empty', async () => {
+			render(StudentsPage, { props: { data: { testRole: 'admin' } } });
+			await page.getByRole('button', { name: 'Add new student' }).click();
+			await page.getByRole('textbox', { name: 'Student ID *' }).fill('S12345');
+			await page.getByRole('button', { name: 'Create' }).click();
+			await expect.element(page.getByText('English name is required')).toBeInTheDocument();
+		});
+	});
+
+	describe('Empty State', () => {
+		it('shows empty state message when no students exist', async () => {
+			render(StudentsPage, { props: { data: { testRole: 'admin' } } });
+			await expect
+				.element(page.getByText('No students yet. Add one or import from Excel!'))
+				.toBeInTheDocument();
+		});
+	});
 });
