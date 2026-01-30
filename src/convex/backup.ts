@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { query, mutation } from './_generated/server';
 import { v, type GenericId } from 'convex/values';
-import { requireAuthenticatedUser, requireAdminRole } from './auth';
+import { requireAdminRole } from './auth';
 
 export const exportData = query({
 	args: { testToken: v.optional(v.string()) },
@@ -61,7 +62,7 @@ interface BackupRecord {
 }
 
 export const restoreFromBackup = mutation({
-	args: { 
+	args: {
 		backupId: v.id('backups'),
 		testToken: v.optional(v.string())
 	},
@@ -143,7 +144,7 @@ export const listBackups = query({
 });
 
 export const deleteBackup = mutation({
-	args: { 
+	args: {
 		backupId: v.id('backups'),
 		testToken: v.optional(v.string())
 	},

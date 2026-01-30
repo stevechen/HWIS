@@ -1,7 +1,7 @@
- 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { authComponent, getAuthenticatedUser, requireAuthenticatedUser, requireUserProfile } from './auth';
+import { requireUserProfile, getAuthenticatedUser } from './auth';
 
 export const getUserByAuthId = query({
 	args: { authId: v.string() },
@@ -68,7 +68,7 @@ export const create = mutation({
 });
 
 export const remove = mutation({
-	args: { 
+	args: {
 		id: v.id('evaluations'),
 		testToken: v.optional(v.string())
 	},
@@ -99,7 +99,7 @@ export const remove = mutation({
 });
 
 export const listRecent = query({
-	args: { 
+	args: {
 		limit: v.optional(v.number()),
 		testToken: v.optional(v.string())
 	},
@@ -219,7 +219,7 @@ export const getWeeklyReportsList = query({
 });
 
 export const getWeeklyReportDetail = query({
-	args: { 
+	args: {
 		fridayDate: v.number(),
 		testToken: v.optional(v.string())
 	},

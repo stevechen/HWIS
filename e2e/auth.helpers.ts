@@ -1,5 +1,3 @@
-import type { Page } from '@playwright/test';
-
 export type TestRole = 'admin' | 'super' | 'teacher';
 
 /**

@@ -88,7 +88,7 @@ test('evaluations query by teacherId works correctly', async () => {
 	const evaluations = await t.run(async (ctx) => {
 		return await ctx.db
 			.query('evaluations')
-			.withIndex('by_teacherId', (q) => q.eq('teacherId', teacherId))
+			.filter((q) => q.eq(q.field('teacherId'), teacherId))
 			.collect();
 	});
 
@@ -156,7 +156,7 @@ test('evaluations query by studentId works correctly', async () => {
 	const evaluations = await t.run(async (ctx) => {
 		return await ctx.db
 			.query('evaluations')
-			.withIndex('by_studentId', (q) => q.eq('studentId', studentId))
+			.filter((q) => q.eq(q.field('studentId'), studentId))
 			.collect();
 	});
 

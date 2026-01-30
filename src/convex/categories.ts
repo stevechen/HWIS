@@ -1,6 +1,6 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { requireUserProfile, requireAdminRole, getAuthenticatedUser } from './auth';
+import { requireAdminRole, getAuthenticatedUser } from './auth';
 
 export const list = query({
 	args: { testToken: v.optional(v.string()) },
@@ -12,7 +12,7 @@ export const list = query({
 });
 
 export const getEvaluationCount = query({
-	args: { 
+	args: {
 		categoryName: v.string(),
 		testToken: v.optional(v.string())
 	},
@@ -31,8 +31,8 @@ export const getEvaluationCount = query({
 });
 
 export const getSubCategoryEvaluationCount = query({
-	args: { 
-		categoryName: v.string(), 
+	args: {
+		categoryName: v.string(),
 		subCategory: v.string(),
 		testToken: v.optional(v.string())
 	},
@@ -55,7 +55,7 @@ export const seed = mutation({
 	handler: async (ctx, args) => {
 		console.log('[categories:seed] Mutation started. Token:', args.testToken);
 		await requireAdminRole(ctx, args.testToken);
-		
+
 		console.log('[categories:seed] Auth passed. Checking for existing categories...');
 		const existing = await ctx.db.query('point_categories').collect();
 		if (existing.length > 0) {
@@ -88,7 +88,7 @@ export const create = mutation({
 	handler: async (ctx, args) => {
 		console.log('[categories:create] Mutation started. Token:', args.testToken);
 		await requireAdminRole(ctx, args.testToken);
-		
+
 		console.log('[categories:create] Auth passed. Inserting category:', args.name);
 		const id = await ctx.db.insert('point_categories', {
 			name: args.name,

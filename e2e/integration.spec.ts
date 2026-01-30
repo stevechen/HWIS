@@ -5,8 +5,7 @@ import { getTestSuffix } from './helpers';
 test.describe('Integration Tests (Real Backend) @integration', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-	test.beforeEach(async ({ page }) => {
-	});
+	test.beforeEach(async () => {});
 
 	test.afterEach(async () => {
 		const suffix = getTestSuffix('integ');
@@ -117,8 +116,7 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 test.describe('Category to Evaluation Integration (Real Backend) @integration', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-	test.beforeEach(async ({ page }) => {
-	});
+	test.beforeEach(async () => {});
 
 	test.afterEach(async () => {
 		const suffix = getTestSuffix('catEval');

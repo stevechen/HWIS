@@ -5,7 +5,7 @@ import { createStudent, cleanupTestData } from './convex-client';
 test.describe('Smoke Tests @smoke', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
-	test.beforeEach(async ({ page }) => {});
+	test.beforeEach(async () => {});
 
 	test.afterEach(async () => {
 		const suffix = getTestSuffix('smoke');
@@ -86,7 +86,7 @@ test.describe('Smoke Tests @smoke', () => {
 test.describe('Student Table UI Tests @students', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-	test.beforeEach(async ({ page }) => {});
+	test.beforeEach(async () => {});
 
 	test.afterEach(async () => {
 		const suffix = getTestSuffix('smokeFilter');

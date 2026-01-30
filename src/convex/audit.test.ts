@@ -187,7 +187,7 @@ describe('audit logs (database operations)', () => {
 		});
 
 		const logs = await t.run(async (ctx) => {
-			return await ctx.db.query('audit_logs').withIndex('by_timestamp').order('desc').take(10);
+			return await ctx.db.query('audit_logs').order('desc').take(10);
 		});
 
 		expect(logs).toHaveLength(1);
@@ -415,7 +415,7 @@ describe('audit logs (database operations)', () => {
 		}
 
 		const logs = await t.run(async (ctx) => {
-			return await ctx.db.query('audit_logs').withIndex('by_timestamp').order('desc').take(10);
+			return await ctx.db.query('audit_logs').order('desc').take(10);
 		});
 
 		expect(logs).toHaveLength(3);

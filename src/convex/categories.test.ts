@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect } from 'vitest';
 import { convexTest, modules } from './test.setup';
 import { api } from './_generated/api';

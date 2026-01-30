@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { requireAuthenticatedUser, requireAdminRole, getAuthenticatedUser, requireUserProfile } from './auth';
+import { requireAdminRole, getAuthenticatedUser } from './auth';
 
 const ACTION_LABELS: Record<string, string> = {
 	create_evaluation: 'Created',
@@ -45,7 +45,12 @@ export const list = query({
 		const authUser = await getAuthenticatedUser(ctx, args.testToken);
 		if (!authUser) return [];
 		const user = authUser as any;
-		if (user.role !== 'admin' && user.role !== 'super' && user.email !== 'super@hwis.test' && user.authId !== 'test-token-admin-mock') {
+		if (
+			user.role !== 'admin' &&
+			user.role !== 'super' &&
+			user.email !== 'super@hwis.test' &&
+			user.authId !== 'test-token-admin-mock'
+		) {
 			return [];
 		}
 

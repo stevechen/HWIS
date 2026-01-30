@@ -12,16 +12,6 @@ const mockStudent = {
 	note: ''
 };
 
-const mockStudentWithEvaluations = {
-	_id: 'student-002',
-	studentId: 'S67890',
-	englishName: 'Jane Smith',
-	chineseName: '李四',
-	grade: 11,
-	status: 'Enrolled',
-	note: 'Has evaluations'
-};
-
 let useQueryCallCount = 0;
 
 vi.mock('convex-svelte', () => {
@@ -47,6 +37,7 @@ vi.mock('convex-svelte', () => {
 	];
 
 	return {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		useQuery: vi.fn((_api: unknown, _args?: unknown) => {
 			useQueryCallCount++;
 			// First call is users.viewer, second is students.list

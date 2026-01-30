@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { mutation } from './_generated/server';
 import { authComponent } from './auth';
 

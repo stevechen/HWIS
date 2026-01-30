@@ -109,6 +109,7 @@ export async function checkEvaluationExists(categoryName: string) {
 
 export async function createWeeklyReportTestData() {
 	const utils = getUtils();
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const client = (utils as any).client;
 	if (!client) {
 		throw new Error('E2E client not available');
@@ -118,6 +119,7 @@ export async function createWeeklyReportTestData() {
 
 export async function cleanupWeeklyReportTestData() {
 	const utils = getUtils();
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const client = (utils as any).client;
 	if (!client) {
 		throw new Error('E2E client not available');

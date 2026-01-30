@@ -1,9 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient, type GenericCtx } from '@convex-dev/better-auth';
-import { v } from 'convex/values';
 import { convex } from '@convex-dev/better-auth/plugins';
 import { components } from './_generated/api';
 import { type DataModel, type Doc } from './_generated/dataModel';
-import { query } from './_generated/server';
 import { betterAuth } from 'better-auth/minimal';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import authConfig from './auth.config';
@@ -32,9 +31,6 @@ if (typeof window === 'undefined') {
 	process.env.PUBLIC_CONVEX_SITE_URL = siteUrlOverride;
 	process.env.BETTER_AUTH_SECRET = betterAuthSecret;
 }
-
-// Global constant for the mock auth ID - matches Vite DEV env setting
-const MOCK_ADMIN_AUTH_ID = 'test-token-admin-mock';
 
 const trustedOriginsEnv =
 	process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(',').map((o) => o.trim()) || [];
