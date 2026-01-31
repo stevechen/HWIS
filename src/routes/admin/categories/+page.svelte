@@ -17,21 +17,19 @@
 		data: { testRole?: 'teacher' | 'admin' | 'super' };
 	} = $props();
 
-	const currentUser = useQuery(api.users.viewer, {});
+	const isTestMode = $derived(!!data.testRole);
+
+	const currentUser = useQuery(api.users.viewer, () => ({
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
 	const client = useConvexClient();
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const apiAny = api as any;
 
-	const categoriesQuery = useQuery(api.categories.list);
+	const categoriesQuery = useQuery(api.categories.list, () => ({
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
 	const categories = $derived(categoriesQuery.data ?? []);
-
-	let isTestMode = $state(false);
-
-	$effect(() => {
-		if (!browser) return;
-		isTestMode =
-			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
-	});
 
 	$effect(() => {
 		if (isTestMode || data?.testRole) return;
@@ -48,6 +46,7 @@
 	let subCategories = $state<string[]>([]);
 	let newSubCategory = $state('');
 	let isSubmitting = $state(false);
+	let formError = $state('');
 	let categoryToDelete = $state<{
 		_id: Id<'point_categories'>;
 		name: string;
@@ -85,22 +84,26 @@
 		if (!categoryName.trim()) return;
 
 		isSubmitting = true;
+		formError = '';
 		try {
 			if (editingId) {
 				await client.mutation(api.categories.update, {
 					id: editingId,
 					name: categoryName,
-					subCategories
+					subCategories,
+					testToken: isTestMode ? 'test-token-admin-mock' : undefined
 				});
 			} else {
 				await client.mutation(api.categories.create, {
 					name: categoryName,
-					subCategories
+					subCategories,
+					testToken: isTestMode ? 'test-token-admin-mock' : undefined
 				});
 			}
 			handleCancel();
 		} catch (err) {
 			console.error(err);
+			formError = (err as Error).message || 'Failed to save category';
 		} finally {
 			isSubmitting = false;
 		}
@@ -130,7 +133,8 @@
 			try {
 				const count = await client.query(apiAny.categories.getSubCategoryEvaluationCount, {
 					categoryName: category.name,
-					subCategory: category.subCategories[0]
+					subCategory: category.subCategories[0],
+					testToken: isTestMode ? 'test-token-admin-mock' : undefined
 				});
 				if (count && count > 0) {
 					subCategoryWarning = {
@@ -155,7 +159,8 @@
 		isSubmitting = true;
 		try {
 			await client.mutation(api.categories.remove, {
-				id: categoryToDelete._id
+				id: categoryToDelete._id,
+				testToken: isTestMode ? 'test-token-admin-mock' : undefined
 			});
 			categoryToDelete = null;
 		} catch (err) {
@@ -265,6 +270,13 @@
 				}}
 			>
 				<div class="space-y-4">
+					{#if formError}
+						<div
+							class="rounded bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400"
+						>
+							{formError}
+						</div>
+					{/if}
 					<div>
 						<label class="text-sm font-medium" for="categoryName">Category Name</label>
 						<Input

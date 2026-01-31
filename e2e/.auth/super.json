@@ -1,25 +1,15 @@
 {
-  "cookies": [
-    {
-      "name": "convex_session_token",
-      "value": "test_super_session_1768877379078",
-      "domain": "localhost",
-      "path": "/",
-      "expires": -1,
-      "httpOnly": true,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "hwis_test_auth",
-      "value": "super",
-      "domain": "localhost",
-      "path": "/",
-      "expires": -1,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    }
-  ],
-  "origins": []
+	"cookies": [
+		{
+			"name": "hwis_test_auth",
+			"value": "super",
+			"domain": "localhost",
+			"path": "/",
+			"expires": -1,
+			"httpOnly": false,
+			"secure": false,
+			"sameSite": "Lax"
+		}
+	],
+	"origins": []
 }

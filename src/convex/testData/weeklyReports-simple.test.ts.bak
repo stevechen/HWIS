@@ -1,0 +1,53 @@
+import { expect, test } from 'vitest';
+import { convexTest } from 'convex-test';
+import schema from '../schema';
+import { modules } from '../test.setup';
+
+test('weekly reports test data generation', async () => {
+	const t = convexTest(schema, modules);
+
+	// Clean up first
+	const firstCleanupResult = await t.run(async (ctx) => {
+		const testDataModule = await import('../testData/weeklyReports');
+		return await testDataModule.cleanupWeeklyReportTestData(ctx, {});
+	});
+
+	// Create test data
+	const result = await t.run(async (ctx) => {
+		const testDataModule = await import('../testData/weeklyReports');
+		return await testDataModule.createWeeklyReportTestData(ctx, {});
+	});
+
+	// Verify basic structure
+	expect(result).toBeDefined();
+	expect(result.success).toBe(true);
+	expect(result.weeks).toBe(5);
+
+	// Check that we have realistic weekly progression
+	const weeklyProgression = result.summary.map((week: any) => ({
+		week: week.weekNumber,
+		intensity: week.intensity,
+		evaluations: week.evaluations,
+		students: week.studentCount
+	}));
+
+	// Should have light, moderate, heavy progression
+	const intensities = weeklyProgression.map((w: any) => w.intensity);
+	expect(intensities).toContain('light');
+	expect(intensities).toContain('moderate');
+	expect(intensities).toContain('heavy');
+
+	// Verify evaluation counts increase during heavy weeks
+	const heavyWeeks = weeklyProgression.filter((w: any) => w.intensity === 'heavy');
+	const lightWeeks = weeklyProgression.filter((w: any) => w.intensity === 'light');
+
+	expect(heavyWeeks[0]?.evaluations).toBeGreaterThan(lightWeeks[0]?.evaluations);
+
+	// Cleanup after test
+	const finalCleanup = await t.run(async (ctx) => {
+		const testDataModule = await import('../testData/weeklyReports');
+		return await testDataModule.cleanupWeeklyReportTestData(ctx, {});
+	});
+
+	expect(finalCleanup.success).toBe(true);
+});

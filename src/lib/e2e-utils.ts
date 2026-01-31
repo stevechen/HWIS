@@ -1,7 +1,11 @@
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '$convex/_generated/api';
 
-const CONVEX_URL = 'https://cool-buffalo-717.convex.cloud';
+// Use local Convex for e2e tests (matches the site proxy port)
+const CONVEX_URL = process.env.CONVEX_URL || 'http://127.0.0.1:3210';
+
+// Test token for e2e authentication (works with both local and cloud Convex)
+const TEST_TOKEN = 'test-token-admin-mock';
 
 export interface CreateStudentOptions {
 	studentId: string;
@@ -66,6 +70,8 @@ export interface E2EUtils {
 	setRoleByEmail: (email: string, role: string) => Promise<any>;
 	setMyRole: (role: string) => Promise<any>;
 	setRoleByToken: (token: string, role: string) => Promise<any>;
+	createWeeklyReportTestData: () => Promise<any>;
+	cleanupWeeklyReportTestData: () => Promise<any>;
 }
 
 export function getE2EUtils(): E2EUtils {
@@ -133,7 +139,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async cleanupAll(): Promise<CleanupResult> {
 			try {
-				const result = await client.mutation(api.dataFactory.cleanupAll, {});
+				const result = await client.mutation(api.dataFactory.cleanupAll, { testToken: TEST_TOKEN });
 				console.log('Cleanup all result:', result);
 				return result;
 			} catch {
@@ -144,7 +150,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async cleanupTestData(tag: string): Promise<CleanupResult> {
 			try {
-				const result = await client.mutation(api.dataFactory.cleanupAll, { tag });
+				const result = await client.mutation(api.dataFactory.cleanupAll, {
+					tag,
+					testToken: TEST_TOKEN
+				});
 				console.log('Cleanup test data result:', result);
 				return result;
 			} catch {
@@ -155,7 +164,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async seedBaseline(): Promise<SeedBaselineResult> {
 			try {
-				const result = await client.mutation(api.dataFactory.seedBaseline, {});
+				const result = await client.mutation(api.dataFactory.seedBaseline, {
+					testToken: TEST_TOKEN
+				});
 				console.log('Seed baseline result:', result);
 				return result;
 			} catch {
@@ -188,7 +199,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async createStudent(opts?: CreateStudentOptions) {
 			try {
-				return await client.mutation(api.dataFactory.createStudent, opts || {});
+				return await client.mutation(api.dataFactory.createStudent, {
+					...(opts || {}),
+					testToken: TEST_TOKEN
+				});
 			} catch {
 				console.log('Create student error');
 				return { error: 'Error' };
@@ -197,16 +211,22 @@ export function getE2EUtils(): E2EUtils {
 
 		async createStudentWithId(opts: CreateStudentOptions) {
 			try {
-				return await client.mutation(api.dataFactory.createStudentWithId, opts);
-			} catch {
-				console.log('Create student with ID error');
-				return { error: 'Error' };
+				return await client.mutation(api.dataFactory.createStudentWithId, {
+					...opts,
+					testToken: TEST_TOKEN
+				});
+			} catch (e) {
+				console.log('Create student with ID error:', e);
+				return { error: e instanceof Error ? e.message : String(e) };
 			}
 		},
 
 		async createCategory(opts?: CreateCategoryOptions) {
 			try {
-				return await client.mutation(api.dataFactory.createCategory, opts || {});
+				return await client.mutation(api.dataFactory.createCategory, {
+					...(opts || {}),
+					testToken: TEST_TOKEN
+				});
 			} catch {
 				console.log('Create category error');
 				return { error: 'Error' };
@@ -215,7 +235,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async createCategoryWithSubs(opts: CreateCategoryWithSubsOptions) {
 			try {
-				return await client.mutation(api.dataFactory.createCategoryWithSubs, opts);
+				return await client.mutation(api.dataFactory.createCategoryWithSubs, {
+					...opts,
+					testToken: TEST_TOKEN
+				});
 			} catch {
 				console.log('Create category with subs error');
 				return { error: 'Error' };
@@ -246,7 +269,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async createEvaluationForStudent(data: CreateEvaluationForStudentData) {
 			try {
-				return await client.mutation(api.dataFactory.createEvaluationForStudent, data);
+				return await client.mutation(api.dataFactory.createEvaluationForStudent, {
+					...data,
+					testToken: TEST_TOKEN
+				});
 			} catch {
 				console.log('Create evaluation for student error');
 				return { error: 'Error' };
@@ -276,6 +302,34 @@ export function getE2EUtils(): E2EUtils {
 				return await client.mutation(api.users.setRoleByToken, { token, role: role as any });
 			} catch {
 				console.log('Set role by token error');
+				return { error: 'Error' };
+			}
+		},
+
+		async createWeeklyReportTestData() {
+			try {
+				const result = await client.mutation(
+					api.testData.weeklyReports.createWeeklyReportTestData,
+					{}
+				);
+				console.log('Create weekly report test data result:', result);
+				return result;
+			} catch {
+				console.log('Create weekly report test data error');
+				return { error: 'Error' };
+			}
+		},
+
+		async cleanupWeeklyReportTestData() {
+			try {
+				const result = await client.mutation(
+					api.testData.weeklyReports.cleanupWeeklyReportTestData,
+					{}
+				);
+				console.log('Cleanup weekly report test data result:', result);
+				return result;
+			} catch {
+				console.log('Cleanup weekly report test data error');
 				return { error: 'Error' };
 			}
 		}

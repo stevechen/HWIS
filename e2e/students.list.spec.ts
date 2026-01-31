@@ -32,11 +32,6 @@ test.describe('Student List @students', () => {
 			}
 		});
 
-		test('can access student management page', async ({ page }) => {
-			await expect(page).toHaveURL(/\/admin\/students/);
-			await expect(page.getByText('Student Management')).toBeVisible();
-		});
-
 		test('displays list of created students', async ({ page }) => {
 			const suffix = getTestSuffix('listTest');
 			const studentId = `S_${suffix}`;

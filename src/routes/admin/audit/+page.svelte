@@ -80,16 +80,18 @@
 		{ key: 'details', label: 'Details', sortable: false, defaultVisible: false, optional: true }
 	];
 
-	const currentUser = useQuery(api.users.viewer, {});
-	const auditLogs = useQuery(api.audit.list, { limit: 100 });
+	let { data }: { data: { testRole?: string } } = $props();
+
+	const isTestMode = $derived(!!data.testRole);
+
+	const currentUser = useQuery(api.users.viewer, () => ({
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
+	const auditLogs = useQuery(api.audit.list, () => ({
+		limit: 100,
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
 	const auth = useAuth();
-
-	let isTestMode = $state(false);
-
-	$effect(() => {
-		if (!browser) return;
-		isTestMode = document.cookie.split('; ').some((row) => row.startsWith('hwis_test_auth='));
-	});
 
 	let filterName = $state('');
 	let filterId = $state('');
@@ -467,11 +469,7 @@
 				/>
 			</div>
 			{#if isStudentGradeVisible}
-				<Select.Root
-					type="single"
-					value={filterGrade}
-					onValueChange={(val) => (filterGrade = val)}
-				>
+				<Select.Root type="single" value={filterGrade} onValueChange={(val) => (filterGrade = val)}>
 					<Select.Trigger class="w-24">
 						{filterGrade ? `G${filterGrade}` : 'Grade'}
 					</Select.Trigger>

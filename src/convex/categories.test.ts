@@ -1,10 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect } from 'vitest';
-import { convexTest } from 'convex-test';
+import { convexTest, modules } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const modules = import.meta.glob('./**/*.ts') as any;
 
 describe('categories.create', () => {
 	it('creates a category with subCategories', async () => {
@@ -15,7 +13,7 @@ describe('categories.create', () => {
 			subCategories: ['Sub1', 'Sub2', 'Sub3']
 		});
 
-		const categories = await t.query(api.categories.list);
+		const categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(1);
 		expect(categories[0].name).toBe('Test Category');
 		expect(categories[0].subCategories).toEqual(['Sub1', 'Sub2', 'Sub3']);
@@ -29,7 +27,7 @@ describe('categories.create', () => {
 			subCategories: []
 		});
 
-		const categories = await t.query(api.categories.list);
+		const categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(1);
 		expect(categories[0].name).toBe('Simple Category');
 		expect(categories[0].subCategories).toEqual([]);
@@ -45,7 +43,7 @@ describe('categories.update', () => {
 			subCategories: ['Original Sub']
 		});
 
-		const category = (await t.query(api.categories.list))[0];
+		const category = (await t.query(api.categories.list, {}))[0];
 
 		await t.mutation(api.categories.update, {
 			id: category._id,
@@ -53,7 +51,7 @@ describe('categories.update', () => {
 			subCategories: ['Updated Sub 1', 'Updated Sub 2']
 		});
 
-		const updated = (await t.query(api.categories.list))[0];
+		const updated = (await t.query(api.categories.list, {}))[0];
 		expect(updated.name).toBe('Updated Category');
 		expect(updated.subCategories).toEqual(['Updated Sub 1', 'Updated Sub 2']);
 	});
@@ -66,7 +64,7 @@ describe('categories.update', () => {
 			subCategories: ['Sub1', 'Sub2']
 		});
 
-		const category = (await t.query(api.categories.list))[0];
+		const category = (await t.query(api.categories.list, {}))[0];
 
 		await t.mutation(api.categories.update, {
 			id: category._id,
@@ -74,7 +72,7 @@ describe('categories.update', () => {
 			subCategories: []
 		});
 
-		const updated = (await t.query(api.categories.list))[0];
+		const updated = (await t.query(api.categories.list, {}))[0];
 		expect(updated.subCategories).toEqual([]);
 	});
 });
@@ -88,12 +86,12 @@ describe('categories.remove', () => {
 			subCategories: ['Sub']
 		});
 
-		let categories = await t.query(api.categories.list);
+		let categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(1);
 
 		await t.mutation(api.categories.remove, { id: categoryId });
 
-		categories = await t.query(api.categories.list);
+		categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(0);
 	});
 
@@ -105,7 +103,7 @@ describe('categories.remove', () => {
 			subCategories: ['Sub']
 		});
 
-		const category = (await t.query(api.categories.list))[0];
+		const category = (await t.query(api.categories.list, {}))[0];
 
 		const teacherId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -148,7 +146,7 @@ describe('categories.remove', () => {
 		});
 		expect(evaluations).toHaveLength(0);
 
-		const categories = await t.query(api.categories.list);
+		const categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(0);
 	});
 
@@ -177,14 +175,14 @@ describe('categories.list', () => {
 			subCategories: ['B1']
 		});
 
-		const categories = await t.query(api.categories.list);
+		const categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(2);
 	});
 
 	it('returns empty list when no categories exist', async () => {
 		const t = convexTest(schema, modules);
 
-		const categories = await t.query(api.categories.list);
+		const categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(0);
 	});
 });
@@ -340,9 +338,9 @@ describe('categories edge cases', () => {
 			subCategories: []
 		});
 
-		const categories = await t.query(api.categories.list);
+		const categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(3);
-		const names = categories.map((c) => c.name);
+		const names = categories.map((c: any) => c.name);
 		expect(names).toContain('First Category');
 		expect(names).toContain('Second Category');
 		expect(names).toContain('Third Category');
@@ -358,7 +356,7 @@ describe('categories edge cases', () => {
 			subCategories: manySubs
 		});
 
-		const categories = await t.query(api.categories.list);
+		const categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(1);
 		expect(categories[0].subCategories).toHaveLength(10);
 	});
@@ -371,7 +369,7 @@ describe('categories edge cases', () => {
 			subCategories: ['Preserved Sub']
 		});
 
-		const category = (await t.query(api.categories.list))[0];
+		const category = (await t.query(api.categories.list, {}))[0];
 
 		await t.mutation(api.categories.update, {
 			id: category._id,
@@ -379,7 +377,7 @@ describe('categories edge cases', () => {
 			subCategories: ['Preserved Sub']
 		});
 
-		const updated = (await t.query(api.categories.list))[0];
+		const updated = (await t.query(api.categories.list, {}))[0];
 		expect(updated.name).toBe('New Name');
 		expect(updated.subCategories).toEqual(['Preserved Sub']);
 	});
@@ -392,7 +390,7 @@ describe('categories edge cases', () => {
 			subCategories: ['Old Sub 1', 'Old Sub 2']
 		});
 
-		const category = (await t.query(api.categories.list))[0];
+		const category = (await t.query(api.categories.list, {}))[0];
 
 		await t.mutation(api.categories.update, {
 			id: category._id,
@@ -400,7 +398,7 @@ describe('categories edge cases', () => {
 			subCategories: ['New Sub 1', 'New Sub 2', 'New Sub 3']
 		});
 
-		const updated = (await t.query(api.categories.list))[0];
+		const updated = (await t.query(api.categories.list, {}))[0];
 		expect(updated.subCategories).toEqual(['New Sub 1', 'New Sub 2', 'New Sub 3']);
 	});
 });

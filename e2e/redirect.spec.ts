@@ -1,6 +1,5 @@
 import { test } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { setTestAuth } from './auth.helpers';
 
 test.describe('Login Page', () => {
 	test('does not redirect to itself', async ({ page }) => {
@@ -31,7 +30,6 @@ test.describe('Authenticated User', () => {
 	test.use({ storageState: 'e2e/.auth/test.json' });
 
 	test.beforeEach(async ({ page }) => {
-		await setTestAuth(page, 'teacher');
 		await page.goto('/');
 		await page.waitForSelector('body.hydrated');
 	});

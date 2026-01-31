@@ -7,18 +7,11 @@
 
 	let sessionData = $state<typeof $session | null>(null);
 
+	// Layout handles redirection if authenticated
 	onMount(() => {
-		const checkAuth = () => {
-			if (!sessionData?.isPending && sessionData?.data) {
-				void goto('/', { replaceState: true });
-			}
-		};
-
 		const unsubscribe = session.subscribe((value) => {
 			sessionData = value;
-			checkAuth();
 		});
-
 		return unsubscribe;
 	});
 
@@ -31,6 +24,11 @@
 		if (result.error) {
 			console.error('Sign out error:', result.error);
 		}
+	}
+
+	function devLogin() {
+		// Dev login removed - using real Google OAuth now
+		console.log('Dev login functionality removed - use Google OAuth');
 	}
 </script>
 
@@ -65,6 +63,17 @@
 				</svg>
 				Sign in with Google
 			</button>
+
+			{#if import.meta.env.DEV}
+				<div class="mt-4 border-t pt-4">
+					<div class="rounded border border-yellow-200 bg-yellow-50 px-4 py-2 text-yellow-800">
+						<p class="text-sm font-medium">Development Mode</p>
+						<p class="text-xs">
+							Real Google OAuth required for testing. Mock authentication removed.
+						</p>
+					</div>
+				</div>
+			{/if}
 
 			<p class="mt-4 text-center text-sm text-gray-500">Only for HWIS staffs</p>
 		</div>

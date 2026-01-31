@@ -4,10 +4,13 @@ import { env } from '$env/dynamic/private';
 export async function GET() {
 	try {
 		if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REFRESH_TOKEN) {
-			return new Response(JSON.stringify({ success: false, error: 'Missing Google credentials' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+			return new Response(JSON.stringify({ success: false, error: 'Missing Google credentials' }), {
+				status: 500,
+				headers: { 'Content-Type': 'application/json' }
+			});
 		}
 
-		const convexUrl = env.PUBLIC_CONVEX_URL ?? 'https://giddy-tapir-550.convex.cloud';
+		const convexUrl = env.PUBLIC_CONVEX_URL || 'http://127.0.0.1:3210';
 		const response = await fetch(`${convexUrl}/api/query/backup.js:exportData`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -43,19 +46,28 @@ export async function GET() {
 			await drive.permissions.create({ fileId, requestBody: { role: 'reader', type: 'anyone' } });
 		}
 
-		return new Response(JSON.stringify({
-			success: true,
-			filename,
-			fileId,
-			stats: {
-				students: data.students?.length ?? 0,
-				evaluations: data.evaluations?.length ?? 0,
-				users: data.users?.length ?? 0,
-				categories: data.categories?.length ?? 0
-			}
-		}), { headers: { 'Content-Type': 'application/json' } });
+		return new Response(
+			JSON.stringify({
+				success: true,
+				filename,
+				fileId,
+				stats: {
+					students: data.students?.length ?? 0,
+					evaluations: data.evaluations?.length ?? 0,
+					users: data.users?.length ?? 0,
+					categories: data.categories?.length ?? 0
+				}
+			}),
+			{ headers: { 'Content-Type': 'application/json' } }
+		);
 	} catch (error) {
 		console.error('Backup error:', error);
-		return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+		return new Response(
+			JSON.stringify({
+				success: false,
+				error: error instanceof Error ? error.message : String(error)
+			}),
+			{ status: 500, headers: { 'Content-Type': 'application/json' } }
+		);
 	}
 }

@@ -1,37 +1,18 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { authComponent } from './auth';
-
-async function requireAuthenticatedUser(ctx: any) {
-	const authUser = await authComponent.getAuthUser(ctx);
-	if (!authUser?._id) {
-		throw new Error('Unauthorized');
-	}
-	return authUser;
-}
-
-async function requireAdminRole(ctx: any) {
-	const authUser = await requireAuthenticatedUser(ctx);
-	const userDoc = await ctx.db
-		.query('users')
-		.withIndex('by_authId', (q: any) => q.eq('authId', authUser._id))
-		.first();
-	const role = userDoc?.role;
-	if (role !== 'admin' && role !== 'super') {
-		throw new Error('Forbidden: Admin or super role required');
-	}
-	return authUser;
-}
+import { requireAdminRole, getAuthenticatedUser, requireUserProfile } from './auth';
 
 export const list = query({
 	args: {
 		search: v.optional(v.string()),
 		status: v.optional(v.union(v.literal('Enrolled'), v.literal('Not Enrolled'))),
 		grade: v.optional(v.number()),
-		_trigger: v.optional(v.number())
+		_trigger: v.optional(v.number()),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAuthenticatedUser(ctx);
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user) return [];
 
 		const students = await ctx.db.query('students').collect();
 
@@ -60,15 +41,21 @@ export const create = mutation({
 		studentId: v.string(),
 		grade: v.number(),
 		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
-		note: v.optional(v.string())
+		note: v.optional(v.string()),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		console.log('[students:create] Mutation started. Token:', args.testToken);
+		await requireAdminRole(ctx, args.testToken);
+		
+		console.log('[students:create] Auth passed. Checking for existing student...');
 		const existing = await ctx.db
 			.query('students')
 			.filter((q) => q.eq(q.field('studentId'), args.studentId))
 			.first();
 
 		if (existing) {
+			console.log('[students:create] Error: Student ID exists');
 			throw new Error('Student ID already exists');
 		}
 
@@ -76,7 +63,7 @@ export const create = mutation({
 			throw new Error('Grade must be between 7 and 12');
 		}
 
-		return await ctx.db.insert('students', {
+		const id = await ctx.db.insert('students', {
 			englishName: args.englishName,
 			chineseName: args.chineseName,
 			studentId: args.studentId,
@@ -84,6 +71,8 @@ export const create = mutation({
 			status: args.status,
 			note: args.note ?? ''
 		});
+		console.log('[students:create] Success! Created student with id:', id);
+		return id;
 	}
 });
 
@@ -95,10 +84,13 @@ export const update = mutation({
 		studentId: v.string(),
 		grade: v.number(),
 		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
-		note: v.optional(v.string())
+		note: v.optional(v.string()),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const { id, ...updates } = args;
+		await requireAdminRole(ctx, args.testToken);
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const { id, testToken: _, ...updates } = args;
 
 		const existing = await ctx.db.get(id);
 		if (!existing) throw new Error('Student not found');
@@ -117,8 +109,12 @@ export const update = mutation({
 });
 
 export const remove = mutation({
-	args: { id: v.id('students') },
+	args: { 
+		id: v.id('students'),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.filter((q) => q.eq(q.field('studentId'), args.id))
@@ -133,23 +129,24 @@ export const remove = mutation({
 });
 
 export const removeWithCascade = mutation({
-	args: { id: v.id('students') },
+	args: { 
+		id: v.id('students'),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
 		const student = await ctx.db.get(args.id);
 		if (!student) throw new Error('Student not found');
 
-		// Get all evaluations for this student
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.filter((q) => q.eq(q.field('studentId'), args.id))
 			.collect();
 
-		// Delete all evaluations
 		for (const evaluation of evaluations) {
 			await ctx.db.delete(evaluation._id);
 		}
 
-		// Delete the student
 		await ctx.db.delete(args.id);
 
 		return {
@@ -162,9 +159,11 @@ export const removeWithCascade = mutation({
 export const changeStatus = mutation({
 	args: {
 		id: v.id('students'),
-		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled'))
+		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
 		await ctx.db.patch(args.id, { status: args.status });
 	}
 });
@@ -180,10 +179,11 @@ export const importFromExcel = mutation({
 				status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
 				note: v.optional(v.string())
 			})
-		)
+		),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx);
+		await requireAdminRole(ctx, args.testToken);
 		const results = [];
 
 		for (const student of args.students) {
@@ -211,9 +211,9 @@ export const importFromExcel = mutation({
 });
 
 export const seed = mutation({
-	args: {},
-	handler: async (ctx) => {
-		await requireAdminRole(ctx);
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
 		const existing = await ctx.db.query('students').collect();
 		if (existing.length > 0) return { message: 'Students already seeded', count: existing.length };
 
@@ -269,9 +269,14 @@ export const seed = mutation({
 });
 
 export const getById = query({
-	args: { id: v.id('students') },
+	args: { 
+		id: v.id('students'),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
-		await requireAuthenticatedUser(ctx);
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user) return null;
+
 		const student = await ctx.db.get(args.id);
 		if (!student) return null;
 
@@ -285,8 +290,15 @@ export const getById = query({
 });
 
 export const checkStudentIdExists = query({
-	args: { studentId: v.string(), excludeId: v.optional(v.id('students')) },
+	args: { 
+		studentId: v.string(), 
+		excludeId: v.optional(v.id('students')),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user) return { exists: false };
+
 		let existing;
 		if (args.excludeId) {
 			existing = await ctx.db
@@ -306,18 +318,19 @@ export const checkStudentIdExists = query({
 });
 
 export const checkStudentHasEvaluations = query({
-	args: { id: v.id('students') },
+	args: { 
+		id: v.id('students'),
+		testToken: v.optional(v.string()) 
+	},
 	handler: async (ctx, args) => {
-		console.log('checkStudentHasEvaluations called with id:', args.id);
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user) return { hasEvaluations: false, count: 0 };
+
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.filter((q) => q.eq(q.field('studentId'), args.id))
 			.collect();
-		console.log(
-			'Found evaluations:',
-			evaluations.length,
-			evaluations.map((e) => ({ id: e._id, studentId: e.studentId }))
-		);
+
 		return {
 			hasEvaluations: evaluations.length > 0,
 			count: evaluations.length
@@ -326,8 +339,12 @@ export const checkStudentHasEvaluations = query({
 });
 
 export const disableStudent = mutation({
-	args: { id: v.id('students') },
+	args: { 
+		id: v.id('students'),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
 		await ctx.db.patch(args.id, { status: 'Not Enrolled' });
 	}
 });
@@ -344,10 +361,11 @@ export const bulkImportWithDuplicateCheck = mutation({
 				note: v.optional(v.string())
 			})
 		),
-		mode: v.union(v.literal('halt'), v.literal('skip'), v.literal('update'))
+		mode: v.union(v.literal('halt'), v.literal('skip'), v.literal('update')),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx);
+		await requireAdminRole(ctx, args.testToken);
 		const results = {
 			created: [] as string[],
 			updated: [] as string[],
@@ -355,18 +373,16 @@ export const bulkImportWithDuplicateCheck = mutation({
 			errors: [] as { studentId: string; reason: string }[]
 		};
 
-		// Check for duplicates within the batch (same file)
 		const seenIds = new Set<string>();
 		const batchDuplicates: { studentId: string; rowNumber: number }[] = [];
 
 		args.students.forEach((student, index) => {
 			if (seenIds.has(student.studentId)) {
-				batchDuplicates.push({ studentId: student.studentId, rowNumber: index + 2 }); // +2 for header + 0-index
+				batchDuplicates.push({ studentId: student.studentId, rowNumber: index + 2 });
 			}
 			seenIds.add(student.studentId);
 		});
 
-		// Check all students for duplicates against database
 		const databaseDuplicates: { studentId: string; existingName: string; newName: string }[] = [];
 
 		for (const student of args.students) {
@@ -384,7 +400,6 @@ export const bulkImportWithDuplicateCheck = mutation({
 			}
 		}
 
-		// Combine all duplicates
 		const allDuplicates = [
 			...databaseDuplicates.map((d) => ({ ...d, rowNumber: undefined as number | undefined })),
 			...batchDuplicates.map((d) => ({
@@ -395,7 +410,6 @@ export const bulkImportWithDuplicateCheck = mutation({
 			}))
 		];
 
-		// If halt mode and any duplicates found, return detailed error
 		if (args.mode === 'halt' && allDuplicates.length > 0) {
 			return {
 				success: false,
@@ -413,7 +427,6 @@ export const bulkImportWithDuplicateCheck = mutation({
 			};
 		}
 
-		// Process all students
 		for (const student of args.students) {
 			try {
 				const existing = await ctx.db
@@ -447,9 +460,9 @@ export const bulkImportWithDuplicateCheck = mutation({
 });
 
 export const advanceGrades = mutation({
-	args: {},
-	handler: async (ctx) => {
-		await requireAdminRole(ctx);
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
 		const students = await ctx.db
 			.query('students')
 			.filter((q) => q.eq(q.field('status'), 'Enrolled'))
@@ -469,9 +482,12 @@ export const advanceGrades = mutation({
 });
 
 export const archiveOldStudents = mutation({
-	args: { years: v.optional(v.number()) },
+	args: { 
+		years: v.optional(v.number()),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx);
+		await requireAdminRole(ctx, args.testToken);
 		const cutoffYear = new Date().getFullYear() - (args.years || 1);
 
 		const oldStudents = await ctx.db

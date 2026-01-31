@@ -1,0 +1,90 @@
+Can't safely modify .env.local for PUBLIC_CONVEX_SITE_URL, please edit manually.
+- Preparing Convex functions...
+
+✖ Error: Unable to start push to http://127.0.0.1:3210
+✖ Error fetching POST  http://127.0.0.1:3210/api/deploy2/start_push 400 Bad Request: BadJsonBody: Failed to deserialize the JSON body into the target type: appDefinition: missing field `functions` at line 1 column 3552391
+Your projects are above the Free plan limits.
+Decrease your usage or upgrade to avoid service interruption.
+Visit https://dashboard.convex.dev/t/steve-stevechen to learn more.
+- Preparing Convex functions...
+
+✖ Error: Unable to start push to http://127.0.0.1:3210
+✖ Error fetching POST  http://127.0.0.1:3210/api/deploy2/start_push 400 Bad Request: BadJsonBody: Failed to deserialize the JSON body into the target type: appDefinition: missing field `functions` at line 1 column 3552788
+- Preparing Convex functions...
+
+✖ Error: Unable to start push to http://127.0.0.1:3210
+✖ Error fetching POST  http://127.0.0.1:3210/api/deploy2/start_push 400 Bad Request: BadJsonBody: Failed to deserialize the JSON body into the target type: appDefinition: missing field `functions` at line 1 column 3552779
+- Preparing Convex functions...
+
+✖ Error: Unable to start push to http://127.0.0.1:3210
+✖ Error fetching POST  http://127.0.0.1:3210/api/deploy2/start_push 400 Bad Request: BadJsonBody: Failed to deserialize the JSON body into the target type: appDefinition: missing field `functions` at line 1 column 3552090
+- Preparing Convex functions...
+
+✖ Error: Unable to start push to http://127.0.0.1:3210
+✖ Error fetching POST  http://127.0.0.1:3210/api/deploy2/start_push 400 Bad Request: BadJsonBody: Failed to deserialize the JSON body into the target type: appDefinition: missing field `functions` at line 1 column 3546571
+- Preparing Convex functions...
+
+✖ Error: Unable to start push to http://127.0.0.1:3210
+✖ Error fetching POST  http://127.0.0.1:3210/api/deploy2/start_push 400 Bad Request: BadJsonBody: Failed to deserialize the JSON body into the target type: appDefinition: missing field `functions` at line 1 column 3552090
+WebSocket closed with code 1006
+Attempting reconnect in 998ms
+WebSocket error message: connect ECONNREFUSED 127.0.0.1:3210
+WebSocket closed with code 1006
+Attempting reconnect in 2341ms
+WebSocket error message: connect ECONNREFUSED 127.0.0.1:3210
+WebSocket closed with code 1006
+Attempting reconnect in 3206ms
+WebSocket error message: connect ECONNREFUSED 127.0.0.1:3210
+WebSocket closed with code 1006
+Attempting reconnect in 6493ms
+- Preparing Convex functions...
+
+✖ Error: Unable to start push to http://127.0.0.1:3210
+✖ Error fetching POST  http://127.0.0.1:3210/api/deploy2/start_push 400 Bad Request: BadJsonBody: Failed to deserialize the JSON body into the target type: appDefinition: missing field `functions` at line 1 column 3552090
+- Preparing Convex functions...
+
+✖ Error: Unable to start push to http://127.0.0.1:3210
+✖ Error fetching POST  http://127.0.0.1:3210/api/deploy2/start_push 400 Bad Request: BadJsonBody: Failed to deserialize the JSON body into the target type: appDefinition: missing field `functions` at line 1 column 3552090
+WebSocket closed with code 1006
+Attempting reconnect in 733ms
+WebSocket error message: connect ECONNREFUSED 127.0.0.1:3210
+WebSocket closed with code 1006
+Attempting reconnect in 2229ms
+WebSocket error message: connect ECONNREFUSED 127.0.0.1:3210
+WebSocket closed with code 1006
+Attempting reconnect in 3643ms
+WebSocket error message: connect ECONNREFUSED 127.0.0.1:3210
+WebSocket closed with code 1006
+Attempting reconnect in 6131ms
+WebSocket error message: connect ECONNREFUSED 127.0.0.1:3210
+WebSocket closed with code 1006
+Attempting reconnect in 22146ms
+WebSocket error message: connect ECONNREFUSED 127.0.0.1:3210
+WebSocket closed with code 1006
+Attempting reconnect in 23825ms
+WebSocket error message: connect ECONNREFUSED 127.0.0.1:3210
+WebSocket closed with code 1006
+Attempting reconnect in 12978ms
+WebSocket error message: connect ECONNREFUSED 127.0.0.1:3210
+WebSocket closed with code 1006
+Attempting reconnect in 16821ms
+- Preparing Convex functions...
+
+✖ Error: Unable to start push to http://127.0.0.1:3210
+✖ Error fetching POST  http://127.0.0.1:3210/api/deploy2/start_push 400 Bad Request: BadJsonBody: Failed to deserialize the JSON body into the target type: appDefinition: missing field `functions` at line 1 column 3552090
+- Preparing Convex functions...
+
+✖ Error: Unable to start push to http://127.0.0.1:3210
+✖ Error fetching POST  http://127.0.0.1:3210/api/deploy2/start_push 400 Bad Request: BadJsonBody: Failed to deserialize the JSON body into the target type: appDefinition: missing field `functions` at line 1 column 3552090
+Attempting reconnect in 58ms
+WebSocket reconnected at t=5504.3s after disconnect due to InactiveServer
+- Preparing Convex functions...
+
+✖ Error: Unable to start push to http://127.0.0.1:3210
+✖ Error fetching POST  http://127.0.0.1:3210/api/deploy2/start_push 400 Bad Request: BadJsonBody: Failed to deserialize the JSON body into the target type: appDefinition: missing field `functions` at line 1 column 3552090
+WebSocket closed with code 1006
+Attempting reconnect in 851ms
+WebSocket error message: connect ECONNREFUSED 127.0.0.1:3210
+WebSocket closed with code 1006
+Attempting reconnect in 1504ms
+error: Failed to run "convex" due to signal SIGTERM

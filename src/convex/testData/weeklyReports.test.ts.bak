@@ -1,0 +1,105 @@
+import { expect, test } from 'vitest';
+import { convexTest } from 'convex-test';
+import { api } from '../_generated/api';
+import schema from '../schema';
+import { modules } from '../test.setup';
+
+test('createWeeklyReportTestData generates 5 weeks of realistic data', async () => {
+	const t = convexTest(schema, modules);
+
+	// Clean up first
+	const firstCleanupResult = await t.run(async (ctx) => {
+		const testDataModule = await import('../testData/weeklyReports');
+		return await testDataModule.cleanupWeeklyReportTestData(ctx, {});
+	});
+
+	// Create test data
+	const result = await t.run(async (ctx) => {
+		const testDataModule = await import('../testData/weeklyReports');
+		return await testDataModule.createWeeklyReportTestData(ctx, {});
+	});
+
+	// Verify structure
+	expect(result.success).toBe(true);
+	expect(result.weeks).toBe(5);
+	expect(result.teachers).toBe(3);
+	expect(result.students).toBe(5);
+	expect(result.evaluations).toBe(90); // 12+18+25+20+15 = 90
+
+	// Verify weekly summaries
+	expect(result.summary).toHaveLength(5);
+
+	// Check specific week data
+	const week1 = result.summary.find((w: any) => w.weekNumber === 49);
+	expect(week1?.students).toBe(3);
+	expect(week1?.evaluations).toBe(12);
+
+	const week3 = result.summary.find((w: any) => w.weekNumber === 51);
+	expect(week3?.students).toBe(5);
+	expect(week3?.evaluations).toBe(25);
+});
+
+test('cleanupWeeklyReportTestData removes all created data', async () => {
+	const t = convexTest(schema, modules);
+
+	// Create test data first
+	const createResult = await t.run(async (ctx) => {
+		const testDataModule = await import('../testData/weeklyReports');
+		return await testDataModule.createWeeklyReportTestData(ctx, {});
+	});
+	expect(createResult.success).toBe(true);
+
+	// Clean up
+	const secondCleanupResult = await t.run(async (ctx) => {
+		const testDataModule = await import('../testData/weeklyReports');
+		return await testDataModule.cleanupWeeklyReportTestData(ctx, {});
+	});
+
+	// Verify cleanup success
+	expect(secondCleanupResult.success).toBe(true);
+	expect(secondCleanupResult.tag).toBe('weekly-reports-test');
+	expect(secondCleanupResult.remainingCount).toBe(0);
+
+	// Verify counts
+	expect(secondCleanupResult.deletedCounts.evaluations).toBeGreaterThan(0);
+	expect(secondCleanupResult.deletedCounts.students).toBeGreaterThan(0);
+	expect(secondCleanupResult.deletedCounts.users).toBeGreaterThan(0);
+});
+
+test('weekly reports query returns correct structure', async () => {
+	const t = convexTest(schema, modules);
+
+	// Create test data
+	await t.run(async (ctx) => {
+		const testDataModule = await import('../testData/weeklyReports');
+		return await testDataModule.createWeeklyReportTestData(ctx, {});
+	});
+
+	// Test the weekly reports list query
+	const reports = await t.query(api.evaluations.getWeeklyReportsList, {});
+
+	// Should return 5 weeks in reverse chronological order
+	expect(reports).toHaveLength(5);
+
+	// Verify reverse chronological (newest first)
+	for (let i = 0; i < reports.length - 1; i++) {
+		expect((reports as any)[i].fridayDate).toBeGreaterThan((reports as any)[i + 1].fridayDate);
+	}
+
+	// Verify week numbers (should include week 3 as most recent)
+	const weekNumbers = reports.map((r: any) => r.weekNumber);
+	expect(weekNumbers).toContain(3); // Most recent
+	expect(weekNumbers).toContain(2);
+	expect(weekNumbers).toContain(51);
+	expect(weekNumbers).toContain(50);
+	expect(weekNumbers).toContain(49); // Oldest
+
+	// Verify student counts match our test data
+	const studentCounts = reports.map((r: any) => r.studentCount);
+	expect(studentCounts).toContain(3); // Weeks 3 and 49 (light)
+	expect(studentCounts).toContain(4); // Weeks 2 and 50 (moderate)
+	expect(studentCounts).toContain(5); // Week 51 (heavy)
+
+	// Verify formatted date ranges
+	expect((reports as any)[0].formattedDate).toMatch(/Jan 13 - Jan 17, 2025/); // Week 3
+});

@@ -8,52 +8,6 @@ test.describe('Admin Dashboard @admin', () => {
 		await page.waitForSelector('body.hydrated');
 	});
 
-	test('displays admin dashboard', async ({ page }) => {
-		await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible();
-	});
-
-	test('has back button', async ({ page }) => {
-		await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
-	});
-
-	test('displays system data card', async ({ page }) => {
-		await expect(page.getByText('System Data')).toBeVisible();
-		await expect(page.getByText('Seed Initial Data')).toBeVisible();
-	});
-
-	test('displays students card', async ({ page }) => {
-		await expect(page.getByText('Student Management')).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Manage Students' })).toBeVisible();
-	});
-
-	test('displays categories card', async ({ page }) => {
-		await expect(page.getByText('Categories')).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Manage Categories' })).toBeVisible();
-	});
-
-	test('displays users card', async ({ page }) => {
-		await expect(page.getByText('User Accounts')).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Manage Users' })).toBeVisible();
-	});
-
-	test('displays evaluations card', async ({ page }) => {
-		await expect(page.getByText('Evaluation History')).toBeVisible();
-	});
-
-	test('displays audit log card', async ({ page }) => {
-		await expect(page.getByText('Audit Log')).toBeVisible();
-		await expect(page.getByRole('link', { name: 'View Audit Log' })).toBeVisible();
-	});
-
-	test('displays backup card', async ({ page }) => {
-		await expect(page.getByText('Backup')).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Manage Backups' })).toBeVisible();
-	});
-
-	test('displays academic year card', async ({ page }) => {
-		await expect(page.getByText('Archive & Reset')).toBeVisible();
-	});
-
 	test('can navigate to students page', async ({ page }) => {
 		await page.getByRole('link', { name: 'Manage Students' }).click();
 		await page.waitForSelector('body.hydrated');

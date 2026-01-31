@@ -1,0 +1,41 @@
+$ vite dev
+
+  VITE v7.3.1  ready in 1584 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+[Auth Debug] SITE_URL: http://localhost:5173
+[Auth Debug] authComponent initialized. Target Convex URL: undefined
+[Auth Debug] Checking session for cookie: undefined...
+[Auth Debug] Token validation result: false
+
+[1;31m[500] HEAD /api/auth/get-session[0m
+Error: PUBLIC_CONVEX_SITE_URL environment variable is not set
+    at handler (node_modules/@mmailaender/convex-better-auth-svelte/dist/sveltekit/index.js:64:15)
+    at requestHandler (node_modules/@mmailaender/convex-better-auth-svelte/dist/sveltekit/index.js:73:16)
+    at /Users/stevechen/Projects/HWIS/node_modules/@sveltejs/kit/src/runtime/server/endpoint.js:48:4
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at with_request_store (file:/Users/stevechen/Projects/HWIS/node_modules/@sveltejs/kit/src/exports/internal/event.js:77:20)
+    at render_endpoint (node_modules/@sveltejs/kit/src/runtime/server/endpoint.js:47:44)
+    at resolve (node_modules/@sveltejs/kit/src/runtime/server/respond.js:580:23)
+    at async Object.handle (src/hooks.server.ts:66:19)
+[Auth Debug] Checking session for cookie: undefined...
+[Auth Debug] Token validation result: false
+
+[1;31m[500] GET /api/auth/get-session[0m
+Error: PUBLIC_CONVEX_SITE_URL environment variable is not set
+    at handler (node_modules/@mmailaender/convex-better-auth-svelte/dist/sveltekit/index.js:64:15)
+    at requestHandler (node_modules/@mmailaender/convex-better-auth-svelte/dist/sveltekit/index.js:73:16)
+    at /Users/stevechen/Projects/HWIS/node_modules/@sveltejs/kit/src/runtime/server/endpoint.js:48:4
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at with_request_store (file:/Users/stevechen/Projects/HWIS/node_modules/@sveltejs/kit/src/exports/internal/event.js:77:20)
+    at render_endpoint (node_modules/@sveltejs/kit/src/runtime/server/endpoint.js:47:44)
+    at resolve (node_modules/@sveltejs/kit/src/runtime/server/respond.js:580:23)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.handle (src/hooks.server.ts:66:19)
+9:32:17 PM [vite] .env.local changed, restarting server...
+9:32:17 PM [vite] .env.local changed, restarting server...
+9:32:18 PM [vite] server restarted.
+9:33:34 PM [vite] .env.local changed, restarting server...
+9:33:34 PM [vite] server restarted.
+error: script "dev" exited with code 143

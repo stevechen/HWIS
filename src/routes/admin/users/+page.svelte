@@ -11,20 +11,20 @@
 	import * as Select from '$lib/components/ui/select';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 
+	let { data }: { data: { testRole?: string } } = $props();
+
 	import type { Id } from '$convex/_generated/dataModel';
 
-	const currentUser = useQuery(api.users.viewer, {});
-	const usersQuery = useQuery(api.users.list, {});
-	const client = useConvexClient();
+	const isTestMode = $derived(!!data.testRole);
 	const auth = useAuth();
+	const client = useConvexClient();
 
-	let isTestMode = $state(false);
-
-	$effect(() => {
-		if (!browser) return;
-		isTestMode =
-			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
-	});
+	const currentUser = useQuery(api.users.viewer, () => ({
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
+	const usersQuery = useQuery(api.users.list, () => ({
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
 
 	let updatingId = $state<Id<'users'> | null>(null);
 	let roleStates = $state<Record<string, string>>({});
@@ -32,7 +32,11 @@
 	async function updateUserRole(id: Id<'users'>, role: 'super' | 'admin' | 'teacher' | 'student') {
 		updatingId = id;
 		try {
-			await client.mutation(api.users.update, { id, role });
+			await client.mutation(api.users.update, {
+				id,
+				role,
+				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+			});
 			roleStates[id as string] = role;
 		} catch (err) {
 			console.error(err);
@@ -45,7 +49,11 @@
 	async function updateUserStatus(id: Id<'users'>, status: 'pending' | 'active' | 'deactivated') {
 		updatingId = id;
 		try {
-			await client.mutation(api.users.update, { id, status });
+			await client.mutation(api.users.update, {
+				id,
+				status,
+				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+			});
 		} catch (err) {
 			console.error(err);
 		} finally {

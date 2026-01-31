@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest';
-import { convexTest } from 'convex-test';
+import { convexTest, modules } from './test.setup';
 import schema from './schema';
-import { modules } from './test.setup';
 
 test('evaluations table operations work correctly', async () => {
 	const t = convexTest(schema, modules);
@@ -89,7 +88,7 @@ test('evaluations query by teacherId works correctly', async () => {
 	const evaluations = await t.run(async (ctx) => {
 		return await ctx.db
 			.query('evaluations')
-			.withIndex('by_teacherId', (q) => q.eq('teacherId', teacherId))
+			.filter((q) => q.eq(q.field('teacherId'), teacherId))
 			.collect();
 	});
 
@@ -157,7 +156,7 @@ test('evaluations query by studentId works correctly', async () => {
 	const evaluations = await t.run(async (ctx) => {
 		return await ctx.db
 			.query('evaluations')
-			.withIndex('by_studentId', (q) => q.eq('studentId', studentId))
+			.filter((q) => q.eq(q.field('studentId'), studentId))
 			.collect();
 	});
 

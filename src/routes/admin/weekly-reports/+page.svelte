@@ -11,10 +11,11 @@
 
 	const apiAny = api as any;
 
-	let { data }: { data: { demoMode?: boolean } } = $props();
+	let { data }: { data: { demoMode?: boolean; testRole?: string } } = $props();
+
+	const isTestMode = $derived(!!data.testRole);
 
 	let isDemoMode = $state(false);
-
 	$effect(() => {
 		if (data.demoMode === true) {
 			isDemoMode = true;
@@ -22,9 +23,7 @@
 		}
 		if (!browser) return;
 		const url = new URL(window.location.href);
-		isDemoMode =
-			url.searchParams.get('demo') === 'true' ||
-			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
+		isDemoMode = url.searchParams.get('demo') === 'true';
 	});
 
 	let dialogElement: HTMLDialogElement | undefined = $state();
@@ -251,15 +250,14 @@
 		}
 	];
 
-	let reportsQuery = useQuery(apiAny.evaluations.getWeeklyReportsList, {});
+	let reportsQuery = useQuery(apiAny.evaluations.getWeeklyReportsList, () => ({
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
 
-	let detailQuery = $derived(
-		selectedReport
-			? useQuery(apiAny.evaluations.getWeeklyReportDetail, {
-					fridayDate: selectedReport.fridayDate
-				})
-			: null
-	);
+	const detailQuery = useQuery(apiAny.evaluations.getWeeklyReportDetail, () => ({
+		fridayDate: selectedReport?.fridayDate ?? 0,
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
 
 	let reports = $derived(isDemoMode ? demoReports : reportsQuery.data || []);
 
@@ -465,7 +463,7 @@
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
-							{#each reports as report (report.fridayDate)}
+							{#each reports as report (report.fridayDate.toString())}
 								<Table.Row class="cursor-pointer" onclick={() => openReport(report)} tabindex="0">
 									<Table.Cell class="text-center font-medium">{report.weekNumber}</Table.Cell>
 									<Table.Cell>{report.formattedDate}</Table.Cell>

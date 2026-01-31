@@ -11,6 +11,8 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Select from '$lib/components/ui/select';
 
+	let { data }: { data: { testRole?: string } } = $props();
+
 	function getCurrentSemesterId(): string {
 		const now = new Date();
 		const year = now.getFullYear();
@@ -29,9 +31,15 @@
 	let loading = $state(false);
 	let error = $state('');
 
+	const isTestMode = $derived(!!data.testRole);
+
 	const client = useConvexClient();
-	const categoriesQuery = useQuery(api.categories.list, {});
-	const studentsQuery = useQuery(api.students.list, {});
+	const categoriesQuery = useQuery(api.categories.list, () => ({
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
+	const studentsQuery = useQuery(api.students.list, () => ({
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
 
 	let filteredStudents = $derived(
 		studentsQuery.data?.filter((s) => {
@@ -77,7 +85,8 @@
 				category: selectedCategory!.name,
 				subCategory,
 				details,
-				semesterId: getCurrentSemesterId()
+				semesterId: getCurrentSemesterId(),
+				testToken: isTestMode ? 'test-token-admin-mock' : undefined
 			});
 
 			void goto('/');

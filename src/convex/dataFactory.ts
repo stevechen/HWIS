@@ -1,5 +1,6 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
+import { getAuthenticatedUser } from './auth';
 
 // Data factory helper functions for E2E testing
 const TABLES = ['students', 'point_categories', 'evaluations', 'audit_logs'] as const;
@@ -71,8 +72,13 @@ function generateChineseName(): string {
 }
 
 export const cleanupAll = mutation({
-	args: { tag: v.optional(v.string()) },
+	args: {
+		tag: v.optional(v.string()),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
+		// Validate test token for cloud Convex compatibility
+		await getAuthenticatedUser(ctx, args.testToken);
 		const e2eTag = args.tag || getE2ETag();
 		let totalDeleted = 0;
 
@@ -91,8 +97,10 @@ export const cleanupAll = mutation({
 });
 
 export const seedBaseline = mutation({
-	args: {},
-	handler: async (ctx) => {
+	args: {
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
 		const now = Date.now();
 
 		// Real user emails to PRESERVE
@@ -119,7 +127,7 @@ export const seedBaseline = mutation({
 			}
 		}
 
-		// Step 2: Insert fresh test users
+		// Step 2: Insert fresh test users FIRST (before auth check)
 		// Test admin user for test mode (matches authId set in hooks.server.ts)
 		await ctx.db.insert('users', {
 			authId: 'test-user-id',
@@ -127,6 +135,10 @@ export const seedBaseline = mutation({
 			role: 'admin',
 			status: 'active'
 		});
+
+		// Step 3: Validate test token for cloud Convex compatibility
+		// (Must be done after creating test user)
+		await getAuthenticatedUser(ctx, args.testToken);
 
 		await ctx.db.insert('users', {
 			authId: 'test_admin',
@@ -209,9 +221,12 @@ export const seedBaseline = mutation({
 export const createEvaluationForStudent = mutation({
 	args: {
 		studentId: v.string(),
-		e2eTag: v.optional(v.string())
+		e2eTag: v.optional(v.string()),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		// Validate test token for cloud Convex compatibility
+		await getAuthenticatedUser(ctx, args.testToken);
 		const students = await ctx.db.query('students').collect();
 		const student = students.find((s) => s.studentId === args.studentId);
 		if (!student) {
@@ -282,9 +297,12 @@ export const createStudent = mutation({
 		studentId: v.optional(v.string()),
 		grade: v.optional(v.number()),
 		status: v.optional(v.string()),
-		e2eTag: v.optional(v.string())
+		e2eTag: v.optional(v.string()),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		// Validate test token for cloud Convex compatibility
+		await getAuthenticatedUser(ctx, args.testToken);
 		const tag = args.e2eTag || getE2ETag();
 		return await ctx.db.insert('students', {
 			englishName: args.englishName ?? generateStudentName(),
@@ -304,9 +322,12 @@ export const createStudentWithId = mutation({
 		chineseName: v.optional(v.string()),
 		grade: v.optional(v.number()),
 		status: v.optional(v.string()),
-		e2eTag: v.optional(v.string())
+		e2eTag: v.optional(v.string()),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		// Validate test token for cloud Convex compatibility
+		await getAuthenticatedUser(ctx, args.testToken);
 		const tag = args.e2eTag || getE2ETag();
 		return await ctx.db.insert('students', {
 			englishName: args.englishName ?? `Student_${args.studentId}`,
@@ -323,9 +344,12 @@ export const createCategory = mutation({
 	args: {
 		name: v.optional(v.string()),
 		subCategories: v.optional(v.array(v.string())),
-		e2eTag: v.optional(v.string())
+		e2eTag: v.optional(v.string()),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		// Validate test token for cloud Convex compatibility
+		await getAuthenticatedUser(ctx, args.testToken);
 		void (args.e2eTag || getE2ETag());
 		return await ctx.db.insert('point_categories', {
 			name: args.name ?? `Category_${Date.now().toString().slice(-6)}`,
@@ -338,9 +362,12 @@ export const createCategoryWithSubs = mutation({
 	args: {
 		name: v.string(),
 		subCategories: v.array(v.string()),
-		e2eTag: v.optional(v.string())
+		e2eTag: v.optional(v.string()),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		// Validate test token for cloud Convex compatibility
+		await getAuthenticatedUser(ctx, args.testToken);
 		void (args.e2eTag || getE2ETag());
 		return await ctx.db.insert('point_categories', {
 			name: args.name,

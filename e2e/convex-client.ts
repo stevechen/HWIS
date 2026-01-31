@@ -107,6 +107,16 @@ export async function checkEvaluationExists(categoryName: string) {
 	return await utils.checkEvaluationExists(categoryName);
 }
 
+export async function createWeeklyReportTestData() {
+	const utils = getUtils();
+	return await utils.createWeeklyReportTestData();
+}
+
+export async function cleanupWeeklyReportTestData() {
+	const utils = getUtils();
+	return await utils.cleanupWeeklyReportTestData();
+}
+
 export function getE2EUtilsClient() {
 	return getUtils();
 }

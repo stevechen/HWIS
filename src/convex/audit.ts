@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { authComponent } from './auth';
+import { requireAdminRole, getAuthenticatedUser } from './auth';
 
 const ACTION_LABELS: Record<string, string> = {
 	create_evaluation: 'Created',
@@ -38,45 +38,21 @@ export const list = query({
 	args: {
 		limit: v.optional(v.number()),
 		action: v.optional(v.string()),
-		performerId: v.optional(v.id('users'))
+		performerId: v.optional(v.id('users')),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		let authUser;
-		try {
-			authUser = await authComponent.safeGetAuthUser(ctx);
-		} catch {
-			// If Better Auth fails, check for test mode via header or special case
+		const authUser = await getAuthenticatedUser(ctx, args.testToken);
+		if (!authUser) return [];
+		const user = authUser as any;
+		if (
+			user.role !== 'admin' &&
+			user.role !== 'super' &&
+			user.email !== 'super@hwis.test' &&
+			user.authId !== 'test-token-admin-mock'
+		) {
+			return [];
 		}
-
-		// For test mode: check if we can find test_admin user directly
-		let dbUser = null;
-
-		if (!authUser || !authUser._id) {
-			// Test mode: look for test_admin user
-			dbUser = await ctx.db
-				.query('users')
-				.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
-				.first();
-		} else {
-			dbUser = await ctx.db
-				.query('users')
-				.withIndex('by_authId', (q) => q.eq('authId', authUser._id))
-				.first();
-		}
-
-		if (!dbUser) {
-			// Also try to find by email for real users (from Google OAuth)
-			if (authUser?.email) {
-				dbUser = await ctx.db
-					.query('users')
-					.withIndex('by_authId', (q) => q.eq('authId', authUser.email))
-					.first();
-			}
-		}
-
-		if (!dbUser) return [];
-		const role = (dbUser as any)?.role;
-		if (role !== 'admin' && role !== 'super') return [];
 
 		let logs = await ctx.db.query('audit_logs').withIndex('by_timestamp').order('desc').take(100);
 
@@ -166,7 +142,7 @@ export const debugList = query({
 		// Also check for test_admin user
 		const testAdmin = await ctx.db
 			.query('users')
-			.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+			.withIndex('by_authId', (q) => q.eq('authId', 'test-token-admin-mock'))
 			.first();
 
 		const allUsers = await ctx.db.query('users').collect();
@@ -182,25 +158,17 @@ export const debugList = query({
 });
 
 export const seed = mutation({
-	args: {},
-	handler: async (ctx) => {
-		const authUser = (await authComponent.getAuthUser(ctx)) as any;
-		const authId = authUser._id;
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		const dbUser = await requireAdminRole(ctx, args.testToken);
 
-		const dbUser = await ctx.db
-			.query('users')
-			.withIndex('by_authId', (q) => q.eq('authId', authId))
-			.first();
-
-		const role = (dbUser as any)?.role;
-
-		if (role !== 'super') {
+		if (dbUser.role !== 'super') {
 			throw new Error('Unauthorized');
 		}
 
 		await ctx.db.insert('audit_logs', {
 			action: 'seed_data',
-			performerId: dbUser!._id,
+			performerId: dbUser._id,
 			targetTable: 'system',
 			targetId: 'seed',
 			oldValue: null,

@@ -1,7 +1,6 @@
 import { expect, test, describe } from 'vitest';
-import { convexTest } from 'convex-test';
+import { convexTest, modules } from './test.setup';
 import schema from './schema';
-import { modules } from './test.setup';
 
 describe('backup clearing logic', () => {
 	test('clearing evaluations clears related audit logs', async () => {

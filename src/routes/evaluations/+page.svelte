@@ -7,7 +7,16 @@
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Card from '$lib/components/ui/card';
 
-	const evaluations = useQuery(api.evaluations.listRecent, { limit: 50 });
+	import { browser } from '$app/environment';
+
+	let { data }: { data: { testRole?: string } } = $props();
+
+	const isTestMode = $derived(!!data.testRole);
+
+	const evaluations = useQuery(api.evaluations.listRecent, () => ({
+		limit: 50,
+		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+	}));
 
 	function formatDate(ts: number) {
 		return (

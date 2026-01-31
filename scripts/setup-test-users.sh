@@ -18,10 +18,13 @@ fi
 
 echo "Result: $RESULT"
 
-# Extract session tokens
-TEACHER_TOKEN=$(echo $RESULT | jq -r '.teacherSessionToken')
-ADMIN_TOKEN=$(echo $RESULT | jq -r '.adminSessionToken')
-SUPER_TOKEN=$(echo $RESULT | jq -r '.superSessionToken')
+# Extract session tokens - handle potential Convex warnings by isolating the JSON block
+# We look for the first '{' and everything after until the last '}'
+CLEAN_JSON=$(echo "$RESULT" | sed -n '/{/,/}/p')
+
+TEACHER_TOKEN=$(echo "$CLEAN_JSON" | jq -r '.teacherSessionToken')
+ADMIN_TOKEN=$(echo "$CLEAN_JSON" | jq -r '.adminSessionToken')
+SUPER_TOKEN=$(echo "$CLEAN_JSON" | jq -r '.superSessionToken')
 
 if [ "$TEACHER_TOKEN" = "null" ] || [ -z "$TEACHER_TOKEN" ]; then
   echo "Error: Failed to get teacher session token"

@@ -1,7 +1,6 @@
 import { expect, test, describe } from 'vitest';
-import { convexTest } from 'convex-test';
+import { convexTest, modules } from './test.setup';
 import schema from './schema';
-import { modules } from './test.setup';
 
 describe('audit logs (database operations)', () => {
 	test('audit.list returns empty array when no logs exist', async () => {
@@ -188,7 +187,7 @@ describe('audit logs (database operations)', () => {
 		});
 
 		const logs = await t.run(async (ctx) => {
-			return await ctx.db.query('audit_logs').withIndex('by_timestamp').order('desc').take(10);
+			return await ctx.db.query('audit_logs').order('desc').take(10);
 		});
 
 		expect(logs).toHaveLength(1);
@@ -416,7 +415,7 @@ describe('audit logs (database operations)', () => {
 		}
 
 		const logs = await t.run(async (ctx) => {
-			return await ctx.db.query('audit_logs').withIndex('by_timestamp').order('desc').take(10);
+			return await ctx.db.query('audit_logs').order('desc').take(10);
 		});
 
 		expect(logs).toHaveLength(3);
