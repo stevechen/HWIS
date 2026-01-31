@@ -45,17 +45,14 @@ export const create = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		console.log('[students:create] Mutation started. Token:', args.testToken);
 		await requireAdminRole(ctx, args.testToken);
-		
-		console.log('[students:create] Auth passed. Checking for existing student...');
+
 		const existing = await ctx.db
 			.query('students')
 			.filter((q) => q.eq(q.field('studentId'), args.studentId))
 			.first();
 
 		if (existing) {
-			console.log('[students:create] Error: Student ID exists');
 			throw new Error('Student ID already exists');
 		}
 
@@ -71,7 +68,6 @@ export const create = mutation({
 			status: args.status,
 			note: args.note ?? ''
 		});
-		console.log('[students:create] Success! Created student with id:', id);
 		return id;
 	}
 });
@@ -109,7 +105,7 @@ export const update = mutation({
 });
 
 export const remove = mutation({
-	args: { 
+	args: {
 		id: v.id('students'),
 		testToken: v.optional(v.string())
 	},
@@ -129,7 +125,7 @@ export const remove = mutation({
 });
 
 export const removeWithCascade = mutation({
-	args: { 
+	args: {
 		id: v.id('students'),
 		testToken: v.optional(v.string())
 	},
@@ -269,7 +265,7 @@ export const seed = mutation({
 });
 
 export const getById = query({
-	args: { 
+	args: {
 		id: v.id('students'),
 		testToken: v.optional(v.string())
 	},
@@ -290,8 +286,8 @@ export const getById = query({
 });
 
 export const checkStudentIdExists = query({
-	args: { 
-		studentId: v.string(), 
+	args: {
+		studentId: v.string(),
 		excludeId: v.optional(v.id('students')),
 		testToken: v.optional(v.string())
 	},
@@ -318,9 +314,9 @@ export const checkStudentIdExists = query({
 });
 
 export const checkStudentHasEvaluations = query({
-	args: { 
+	args: {
 		id: v.id('students'),
-		testToken: v.optional(v.string()) 
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		const user = await getAuthenticatedUser(ctx, args.testToken);
@@ -339,7 +335,7 @@ export const checkStudentHasEvaluations = query({
 });
 
 export const disableStudent = mutation({
-	args: { 
+	args: {
 		id: v.id('students'),
 		testToken: v.optional(v.string())
 	},
@@ -482,7 +478,7 @@ export const advanceGrades = mutation({
 });
 
 export const archiveOldStudents = mutation({
-	args: { 
+	args: {
 		years: v.optional(v.number()),
 		testToken: v.optional(v.string())
 	},

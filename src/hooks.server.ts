@@ -58,11 +58,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	} else {
 		try {
 			event.locals.token = await getToken(createAuth, event.cookies);
-		} catch (e) {
-			console.error(
-				'[Auth Debug] Error getting token from BetterAuth:',
-				e instanceof Error ? e.message : e
-			);
+		} catch {
 			event.locals.token = undefined;
 		}
 		event.locals.isTestMode = false;

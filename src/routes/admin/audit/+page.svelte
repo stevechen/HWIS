@@ -125,8 +125,8 @@
 				if (savedCols.length > 0) {
 					columns = savedCols;
 				}
-			} catch (e) {
-				console.error('Failed to load visible columns:', e);
+			} catch {
+				// Failed to load saved columns, use defaults
 			}
 		}
 	}
@@ -390,15 +390,15 @@
 	});
 </script>
 
-<div class="container mx-auto max-w-[1400px] py-8">
-	<header class="mb-8 flex items-start justify-between">
+<div class="mx-auto py-8 max-w-[1400px] container">
+	<header class="flex justify-between items-start mb-8">
 		<div class="flex items-start gap-6">
 			<Button variant="outline" onclick={() => void goto('/admin')}>
-				<ArrowLeft class="mr-2 h-4 w-4" />
+				<ArrowLeft class="mr-2 w-4 h-4" />
 				Back to Admin
 			</Button>
 			<div>
-				<h1 class="text-foreground mb-1 text-2xl font-semibold">Audit Log</h1>
+				<h1 class="mb-1 font-semibold text-foreground text-2xl">Audit Log</h1>
 				<p class="text-muted-foreground">View all system activity and changes.</p>
 			</div>
 		</div>
@@ -410,31 +410,31 @@
 					class="mr-2"
 					aria-label="Reset Columns"
 				>
-					<GripVertical class="mr-2 h-4 w-4" />
+					<GripVertical class="mr-2 w-4 h-4" />
 					Reset Columns
 				</Button>
 			{/if}
 			<Popover.Root bind:open={isColumnSelectorOpen}>
 				<Popover.Trigger>
 					<Button variant="outline" aria-label="Columns">
-						<Columns class="mr-2 h-4 w-4" />
+						<Columns class="mr-2 w-4 h-4" />
 						Columns
 					</Button>
 				</Popover.Trigger>
-				<Popover.Content class="w-56 p-0" align="end">
-					<div class="flex items-center border-b px-3 py-2">
-						<span class="text-sm font-medium">Show Columns</span>
+				<Popover.Content class="p-0 w-56" align="end">
+					<div class="flex items-center px-3 py-2 border-b">
+						<span class="font-medium text-sm">Show Columns</span>
 					</div>
-					<div class="max-h-72 overflow-y-auto py-1">
+					<div class="py-1 max-h-72 overflow-y-auto">
 						{#each allAvailableColumns.filter((c) => c.optional) as column (column.key)}
 							<label
-								class="hover:bg-accent flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm"
+								class="flex items-center gap-2 hover:bg-accent px-3 py-1.5 text-sm cursor-pointer"
 							>
 								<input
 									type="checkbox"
 									checked={isColumnVisible(column.key)}
 									onchange={() => toggleColumn(column.key)}
-									class="h-4 w-4 rounded border-gray-300"
+									class="border-gray-300 rounded w-4 h-4"
 								/>
 								<span>{column.label}</span>
 							</label>
@@ -449,20 +449,20 @@
 	<div class="mb-6">
 		<div class="flex flex-wrap items-center gap-2">
 			{#if isStudentIdVisible}
-				<div class="relative h-9 items-center md:flex">
-					<Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+				<div class="relative md:flex items-center h-9">
+					<Search class="top-1/2 left-3 absolute w-4 h-4 text-muted-foreground -translate-y-1/2" />
 					<Input.Root
-						class="w-28 pl-10"
+						class="pl-10 w-28"
 						placeholder="ID"
 						bind:value={filterId}
 						aria-label="Filter by ID"
 					/>
 				</div>
 			{/if}
-			<div class="relative flex h-9 items-center">
-				<Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+			<div class="relative flex items-center h-9">
+				<Search class="top-1/2 left-3 absolute w-4 h-4 text-muted-foreground -translate-y-1/2" />
 				<Input.Root
-					class="w-48 pl-10"
+					class="pl-10 w-48"
 					placeholder="Student"
 					bind:value={filterName}
 					aria-label="Filter by student name"
@@ -481,10 +481,10 @@
 					</Select.Content>
 				</Select.Root>
 			{/if}
-			<div class="relative flex h-9 items-center">
-				<Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+			<div class="relative flex items-center h-9">
+				<Search class="top-1/2 left-3 absolute w-4 h-4 text-muted-foreground -translate-y-1/2" />
 				<Input.Root
-					class="w-48 pl-10"
+					class="pl-10 w-48"
 					placeholder="Teacher"
 					bind:value={filterTeacher}
 					aria-label="Filter by teacher name"
@@ -492,23 +492,23 @@
 			</div>
 			{#if hasActiveFilters()}
 				<Button variant="outline" onclick={clearFilters} aria-label="Clear all filters">
-					<X class="mr-2 h-4 w-4" />
+					<X class="mr-2 w-4 h-4" />
 					Clear Filters
 				</Button>
 			{/if}
 		</div>
 	</div>
 
-	<div class="bg-card rounded-lg border shadow-sm">
+	<div class="bg-card shadow-sm border rounded-lg">
 		{#if auditLogs.isLoading}
-			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
-				<div class="border-muted border-t-primary h-8 w-8 animate-spin rounded-full border-3"></div>
+			<div class="flex flex-col justify-center items-center gap-4 p-16 text-muted-foreground">
+				<div class="border-3 border-muted border-t-primary rounded-full w-8 h-8 animate-spin"></div>
 				<p>Loading audit logs...</p>
 			</div>
 		{:else if auditLogs.data && auditLogs.data.length > 0}
 			{#if getSortedLogs().length === 0}
-				<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
-					<FileText class="h-8 w-8 opacity-50" />
+				<div class="flex flex-col justify-center items-center gap-4 p-16 text-muted-foreground">
+					<FileText class="opacity-50 w-8 h-8" />
 					<p>No matching audit logs found.</p>
 				</div>
 			{:else}
@@ -537,13 +537,13 @@
 												? 'justify-center'
 												: ''}"
 										>
-											<GripVertical class="text-muted-foreground h-4 w-4 cursor-move" />
+											<GripVertical class="w-4 h-4 text-muted-foreground cursor-move" />
 											<span>{column.label}</span>
 											{#if column.sortable}
 												{#if sortBy === column.key}
-													<ChevronsUpDown class="h-4 w-4" />
+													<ChevronsUpDown class="w-4 h-4" />
 												{:else}
-													<ChevronsUpDown class="invisible h-4 w-4" />
+													<ChevronsUpDown class="invisible w-4 h-4" />
 												{/if}
 											{/if}
 										</div>
@@ -584,7 +584,7 @@
 											{:else if column.key === 'points'}
 												<span class="font-medium">{log.points ?? '-'}</span>
 											{:else if column.key === 'details'}
-												<span class="text-muted-foreground block max-w-52 truncate">
+												<span class="block max-w-52 text-muted-foreground truncate">
 													{log.details || '-'}
 												</span>
 											{/if}
@@ -597,8 +597,8 @@
 				</div>
 			{/if}
 		{:else}
-			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
-				<FileText class="h-8 w-8 opacity-50" />
+			<div class="flex flex-col justify-center items-center gap-4 p-16 text-muted-foreground">
+				<FileText class="opacity-50 w-8 h-8" />
 				<p>No audit logs found.</p>
 			</div>
 		{/if}

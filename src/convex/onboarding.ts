@@ -40,13 +40,7 @@ export const ensureUserProfile = mutation({
 		const betterAuthUser = await authComponent.getAuthUser(ctx);
 		const userEmail = (betterAuthUser as any)?.email;
 
-		// Debug logging to see what's happening
-		console.log('[Onboarding Debug] Better Auth User:', JSON.stringify(betterAuthUser, null, 2));
-		console.log('[Onboarding Debug] Extracted Email:', userEmail);
-		console.log('[Onboarding Debug] Exception Emails List:', EXCEPTION_EMAILS);
-
 		const isExceptionEmail = userEmail && EXCEPTION_EMAILS.includes(userEmail);
-		console.log('[Onboarding Debug] Is Exception Email:', isExceptionEmail);
 
 		const role = isExceptionEmail ? 'super' : 'teacher';
 		const status = isExceptionEmail ? 'active' : 'pending';

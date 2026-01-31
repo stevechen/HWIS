@@ -225,7 +225,6 @@
 			}
 			showForm = false;
 		} catch (e: any) {
-			console.error('handleSubmit error:', e);
 			formError = e.message || 'Failed to save student';
 		} finally {
 			isSubmitting = false;
@@ -372,12 +371,12 @@
 </script>
 
 <div class="bg-background min-h-screen">
-	<header class="bg-card border-b shadow-sm">
-		<div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-			<div class="flex items-center justify-between">
+	<header class="bg-card shadow-sm border-b">
+		<div class="mx-auto px-4 sm:px-6 lg:px-8 py-4 max-w-7xl">
+			<div class="flex justify-between items-center">
 				<div class="flex items-center gap-4">
 					<Button variant="outline" onclick={() => goto('/admin')}>← Back to Admin</Button>
-					<h1 class="text-foreground text-2xl font-bold">Student Management</h1>
+					<h1 class="font-bold text-foreground text-2xl">Student Management</h1>
 				</div>
 				<div class="flex items-center gap-2">
 					<ThemeToggle />
@@ -388,7 +387,7 @@
 						}}
 						aria-label="Import students from file"
 					>
-						<Upload class="mr-2 h-4 w-4" />
+						<Upload class="mr-2 w-4 h-4" />
 						Import
 					</Button>
 					<Button
@@ -399,7 +398,7 @@
 						}}
 						aria-label="Add new student"
 					>
-						<Plus class="mr-2 h-4 w-4" />
+						<Plus class="mr-2 w-4 h-4" />
 						Add Student
 					</Button>
 				</div>
@@ -407,10 +406,10 @@
 		</div>
 	</header>
 
-	<main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-		<div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-			<div class="relative max-w-md flex-1">
-				<Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+	<main class="mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
+		<div class="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4 mb-4">
+			<div class="relative flex-1 max-w-md">
+				<Search class="top-1/2 left-3 absolute w-4 h-4 text-muted-foreground -translate-y-1/2" />
 				<Input
 					placeholder="Search by name or student ID..."
 					class="pl-9"
@@ -435,13 +434,13 @@
 		</div>
 
 		{#if studentsQuery.isLoading}
-			<div class="text-muted-foreground py-8 text-center">Loading students...</div>
+			<div class="py-8 text-muted-foreground text-center">Loading students...</div>
 		{:else if studentsQuery.error}
-			<div class="py-8 text-center text-red-500">
+			<div class="py-8 text-red-500 text-center">
 				Error loading students: {studentsQuery.error.message}
 			</div>
 		{:else if filteredStudents.length === 0}
-			<div class="text-muted-foreground py-8 text-center">
+			<div class="py-8 text-muted-foreground text-center">
 				{searchQuery || selectedGrade || selectedStatus
 					? 'No students match your filters'
 					: 'No students yet. Add one or import from Excel!'}
@@ -471,7 +470,7 @@
 									{student.status}
 								</Badge>
 							</Table.Cell>
-							<Table.Cell class="text-muted-foreground max-w-xs truncate text-sm"
+							<Table.Cell class="max-w-xs text-muted-foreground text-sm truncate"
 								>{student.note || '-'}</Table.Cell
 							>
 							<Table.Cell class="text-right">
@@ -485,7 +484,7 @@
 										}}
 										aria-label="Edit {student.englishName}"
 									>
-										<Pencil class="h-4 w-4" />
+										<Pencil class="w-4 h-4" />
 									</Button>
 									{#if student.status === 'Enrolled'}
 										<Button
@@ -498,7 +497,7 @@
 											aria-label="Set {student.englishName} to not enrolled"
 											title="Disable student"
 										>
-											<AlertTriangle class="h-4 w-4 text-orange-500" />
+											<AlertTriangle class="w-4 h-4 text-orange-500" />
 										</Button>
 									{/if}
 									<Button
@@ -510,7 +509,7 @@
 										}}
 										aria-label="Delete {student.englishName}"
 									>
-										<Trash2 class="h-4 w-4 text-red-500" />
+										<Trash2 class="w-4 h-4 text-red-500" />
 									</Button>
 								</div>
 							</Table.Cell>
@@ -525,7 +524,7 @@
 <!-- Add/Edit Dialog -->
 {#if showForm}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4"
+		class="z-50 fixed inset-0 flex justify-center items-center p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="student-form-title"
@@ -537,21 +536,21 @@
 			tabindex="0"
 			onkeydown={(e) => e.key === 'Escape' && (showForm = false)}
 		></div>
-		<div class="bg-background relative w-full max-w-lg rounded-lg border p-6 shadow-lg">
+		<div class="relative bg-background shadow-lg p-6 border rounded-lg w-full max-w-lg">
 			<div class="p-6">
-				<h2 id="student-form-title" class="text-lg font-semibold">
+				<h2 id="student-form-title" class="font-semibold text-lg">
 					{editingId ? 'Edit Student' : 'Add New Student'}
 				</h2>
-				<div class="grid gap-4 py-4">
+				<div class="gap-4 grid py-4">
 					{#if formError}
 						<div
 							role="alert"
-							class="rounded bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400"
+							class="bg-red-50 dark:bg-red-950 p-3 rounded text-red-600 dark:text-red-400 text-sm"
 						>
 							{formError}
 						</div>
 					{/if}
-					<div class="grid grid-cols-2 gap-4">
+					<div class="gap-4 grid grid-cols-2">
 						<div class="space-y-2">
 							<Label for="studentId">Student ID *</Label>
 							<div class="flex gap-2">
@@ -568,10 +567,10 @@
 									/>
 									{#if idAvailability === 'available'}
 										<Check
-											class="absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2 text-green-500"
+											class="top-1/2 right-2 absolute w-4 h-4 text-green-500 -translate-y-1/2"
 										/>
 									{:else if idAvailability === 'taken'}
-										<X class="absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2 text-red-500" />
+										<X class="top-1/2 right-2 absolute w-4 h-4 text-red-500 -translate-y-1/2" />
 									{/if}
 								</div>
 								<Button
@@ -583,18 +582,18 @@
 								>
 									{#if isCheckingId}
 										<span
-											class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+											class="border-2 border-current border-t-transparent rounded-full w-4 h-4 animate-spin"
 										></span>
 									{:else}
-										<Check class="h-4 w-4" />
+										<Check class="w-4 h-4" />
 									{/if}
 								</Button>
 							</div>
 							{#if showAvailabilityMsg}
 								{#if idAvailability === 'available'}
-									<p class="text-xs text-green-600 dark:text-green-400">Student ID is available</p>
+									<p class="text-green-600 dark:text-green-400 text-xs">Student ID is available</p>
 								{:else if idAvailability === 'taken'}
-									<p class="text-xs text-red-600 dark:text-red-400">Student ID already exists</p>
+									<p class="text-red-600 dark:text-red-400 text-xs">Student ID already exists</p>
 								{/if}
 							{/if}
 						</div>
@@ -633,7 +632,7 @@
 							{/each}
 						</NativeSelect.Root>
 						{#if editingId && originalStatus === 'Enrolled' && formStatus === 'Not Enrolled'}
-							<p class="text-sm text-orange-600 dark:text-orange-400">
+							<p class="text-orange-600 dark:text-orange-400 text-sm">
 								Teachers will no longer be able to create evaluations for this student.
 							</p>
 						{/if}
@@ -659,7 +658,7 @@
 <!-- Delete Confirmation Dialog -->
 {#if showDelete}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4"
+		class="z-50 fixed inset-0 flex justify-center items-center p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="delete-student-title"
@@ -671,13 +670,13 @@
 			tabindex="0"
 			onkeydown={(e) => e.key === 'Escape' && (showDelete = false)}
 		></div>
-		<div class="bg-background relative w-full max-w-md rounded-lg border p-6 shadow-lg">
+		<div class="relative bg-background shadow-lg p-6 border rounded-lg w-full max-w-md">
 			<div class="p-6">
-				<h2 id="delete-student-title" class="text-lg font-semibold">Delete Student</h2>
+				<h2 id="delete-student-title" class="font-semibold text-lg">Delete Student</h2>
 				<div class="py-4">
 					{#if deleteHasRelated}
 						<div
-							class="mb-4 rounded bg-yellow-50 p-4 text-sm text-yellow-700 dark:bg-yellow-950 dark:text-yellow-200"
+							class="bg-yellow-50 dark:bg-yellow-950 mb-4 p-4 rounded text-yellow-700 dark:text-yellow-200 text-sm"
 						>
 							<p class="font-medium">
 								This student has {relatedCount} evaluation record{relatedCount !== 1 ? 's' : ''}.
@@ -729,7 +728,7 @@
 <!-- Import Dialog -->
 {#if showImport}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4"
+		class="z-50 fixed inset-0 flex justify-center items-center p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="import-students-title"
@@ -748,10 +747,10 @@
 				e.key === 'Escape' &&
 				((showImport = false), (importFile = null), (importPreview = []), (importResult = null))}
 		></div>
-		<div class="bg-background relative w-full max-w-lg rounded-lg border p-6 shadow-lg">
+		<div class="relative bg-background shadow-lg p-6 border rounded-lg w-full max-w-lg">
 			<div class="p-6">
-				<h2 id="import-students-title" class="text-lg font-semibold">Import Students from Excel</h2>
-				<div class="grid gap-4 py-4">
+				<h2 id="import-students-title" class="font-semibold text-lg">Import Students from Excel</h2>
+				<div class="gap-4 grid py-4">
 					<p class="text-muted-foreground text-sm">
 						Upload a CSV file with columns: englishName, chineseName, studentId, grade, status, note
 					</p>
@@ -777,7 +776,7 @@
 						/>
 					</div>
 					{#if importPreview.length > 0}
-						<div class="bg-muted rounded p-3 text-sm">
+						<div class="bg-muted p-3 rounded text-sm">
 							<p class="mb-2 font-medium">Preview (first 10 rows):</p>
 							<div class="max-h-40 overflow-auto">
 								<table class="w-full text-xs">
@@ -803,7 +802,7 @@
 					{/if}
 					{#if importResult}
 						<div
-							class="rounded p-3 text-sm"
+							class="p-3 rounded text-sm"
 							class:bg-green-50={importResult.success}
 							class:bg-red-50={!importResult.success}
 							class:dark:bg-green-950={importResult.success}
@@ -818,7 +817,7 @@
 										<p class="font-medium text-red-600 dark:text-red-300">
 											Duplicates within import file:
 										</p>
-										<ul class="list-disc pl-4">
+										<ul class="pl-4 list-disc">
 											{#each importResult.batchDuplicates as d (d.studentId)}
 												<li>
 													Row {d.rowNumber}: studentId "{d.studentId}"
@@ -832,7 +831,7 @@
 										<p class="font-medium text-red-600 dark:text-red-300">
 											Duplicates with existing students:
 										</p>
-										<ul class="list-disc pl-4">
+										<ul class="pl-4 list-disc">
 											{#each importResult.duplicates as d (d.studentId)}
 												<li>
 													"{d.studentId}": existing="{d.existingStudent}", new="
@@ -847,7 +846,7 @@
 					{/if}
 					{#if importError}
 						<div
-							class="rounded bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400"
+							class="bg-red-50 dark:bg-red-950 p-3 rounded text-red-600 dark:text-red-400 text-sm"
 						>
 							{importError}
 						</div>
@@ -875,7 +874,7 @@
 <!-- Disable Student Confirmation Dialog -->
 {#if showDisable}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4"
+		class="z-50 fixed inset-0 flex justify-center items-center p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="disable-student-title"
@@ -887,15 +886,15 @@
 			tabindex="0"
 			onkeydown={(e) => e.key === 'Escape' && (showDisable = false)}
 		></div>
-		<div class="bg-background relative w-full max-w-md rounded-lg border p-6 shadow-lg">
+		<div class="relative bg-background shadow-lg p-6 border rounded-lg w-full max-w-md">
 			<div class="p-6">
-				<h2 id="disable-student-title" class="text-lg font-semibold">Disable Student?</h2>
+				<h2 id="disable-student-title" class="font-semibold text-lg">Disable Student?</h2>
 				<div class="py-4">
 					<p class="text-muted-foreground">
 						Mark <strong>{studentToDisable?.englishName}</strong> ({studentToDisable?.studentId}) as
 						"Not Enrolled"?
 					</p>
-					<p class="mt-2 text-sm text-orange-600 dark:text-orange-400">
+					<p class="mt-2 text-orange-600 dark:text-orange-400 text-sm">
 						Teachers will no longer be able to see or create evaluations for this student.
 					</p>
 				</div>

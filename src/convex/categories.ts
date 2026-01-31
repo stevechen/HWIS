@@ -53,13 +53,10 @@ export const getSubCategoryEvaluationCount = query({
 export const seed = mutation({
 	args: { testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
-		console.log('[categories:seed] Mutation started. Token:', args.testToken);
 		await requireAdminRole(ctx, args.testToken);
 
-		console.log('[categories:seed] Auth passed. Checking for existing categories...');
 		const existing = await ctx.db.query('point_categories').collect();
 		if (existing.length > 0) {
-			console.log('[categories:seed] Categories already exist. Skipping.');
 			return;
 		}
 
@@ -75,7 +72,6 @@ export const seed = mutation({
 		for (const cat of categories) {
 			await ctx.db.insert('point_categories', cat);
 		}
-		console.log('[categories:seed] Success! Categories seeded.');
 	}
 });
 
@@ -86,15 +82,12 @@ export const create = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		console.log('[categories:create] Mutation started. Token:', args.testToken);
 		await requireAdminRole(ctx, args.testToken);
 
-		console.log('[categories:create] Auth passed. Inserting category:', args.name);
 		const id = await ctx.db.insert('point_categories', {
 			name: args.name,
 			subCategories: args.subCategories
 		});
-		console.log('[categories:create] Success! Created category with id:', id);
 		return id;
 	}
 });

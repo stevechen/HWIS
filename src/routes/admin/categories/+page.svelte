@@ -102,7 +102,6 @@
 			}
 			handleCancel();
 		} catch (err) {
-			console.error(err);
 			formError = (err as Error).message || 'Failed to save category';
 		} finally {
 			isSubmitting = false;
@@ -142,8 +141,8 @@
 						count
 					};
 				}
-			} catch (err) {
-				console.error(err);
+			} catch {
+				// Error handled silently
 			}
 		}
 	}
@@ -163,27 +162,27 @@
 				testToken: isTestMode ? 'test-token-admin-mock' : undefined
 			});
 			categoryToDelete = null;
-		} catch (err) {
-			console.error(err);
+		} catch {
+			// Error handled silently
 		} finally {
 			isSubmitting = false;
 		}
 	}
 </script>
 
-<div class="container mx-auto max-w-6xl py-8">
-	<header class="mb-8 flex items-start justify-between">
+<div class="mx-auto py-8 max-w-6xl container">
+	<header class="flex justify-between items-start mb-8">
 		<div class="flex items-start gap-6">
 			<Button variant="outline" onclick={() => goto('/admin')}>← Back to Admin</Button>
 			<div>
-				<h1 class="text-foreground mb-1 text-2xl font-semibold">Categories</h1>
+				<h1 class="mb-1 font-semibold text-foreground text-2xl">Categories</h1>
 				<p class="text-muted-foreground">Manage point categories and sub-categories.</p>
 			</div>
 		</div>
 		<ThemeToggle />
 	</header>
 
-	<div class="bg-card rounded-lg border shadow-sm">
+	<div class="bg-card shadow-sm border rounded-lg">
 		<Table.Root>
 			<Table.Header>
 				<Table.Row>
@@ -217,7 +216,7 @@
 									onclick={() => startEdit(category)}
 									aria-label="Edit"
 								>
-									<Pencil class="h-4 w-4" />
+									<Pencil class="w-4 h-4" />
 								</Button>
 								<Button
 									variant="ghost"
@@ -225,14 +224,14 @@
 									onclick={() => confirmDelete(category)}
 									aria-label="Delete"
 								>
-									<Trash2 class="h-4 w-4" />
+									<Trash2 class="w-4 h-4" />
 								</Button>
 							</div>
 						</Table.Cell>
 					</Table.Row>
 				{:else}
 					<Table.Row>
-						<Table.Cell colspan={3} class="text-center py-8">
+						<Table.Cell colspan={3} class="py-8 text-center">
 							<p class="text-muted-foreground">No categories yet.</p>
 						</Table.Cell>
 					</Table.Row>
@@ -241,9 +240,9 @@
 		</Table.Root>
 	</div>
 
-	<div class="mt-6 flex justify-end">
+	<div class="flex justify-end mt-6">
 		<Button onclick={startAdd}>
-			<Plus class="mr-2 h-4 w-4" />
+			<Plus class="mr-2 w-4 h-4" />
 			Add new category
 		</Button>
 	</div>
@@ -251,15 +250,15 @@
 
 {#if showForm}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+		class="z-50 fixed inset-0 flex justify-center items-center bg-black/50"
 		role="dialog"
 		aria-modal="true"
 	>
-		<div class="bg-background w-full max-w-md rounded-lg p-6 shadow-lg">
-			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-xl font-semibold">{editingId ? 'Edit Category' : 'Add New Category'}</h2>
+		<div class="bg-background shadow-lg p-6 rounded-lg w-full max-w-md">
+			<div class="flex justify-between items-center mb-4">
+				<h2 class="font-semibold text-xl">{editingId ? 'Edit Category' : 'Add New Category'}</h2>
 				<Button variant="ghost" size="icon" onclick={handleCancel} aria-label="Close">
-					<X class="h-4 w-4" />
+					<X class="w-4 h-4" />
 				</Button>
 			</div>
 
@@ -272,13 +271,13 @@
 				<div class="space-y-4">
 					{#if formError}
 						<div
-							class="rounded bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400"
+							class="bg-red-50 dark:bg-red-950 p-3 rounded text-red-600 dark:text-red-400 text-sm"
 						>
 							{formError}
 						</div>
 					{/if}
 					<div>
-						<label class="text-sm font-medium" for="categoryName">Category Name</label>
+						<label class="font-medium text-sm" for="categoryName">Category Name</label>
 						<Input
 							id="categoryName"
 							bind:value={categoryName}
@@ -288,8 +287,8 @@
 					</div>
 
 					<div>
-						<label class="text-sm font-medium" for="subCategory">Sub-Categories</label>
-						<div class="mt-1 flex gap-2">
+						<label class="font-medium text-sm" for="subCategory">Sub-Categories</label>
+						<div class="flex gap-2 mt-1">
 							<Input
 								id="subCategory"
 								bind:value={newSubCategory}
@@ -305,14 +304,14 @@
 						</div>
 
 						{#if subCategories.length > 0}
-							<div class="mt-2 flex flex-wrap gap-1">
+							<div class="flex flex-wrap gap-1 mt-2">
 								{#each subCategories as sub (sub)}
 									<Badge variant="secondary" class="flex items-center gap-1">
 										{sub}
 										<button
 											type="button"
 											onclick={() => removeSubCategory(sub)}
-											class="text-xs hover:text-red-500"
+											class="hover:text-red-500 text-xs"
 											aria-label="Remove {sub}"
 										>
 											×
@@ -337,18 +336,18 @@
 
 {#if categoryToDelete}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+		class="z-50 fixed inset-0 flex justify-center items-center bg-black/50"
 		role="dialog"
 		aria-modal="true"
 	>
-		<div class="bg-background w-full max-w-md rounded-lg p-6 shadow-lg">
-			<h2 class="mb-2 text-xl font-semibold">Delete Category</h2>
-			<p class="text-muted-foreground mb-4">
+		<div class="bg-background shadow-lg p-6 rounded-lg w-full max-w-md">
+			<h2 class="mb-2 font-semibold text-xl">Delete Category</h2>
+			<p class="mb-4 text-muted-foreground">
 				Are you sure you want to delete "{categoryToDelete.name}"?
 			</p>
 
 			{#if subCategoryWarning}
-				<div class="bg-destructive/10 text-destructive mb-4 rounded-md p-3 text-sm">
+				<div class="bg-destructive/10 mb-4 p-3 rounded-md text-destructive text-sm">
 					<strong>Warning:</strong>
 					This category has sub-categories with evaluations.
 					{subCategoryWarning.count} evaluation(s) will be affected.

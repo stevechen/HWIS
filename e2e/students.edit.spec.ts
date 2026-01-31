@@ -17,7 +17,7 @@ test.describe('Edit Student @students', () => {
 		try {
 			await cleanupTestData(suffix);
 		} catch {
-			console.log(`[TEST] Cleanup skipped for editStudent`);
+			// Cleanup skipped
 		}
 	});
 

@@ -28,7 +28,7 @@ test.describe('Student List @students', () => {
 			try {
 				await cleanupTestData(suffix);
 			} catch {
-				console.log(`[TEST] Cleanup skipped for listAccess`);
+				// Cleanup skipped
 			}
 		});
 

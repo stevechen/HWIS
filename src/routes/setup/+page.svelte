@@ -34,7 +34,6 @@
 			const result = await client.mutation(apiAny.onboarding.ensureUserProfile, {
 				testToken: tokenArg
 			});
-			console.log('Profile ensured:', result);
 
 			if (result.created) {
 				status = 'Profile created! Promoting to admin...';
@@ -52,12 +51,11 @@
 		} catch (err) {
 			error = (err as Error).message || 'Unknown error';
 			status = 'Error occurred';
-			console.error('Setup error:', err);
 		}
 	});
 </script>
 
-<div class="flex h-screen flex-col items-center justify-center gap-4">
+<div class="flex flex-col justify-center items-center gap-4 h-screen">
 	<p class="text-lg">{status}</p>
 	{#if error}
 		<p class="text-red-600">Error: {error}</p>

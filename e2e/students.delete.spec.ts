@@ -21,7 +21,7 @@ test.describe('Delete Student @students', () => {
 		try {
 			await cleanupTestData(suffix);
 		} catch {
-			console.log(`[TEST] Cleanup skipped for deleteStud`);
+			// Cleanup skipped
 		}
 	});
 

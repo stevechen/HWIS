@@ -8,6 +8,4 @@ setup('create admin auth', async ({ page }) => {
 	await page.context().storageState({
 		path: 'e2e/.auth/admin.json'
 	});
-
-	console.log('Admin auth saved to e2e/.auth/admin.json');
 });

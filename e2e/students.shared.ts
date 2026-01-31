@@ -9,6 +9,6 @@ export async function cleanupE2EData(page: Page, testId: string) {
 	try {
 		await cleanupTestData(suffix);
 	} catch {
-		console.log(`[TEST] Cleanup skipped for ${testId}`);
+		// Cleanup skipped
 	}
 }

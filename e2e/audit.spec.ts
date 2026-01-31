@@ -20,8 +20,8 @@ test.describe('Audit Log Page (super admin)', () => {
 	test.afterEach(async () => {
 		try {
 			await cleanupAuditLogs();
-		} catch (e) {
-			console.log('Audit cleanup skipped:', e);
+		} catch {
+			// Cleanup skipped
 		}
 	});
 

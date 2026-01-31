@@ -11,7 +11,6 @@
 	import { PUBLIC_CONVEX_URL } from '$env/static/public';
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
-	import DebugAuth from '$lib/components/DebugAuth.svelte';
 
 	// Initialize Convex client - must be called before any useQuery() calls
 	setupConvex(PUBLIC_CONVEX_URL);
@@ -69,17 +68,13 @@
 {#if isLoginPage}
 	{@render children?.()}
 {:else if !authDetermined && !cookieTestMode}
-	<div class="flex h-screen items-center justify-center bg-gray-50">
-		<div class="text-lg text-gray-600">Loading...</div>
+	<div class="flex justify-center items-center bg-gray-50 h-screen">
+		<div class="text-gray-600 text-lg">Loading...</div>
 	</div>
 {:else if !isAuthenticated && !cookieTestMode}
-	<div class="flex h-screen items-center justify-center bg-gray-50">
-		<div class="text-lg text-gray-600">Redirecting...</div>
+	<div class="flex justify-center items-center bg-gray-50 h-screen">
+		<div class="text-gray-600 text-lg">Redirecting...</div>
 	</div>
 {:else}
 	{@render children?.()}
-{/if}
-
-{#if import.meta.env.DEV}
-	<DebugAuth />
 {/if}
