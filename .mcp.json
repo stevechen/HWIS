@@ -1,8 +1,1 @@
-{
-	"mcpServers": {
-		"svelte": {
-			"command": "bunx",
-			"args": ["-y", "@sveltejs/mcp"]
-		}
-	}
-}
+{"mcpServers":{"svelte":{"command":"bunx","args":["-y","@sveltejs/mcp"],"alwaysAllow":["get-documentation","list-sections","svelte-autofixer"]}}}

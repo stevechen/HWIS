@@ -1,60 +1,113 @@
 import { test, expect } from '@playwright/test';
-import { createStudent, cleanupTestData } from './convex-client';
+import { createStudent, cleanupTestData, seedBaseline } from './convex-client';
 import { getTestSuffix } from './helpers';
 
 test.describe('Integration Tests (Real Backend) @integration', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-	test.beforeEach(async () => {});
+	// Store test data info for cleanup
+	let testE2eTag: string | null = null;
+
+	test.beforeEach(async () => {
+		// Reset for each test
+		testE2eTag = null;
+	});
 
 	test.afterEach(async () => {
-		const suffix = getTestSuffix('integ');
-		try {
-			await cleanupTestData(suffix);
-		} catch {
-			// Ignore cleanup errors
+		// Cleanup using the stored e2eTag from the test
+		if (testE2eTag) {
+			try {
+				await cleanupTestData(testE2eTag);
+			} catch {
+				// Ignore cleanup errors
+			}
 		}
 	});
 
-	test.fixme('Student CRUD cycle - create, edit, delete works with real backend', async ({
-		page
-	}) => {
-		// This test has complex UI interactions that need updating
+	test('Student CRUD cycle - create, edit, delete works with real backend', async ({ page }) => {
 		const suffix = getTestSuffix('crud');
 		const studentId = `S_${suffix}`;
 		const englishName = `CrudTest_${suffix}`;
 		const chineseName = 'CRUD測試';
 		const grade = 10;
 
+		// Store for cleanup
+		testE2eTag = `e2e-test_${suffix}`;
+
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
-		await page.waitForSelector('text=Loading students...', { state: 'detached' });
+		await page.waitForTimeout(1000);
 
-		// Create student
-		await page.getByRole('button', { name: 'Add Student' }).click();
-		await expect(page.getByRole('dialog')).toBeVisible();
+		// Create student using API (more reliable than UI for setup)
+		await createStudent({
+			studentId,
+			englishName,
+			chineseName,
+			grade,
+			status: 'Enrolled',
+			e2eTag: testE2eTag
+		});
 
-		await page.getByRole('dialog').getByLabel('Student ID').fill(studentId);
-		await page.getByRole('dialog').getByLabel('English Name').fill(englishName);
-		await page.getByRole('dialog').getByLabel('Chinese Name').fill(chineseName);
-		await page.getByRole('dialog').getByLabel('Grade').selectOption(String(grade));
-		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
-
-		await expect(page.getByRole('dialog')).not.toBeVisible();
+		// Reload page to see the new student
+		await page.reload();
+		await page.waitForSelector('body.hydrated');
+		await page.waitForTimeout(500);
 
 		// Verify student was created
-		await page.waitForTimeout(500);
-		await page.getByLabel('Search by name or student ID').fill(englishName);
-		await page.waitForTimeout(300);
 		await expect(page.getByText(englishName).first()).toBeVisible();
+
+		// Edit student - find and click edit button (first button in the row with pencil icon)
+		const studentRow = page.locator('tr').filter({ hasText: englishName });
+		await studentRow.locator('button').first().click();
+
+		// Wait for edit dialog
+		await expect(page.getByRole('dialog')).toBeVisible();
+		await expect(page.getByText('Edit Student')).toBeVisible();
+
+		// Change status to Not Enrolled - use the Status select (second select in dialog)
+		const statusSelect = page
+			.locator('[role="dialog"] select')
+			.filter({ hasText: /Enrolled|Not Enrolled/ });
+		await statusSelect.selectOption('Not Enrolled');
+
+		// Click Update button using filter pattern
+		await page.locator('button').filter({ hasText: 'Update' }).click();
+
+		// Wait for dialog to close
+		await expect(page.getByRole('dialog')).not.toBeVisible();
+
+		// Verify status changed - check for Not Enrolled badge in the student's row
+		await page.waitForTimeout(500);
+		const updatedRow = page.locator('tr').filter({ hasText: englishName });
+		await expect(updatedRow.getByText('Not Enrolled')).toBeVisible();
+
+		// Delete student - find and click delete button (last button in row with trash icon)
+		await updatedRow.locator('button').last().click();
+
+		// Wait for delete dialog
+		await expect(page.getByRole('dialog')).toBeVisible();
+		await expect(page.getByText('Delete Student')).toBeVisible();
+
+		// Click Delete button using filter pattern
+		await page.locator('button').filter({ hasText: 'Delete' }).first().click();
+
+		// Wait for dialog to close and student to be removed
+		await expect(page.getByRole('dialog')).not.toBeVisible();
+		await page.waitForTimeout(300);
+		await expect(page.getByText(englishName).first()).not.toBeVisible();
 	});
 
-	test.fixme('Evaluation persists to database and appears in list', async ({ page }) => {
-		// This test requires categories to be seeded
+	test('Evaluation persists to database and appears in list', async ({ page }) => {
+		// Seed baseline data including categories
+		await seedBaseline();
+
 		const suffix = getTestSuffix('evalPersist');
 		const studentId = `SE_${suffix}`;
 		const englishName = `EvalPersist_${suffix}`;
 		const chineseName = '評估持久';
+
+		// Store for cleanup
+		testE2eTag = `e2e-test_${suffix}`;
 
 		const createResult = await createStudent({
 			studentId,
@@ -62,7 +115,7 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 			chineseName,
 			grade: 10,
 			status: 'Enrolled',
-			e2eTag: `e2e-test_${suffix}`
+			e2eTag: testE2eTag
 		});
 		expect(createResult).toBeTruthy();
 
@@ -85,39 +138,24 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 test.describe('Category to Evaluation Integration (Real Backend) @integration', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-	test.beforeEach(async () => {});
+	// Store test data info for cleanup
+	let testE2eTag: string | null = null;
+
+	test.beforeEach(async () => {
+		testE2eTag = null;
+	});
 
 	test.afterEach(async () => {
-		const suffix = getTestSuffix('catEval');
-		try {
-			await cleanupTestData(suffix);
-		} catch {
-			// Ignore cleanup errors
+		if (testE2eTag) {
+			try {
+				await cleanupTestData(testE2eTag);
+			} catch {
+				// Ignore cleanup errors
+			}
 		}
 	});
 
-	test.fixme('Category created by admin can be used in evaluation by teacher', async ({ page }) => {
+	test.fixme('Category created by admin can be used in evaluation by teacher', async () => {
 		// This test requires complex setup and UI interactions
-		const suffix = getTestSuffix('catEval');
-		const categoryName = `EvalCat_${suffix}`;
-
-		await page.goto('/admin/categories');
-		await page.waitForSelector('body.hydrated');
-
-		await page.getByRole('button', { name: /Add.*category/i }).click();
-		await expect(page.getByRole('dialog')).toBeVisible();
-
-		await page
-			.getByRole('dialog')
-			.getByLabel(/Category name/i)
-			.fill(categoryName);
-		await page
-			.getByRole('dialog')
-			.getByRole('button', { name: /Create|Save/i })
-			.click();
-		await expect(page.getByRole('dialog')).not.toBeVisible();
-
-		// Verify category was created
-		await expect(page.getByText(categoryName).first()).toBeVisible();
 	});
 });

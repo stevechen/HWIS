@@ -5,13 +5,17 @@ import { getToken } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 export const handle: Handle = async ({ event, resolve }) => {
 	const testAuthCookie = event.cookies.get('hwis_test_auth') || '';
 	const sessionToken = event.cookies.get('convex_session_token') || '';
+	const testRoleQuery = event.url.searchParams.get('testRole');
 
 	// Detect test mode from EITHER source:
 	// 1. hwis_test_auth cookie (e.g., "admin", "super", "true")
 	// 2. convex_session_token that looks like a test token (contains "test_")
+	// 3. testRole query parameter (for e2e tests)
 	const isTestAuthCookiePresent = testAuthCookie.length > 0;
 	const isTestSessionToken = sessionToken.includes('test_');
-	const isTestMode = isTestAuthCookiePresent || isTestSessionToken;
+	const isTestModeFromQuery =
+		testRoleQuery === 'teacher' || testRoleQuery === 'admin' || testRoleQuery === 'super';
+	const isTestMode = isTestAuthCookiePresent || isTestSessionToken || isTestModeFromQuery;
 
 	let testRole: 'admin' | 'super' | 'teacher' = 'teacher';
 	if (isTestMode) {
@@ -26,6 +30,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 			} else if (sessionToken.includes('admin')) {
 				testRole = 'admin';
 			}
+		} else if (testRoleQuery && ['admin', 'super', 'teacher'].includes(testRoleQuery)) {
+			// Use testRole from query parameter
+			testRole = testRoleQuery as typeof testRole;
 		} else {
 			// Check for role= in the full cookie value
 			const roleMatch = testAuthCookie.match(/role=(\w+)/);

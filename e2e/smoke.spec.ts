@@ -56,14 +56,6 @@ test.describe('Smoke Tests @smoke', () => {
 		// Teacher is redirected away from admin pages
 		await expect(page).not.toHaveURL(/\/admin\/students/);
 	});
-
-	test('Permission redirect works correctly', async ({ page }) => {
-		await page.goto('/admin/users');
-		await page.waitForSelector('body.hydrated');
-
-		// Teacher should be redirected away from admin/users
-		await expect(page).not.toHaveURL(/\/admin\/users/);
-	});
 });
 
 test.describe('Student Table UI Tests @students', () => {

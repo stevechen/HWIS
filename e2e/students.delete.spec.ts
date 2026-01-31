@@ -66,7 +66,7 @@ test.describe('Delete Student @students', () => {
 		await expect(page.getByText(englishName).first()).not.toBeVisible();
 	});
 
-	test.fixme('can delete student with cascade', async ({ page }) => {
+	test('can delete student with cascade', async ({ page }) => {
 		// This test requires baseline categories to be seeded
 		const suffix = getTestSuffix('delCascade');
 		const studentId = `S_${suffix}`;
