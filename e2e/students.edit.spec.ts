@@ -9,7 +9,6 @@ test.describe('Edit Student @students', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
-		await page.waitForTimeout(1000);
 	});
 
 	test.afterEach(async () => {
@@ -35,7 +34,7 @@ test.describe('Edit Student @students', () => {
 		});
 
 		// Wait for student to appear in list (Convex reactivity)
-		await expect(page.getByText(englishName)).toBeVisible({ timeout: 15000 });
+		await expect(page.getByText(englishName)).toBeVisible();
 
 		// Search for the student to filter the list
 		const searchInput = page.getByPlaceholder('Search by name or student ID...');

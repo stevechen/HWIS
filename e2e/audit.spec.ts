@@ -72,7 +72,7 @@ test.describe('Audit Log Page (super admin)', () => {
 		await studentInput.fill('test');
 		await page.waitForTimeout(100);
 		const clearButton = page.getByRole('button', { name: 'Clear all filters' });
-		await expect(clearButton).toBeVisible({ timeout: 5000 });
+		await expect(clearButton).toBeVisible();
 		await clearButton.click();
 		await expect(studentInput).toHaveValue('');
 	});

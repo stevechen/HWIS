@@ -18,8 +18,6 @@ test.describe('Users Page @users', () => {
 	});
 
 	test('displays role management dropdowns', async ({ page }) => {
-		// Wait for users to load
-		await page.waitForTimeout(1000);
 		// Just verify the table is visible with interactive elements
 		await expect(page.locator('table')).toBeVisible();
 	});
@@ -54,16 +52,13 @@ test.describe('Users Page @users', () => {
 	});
 
 	test('can open role dropdown', async ({ page }) => {
-		// Wait for users to load
-		await page.waitForTimeout(1000);
-
 		// Find first enabled button in the table (skip disabled ones)
 		const buttons = page.locator('table button:not([disabled])');
 		const count = await buttons.count();
 		if (count > 0) {
 			// Try clicking second button if first is the current user (disabled)
 			const buttonToClick = count > 1 ? buttons.nth(1) : buttons.first();
-			await buttonToClick.click({ timeout: 5000 }).catch(() => {
+			await buttonToClick.click().catch(() => {
 				// If click fails, the test still passes - we verified buttons exist
 			});
 		}

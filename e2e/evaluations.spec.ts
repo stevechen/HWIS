@@ -33,7 +33,7 @@ async function createStudentForEval(
 
 	// Use aria-label to find the search input
 	const filterInput = page.locator('input[aria-label="Search students"]').first();
-	await expect(filterInput).toBeVisible({ timeout: 10000 });
+	await expect(filterInput).toBeVisible();
 
 	// Clear the search input first, then type the student name (lowercase for case-insensitive search)
 	await filterInput.fill('');
@@ -48,10 +48,7 @@ async function createStudentForEval(
 	const hasNoStudents = await noStudentsMsg.isVisible().catch(() => false);
 
 	if (hasNoStudents) {
-		// Reload the page to get fresh data from Convex
-		await page.reload();
 		await page.waitForSelector('body.hydrated');
-		await page.waitForTimeout(2000);
 
 		// Try searching again
 		const filterInput2 = page.locator('input[aria-label="Search students"]').first();
@@ -63,7 +60,7 @@ async function createStudentForEval(
 	// Student items are clickable divs with text in format "englishName (chineseName)"
 	// Use case-insensitive search since the filter is case-insensitive
 	const studentRow = page.getByText(new RegExp(englishName, 'i')).first();
-	await expect(studentRow).toBeVisible({ timeout: 15000 });
+	await expect(studentRow).toBeVisible();
 }
 
 test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
