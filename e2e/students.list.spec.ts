@@ -6,12 +6,14 @@ test.describe('Student List @students', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/');
 		await page.waitForLoadState('networkidle');
+		// await page.waitForSelector('body.hydrated');
 	});
 
 	test.describe('Access Control', () => {
 		test('redirects non-admin users from /admin/students', async ({ page }) => {
-			await page.goto('/admin/students');
-			await expect(page).toHaveURL(/\/|\/login/);
+			// Use 'commit' to handle immediate redirect without waiting for full load
+			await page.goto('/admin/students', { waitUntil: 'commit' });
+			await expect(page).toHaveURL(/\/|\/login/, { timeout: 5000 });
 		});
 	});
 
@@ -74,7 +76,7 @@ test.describe('Student List @students', () => {
 			const gradeSelect = page.locator('select[aria-label="Filter by grade"]');
 			await gradeSelect.selectOption('9');
 
-			await expect(page.getByText(grade9Student)).toBeVisible();
+			await expect(page.getByText(grade9Student)).toBeVisible({ timeout: 8000 });
 			await expect(page.getByText(grade10Student)).not.toBeVisible();
 		});
 
@@ -104,7 +106,7 @@ test.describe('Student List @students', () => {
 			const statusSelect = page.locator('select[aria-label="Filter by status"]');
 			await statusSelect.selectOption('Enrolled');
 
-			await expect(page.getByText(enrolledStudent)).toBeVisible();
+			await expect(page.getByText(enrolledStudent)).toBeVisible({ timeout: 8000 });
 			await expect(page.getByText(notEnrolledStudent)).not.toBeVisible();
 		});
 
@@ -133,7 +135,7 @@ test.describe('Student List @students', () => {
 
 			await page.getByPlaceholder('Search by name or student ID...').fill(targetStudent);
 
-			await expect(page.getByText(targetStudent)).toBeVisible();
+			await expect(page.getByText(targetStudent)).toBeVisible({ timeout: 5000 });
 			await expect(page.getByText(otherStudent)).not.toBeVisible();
 		});
 
@@ -162,7 +164,7 @@ test.describe('Student List @students', () => {
 
 			await page.getByPlaceholder('Search by name or student ID...').fill(targetId);
 
-			await expect(page.getByText(`StudentA_${suffix}`)).toBeVisible();
+			await expect(page.getByText(`StudentA_${suffix}`)).toBeVisible({ timeout: 6000 });
 			await expect(page.getByText(`StudentB_${suffix}`)).not.toBeVisible();
 		});
 

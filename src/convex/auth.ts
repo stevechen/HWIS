@@ -131,7 +131,7 @@ export const getAuthenticatedUser = async (ctx: any, testToken?: string) => {
 			}
 			return user;
 		}
-	} catch (e) {
+	} catch {
 		// Ignore lookup failures
 	}
 

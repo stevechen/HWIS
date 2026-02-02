@@ -52,7 +52,7 @@ export const e2eSeedAll = mutation({
 		const now = Date.now();
 
 		// Create test admin user for Convex auth
-		const adminUserId = await ctx.db.insert('users', {
+		await ctx.db.insert('users', {
 			authId: 'test_admin',
 			name: 'Test Admin',
 			role: 'admin',

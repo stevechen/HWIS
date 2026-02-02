@@ -9,7 +9,6 @@ test.describe('Edit Student @students', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
-		await page.waitForTimeout(1000);
 	});
 
 	test.afterEach(async () => {
@@ -35,7 +34,7 @@ test.describe('Edit Student @students', () => {
 		});
 
 		// Wait for student to appear in list (Convex reactivity)
-		await expect(page.getByText(englishName)).toBeVisible({ timeout: 15000 });
+		await expect(page.getByText(englishName)).toBeVisible();
 
 		// Search for the student to filter the list
 		const searchInput = page.getByPlaceholder('Search by name or student ID...');
@@ -53,24 +52,29 @@ test.describe('Edit Student @students', () => {
 		await expect(page.locator('[role="dialog"]').first()).toBeVisible();
 
 		// Select the status dropdown and change it
-		const statusSelect = page
-			.locator('select')
-			.filter({ hasText: /Enrolled|Not Enrolled/ })
-			.first();
+		// Use a more specific selector to target the status dropdown
+		const statusSelect = page.locator('[role="dialog"] select[aria-label="Status"]').first();
 		await statusSelect.selectOption('Not Enrolled');
 
 		// Click Update button
 		await page.locator('button').filter({ hasText: 'Update' }).click();
 
-		// Wait for dialog to close
+		// Wait for dialog to close and Convex to update
 		await expect(page.locator('[role="dialog"]').first()).not.toBeVisible();
 
-		// Verify status changed
-		await searchInput.fill(englishName);
-		await page.waitForTimeout(500);
+		// Clear search filter to see all students
+		await searchInput.fill('');
 
-		// Check for the status badge text
-		const pageContent = await page.content();
-		expect(pageContent).toContain('Not Enrolled');
+		// Clear status filter to ensure all students are visible
+		const statusFilter = page.getByLabel('Filter by status');
+		if (await statusFilter.isVisible()) {
+			await statusFilter.selectOption('');
+		}
+
+		// Verify the specific student's status was updated to "Not Enrolled"
+		// The test is specific because we created a unique student and verify their status
+		const updatedStudentRow = page.locator('tr').filter({ hasText: englishName });
+		await expect(updatedStudentRow).toBeVisible();
+		await expect(updatedStudentRow.getByText('Not Enrolled')).toBeVisible({ timeout: 10000 });
 	});
 });

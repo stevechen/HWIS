@@ -148,10 +148,44 @@ bunx playwright test e2e/students.spec.ts --workers=1
    await expect(page.getByText('New Data')).toBeVisible();
    ```
 
+**Convex Reactivity Pattern:**
+
+When testing mutations that create data:
+
+1. **After creating data via UI form**, the list should update automatically via Convex reactivity:
+
+   ```typescript
+   // After submitting form and dialog closes
+   await expect(page.locator('[role="dialog"]').first()).not.toBeVisible();
+
+   // Wait for new data to appear (Convex reactivity)
+   await expect(page.getByText(englishName)).toBeVisible({ timeout: 20000 });
+   ```
+
+2. **IMPORTANT: Reset filters** - If you previously filtered the list (e.g., by grade),
+   the new student might not appear in filtered results. Clear filters first:
+
+   ```typescript
+   const searchInput = page.getByPlaceholder('Search by name or student ID...');
+   await searchInput.fill('');
+   const statusFilter = page.getByLabel('Filter by status');
+   await statusFilter.selectOption('');
+   // Now the new student will be visible
+   await expect(page.getByText(englishName)).toBeVisible();
+   ```
+
+3. **When creating data via API** (convex-client.ts), the UI won't auto-update.
+   Use web-first assertions to poll for the data:
+   ```typescript
+   await createStudent({ studentId, englishName, grade: 10 });
+   // UI updates via Convex reactivity - use polling assertion
+   await expect(page.getByText(englishName)).toBeVisible({ timeout: 10000 });
+   ```
+
 **Avoid:**
 
-- `page.waitForTimeout()` - use web-first assertions instead
-- `page.reload()` - web-first assertions handle Convex updates automatically
+- `page.waitForTimeout()` - use web-first assertions with timeout instead
+- `page.reload()` - only use if absolutely necessary; prefer web-first assertions
 - `window.e2e.*` - use imports from `convex-client.ts`
 
 ### Running All Tests

@@ -95,11 +95,8 @@ test.describe('Student Table UI Tests @students', () => {
 		const searchInput = page.getByLabel('Search by name or student ID');
 		await searchInput.fill(englishName);
 
-		// Wait for filter to apply
-		await page.waitForTimeout(300);
-
-		// Verify student appears in the table
-		await expect(page.getByText(englishName).first()).toBeVisible();
+		// Wait for filter to apply and student to appear
+		await expect(page.getByText(englishName).first()).toBeVisible({ timeout: 5000 });
 	});
 
 	test('filters students by grade', async ({ page }) => {
@@ -125,10 +122,7 @@ test.describe('Student Table UI Tests @students', () => {
 		const gradeFilter = page.getByLabel('Filter by grade');
 		await gradeFilter.selectOption('10');
 
-		// Wait for filter to apply
-		await page.waitForTimeout(300);
-
-		// Verify student appears in the table
-		await expect(page.getByText(englishName).first()).toBeVisible();
+		// Wait for filter to apply and student to appear
+		await expect(page.getByText(englishName).first()).toBeVisible({ timeout: 5000 });
 	});
 });

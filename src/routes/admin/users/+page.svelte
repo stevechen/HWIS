@@ -2,7 +2,6 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { goto } from '$app/navigation';
-	import { browser } from '$app/environment';
 	import { CheckCircle2, XCircle } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
@@ -103,22 +102,22 @@
 	}
 </script>
 
-<div class="mx-auto py-8 max-w-6xl container">
-	<header class="flex justify-between items-start mb-8">
+<div class="container mx-auto max-w-6xl py-8">
+	<header class="mb-8 flex items-start justify-between">
 		<div class="flex items-start gap-6">
 			<Button variant="outline" onclick={handleBackToAdmin}>← Back to Admin</Button>
 			<div>
-				<h1 class="mb-1 font-semibold text-foreground text-2xl">Manage Users</h1>
+				<h1 class="text-foreground mb-1 text-2xl font-semibold">Manage Users</h1>
 				<p class="text-muted-foreground">Review and manage access levels for teachers and staff.</p>
 			</div>
 		</div>
 		<ThemeToggle />
 	</header>
 
-	<div class="bg-card shadow-sm border rounded-lg">
+	<div class="bg-card rounded-lg border shadow-sm">
 		{#if usersQuery.isLoading}
-			<div class="flex flex-col justify-center items-center gap-4 p-16 text-muted-foreground">
-				<div class="border-3 border-muted border-t-primary rounded-full w-8 h-8 animate-spin"></div>
+			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
+				<div class="border-muted border-t-primary h-8 w-8 animate-spin rounded-full border-3"></div>
 				<p>Loading user records...</p>
 			</div>
 		{:else if usersQuery.data}
@@ -147,7 +146,7 @@
 										user._id === (currentUser.data?._id as Id<'users'> | undefined) ||
 										user.role === 'super'}
 								>
-									<Select.Trigger class="w-33 h-8 text-sm" placeholder="Select role">
+									<Select.Trigger class="h-8 w-33 text-sm" placeholder="Select role">
 										{roles.find((r) => r.value === (roleStates[user._id] ?? user.role))?.label ||
 											'Select role'}
 									</Select.Trigger>
@@ -173,7 +172,7 @@
 											disabled={updatingId === user._id}
 											title="Approve User"
 										>
-											<CheckCircle2 class="w-4 h-4 text-emerald-600" />
+											<CheckCircle2 class="h-4 w-4 text-emerald-600" />
 										</Button>
 									{/if}
 									{#if user.status !== 'deactivated'}
@@ -185,7 +184,7 @@
 												user._id === (currentUser.data?._id as Id<'users'> | undefined)}
 											title="Deactivate User"
 										>
-											<XCircle class="w-4 h-4 text-red-600" />
+											<XCircle class="h-4 w-4 text-red-600" />
 										</Button>
 									{/if}
 								</div>

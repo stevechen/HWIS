@@ -1,22 +1,11 @@
 import { mutation } from '../_generated/server';
-import { v } from 'convex/values';
-
-// Copy getFridayOfWeek function since it's not exported
-function getFridayOfWeek(timestamp: number): number {
-	const date = new Date(timestamp);
-	const day = date.getDay();
-	const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-	const friday = new Date(date.setDate(diff));
-	friday.setHours(0, 0, 0, 0);
-	return friday.getTime();
-}
 
 // Weekly Reports Test Data Generator
 // Creates realistic 5 weeks of evaluation data for testing
 
 export const createWeeklyReportTestData = mutation({
 	args: {},
-	handler: async (ctx: any) => {
+	handler: async (ctx) => {
 		const tag = 'weekly-reports-test';
 		const semesterId = '2024-H2';
 
@@ -191,7 +180,16 @@ export const createWeeklyReportTestData = mutation({
 		}
 
 		// Generate evaluations for each week
-		const createdEvaluations: any[] = [];
+		const createdEvaluations: {
+			id: string;
+			week: number;
+			friday: number;
+			studentId: string;
+			teacherId: string;
+			category: string;
+			value: number;
+			timestamp: number;
+		}[] = [];
 
 		for (let weekIndex = 0; weekIndex < weeks.length; weekIndex++) {
 			const week = weeks[weekIndex];
@@ -294,25 +292,27 @@ export const createWeeklyReportTestData = mutation({
 });
 
 // Helper function to delete all tagged data
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function deleteByTag(ctx: any, table: string, tag: string): Promise<number> {
 	const docs = await ctx.db.query(table).collect();
-	const taggedDocs = docs.filter((doc: any) => doc.e2eTag === tag);
+	const taggedDocs = docs.filter((doc) => (doc as { e2eTag: string }).e2eTag === tag);
 
 	for (const doc of taggedDocs) {
-		await ctx.db.delete(table as any, doc._id);
+		await ctx.db.delete(doc._id);
 	}
 
 	return taggedDocs.length;
 }
 
 // Helper function to verify complete cleanup
-async function verifyCompleteCleanup(ctx: any, tag: string): Promise<any[]> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function verifyCompleteCleanup(ctx: any, tag: string): Promise<{ e2eTag: string }[]> {
 	const tables = ['evaluations', 'audit_logs', 'students', 'users', 'point_categories'];
-	const remaining: any[] = [];
+	const remaining: { e2eTag: string }[] = [];
 
 	for (const table of tables) {
 		const docs = await ctx.db.query(table).collect();
-		const tagged = docs.filter((doc: any) => doc.e2eTag === tag);
+		const tagged = docs.filter((doc) => (doc as { e2eTag: string }).e2eTag === tag);
 		remaining.push(...tagged);
 	}
 
@@ -321,7 +321,7 @@ async function verifyCompleteCleanup(ctx: any, tag: string): Promise<any[]> {
 
 export const cleanupWeeklyReportTestData = mutation({
 	args: {},
-	handler: async (ctx: any) => {
+	handler: async (ctx) => {
 		const tag = 'weekly-reports-test';
 
 		// Delete in foreign key dependency order

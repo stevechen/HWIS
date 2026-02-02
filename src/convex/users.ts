@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { query, mutation } from './_generated/server';
-import { requireAuthenticatedUser, requireAdminRole, getAuthenticatedUser } from './auth';
+import { requireAdminRole, getAuthenticatedUser } from './auth';
 
 export const viewer = query({
 	args: { testToken: v.optional(v.string()) },
@@ -10,7 +10,7 @@ export const viewer = query({
 
 		// Check if this is the mock Super Admin from dev mode
 		// We use a specific email/role check to avoid DB lookup for the fake user
-		const auth = authUser as any;
+		const auth = authUser as { email?: string; role?: string };
 		if (auth.email === 'super@hwis.test' && auth.role === 'super') {
 			return {
 				...authUser,
@@ -24,10 +24,10 @@ export const viewer = query({
 			return null;
 		}
 
-		const authIdLookup = (authUser as any).authId || authUser._id;
+		const authIdLookup = (authUser as { authId?: string }).authId || authUser._id;
 		const dbUser = await ctx.db
 			.query('users')
-			.withIndex('by_authId', (q: any) => q.eq('authId', authIdLookup))
+			.withIndex('by_authId', (q) => q.eq('authId', authIdLookup))
 			.first();
 
 		return {
@@ -42,8 +42,14 @@ export const viewer = query({
 export const list = query({
 	args: { testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
-		const user = (await getAuthenticatedUser(ctx, args.testToken)) as any;
-		if (!user || (user.role !== 'admin' && user.role !== 'super' && user.email !== 'super@hwis.test')) {
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		const typedUser = user as { role?: string; email?: string } | null;
+		if (
+			!typedUser ||
+			(typedUser.role !== 'admin' &&
+				typedUser.role !== 'super' &&
+				typedUser.email !== 'super@hwis.test')
+		) {
 			return [];
 		}
 
@@ -62,7 +68,9 @@ export const update = mutation({
 		role: v.optional(
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))),
+		status: v.optional(
+			v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))
+		),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -75,7 +83,7 @@ export const update = mutation({
 		await ctx.db.patch(id, updates);
 
 		// Record audit log if user doc exists (relevant for performers with actual DB IDs)
-		const performerId = (currentUser as any)?._id;
+		const performerId = currentUser?._id;
 		if (performerId && performerId !== 'test-user-id') {
 			if (args.role !== undefined && args.role !== targetUser.role) {
 				await ctx.db.insert('audit_logs', {
@@ -132,7 +140,9 @@ export const setUserRole = mutation({
 		role: v.optional(
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))),
+		status: v.optional(
+			v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))
+		),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -150,7 +160,9 @@ export const setRoleByEmail = mutation({
 		role: v.optional(
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))),
+		status: v.optional(
+			v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))
+		),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -174,7 +186,9 @@ export const setRoleByToken = mutation({
 		role: v.optional(
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))),
+		status: v.optional(
+			v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))
+		),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -205,8 +219,9 @@ export const setRoleByToken = mutation({
 				status: args.status
 			});
 			return { success: true, userId: user._id, role: args.role, authId };
-		} catch (e: any) {
-			throw new Error(`Failed to set role: ${e.message}`);
+		} catch (e) {
+			const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+			throw new Error(`Failed to set role: ${errorMessage}`);
 		}
 	}
 });

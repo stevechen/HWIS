@@ -1,6 +1,6 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { requireAdminRole, getAuthenticatedUser, requireUserProfile } from './auth';
+import { requireAdminRole, getAuthenticatedUser } from './auth';
 
 export const list = query({
 	args: {

@@ -335,41 +335,41 @@ Tests run on every PR:
 
 ### Current Coverage (as of Jan 2026)
 
-| Category | Test Files | Tests |
-|----------|------------|-------|
-| Browser unit tests | 11 | ~54 |
-| Server unit tests | 6 | 68 |
-| E2E tests | 18 | varies |
-| **Total** | **35** | **126 passing** |
+| Category           | Test Files | Tests           |
+| ------------------ | ---------- | --------------- |
+| Browser unit tests | 11         | ~54             |
+| Server unit tests  | 6          | 68              |
+| E2E tests          | 18         | varies          |
+| **Total**          | **35**     | **126 passing** |
 
 ### Pages with Browser Tests
 
-| Route | Tests | Coverage |
-|-------|-------|----------|
-| `/admin` | 1 | Basic structure |
-| `/admin/academic` | 3 | Structure |
-| `/admin/audit` | 4 | Structure, buttons |
-| `/admin/backup` | 6 | Structure, buttons |
-| `/admin/categories` | 8 | Dialogs, form fields |
-| `/admin/students` | 10 | Dialogs, form fields |
-| `/admin/users` | 3 | Structure |
-| `/evaluations` | 4 | Structure |
-| `/evaluations/new` | 7 | Form structure |
-| `/rejected` | 4 | Static page |
-| `$lib/utils.ts` | 8 | cn() utility |
+| Route               | Tests | Coverage             |
+| ------------------- | ----- | -------------------- |
+| `/admin`            | 1     | Basic structure      |
+| `/admin/academic`   | 3     | Structure            |
+| `/admin/audit`      | 4     | Structure, buttons   |
+| `/admin/backup`     | 6     | Structure, buttons   |
+| `/admin/categories` | 8     | Dialogs, form fields |
+| `/admin/students`   | 10    | Dialogs, form fields |
+| `/admin/users`      | 3     | Structure            |
+| `/evaluations`      | 4     | Structure            |
+| `/evaluations/new`  | 7     | Form structure       |
+| `/rejected`         | 4     | Static page          |
+| `$lib/utils.ts`     | 8     | cn() utility         |
 
 ### Convex Functions with Tests
 
-| Function | Edge Cases |
-|----------|------------|
-| `categories.create` | Basic, subCategories |
+| Function            | Edge Cases                   |
+| ------------------- | ---------------------------- |
+| `categories.create` | Basic, subCategories         |
 | `categories.update` | Name, subCategories, removal |
-| `categories.remove` | Cascade, error handling |
-| `categories.list` | Filters, sorting |
-| `students.create` | Validation, duplicates |
-| `students.update` | Field preservation |
-| `students.list` | Search, filters, sorting |
-| `students.remove` | Cascade, status changes |
+| `categories.remove` | Cascade, error handling      |
+| `categories.list`   | Filters, sorting             |
+| `students.create`   | Validation, duplicates       |
+| `students.update`   | Field preservation           |
+| `students.list`     | Search, filters, sorting     |
+| `students.remove`   | Cascade, status changes      |
 
 ### Test Strategy
 

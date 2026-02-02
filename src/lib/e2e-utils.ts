@@ -52,7 +52,7 @@ export interface E2EUtils {
 	resetCategoriesAndEvals: () => Promise<void>;
 	seedAll: () => Promise<void>;
 	clearAuditOnly: () => Promise<void>;
-	seedCategoriesForDelete: () => Promise<any>;
+	seedCategoriesForDelete: () => Promise<unknown>;
 	seedStudentsForDisable: () => Promise<void>;
 	seedAuditLogs: (authId?: string) => Promise<void>;
 	cleanupAll: () => Promise<CleanupResult>;
@@ -60,18 +60,18 @@ export interface E2EUtils {
 	seedBaseline: () => Promise<SeedBaselineResult>;
 	cleanupTestUsers: () => Promise<CleanupResult>;
 	cleanupAuditLogs: () => Promise<CleanupResult>;
-	createStudent: (opts?: CreateStudentOptions) => Promise<any>;
-	createStudentWithId: (opts: CreateStudentOptions) => Promise<any>;
-	createCategory: (opts?: CreateCategoryOptions) => Promise<any>;
-	createCategoryWithSubs: (opts: CreateCategoryWithSubsOptions) => Promise<any>;
-	createEvalForCategory: (categoryName: string) => Promise<any>;
-	checkEvaluationExists: (categoryName: string) => Promise<any>;
-	createEvaluationForStudent: (data: CreateEvaluationForStudentData) => Promise<any>;
-	setRoleByEmail: (email: string, role: string) => Promise<any>;
-	setMyRole: (role: string) => Promise<any>;
-	setRoleByToken: (token: string, role: string) => Promise<any>;
-	createWeeklyReportTestData: () => Promise<any>;
-	cleanupWeeklyReportTestData: () => Promise<any>;
+	createStudent: (opts?: CreateStudentOptions) => Promise<unknown>;
+	createStudentWithId: (opts: CreateStudentOptions) => Promise<unknown>;
+	createCategory: (opts?: CreateCategoryOptions) => Promise<unknown>;
+	createCategoryWithSubs: (opts: CreateCategoryWithSubsOptions) => Promise<unknown>;
+	createEvalForCategory: (categoryName: string) => Promise<unknown>;
+	checkEvaluationExists: (categoryName: string) => Promise<unknown>;
+	createEvaluationForStudent: (data: CreateEvaluationForStudentData) => Promise<unknown>;
+	setRoleByEmail: (email: string, role: string) => Promise<unknown>;
+	setMyRole: (role: string) => Promise<unknown>;
+	setRoleByToken: (token: string, role: string) => Promise<unknown>;
+	createWeeklyReportTestData: () => Promise<unknown>;
+	cleanupWeeklyReportTestData: () => Promise<unknown>;
 }
 
 export function getE2EUtils(): E2EUtils {
@@ -281,7 +281,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async setRoleByEmail(email: string, role: string) {
 			try {
-				return await client.mutation(api.users.setRoleByEmail, { email, role: role as any });
+				return await client.mutation(api.users.setRoleByEmail, {
+					email,
+					role: role as 'teacher' | 'admin' | 'super' | 'student'
+				});
 			} catch {
 				console.log('Set role by email error');
 				return { error: 'Error' };
@@ -290,7 +293,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async setMyRole(role: string) {
 			try {
-				return await client.mutation(api.onboarding.setMyRole, { role: role as any });
+				return await client.mutation(api.onboarding.setMyRole, {
+					role: role as 'teacher' | 'admin' | 'super' | 'student'
+				});
 			} catch {
 				console.log('Set my role error');
 				return { error: 'Error' };
@@ -299,7 +304,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async setRoleByToken(token: string, role: string) {
 			try {
-				return await client.mutation(api.users.setRoleByToken, { token, role: role as any });
+				return await client.mutation(api.users.setRoleByToken, {
+					token,
+					role: role as 'teacher' | 'admin' | 'super' | 'student'
+				});
 			} catch {
 				console.log('Set role by token error');
 				return { error: 'Error' };

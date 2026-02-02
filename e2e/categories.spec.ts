@@ -69,6 +69,7 @@ test.describe('Categories Management @categories', () => {
 			const categoryName = `Category_${suffix}`;
 
 			await page.getByRole('button', { name: 'Add new category' }).click();
+			await expect(page.getByLabel('Category Name')).toBeVisible();
 			await page.getByLabel('Category Name').fill(categoryName);
 			await page.getByPlaceholder('Add sub-category').fill('Sub1');
 			await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -106,12 +107,30 @@ test.describe('Categories Management @categories', () => {
 			await expect(page.getByRole('heading', { name: 'Edit Category' })).toBeVisible();
 		});
 
-		test.fixme('pre-fills form with category data', async ({ page }) => {
-			const firstCategoryName = await page
-				.locator('table tbody tr:nth-child(2) td:first-child')
-				.textContent();
-			await page.getByRole('button', { name: 'Edit' }).first().click();
-			await expect(page.getByLabel('Category Name')).toHaveValue(firstCategoryName!);
+		test('pre-fills form with category data', async ({ page }) => {
+			// Create a test category first to ensure we have one to edit
+			const suffix = getTestSuffix('prefill');
+			const categoryName = `PrefillTest_${suffix}`;
+
+			// Add a new category
+			await page.getByRole('button', { name: 'Add new category' }).click();
+			await page.getByLabel('Category Name').fill(categoryName);
+			await page.getByRole('button', { name: 'Save' }).click();
+			await expect(page.getByText(categoryName)).toBeVisible();
+
+			// Now click edit on this specific category
+			const row = page.locator('table tbody tr').filter({ hasText: categoryName });
+			await row.getByRole('button', { name: 'Edit' }).click();
+
+			// Wait for dialog to be visible
+			await expect(page.getByRole('heading', { name: 'Edit Category' })).toBeVisible();
+
+			// Wait for form to be populated
+			const nameInput = page.getByLabel('Category Name');
+			await expect(nameInput).toBeVisible();
+
+			// Verify the input has the expected value
+			await expect(nameInput).toHaveValue(categoryName);
 		});
 
 		test('can update category name', async ({ page }) => {
@@ -142,6 +161,8 @@ test.describe('Categories Management @categories', () => {
 
 			const row = page.locator('table tbody tr:has-text("' + categoryName + '")');
 			await row.getByRole('button', { name: 'Edit' }).click();
+			// Wait for dialog to be fully loaded before interacting with form fields
+			await expect(page.locator('[role="dialog"]').first()).toBeVisible();
 			await page.getByPlaceholder('Add sub-category').fill('UniqueSubCat');
 			await page.getByRole('button', { name: 'Add', exact: true }).click();
 			await expect(page.getByText('UniqueSubCat').first()).toBeVisible();
@@ -273,7 +294,7 @@ test.describe('Categories Management @categories', () => {
 
 			await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
 
-			await expect(page.getByRole('dialog')).not.toBeVisible();
+			await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 8000 });
 
 			await expect(
 				page.locator('table tbody tr:has-text("' + categoryName + '")')

@@ -19,7 +19,7 @@
 	}));
 
 	let isAdvancing = $state(false);
-	let advanceResult = $state<any>(null);
+	let advanceResult = $state<{ message: string } | null>(null);
 	let showAdvanceDialog = $state(false);
 
 	$effect(() => {
@@ -42,8 +42,8 @@
 			});
 			advanceResult = result;
 			refreshStudents();
-		} catch (e: any) {
-			alert('Failed: ' + e.message);
+		} catch (e) {
+			alert('Failed: ' + (e instanceof Error ? e.message : String(e)));
 		} finally {
 			isAdvancing = false;
 		}

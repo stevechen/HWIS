@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import { page } from '$app/state';
 
 	// Environment detection
 	type Environment = 'local-dev' | 'local-prod' | 'cloud-dev' | 'cloud-prod' | 'unknown';
@@ -10,10 +9,7 @@
 		if (!browser) return 'unknown';
 
 		const convexUrl = import.meta.env.PUBLIC_CONVEX_URL || '';
-		const hostname = window.location.hostname;
-
-		// Frontend detection
-		const isLocalFrontend = hostname === 'localhost';
+		void window.location.hostname; // Used for environment detection
 
 		// Convex backend detection
 		if (convexUrl.includes('127.0.0.1:3210')) return 'local-dev';
@@ -82,7 +78,7 @@
 		try {
 			const startTime = Date.now();
 			// Try to fetch a simple endpoint to test connection
-			const response = await fetch('/api/ping', { method: 'HEAD' });
+			await fetch('/api/ping', { method: 'HEAD' });
 			const latency = Date.now() - startTime;
 
 			testResults.connection = {
@@ -90,10 +86,10 @@
 				message: `Connected successfully (${latency}ms)`,
 				latency
 			};
-		} catch (error: any) {
+		} catch (error) {
 			testResults.connection = {
 				status: 'error',
-				message: `Connection failed: ${error?.message || 'Unknown error'}`
+				message: `Connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
 			};
 		}
 
@@ -106,16 +102,16 @@
 
 		try {
 			const response = await fetch('/api/auth/get-session');
-			const data = await response.json();
+			await response.json();
 
 			testResults.auth = {
 				status: 'success',
 				message: 'Auth endpoint accessible'
 			};
-		} catch (error: any) {
+		} catch (error) {
 			testResults.auth = {
 				status: 'error',
-				message: `Auth endpoint failed: ${error?.message || 'Unknown error'}`
+				message: `Auth endpoint failed: ${error instanceof Error ? error.message : 'Unknown error'}`
 			};
 		}
 
@@ -141,10 +137,10 @@
 					message: 'Role-based access failed'
 				};
 			}
-		} catch (error: any) {
+		} catch (error) {
 			testResults.roleAccess = {
 				status: 'error',
-				message: `Role-based test failed: ${error?.message || 'Unknown error'}`
+				message: `Role-based test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
 			};
 		}
 

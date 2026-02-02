@@ -10,15 +10,18 @@ export const cleanupAllTestUsers = mutation({
 		});
 
 		// Get all Better Auth users
-		const baUsers = await adapter.findMany({ model: 'user', where: [] });
-		const validAuthIds = new Set(baUsers.map((u: any) => u.id));
+		const baUsers = (await adapter.findMany({ model: 'user', where: [] })) as {
+			id: string;
+			email?: string;
+		}[];
+		const validAuthIds = new Set(baUsers.map((u) => u.id));
 
 		// Delete all users in Convex users table whose authId is not in Better Auth
 		const allUsers = await ctx.db.query('users').collect();
 		let deleted = 0;
 		for (const user of allUsers) {
 			// Skip if authId is a real Better Auth user
-			if (validAuthIds.has(user.authId)) continue;
+			if (user.authId && validAuthIds.has(user.authId)) continue;
 
 			// Delete orphaned users (e2e_*, test_*, etc.)
 			await ctx.db.delete(user._id);
@@ -26,7 +29,7 @@ export const cleanupAllTestUsers = mutation({
 		}
 
 		// Also clean up test Better Auth users
-		for (const u of baUsers as any[]) {
+		for (const u of baUsers) {
 			if (u.email && (u.email.includes('test') || u.email.includes('hwis.test'))) {
 				await adapter.deleteMany({ model: 'session', where: [{ field: 'userId', value: u.id }] });
 				await adapter.deleteMany({ model: 'account', where: [{ field: 'userId', value: u.id }] });
@@ -151,11 +154,14 @@ export const cleanupAll = mutation({
 		const TEST_PREFIXES = ['e2e_', 'test_', 'eval_', 'e2e-test_'];
 		let totalDeleted = 0;
 
-		const adapterUsers = await adapter.findMany({ model: 'user', where: [] });
-		const validAuthIds = new Set((adapterUsers as any[]).map((u) => u.id));
+		const adapterUsers = (await adapter.findMany({ model: 'user', where: [] })) as {
+			id: string;
+			email?: string;
+		}[];
+		const validAuthIds = new Set(adapterUsers.map((u) => u.id));
 
 		// Clean up test Better Auth users
-		for (const u of adapterUsers as any[]) {
+		for (const u of adapterUsers) {
 			if (u.email && (u.email.includes('test') || u.email.includes('hwis.test'))) {
 				await adapter.deleteMany({ model: 'session', where: [{ field: 'userId', value: u.id }] });
 				await adapter.deleteMany({ model: 'account', where: [{ field: 'userId', value: u.id }] });
@@ -211,7 +217,7 @@ export const cleanupAll = mutation({
 				user.authId === 'e2e_teacher1' ||
 				user.authId === 'e2e_teacher2' ||
 				(user.authId && TEST_PREFIXES.some((p) => user.authId?.startsWith(p))) ||
-				!validAuthIds.has(user.authId)
+				(user.authId && !validAuthIds.has(user.authId))
 			) {
 				await ctx.db.delete(user._id);
 				totalDeleted++;

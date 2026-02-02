@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { cleanupAuditLogs } from './convex-client';
+import { cleanupAuditLogs, seedAuditLogs } from './convex-client';
 
 test.describe('Audit Log Page (super admin)', () => {
 	test.use({ storageState: 'e2e/.auth/super.json' });
@@ -70,9 +70,10 @@ test.describe('Audit Log Page (super admin)', () => {
 	test('clears filters when clear button is clicked', async ({ page }) => {
 		const studentInput = page.getByPlaceholder('Student');
 		await studentInput.fill('test');
-		await page.waitForTimeout(100);
+		// Wait for input to be filled
+		await expect(studentInput).toHaveValue('test');
 		const clearButton = page.getByRole('button', { name: 'Clear all filters' });
-		await expect(clearButton).toBeVisible({ timeout: 5000 });
+		await expect(clearButton).toBeVisible();
 		await clearButton.click();
 		await expect(studentInput).toHaveValue('');
 	});
@@ -161,6 +162,12 @@ test.describe('Audit Log Page (super admin)', () => {
 	});
 
 	test('toggles columns and filters via dropdown', async ({ page }) => {
+		// Seed audit logs so table has data with column headers
+		await seedAuditLogs();
+
+		// Wait for audit logs to appear
+		await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
+
 		await page.getByRole('button', { name: 'Columns' }).first().click();
 		const popoverContent = page.locator('[data-slot="popover-content"]').first();
 		await expect(popoverContent).toBeVisible();
@@ -177,6 +184,6 @@ test.describe('Audit Log Page (super admin)', () => {
 		await expect(page.locator('[data-slot="popover-content"]').first()).toBeVisible();
 		await page.getByRole('checkbox', { name: 'Details' }).click();
 		await page.keyboard.press('Escape');
-		await expect(page.locator('th', { hasText: 'Details' })).toBeVisible();
+		await expect(page.locator('th', { hasText: 'Details' })).toBeVisible({ timeout: 10000 });
 	});
 });

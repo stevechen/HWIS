@@ -2,7 +2,8 @@ import { test as setup } from '@playwright/test';
 
 setup('create admin auth', async ({ page }) => {
 	await page.goto('/login');
-	await page.waitForURL('**/admin/**', { timeout: 30000 });
+	await page.waitForSelector('body.hydrated');
+	await page.waitForURL('**/admin/**');
 
 	// Save storage state for admin
 	await page.context().storageState({

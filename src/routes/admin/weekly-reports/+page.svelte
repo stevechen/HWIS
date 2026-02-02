@@ -9,7 +9,12 @@
 	import * as Table from '$lib/components/ui/table';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 
-	const apiAny = api as any;
+	const apiAny = api as {
+		evaluations: {
+			getWeeklyReportsList: (...args: unknown[]) => unknown;
+			getWeeklyReportDetail: (...args: unknown[]) => unknown;
+		};
+	};
 
 	let { data }: { data: { demoMode?: boolean; testRole?: string } } = $props();
 
@@ -268,18 +273,22 @@
 				: selectedReport?.weekNumber === 2
 					? demoStudentsWeek2
 					: demoStudentsWeek1
-			: ((detailQuery?.data || []) as any[])
+			: detailQuery?.data || []
 	);
 
 	let availableGrades = $derived(
-		Array.from(new Set(allStudents.map((s: any) => s.grade))).sort((a, b) => a - b)
+		Array.from(new Set(allStudents.map((s) => (s as { grade: number }).grade))).sort(
+			(a, b) => (a as number) - (b as number)
+		)
 	);
 
 	let filteredStudents = $derived.by(() => {
-		let result = allStudents;
+		let result: typeof allStudents = allStudents;
 
 		if (filterId) {
-			result = result.filter((s) => s.studentId.toLowerCase().includes(filterId.toLowerCase()));
+			result = result.filter((s) =>
+				(s as { studentId: string }).studentId.toLowerCase().includes(filterId.toLowerCase())
+			);
 		}
 		if (filterName) {
 			const nameParts = filterName
@@ -288,8 +297,9 @@
 				.filter(Boolean);
 			if (nameParts.length > 0) {
 				result = result.filter((s) => {
-					const englishLower = s.englishName.toLowerCase();
-					const chineseLower = s.chineseName;
+					const student = s as { englishName: string; chineseName: string };
+					const englishLower = student.englishName.toLowerCase();
+					const chineseLower = student.chineseName;
 					return nameParts.some(
 						(part) => englishLower.includes(part) || chineseLower.includes(part)
 					);
@@ -299,18 +309,20 @@
 		if (filterGrade) {
 			const gradeNum = parseInt(filterGrade, 10);
 			if (!isNaN(gradeNum)) {
-				result = result.filter((s) => s.grade === gradeNum);
+				result = result.filter((s) => (s as { grade: number }).grade === gradeNum);
 			}
 		}
 
 		result = [...result].sort((a, b) => {
+			const studentA = a as { studentId: string; englishName: string; grade: number };
+			const studentB = b as { studentId: string; englishName: string; grade: number };
 			let comparison = 0;
 			if (sortColumn === 'id') {
-				comparison = a.studentId.localeCompare(b.studentId);
+				comparison = studentA.studentId.localeCompare(studentB.studentId);
 			} else if (sortColumn === 'name') {
-				comparison = a.englishName.localeCompare(b.englishName);
+				comparison = studentA.englishName.localeCompare(studentB.englishName);
 			} else if (sortColumn === 'grade') {
-				comparison = a.grade - b.grade;
+				comparison = studentA.grade - studentB.grade;
 			}
 			return sortDirection === 'asc' ? comparison : -comparison;
 		});
@@ -376,29 +388,38 @@
 				: selectedReport?.weekNumber === 2
 					? demoStudentsWeek2
 					: demoStudentsWeek1
-			: ((detailQuery?.data || []) as any[]);
+			: detailQuery?.data || [];
 		if (!students.length) return;
 
 		const headers = ['Student ID', 'English Name', 'Chinese Name', 'Grade', 'Total Points'];
 
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Set is used for non-reactive CSV generation
 		const categoryHeaders = new Set<string>();
-		students.forEach((s: any) => {
-			Object.keys(s.pointsByCategory).forEach((cat) => categoryHeaders.add(cat));
+		students.forEach((s) => {
+			const student = s as { pointsByCategory: Record<string, number> };
+			Object.keys(student.pointsByCategory).forEach((cat) => categoryHeaders.add(cat));
 		});
 		const sortedCategories = Array.from(categoryHeaders).sort();
 
 		const csvHeaders = [...headers, ...sortedCategories];
-		const csvRows = students.map((s: any) => {
+		const csvRows = students.map((s) => {
+			const student = s as {
+				studentId: string;
+				englishName: string;
+				chineseName: string;
+				grade: number;
+				totalPoints: number;
+				pointsByCategory: Record<string, number>;
+			};
 			const row = [
-				s.studentId,
-				s.englishName,
-				s.chineseName,
-				s.grade.toString(),
-				s.totalPoints.toString()
+				student.studentId,
+				student.englishName,
+				student.chineseName,
+				student.grade.toString(),
+				student.totalPoints.toString()
 			];
 			sortedCategories.forEach((cat: string) => {
-				const points = s.pointsByCategory[cat] || 0;
+				const points = student.pointsByCategory[cat] || 0;
 				row.push(points.toString());
 			});
 			return row.join(',');
@@ -529,7 +550,7 @@
 					<NativeSelect.Root bind:value={filterGrade} aria-label="Filter by grade">
 						<NativeSelect.Option value="">All Grades</NativeSelect.Option>
 						{#each availableGrades as grade (grade)}
-							<NativeSelect.Option value={grade.toString()}>Grade {grade}</NativeSelect.Option>
+							<NativeSelect.Option value={String(grade)}>Grade {grade}</NativeSelect.Option>
 						{/each}
 					</NativeSelect.Root>
 					<div class="relative min-w-0 flex-1">
@@ -628,10 +649,16 @@
 											<Table.Cell class="hidden w-20 font-mono text-sm 2xl:table-cell"
 												>{student.studentId}</Table.Cell
 											>
-											<Table.Cell class="w-10 text-center">{student.grade}</Table.Cell>
-											<Table.Cell class="w-32">{student.englishName}</Table.Cell>
+											<Table.Cell class="w-10 text-center"
+												>{(student as { grade: number }).grade}</Table.Cell
+											>
+											<Table.Cell class="w-32"
+												>{(student as { englishName: string }).englishName}</Table.Cell
+											>
 											{#each categoryColumns as cat (cat)}
-												{@const points = student.pointsByCategory[cat] || 0}
+												{@const points =
+													(student as { pointsByCategory: Record<string, number> })
+														.pointsByCategory[cat] || 0}
 												<Table.Cell class="w-24 text-center">
 													<span
 														class="inline-flex w-full justify-center font-medium"

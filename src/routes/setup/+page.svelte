@@ -55,7 +55,7 @@
 	});
 </script>
 
-<div class="flex flex-col justify-center items-center gap-4 h-screen">
+<div class="flex h-screen flex-col items-center justify-center gap-4">
 	<p class="text-lg">{status}</p>
 	{#if error}
 		<p class="text-red-600">Error: {error}</p>
