@@ -19,14 +19,11 @@ export const getEvaluationCount = query({
 	handler: async (ctx, args) => {
 		const user = await getAuthenticatedUser(ctx, args.testToken);
 		if (!user) return 0;
-		const allEvaluations = await ctx.db.query('evaluations').collect();
-		let count = 0;
-		for (const e of allEvaluations) {
-			if (e.category === args.categoryName) {
-				count++;
-			}
-		}
-		return count;
+		const matches = await ctx.db
+			.query('evaluations')
+			.withIndex('by_category', (q) => q.eq('category', args.categoryName))
+			.collect();
+		return matches.length;
 	}
 });
 
@@ -39,14 +36,13 @@ export const getSubCategoryEvaluationCount = query({
 	handler: async (ctx, args) => {
 		const user = await getAuthenticatedUser(ctx, args.testToken);
 		if (!user) return 0;
-		const allEvaluations = await ctx.db.query('evaluations').collect();
-		let count = 0;
-		for (const e of allEvaluations) {
-			if (e.category === args.categoryName && e.subCategory === args.subCategory) {
-				count++;
-			}
-		}
-		return count;
+		const matches = await ctx.db
+			.query('evaluations')
+			.withIndex('by_category_subCategory', (q) =>
+				q.eq('category', args.categoryName).eq('subCategory', args.subCategory)
+			)
+			.collect();
+		return matches.length;
 	}
 });
 
@@ -118,8 +114,10 @@ export const remove = mutation({
 		const category = await ctx.db.get(args.id);
 		if (!category) throw new Error('Category not found');
 
-		const allEvaluations = await ctx.db.query('evaluations').collect();
-		const relatedEvaluations = allEvaluations.filter((e) => e.category === category.name);
+		const relatedEvaluations = await ctx.db
+			.query('evaluations')
+			.withIndex('by_category', (q) => q.eq('category', category.name))
+			.collect();
 
 		for (const eval_ of relatedEvaluations) {
 			await ctx.db.delete(eval_._id);

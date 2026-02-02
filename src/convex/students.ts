@@ -14,23 +14,35 @@ export const list = query({
 		const user = await getAuthenticatedUser(ctx, args.testToken);
 		if (!user) return [];
 
-		const students = await ctx.db.query('students').collect();
+		let students;
+		if (args.grade !== undefined) {
+			students = await ctx.db
+				.query('students')
+				.withIndex('by_grade', (q) => q.eq('grade', args.grade as number))
+				.collect();
+		} else if (args.status !== undefined) {
+			students = await ctx.db
+				.query('students')
+				.withIndex('by_status', (q) => q.eq('status', args.status as 'Enrolled' | 'Not Enrolled'))
+				.collect();
+		} else {
+			students = await ctx.db.query('students').collect();
+		}
 
-		return students
-			.filter((s) => {
-				if (args.status && s.status !== args.status) return false;
-				if (args.grade && s.grade !== args.grade) return false;
-				if (args.search) {
-					const search = args.search.toLowerCase();
-					const matchesSearch =
-						s.englishName.toLowerCase().includes(search) ||
-						s.chineseName.includes(search) ||
-						s.studentId.toLowerCase().includes(search);
-					if (!matchesSearch) return false;
-				}
-				return true;
-			})
-			.sort((a, b) => a.englishName.localeCompare(b.englishName));
+		const filtered = students.filter((s) => {
+			if (args.status !== undefined && s.status !== args.status) return false;
+			if (args.search) {
+				const search = args.search.toLowerCase();
+				const matchesSearch =
+					s.englishName.toLowerCase().includes(search) ||
+					s.chineseName.includes(search) ||
+					s.studentId.toLowerCase().includes(search);
+				if (!matchesSearch) return false;
+			}
+			return true;
+		});
+
+		return filtered.sort((a, b) => a.englishName.localeCompare(b.englishName));
 	}
 });
 

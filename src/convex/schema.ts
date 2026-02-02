@@ -91,7 +91,9 @@ export default defineSchema({
 	})
 		.index('by_studentId', ['studentId'])
 		.index('by_teacherId', ['teacherId'])
-		.index('by_timestamp', ['timestamp']),
+		.index('by_timestamp', ['timestamp'])
+		.index('by_category', ['category'])
+		.index('by_category_subCategory', ['category', 'subCategory']),
 
 	backups: defineTable({
 		filename: v.string(),

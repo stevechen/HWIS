@@ -122,6 +122,12 @@ export const listRecent = query({
 			.order('desc')
 			.take(args.limit || 50);
 
+		const studentIds = [...new Set(evaluations.map((e) => e.studentId))];
+		const students = await Promise.all(studentIds.map((id) => ctx.db.get(id)));
+		const studentMap = new Map(
+			students.filter((s): s is NonNullable<typeof s> => s != null).map((s) => [s._id, s])
+		);
+
 		const results: {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
 			_id: any;
@@ -134,7 +140,7 @@ export const listRecent = query({
 			timestamp: number;
 		}[] = [];
 		for (const eval_ of evaluations) {
-			const student = await ctx.db.get(eval_.studentId);
+			const student = studentMap.get(eval_.studentId);
 			results.push({
 				_id: eval_._id,
 				studentName: student
@@ -235,6 +241,12 @@ export const getWeeklyReportDetail = query({
 			.withIndex('by_timestamp', (q) => q.gt('timestamp', startOfWeek).lt('timestamp', endOfWeek))
 			.collect();
 
+		const studentIds = [...new Set(evaluations.map((e) => e.studentId))];
+		const students = await Promise.all(studentIds.map((id) => ctx.db.get(id)));
+		const studentMap = new Map(
+			students.filter((s): s is NonNullable<typeof s> => s != null).map((s) => [s._id, s])
+		);
+
 		const studentPointsMap = new Map<
 			string,
 			{
@@ -248,7 +260,7 @@ export const getWeeklyReportDetail = query({
 		>();
 
 		for (const eval_ of evaluations) {
-			const student = await ctx.db.get(eval_.studentId);
+			const student = studentMap.get(eval_.studentId);
 			if (!student) continue;
 
 			let studentData = studentPointsMap.get(eval_.studentId.toString());
