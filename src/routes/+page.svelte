@@ -49,6 +49,27 @@
 		}
 	});
 
+	// Redirect based on role: admins → /admin, teachers → /evaluations
+	$effect(() => {
+		if (!dbUser.isLoading && isApproved) {
+			let isAdmin = false;
+			if (cookieTestMode) {
+				// In test mode, check testRole
+				isAdmin = data.testRole === 'admin' || data.testRole === 'super';
+			} else if (dbUser.data) {
+				// In normal mode, check dbUser role
+				isAdmin = dbUser.data.role === 'admin' || dbUser.data.role === 'super';
+			}
+
+			// Redirect admins to admin dashboard, teachers to evaluations
+			if (isAdmin) {
+				void goto('/admin', { replaceState: true });
+			} else {
+				void goto('/evaluations', { replaceState: true });
+			}
+		}
+	});
+
 	async function signOut() {
 		if (cookieTestMode) {
 			document.cookie = 'hwis_test_auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
@@ -60,15 +81,15 @@
 	}
 </script>
 
-<div class="flex h-screen flex-col items-center bg-gray-50 p-4">
-	<header class="mb-6 flex w-full max-w-2xl items-center justify-between">
-		<h1 class="text-2xl font-bold text-gray-800">HWIS</h1>
+<div class="flex flex-col items-center bg-gray-50 p-4 h-screen">
+	<header class="flex justify-between items-center mb-6 w-full max-w-2xl">
+		<h1 class="font-bold text-gray-800 text-2xl">HWIS</h1>
 		<div class="flex items-center gap-4">
 			<ThemeToggle />
 			{#if isLoggedIn}
 				<button
 					onclick={signOut}
-					class="rounded-md bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:outline-none"
+					class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-white transition-colors"
 				>
 					Sign out
 				</button>
@@ -80,8 +101,8 @@
 		{#if !isLoggedIn}
 			<Card.Root>
 				<Card.Content class="pt-6">
-					<div class="flex flex-col items-center justify-center gap-4">
-						<h2 class="text-xl font-semibold">Homework & Welfare Incentive System</h2>
+					<div class="flex flex-col justify-center items-center gap-4">
+						<h2 class="font-semibold text-xl">Homework & Welfare Incentive System</h2>
 						<p class="text-gray-600">Please sign in to continue</p>
 						<Button onclick={() => void goto('/login')}>Sign in</Button>
 					</div>
@@ -90,7 +111,7 @@
 		{:else if dbUser.isLoading}
 			<Card.Root>
 				<Card.Content class="pt-6">
-					<div class="flex flex-col items-center justify-center gap-4">
+					<div class="flex flex-col justify-center items-center gap-4">
 						<p class="text-gray-600">Loading...</p>
 					</div>
 				</Card.Content>
@@ -98,8 +119,8 @@
 		{:else if !isApproved}
 			<Card.Root>
 				<Card.Content class="pt-6">
-					<div class="flex flex-col items-center justify-center gap-4">
-						<h2 class="text-xl font-semibold">Account Pending Approval</h2>
+					<div class="flex flex-col justify-center items-center gap-4">
+						<h2 class="font-semibold text-xl">Account Pending Approval</h2>
 						<p class="text-gray-600">Welcome, {userName}!</p>
 						<p class="text-muted-foreground text-center">
 							Your account has been created and is pending approval from an administrator. You will
@@ -109,23 +130,6 @@
 					</div>
 				</Card.Content>
 			</Card.Root>
-		{:else}
-			<div class="grid gap-4">
-				<Card.Root>
-					<Card.Content class="pt-6">
-						<div class="flex flex-col items-center justify-center gap-4">
-							<p class="text-gray-600">Welcome, {userName}!</p>
-							{#if cookieTestMode || dbUser.data?.role === 'admin' || dbUser.data?.role === 'super'}
-								<Button onclick={() => void goto('/admin')}>Admin Dashboard</Button>
-							{/if}
-							<Button onclick={() => void goto('/evaluations')}>View Evaluations</Button>
-							<Button variant="outline" onclick={() => void goto('/evaluations/new')}
-								>New Evaluation</Button
-							>
-						</div>
-					</Card.Content>
-				</Card.Root>
-			</div>
 		{/if}
 	</main>
 </div>

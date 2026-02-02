@@ -34,7 +34,16 @@ test.describe('Authenticated User', () => {
 		await page.waitForSelector('body.hydrated');
 	});
 
-	test('stays on home page when authenticated', async ({ page }) => {
-		await expect(page).toHaveURL('/');
+	test('redirects to evaluations when authenticated as teacher', async ({ page }) => {
+		await page.waitForURL('/evaluations', { timeout: 5000 });
+		await expect(page).toHaveURL('/evaluations');
+	});
+
+	test('redirects to admin when authenticated as admin via query param', async ({ page }) => {
+		// Use query param to simulate admin auth
+		await page.goto('/?testRole=admin');
+		await page.waitForSelector('body.hydrated');
+		await page.waitForURL('/admin', { timeout: 5000 });
+		await expect(page).toHaveURL('/admin');
 	});
 });

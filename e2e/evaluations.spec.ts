@@ -227,7 +227,51 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 		const submitButton = page.getByRole('button', { name: /Submit Evaluation/i });
 		await submitButton.click();
 
-		// Should redirect to home page after successful submission
-		await expect(page).toHaveURL('/', { timeout: 10000 });
+		// Should redirect to evaluations page after successful submission (teachers land on evaluations)
+		await expect(page).toHaveURL('/evaluations', { timeout: 10000 });
+	});
+});
+
+test.describe('Evaluations (admin user) @evaluations', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	test.beforeEach(async ({ page }) => {
+		await page.goto('/evaluations');
+		await page.waitForSelector('body.hydrated');
+	});
+
+	test('displays "Back to Admin" button for admin users', async ({ page }) => {
+		const backButton = page.getByRole('button', { name: /Back to Admin/i });
+		await expect(backButton).toBeVisible();
+	});
+
+	test('"Back to Admin" button navigates to admin dashboard', async ({ page }) => {
+		const backButton = page.getByRole('button', { name: /Back to Admin/i });
+		await expect(backButton).toBeVisible();
+
+		// Click the button and verify navigation
+		await backButton.click();
+		await expect(page).toHaveURL('/admin', { timeout: 5000 });
+	});
+
+	test('displays evaluation history for admin users', async ({ page }) => {
+		await expect(page.getByRole('heading', { name: 'Evaluation History' })).toBeVisible();
+	});
+
+	test('can navigate back to admin then return to evaluations', async ({ page }) => {
+		// First verify "Back to Admin" button exists and click it
+		const backButton = page.getByRole('button', { name: /Back to Admin/i });
+		await expect(backButton).toBeVisible();
+		await backButton.click();
+		await expect(page).toHaveURL('/admin', { timeout: 5000 });
+
+		// Now navigate back to evaluations using the "View Evaluations" button
+		const evalReviewCard = page.getByRole('link', { name: /View Evaluations/i });
+		await expect(evalReviewCard).toBeVisible();
+		await evalReviewCard.click();
+		await expect(page).toHaveURL('/evaluations', { timeout: 5000 });
+
+		// Verify "Back to Admin" button is still visible
+		await expect(page.getByRole('button', { name: /Back to Admin/i })).toBeVisible();
 	});
 });
