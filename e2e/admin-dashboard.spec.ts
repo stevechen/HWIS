@@ -27,12 +27,16 @@ test.describe('Admin Dashboard @admin', () => {
 	});
 
 	test('can navigate to backup page', async ({ page }) => {
+		// Expand Settings section first
+		await page.getByRole('button', { name: 'Settings' }).click();
 		await page.getByRole('link', { name: 'Manage Backups' }).click();
 		await page.waitForSelector('body.hydrated');
 		await expect(page).toHaveURL(/\/admin\/backup/);
 	});
 
 	test('can navigate to audit page', async ({ page }) => {
+		// Expand Settings section first
+		await page.getByRole('button', { name: 'Settings' }).click();
 		await page.getByRole('link', { name: 'View Audit Log' }).click();
 		await page.waitForSelector('body.hydrated');
 		await expect(page).toHaveURL(/\/admin\/audit/);

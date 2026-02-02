@@ -293,8 +293,8 @@ test.describe('Weekly Reports Integration', () => {
 		const submitButton = page.getByRole('button', { name: /Submit Evaluation/i });
 		await submitButton.click();
 
-		// Should redirect to home page after successful submission
-		await expect(page).toHaveURL('/');
+		// Should redirect to evaluations page after successful submission
+		await expect(page).toHaveURL('/evaluations');
 
 		// Now navigate to weekly reports and verify the report appears
 		await page.goto('/admin/weekly-reports');
@@ -364,7 +364,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Submit first evaluation
 		const submitButton = page.getByRole('button', { name: /Submit Evaluation/i });
 		await submitButton.click();
-		await expect(page).toHaveURL('/');
+		await expect(page).toHaveURL('/evaluations');
 
 		// Navigate to weekly reports and get initial report data
 		await page.goto('/admin/weekly-reports');
@@ -409,7 +409,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Submit second evaluation
 		const submitButton2 = page.getByRole('button', { name: /Submit Evaluation/i });
 		await submitButton2.click();
-		await expect(page).toHaveURL('/');
+		await expect(page).toHaveURL('/evaluations');
 
 		// Navigate back to weekly reports and verify the report is updated
 		await page.goto('/admin/weekly-reports');

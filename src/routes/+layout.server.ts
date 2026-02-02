@@ -33,12 +33,22 @@ export const load = async ({
 		throw redirect(302, '/login');
 	}
 
+	// Redirect admin/super users from landing page to admin dashboard
+	if (isLandingPage && isAuthenticated) {
+		const mockUser = (locals as { user?: { role?: string } }).user;
+		const isAdmin = mockUser?.role === 'admin' || mockUser?.role === 'super';
+
+		if (isAdmin) {
+			throw redirect(302, '/admin');
+		}
+	}
+
 	let testRole: 'teacher' | 'admin' | 'super' | undefined = undefined;
 	if (isTestAuthCookiePresent || isTestSessionToken || isTestModeFromQuery) {
-		// Support formats: "true", "true;role=admin", "admin", "super"
+		// Support formats: "true", "true;role=admin", "admin", "super", "teacher"
 		const roleValue = testAuthCookie.split(';')[0].trim();
-		if (['admin', 'super'].includes(roleValue)) {
-			testRole = roleValue as 'admin' | 'super';
+		if (['admin', 'super', 'teacher'].includes(roleValue)) {
+			testRole = roleValue as 'teacher' | 'admin' | 'super';
 		} else if (isTestSessionToken) {
 			// Infer role from session token if it looks like a test token
 			if (sessionToken.includes('super')) {
