@@ -20,7 +20,7 @@
 		data
 	}: {
 		children: Snippet;
-		data: { isLoginPage?: boolean; testRole?: string; mockUser?: any; mockToken?: string };
+		data: { isLoginPage?: boolean; testRole?: string; mockUser?: Record<string, unknown> };
 	} = $props();
 
 	createSvelteAuthClient({ authClient });
@@ -31,7 +31,6 @@
 	let safetyTimeout = $state(false);
 
 	// Use mock data if available to prevent SSR fetch loops
-	const user = $derived(data.mockUser);
 	const isLoading = $derived(!data.mockUser && auth.isLoading && !cookieTestMode && !safetyTimeout);
 	const isAuthenticated = $derived(!!data.mockUser || auth.isAuthenticated || cookieTestMode);
 
@@ -68,12 +67,12 @@
 {#if isLoginPage}
 	{@render children?.()}
 {:else if !authDetermined && !cookieTestMode}
-	<div class="flex justify-center items-center bg-gray-50 h-screen">
-		<div class="text-gray-600 text-lg">Loading...</div>
+	<div class="flex h-screen items-center justify-center bg-gray-50">
+		<div class="text-lg text-gray-600">Loading...</div>
 	</div>
 {:else if !isAuthenticated && !cookieTestMode}
-	<div class="flex justify-center items-center bg-gray-50 h-screen">
-		<div class="text-gray-600 text-lg">Redirecting...</div>
+	<div class="flex h-screen items-center justify-center bg-gray-50">
+		<div class="text-lg text-gray-600">Redirecting...</div>
 	</div>
 {:else}
 	{@render children?.()}

@@ -69,7 +69,7 @@
 		isRestoring = true;
 		try {
 			await client.mutation(api.backup.restoreFromBackup, {
-				backupId: selectedBackupId as any,
+				backupId: selectedBackupId,
 				testToken: isTestMode ? 'test-token-admin-mock' : undefined
 			});
 			showRestoreDialog = false;
@@ -105,7 +105,7 @@
 		});
 	}
 
-	function handleDownload(backup: any) {
+	function handleDownload(backup: { data: unknown; filename: string; _id: string }) {
 		const data = backup.data;
 		const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
 		const url = URL.createObjectURL(blob);
@@ -206,7 +206,7 @@
 											onclick={async () => {
 												if (confirm('Delete?')) {
 													await client.mutation(api.backup.deleteBackup, {
-														backupId: backup._id as any,
+														backupId: backup._id,
 														testToken: isTestMode ? 'test-token-admin-mock' : undefined
 													});
 													refreshTrigger++;

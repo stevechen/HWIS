@@ -25,7 +25,9 @@ describe('Weekly Reports', () => {
 		const t = convexTest(schema, modules);
 
 		const reports = await t.run(async (ctx) => {
-			return await ctx.runQuery(api.evaluations.getWeeklyReportsList, { testToken: "unit-test-token" });
+			return await ctx.runQuery(api.evaluations.getWeeklyReportsList, {
+				testToken: 'unit-test-token'
+			});
 		});
 		expect(reports).toEqual([]);
 	});
@@ -91,7 +93,9 @@ describe('Weekly Reports', () => {
 		});
 
 		const reports = await t.run(async (ctx) => {
-			return await ctx.runQuery(api.evaluations.getWeeklyReportsList, { testToken: "unit-test-token" });
+			return await ctx.runQuery(api.evaluations.getWeeklyReportsList, {
+				testToken: 'unit-test-token'
+			});
 		});
 
 		expect(reports).toHaveLength(1);
@@ -161,7 +165,9 @@ describe('Weekly Reports', () => {
 		});
 
 		const reports = await t.run(async (ctx) => {
-			return await ctx.runQuery(api.evaluations.getWeeklyReportsList, { testToken: "unit-test-token" });
+			return await ctx.runQuery(api.evaluations.getWeeklyReportsList, {
+				testToken: 'unit-test-token'
+			});
 		});
 
 		expect(reports).toHaveLength(3);
@@ -245,7 +251,7 @@ describe('Weekly Reports', () => {
 		const students = await t.run(async (ctx) => {
 			return await ctx.runQuery(api.evaluations.getWeeklyReportDetail, {
 				fridayDate: friday,
-				testToken: "unit-test-token"
+				testToken: 'unit-test-token'
 			});
 		});
 
@@ -307,7 +313,7 @@ describe('Weekly Reports', () => {
 		const students = await t.run(async (ctx) => {
 			return await ctx.runQuery(api.evaluations.getWeeklyReportDetail, {
 				fridayDate: friday,
-				testToken: "unit-test-token"
+				testToken: 'unit-test-token'
 			});
 		});
 
@@ -369,7 +375,7 @@ describe('Weekly Reports', () => {
 		const students = await t.run(async (ctx) => {
 			return await ctx.runQuery(api.evaluations.getWeeklyReportDetail, {
 				fridayDate: friday,
-				testToken: "unit-test-token"
+				testToken: 'unit-test-token'
 			});
 		});
 

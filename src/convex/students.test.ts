@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { convexTest, modules } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
+import type { Id } from './_generated/dataModel';
 
 describe('students.create', () => {
 	it('creates a student with valid data', async () => {
@@ -405,7 +406,7 @@ describe('students.removeWithCascade', () => {
 
 		await expect(async () => {
 			await t.mutation(api.students.removeWithCascade, {
-				id: 'fake-student-id' as any
+				id: 'fake-student-id' as Id<'students'>
 			});
 		}).rejects.toThrowError();
 	});

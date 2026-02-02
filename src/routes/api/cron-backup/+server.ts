@@ -32,7 +32,7 @@ export async function GET() {
 		const drive = google.drive({ version: 'v3', auth });
 
 		const folderId = env.GOOGLE_DRIVE_FOLDER_ID ?? '';
-		const fileMetadata: any = { name: filename };
+		const fileMetadata: { name: string; parents?: string[] } = { name: filename };
 		if (folderId) fileMetadata.parents = [folderId];
 
 		const uploadResponse = await drive.files.create({

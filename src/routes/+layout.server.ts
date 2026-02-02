@@ -62,6 +62,6 @@ export const load = async ({
 		isLoginPage: url.pathname === '/login',
 		testRole,
 		mockToken: locals.token,
-		mockUser: (locals as any).user
+		mockUser: (locals as { user?: unknown }).user
 	};
 };

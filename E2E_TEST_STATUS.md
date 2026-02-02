@@ -15,8 +15,9 @@ await page.waitForSelector('body.hydrated');
 ## Test Auth Files
 
 E2E tests use auth files in `e2e/.auth/`:
+
 - `admin.json` - Admin user credentials
-- `teacher.json` - Teacher user credentials  
+- `teacher.json` - Teacher user credentials
 - `super.json` - Super user credentials
 - `test.json` - Test role configuration
 

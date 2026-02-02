@@ -11,9 +11,11 @@ For HWIS teachers to give/take away evaluation points to students.
 Authentication is handled via Google Single Sign-On (SSO).
 
 ### Super User
+
 - Full system access
 
 ### Admins (designated by super user)
+
 - **Teacher Management:** CRUD operations, approve/activate/deactivate teachers
 - **Student Management:**
   - Import students from Excel (duplicate Student IDs halt import with detailed error info)
@@ -50,33 +52,39 @@ Authentication is handled via Google Single Sign-On (SSO).
 - **Note:** Admins can also be teachers
 
 ### Teachers (approved by an admin)
+
 - **Student Search:** Fuzzy search by English name, filter by grade
 - **Point Management:** Give points (-2, -1, 1, 2) with details, adjust their own points given
 - **View Own Records:** Points given/taken, student's points trend (only their own records)
 
 ### Students
+
 - No system access
 
 ## Point System - Category Structure
 
 ### Creativity
+
 - Leadership
 - Designing & Creating
 - Self learning
 - Self management
 
 ### Activity
+
 - Dress code & shoes
 - Sports day
 - Game attendance
 - English speaking vs. Chinese speaking
 
 ### Service
+
 - Campus maintenance cleaning duty
 - Respect manner (Language & Behaviors)
 - Teacher supporting
 
 ### Admin Section
+
 - Student council
 - Others
 
