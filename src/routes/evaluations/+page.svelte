@@ -79,7 +79,10 @@
 	{:else}
 		<div class="flex flex-col gap-4">
 			{#each evaluations.data || [] as eval_ (eval_._id)}
-				<Card.Root>
+				<Card.Root
+					class="hover:shadow-md transition-shadow cursor-pointer"
+					onclick={() => void goto(`/evaluations/student/${eval_.studentId}`)}
+				>
 					<Card.Content class="p-5">
 						<div class="flex justify-between items-start mb-4">
 							<div class="flex items-center gap-2 font-semibold text-lg">

@@ -1,0 +1,562 @@
+<script lang="ts">
+	import {
+		ArrowLeft,
+		ArrowUp,
+		ArrowDown,
+		Award,
+		MinusCircle,
+		Star,
+		User,
+		Calendar
+	} from '@lucide/svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
+	import * as Card from '$lib/components/ui/card';
+
+	// Mock data for visualization
+	let { data }: { data: { testRole?: string } } = $props();
+
+	const isTestMode = $derived(!!data.testRole);
+	const isAdmin = $derived(data.testRole === 'admin' || data.testRole === 'super');
+
+	// Mock student data
+	const student = $state({
+		_id: 'mock-student-id',
+		englishName: 'John Smith',
+		chineseName: '張約翰',
+		studentId: 'SE2024001',
+		grade: 10,
+		classSection: 'A'
+	});
+
+	// Mock evaluation data
+	const mockEvaluations = $state([
+		{
+			_id: 'eval-1',
+			value: 5,
+			category: 'Academic',
+			subCategory: 'Homework',
+			details: 'Excellent homework submission',
+			timestamp: Date.now() - 1000 * 60 * 60 * 24, // 1 day ago
+			teacherName: 'Ms. Johnson',
+			isAdmin: false
+		},
+		{
+			_id: 'eval-2',
+			value: -3,
+			category: 'Behavior',
+			subCategory: 'Late Arrival',
+			details: 'Arrived 15 minutes late to class',
+			timestamp: Date.now() - 1000 * 60 * 60 * 48, // 2 days ago
+			teacherName: 'Mr. Smith',
+			isAdmin: false
+		},
+		{
+			_id: 'eval-3',
+			value: 10,
+			category: 'Academic',
+			subCategory: 'Test Score',
+			details: 'Outstanding performance on midterm exam',
+			timestamp: Date.now() - 1000 * 60 * 60 * 72, // 3 days ago
+			teacherName: 'Ms. Johnson',
+			isAdmin: false
+		},
+		{
+			_id: 'eval-4',
+			value: 5,
+			category: 'Extracurricular',
+			subCategory: 'Sports',
+			details: 'Participated in basketball tournament',
+			timestamp: Date.now() - 1000 * 60 * 60 * 96, // 4 days ago
+			teacherName: 'Coach Williams',
+			isAdmin: false
+		},
+		{
+			_id: 'eval-5',
+			value: 8,
+			category: 'Academic',
+			subCategory: 'Project',
+			details: 'Science fair project - first place',
+			timestamp: Date.now() - 1000 * 60 * 60 * 120, // 5 days ago
+			teacherName: 'Dr. Brown',
+			isAdmin: false
+		}
+	]);
+
+	// Admin-specific mock evaluations
+	const mockAdminEvaluations = $state([
+		{
+			_id: 'admin-eval-1',
+			value: 15,
+			category: 'Special',
+			subCategory: 'Achievement',
+			details: 'Student of the Month Award',
+			timestamp: Date.now() - 1000 * 60 * 60 * 6, // 6 hours ago
+			teacherName: 'Admin',
+			isAdmin: true
+		},
+		{
+			_id: 'admin-eval-2',
+			value: -5,
+			category: 'Disciplinary',
+			subCategory: 'Policy Violation',
+			details: 'Late submission of required documents',
+			timestamp: Date.now() - 1000 * 60 * 60 * 168, // 7 days ago
+			teacherName: 'Admin',
+			isAdmin: true
+		}
+	]);
+
+	// State for sorting and display
+	let sortAscending = $state(false);
+	let showDetails = $state(false);
+
+	// Track hovered card index
+	let hoveredIndex = $state<number | null>(null);
+
+	// Combined and filtered evaluations
+	let filteredEvaluations = $derived(() => {
+		let all = isAdmin ? [...mockAdminEvaluations, ...mockEvaluations] : [...mockEvaluations];
+
+		// Apply sorting
+		all.sort((a, b) => {
+			return sortAscending ? a.timestamp - b.timestamp : b.timestamp - a.timestamp;
+		});
+
+		return all;
+	});
+
+	function formatDate(ts: number) {
+		return (
+			new Date(ts).toLocaleDateString() +
+			' ' +
+			new Date(ts).toLocaleTimeString([], {
+				hour: '2-digit',
+				minute: '2-digit'
+			})
+		);
+	}
+
+	function toggleSort() {
+		sortAscending = !sortAscending;
+	}
+
+	function toggleDetails() {
+		showDetails = !showDetails;
+	}
+
+	// Get node color based on evaluation type (green for positive, red for negative)
+	function getNodeColor(eval_: (typeof mockEvaluations)[0]) {
+		if (eval_.value >= 0) return 'bg-emerald-500';
+		return 'bg-red-500';
+	}
+
+	// Get card border color
+	function getCardBorderColor(eval_: (typeof mockEvaluations)[0]) {
+		if (eval_.isAdmin) return 'border-purple-200';
+		if (eval_.value >= 0) return 'border-emerald-200';
+		return 'border-red-200';
+	}
+
+	// Get points badge classes
+	function getPointsBadgeClasses(eval_: (typeof mockEvaluations)[0]) {
+		if (eval_.isAdmin) return 'bg-purple-50 text-purple-600';
+		if (eval_.value >= 0) return 'bg-emerald-50 text-emerald-600';
+		return 'bg-red-50 text-red-600';
+	}
+</script>
+
+<div class="mx-auto p-8 max-w-6xl" style="background-color: #ffffff;">
+	<header class="flex justify-between items-center mb-6" style="background-color: #ffffff;">
+		<div class="flex items-center gap-4">
+			<Button variant="outline" onclick={() => void (window.location.href = '/evaluations')}>
+				<ArrowLeft class="mr-2 w-4 h-4" />
+				Back to Evaluations
+			</Button>
+			<h1 class="font-semibold text-foreground text-2xl" style="color: #0f172a;">
+				Evaluation History - G{student.grade} - {student.englishName}
+			</h1>
+		</div>
+		<ThemeToggle />
+	</header>
+
+	<!-- Timeline Controls -->
+	<div class="flex justify-between items-center mb-6" style="background-color: #ffffff;">
+		<h2 class="font-semibold text-xl" style="color: #0f172a;">
+			{isAdmin ? 'All Points History' : 'Your Assigned Points'}
+		</h2>
+		<div class="flex items-center gap-2">
+			<!-- Sort Toggle -->
+			<Button variant="outline" size="sm" onclick={toggleSort}>
+				{#if sortAscending}
+					<ArrowUp class="mr-1 w-4 h-4" />
+					Oldest First
+				{:else}
+					<ArrowDown class="mr-1 w-4 h-4" />
+					Newest First
+				{/if}
+			</Button>
+
+			<!-- Show Details Toggle -->
+			<Button variant="outline" size="sm" onclick={toggleDetails}>
+				{#if showDetails}
+					Hide Details
+				{:else}
+					Show Details
+				{/if}
+			</Button>
+		</div>
+	</div>
+
+	<!-- Timeline Container -->
+	<div class="relative" style="background-color: #ffffff;">
+		{#if filteredEvaluations().length === 0}
+			<div class="py-12 text-muted-foreground text-center" style="color: #64748b;">
+				No evaluations found for this student.
+			</div>
+		{:else}
+			<!-- Vertical Timeline with CSS Grid -->
+			<div class="timeline-container">
+				<!-- Central Line -->
+				<div class="timeline-line"></div>
+
+				{#each filteredEvaluations() as eval_, index (eval_._id)}
+					<!-- Timeline Item -->
+					<div class="timeline-item">
+						<!-- Date/Time Side (alternates left/right) -->
+						<div
+							class="timeline-date {index % 2 === 0 ? 'timeline-date-right' : 'timeline-date-left'}"
+						>
+							<div class="flex items-center gap-1 text-muted-foreground text-xs">
+								<Calendar class="w-3 h-3" />
+								<span>{formatDate(eval_.timestamp)}</span>
+							</div>
+							{#if isAdmin}
+								<div class="flex items-center gap-1 mt-1 text-muted-foreground text-xs">
+									<User class="w-3 h-3" />
+									<span>{eval_.teacherName}</span>
+								</div>
+							{/if}
+						</div>
+
+						<!-- Central Node -->
+						<div class="timeline-node">
+							<div
+								class="timeline-dot {getNodeColor(eval_)} {eval_.isAdmin
+									? 'timeline-dot-admin'
+									: ''}"
+							></div>
+						</div>
+
+						<!-- Content Side (alternates right/left) -->
+						<div
+							class="timeline-content {index % 2 === 0
+								? 'timeline-content-left'
+								: 'timeline-content-right'}"
+						>
+							<!-- Card with purple border for admin entries -->
+							<div
+								class="timeline-card {getCardBorderColor(eval_)}"
+								onmouseenter={() => (hoveredIndex = index)}
+								onmouseleave={() => (hoveredIndex = null)}
+							>
+								<!-- Header -->
+								<div class="flex items-center gap-2 mb-1">
+									<span class="font-semibold text-sm">{eval_.category}</span>
+									<span class="text-muted-foreground text-xs">›</span>
+									<span class="text-muted-foreground text-xs">{eval_.subCategory}</span>
+								</div>
+
+								<!-- Details (shown on hover or toggle) -->
+								<div
+									class="timeline-details {showDetails || hoveredIndex === index
+										? 'timeline-details-visible'
+										: ''}"
+								>
+									{#if eval_.details}
+										<p class="text-muted-foreground text-xs">{eval_.details}</p>
+									{/if}
+								</div>
+
+								<!-- Points Badge (absolute positioned at top-right) -->
+								<div class="timeline-badge {getPointsBadgeClasses(eval_)}">
+									{#if eval_.isAdmin}
+										<Star class="w-4 h-4" />
+									{:else if eval_.value >= 0}
+										<Award class="w-4 h-4" />
+									{:else}
+										<MinusCircle class="w-4 h-4" />
+									{/if}
+									<span>{eval_.value > 0 ? '+' : ''}{eval_.value}</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</div>
+
+	<!-- Legend -->
+	<div
+		class="flex items-center gap-6 mt-6 text-muted-foreground text-sm"
+		style="background-color: #ffffff; color: #64748b;"
+	>
+		<div class="flex items-center gap-2">
+			<div class="bg-emerald-500 rounded-full w-3 h-3"></div>
+			<span>Positive Points</span>
+		</div>
+		<div class="flex items-center gap-2">
+			<div class="bg-red-500 rounded-full w-3 h-3"></div>
+			<span>Negative Points</span>
+		</div>
+		{#if isAdmin}
+			<div class="flex items-center gap-2">
+				<div class="border-2 border-purple-500 rounded-full w-3 h-3"></div>
+				<span>Admin Points</span>
+			</div>
+		{/if}
+	</div>
+</div>
+
+<style>
+	/* Timeline Container */
+	.timeline-container {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+		min-height: 100px;
+		padding: 1rem 0;
+	}
+
+	/* Central Line - perfectly centered */
+	.timeline-line {
+		position: absolute;
+		left: 50%;
+		top: 0;
+		bottom: 0;
+		width: 2px;
+		background-color: hsl(var(--border));
+		transform: translateX(-50%);
+		z-index: 1;
+		background-color: #e2e8f0;
+	}
+
+	/* Timeline Item */
+	.timeline-item {
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
+		align-items: center;
+		gap: 1rem;
+		position: relative;
+		width: 100%;
+		min-height: 80px;
+	}
+
+	/* Timeline Node (center column) */
+	.timeline-node {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 10;
+	}
+
+	/* Timeline Dot */
+	.timeline-dot {
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		border: 2px solid hsl(var(--background));
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+		border: 2px solid #ffffff;
+	}
+
+	/* Admin dot with purple border outline */
+	.timeline-dot-admin {
+		border: 2px solid #a855f7;
+	}
+
+	/* Date/Time Side */
+	.timeline-date {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		padding: 0.5rem;
+		min-width: 150px;
+		color: #64748b;
+	}
+
+	.timeline-date-left {
+		text-align: right !important;
+		align-items: flex-end !important;
+	}
+
+	.timeline-date-right {
+		text-align: left !important;
+		align-items: flex-start !important;
+	}
+
+	/* Content Side */
+	.timeline-content {
+		display: flex;
+		justify-content: flex-start;
+	}
+
+	.timeline-content-left {
+		justify-content: flex-end !important;
+	}
+
+	.timeline-content-right {
+		justify-content: flex-start !important;
+	}
+
+	/* Card header text */
+	.font-semibold {
+		font-weight: 600;
+		color: #0f172a;
+	}
+
+	.text-muted-foreground {
+		color: #64748b;
+	}
+
+	/* Timeline Card */
+	.timeline-card {
+		background-color: hsl(var(--card));
+		border: 1px solid hsl(var(--border));
+		border-radius: 0.5rem;
+		padding: 0.75rem;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+		transition: box-shadow 0.2s ease-in-out;
+		cursor: pointer;
+		position: relative;
+		max-width: 100%;
+		min-width: 200px;
+		background-color: #ffffff;
+	}
+
+	.timeline-card:hover {
+		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	}
+
+	/* Border colors */
+	.border-purple-200 {
+		border-color: #e9d5ff;
+	}
+
+	.border-emerald-200 {
+		border-color: #a7f3d0;
+	}
+
+	.border-red-200 {
+		border-color: #fecaca;
+	}
+
+	/* Timeline Details */
+	.timeline-details {
+		overflow: hidden;
+		max-height: 0;
+		transition:
+			max-height 0.3s ease-in-out,
+			opacity 0.3s ease-in-out;
+		opacity: 0;
+		color: #64748b;
+	}
+
+	.timeline-details-visible {
+		max-height: 200px;
+		opacity: 1;
+	}
+
+	/* Timeline Badge */
+	.timeline-badge {
+		position: absolute;
+		top: -0.5rem;
+		right: -0.5rem;
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.375rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	}
+
+	/* Badge colors */
+	.bg-purple-50 {
+		background-color: #faf5ff;
+	}
+
+	.text-purple-600 {
+		color: #9333ea;
+	}
+
+	.bg-emerald-50 {
+		background-color: #ecfdf5;
+	}
+
+	.text-emerald-600 {
+		color: #059669;
+	}
+
+	.bg-red-50 {
+		background-color: #fef2f2;
+	}
+
+	.text-red-600 {
+		color: #dc2626;
+	}
+
+	/* Dot colors */
+	.bg-emerald-500 {
+		background-color: #10b981;
+	}
+
+	.bg-red-500 {
+		background-color: #ef4444;
+	}
+
+	/* Mobile responsive - stacked vertical layout */
+	@media (max-width: 768px) {
+		.timeline-item {
+			grid-template-columns: auto 1fr;
+			gap: 0.5rem;
+		}
+
+		.timeline-line {
+			left: 1rem;
+		}
+
+		.timeline-node {
+			justify-content: flex-start;
+		}
+
+		.timeline-date {
+			display: none;
+		}
+
+		.timeline-content {
+			grid-column: 2;
+		}
+
+		.timeline-content-left,
+		.timeline-content-right {
+			justify-content: flex-start;
+		}
+	}
+
+	/* Legend colors fallback */
+	.bg-emerald-500 {
+		background-color: #10b981;
+	}
+
+	.bg-red-500 {
+		background-color: #ef4444;
+	}
+
+	.border-purple-500 {
+		border-color: #a855f7;
+	}
+</style>
