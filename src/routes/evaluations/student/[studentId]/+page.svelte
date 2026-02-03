@@ -1,20 +1,11 @@
 <script lang="ts">
-	import {
-		ArrowLeft,
-		ArrowUp,
-		ArrowDown,
-		Award,
-		CircleMinus,
-		Star,
-		User,
-		Calendar,
-		Eye
-	} from '@lucide/svelte';
+	import { ArrowLeft } from '@lucide/svelte';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
+	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
 
 	let { data }: { data: { testRole?: string; demo?: string; studentId?: string } } = $props();
 
@@ -53,7 +44,7 @@
 	};
 
 	// Demo evaluation data
-	const demoEvaluations = [
+	const demoEvaluations: EvaluationEntry[] = [
 		{
 			_id: 'eval-1',
 			value: 5,
@@ -153,9 +144,6 @@
 	let showDetails = $state(false);
 	let teacherFilter = $state('');
 
-	// Track hovered card index
-	let hoveredIndex = $state<number | null>(null);
-
 	// Get unique teachers
 	const uniqueTeachers = $derived(() => {
 		const teachers = [...new Set(evaluations.map((e) => e.teacherName))];
@@ -174,43 +162,8 @@
 		return all;
 	});
 
-	function formatDate(ts: number) {
-		const date = new Date(ts);
-		return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear().toString().slice(-2)} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}`;
-	}
-
-	function toggleSort() {
-		sortAscending = !sortAscending;
-	}
-
-	function toggleDetails() {
-		showDetails = !showDetails;
-	}
-
-	function getNodeColor(eval_: { value: number }) {
-		if (eval_.value >= 0) return 'bg-emerald-500';
-		return 'bg-red-500';
-	}
-
-	function getCardBorderColor(eval_: { isAdmin: boolean; value: number }) {
-		if (eval_.isAdmin) return 'border-purple-300 dark:border-purple-600';
-		if (eval_.value >= 0) return 'border-emerald-200 dark:border-emerald-800';
-		return 'border-red-200 dark:border-red-800';
-	}
-
-	function getCategoryColor() {
-		return 'text-foreground';
-	}
-
-	function getTeacherNameColor(eval_: { isAdmin: boolean }) {
-		if (eval_.isAdmin) return 'text-purple-600 dark:text-purple-400 font-semibold';
-		return 'text-muted-foreground';
-	}
-
-	function getPointsBadgeClasses(eval_: { value: number }) {
-		if (eval_.value >= 0)
-			return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400';
-		return 'bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400';
+	function handleTeacherFilterChange(value: string) {
+		teacherFilter = value;
 	}
 </script>
 
@@ -236,46 +189,6 @@
 		<ThemeToggle />
 	</header>
 
-	<!-- Timeline Controls -->
-	<div class="mb-6 flex items-center justify-between">
-		<h2 class="text-xl font-semibold">{isAdmin ? 'Points' : 'Your Assigned Points'}</h2>
-		<div class="flex items-center gap-2">
-			<Button
-				variant="outline"
-				size="sm"
-				onclick={toggleSort}
-				title={sortAscending ? 'Oldest First' : 'Newest First'}
-			>
-				{#if sortAscending}
-					<ArrowUp class="size-4" />
-				{:else}
-					<ArrowDown class="size-4" />
-				{/if}
-			</Button>
-
-			{#if isAdmin}
-				<select
-					bind:value={teacherFilter}
-					class="bg-background border-input focus:ring-ring h-9 rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus:ring-1 focus:outline-none"
-				>
-					<option value="">All Teachers</option>
-					{#each uniqueTeachers() as teacher (teacher)}
-						<option value={teacher}>{teacher}</option>
-					{/each}
-				</select>
-			{/if}
-
-			<Button
-				variant="outline"
-				size="sm"
-				onclick={toggleDetails}
-				title={showDetails ? 'Hide Details' : 'Show Details'}
-			>
-				<Eye class="size-4" />
-			</Button>
-		</div>
-	</div>
-
 	<!-- Loading State -->
 	{#if !isDemo && (userQuery?.isLoading ?? false)}
 		<div class="text-muted-foreground py-12 text-center">Loading user data...</div>
@@ -285,180 +198,21 @@
 		<div class="text-muted-foreground py-12 text-center">Loading evaluation history...</div>
 	{:else if !isDemo && !isAdmin && (teacherEvalsQuery?.isLoading ?? false)}
 		<div class="text-muted-foreground py-12 text-center">Loading your evaluations...</div>
-	{:else if filteredEvaluations().length === 0}
-		<div class="text-muted-foreground py-12 text-center">
-			No evaluations found for this student.
-		</div>
 	{:else}
-		<!-- Timeline -->
-		<div class="bg-background relative">
-			<!-- Central Line (sm+) -->
-			<div
-				class="border-border absolute top-0 bottom-0 left-1/2 hidden w-0.5 -translate-x-1/2 border-l sm:block"
-			></div>
-
-			<div class="relative flex min-h-25 flex-col gap-6 py-4">
-				{#each filteredEvaluations() as eval_, index (eval_._id)}
-					<!-- Timeline Item -->
-					{#if index % 2 === 0}
-						<!-- Odd item: Date on LEFT, Node center, Content on RIGHT -->
-						<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
-							<!-- Date on Left -->
-							<div
-								class="text-muted-foreground flex flex-col items-end justify-center self-center pr-2 text-right sm:w-full sm:min-w-38"
-							>
-								<div class="flex items-center gap-1 text-xs">
-									<Calendar class="size-3" />
-									<span>{formatDate(eval_.timestamp)}</span>
-								</div>
-								{#if isAdmin}
-									<div class="mt-1 flex items-center gap-1 text-xs">
-										<User class="size-3" />
-										<span class={getTeacherNameColor(eval_)}>{eval_.teacherName}</span>
-									</div>
-								{/if}
-							</div>
-
-							<!-- Node Center -->
-							<div class="z-10 flex items-center justify-center">
-								<div
-									class="border-background size-3 rounded-full border-2 {getNodeColor(eval_)}"
-								></div>
-							</div>
-
-							<!-- Content on Right -->
-							<div class="flex justify-start self-center pl-2 sm:w-full">
-								<div
-									class="bg-card relative max-w-40 cursor-pointer rounded-lg border p-3 shadow-sm transition-shadow hover:shadow-md sm:max-w-full sm:min-w-50 {getCardBorderColor(
-										eval_
-									)}"
-									role="group"
-									onmouseenter={() => (hoveredIndex = index)}
-									onmouseleave={() => (hoveredIndex = null)}
-								>
-									<div class="mb-1 flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
-										<span class="text-sm font-semibold {getCategoryColor()}">{eval_.category}</span>
-										{#if eval_.subCategory}
-											<span class="text-muted-foreground hidden text-xs sm:inline">›</span>
-											<span class="text-muted-foreground text-xs">{eval_.subCategory}</span>
-										{/if}
-									</div>
-									<div
-										class="overflow-hidden transition-all duration-300 {showDetails ||
-										hoveredIndex === index
-											? 'max-h-50 opacity-100'
-											: 'max-h-0 opacity-0'}"
-									>
-										{#if eval_.details}
-											<p class="text-muted-foreground text-xs">{eval_.details}</p>
-										{/if}
-									</div>
-									<div
-										class="absolute -top-2 -right-2 flex items-center gap-1 rounded-md px-2 py-1 text-sm font-bold shadow {getPointsBadgeClasses(
-											eval_
-										)}"
-									>
-										{#if eval_.isAdmin}
-											<Star class="size-4" />
-										{:else if eval_.value >= 0}
-											<Award class="size-4" />
-										{:else}
-											<CircleMinus class="size-4" />
-										{/if}
-										<span>{eval_.value > 0 ? '+' : ''}{eval_.value}</span>
-									</div>
-								</div>
-							</div>
-						</div>
-					{:else}
-						<!-- Even item: Content on LEFT, Node center, Date on RIGHT -->
-						<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
-							<!-- Content on Left -->
-							<div class="flex justify-end self-center pr-2 sm:w-full">
-								<div
-									class="bg-card relative max-w-40 cursor-pointer rounded-lg border p-3 shadow-sm transition-shadow hover:shadow-md sm:max-w-full sm:min-w-50 {getCardBorderColor(
-										eval_
-									)}"
-									role="group"
-									onmouseenter={() => (hoveredIndex = index)}
-									onmouseleave={() => (hoveredIndex = null)}
-								>
-									<div class="mb-1 flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
-										<span class="text-sm font-semibold {getCategoryColor()}">{eval_.category}</span>
-										{#if eval_.subCategory}
-											<span class="text-muted-foreground hidden text-xs sm:inline">›</span>
-											<span class="text-muted-foreground text-xs">{eval_.subCategory}</span>
-										{/if}
-									</div>
-									<div
-										class="overflow-hidden transition-all duration-300 {showDetails ||
-										hoveredIndex === index
-											? 'max-h-50 opacity-100'
-											: 'max-h-0 opacity-0'}"
-									>
-										{#if eval_.details}
-											<p class="text-muted-foreground text-xs">{eval_.details}</p>
-										{/if}
-									</div>
-									<div
-										class="absolute -top-2 -right-2 flex items-center gap-1 rounded-md px-2 py-1 text-sm font-bold shadow {getPointsBadgeClasses(
-											eval_
-										)}"
-									>
-										{#if eval_.isAdmin}
-											<Star class="size-4" />
-										{:else if eval_.value >= 0}
-											<Award class="size-4" />
-										{:else}
-											<CircleMinus class="size-4" />
-										{/if}
-										<span>{eval_.value > 0 ? '+' : ''}{eval_.value}</span>
-									</div>
-								</div>
-							</div>
-
-							<!-- Node Center -->
-							<div class="z-10 flex items-center justify-center">
-								<div
-									class="border-background size-3 rounded-full border-2 {getNodeColor(eval_)}"
-								></div>
-							</div>
-
-							<!-- Date on Right -->
-							<div
-								class="text-muted-foreground flex flex-col items-start justify-center self-center pl-2 sm:w-full sm:min-w-38"
-							>
-								<div class="flex items-center gap-1 text-xs">
-									<Calendar class="size-3" />
-									<span>{formatDate(eval_.timestamp)}</span>
-								</div>
-								{#if isAdmin}
-									<div class="mt-1 flex items-center gap-1 text-xs">
-										<User class="size-3" />
-										<span class={getTeacherNameColor(eval_)}>{eval_.teacherName}</span>
-									</div>
-								{/if}
-							</div>
-						</div>
-					{/if}
-				{/each}
-			</div>
-		</div>
+		<EvaluationsTimeline
+			evaluations={filteredEvaluations()}
+			title={isAdmin ? 'All Points History' : 'Your Assigned Points'}
+			showStudentName={false}
+			studentGrade={student.grade}
+			{isAdmin}
+			showTeacherFilter={isAdmin}
+			uniqueTeachers={uniqueTeachers()}
+			selectedTeacherFilter={teacherFilter}
+			onTeacherFilterChange={handleTeacherFilterChange}
+			showLegend={true}
+			showTeacherName={isAdmin}
+			bind:sortAscending
+			bind:showDetails
+		/>
 	{/if}
-
-	<!-- Legend -->
-	<div
-		class="bg-card text-muted-foreground fixed right-0 bottom-0 left-0 z-50 flex items-center justify-center gap-6 border-t p-3 text-sm shadow-lg"
-	>
-		<div class="flex items-center gap-2">
-			<div class="h-3 w-3 rounded-full bg-emerald-500"></div>
-			<span>Positive Points</span>
-		</div>
-		<div class="flex items-center gap-2">
-			<div class="h-3 w-3 rounded-full bg-red-500"></div>
-			<span>Negative Points</span>
-		</div>
-	</div>
-
-	<div class="h-16"></div>
 </div>
