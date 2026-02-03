@@ -18,7 +18,6 @@
 	import * as Input from '$lib/components/ui/input';
 	import * as Popover from '$lib/components/ui/popover';
 	import * as Select from '$lib/components/ui/select';
-	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { browser } from '$app/environment';
 
 	type ColumnKey =
@@ -80,18 +79,9 @@
 		{ key: 'details', label: 'Details', sortable: false, defaultVisible: false, optional: true }
 	];
 
-	let { data }: { data: { testRole?: string } } = $props();
-
-	const isTestMode = $derived(!!data.testRole);
-
-	const currentUser = useQuery(api.users.viewer, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
 	const auditLogs = useQuery(api.audit.list, () => ({
-		limit: 100,
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+		limit: 100
 	}));
-	const auth = useAuth();
 
 	let filterName = $state('');
 	let filterId = $state('');
@@ -369,25 +359,7 @@
 		}
 	}
 
-	$effect(() => {
-		if (isTestMode) return;
-		if (auth.isLoading) return;
-
-		if (!auth.isAuthenticated) {
-			void goto('/');
-			return;
-		}
-	});
-
-	$effect(() => {
-		if (isTestMode) return;
-		// Always check user role, even in test mode with auth cookie
-		if (currentUser.isLoading === false) {
-			if (currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
-				void goto('/');
-			}
-		}
-	});
+	
 </script>
 
 <div class="container mx-auto max-w-[1400px] py-8">

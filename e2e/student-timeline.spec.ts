@@ -1,10 +1,12 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Student Timeline Page', () => {
+	test.use({ storageState: 'e2e/.auth/teacher.json' });
+
 	test.describe('Breadcrumb Navigation', () => {
 		test('back button is present', async ({ page }) => {
 			// Navigate to page
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 
 			// Back button should be present
@@ -13,7 +15,7 @@ test.describe('Student Timeline Page', () => {
 		});
 
 		test('back button click triggers navigation', async ({ page }) => {
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 
 			// Click back button
@@ -28,7 +30,7 @@ test.describe('Student Timeline Page', () => {
 
 	test.describe('Timeline Entry Rendering', () => {
 		test('timeline entries container exists', async ({ page }) => {
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 
 			// Timeline container should exist
@@ -36,7 +38,7 @@ test.describe('Student Timeline Page', () => {
 		});
 
 		test('timeline has central line', async ({ page }) => {
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 			await expect(page.locator('.border-l.border-border').first()).toBeVisible({ timeout: 15000 });
 		});
@@ -44,7 +46,7 @@ test.describe('Student Timeline Page', () => {
 
 	test.describe('Sorting', () => {
 		test('sort toggle button exists', async ({ page }) => {
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 			await expect(page.getByRole('button', { name: /newest first/i })).toBeVisible({
 				timeout: 15000
@@ -52,7 +54,7 @@ test.describe('Student Timeline Page', () => {
 		});
 
 		test('sort toggle button is clickable', async ({ page }) => {
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 
 			const sortButton = page.getByRole('button', { name: /newest first/i });
@@ -65,8 +67,10 @@ test.describe('Student Timeline Page', () => {
 	});
 
 	test.describe('Admin Features', () => {
+		test.use({ storageState: 'e2e/.auth/admin.json' });
+
 		test('admin filter dropdown exists', async ({ page }) => {
-			await page.goto('/evaluations/student/demo-student-id?testRole=admin');
+			await page.goto('/evaluations/student/demo-student-id?demo=admin');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 			await expect(page.getByRole('combobox')).toBeVisible({ timeout: 15000 });
 		});
@@ -74,7 +78,7 @@ test.describe('Student Timeline Page', () => {
 
 	test.describe('Controls', () => {
 		test('page has sort toggle button', async ({ page }) => {
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 			await expect(page.getByRole('button', { name: /newest first/i })).toBeVisible({
 				timeout: 15000
@@ -82,7 +86,7 @@ test.describe('Student Timeline Page', () => {
 		});
 
 		test('page has details toggle button', async ({ page }) => {
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 			await expect(page.getByRole('button', { name: /show details/i })).toBeVisible({
 				timeout: 15000
@@ -92,7 +96,7 @@ test.describe('Student Timeline Page', () => {
 
 	test.describe('Legend', () => {
 		test('legend shows point type indicators', async ({ page }) => {
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 			await expect(page.getByText('Positive Points')).toBeVisible({ timeout: 15000 });
 			await expect(page.getByText('Negative Points')).toBeVisible({ timeout: 10000 });
@@ -101,7 +105,7 @@ test.describe('Student Timeline Page', () => {
 
 	test.describe('Hover Interaction', () => {
 		test('timeline entries are present', async ({ page }) => {
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 			const card = page.locator('.bg-card').first();
 			await expect(card).toBeVisible({ timeout: 15000 });
@@ -110,7 +114,7 @@ test.describe('Student Timeline Page', () => {
 
 	test.describe('Page Structure', () => {
 		test('page has header with back button', async ({ page }) => {
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 
 			// Header should contain back button
@@ -119,7 +123,7 @@ test.describe('Student Timeline Page', () => {
 		});
 
 		test('page has controls section', async ({ page }) => {
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 
 			// Should have sort or details toggle visible
@@ -131,7 +135,7 @@ test.describe('Student Timeline Page', () => {
 	test.describe('Error Handling', () => {
 		test('page loads without errors for valid student id', async ({ page }) => {
 			// Navigate with teacher role
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 
 			// Should load without crashing
@@ -144,7 +148,7 @@ test.describe('Student Timeline Page', () => {
 			await page.waitForSelector('body.hydrated', { timeout: 10000 });
 
 			// Navigate to student timeline
-			await page.goto('/evaluations/student/demo-student-id?testRole=teacher');
+			await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 			await page.waitForSelector('body.hydrated', { timeout: 20000 });
 
 			// Should load without errors

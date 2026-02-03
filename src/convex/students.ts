@@ -54,6 +54,7 @@ export const create = mutation({
 		grade: v.number(),
 		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
 		note: v.optional(v.string()),
+		upsert: v.optional(v.boolean()),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -61,10 +62,20 @@ export const create = mutation({
 
 		const existing = await ctx.db
 			.query('students')
-			.filter((q) => q.eq(q.field('studentId'), args.studentId))
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
 			.first();
 
 		if (existing) {
+			if (args.upsert) {
+				await ctx.db.patch(existing._id, {
+					englishName: args.englishName,
+					chineseName: args.chineseName,
+					grade: args.grade,
+					status: args.status,
+					note: args.note ?? ''
+				});
+				return existing._id;
+			}
 			throw new Error('Student ID already exists');
 		}
 
@@ -106,10 +117,10 @@ export const update = mutation({
 		if (args.studentId !== existing.studentId) {
 			const duplicate = await ctx.db
 				.query('students')
-				.filter((q) => q.and(q.eq(q.field('studentId'), args.studentId), q.neq(q.field('_id'), id)))
+				.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
 				.first();
 
-			if (duplicate) throw new Error('Student ID already exists');
+			if (duplicate && duplicate._id !== id) throw new Error('Student ID already exists');
 		}
 
 		await ctx.db.patch(id, updates);
@@ -125,8 +136,8 @@ export const remove = mutation({
 		await requireAdminRole(ctx, args.testToken);
 		const evaluations = await ctx.db
 			.query('evaluations')
-			.filter((q) => q.eq(q.field('studentId'), args.id))
-			.collect();
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.id))
+			.take(1);
 
 		if (evaluations.length > 0) {
 			throw new Error('Cannot delete student with existing evaluations');
@@ -148,7 +159,7 @@ export const removeWithCascade = mutation({
 
 		const evaluations = await ctx.db
 			.query('evaluations')
-			.filter((q) => q.eq(q.field('studentId'), args.id))
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.id))
 			.collect();
 
 		for (const evaluation of evaluations) {
@@ -198,7 +209,7 @@ export const importFromExcel = mutation({
 			try {
 				const existing = await ctx.db
 					.query('students')
-					.filter((q) => q.eq(q.field('studentId'), student.studentId))
+					.withIndex('by_studentId', (q) => q.eq('studentId', student.studentId))
 					.first();
 
 				if (existing) {

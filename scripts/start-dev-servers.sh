@@ -14,6 +14,13 @@ NC='\033[0m' # No Color
 CONvex_PID=""
 VITE_PID=""
 
+# Force local Convex for Playwright runs (avoid cloud + offline issues)
+LOCAL_CONVEX_URL="${CONVEX_URL:-http://127.0.0.1:3210}"
+export CONVEX_URL="$LOCAL_CONVEX_URL"
+export PUBLIC_CONVEX_URL="$LOCAL_CONVEX_URL"
+unset CONVEX_DEPLOYMENT
+unset CONVEX_AUTH_TOKEN
+
 # Cleanup function to kill background processes
 cleanup() {
     echo -e "${YELLOW}Shutting down servers...${NC}"
@@ -32,11 +39,15 @@ cleanup() {
 # Set trap to cleanup on exit
 trap cleanup EXIT INT TERM
 
-echo -e "${GREEN}Starting Convex dev server...${NC}"
+if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:3211 >/dev/null 2>&1; then
+    echo -e "${YELLOW}Convex dev server already running, reusing it...${NC}"
+else
+    echo -e "${GREEN}Starting Convex dev server...${NC}"
 
-# Start Convex in background and capture output
-bunx convex dev --tail-logs &
-CONvex_PID=$!
+    # Start Convex in background and capture output
+    CI=1 bunx convex dev --tail-logs --local &
+    CONvex_PID=$!
+fi
 
 # Wait for Convex to be ready (check both ports 3210 and 3211)
 echo -e "${YELLOW}Waiting for Convex to be ready...${NC}"

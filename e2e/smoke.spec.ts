@@ -35,7 +35,7 @@ test.describe('Smoke Tests @smoke', () => {
 		await expect(page.getByText('2. Evaluation Details')).toBeVisible();
 	});
 
-	test('Teacher can access admin students page in test mode', async ({ page }) => {
+	test('Teacher is redirected away from admin students page', async ({ page }) => {
 		const suffix = getTestSuffix('smokeList');
 		const studentId = `SL_${suffix}`;
 		const englishName = `SmokeList_${suffix}`;
@@ -49,14 +49,14 @@ test.describe('Smoke Tests @smoke', () => {
 			e2eTag: `e2e-test_${suffix}`
 		});
 
-		// In test mode, teachers can access admin pages (redirect is disabled in test mode)
+		// Teachers should be redirected away from admin pages
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
 
-		// Verify we're on the admin students page
-		await expect(page).toHaveURL(/\/admin\/students/);
-		// Verify student list is visible
-		await expect(page.getByText(englishName)).toBeVisible({ timeout: 10000 });
+		await page.waitForURL(/\/evaluations/, { timeout: 10000 });
+		await expect(page).toHaveURL(/\/evaluations/);
+		// Ensure we did not land on admin students page
+		await expect(page).not.toHaveURL(/\/admin\/students/);
 	});
 });
 

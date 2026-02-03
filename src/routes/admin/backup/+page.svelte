@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { Cloud, RotateCcw, Trash2, Download, Play } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -9,18 +8,10 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 
-	let { data }: { data: { testRole?: string } } = $props();
-
-	const isTestMode = $derived(!!data.testRole);
-
 	const client = useConvexClient();
-	const currentUser = useQuery(api.users.viewer, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
 	let refreshTrigger = $state(0);
 	const backupsQuery = useQuery(api.backup.listBackups, () => ({
-		_trigger: refreshTrigger,
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+		_trigger: refreshTrigger
 	}));
 
 	let showForceBackupDialog = $state(false);
@@ -33,22 +24,11 @@
 	let restoreConfirmText = $state('');
 	let selectedBackupId = $state<string | null>(null);
 
-	$effect(() => {
-		if (isTestMode) return;
-		if (browser && currentUser.isLoading === false) {
-			if (currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
-				goto('/');
-			}
-		}
-	});
-
 	async function handleForceBackup() {
 		isForcingBackup = true;
 		backupResult = null;
 		try {
-			const result = await client.mutation(api.backup.createBackup, {
-				testToken: isTestMode ? 'test-token-admin-mock' : undefined
-			});
+			const result = await client.mutation(api.backup.createBackup, {});
 			backupResult = result;
 			refreshTrigger++;
 		} catch (e) {
@@ -69,8 +49,7 @@
 		isRestoring = true;
 		try {
 			await client.mutation(api.backup.restoreFromBackup, {
-				backupId: selectedBackupId,
-				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+				backupId: selectedBackupId
 			});
 			showRestoreDialog = false;
 			refreshTrigger++;
@@ -84,9 +63,7 @@
 	async function handleClearAll() {
 		isClearing = true;
 		try {
-			await client.mutation(api.backup.clearAllData, {
-				testToken: isTestMode ? 'test-token-admin-mock' : undefined
-			});
+			await client.mutation(api.backup.clearAllData, {});
 		} catch (e) {
 			alert('Failed: ' + (e instanceof Error ? e.message : String(e)));
 		} finally {
@@ -206,8 +183,7 @@
 											onclick={async () => {
 												if (confirm('Delete?')) {
 													await client.mutation(api.backup.deleteBackup, {
-														backupId: backup._id,
-														testToken: isTestMode ? 'test-token-admin-mock' : undefined
+														backupId: backup._id
 													});
 													refreshTrigger++;
 												}

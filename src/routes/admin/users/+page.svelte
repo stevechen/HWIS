@@ -8,22 +8,13 @@
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Select from '$lib/components/ui/select';
-	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-
-	let { data }: { data: { testRole?: string } } = $props();
 
 	import type { Id } from '$convex/_generated/dataModel';
 
-	const isTestMode = $derived(!!data.testRole);
-	const auth = useAuth();
 	const client = useConvexClient();
 
-	const currentUser = useQuery(api.users.viewer, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
-	const usersQuery = useQuery(api.users.list, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
+	const currentUser = useQuery(api.users.viewer, () => ({}));
+	const usersQuery = useQuery(api.users.list, () => ({}));
 
 	let updatingId = $state<Id<'users'> | null>(null);
 	let roleStates = $state<Record<string, string>>({});
@@ -33,8 +24,7 @@
 		try {
 			await client.mutation(api.users.update, {
 				id,
-				role,
-				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+				role
 			});
 			roleStates[id as string] = role;
 		} catch {
@@ -49,8 +39,7 @@
 		try {
 			await client.mutation(api.users.update, {
 				id,
-				status,
-				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+				status
 			});
 		} catch {
 			// Error handled silently
@@ -78,24 +67,6 @@
 				return 'secondary';
 		}
 	}
-
-	$effect(() => {
-		if (isTestMode) return;
-		if (auth.isLoading) return;
-
-		if (!auth.isAuthenticated) {
-			void goto('/');
-			return;
-		}
-
-		if (
-			currentUser.isLoading === false &&
-			currentUser.data?.role !== 'admin' &&
-			currentUser.data?.role !== 'super'
-		) {
-			void goto('/');
-		}
-	});
 
 	function handleBackToAdmin() {
 		void goto('/admin');

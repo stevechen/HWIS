@@ -3,21 +3,9 @@ import { getTestSuffix, cleanupE2EData } from './students.shared';
 import { seedBaseline, createStudent } from './convex-client';
 
 test.describe('Archive & Reset Page', () => {
-	test.beforeEach(async ({ page }) => {
-		// Set test auth cookie with admin role
-		await page.context().addCookies([
-			{
-				name: 'hwis_test_auth',
-				value: 'admin',
-				domain: 'localhost',
-				path: '/',
-				expires: -1,
-				httpOnly: false,
-				secure: false,
-				sameSite: 'Lax'
-			}
-		]);
+	test.use({ storageState: 'e2e/.auth/admin.json' });
 
+	test.beforeEach(async ({ page }) => {
 		// Wait for hydration
 		await page.goto('http://localhost:5173/');
 		await page.waitForSelector('body.hydrated');

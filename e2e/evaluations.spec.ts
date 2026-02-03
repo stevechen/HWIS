@@ -23,7 +23,7 @@ async function createStudentForEval(
 	expect(createResult).toBeTruthy();
 
 	// Navigate to the evaluations page with test mode to bypass auth
-	await page.goto('/evaluations/new?testRole=teacher');
+	await page.goto('/evaluations/new');
 	await page.waitForSelector('body.hydrated');
 
 	// Wait for students to load - need longer wait for Convex reactivity

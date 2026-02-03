@@ -193,14 +193,23 @@ function formatDateRange(fridayTimestamp: number): string {
 }
 
 export const getWeeklyReportsList = query({
-	args: { testToken: v.optional(v.string()) },
+	args: {
+		sinceTimestamp: v.optional(v.number()),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
 		const authUser = await getAuthenticatedUser(ctx, args.testToken);
 		if (!authUser) return [];
 
+		const defaultLookbackMs = 1000 * 60 * 60 * 24 * 365 * 2; // 2 years
+		const sinceTimestamp =
+			args.sinceTimestamp ?? (args.testToken ? undefined : Date.now() - defaultLookbackMs);
+
 		const evaluations = await ctx.db
 			.query('evaluations')
-			.withIndex('by_timestamp', (q) => q)
+			.withIndex('by_timestamp', (q) =>
+				sinceTimestamp !== undefined ? q.gte('timestamp', sinceTimestamp) : q
+			)
 			.collect();
 
 		const fridayMap = new Map<number, Set<string>>();
@@ -311,29 +320,20 @@ export const getStudentEvaluationsByTeacher = query({
 		const user = await requireUserProfile(ctx, args.testToken);
 		const evaluations = await ctx.db
 			.query('evaluations')
-			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
+			.withIndex('by_studentId_teacherId', (q) =>
+				q.eq('studentId', args.studentId).eq('teacherId', user._id)
+			)
 			.collect();
 
-		// Filter to only show evaluations by the current teacher
-		const teacherEvaluations = evaluations.filter((e) => e.teacherId === user._id);
+		// Enrich evaluations with teacher data (single fetch)
+		const teacher = await ctx.db.get(user._id);
+		const teacherName = teacher?.name || 'Unknown Teacher';
 
-		// Optimization: Batch fetch all teacher data (including current user)
-		const teacherIds = [...new Set(teacherEvaluations.map((e) => e.teacherId))];
-		const teachers = new Map();
-		for (const teacherId of teacherIds) {
-			const teacher = await ctx.db.get(teacherId);
-			if (teacher) teachers.set(teacherId, teacher);
-		}
-
-		// Enrich evaluations with teacher data
-		const enriched = teacherEvaluations.map((e) => {
-			const teacher = teachers.get(e.teacherId);
-			return {
-				...e,
-				teacherName: teacher?.name || 'Unknown Teacher',
-				isAdmin: false
-			};
-		});
+		const enriched = evaluations.map((e) => ({
+			...e,
+			teacherName,
+			isAdmin: false
+		}));
 
 		return enriched.sort((a, b) => b.timestamp - a.timestamp);
 	}

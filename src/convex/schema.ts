@@ -90,6 +90,7 @@ export default defineSchema({
 		e2eTag: v.optional(v.string())
 	})
 		.index('by_studentId', ['studentId'])
+		.index('by_studentId_teacherId', ['studentId', 'teacherId'])
 		.index('by_teacherId', ['teacherId'])
 		.index('by_timestamp', ['timestamp'])
 		.index('by_category', ['category'])

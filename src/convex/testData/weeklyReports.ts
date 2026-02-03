@@ -17,54 +17,36 @@ export const createWeeklyReportTestData = mutation({
 			return `weekly-test-${timestamp}-${random}-${suffix}`;
 		}
 
-		// Week definitions (5 consecutive weeks)
-		const weeks = [
-			{
-				weekNumber: 49,
-				start: '2024-12-02',
-				end: '2024-12-06',
-				friday: new Date('2024-12-06T00:00:00Z').getTime(),
-				intensity: 'light',
-				evaluationCount: 12,
-				studentCount: 3
-			},
-			{
-				weekNumber: 50,
-				start: '2024-12-09',
-				end: '2024-12-13',
-				friday: new Date('2024-12-13T00:00:00Z').getTime(),
-				intensity: 'moderate',
-				evaluationCount: 18,
-				studentCount: 4
-			},
-			{
-				weekNumber: 51,
-				start: '2024-12-16',
-				end: '2024-12-20',
-				friday: new Date('2024-12-20T00:00:00Z').getTime(),
-				intensity: 'heavy',
-				evaluationCount: 25,
-				studentCount: 5
-			},
-			{
-				weekNumber: 2,
-				start: '2025-01-06',
-				end: '2025-01-10',
-				friday: new Date('2025-01-10T00:00:00Z').getTime(),
-				intensity: 'moderate',
-				evaluationCount: 20,
-				studentCount: 4
-			},
-			{
-				weekNumber: 3,
-				start: '2025-01-13',
-				end: '2025-01-17',
-				friday: new Date('2025-01-17T00:00:00Z').getTime(),
-				intensity: 'light',
-				evaluationCount: 15,
-				studentCount: 3
-			}
-		];
+		// Week definitions (5 consecutive recent weeks, relative to now)
+		const msPerDay = 24 * 60 * 60 * 1000;
+		const today = new Date();
+		const todayUtc = new Date(
+			Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+		);
+		const dayOfWeek = todayUtc.getUTCDay(); // 0=Sun, 5=Fri
+		const daysSinceFriday = dayOfWeek >= 5 ? dayOfWeek - 5 : dayOfWeek + 2;
+		const lastFriday = new Date(todayUtc.getTime() - daysSinceFriday * msPerDay);
+
+		const intensityPattern = ['light', 'moderate', 'heavy', 'moderate', 'light'] as const;
+		const evaluationCounts = [12, 18, 25, 20, 15];
+		const studentCounts = [3, 4, 5, 4, 3];
+
+		const weeks = Array.from({ length: 5 }, (_, index) => {
+			const fridayDate = new Date(lastFriday.getTime() - index * 7 * msPerDay);
+			const mondayDate = new Date(fridayDate.getTime() - 4 * msPerDay);
+			const start = mondayDate.toISOString().slice(0, 10);
+			const end = fridayDate.toISOString().slice(0, 10);
+
+			return {
+				weekNumber: index + 1,
+				start,
+				end,
+				friday: fridayDate.getTime(),
+				intensity: intensityPattern[index],
+				evaluationCount: evaluationCounts[index],
+				studentCount: studentCounts[index]
+			};
+		});
 
 		// Create 3 teachers with different evaluation patterns
 		const teachers = [

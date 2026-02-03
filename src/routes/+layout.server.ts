@@ -1,4 +1,6 @@
 import { redirect } from '@sveltejs/kit';
+import { getAuthState } from '@mmailaender/convex-better-auth-svelte/sveltekit';
+import { createAuth } from '$convex/auth.js';
 
 export const load = async ({
 	cookies,
@@ -9,69 +11,19 @@ export const load = async ({
 	url: URL;
 	locals: { token?: string };
 }) => {
-	const testAuthCookie = cookies.get('hwis_test_auth') || '';
-	const sessionToken = cookies.get('convex_session_token') || '';
-	const testRoleQuery = url.searchParams.get('testRole');
-
 	const isLoginPage = url.pathname === '/login';
-	const isLandingPage = url.pathname === '/';
-
-	// Detect test mode from EITHER source:
-	// 1. hwis_test_auth cookie
-	// 2. convex_session_token that looks like a test token (contains "test_")
-	// 3. testRole query parameter (for e2e tests)
-	const isTestAuthCookiePresent = testAuthCookie.length > 0;
-	const isTestSessionToken = sessionToken.includes('test_');
-	const isTestModeFromQuery =
-		testRoleQuery === 'teacher' || testRoleQuery === 'admin' || testRoleQuery === 'super';
-	const isTestMode = isTestAuthCookiePresent || isTestSessionToken || isTestModeFromQuery;
+	const authState = await getAuthState(createAuth, cookies);
 
 	// Redirect logic for SSR protection
-	const isAuthenticated = !!locals.token || isTestMode;
+	const isAuthenticated = !!locals.token || authState.isAuthenticated;
 
-	if (!isAuthenticated && !isLoginPage && !isLandingPage) {
-		throw redirect(302, '/login');
-	}
-
-	// Redirect admin/super users from landing page to admin dashboard
-	if (isLandingPage && isAuthenticated) {
-		const mockUser = (locals as { user?: { role?: string } }).user;
-		const isAdmin = mockUser?.role === 'admin' || mockUser?.role === 'super';
-
-		if (isAdmin) {
-			throw redirect(302, '/admin');
-		}
-	}
-
-	let testRole: 'teacher' | 'admin' | 'super' | undefined = undefined;
-	if (isTestAuthCookiePresent || isTestSessionToken || isTestModeFromQuery) {
-		// Support formats: "true", "true;role=admin", "admin", "super", "teacher"
-		const roleValue = testAuthCookie.split(';')[0].trim();
-		if (['admin', 'super', 'teacher'].includes(roleValue)) {
-			testRole = roleValue as 'teacher' | 'admin' | 'super';
-		} else if (isTestSessionToken) {
-			// Infer role from session token if it looks like a test token
-			if (sessionToken.includes('super')) {
-				testRole = 'super';
-			} else if (sessionToken.includes('admin')) {
-				testRole = 'admin';
-			}
-		} else if (testRoleQuery && ['admin', 'super', 'teacher'].includes(testRoleQuery)) {
-			// Use testRole from query parameter
-			testRole = testRoleQuery as 'teacher' | 'admin' | 'super';
-		} else {
-			// Check for role= in the full cookie value
-			const roleMatch = testAuthCookie.match(/role=(\w+)/);
-			if (roleMatch && ['admin', 'super', 'teacher'].includes(roleMatch[1])) {
-				testRole = roleMatch[1] as 'teacher' | 'admin' | 'super';
-			}
-		}
+	if (!isAuthenticated && !isLoginPage) {
+		const callbackUrl = `${url.pathname}${url.search}`;
+		const redirectTo = `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+		throw redirect(302, redirectTo);
 	}
 
 	return {
-		isLoginPage: url.pathname === '/login',
-		testRole,
-		mockToken: locals.token,
-		mockUser: (locals as { user?: unknown }).user
+		authState
 	};
 };

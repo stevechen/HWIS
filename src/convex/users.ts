@@ -20,11 +20,14 @@ export const viewer = query({
 			};
 		}
 
-		if (!authUser._id) {
+		const authIdLookup =
+			(authUser as { authId?: string; id?: string; _id?: string }).authId ||
+			(authUser as { id?: string }).id ||
+			(authUser as { _id?: string })._id;
+
+		if (!authIdLookup) {
 			return null;
 		}
-
-		const authIdLookup = (authUser as { authId?: string }).authId || authUser._id;
 		const dbUser = await ctx.db
 			.query('users')
 			.withIndex('by_authId', (q) => q.eq('authId', authIdLookup))
@@ -32,7 +35,7 @@ export const viewer = query({
 
 		return {
 			...authUser,
-			authId: dbUser?.authId ?? null,
+			authId: dbUser?.authId ?? authIdLookup,
 			role: dbUser?.role ?? 'teacher',
 			status: dbUser?.status ?? 'pending'
 		};

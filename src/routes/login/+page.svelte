@@ -1,8 +1,16 @@
 <script lang="ts">
 	import { authClient } from '$lib/auth-client';
 	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 
-	const session = authClient.useSession();
+	const session = browser
+		? authClient.useSession()
+		: {
+				subscribe(run: (value: { isPending: boolean; data: { user: { name?: string } } | null }) => void) {
+					run({ isPending: false, data: null });
+					return () => {};
+				}
+			};
 
 	let sessionData = $state<{ isPending: boolean; data: { user: { name?: string } } | null } | null>(
 		null

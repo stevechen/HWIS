@@ -7,40 +7,29 @@
 	import { browser } from '$app/environment';
 
 	const client = useConvexClient();
-	const auth = useAuth();
+	const auth = browser ? useAuth() : { isLoading: false, isAuthenticated: false };
 	/* eslint-disable @typescript-eslint/no-explicit-any */
 	const apiAny = api as any;
-
-	let isTestMode = $state(false);
-	if (browser) {
-		isTestMode = document.cookie.split('; ').some((c) => c.startsWith('hwis_test_auth='));
-	}
 
 	let status = $state('Checking auth...');
 	let error = $state<string | null>(null);
 
 	onMount(async () => {
-		if (!auth.isAuthenticated && !isTestMode) {
+		if (!auth.isAuthenticated) {
 			status = 'Not authenticated. Please sign in first.';
-			await new Promise((r) => setTimeout(r, 2000));
-			void goto('/login');
 			return;
 		}
 
 		status = 'Creating profile...';
-		const tokenArg = isTestMode ? 'test-token-admin-mock' : undefined;
 
 		try {
-			const result = await client.mutation(apiAny.onboarding.ensureUserProfile, {
-				testToken: tokenArg
-			});
+			const result = await client.mutation(apiAny.onboarding.ensureUserProfile, {});
 
 			if (result.created) {
 				status = 'Profile created! Promoting to admin...';
 				await client.mutation(api.onboarding.setMyRole, {
 					role: 'admin',
-					status: 'active',
-					testToken: tokenArg
+					status: 'active'
 				});
 			}
 

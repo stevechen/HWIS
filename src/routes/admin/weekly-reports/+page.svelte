@@ -16,9 +16,7 @@
 		};
 	};
 
-	let { data }: { data: { demoMode?: boolean; testRole?: string } } = $props();
-
-	const isTestMode = $derived(!!data.testRole);
+	let { data }: { data: { demoMode?: boolean } } = $props();
 
 	let isDemoMode = $state(false);
 	$effect(() => {
@@ -44,6 +42,8 @@
 	let filterGrade = $state('');
 	let sortColumn = $state<'id' | 'name' | 'grade'>('name');
 	let sortDirection = $state<'asc' | 'desc'>('asc');
+	const weeklyLookbackMs = 52 * 7 * 24 * 60 * 60 * 1000;
+	const sinceTimestamp = Date.now() - weeklyLookbackMs;
 
 	const demoReports = [
 		{
@@ -256,13 +256,15 @@
 	];
 
 	let reportsQuery = useQuery(apiAny.evaluations.getWeeklyReportsList, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+		sinceTimestamp
 	}));
 
-	const detailQuery = useQuery(apiAny.evaluations.getWeeklyReportDetail, () => ({
-		fridayDate: selectedReport?.fridayDate ?? 0,
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
+	const detailQuery = $derived.by(() => {
+		if (isDemoMode || !selectedReport) return undefined;
+		return useQuery(apiAny.evaluations.getWeeklyReportDetail, () => ({
+			fridayDate: selectedReport.fridayDate
+		}));
+	});
 
 	let reports = $derived(isDemoMode ? demoReports : reportsQuery.data || []);
 

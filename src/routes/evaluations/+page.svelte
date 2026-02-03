@@ -7,21 +7,9 @@
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
 
-	let { data }: { data: { testRole?: string } } = $props();
-
-	const isTestMode = $derived(!!data.testRole);
-
-	// Fetch user to check role (for both test mode and real mode)
-	const user = useQuery(api.users.viewer, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
+	const user = useQuery(api.users.viewer, () => ({}));
 
 	const isAdmin = $derived.by(() => {
-		// Check test mode first
-		if (data.testRole === 'admin' || data.testRole === 'super') {
-			return true;
-		}
-		// Check real mode from database
 		if (!user.isLoading && user.data?.role) {
 			return user.data.role === 'admin' || user.data.role === 'super';
 		}
@@ -29,8 +17,7 @@
 	});
 
 	const evaluationsQuery = useQuery(api.evaluations.listRecent, () => ({
-		limit: 50,
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+		limit: 50
 	}));
 
 	// Transform query data to EvaluationEntry format

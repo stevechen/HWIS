@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { useQuery, useConvexClient } from 'convex-svelte';
+	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { api as apiAny } from '$convex/_generated/api';
-	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { RotateCcw } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -10,26 +9,10 @@
 	import * as Card from '$lib/components/ui/card';
 
 	const client = useConvexClient();
-	let { data }: { data: { testRole?: string } } = $props();
-
-	const isTestMode = $derived(!!data.testRole);
-
-	let currentUser = useQuery(api.users.viewer, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
 
 	let isAdvancing = $state(false);
 	let advanceResult = $state<{ message: string } | null>(null);
 	let showAdvanceDialog = $state(false);
-
-	$effect(() => {
-		if (isTestMode) return;
-		if (browser && currentUser.isLoading === false) {
-			if (currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
-				goto('/');
-			}
-		}
-	});
 
 	function refreshStudents() {}
 
@@ -37,9 +20,7 @@
 		isAdvancing = true;
 		advanceResult = null;
 		try {
-			const result = await client.mutation(apiAny.backup.advanceGradesAndClearEvaluations, {
-				testToken: isTestMode ? 'test-token-admin-mock' : undefined
-			});
+			const result = await client.mutation(apiAny.backup.advanceGradesAndClearEvaluations, {});
 			advanceResult = result;
 			refreshStudents();
 		} catch (e) {

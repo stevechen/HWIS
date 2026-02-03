@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
 	createWeeklyReportTestData,
 	cleanupWeeklyReportTestData,
@@ -6,6 +6,11 @@ import {
 	createCategoryWithSubs
 } from './convex-client';
 import { getTestSuffix } from './helpers';
+
+async function waitForReportsToLoad(page: Page) {
+	const loading = page.getByRole('status').filter({ hasText: 'Loading reports...' });
+	await expect(loading).toBeHidden({ timeout: 15000 });
+}
 
 test.describe('Weekly Reports Integration', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
@@ -23,6 +28,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate to weekly reports page
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Wait for data to load (not demo mode)
 		await expect(page.getByRole('heading', { name: 'Weekly Reports' })).toBeVisible();
@@ -41,6 +47,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate to weekly reports page
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Click on the first data row
 		const table = page.getByRole('table');
@@ -63,6 +70,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate to weekly reports page
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Open report dialog
 		const table = page.getByRole('table');
@@ -85,6 +93,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate to weekly reports page
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Open report dialog
 		const table = page.getByRole('table');
@@ -107,6 +116,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate to weekly reports page
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Open report dialog
 		const table = page.getByRole('table');
@@ -129,6 +139,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate to weekly reports page
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Open report dialog
 		const table = page.getByRole('table');
@@ -151,6 +162,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate to weekly reports page
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Open report dialog
 		const table = page.getByRole('table');
@@ -176,6 +188,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate to weekly reports page
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Open report dialog
 		const table = page.getByRole('table');
@@ -198,6 +211,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate to weekly reports page
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Open report dialog
 		const table = page.getByRole('table');
@@ -220,6 +234,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate to weekly reports page
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Open report dialog
 		const table = page.getByRole('table');
@@ -262,7 +277,7 @@ test.describe('Weekly Reports Integration', () => {
 		});
 
 		// Navigate to evaluations page to create an evaluation
-		await page.goto('/evaluations/new?testRole=teacher');
+		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
 		// await page.waitForTimeout(2000);
 
@@ -299,6 +314,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Now navigate to weekly reports and verify the report appears
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Verify the weekly reports page shows data
 		await expect(page.getByRole('heading', { name: 'Weekly Reports' })).toBeVisible();
@@ -337,7 +353,7 @@ test.describe('Weekly Reports Integration', () => {
 		});
 
 		// Create first evaluation
-		await page.goto('/evaluations/new?testRole=teacher');
+		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
 
 		// Search and select student
@@ -369,6 +385,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate to weekly reports and get initial report data
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Open the first report to see initial state
 		const table = page.getByRole('table');
@@ -382,7 +399,7 @@ test.describe('Weekly Reports Integration', () => {
 		await expect(page.getByRole('dialog')).not.toBeVisible();
 
 		// Create second evaluation for the same student (this updates the weekly report)
-		await page.goto('/evaluations/new?testRole=teacher');
+		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
 
 		// Search and select same student again
@@ -414,6 +431,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate back to weekly reports and verify the report is updated
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Open the report again and verify it's still there with data
 		const table2 = page.getByRole('table');
@@ -435,6 +453,7 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate to weekly reports page
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
+		await waitForReportsToLoad(page);
 
 		// Wait for page to load
 		await page.waitForTimeout(500);

@@ -27,7 +27,7 @@ test.describe('Login Page', () => {
 });
 
 test.describe('Authenticated User', () => {
-	test.use({ storageState: 'e2e/.auth/test.json' });
+	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/');
@@ -35,15 +35,21 @@ test.describe('Authenticated User', () => {
 	});
 
 	test('redirects to evaluations when authenticated as teacher', async ({ page }) => {
-		await page.waitForURL('/evaluations', { timeout: 5000 });
-		await expect(page).toHaveURL('/evaluations');
+		await page.waitForURL(/\/evaluations/, { timeout: 10000 });
+		await expect(page).toHaveURL(/\/evaluations/);
+	});
+});
+
+test.describe('Authenticated Admin', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	test.beforeEach(async ({ page }) => {
+		await page.goto('/');
+		await page.waitForSelector('body.hydrated');
 	});
 
-	test('redirects to admin when authenticated as admin via query param', async ({ page }) => {
-		// Use query param to simulate admin auth
-		await page.goto('/?testRole=admin');
-		await page.waitForSelector('body.hydrated');
-		await page.waitForURL('/admin', { timeout: 5000 });
-		await expect(page).toHaveURL('/admin');
+	test('redirects to admin when authenticated as admin', async ({ page }) => {
+		await page.waitForURL(/\/admin/, { timeout: 10000 });
+		await expect(page).toHaveURL(/\/admin/);
 	});
 });

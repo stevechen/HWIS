@@ -8,6 +8,42 @@ set -e
 # Create e2e/.auth directory
 mkdir -p e2e/.auth
 
+CONVEX_STARTED=""
+CONVEX_PID=""
+
+cleanup() {
+  if [ -n "$CONVEX_STARTED" ] && [ -n "$CONVEX_PID" ]; then
+    kill $CONVEX_PID 2>/dev/null || true
+    wait $CONVEX_PID 2>/dev/null || true
+  fi
+}
+
+trap cleanup EXIT INT TERM
+
+if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:3211 >/dev/null 2>&1; then
+  echo "Convex dev server already running."
+else
+  echo "Starting Convex dev server..."
+  bunx convex dev --tail-logs &
+  CONVEX_PID=$!
+  CONVEX_STARTED="true"
+
+  MAX_RETRIES=60
+  RETRY_COUNT=0
+  while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:3211 >/dev/null 2>&1; then
+      echo "Convex is ready!"
+      break
+    fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+      echo "Failed to start Convex after $MAX_RETRIES attempts"
+      exit 1
+    fi
+    sleep 1
+  done
+fi
+
 echo "Setting up test users..."
 RESULT=$(bun convex run testSetup:setupTestUsers 2>&1)
 
@@ -57,16 +93,6 @@ cat > e2e/.auth/teacher.json << EOF
       "httpOnly": true,
       "secure": false,
       "sameSite": "Lax"
-    },
-    {
-      "name": "hwis_test_auth",
-      "value": "teacher",
-      "domain": "localhost",
-      "path": "/",
-      "expires": -1,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
     }
   ],
   "origins": []
@@ -86,16 +112,6 @@ cat > e2e/.auth/admin.json << EOF
       "httpOnly": true,
       "secure": false,
       "sameSite": "Lax"
-    },
-    {
-      "name": "hwis_test_auth",
-      "value": "admin",
-      "domain": "localhost",
-      "path": "/",
-      "expires": -1,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
     }
   ],
   "origins": []
@@ -113,35 +129,6 @@ cat > e2e/.auth/super.json << EOF
       "path": "/",
       "expires": -1,
       "httpOnly": true,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "hwis_test_auth",
-      "value": "super",
-      "domain": "localhost",
-      "path": "/",
-      "expires": -1,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    }
-  ],
-  "origins": []
-}
-EOF
-
-# Test storage state (uses teacher role for basic auth)
-cat > e2e/.auth/test.json << EOF
-{
-  "cookies": [
-    {
-      "name": "hwis_test_auth",
-      "value": "teacher",
-      "domain": "localhost",
-      "path": "/",
-      "expires": -1,
-      "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     }

@@ -123,3 +123,16 @@ Authentication is handled via Google Single Sign-On (SSO).
 bun install
 bun dev
 ```
+
+## Local Convex + Auth Notes
+
+- Local Convex API runs on `http://127.0.0.1:3210`
+- Local Convex site proxy runs on `http://127.0.0.1:3211` (used by Better Auth)
+- Better Auth sets a Convex JWT cookie on sign-in; SSR redirects use it to resolve the viewer
+
+For local E2E, use:
+
+```sh
+./scripts/start-dev-servers.sh
+bunx playwright test e2e
+```

@@ -2,7 +2,6 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
-	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { Plus, Trash2, Pencil, Search, Upload, AlertTriangle, Check, X } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -38,20 +37,7 @@
 		};
 	};
 
-	let {
-		data
-	}: {
-		data: { testRole?: 'teacher' | 'admin' | 'super' };
-	} = $props();
-
-	const isTestMode = $derived(!!data.testRole);
-
-	const currentUser = useQuery(api.users.viewer, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
-	const studentsQuery = useQuery(apiAny.students.list, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
+	const studentsQuery = useQuery(apiAny.students.list, () => ({}));
 	const client = useConvexClient();
 
 	let searchQuery = $state('');
@@ -108,23 +94,7 @@
 	const grades = [7, 8, 9, 10, 11, 12];
 	const statuses = ['Enrolled', 'Not Enrolled'] as const;
 
-	$effect(() => {
-		if (isTestMode || data?.testRole) return;
-		if (browser && currentUser.isLoading === false) {
-			if (currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
-				goto('/');
-			}
-		}
-	});
-
-	$effect(() => {
-		if (isTestMode) return;
-		if (browser && currentUser.isLoading === false) {
-			if (currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
-				goto('/');
-			}
-		}
-	});
+	
 
 	function startAdd() {
 		formStudentId = '';
@@ -164,8 +134,7 @@
 		try {
 			const result = await client.query(apiAny.students.checkStudentIdExists, {
 				studentId: formStudentId.trim(),
-				excludeId: editingId || undefined,
-				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+				excludeId: editingId || undefined
 			});
 			idAvailability = result.exists ? 'taken' : 'available';
 			lastCheckedId = formStudentId.trim();
@@ -185,8 +154,7 @@
 			try {
 				const result = await client.query(apiAny.students.checkStudentIdExists, {
 					studentId: formStudentId.trim(),
-					excludeId: editingId || undefined,
-					testToken: isTestMode ? 'test-token-admin-mock' : undefined
+					excludeId: editingId || undefined
 				});
 				idAvailability = result.exists ? 'taken' : 'available';
 				lastCheckedId = formStudentId.trim();
@@ -227,8 +195,7 @@
 					studentId: formStudentId.trim(),
 					grade: formGrade,
 					status: formStatus,
-					note: formNote.trim(),
-					testToken: isTestMode ? 'test-token-admin-mock' : undefined
+					note: formNote.trim()
 				});
 			} else {
 				await client.mutation(apiAny.students.create, {
@@ -237,8 +204,7 @@
 					studentId: formStudentId.trim(),
 					grade: formGrade,
 					status: formStatus,
-					note: formNote.trim(),
-					testToken: isTestMode ? 'test-token-admin-mock' : undefined
+					note: formNote.trim()
 				});
 			}
 			showForm = false;
@@ -253,8 +219,7 @@
 		studentToDelete = student;
 
 		const related = await client.query(apiAny.students.checkStudentHasEvaluations, {
-			id: student._id,
-			testToken: isTestMode ? 'test-token-admin-mock' : undefined
+			id: student._id
 		});
 		deleteHasRelated = related.hasEvaluations;
 		relatedCount = related.count;
@@ -263,8 +228,7 @@
 	async function handleSetNotEnrolled() {
 		if (!studentToDelete) return;
 		await client.mutation(apiAny.students.disableStudent, {
-			id: studentToDelete._id,
-			testToken: isTestMode ? 'test-token-admin-mock' : undefined
+			id: studentToDelete._id
 		});
 		studentToDelete = null;
 		showDelete = false;
@@ -276,13 +240,11 @@
 		try {
 			if (deleteHasRelated) {
 				await client.mutation(apiAny.students.removeWithCascade, {
-					id: studentToDelete._id,
-					testToken: isTestMode ? 'test-token-admin-mock' : undefined
+					id: studentToDelete._id
 				});
 			} else {
 				await client.mutation(apiAny.students.remove, {
-					id: studentToDelete._id,
-					testToken: isTestMode ? 'test-token-admin-mock' : undefined
+					id: studentToDelete._id
 				});
 			}
 			studentToDelete = null;
@@ -299,8 +261,7 @@
 	async function handleDisable() {
 		if (!studentToDisable) return;
 		await client.mutation(apiAny.students.disableStudent, {
-			id: studentToDisable._id,
-			testToken: isTestMode ? 'test-token-admin-mock' : undefined
+			id: studentToDisable._id
 		});
 		studentToDisable = null;
 		showDisable = false;
@@ -353,8 +314,7 @@
 
 			const result = await client.mutation(apiAny.students.bulkImportWithDuplicateCheck, {
 				students,
-				mode: importMode,
-				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+				mode: importMode
 			});
 
 			importResult = result;

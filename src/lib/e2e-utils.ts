@@ -47,6 +47,14 @@ export interface CleanupResult {
 	timestamp?: number;
 }
 
+export interface SetupTestUsersResult {
+	teacherSessionToken?: string;
+	adminSessionToken?: string;
+	superSessionToken?: string;
+	expiresAt?: number;
+	error?: string;
+}
+
 export interface E2EUtils {
 	resetAll: () => Promise<void>;
 	resetCategoriesAndEvals: () => Promise<void>;
@@ -60,6 +68,7 @@ export interface E2EUtils {
 	seedBaseline: () => Promise<SeedBaselineResult>;
 	cleanupTestUsers: () => Promise<CleanupResult>;
 	cleanupAuditLogs: () => Promise<CleanupResult>;
+	setupTestUsers: () => Promise<SetupTestUsersResult>;
 	createStudent: (opts?: CreateStudentOptions) => Promise<unknown>;
 	createStudentWithId: (opts: CreateStudentOptions) => Promise<unknown>;
 	createCategory: (opts?: CreateCategoryOptions) => Promise<unknown>;
@@ -193,6 +202,17 @@ export function getE2EUtils(): E2EUtils {
 				return result;
 			} catch {
 				console.log('Cleanup audit logs error');
+				return { error: 'Error' };
+			}
+		},
+
+		async setupTestUsers(): Promise<SetupTestUsersResult> {
+			try {
+				const result = await client.mutation(api.testSetup.setupTestUsers, {});
+				console.log('Setup test users result:', result);
+				return result as SetupTestUsersResult;
+			} catch {
+				console.log('Setup test users error');
 				return { error: 'Error' };
 			}
 		},

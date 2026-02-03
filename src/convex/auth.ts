@@ -20,15 +20,39 @@ if (typeof window === 'undefined') {
 	// Set environment variables for auth component if not already set
 	const convexUrl =
 		process.env.CONVEX_URL || process.env.PUBLIC_CONVEX_URL || 'http://127.0.0.1:3210';
-	const siteUrlOverride =
-		process.env.PUBLIC_CONVEX_SITE_URL || process.env.SITE_URL || 'http://localhost:5173';
+	const stripSlash = (value: string) => value.replace(/\/$/, '');
+	const appOrigins = [
+		process.env.SITE_URL,
+		'http://localhost:5173',
+		'http://127.0.0.1:5173'
+	]
+		.filter(Boolean)
+		.map((value) => stripSlash(value as string));
+	const normalizeConvexSiteUrl = (value?: string) => {
+		if (!value) return undefined;
+		let normalized = stripSlash(value);
+		if (appOrigins.includes(normalized)) {
+			return undefined;
+		}
+		if (normalized.includes('.convex.cloud')) {
+			normalized = normalized.replace('.convex.cloud', '.convex.site');
+		}
+		if (normalized.includes(':3210')) {
+			normalized = normalized.replace(':3210', ':3211');
+		}
+		return normalized;
+	};
+	const convexSiteUrl =
+		normalizeConvexSiteUrl(process.env.CONVEX_SITE_URL || process.env.PUBLIC_CONVEX_SITE_URL) ||
+		normalizeConvexSiteUrl(convexUrl) ||
+		'http://127.0.0.1:3211';
 	// Use env var or generate a secure secret for development
 	const betterAuthSecret =
 		process.env.BETTER_AUTH_SECRET ||
 		'0150ee735cf86820eb80300e6050a1e4be246675a80a65fc62e64489633f7db0';
 
 	process.env.CONVEX_URL = convexUrl;
-	process.env.PUBLIC_CONVEX_SITE_URL = siteUrlOverride;
+	process.env.PUBLIC_CONVEX_SITE_URL = convexSiteUrl;
 	process.env.BETTER_AUTH_SECRET = betterAuthSecret;
 }
 
@@ -72,7 +96,13 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 				redirectURI: `${siteUrl}/api/auth/callback/google`
 			}
 		},
-		plugins: [convex({ authConfig })],
+		plugins: [
+			convex({
+				authConfig,
+				// Keep JWTs valid longer in dev/test to avoid mid-suite expiry
+				jwtExpirationSeconds: isDev ? 60 * 60 * 24 : undefined
+			})
+		],
 		hooks: {
 			after: createAuthMiddleware(async ({ path, context }) => {
 				if (!path?.startsWith('/sign-in/social')) return;

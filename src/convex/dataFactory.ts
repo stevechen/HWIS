@@ -110,19 +110,15 @@ export const seedBaseline = mutation({
 			'steve.homecook@gmail.com'
 		];
 
-		// Step 1: Clean up test users but preserve real users
-		const allUsers = await ctx.db.query('users').collect();
-		for (const user of allUsers) {
-			const isRealUser = REAL_USERS.includes(user.authId || '');
-			const isTestUser =
-				user.authId === 'test-user-id' ||
-				user.authId === 'test_admin' ||
-				user.authId === 'e2e_teacher1' ||
-				user.authId === 'e2e_teacher2' ||
-				user.authId?.startsWith('test_user_') ||
-				user.authId?.startsWith('eval_');
-
-			if (isTestUser && !isRealUser) {
+		// Step 1: Clean up known test users via indexed lookups (avoid full scans)
+		const testAuthIds = ['test-user-id', 'test_admin', 'e2e_teacher1', 'e2e_teacher2'];
+		for (const authId of testAuthIds) {
+			if (REAL_USERS.includes(authId)) continue;
+			const matches = await ctx.db
+				.query('users')
+				.withIndex('by_authId', (q) => q.eq('authId', authId))
+				.collect();
+			for (const user of matches) {
 				await ctx.db.delete(user._id);
 			}
 		}
@@ -179,9 +175,12 @@ export const seedBaseline = mutation({
 			}
 		}
 
-		// Step 4: Insert baseline students only if none exist
-		const existingStudents = await ctx.db.query('students').collect();
-		if (existingStudents.length === 0) {
+		// Step 4: Insert baseline students only if missing (avoid full scans)
+		const existingStudent = await ctx.db
+			.query('students')
+			.withIndex('by_studentId', (q) => q.eq('studentId', 'S1001'))
+			.first();
+		if (!existingStudent) {
 			const students = [
 				{
 					englishName: 'Alice Smith',
@@ -329,6 +328,22 @@ export const createStudentWithId = mutation({
 		// Validate test token for cloud Convex compatibility
 		await getAuthenticatedUser(ctx, args.testToken);
 		const tag = args.e2eTag || getE2ETag();
+		const existing = await ctx.db
+			.query('students')
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
+			.first();
+
+		if (existing) {
+			await ctx.db.patch(existing._id, {
+				englishName: args.englishName ?? existing.englishName,
+				chineseName: args.chineseName ?? existing.chineseName,
+				grade: args.grade ?? existing.grade,
+				status: (args.status as 'Enrolled' | 'Not Enrolled') ?? existing.status,
+				e2eTag: tag
+			});
+			return existing._id;
+		}
+
 		return await ctx.db.insert('students', {
 			englishName: args.englishName ?? `Student_${args.studentId}`,
 			chineseName: args.chineseName ?? '',

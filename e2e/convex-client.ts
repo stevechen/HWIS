@@ -34,6 +34,11 @@ export async function cleanupTestUsers() {
 	return await utils.cleanupTestUsers();
 }
 
+export async function setupTestUsers() {
+	const utils = getUtils();
+	return await utils.setupTestUsers();
+}
+
 export async function resetAll() {
 	const utils = getUtils();
 	return await utils.resetAll();

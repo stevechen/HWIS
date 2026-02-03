@@ -8,12 +8,7 @@
 	import { browser } from '$app/environment';
 
 	const client = useConvexClient();
-	const auth = useAuth();
-
-	let isTestMode = $state(false);
-	if (browser) {
-		isTestMode = document.cookie.split('; ').some((c) => c.startsWith('hwis_test_auth='));
-	}
+	const auth = browser ? useAuth() : { isLoading: false, isAuthenticated: false };
 
 	let status = $state('Checking auth...');
 	let error = $state<string | null>(null);
@@ -22,27 +17,23 @@
 	onMount(async () => {
 		await new Promise((r) => setTimeout(r, 1000));
 
-		if (!auth.isAuthenticated && !isTestMode) {
+		if (!auth.isAuthenticated) {
 			status = 'Not authenticated. Please sign in first.';
-			await new Promise((r) => setTimeout(r, 2000));
-			void goto('/login');
 			return;
 		}
 
 		const requestedRole = page.url.searchParams.get('role') || 'admin';
-		const tokenArg = isTestMode ? 'test-token-admin-mock' : undefined;
 
 		status = `Setting you as ${requestedRole}...`;
 
 		try {
 			status = 'Creating profile with your name...';
-			await client.mutation(api.onboarding.ensureUserProfile, { testToken: tokenArg });
+			await client.mutation(api.onboarding.ensureUserProfile, {});
 
 			status = `Setting you as ${requestedRole}...`;
 			await client.mutation(api.onboarding.setMyRole, {
 				role: requestedRole as 'super' | 'admin' | 'teacher' | 'student',
-				status: 'active',
-				testToken: tokenArg
+				status: 'active'
 			});
 
 			status = `Success! Profile created/updated. You are now ${requestedRole}.`;

@@ -136,8 +136,12 @@ export const clearAllData = mutation({
 });
 
 export const listBackups = query({
-	args: { _trigger: v.optional(v.number()) },
-	handler: async (ctx) => {
+	args: {
+		_trigger: v.optional(v.number()),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
 		const backups = await ctx.db.query('backups').collect();
 		return backups.sort((a, b) => b.createdAt - a.createdAt);
 	}

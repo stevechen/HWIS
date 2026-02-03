@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { authClient } from '$lib/auth-client';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { browser } from '$app/environment';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { goto } from '$app/navigation';
@@ -8,33 +9,36 @@
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Card from '$lib/components/ui/card';
 
-	let { data }: { data: { testRole?: string } } = $props();
+	let { data }: { data: { authState?: { isAuthenticated: boolean } } } = $props();
 
-	const auth = useAuth();
-	const session = authClient.useSession();
-	const cookieTestMode = $derived(!!data.testRole);
-
-	const dbUser = useQuery(api.users.viewer, () => ({
-		testToken: cookieTestMode ? 'test-token-admin-mock' : undefined
-	}));
+	const auth = browser ? useAuth() : { isLoading: false, isAuthenticated: false };
+	const session = browser
+		? authClient.useSession()
+		: {
+				subscribe(run: (value: { isPending: boolean; data: { user: { name?: string } } | null }) => void) {
+					run({ isPending: false, data: null });
+					return () => {};
+				}
+			};
+	const dbUser = useQuery(api.users.viewer, () => ({}));
 	const client = useConvexClient();
 
-	const isLoggedIn = $derived(auth.isAuthenticated || cookieTestMode);
+	const serverAuthenticated = $derived(!!data.authState?.isAuthenticated);
+	const isLoggedIn = $derived(auth.isAuthenticated || serverAuthenticated);
 	// isLoading is derived but currently unused - keeping for potential future use
 	// const _isLoading = $derived(auth.isLoading || $session.isPending || dbUser.isLoading);
-	const userName = $derived($session.data?.user.name ?? (cookieTestMode ? 'Test User' : undefined));
-	const hasProfile = $derived(!!dbUser.data?.authId || cookieTestMode);
+	const userName = $derived($session.data?.user.name);
+	const hasProfile = $derived(!!dbUser.data?.authId);
 	const isApproved = $derived(
-		cookieTestMode ||
-			(hasProfile &&
-				(dbUser.data?.status === 'active' ||
-					dbUser.data?.role === 'admin' ||
-					dbUser.data?.role === 'super'))
+		hasProfile &&
+			(dbUser.data?.status === 'active' ||
+				dbUser.data?.role === 'admin' ||
+				dbUser.data?.role === 'super')
 	);
 	const needsProfile = $derived(isLoggedIn && !hasProfile);
 
 	async function ensureProfile() {
-		if (!needsProfile || cookieTestMode) return;
+		if (!needsProfile) return;
 
 		try {
 			await client.mutation(api.onboarding.ensureUserProfile, {});
@@ -44,38 +48,12 @@
 	}
 
 	$effect(() => {
-		if (needsProfile && !dbUser.isLoading && !cookieTestMode) {
+		if (needsProfile && !dbUser.isLoading) {
 			ensureProfile();
 		}
 	});
 
-	// Redirect based on role: admins → /admin, teachers → /evaluations
-	$effect(() => {
-		if (!dbUser.isLoading && isApproved) {
-			let isAdmin = false;
-			if (cookieTestMode) {
-				// In test mode, check testRole
-				isAdmin = data.testRole === 'admin' || data.testRole === 'super';
-			} else if (dbUser.data) {
-				// In normal mode, check dbUser role
-				isAdmin = dbUser.data.role === 'admin' || dbUser.data.role === 'super';
-			}
-
-			// Redirect admins to admin dashboard, teachers to evaluations
-			if (isAdmin) {
-				void goto('/admin', { replaceState: true });
-			} else {
-				void goto('/evaluations', { replaceState: true });
-			}
-		}
-	});
-
 	async function signOut() {
-		if (cookieTestMode) {
-			document.cookie = 'hwis_test_auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-			void goto('/');
-			return;
-		}
 		await authClient.signOut();
 		void goto('/login');
 	}

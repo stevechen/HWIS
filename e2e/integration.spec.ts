@@ -148,15 +148,15 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 		testE2eTag = `e2e-test_${suffix}`;
 
 		// Create student
-		const createResult = await createStudent({
+		const studentDocId = (await createStudent({
 			studentId,
 			englishName,
 			chineseName,
 			grade: 10,
 			status: 'Enrolled',
 			e2eTag: testE2eTag
-		});
-		expect(createResult).toBeTruthy();
+		})) as string;
+		expect(studentDocId).toBeTruthy();
 
 		// Create an evaluation for the student
 		const evalResult = await createEvaluationForStudent({
@@ -167,7 +167,7 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 
 		// Navigate directly to the student timeline page
 		// This tests that the evaluation data is persisted and can be viewed
-		await page.goto(`/evaluations/student/${studentId}?testRole=teacher`);
+		await page.goto(`/evaluations/student/${studentDocId}`);
 		await page.waitForSelector('body.hydrated');
 
 		// Wait a bit more for Convex data to load

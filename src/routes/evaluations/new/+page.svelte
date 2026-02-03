@@ -11,8 +11,6 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Select from '$lib/components/ui/select';
 
-	let { data }: { data: { testRole?: string } } = $props();
-
 	function getCurrentSemesterId(): string {
 		const now = new Date();
 		const year = now.getFullYear();
@@ -31,15 +29,9 @@
 	let loading = $state(false);
 	let error = $state('');
 
-	const isTestMode = $derived(!!data.testRole);
-
 	const client = useConvexClient();
-	const categoriesQuery = useQuery(api.categories.list, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
-	const studentsQuery = useQuery(api.students.list, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
+	const categoriesQuery = useQuery(api.categories.list, () => ({}));
+	const studentsQuery = useQuery(api.students.list, () => ({}));
 
 	let filteredStudents = $derived(
 		studentsQuery.data?.filter((s) => {
@@ -60,6 +52,9 @@
 	);
 
 	let selectedCategory = $derived(categoriesQuery.data?.find((c) => c._id === categoryId));
+	let resolvedSubCategory = $derived(
+		selectedCategory && selectedCategory.subCategories.includes(subCategory) ? subCategory : ''
+	);
 
 	async function handleSubmit() {
 		if (selectedStudentIds.size === 0) {
@@ -70,7 +65,7 @@
 			error = 'Please select a category';
 			return;
 		}
-		if (selectedCategory?.subCategories.length && !subCategory) {
+		if (selectedCategory?.subCategories.length && !resolvedSubCategory) {
 			error = 'Please select a sub-category';
 			return;
 		}
@@ -83,10 +78,9 @@
 				studentIds: Array.from(selectedStudentIds) as Id<'students'>[],
 				value: points,
 				category: selectedCategory!.name,
-				subCategory,
+				subCategory: resolvedSubCategory,
 				details,
-				semesterId: getCurrentSemesterId(),
-				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+				semesterId: getCurrentSemesterId()
 			});
 
 			void goto('/evaluations');
@@ -209,7 +203,7 @@
 								Sub-Category
 								<Select.Root type="single" bind:value={subCategory}>
 									<Select.Trigger class="mt-1" aria-label="Select sub-category">
-										{subCategory || 'Select Sub-Category'}
+										{resolvedSubCategory || 'Select Sub-Category'}
 									</Select.Trigger>
 									<Select.Content>
 										{#each selectedCategory.subCategories as sub (sub)}

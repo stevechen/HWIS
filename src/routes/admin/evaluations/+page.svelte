@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { useQuery, useConvexClient } from 'convex-svelte';
+	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { goto } from '$app/navigation';
 	import { ArrowLeft, Search, User } from '@lucide/svelte';
@@ -8,19 +8,9 @@
 	import { Input } from '$lib/components/ui/input';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
 
-	let { data }: { data: { testRole?: string } } = $props();
-
-	const isTestMode = $derived(!!data.testRole);
-
-	// Fetch user to check role
-	const user = useQuery(api.users.viewer, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
-
 	// Fetch all evaluations
 	const evaluationsQuery = useQuery(api.evaluations.listAllEvaluations, () => ({
-		limit: 100,
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
+		limit: 100
 	}));
 
 	// Filter states

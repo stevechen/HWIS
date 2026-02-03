@@ -7,19 +7,16 @@
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
 
-	let { data }: { data: { testRole?: string; demo?: string; studentId?: string } } = $props();
+	let { data }: { data: { demo?: string; studentId?: string } } = $props();
 
 	// Demo mode flags
-	const isDemo = $derived(!!data.demo || !!data.testRole);
-	const demoRole = $derived(data.demo || data.testRole || 'teacher');
-	const isTestMode = $derived(!!data.testRole || !!data.demo);
+	const isDemo = $derived(!!data.demo);
+	const demoRole = $derived(data.demo || 'teacher');
 
 	// Fetch user to check role
 	const userQuery = $derived.by(() => {
 		if (isDemo) return undefined;
-		return useQuery(api.users.viewer, () => ({
-			testToken: isTestMode ? 'test-token' : undefined
-		}));
+		return useQuery(api.users.viewer, () => ({}));
 	});
 
 	// Determine if user is admin
@@ -92,8 +89,7 @@
 		if (isDemo) return undefined;
 		const studentId = data.studentId as Id<'students'>;
 		return useQuery(api.evaluations.getStudent, () => ({
-			studentId,
-			testToken: isTestMode ? 'test-token' : undefined
+			studentId
 		}));
 	});
 
@@ -102,8 +98,7 @@
 		if (isAdmin) return undefined;
 		const studentId = data.studentId as Id<'students'>;
 		return useQuery(api.evaluations.getStudentEvaluationsByTeacher, () => ({
-			studentId,
-			testToken: isTestMode ? 'test-token' : undefined
+			studentId
 		}));
 	});
 
@@ -112,8 +107,7 @@
 		if (!isAdmin) return undefined;
 		const studentId = data.studentId as Id<'students'>;
 		return useQuery(api.evaluations.getStudentEvaluationsAll, () => ({
-			studentId,
-			testToken: isTestMode ? 'test-token' : undefined
+			studentId
 		}));
 	});
 

@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { useQuery, useConvexClient } from 'convex-svelte';
+	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import { goto } from '$app/navigation';
 	import {
 		Database,
 		GraduationCap,
@@ -19,18 +18,7 @@
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Card from '$lib/components/ui/card';
 
-	let {
-		data
-	}: {
-		data: { testRole?: 'teacher' | 'admin' | 'super' };
-	} = $props();
-
-	const isTestMode = $derived(!!data.testRole);
 	const client = useConvexClient();
-
-	const user = useQuery(api.users.viewer, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
 
 	let seeding = $state(false);
 	let seedMessage = $state('');
@@ -40,12 +28,8 @@
 		seeding = true;
 		seedMessage = 'Seeding data...';
 		try {
-			await client.mutation(api.categories.seed, {
-				testToken: isTestMode ? 'test-token-admin-mock' : undefined
-			});
-			await client.mutation(api.students.seed, {
-				testToken: isTestMode ? 'test-token-admin-mock' : undefined
-			});
+			await client.mutation(api.categories.seed, {});
+			await client.mutation(api.students.seed, {});
 			seedMessage = 'Success! Students and categories seeded.';
 		} catch (err) {
 			seedMessage = 'Error: ' + (err as Error).message;
@@ -53,13 +37,6 @@
 			seeding = false;
 		}
 	}
-
-	$effect(() => {
-		if (isTestMode || data?.testRole) return;
-		if (user.isLoading === false && user.data?.role !== 'admin' && user.data?.role !== 'super') {
-			goto('/');
-		}
-	});
 </script>
 
 <div class="mx-auto max-w-4xl p-8">

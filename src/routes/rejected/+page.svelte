@@ -1,19 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { browser } from '$app/environment';
-
-	let cookieTestMode = $state(false);
-
-	$effect(() => {
-		if (!browser) return;
-		cookieTestMode =
-			document.cookie.split('; ').find((row) => row.startsWith('hwis_test_auth=')) !== undefined;
-	});
 
 	async function signOut() {
-		if (cookieTestMode) {
-			document.cookie = 'hwis_test_auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-		}
 		void goto('/login');
 	}
 </script>

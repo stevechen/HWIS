@@ -3,7 +3,6 @@
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { goto } from '$app/navigation';
-	import { browser } from '$app/environment';
 	import { Plus, Trash2, Pencil, X } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
@@ -11,34 +10,12 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
 
-	let {
-		data
-	}: {
-		data: { testRole?: 'teacher' | 'admin' | 'super' };
-	} = $props();
-
-	const isTestMode = $derived(!!data.testRole);
-
-	const currentUser = useQuery(api.users.viewer, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
 	const client = useConvexClient();
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const apiAny = api as any;
 
-	const categoriesQuery = useQuery(api.categories.list, () => ({
-		testToken: isTestMode ? 'test-token-admin-mock' : undefined
-	}));
+	const categoriesQuery = useQuery(api.categories.list, () => ({}));
 	const categories = $derived(categoriesQuery.data ?? []);
-
-	$effect(() => {
-		if (isTestMode || data?.testRole) return;
-		if (browser && currentUser.isLoading === false) {
-			if (currentUser.data?.role !== 'admin' && currentUser.data?.role !== 'super') {
-				goto('/');
-			}
-		}
-	});
 
 	let showForm = $state(false);
 	let editingId = $state<Id<'point_categories'> | null>(null);
@@ -90,14 +67,12 @@
 				await client.mutation(api.categories.update, {
 					id: editingId,
 					name: categoryName,
-					subCategories,
-					testToken: isTestMode ? 'test-token-admin-mock' : undefined
+					subCategories
 				});
 			} else {
 				await client.mutation(api.categories.create, {
 					name: categoryName,
-					subCategories,
-					testToken: isTestMode ? 'test-token-admin-mock' : undefined
+					subCategories
 				});
 			}
 			handleCancel();
@@ -132,8 +107,7 @@
 			try {
 				const count = await client.query(apiAny.categories.getSubCategoryEvaluationCount, {
 					categoryName: category.name,
-					subCategory: category.subCategories[0],
-					testToken: isTestMode ? 'test-token-admin-mock' : undefined
+					subCategory: category.subCategories[0]
 				});
 				if (count && count > 0) {
 					subCategoryWarning = {
@@ -158,8 +132,7 @@
 		isSubmitting = true;
 		try {
 			await client.mutation(api.categories.remove, {
-				id: categoryToDelete._id,
-				testToken: isTestMode ? 'test-token-admin-mock' : undefined
+				id: categoryToDelete._id
 			});
 			categoryToDelete = null;
 		} catch {
