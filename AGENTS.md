@@ -188,6 +188,20 @@ When testing mutations that create data:
 - `page.reload()` - only use if absolutely necessary; prefer web-first assertions
 - `window.e2e.*` - use imports from `convex-client.ts`
 
+## Tailwind CSS Conventions
+
+When using Tailwind CSS for sizing, prefer the `size-*` utility classes over separate `w-*` and `h-*` classes when setting both width and height to the same value:
+
+```html
+<!-- Preferred -->
+<div class="size-4">Icon</div>
+
+<!-- Avoid -->
+<div class="w-4 h-4">Icon</div>
+```
+
+This applies to icons, buttons, avatars, and any other elements where width equals height.
+
 ### Running All Tests
 
 ```bash

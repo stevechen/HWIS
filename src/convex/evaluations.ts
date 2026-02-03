@@ -132,7 +132,8 @@ export const listRecent = query({
 			/* eslint-disable @typescript-eslint/no-explicit-any */
 			_id: any;
 			studentId: any;
-			studentName: string;
+			englishName: string;
+			grade: number;
 			studentIdCode: string;
 			value: number;
 			category: string;
@@ -145,9 +146,8 @@ export const listRecent = query({
 			results.push({
 				_id: eval_._id,
 				studentId: eval_.studentId,
-				studentName: student
-					? `${student.englishName} (${student.chineseName})`
-					: 'Unknown Student',
+				englishName: student?.englishName || 'Unknown Student',
+				grade: student?.grade || 0,
 				studentIdCode: student?.studentId || 'N/A',
 				value: eval_.value,
 				category: eval_.category,

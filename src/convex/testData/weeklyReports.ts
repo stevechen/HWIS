@@ -1,4 +1,5 @@
 import { mutation } from '../_generated/server';
+import type { Id } from '../_generated/dataModel';
 
 // Weekly Reports Test Data Generator
 // Creates realistic 5 weeks of evaluation data for testing
@@ -203,12 +204,12 @@ export const createWeeklyReportTestData = mutation({
 			while (evaluationIndex < week.evaluationCount) {
 				// Select student (rotate through active students)
 				const studentIndex = evaluationIndex % activeStudents.length;
-				const studentId = activeStudents[studentIndex];
+				const studentId = activeStudents[studentIndex] as Id<'students'>;
 
 				// Select teacher (rotate to distribute evaluations)
 				const teacherIndex = Math.floor(evaluationIndex / 3) % teachers.length;
 				const teacher = teachers[teacherIndex];
-				const teacherId = teacherIds[teacherIndex];
+				const teacherId = teacherIds[teacherIndex] as Id<'users'>;
 
 				// Select category based on teacher focus
 				const categoryIndex = teacherIndex % teacher.focus.length;
@@ -295,7 +296,8 @@ export const createWeeklyReportTestData = mutation({
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function deleteByTag(ctx: any, table: string, tag: string): Promise<number> {
 	const docs = await ctx.db.query(table).collect();
-	const taggedDocs = docs.filter((doc) => (doc as { e2eTag: string }).e2eTag === tag);
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const taggedDocs = docs.filter((doc: any) => (doc as { e2eTag: string }).e2eTag === tag);
 
 	for (const doc of taggedDocs) {
 		await ctx.db.delete(doc._id);
@@ -312,7 +314,8 @@ async function verifyCompleteCleanup(ctx: any, tag: string): Promise<{ e2eTag: s
 
 	for (const table of tables) {
 		const docs = await ctx.db.query(table).collect();
-		const tagged = docs.filter((doc) => (doc as { e2eTag: string }).e2eTag === tag);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const tagged = docs.filter((doc: any) => (doc as { e2eTag: string }).e2eTag === tag);
 		remaining.push(...tagged);
 	}
 

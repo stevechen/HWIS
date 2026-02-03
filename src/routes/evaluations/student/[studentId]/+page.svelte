@@ -214,20 +214,20 @@
 	}
 </script>
 
-<div class="mx-auto p-8 max-w-6xl">
-	<header class="flex justify-between items-center mb-6">
+<div class="mx-auto max-w-6xl p-8">
+	<header class="mb-6 flex items-center justify-between">
 		<div class="flex items-center gap-4">
 			<Button variant="outline" onclick={() => void (window.location.href = '/evaluations')}>
 				<ArrowLeft class="size-4" />
-				<span class="hidden sm:inline ml-2">Back to Evaluations</span>
+				<span class="ml-2 hidden sm:inline">Back to Evaluations</span>
 			</Button>
-			<h1 class="font-semibold text-foreground text-lg sm:text-2xl">
+			<h1 class="text-foreground text-lg font-semibold sm:text-2xl">
 				<span class="hidden sm:inline">Evaluation History - </span>
 				<span>G{student.grade} - {student.englishName}</span>
 			</h1>
 			{#if isDemo}
 				<span
-					class="bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded-full text-yellow-800 dark:text-yellow-100 text-xs"
+					class="rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
 				>
 					DEMO MODE ({demoRole.toUpperCase()})
 				</span>
@@ -237,8 +237,8 @@
 	</header>
 
 	<!-- Timeline Controls -->
-	<div class="flex justify-between items-center mb-6">
-		<h2 class="font-semibold text-xl">{isAdmin ? 'Points' : 'Your Assigned Points'}</h2>
+	<div class="mb-6 flex items-center justify-between">
+		<h2 class="text-xl font-semibold">{isAdmin ? 'Points' : 'Your Assigned Points'}</h2>
 		<div class="flex items-center gap-2">
 			<Button
 				variant="outline"
@@ -256,10 +256,10 @@
 			{#if isAdmin}
 				<select
 					bind:value={teacherFilter}
-					class="bg-background shadow-sm px-3 py-1 border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring h-9 text-sm transition-colors"
+					class="bg-background border-input focus:ring-ring h-9 rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus:ring-1 focus:outline-none"
 				>
 					<option value="">All Teachers</option>
-					{#each uniqueTeachers() as teacher}
+					{#each uniqueTeachers() as teacher (teacher)}
 						<option value={teacher}>{teacher}</option>
 					{/each}
 				</select>
@@ -278,41 +278,41 @@
 
 	<!-- Loading State -->
 	{#if !isDemo && (userQuery?.isLoading ?? false)}
-		<div class="py-12 text-muted-foreground text-center">Loading user data...</div>
+		<div class="text-muted-foreground py-12 text-center">Loading user data...</div>
 	{:else if !isDemo && (studentQuery?.isLoading ?? false)}
-		<div class="py-12 text-muted-foreground text-center">Loading student data...</div>
+		<div class="text-muted-foreground py-12 text-center">Loading student data...</div>
 	{:else if !isDemo && isAdmin && (allEvalsQuery?.isLoading ?? false)}
-		<div class="py-12 text-muted-foreground text-center">Loading evaluation history...</div>
+		<div class="text-muted-foreground py-12 text-center">Loading evaluation history...</div>
 	{:else if !isDemo && !isAdmin && (teacherEvalsQuery?.isLoading ?? false)}
-		<div class="py-12 text-muted-foreground text-center">Loading your evaluations...</div>
+		<div class="text-muted-foreground py-12 text-center">Loading your evaluations...</div>
 	{:else if filteredEvaluations().length === 0}
-		<div class="py-12 text-muted-foreground text-center">
+		<div class="text-muted-foreground py-12 text-center">
 			No evaluations found for this student.
 		</div>
 	{:else}
 		<!-- Timeline -->
-		<div class="relative bg-background">
+		<div class="bg-background relative">
 			<!-- Central Line (sm+) -->
 			<div
-				class="hidden sm:block top-0 bottom-0 left-1/2 absolute border-border border-l w-0.5 -translate-x-1/2"
+				class="border-border absolute top-0 bottom-0 left-1/2 hidden w-0.5 -translate-x-1/2 border-l sm:block"
 			></div>
 
-			<div class="relative flex flex-col gap-6 py-4 min-h-25">
+			<div class="relative flex min-h-25 flex-col gap-6 py-4">
 				{#each filteredEvaluations() as eval_, index (eval_._id)}
 					<!-- Timeline Item -->
 					{#if index % 2 === 0}
 						<!-- Odd item: Date on LEFT, Node center, Content on RIGHT -->
-						<div class="items-center gap-2 sm:gap-4 grid grid-cols-[1fr_auto_1fr]">
+						<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
 							<!-- Date on Left -->
 							<div
-								class="flex flex-col justify-center items-end self-center pr-2 sm:w-full sm:min-w-38 text-muted-foreground text-right"
+								class="text-muted-foreground flex flex-col items-end justify-center self-center pr-2 text-right sm:w-full sm:min-w-38"
 							>
 								<div class="flex items-center gap-1 text-xs">
 									<Calendar class="size-3" />
 									<span>{formatDate(eval_.timestamp)}</span>
 								</div>
 								{#if isAdmin}
-									<div class="flex items-center gap-1 mt-1 text-xs">
+									<div class="mt-1 flex items-center gap-1 text-xs">
 										<User class="size-3" />
 										<span class={getTeacherNameColor(eval_)}>{eval_.teacherName}</span>
 									</div>
@@ -320,7 +320,7 @@
 							</div>
 
 							<!-- Node Center -->
-							<div class="z-10 flex justify-center items-center">
+							<div class="z-10 flex items-center justify-center">
 								<div
 									class="border-background size-3 rounded-full border-2 {getNodeColor(eval_)}"
 								></div>
@@ -336,10 +336,10 @@
 									onmouseenter={() => (hoveredIndex = index)}
 									onmouseleave={() => (hoveredIndex = null)}
 								>
-									<div class="flex sm:flex-row flex-col sm:items-center gap-0.5 sm:gap-2 mb-1">
+									<div class="mb-1 flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
 										<span class="text-sm font-semibold {getCategoryColor()}">{eval_.category}</span>
 										{#if eval_.subCategory}
-											<span class="hidden sm:inline text-muted-foreground text-xs">›</span>
+											<span class="text-muted-foreground hidden text-xs sm:inline">›</span>
 											<span class="text-muted-foreground text-xs">{eval_.subCategory}</span>
 										{/if}
 									</div>
@@ -372,7 +372,7 @@
 						</div>
 					{:else}
 						<!-- Even item: Content on LEFT, Node center, Date on RIGHT -->
-						<div class="items-center gap-2 sm:gap-4 grid grid-cols-[1fr_auto_1fr]">
+						<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
 							<!-- Content on Left -->
 							<div class="flex justify-end self-center pr-2 sm:w-full">
 								<div
@@ -383,10 +383,10 @@
 									onmouseenter={() => (hoveredIndex = index)}
 									onmouseleave={() => (hoveredIndex = null)}
 								>
-									<div class="flex sm:flex-row flex-col sm:items-center gap-0.5 sm:gap-2 mb-1">
+									<div class="mb-1 flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
 										<span class="text-sm font-semibold {getCategoryColor()}">{eval_.category}</span>
 										{#if eval_.subCategory}
-											<span class="hidden sm:inline text-muted-foreground text-xs">›</span>
+											<span class="text-muted-foreground hidden text-xs sm:inline">›</span>
 											<span class="text-muted-foreground text-xs">{eval_.subCategory}</span>
 										{/if}
 									</div>
@@ -418,7 +418,7 @@
 							</div>
 
 							<!-- Node Center -->
-							<div class="z-10 flex justify-center items-center">
+							<div class="z-10 flex items-center justify-center">
 								<div
 									class="border-background size-3 rounded-full border-2 {getNodeColor(eval_)}"
 								></div>
@@ -426,14 +426,14 @@
 
 							<!-- Date on Right -->
 							<div
-								class="flex flex-col justify-center items-start self-center pl-2 sm:w-full sm:min-w-38 text-muted-foreground"
+								class="text-muted-foreground flex flex-col items-start justify-center self-center pl-2 sm:w-full sm:min-w-38"
 							>
 								<div class="flex items-center gap-1 text-xs">
 									<Calendar class="size-3" />
 									<span>{formatDate(eval_.timestamp)}</span>
 								</div>
 								{#if isAdmin}
-									<div class="flex items-center gap-1 mt-1 text-xs">
+									<div class="mt-1 flex items-center gap-1 text-xs">
 										<User class="size-3" />
 										<span class={getTeacherNameColor(eval_)}>{eval_.teacherName}</span>
 									</div>
@@ -448,14 +448,14 @@
 
 	<!-- Legend -->
 	<div
-		class="right-0 bottom-0 left-0 z-50 fixed flex justify-center items-center gap-6 bg-card shadow-lg p-3 border-t text-muted-foreground text-sm"
+		class="bg-card text-muted-foreground fixed right-0 bottom-0 left-0 z-50 flex items-center justify-center gap-6 border-t p-3 text-sm shadow-lg"
 	>
 		<div class="flex items-center gap-2">
-			<div class="bg-emerald-500 rounded-full w-3 h-3"></div>
+			<div class="h-3 w-3 rounded-full bg-emerald-500"></div>
 			<span>Positive Points</span>
 		</div>
 		<div class="flex items-center gap-2">
-			<div class="bg-red-500 rounded-full w-3 h-3"></div>
+			<div class="h-3 w-3 rounded-full bg-red-500"></div>
 			<span>Negative Points</span>
 		</div>
 	</div>

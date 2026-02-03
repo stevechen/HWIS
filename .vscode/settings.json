@@ -2,6 +2,11 @@
 	"files.associations": {
 		"*.css": "tailwindcss"
 	},
-	"cSpell.words": ["hwis", "mmailaender", "studentid"],
+	"cSpell.words": [
+		"Evals",
+		"hwis",
+		"mmailaender",
+		"studentid"
+	],
 	"cSpell.diagnosticLevel": "hint"
 }

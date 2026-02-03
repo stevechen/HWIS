@@ -106,7 +106,7 @@ export function isAllowedDomain(email: string): boolean {
 // Helper to get authenticated user
 export const getAuthenticatedUser = async (ctx: any, testToken?: string) => {
 	// Check for test token first (for e2e testing)
-	if (testToken === 'test-token-admin-mock') {
+	if (testToken === 'test-token-admin-mock' || testToken === 'test-token') {
 		// Return a test admin user
 		const testUser = await ctx.db
 			.query('users')

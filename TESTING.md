@@ -354,7 +354,7 @@ Tests run on every PR:
 | `/admin/categories` | 8     | Dialogs, form fields |
 | `/admin/students`   | 10    | Dialogs, form fields |
 | `/admin/users`      | 3     | Structure            |
-| `/evaluations`      | 4     | Structure            |
+| `/evaluations`     | 4     | Timeline, navigation, sorting, details toggle |
 | `/evaluations/new`  | 7     | Form structure       |
 | `/evaluations/student/[id]` | 31 | Timeline, sorting, filtering, admin features |
 | `/rejected`         | 4     | Static page          |
