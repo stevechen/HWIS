@@ -265,8 +265,8 @@ test.describe('Evaluations (admin user) @evaluations', () => {
 		await backButton.click();
 		await expect(page).toHaveURL('/admin', { timeout: 5000 });
 
-		// Now navigate back to evaluations using the "View Evaluations" button
-		const evalReviewCard = page.getByRole('link', { name: /View Evaluations/i });
+		// Now navigate back to evaluations using the Evaluation Review card
+		const evalReviewCard = page.getByRole('link', { name: /My Evaluation Review/i });
 		await expect(evalReviewCard).toBeVisible();
 		await evalReviewCard.click();
 		await expect(page).toHaveURL('/evaluations', { timeout: 5000 });

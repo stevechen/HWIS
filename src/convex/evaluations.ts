@@ -374,3 +374,72 @@ export const getStudentEvaluationsAll = query({
 		return enriched.sort((a, b) => b.timestamp - a.timestamp);
 	}
 });
+
+// Get all evaluations from all teachers (admin view)
+export const listAllEvaluations = query({
+	args: {
+		limit: v.optional(v.number()),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
+
+		// Fetch evaluations (100 by default, max 500)
+		const pageSize = Math.min(args.limit || 100, 500);
+
+		const results = await ctx.db.query('evaluations').order('desc').take(pageSize);
+
+		// Deduplicate IDs using Set BEFORE fetching
+		const studentIds = [...new Set(results.map((e) => e.studentId))];
+		const teacherIds = [...new Set(results.map((e) => e.teacherId))];
+
+		// Parallel fetch students and teachers
+		const [students, teachers] = await Promise.all([
+			Promise.all(studentIds.map((id) => ctx.db.get(id))),
+			Promise.all(teacherIds.map((id) => ctx.db.get(id)))
+		]);
+
+		// Build maps for O(1) lookup
+		const studentMap = new Map(
+			students.filter((s): s is NonNullable<typeof s> => s != null).map((s) => [s._id, s])
+		);
+		const teacherMap = new Map(
+			teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
+		);
+
+		// Build results (single pass through evaluations)
+		const enriched: Array<{
+			_id: string;
+			studentId: string;
+			englishName: string;
+			grade: number;
+			studentIdCode: string;
+			value: number;
+			category: string;
+			subCategory: string;
+			details: string;
+			timestamp: number;
+			teacherName: string;
+			teacherId: string;
+		}> = results.map((eval_) => {
+			const student = studentMap.get(eval_.studentId);
+			const teacher = teacherMap.get(eval_.teacherId);
+			return {
+				_id: eval_._id.toString(),
+				studentId: eval_.studentId.toString(),
+				englishName: student?.englishName || 'Unknown Student',
+				grade: student?.grade || 0,
+				studentIdCode: student?.studentId || 'N/A',
+				value: eval_.value,
+				category: eval_.category,
+				subCategory: eval_.subCategory,
+				details: eval_.details,
+				timestamp: eval_.timestamp,
+				teacherName: teacher?.name || 'Unknown Teacher',
+				teacherId: eval_.teacherId.toString()
+			};
+		});
+
+		return enriched;
+	}
+});

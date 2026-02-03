@@ -9,19 +9,19 @@ test.describe('Admin Dashboard @admin', () => {
 	});
 
 	test('can navigate to students page', async ({ page }) => {
-		await page.getByRole('link', { name: 'Manage Students' }).click();
+		await page.getByRole('link', { name: 'Student Management' }).click();
 		await page.waitForSelector('body.hydrated');
 		await expect(page).toHaveURL(/\/admin\/students/);
 	});
 
 	test('can navigate to categories page', async ({ page }) => {
-		await page.getByRole('link', { name: 'Manage Categories' }).click();
+		await page.getByRole('link', { name: 'Categories' }).click();
 		await page.waitForSelector('body.hydrated');
 		await expect(page).toHaveURL(/\/admin\/categories/);
 	});
 
 	test('can navigate to users page', async ({ page }) => {
-		await page.getByRole('link', { name: 'Manage Users' }).click();
+		await page.getByRole('link', { name: 'User Accounts' }).click();
 		await page.waitForSelector('body.hydrated');
 		await expect(page).toHaveURL(/\/admin\/users/);
 	});
@@ -29,7 +29,7 @@ test.describe('Admin Dashboard @admin', () => {
 	test('can navigate to backup page', async ({ page }) => {
 		// Expand Settings section first
 		await page.getByRole('button', { name: 'Settings' }).click();
-		await page.getByRole('link', { name: 'Manage Backups' }).click();
+		await page.getByRole('link', { name: 'Backup' }).click();
 		await page.waitForSelector('body.hydrated');
 		await expect(page).toHaveURL(/\/admin\/backup/);
 	});
@@ -37,7 +37,7 @@ test.describe('Admin Dashboard @admin', () => {
 	test('can navigate to audit page', async ({ page }) => {
 		// Expand Settings section first
 		await page.getByRole('button', { name: 'Settings' }).click();
-		await page.getByRole('link', { name: 'View Audit Log' }).click();
+		await page.getByRole('link', { name: 'Audit Log' }).click();
 		await page.waitForSelector('body.hydrated');
 		await expect(page).toHaveURL(/\/admin\/audit/);
 	});
