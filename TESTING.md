@@ -245,6 +245,7 @@ From `e2e/convex-client.ts`:
 - `createCategory(opts)` - Create category
 - `createCategoryWithSubs(opts)` - Category with subcategories
 - `createEvaluationForStudent(data)` - Create evaluation for student
+- `createEvalForCategory(categoryName)` - Create evaluation for category
 - `cleanupTestData(tag)` - Cleanup by e2eTag
 - `cleanupAll()` - Nuclear cleanup
 
@@ -339,8 +340,8 @@ Tests run on every PR:
 | ------------------ | ---------- | --------------- |
 | Browser unit tests | 11         | ~54             |
 | Server unit tests  | 6          | 68              |
-| E2E tests          | 18         | varies          |
-| **Total**          | **35**     | **126 passing** |
+| E2E tests          | 19         | varies          |
+| **Total**          | **36**     | **157 passing** |
 
 ### Pages with Browser Tests
 
@@ -355,6 +356,7 @@ Tests run on every PR:
 | `/admin/users`      | 3     | Structure            |
 | `/evaluations`      | 4     | Structure            |
 | `/evaluations/new`  | 7     | Form structure       |
+| `/evaluations/student/[id]` | 31 | Timeline, sorting, filtering, admin features |
 | `/rejected`         | 4     | Static page          |
 | `$lib/utils.ts`     | 8     | cn() utility         |
 

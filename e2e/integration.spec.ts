@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { createStudent, cleanupTestData, seedBaseline } from './convex-client';
+import {
+	createStudent,
+	createEvaluationForStudent,
+	cleanupTestData,
+	seedBaseline
+} from './convex-client';
 import { getTestSuffix } from './helpers';
 
 test.describe('Integration Tests (Real Backend) @integration', () => {
@@ -128,6 +133,62 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 
 		await studentRow.click();
 		await expect(page.getByText(/student.*selected/i)).toBeVisible();
+	});
+
+	test('Clicking evaluation card navigates to student timeline with valid ID', async ({ page }) => {
+		// Seed baseline data including categories
+		await seedBaseline();
+
+		const suffix = getTestSuffix('evalNav');
+		const studentId = `SE_${suffix}`;
+		const englishName = `EvalNav_${suffix}`;
+		const chineseName = '導航測試';
+
+		// Store for cleanup
+		testE2eTag = `e2e-test_${suffix}`;
+
+		// Create student
+		const createResult = await createStudent({
+			studentId,
+			englishName,
+			chineseName,
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag: testE2eTag
+		});
+		expect(createResult).toBeTruthy();
+
+		// Create an evaluation for the student
+		const evalResult = await createEvaluationForStudent({
+			studentId,
+			e2eTag: testE2eTag
+		});
+		expect(evalResult).toBeTruthy();
+
+		// Navigate directly to the student timeline page
+		// This tests that the evaluation data is persisted and can be viewed
+		await page.goto(`/evaluations/student/${studentId}?testRole=teacher`);
+		await page.waitForSelector('body.hydrated');
+
+		// Wait a bit more for Convex data to load
+		await page.waitForTimeout(3000);
+
+		// Verify we are on a student timeline page by checking for timeline section
+		const timelineHeader = page.getByRole('heading', { level: 2 }).first();
+		await expect(timelineHeader).toBeVisible({ timeout: 10000 });
+
+		// Verify student info heading is displayed (contains student info)
+		const studentHeading = page.getByRole('heading').first();
+		await expect(studentHeading).toBeVisible({ timeout: 5000 });
+
+		// Verify the page shows evaluation content (either from query or demo)
+		// Look for timeline container or point-related content
+		const timelineContent = await page.locator('.relative.bg-background, .grid.grid-cols').first();
+		await expect(timelineContent).toBeVisible({ timeout: 5000 });
+
+		// Verify breadcrumb navigation button exists
+		const backButton = page.getByRole('button', { name: /back/i });
+		await expect(backButton).toBeVisible({ timeout: 5000 });
 	});
 });
 

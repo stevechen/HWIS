@@ -50,7 +50,7 @@
 		<div class="flex items-center gap-4">
 			{#if isAdmin}
 				<Button variant="outline" onclick={() => void goto('/admin')}>
-					<ArrowLeft class="mr-2 w-4 h-4" />
+					<ArrowLeft class="mr-2 size-4" />
 					Back to Admin
 				</Button>
 			{/if}
@@ -59,7 +59,7 @@
 		<div class="flex items-center gap-2">
 			<ThemeToggle />
 			<Button onclick={() => void goto('/evaluations/new')}>
-				<Plus class="mr-2 w-4 h-4" />
+				<Plus class="mr-2 size-4" />
 				New Evaluation
 			</Button>
 		</div>
@@ -86,7 +86,7 @@
 					<Card.Content class="p-5">
 						<div class="flex justify-between items-start mb-4">
 							<div class="flex items-center gap-2 font-semibold text-lg">
-								<User class="w-4 h-4" />
+								<User class="size-4" />
 								<span>{eval_.studentName}</span>
 								<span
 									class="bg-muted px-2 py-0.5 rounded-full font-normal text-muted-foreground text-xs"

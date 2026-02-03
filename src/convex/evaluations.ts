@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { requireUserProfile, getAuthenticatedUser } from './auth';
+import { requireUserProfile, getAuthenticatedUser, requireAdminRole } from './auth';
 
 export const getUserByAuthId = query({
 	args: { authId: v.string() },
@@ -131,6 +131,7 @@ export const listRecent = query({
 		const results: {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
 			_id: any;
+			studentId: any;
 			studentName: string;
 			studentIdCode: string;
 			value: number;
@@ -143,6 +144,7 @@ export const listRecent = query({
 			const student = studentMap.get(eval_.studentId);
 			results.push({
 				_id: eval_._id,
+				studentId: eval_.studentId,
 				studentName: student
 					? `${student.englishName} (${student.chineseName})`
 					: 'Unknown Student',
@@ -286,5 +288,89 @@ export const getWeeklyReportDetail = query({
 		return Array.from(studentPointsMap.values()).sort((a, b) =>
 			a.englishName.localeCompare(b.englishName)
 		);
+	}
+});
+
+// Get student details by ID
+export const getStudent = query({
+	args: { studentId: v.id('students'), testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user) return null;
+		return await ctx.db.get(args.studentId);
+	}
+});
+
+// Get evaluation history for a student (teacher view - only their own evaluations)
+export const getStudentEvaluationsByTeacher = query({
+	args: {
+		studentId: v.id('students'),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		const user = await requireUserProfile(ctx, args.testToken);
+		const evaluations = await ctx.db
+			.query('evaluations')
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
+			.collect();
+
+		// Filter to only show evaluations by the current teacher
+		const teacherEvaluations = evaluations.filter((e) => e.teacherId === user._id);
+
+		// Optimization: Batch fetch all teacher data (including current user)
+		const teacherIds = [...new Set(teacherEvaluations.map((e) => e.teacherId))];
+		const teachers = new Map();
+		for (const teacherId of teacherIds) {
+			const teacher = await ctx.db.get(teacherId);
+			if (teacher) teachers.set(teacherId, teacher);
+		}
+
+		// Enrich evaluations with teacher data
+		const enriched = teacherEvaluations.map((e) => {
+			const teacher = teachers.get(e.teacherId);
+			return {
+				...e,
+				teacherName: teacher?.name || 'Unknown Teacher',
+				isAdmin: false
+			};
+		});
+
+		return enriched.sort((a, b) => b.timestamp - a.timestamp);
+	}
+});
+
+// Get all evaluation history for a student (admin view - all evaluations)
+export const getStudentEvaluationsAll = query({
+	args: {
+		studentId: v.id('students'),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
+		const evaluations = await ctx.db
+			.query('evaluations')
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
+			.collect();
+
+		// Optimization: Batch fetch all teacher data to avoid N+1 queries
+		const teacherIds = [...new Set(evaluations.map((e) => e.teacherId))];
+		const teachers = new Map();
+		for (const teacherId of teacherIds) {
+			const teacher = await ctx.db.get(teacherId);
+			if (teacher) teachers.set(teacherId, teacher);
+		}
+
+		// Enrich evaluations with teacher data
+		const enriched = evaluations.map((e) => {
+			const teacher = teachers.get(e.teacherId);
+			const isAdminUser = teacher?.role === 'admin' || teacher?.role === 'super';
+			return {
+				...e,
+				teacherName: teacher?.name || 'Unknown Teacher',
+				isAdmin: isAdminUser
+			};
+		});
+
+		return enriched.sort((a, b) => b.timestamp - a.timestamp);
 	}
 });

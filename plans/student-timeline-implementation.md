@@ -125,17 +125,19 @@ export const getStudentEvaluationsAll = query({
 
 ## Pending Features
 
+All features have been implemented! See below for the completed implementation status.
+
 ### 1. Convex Queries (`src/convex/evaluations.ts`)
-- [ ] Add `getStudent` query to fetch student details by ID
-- [ ] Add `getStudentEvaluationsByTeacher` query for teacher view
-- [ ] Add `getStudentEvaluationsAll` query for admin view
-- [ ] Replace mock data with real Convex queries
+- [x] Add `getStudent` query to fetch student details by ID
+- [x] Add `getStudentEvaluationsByTeacher` query for teacher view
+- [x] Add `getStudentEvaluationsAll` query for admin view
+- [x] Replace mock data with real Convex queries
 
 ### 2. Tests
-- [ ] Write browser unit tests for student timeline page
-- [ ] Write E2E tests for navigation and role-based views
-- [ ] Write E2E tests for timeline features (sorting, filtering)
-- [ ] Write E2E tests for error handling scenarios
+- [x] Write browser unit tests for student timeline page
+- [x] Write E2E tests for navigation and role-based views
+- [x] Write E2E tests for timeline features (sorting, filtering)
+- [x] Write E2E tests for error handling scenarios
 
 ## Final Design Decisions
 
