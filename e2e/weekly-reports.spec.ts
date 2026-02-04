@@ -9,7 +9,7 @@ import { getTestSuffix } from './helpers';
 
 async function waitForReportsToLoad(page: Page) {
 	const loading = page.getByRole('status').filter({ hasText: 'Loading reports...' });
-	await expect(loading).toBeHidden({ timeout: 15000 });
+	await expect(loading).toBeHidden();
 }
 
 test.describe('Weekly Reports Integration', () => {
@@ -53,20 +53,18 @@ test.describe('Weekly Reports Integration', () => {
 		const table = page.getByRole('table');
 		const firstDataRow = table.getByRole('row').nth(1); // Skip header
 
-		// Only click if there's a data row
-		if (await firstDataRow.isVisible().catch(() => false)) {
-			await firstDataRow.click();
+		// Verify there is data to click on
+		await expect(firstDataRow).toBeVisible();
+		await firstDataRow.click();
 
-			// Verify dialog opens
-			await expect(page.getByRole('dialog')).toBeVisible();
+		// Verify dialog opens
+		await expect(page.getByRole('dialog')).toBeVisible();
 
-			// Verify dialog header contains "Report"
-			const dialogContent = await page.content();
-			expect(dialogContent).toContain('Report');
-		}
+		// Verify dialog header contains "Report"
+		await expect(page.getByRole('dialog').getByRole('heading')).toContainText('Report');
 	});
 
-	test('filters student data by ID', async ({ page }) => {
+	test('can interact with filter inputs', async ({ page }) => {
 		// Navigate to weekly reports page
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
@@ -75,21 +73,24 @@ test.describe('Weekly Reports Integration', () => {
 		// Open report dialog
 		const table = page.getByRole('table');
 		const firstDataRow = table.getByRole('row').nth(1);
+		await expect(firstDataRow).toBeVisible();
+		await firstDataRow.click();
+		await expect(page.getByRole('dialog')).toBeVisible();
 
-		if (await firstDataRow.isVisible().catch(() => false)) {
-			await firstDataRow.click();
-			await expect(page.getByRole('dialog')).toBeVisible();
+		// Verify filter inputs exist and can be interacted with
+		const nameFilter = page.getByRole('textbox', { name: 'Filter name (comma separated)' });
+		await expect(nameFilter).toBeVisible();
+		await nameFilter.fill('Test');
+		await expect(nameFilter).toHaveValue('Test');
 
-			// Find ID filter input by placeholder
-			const filterInput = page.locator('input[placeholder*="Filter ID"]').first();
-			if (await filterInput.isVisible().catch(() => false)) {
-				await filterInput.fill('test');
-				await expect(filterInput).toHaveValue('test');
-			}
-		}
+		// Also test grade filter
+		const gradeFilter = page.getByLabel('Filter by grade');
+		await expect(gradeFilter).toBeVisible();
+		await gradeFilter.selectOption('10');
+		await expect(gradeFilter).toHaveValue('10');
 	});
 
-	test('filters student data by name', async ({ page }) => {
+	test('can interact with column header sort buttons', async ({ page }) => {
 		// Navigate to weekly reports page
 		await page.goto('/admin/weekly-reports');
 		await page.waitForSelector('body.hydrated');
@@ -98,64 +99,21 @@ test.describe('Weekly Reports Integration', () => {
 		// Open report dialog
 		const table = page.getByRole('table');
 		const firstDataRow = table.getByRole('row').nth(1);
+		await expect(firstDataRow).toBeVisible();
+		await firstDataRow.click();
+		await expect(page.getByRole('dialog')).toBeVisible();
 
-		if (await firstDataRow.isVisible().catch(() => false)) {
-			await firstDataRow.click();
-			await expect(page.getByRole('dialog')).toBeVisible();
+		// Click on Grade header to sort
+		const gradeHeader = page
+			.getByRole('dialog')
+			.getByRole('columnheader', { name: 'G', exact: true });
+		await expect(gradeHeader).toBeVisible();
+		await gradeHeader.click();
 
-			// Find name filter input
-			const nameFilter = page.locator('input[placeholder*="Filter name"]').first();
-			if (await nameFilter.isVisible().catch(() => false)) {
-				await nameFilter.fill('Test');
-				await expect(nameFilter).toHaveValue('Test');
-			}
-		}
-	});
-
-	test('filters student data by grade', async ({ page }) => {
-		// Navigate to weekly reports page
-		await page.goto('/admin/weekly-reports');
-		await page.waitForSelector('body.hydrated');
-		await waitForReportsToLoad(page);
-
-		// Open report dialog
-		const table = page.getByRole('table');
-		const firstDataRow = table.getByRole('row').nth(1);
-
-		if (await firstDataRow.isVisible().catch(() => false)) {
-			await firstDataRow.click();
-			await expect(page.getByRole('dialog')).toBeVisible();
-
-			// Find grade filter combobox using aria-label
-			const gradeFilter = page.locator('select[aria-label="Filter by grade"]').first();
-			if (await gradeFilter.isVisible().catch(() => false)) {
-				await gradeFilter.selectOption('10');
-				await expect(gradeFilter).toHaveValue('10');
-			}
-		}
-	});
-
-	test('sorts student data by different columns', async ({ page }) => {
-		// Navigate to weekly reports page
-		await page.goto('/admin/weekly-reports');
-		await page.waitForSelector('body.hydrated');
-		await waitForReportsToLoad(page);
-
-		// Open report dialog
-		const table = page.getByRole('table');
-		const firstDataRow = table.getByRole('row').nth(1);
-
-		if (await firstDataRow.isVisible().catch(() => false)) {
-			await firstDataRow.click();
-			await expect(page.getByRole('dialog')).toBeVisible();
-
-			// Click on table headers to sort
-			const idHeader = page.getByRole('columnheader', { name: 'ID' }).first();
-			if (await idHeader.isVisible().catch(() => false)) {
-				await idHeader.click();
-				await page.waitForTimeout(300);
-			}
-		}
+		// Click on Name header to sort
+		const nameHeader = page.getByRole('dialog').getByRole('columnheader', { name: 'Name' });
+		await expect(nameHeader).toBeVisible();
+		await nameHeader.click();
 	});
 
 	test('exports filtered data to CSV', async ({ page }) => {
@@ -167,18 +125,14 @@ test.describe('Weekly Reports Integration', () => {
 		// Open report dialog
 		const table = page.getByRole('table');
 		const firstDataRow = table.getByRole('row').nth(1);
+		await expect(firstDataRow).toBeVisible();
+		await firstDataRow.click();
+		await expect(page.getByRole('dialog')).toBeVisible();
 
-		if (await firstDataRow.isVisible().catch(() => false)) {
-			await firstDataRow.click();
-			await expect(page.getByRole('dialog')).toBeVisible();
-
-			// Find export button
-			const exportButton = page.getByRole('button', { name: /Export|CSV/i }).first();
-			if (await exportButton.isVisible().catch(() => false)) {
-				await expect(exportButton).toBeVisible();
-				// Note: We don't actually click to avoid file download in tests
-			}
-		}
+		// Find export button and verify it's visible
+		const exportButton = page.getByRole('button', { name: /Export|CSV/i }).first();
+		await expect(exportButton).toBeVisible();
+		// Note: We don't actually click to avoid file download in tests
 	});
 
 	test('closes dialog with close button', async ({ page }) => {
@@ -190,18 +144,15 @@ test.describe('Weekly Reports Integration', () => {
 		// Open report dialog
 		const table = page.getByRole('table');
 		const firstDataRow = table.getByRole('row').nth(1);
+		await expect(firstDataRow).toBeVisible();
+		await firstDataRow.click();
+		await expect(page.getByRole('dialog')).toBeVisible();
 
-		if (await firstDataRow.isVisible().catch(() => false)) {
-			await firstDataRow.click();
-			await expect(page.getByRole('dialog')).toBeVisible();
-
-			// Close with close button
-			const closeButton = page.getByRole('button', { name: 'Close' }).first();
-			if (await closeButton.isVisible().catch(() => false)) {
-				await closeButton.click();
-				await expect(page.getByRole('dialog')).not.toBeVisible();
-			}
-		}
+		// Close with close button
+		const closeButton = page.getByText('Close', { exact: true });
+		await expect(closeButton).toBeVisible();
+		await closeButton.click();
+		await expect(page.getByRole('dialog')).not.toBeVisible();
 	});
 
 	test('closes dialog with X button', async ({ page }) => {
@@ -213,18 +164,15 @@ test.describe('Weekly Reports Integration', () => {
 		// Open report dialog
 		const table = page.getByRole('table');
 		const firstDataRow = table.getByRole('row').nth(1);
+		await expect(firstDataRow).toBeVisible();
+		await firstDataRow.click();
+		await expect(page.getByRole('dialog')).toBeVisible();
 
-		if (await firstDataRow.isVisible().catch(() => false)) {
-			await firstDataRow.click();
-			await expect(page.getByRole('dialog')).toBeVisible();
-
-			// Close with X button (aria-label="Close")
-			const xButton = page.locator('button[aria-label="Close"]').first();
-			if (await xButton.isVisible().catch(() => false)) {
-				await xButton.click();
-				await expect(page.getByRole('dialog')).not.toBeVisible();
-			}
-		}
+		// Close with X button (aria-label="Close")
+		const xButton = page.getByLabel('Close');
+		await expect(xButton).toBeVisible();
+		await xButton.click();
+		await expect(page.getByRole('dialog')).not.toBeVisible();
 	});
 
 	test('closes dialog with backdrop click', async ({ page }) => {
@@ -236,15 +184,13 @@ test.describe('Weekly Reports Integration', () => {
 		// Open report dialog
 		const table = page.getByRole('table');
 		const firstDataRow = table.getByRole('row').nth(1);
+		await expect(firstDataRow).toBeVisible();
+		await firstDataRow.click();
+		await expect(page.getByRole('dialog')).toBeVisible();
 
-		if (await firstDataRow.isVisible().catch(() => false)) {
-			await firstDataRow.click();
-			await expect(page.getByRole('dialog')).toBeVisible();
-
-			// Close by pressing Escape key (more reliable than backdrop click)
-			await page.keyboard.press('Escape');
-			await expect(page.getByRole('dialog')).not.toBeVisible();
-		}
+		// Close by pressing Escape key (more reliable than backdrop click)
+		await page.keyboard.press('Escape');
+		await expect(page.getByRole('dialog')).not.toBeVisible();
 	});
 
 	test('should create weekly report', async ({ page }) => {
@@ -276,37 +222,39 @@ test.describe('Weekly Reports Integration', () => {
 		// Navigate to evaluations page to create an evaluation
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
-		// await page.waitForTimeout(2000);
 
 		// Search for and select the student
-		const filterInput = page.locator('input[aria-label="Search students"]').first();
-		await expect(filterInput).toBeVisible({ timeout: 10000 });
+		const filterInput = page.getByRole('textbox', { name: 'Search students' });
+		await expect(filterInput).toBeVisible();
 		await filterInput.fill(`WeeklyReport_${suffix}`.toLowerCase());
-		await page.waitForTimeout(2000);
 
 		// Select the student
-		const studentRow = page.getByText(new RegExp(`WeeklyReport_${suffix}`, 'i')).first();
+		const studentRow = page.getByRole('button', {
+			name: new RegExp(`WeeklyReport_${suffix}`, 'i')
+		});
 		await expect(studentRow).toBeVisible();
 		await studentRow.click();
 		await expect(page.getByText(/student.*selected/i)).toBeVisible();
 
 		// Select category
-		await page.locator('[aria-label="Select category"]').first().click();
-		await expect(page.getByText(categoryName)).toBeVisible();
-		await page.getByText(categoryName).click();
+		await page.getByRole('button', { name: 'Select category' }).click();
+		await expect(page.getByRole('option', { name: categoryName })).toBeVisible();
+		await page.getByRole('option', { name: categoryName }).click();
 
 		// Wait for sub-category to appear and select it
 		await expect(page.getByText(/Sub-Category/i)).toBeVisible();
-		await page.locator('[aria-label="Select sub-category"]').first().click();
-		await expect(page.getByText('TestSubCategory')).toBeVisible();
-		await page.getByText('TestSubCategory').click();
+		await page.getByRole('button', { name: 'Select sub-category' }).click();
+		await expect(page.getByRole('option', { name: 'TestSubCategory' })).toBeVisible();
+		await page.getByRole('option', { name: 'TestSubCategory' }).click();
 
 		// Submit the evaluation
 		const submitButton = page.getByRole('button', { name: /Submit Evaluation/i });
 		await submitButton.click();
+		await page.waitForSelector('body.hydrated');
 
 		// Should redirect to evaluations page after successful submission
 		await expect(page).toHaveURL('/evaluations');
+		await page.waitForSelector('body.hydrated');
 
 		// Now navigate to weekly reports and verify the report appears
 		await page.goto('/admin/weekly-reports');
@@ -354,25 +302,26 @@ test.describe('Weekly Reports Integration', () => {
 		await page.waitForSelector('body.hydrated');
 
 		// Search and select student
-		const filterInput = page.locator('input[aria-label="Search students"]').first();
+		const filterInput = page.getByRole('textbox', { name: 'Search students' });
 		await expect(filterInput).toBeVisible();
 		await filterInput.fill(`UpdateReport_${suffix}`.toLowerCase());
-		await page.waitForTimeout(2000);
 
-		const studentRow = page.getByText(new RegExp(`UpdateReport_${suffix}`, 'i')).first();
+		const studentRow = page.getByRole('button', {
+			name: new RegExp(`UpdateReport_${suffix}`, 'i')
+		});
 		await expect(studentRow).toBeVisible();
 		await studentRow.click();
 		await expect(page.getByText(/student.*selected/i)).toBeVisible();
 
 		// Select category and subcategory
-		await page.locator('[aria-label="Select category"]').first().click();
-		await expect(page.getByText(categoryName)).toBeVisible();
-		await page.getByText(categoryName).click();
+		await page.getByRole('button', { name: 'Select category' }).click();
+		await expect(page.getByRole('option', { name: categoryName })).toBeVisible();
+		await page.getByRole('option', { name: categoryName }).click();
 
 		await expect(page.getByText(/Sub-Category/i)).toBeVisible();
-		await page.locator('[aria-label="Select sub-category"]').first().click();
-		await expect(page.getByText('UpdateSubCategory')).toBeVisible();
-		await page.getByText('UpdateSubCategory').click();
+		await page.getByRole('button', { name: 'Select sub-category' }).first().click();
+		await expect(page.getByRole('option', { name: 'UpdateSubCategory' })).toBeVisible();
+		await page.getByRole('option', { name: 'UpdateSubCategory' }).click();
 
 		// Submit first evaluation
 		const submitButton = page.getByRole('button', { name: /Submit Evaluation/i });
@@ -400,25 +349,26 @@ test.describe('Weekly Reports Integration', () => {
 		await page.waitForSelector('body.hydrated');
 
 		// Search and select same student again
-		const filterInput2 = page.locator('input[aria-label="Search students"]').first();
+		const filterInput2 = page.getByRole('textbox', { name: 'Search students' });
 		await expect(filterInput2).toBeVisible();
 		await filterInput2.fill(`UpdateReport_${suffix}`.toLowerCase());
-		await page.waitForTimeout(2000);
 
-		const studentRow2 = page.getByText(new RegExp(`UpdateReport_${suffix}`, 'i')).first();
+		const studentRow2 = page.getByRole('button', {
+			name: new RegExp(`UpdateReport_${suffix}`, 'i')
+		});
 		await expect(studentRow2).toBeVisible();
 		await studentRow2.click();
 		await expect(page.getByText(/student.*selected/i)).toBeVisible();
 
 		// Select category and subcategory again
-		await page.locator('[aria-label="Select category"]').first().click();
-		await expect(page.getByText(categoryName)).toBeVisible();
-		await page.getByText(categoryName).click();
+		await page.getByRole('button', { name: 'Select category' }).click();
+		await expect(page.getByRole('option', { name: categoryName })).toBeVisible();
+		await page.getByRole('option', { name: categoryName }).click();
 
 		await expect(page.getByText(/Sub-Category/i)).toBeVisible();
-		await page.locator('[aria-label="Select sub-category"]').first().click();
-		await expect(page.getByText('UpdateSubCategory')).toBeVisible();
-		await page.getByText('UpdateSubCategory').click();
+		await page.getByRole('button', { name: 'Select sub-category' }).click();
+		await expect(page.getByRole('option', { name: 'UpdateSubCategory' })).toBeVisible();
+		await page.getByRole('option', { name: 'UpdateSubCategory' }).click();
 
 		// Submit second evaluation
 		const submitButton2 = page.getByRole('button', { name: /Submit Evaluation/i });
@@ -437,10 +387,10 @@ test.describe('Weekly Reports Integration', () => {
 		await firstDataRow2.click();
 		await expect(page.getByRole('dialog')).toBeVisible();
 
-		// Verify the dialog shows student data (report was updated with new evaluation)
-		const updatedContent = await page.content();
-		expect(updatedContent).toContain('Report');
-		expect(updatedContent).toContain('students');
+		// Verify dialog header contains "Report"
+		await expect(
+			page.getByRole('dialog').getByRole('columnheader', { name: 'Name' })
+		).toBeVisible();
 	});
 
 	test('displays empty state when no data available', async ({ page }) => {
@@ -452,11 +402,7 @@ test.describe('Weekly Reports Integration', () => {
 		await page.waitForSelector('body.hydrated');
 		await waitForReportsToLoad(page);
 
-		// Wait for page to load
-		await page.waitForTimeout(500);
-
 		// Check for empty state message using multiple possible selectors
-		// The empty state might be shown in different ways
 		const hasEmptyState = await Promise.any([
 			page
 				.getByText(/No weekly reports available/i)

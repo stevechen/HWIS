@@ -172,11 +172,11 @@
 	});
 </script>
 
-<div class="mx-auto max-w-6xl p-8">
+<div class="mx-auto p-8 max-w-6xl">
 	{#if isDemo}
 		<div class="mb-6">
 			<span
-				class="rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
+				class="bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded-full text-yellow-800 dark:text-yellow-100 text-xs"
 			>
 				DEMO MODE ({demoRole.toUpperCase()})
 			</span>
@@ -185,22 +185,21 @@
 
 	<!-- Loading State -->
 	{#if !isDemo && (userQuery?.isLoading ?? false)}
-		<div class="text-muted-foreground py-12 text-center">Loading user data...</div>
+		<div class="py-12 text-muted-foreground text-center">Loading user data...</div>
 	{:else if !isDemo && (studentQuery?.isLoading ?? false)}
-		<div class="text-muted-foreground py-12 text-center">Loading student data...</div>
+		<div class="py-12 text-muted-foreground text-center">Loading student data...</div>
 	{:else if !isDemo && isAdmin && (allEvalsQuery?.isLoading ?? false)}
-		<div class="text-muted-foreground py-12 text-center">Loading evaluation history...</div>
+		<div class="py-12 text-muted-foreground text-center">Loading evaluation history...</div>
 	{:else if !isDemo && !isAdmin && (teacherEvalsQuery?.isLoading ?? false)}
-		<div class="text-muted-foreground py-12 text-center">Loading your evaluations...</div>
+		<div class="py-12 text-muted-foreground text-center">Loading your evaluations...</div>
 	{:else}
 		<EvaluationsTimeline
 			evaluations={filteredEvaluations}
 			title={isAdmin ? 'All Points History' : 'Your Assigned Points'}
 			showStudentName={false}
 			studentGrade={student.grade}
-			{isAdmin}
 			showTeacherFilter={isAdmin}
-			uniqueTeachers={uniqueTeachers}
+			{uniqueTeachers}
 			selectedTeacherFilter={teacherFilter}
 			onTeacherFilterChange={handleTeacherFilterChange}
 			showLegend={true}

@@ -68,7 +68,7 @@ test.describe('Audit Log Page (super admin)', () => {
 	});
 
 	test('clears filters when clear button is clicked', async ({ page }) => {
-		const studentInput = page.getByPlaceholder('Student');
+		const studentInput = page.getByRole('textbox', { name: 'Filter by student name' });
 		await studentInput.fill('test');
 		// Wait for input to be filled
 		await expect(studentInput).toHaveValue('test');
@@ -166,7 +166,7 @@ test.describe('Audit Log Page (super admin)', () => {
 		await seedAuditLogs();
 
 		// Wait for audit logs to appear
-		await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
+		await expect(page.getByRole('table')).toBeVisible();
 
 		await page.getByRole('button', { name: 'Columns' }).first().click();
 		const popoverContent = page.locator('[data-slot="popover-content"]').first();
@@ -184,6 +184,6 @@ test.describe('Audit Log Page (super admin)', () => {
 		await expect(page.locator('[data-slot="popover-content"]').first()).toBeVisible();
 		await page.getByRole('checkbox', { name: 'Details' }).click();
 		await page.keyboard.press('Escape');
-		await expect(page.locator('th', { hasText: 'Details' })).toBeVisible({ timeout: 10000 });
+		await expect(page.locator('th', { hasText: 'Details' })).toBeVisible();
 	});
 });

@@ -26,21 +26,15 @@ async function createStudentForEval(
 	await page.goto('/evaluations/new');
 	await page.waitForSelector('body.hydrated');
 
-	// Wait for students to load - need longer wait for Convex reactivity
-	await page.waitForTimeout(3000);
-
 	await expect(page.getByText('1. Select Students')).toBeVisible();
 
 	// Use aria-label to find the search input
-	const filterInput = page.locator('input[aria-label="Search students"]').first();
+	const filterInput = page.getByRole('textbox', { name: 'Search students' });
 	await expect(filterInput).toBeVisible();
 
 	// Clear the search input first, then type the student name (lowercase for case-insensitive search)
 	await filterInput.fill('');
 	await filterInput.fill(englishName.toLowerCase());
-
-	// Wait for filter to apply and reactivity to update (Convex reactive queries need time)
-	await page.waitForTimeout(2000);
 
 	// Student items display as "englishName (chineseName)" format
 	// Look for the student name in the list - check for "No students found" first
@@ -54,12 +48,11 @@ async function createStudentForEval(
 		const filterInput2 = page.locator('input[aria-label="Search students"]').first();
 		await filterInput2.fill('');
 		await filterInput2.fill(englishName.toLowerCase());
-		await page.waitForTimeout(2000);
 	}
 
 	// Student items are clickable divs with text in format "englishName (chineseName)"
 	// Use case-insensitive search since the filter is case-insensitive
-	const studentRow = page.getByText(new RegExp(englishName, 'i')).first();
+	const studentRow = page.getByRole('button', { name: new RegExp(englishName, 'i') });
 	await expect(studentRow).toBeVisible();
 }
 
@@ -85,11 +78,8 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 	});
 
 	test('displays categories from database', async ({ page }) => {
-		// Wait for categories to load
-		await page.waitForTimeout(500);
-
 		// The category selector shows as a button with aria-label - just verify it exists
-		const categoryTrigger = page.locator('[aria-label="Select category"]').first();
+		const categoryTrigger = page.getByRole('button', { name: 'Select category' });
 		await expect(categoryTrigger).toBeVisible();
 		// Verify the trigger shows the placeholder text
 		await expect(categoryTrigger).toContainText('Select Category');
@@ -97,7 +87,7 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 
 	test('displays students list', async ({ page }) => {
 		await expect(page.getByText('1. Select Students')).toBeVisible();
-		await expect(page.getByLabel('Search students')).toBeVisible();
+		await expect(page.getByRole('textbox', { name: 'Search students' })).toBeVisible();
 	});
 
 	test('allows selecting a student', async ({ page }) => {
@@ -106,7 +96,7 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 
 		await createStudentForEval(page, suffix, studentName, '選擇我', 10);
 
-		const studentRow = page.getByText(studentName).first();
+		const studentRow = page.getByRole('button', { name: new RegExp(studentName, 'i') });
 		await expect(studentRow).toBeVisible();
 
 		await studentRow.click();
@@ -119,7 +109,7 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 		const studentName = `CountMe_${suffix}`;
 		await createStudentForEval(page, suffix, studentName, '計數我', 10);
 
-		const studentRow = page.getByText(studentName).first();
+		const studentRow = page.getByRole('button', { name: studentName });
 		await studentRow.click();
 		await expect(page.getByText(/student.*selected/i)).toBeVisible();
 	});
@@ -141,7 +131,7 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 		const studentName = `NoCat_${suffix}`;
 		await createStudentForEval(page, suffix, studentName, '無類別', 10);
 
-		const studentRow = page.getByText(studentName).first();
+		const studentRow = page.getByRole('button', { name: new RegExp(studentName, 'i') });
 		await studentRow.click();
 
 		// Try to submit without selecting category
@@ -166,15 +156,15 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 		const studentName = `NoSub_${suffix}`;
 		await createStudentForEval(page, suffix, studentName, '無子類別', 10);
 
-		const studentRow = page.getByText(studentName).first();
+		const studentRow = page.getByRole('button', { name: new RegExp(studentName, 'i') });
 		await studentRow.click();
 
 		// Click on the category trigger to open the dropdown
-		await page.locator('[aria-label="Select category"]').first().click();
+		await page.getByRole('button', { name: 'Select category' }).click();
 
 		// Wait for dropdown to open and select the category we just created
-		await expect(page.getByText(categoryName)).toBeVisible();
-		await page.getByText(categoryName).click();
+		await expect(page.getByRole('option', { name: categoryName })).toBeVisible();
+		await page.getByRole('option', { name: categoryName }).click();
 
 		// Verify sub-category section appears
 		await expect(page.getByText(/Sub-Category/i)).toBeVisible();
@@ -200,31 +190,30 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 		const studentName = `Submit_${suffix}`;
 		await createStudentForEval(page, suffix, studentName, '提交', 10);
 
-		const studentRow = page.getByText(studentName).first();
+		const studentRow = page.getByRole('button', { name: studentName });
 		await studentRow.click();
 		await expect(page.getByText(/student.*selected/i)).toBeVisible();
 
 		// Click on the category trigger to open the dropdown
-		await page.locator('[aria-label="Select category"]').first().click();
+		await page.getByRole('button', { name: 'Select category' }).click();
 
 		// Wait for dropdown to open and select the category we just created
-		await expect(page.getByText(categoryName)).toBeVisible();
-		await page.getByText(categoryName).click();
-
+		await expect(page.getByRole('option', { name: categoryName })).toBeVisible();
+		await page.getByRole('option', { name: categoryName }).click();
 		// Verify sub-category section appears
 		await expect(page.getByText(/Sub-Category/i)).toBeVisible();
 
 		// Select a sub-category
-		await page.locator('[aria-label="Select sub-category"]').first().click();
-		await expect(page.getByText('SubCategory1')).toBeVisible();
-		await page.getByText('SubCategory1').click();
+		await page.getByRole('button', { name: 'Select sub-category' }).click();
+		await expect(page.getByRole('option', { name: 'SubCategory1' })).toBeVisible();
+		await page.getByRole('option', { name: 'SubCategory1' }).click();
 
 		// Submit the evaluation
 		const submitButton = page.getByRole('button', { name: /Submit Evaluation/i });
 		await submitButton.click();
 
 		// Should redirect to evaluations page after successful submission (teachers land on evaluations)
-		await expect(page).toHaveURL('/evaluations', { timeout: 10000 });
+		await expect(page).toHaveURL('/evaluations');
 	});
 });
 
@@ -247,7 +236,7 @@ test.describe('Evaluations (admin user) @evaluations', () => {
 
 		// Click the button and verify navigation
 		await backButton.click();
-		await expect(page).toHaveURL('/admin', { timeout: 5000 });
+		await expect(page).toHaveURL('/admin');
 	});
 
 	test('displays evaluation history for admin users', async ({ page }) => {
@@ -259,13 +248,13 @@ test.describe('Evaluations (admin user) @evaluations', () => {
 		const backButton = page.getByRole('button', { name: /Back to Admin/i });
 		await expect(backButton).toBeVisible();
 		await backButton.click();
-		await expect(page).toHaveURL('/admin', { timeout: 5000 });
+		await expect(page).toHaveURL('/admin');
 
 		// Now navigate back to evaluations using the Evaluation Review card
 		const evalReviewCard = page.getByRole('link', { name: /My Evaluation Review/i });
 		await expect(evalReviewCard).toBeVisible();
 		await evalReviewCard.click();
-		await expect(page).toHaveURL('/evaluations', { timeout: 5000 });
+		await expect(page).toHaveURL('/evaluations');
 
 		// Verify "Back to Admin" button is still visible
 		await expect(page.getByRole('button', { name: /Back to Admin/i })).toBeVisible();

@@ -13,7 +13,7 @@ test.describe('Student List @students', () => {
 		test('redirects non-admin users from /admin/students', async ({ page }) => {
 			// Use 'commit' to handle immediate redirect without waiting for full load
 			await page.goto('/admin/students', { waitUntil: 'commit' });
-			await expect(page).toHaveURL(/\/|\/login/, { timeout: 5000 });
+			await expect(page).toHaveURL(/\/|\/login/);
 		});
 	});
 
@@ -52,7 +52,7 @@ test.describe('Student List @students', () => {
 				e2eTag: testE2eTag
 			});
 
-			await expect(page.getByText(`Student1_${suffix}`)).toBeVisible();
+			await expect(page.getByRole('row', { name: `Student1_${suffix}` })).toBeVisible();
 		});
 
 		test('can filter students by grade', async ({ page }) => {
@@ -79,11 +79,11 @@ test.describe('Student List @students', () => {
 				e2eTag: testE2eTag
 			});
 
-			const gradeSelect = page.locator('select[aria-label="Filter by grade"]');
+			const gradeSelect = page.getByRole('combobox', { name: 'Filter by grade' });
 			await gradeSelect.selectOption('9');
 
-			await expect(page.getByText(grade9Student)).toBeVisible({ timeout: 8000 });
-			await expect(page.getByText(grade10Student)).not.toBeVisible();
+			await expect(page.getByRole('row', { name: grade9Student })).toBeVisible();
+			await expect(page.getByRole('row', { name: grade10Student })).not.toBeVisible();
 		});
 
 		test('can filter students by status', async ({ page }) => {
@@ -110,11 +110,11 @@ test.describe('Student List @students', () => {
 				e2eTag: testE2eTag
 			});
 
-			const statusSelect = page.locator('select[aria-label="Filter by status"]');
+			const statusSelect = page.getByRole('combobox', { name: 'Filter by status' });
 			await statusSelect.selectOption('Enrolled');
 
-			await expect(page.getByText(enrolledStudent)).toBeVisible({ timeout: 8000 });
-			await expect(page.getByText(notEnrolledStudent)).not.toBeVisible();
+			await expect(page.getByRole('row', { name: enrolledStudent })).toBeVisible();
+			await expect(page.getByRole('row', { name: notEnrolledStudent })).not.toBeVisible();
 		});
 
 		test('can search students by name', async ({ page }) => {
@@ -141,10 +141,10 @@ test.describe('Student List @students', () => {
 				e2eTag: testE2eTag
 			});
 
-			await page.getByPlaceholder('Search by name or student ID...').fill(targetStudent);
+			await page.getByRole('textbox', { name: 'Search students' }).fill(targetStudent);
 
-			await expect(page.getByText(targetStudent)).toBeVisible({ timeout: 5000 });
-			await expect(page.getByText(otherStudent)).not.toBeVisible();
+			await expect(page.getByRole('row', { name: targetStudent })).toBeVisible();
+			await expect(page.getByRole('row', { name: otherStudent })).not.toBeVisible();
 		});
 
 		test('can search students by student ID', async ({ page }) => {
@@ -171,18 +171,16 @@ test.describe('Student List @students', () => {
 				e2eTag: testE2eTag
 			});
 
-			await page.getByPlaceholder('Search by name or student ID...').fill(targetId);
+			await page.getByRole('textbox', { name: 'Search students' }).fill(targetId);
 
-			await expect(page.getByText(`StudentA_${suffix}`)).toBeVisible({ timeout: 6000 });
-			await expect(page.getByText(`StudentB_${suffix}`)).not.toBeVisible();
+			await expect(page.getByRole('row', { name: `StudentA_${suffix}` })).toBeVisible();
+			await expect(page.getByRole('row', { name: `StudentB_${suffix}` })).not.toBeVisible();
 		});
 
 		test('shows empty state when no students match filters', async ({ page }) => {
-			await expect(page.locator('table tbody tr').first()).toBeVisible();
+			await expect(page.getByRole('row').first()).toBeVisible();
 
-			await page
-				.getByPlaceholder('Search by name or student ID...')
-				.fill('NonExistentStudentXYZ123');
+			await page.getByRole('textbox', { name: 'Search students' }).fill('NonExistentStudentXYZ123');
 
 			await expect(page.getByText('No students match your filters')).toBeVisible();
 		});

@@ -58,9 +58,9 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl p-8">
+<div class="mx-auto p-8 max-w-6xl">
 	{#if !evaluationsQuery.isLoading && evaluations.length > 0}
-		<div class="mb-6 flex justify-end">
+		<div class="flex justify-end mb-6">
 			<Button onclick={() => void goto('/evaluations/new')}>
 				<Plus class="size-4" />
 				New
@@ -69,10 +69,10 @@
 	{/if}
 
 	{#if evaluationsQuery.isLoading}
-		<div class="text-muted-foreground py-16 text-center">Loading history...</div>
+		<div class="py-16 text-muted-foreground text-center">Loading history...</div>
 	{:else if evaluations.length === 0}
-		<div class="bg-card border-input rounded-lg border p-8 text-center">
-			<p class="text-muted-foreground mb-6">No evaluations found. Start by awarding some points!</p>
+		<div class="bg-card p-8 border border-input rounded-lg text-center">
+			<p class="mb-6 text-muted-foreground">No evaluations found. Start by awarding some points!</p>
 			<Button onclick={() => void goto('/evaluations/new')}>Give Points</Button>
 		</div>
 	{:else}
@@ -80,7 +80,6 @@
 			evaluations={sortedEvaluations}
 			title="Recent"
 			showStudentName={true}
-			{isAdmin}
 			showTeacherFilter={false}
 			showLegend={false}
 			showTeacherName={false}

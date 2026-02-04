@@ -86,39 +86,39 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl p-8">
+<div class="mx-auto p-8 max-w-6xl">
 	{#if evaluationsQuery.isLoading}
-		<div class="text-muted-foreground py-16 text-center">Loading evaluations...</div>
+		<div class="py-16 text-muted-foreground text-center">Loading evaluations...</div>
 	{:else if evaluationsQuery.error}
-		<div class="bg-card border-destructive rounded-lg border p-8 text-center">
+		<div class="bg-card p-8 border border-destructive rounded-lg text-center">
 			<p class="text-destructive">Error loading evaluations: {evaluationsQuery.error.message}</p>
 		</div>
 	{:else if evaluations.length === 0}
-		<div class="bg-card border-input rounded-lg border p-8 text-center">
-			<p class="text-muted-foreground mb-6">No evaluations found.</p>
+		<div class="bg-card p-8 border border-input rounded-lg text-center">
+			<p class="mb-6 text-muted-foreground">No evaluations found.</p>
 		</div>
 	{:else}
 		<!-- Filters Section -->
-		<div class="bg-card mb-6 rounded-lg border p-4">
-			<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-				<div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+		<div class="bg-card mb-6 p-4 border rounded-lg">
+			<div class="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4">
+				<div class="flex sm:flex-row flex-col sm:items-center gap-4">
 					<!-- Student Name Filter -->
 					<div class="relative">
-						<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+						<Search class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
 						<Input
 							type="text"
 							placeholder="Search by student name..."
 							bind:value={studentFilter}
-							class="w-full pl-9 sm:w-64"
+							class="pl-9 w-full sm:w-64"
 						/>
 					</div>
 
 					<!-- Teacher Name Filter -->
 					<div class="relative">
-						<User class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+						<User class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
 						<select
 							bind:value={teacherFilter}
-							class="bg-background border-input focus:ring-ring h-10 w-full rounded-md border px-3 pr-8 pl-9 shadow-sm transition-colors focus:ring-1 focus:outline-none sm:w-48"
+							class="bg-background shadow-sm px-3 pr-8 pl-9 border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring w-full sm:w-48 h-10 transition-colors"
 						>
 							<option value="">All Teachers</option>
 							{#each uniqueTeachers as teacher (teacher)}
@@ -136,7 +136,7 @@
 
 			<!-- Filter Summary -->
 			{#if studentFilter || teacherFilter}
-				<p class="text-muted-foreground mt-3 text-sm">
+				<p class="mt-3 text-muted-foreground text-sm">
 					Showing {filteredEvaluations.length} of {evaluations.length} evaluations
 					{#if studentFilter && teacherFilter}
 						matching student "{studentFilter}" and teacher "{teacherFilter}"
@@ -153,7 +153,6 @@
 			evaluations={sortedEvaluations}
 			title="All Evaluations"
 			showStudentName={true}
-			isAdmin={true}
 			showTeacherFilter={false}
 			showLegend={false}
 			showTeacherName={true}

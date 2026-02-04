@@ -30,10 +30,10 @@ test.describe('Smoke Tests @smoke', () => {
 		await expect(page.getByText('1. Select Students')).toBeVisible();
 
 		// Wait for students section to load
-		await page.waitForSelector('text=Loading students...', { state: 'detached', timeout: 10000 });
+		await page.waitForSelector('text=Loading students...', { state: 'detached' });
 
 		// Verify search input is present
-		const filterInput = page.getByLabel('Search students');
+		const filterInput = page.getByRole('textbox', { name: 'Search students' });
 		await expect(filterInput).toBeVisible();
 
 		// Verify evaluation details section
@@ -59,7 +59,7 @@ test.describe('Smoke Tests @smoke', () => {
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
 
-		await page.waitForURL(/\/evaluations/, { timeout: 10000 });
+		await page.waitForURL(/\/evaluations/);
 		await expect(page).toHaveURL(/\/evaluations/);
 		// Ensure we did not land on admin students page
 		await expect(page).not.toHaveURL(/\/admin\/students/);
@@ -110,7 +110,7 @@ test.describe('Student Table UI Tests @students', () => {
 		await searchInput.fill(englishName);
 
 		// Wait for filter to apply and student to appear
-		await expect(page.getByText(englishName).first()).toBeVisible({ timeout: 5000 });
+		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 	});
 
 	test('filters students by grade', async ({ page }) => {
@@ -138,6 +138,6 @@ test.describe('Student Table UI Tests @students', () => {
 		await gradeFilter.selectOption('10');
 
 		// Wait for filter to apply and student to appear
-		await expect(page.getByText(englishName).first()).toBeVisible({ timeout: 5000 });
+		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 	});
 });

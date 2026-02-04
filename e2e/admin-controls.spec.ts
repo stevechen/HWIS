@@ -42,7 +42,7 @@ test.describe('Admin Controls Visibility @admin', () => {
 			});
 
 			// Wait for the student to appear
-			await expect(page.getByText(`AdminTest_${suffix}`)).toBeVisible({ timeout: 10000 });
+			await expect(page.getByRole('row', { name: `SA_${suffix}` })).toBeVisible();
 
 			// Admin should see edit pencil button
 			await expect(page.getByRole('button', { name: `Edit AdminTest_${suffix}` })).toBeVisible();
@@ -78,13 +78,13 @@ test.describe('Admin Controls Visibility @admin', () => {
 		test('does not see delete actions for students', async ({ page }) => {
 			// Even if students are visible, delete actions should be hidden
 			const deleteButtons = page.getByRole('button', { name: /delete/i });
-			await expect(deleteButtons.first()).not.toBeVisible({ timeout: 2000 });
+			await expect(deleteButtons.first()).not.toBeVisible();
 		});
 
 		test('does not see disable/warning actions', async ({ page }) => {
 			// Disable buttons should be hidden for teachers
 			const disableButtons = page.getByRole('button', { name: /not enrolled/i });
-			await expect(disableButtons.first()).not.toBeVisible({ timeout: 2000 });
+			await expect(disableButtons.first()).not.toBeVisible();
 		});
 	});
 });

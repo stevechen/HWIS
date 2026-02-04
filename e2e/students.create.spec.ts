@@ -28,25 +28,20 @@ test.describe('Add Student @students', () => {
 
 		// Fill form using accessible labels
 		const dialog = page.getByRole('dialog').first();
-		await dialog.getByLabel('Student ID').fill(studentId);
-		await dialog.getByLabel('English Name').fill(englishName);
-		await dialog.getByLabel('Chinese Name').fill(chineseName);
-
-		// Select grade using the combobox
-		await page.getByRole('combobox').first().selectOption('10');
+		await dialog.getByRole('textbox', { name: 'Student ID *' }).fill(studentId);
+		await dialog.getByRole('textbox', { name: 'English Name *' }).fill(englishName);
+		await dialog.getByRole('textbox', { name: 'Chinese Name' }).fill(chineseName);
 
 		// Submit form using aria-label
-		await page.getByLabel('Create student').click();
+		await page.getByRole('button', { name: 'Create student' }).click();
 
 		// Wait for the dialog to close
 		await expect(page.getByRole('dialog').first()).not.toBeVisible();
 
-		// Reload page to ensure fresh data from Convex
-		await page.reload();
 		await page.waitForSelector('body.hydrated');
 
 		// Wait for the student to appear in the list
-		await expect(page.getByText(englishName)).toBeVisible();
+		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 	});
 });
 
@@ -74,7 +69,7 @@ test.describe('Student ID Validation @students', () => {
 		await page.getByRole('dialog').first().getByLabel('Student ID').fill(studentId);
 
 		const dialog = page.getByRole('dialog').first();
-		await expect(dialog.getByText('Student ID is available')).toBeVisible({ timeout: 5000 });
+		await expect(dialog.getByText('Student ID is available')).toBeVisible();
 	});
 
 	test('shows error when submitting duplicate student ID via form', async ({ page }) => {
@@ -90,32 +85,29 @@ test.describe('Student ID Validation @students', () => {
 			e2eTag: `e2e-test_${suffix}`
 		});
 
-		// Wait for student to appear in the list (Convex reactivity)
-		await expect(page.getByText(englishName)).toBeVisible({ timeout: 5000 });
+		// Wait for student to appear in the list
+		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 
 		// Try to add duplicate via form
 		await page.getByRole('button', { name: 'Add new student' }).click();
 		await expect(page.getByRole('dialog').first()).toBeVisible();
 		await page.getByRole('dialog').first().getByLabel('Student ID').fill(studentId);
 		await page.getByRole('dialog').first().getByLabel('English Name').fill('Duplicate Test');
-		await page.getByLabel('Create student').click();
+		await page.getByRole('dialog').first().getByRole('button', { name: 'Create student' }).click();
 
 		// Wait for error to appear - use positive assertion with timeout
 		// Validation error should appear within reasonable time
 
 		// Wait for any error indicator to be visible using timeout-based polling
-		await page.waitForFunction(
-			() => {
-				const hasAlert = document.querySelector('[role="alert"]') !== null;
-				const hasAlreadyExists =
-					document.evaluate('//*[contains(text(), "already exists")]', document).iterateNext() !==
-					null;
-				const hasDuplicate =
-					document.evaluate('//*[contains(text(), "duplicate")]', document).iterateNext() !== null;
-				return hasAlert || hasAlreadyExists || hasDuplicate;
-			},
-			{ timeout: 5000 }
-		);
+		await page.waitForFunction(() => {
+			const hasAlert = document.querySelector('[role="alert"]') !== null;
+			const hasAlreadyExists =
+				document.evaluate('//*[contains(text(), "already exists")]', document).iterateNext() !==
+				null;
+			const hasDuplicate =
+				document.evaluate('//*[contains(text(), "duplicate")]', document).iterateNext() !== null;
+			return hasAlert || hasAlreadyExists || hasDuplicate;
+		});
 
 		// Verify at least one error indicator is now visible
 		const alertVisible = await page

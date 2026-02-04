@@ -8,7 +8,7 @@ test.describe('Permission Tests', () => {
 			await page.waitForSelector('body.hydrated');
 			await page.waitForURL(/\/login/);
 			await expect(page).toHaveURL(/\/login/);
-			await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
+			await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible();
 		});
 
 		test('redirects to /login for root path', async ({ page }) => {
@@ -16,7 +16,7 @@ test.describe('Permission Tests', () => {
 			await page.waitForSelector('body.hydrated');
 			await page.waitForURL(/\/login/);
 			await expect(page).toHaveURL(/\/login/);
-			await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
+			await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible();
 		});
 
 		test('redirects to /login for /evaluations routes', async ({ page }) => {
@@ -24,7 +24,7 @@ test.describe('Permission Tests', () => {
 			await page.waitForSelector('body.hydrated');
 			await page.waitForURL(/\/login/);
 			await expect(page).toHaveURL(/\/login/);
-			await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
+			await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible();
 		});
 
 		test('redirects to /login for /evaluations/new', async ({ page }) => {
@@ -32,14 +32,13 @@ test.describe('Permission Tests', () => {
 			await page.waitForSelector('body.hydrated');
 			await page.waitForURL(/\/login/);
 			await expect(page).toHaveURL(/\/login/);
-			await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
+			await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible();
 		});
 
 		test('displays login page structure', async ({ page }) => {
 			await page.goto('/login');
 			await page.waitForSelector('body.hydrated');
-			await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
-			await expect(page.locator('button', { hasText: 'Sign in with Google' })).toBeVisible();
+			await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible();
 		});
 	});
 });

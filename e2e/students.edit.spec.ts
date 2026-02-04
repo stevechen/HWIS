@@ -39,11 +39,10 @@ test.describe('Edit Student @students', () => {
 		});
 
 		// Wait for student to appear in list (Convex reactivity)
-		await expect(page.getByText(englishName)).toBeVisible();
+		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 
 		// Search for the student to filter the list
-		const searchInput = page.getByPlaceholder('Search by name or student ID...');
-		await searchInput.fill(englishName);
+		await page.getByRole('textbox', { name: 'Search students' }).fill(englishName);
 
 		// Find and click edit button for this student - look for Pencil icon button
 		const studentRow = page.getByRole('row', { name: new RegExp(englishName) });
@@ -71,7 +70,7 @@ test.describe('Edit Student @students', () => {
 		await expect(page.getByRole('dialog').first()).not.toBeVisible();
 
 		// Clear search filter to see all students
-		await searchInput.fill('');
+		await page.getByRole('textbox', { name: 'Search students' }).fill('');
 
 		// Clear status filter to ensure all students are visible
 		const statusFilter = page.getByLabel('Filter by status');
@@ -81,8 +80,8 @@ test.describe('Edit Student @students', () => {
 
 		// Verify the specific student's status was updated to "Not Enrolled"
 		// The test is specific because we created a unique student and verify their status
-		const updatedStudentRow = page.getByRole('row', { name: new RegExp(englishName) });
+		const updatedStudentRow = page.getByRole('row', { name: englishName });
 		await expect(updatedStudentRow).toBeVisible();
-		await expect(updatedStudentRow.getByText('Not Enrolled')).toBeVisible({ timeout: 10000 });
+		await expect(updatedStudentRow.getByText('Not Enrolled')).toBeVisible();
 	});
 });

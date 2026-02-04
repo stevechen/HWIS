@@ -68,36 +68,35 @@ test.describe('Categories Management @categories', () => {
 			testE2eTag = `e2e-test_${suffix}`;
 
 			await page.getByRole('button', { name: 'Add new category' }).click();
-			await page.getByLabel('Category Name').fill(categoryName);
+			await page.getByRole('textbox', { name: 'Category Name' }).fill(categoryName);
 			await page.getByRole('button', { name: 'Save' }).click();
-			await expect(page.getByText(categoryName)).toBeVisible();
+			await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
 		});
 
 		test('can add category with sub-categories', async ({ page }) => {
 			const suffix = getTestSuffix('addCatSubs');
 			const categoryName = `Category_${suffix}`;
+			const sub1 = `Sub1_${suffix}`;
+			const sub2 = `Sub2_${suffix}`;
 			testE2eTag = `e2e-test_${suffix}`;
 
 			await page.getByRole('button', { name: 'Add new category' }).click();
-			await expect(page.getByLabel('Category Name')).toBeVisible();
-			await page.getByLabel('Category Name').fill(categoryName);
-			await page.getByPlaceholder('Add sub-category').fill('Sub1');
+			await expect(page.getByRole('textbox', { name: 'Category Name' })).toBeVisible();
+			await page.getByRole('textbox', { name: 'Category Name' }).fill(categoryName);
+			await page.getByRole('textbox', { name: 'Sub-categories' }).fill(sub1);
 			await page.getByRole('button', { name: 'Add', exact: true }).click();
-			await page.getByPlaceholder('Add sub-category').fill('Sub2');
+			await page.getByRole('textbox', { name: 'Sub-categories' }).fill(sub2);
 			await page.getByRole('button', { name: 'Add', exact: true }).click();
 			await page.getByRole('button', { name: 'Save' }).click();
-			await expect(page.getByText(categoryName)).toBeVisible();
-			await expect(page.getByText('Sub1').first()).toBeVisible();
-			await expect(page.getByText('Sub2').first()).toBeVisible();
+			await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
+			await expect(page.getByRole('cell', { name: `${sub1} ${sub2}` })).toBeVisible();
 		});
 
 		test('can cancel add form', async ({ page }) => {
 			await page.getByRole('button', { name: 'Add new category' }).click();
-			await page.getByLabel('Category Name').fill('Test');
+			await page.getByRole('textbox', { name: 'Category Name' }).fill('Test');
 			await page.getByRole('button', { name: 'Cancel' }).click();
-			await expect(
-				page.getByRole('heading', { name: 'Add New Category' }).first()
-			).not.toBeVisible();
+			await expect(page.getByRole('heading', { name: 'Add New Category' })).not.toBeVisible();
 		});
 	});
 
@@ -135,9 +134,9 @@ test.describe('Categories Management @categories', () => {
 
 			// Add a new category
 			await page.getByRole('button', { name: 'Add new category' }).click();
-			await page.getByLabel('Category Name').fill(categoryName);
+			await page.getByRole('textbox', { name: 'Category Name' }).fill(categoryName);
 			await page.getByRole('button', { name: 'Save' }).click();
-			await expect(page.getByText(categoryName)).toBeVisible();
+			await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
 
 			// Now click edit on this specific category
 			const row = page.getByRole('row', { name: new RegExp(categoryName) });
@@ -147,7 +146,7 @@ test.describe('Categories Management @categories', () => {
 			await expect(page.getByRole('heading', { name: 'Edit Category' })).toBeVisible();
 
 			// Wait for form to be populated
-			const nameInput = page.getByLabel('Category Name');
+			const nameInput = page.getByRole('textbox', { name: 'Category Name' });
 			await expect(nameInput).toBeVisible();
 
 			// Verify the input has the expected value
@@ -160,16 +159,16 @@ test.describe('Categories Management @categories', () => {
 			testE2eTag = `e2e-test_${suffix}`;
 
 			await page.getByRole('button', { name: 'Add new category' }).click();
-			await page.getByLabel('Category Name').fill(categoryName);
+			await page.getByRole('textbox', { name: 'Category Name' }).fill(categoryName);
 			await page.getByRole('button', { name: 'Save' }).click();
-			await expect(page.getByText(categoryName)).toBeVisible();
+			await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
 
 			const row = page.getByRole('row', { name: new RegExp(categoryName) });
 			await row.getByRole('button', { name: 'Edit' }).click();
 			const updatedName = `Updated_${suffix}`;
-			await page.getByLabel('Category Name').fill(updatedName);
+			await page.getByRole('textbox', { name: 'Category Name' }).fill(updatedName);
 			await page.getByRole('button', { name: 'Update' }).click();
-			await expect(page.getByText(updatedName)).toBeVisible();
+			await expect(page.getByRole('cell', { name: updatedName })).toBeVisible();
 		});
 
 		test('can add sub-categories when editing', async ({ page }) => {
@@ -178,17 +177,17 @@ test.describe('Categories Management @categories', () => {
 			testE2eTag = `e2e-test_${suffix}`;
 
 			await page.getByRole('button', { name: 'Add new category' }).click();
-			await page.getByLabel('Category Name').fill(categoryName);
+			await page.getByRole('textbox', { name: 'Category Name' }).fill(categoryName);
 			await page.getByRole('button', { name: 'Save' }).click();
-			await expect(page.getByText(categoryName)).toBeVisible();
+			await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
 
-			const row = page.getByRole('row', { name: new RegExp(categoryName) });
+			const row = page.getByRole('row', { name: categoryName });
 			await row.getByRole('button', { name: 'Edit' }).click();
 			// Wait for dialog to be fully loaded before interacting with form fields
-			await expect(page.getByRole('dialog').first()).toBeVisible();
-			await page.getByPlaceholder('Add sub-category').fill('UniqueSubCat');
+			await expect(page.getByRole('dialog')).toBeVisible();
+			await page.getByPlaceholder('Add sub-category').fill(`SubCat_${suffix}`);
 			await page.getByRole('button', { name: 'Add', exact: true }).click();
-			await expect(page.getByText('UniqueSubCat').first()).toBeVisible();
+			await expect(page.getByText(`SubCat_${suffix}`)).toBeVisible();
 		});
 
 		test('can remove sub-category without evaluations', async ({ page }) => {
@@ -197,17 +196,17 @@ test.describe('Categories Management @categories', () => {
 			testE2eTag = `e2e-test_${suffix}`;
 
 			await page.getByRole('button', { name: 'Add new category' }).click();
-			await page.getByLabel('Category Name').fill(categoryName);
+			await page.getByRole('textbox', { name: 'Category Name' }).fill(categoryName);
 			await page.getByRole('button', { name: 'Save' }).click();
-			await expect(page.getByText(categoryName)).toBeVisible();
+			await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
 
-			const row = page.getByRole('row', { name: new RegExp(categoryName) });
+			const row = page.getByRole('row', { name: categoryName });
 			await row.getByRole('button', { name: 'Edit' }).click();
 			await expect(page.getByRole('dialog')).toBeVisible();
-			await page.getByPlaceholder('Add sub-category').fill('Removable Sub');
+			await page.getByRole('textbox', { name: 'Sub-Categories' }).fill('Removable Sub');
 			await page.getByRole('button', { name: 'Add', exact: true }).click();
-			await expect(page.getByText('Removable Sub').first()).toBeVisible();
-			const removeButton = page.getByRole('dialog').locator('button[aria-label^="Remove"]').first();
+			await expect(page.getByText('Removable Sub')).toBeVisible();
+			const removeButton = page.getByRole('dialog').getByRole('button', { name: 'Remove' });
 			await expect(removeButton).toBeVisible();
 			await removeButton.click();
 			await expect(page.getByRole('dialog').getByText('Removable Sub')).not.toBeVisible();
@@ -250,17 +249,20 @@ test.describe('Categories Management @categories', () => {
 
 			await row.getByRole('button', { name: 'Delete' }).click();
 			await expect(page.getByRole('dialog')).toBeVisible();
-			await expect(page.getByRole('heading', { name: 'Delete Category' })).toBeVisible();
+			await expect(
+				page.getByRole('dialog').getByRole('heading', { name: 'Delete Category' })
+			).toBeVisible();
 		});
 
 		test('shows warning for category with evaluations', async ({ page }) => {
 			const suffix = getTestSuffix('delWithEval');
 			const categoryName = `Category_${suffix}`;
+			const sub1 = `Sub_${suffix}`;
 			testE2eTag = `e2e-test_${suffix}`;
 
 			await createCategoryWithSubs({
 				name: categoryName,
-				subCategories: ['Sub1'],
+				subCategories: [sub1],
 				e2eTag: testE2eTag
 			});
 
@@ -276,7 +278,7 @@ test.describe('Categories Management @categories', () => {
 			await expect(page.getByRole('dialog')).toBeVisible();
 
 			await expect(
-				page.getByText(/This category has sub-categories with evaluations/)
+				page.getByRole('dialog').getByText(/This category has sub-categories with evaluations/)
 			).toBeVisible();
 		});
 
@@ -306,11 +308,12 @@ test.describe('Categories Management @categories', () => {
 		test('can delete category with cascade', async ({ page }) => {
 			const suffix = getTestSuffix('delCasc');
 			const categoryName = `Category_${suffix}`;
+			const sub1 = `Sub_${suffix}`;
 			testE2eTag = `e2e-test_${suffix}`;
 
 			await createCategoryWithSubs({
 				name: categoryName,
-				subCategories: ['Sub1'],
+				subCategories: [sub1],
 				e2eTag: testE2eTag
 			});
 
@@ -322,13 +325,9 @@ test.describe('Categories Management @categories', () => {
 			await row.getByRole('button', { name: 'Delete' }).click();
 			await expect(page.getByRole('dialog')).toBeVisible();
 
-			await expect(
-				page.getByText(/This category has sub-categories with evaluations/)
-			).toBeVisible();
-
 			await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
 
-			await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 8000 });
+			await expect(page.getByRole('dialog')).not.toBeVisible();
 
 			await expect(page.getByRole('row', { name: new RegExp(categoryName) })).not.toBeVisible();
 		});

@@ -107,7 +107,9 @@ describe('Students Page', () => {
 
 1. **Use Semantic Locators** (priority order):
    - `page.getByRole('heading')` - for headings
-   - `page.getByRole('button')` - for buttons
+   - `page.getByRole('button')` - for buttons or Selects
+   - `page.getByRole('option')` - for options
+   - `page.getByRole('checkbox')` - for checkboxes
    - `page.getByRole('textbox')` - for inputs
    - `page.getByRole('combobox')` - for dropdowns
    - `page.getByPlaceholder()` - for placeholder text

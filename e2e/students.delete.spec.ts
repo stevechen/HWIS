@@ -48,13 +48,13 @@ test.describe('Delete Student @students', () => {
 			e2eTag: testE2eTag
 		});
 
-		await page.getByLabel('Search students').fill(englishName);
+		await page.getByRole('textbox', { name: 'Search students' }).fill(englishName);
 
-		await expect(page.getByText(englishName).first()).toBeVisible();
+		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 
 		// Find and click delete button
 		const deleteButton = page
-			.getByRole('row', { name: new RegExp(englishName) })
+			.getByRole('row', { name: englishName })
 			.getByRole('button', { name: /delete/i })
 			.first();
 		await deleteButton.click();
@@ -67,7 +67,7 @@ test.describe('Delete Student @students', () => {
 		await dialog.getByRole('button', { name: 'Delete' }).click();
 
 		// Verify student is no longer visible
-		await expect(page.getByText(englishName).first()).not.toBeVisible();
+		await expect(page.getByRole('row', { name: englishName })).not.toBeVisible();
 	});
 
 	test('can delete student with cascade', async ({ page }) => {
@@ -78,7 +78,6 @@ test.describe('Delete Student @students', () => {
 		testE2eTag = `e2e-test_${suffix}`;
 
 		await seedBaseline();
-		await page.waitForTimeout(500);
 
 		await createStudent({
 			studentId,
@@ -93,12 +92,12 @@ test.describe('Delete Student @students', () => {
 			e2eTag: testE2eTag
 		});
 
-		await page.getByLabel('Search students').fill(englishName);
+		await page.getByRole('textbox', { name: 'Search students' }).fill(englishName);
 
-		await expect(page.getByText(englishName).first()).toBeVisible();
+		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 
 		const deleteButton = page
-			.getByRole('row', { name: new RegExp(englishName) })
+			.getByRole('row', { name: englishName })
 			.getByRole('button', { name: /delete/i })
 			.first();
 		await deleteButton.click();
@@ -107,14 +106,12 @@ test.describe('Delete Student @students', () => {
 
 		const dialog = page.getByRole('dialog');
 
-		await expect(dialog.getByRole('button', { name: 'Set Not Enrolled' })).toBeVisible({
-			timeout: 5000
-		});
+		await expect(dialog.getByRole('button', { name: 'Set Not Enrolled' })).toBeVisible();
 		await expect(dialog.getByRole('button', { name: 'Delete Anyway' })).toBeVisible();
 
 		await dialog.getByRole('button', { name: 'Delete Anyway' }).click();
 
-		await expect(page.getByText(englishName).first()).not.toBeVisible();
+		await expect(page.getByRole('row', { name: englishName })).not.toBeVisible();
 	});
 
 	test('delete dialog shows Set Not Enrolled for student with evaluations', async ({ page }) => {
@@ -126,7 +123,6 @@ test.describe('Delete Student @students', () => {
 		testE2eTag = `e2e-test_${suffix}`;
 
 		await seedBaseline();
-		await page.waitForTimeout(500);
 
 		await createStudent({
 			studentId,
@@ -141,12 +137,12 @@ test.describe('Delete Student @students', () => {
 			e2eTag: testE2eTag
 		});
 
-		await page.getByLabel('Search students').fill(englishName);
+		await page.getByRole('textbox', { name: 'Search students' }).fill(englishName);
 
-		await expect(page.getByText(englishName).first()).toBeVisible();
+		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 
 		const deleteButton = page
-			.getByRole('row', { name: new RegExp(englishName) })
+			.getByRole('row', { name: englishName })
 			.getByRole('button', { name: /delete/i })
 			.first();
 		await deleteButton.click();
@@ -170,7 +166,6 @@ test.describe('Delete Student @students', () => {
 		testE2eTag = `e2e-test_${suffix}`;
 
 		await seedBaseline();
-		await page.waitForTimeout(500);
 
 		await createStudent({
 			studentId,
@@ -185,11 +180,11 @@ test.describe('Delete Student @students', () => {
 			e2eTag: `e2e-test_${suffix}`
 		});
 
-		await page.getByLabel('Search students').fill(englishName);
-		await expect(page.getByText(englishName).first()).toBeVisible();
+		await page.getByRole('textbox', { name: 'Search students' }).fill(englishName);
+		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 
 		const deleteButton = page
-			.getByRole('row', { name: new RegExp(englishName) })
+			.getByRole('row', { name: englishName })
 			.getByRole('button', { name: /delete/i })
 			.first();
 		await deleteButton.click();
@@ -198,7 +193,7 @@ test.describe('Delete Student @students', () => {
 
 		await page.getByRole('dialog').getByRole('button', { name: 'Set Not Enrolled' }).click();
 
-		await page.getByLabel('Search students').fill(englishName);
+		await page.getByRole('textbox', { name: 'Search students' }).fill(englishName);
 		// Check status cell in the table row contains "Not Enrolled"
 		await expect(
 			page

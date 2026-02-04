@@ -159,7 +159,7 @@ When testing mutations that create data:
    await expect(page.locator('[role="dialog"]').first()).not.toBeVisible();
 
    // Wait for new data to appear (Convex reactivity)
-   await expect(page.getByText(englishName)).toBeVisible({ timeout: 20000 });
+   await expect(page.getByText(englishName)).toBeVisible();
    ```
 
 2. **IMPORTANT: Reset filters** - If you previously filtered the list (e.g., by grade),
@@ -179,7 +179,7 @@ When testing mutations that create data:
    ```typescript
    await createStudent({ studentId, englishName, grade: 10 });
    // UI updates via Convex reactivity - use polling assertion
-   await expect(page.getByText(englishName)).toBeVisible({ timeout: 10000 });
+   await expect(page.getByText(englishName)).toBeVisible();
    ```
 
 **Avoid:**

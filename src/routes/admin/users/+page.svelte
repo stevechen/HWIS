@@ -32,7 +32,7 @@
 		}
 	}
 
-	async function updateUserStatus(id: Id<'users'>, status: 'pending' | 'active' | 'deactivated') {
+	async function updateUserStatus(id: Id<'users'>, status: 'pending' | 'active') {
 		updatingId = id;
 		try {
 			await client.mutation(api.users.update, {
@@ -59,24 +59,21 @@
 		switch (status) {
 			case 'active':
 				return 'default';
-			case 'deactivated':
-				return 'destructive';
 			default:
 				return 'secondary';
 		}
 	}
-
 </script>
 
-<div class="container mx-auto max-w-6xl py-8">
-	<div class="bg-card rounded-lg border shadow-sm">
+<div class="mx-auto py-8 max-w-6xl container">
+	<div class="bg-card shadow-sm border rounded-lg">
 		{#if usersQuery.isLoading}
-			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
-				<div class="border-muted border-t-primary h-8 w-8 animate-spin rounded-full border-3"></div>
+			<div class="flex flex-col justify-center items-center gap-4 p-16 text-muted-foreground">
+				<div class="border-3 border-muted border-t-primary rounded-full w-8 h-8 animate-spin"></div>
 				<p>Loading user records...</p>
 			</div>
 		{:else if usersQuery.data}
-			<Table.Root>
+			<Table.Root aria-label="users">
 				<Table.Header>
 					<Table.Row>
 						<Table.Head class="w-50">Name</Table.Head>
@@ -101,7 +98,11 @@
 										user._id === (currentUser.data?._id as Id<'users'> | undefined) ||
 										user.role === 'super'}
 								>
-									<Select.Trigger class="h-8 w-33 text-sm" placeholder="Select role">
+									<Select.Trigger
+										class="w-33 h-8 text-sm"
+										placeholder="Select role"
+										aria-label="Select role for {user.name || 'user'}"
+									>
 										{roles.find((r) => r.value === (roleStates[user._id] ?? user.role))?.label ||
 											'Select role'}
 									</Select.Trigger>
@@ -127,19 +128,19 @@
 											disabled={updatingId === user._id}
 											title="Approve User"
 										>
-											<CheckCircle2 class="h-4 w-4 text-emerald-600" />
+											<CheckCircle2 class="w-4 h-4 text-emerald-600" />
 										</Button>
 									{/if}
-									{#if user.status !== 'deactivated'}
+									{#if user.status === 'active'}
 										<Button
 											variant="ghost"
 											size="icon"
-											onclick={() => updateUserStatus(user._id, 'deactivated')}
+											onclick={() => updateUserStatus(user._id, 'pending')}
 											disabled={updatingId === user._id ||
 												user._id === (currentUser.data?._id as Id<'users'> | undefined)}
-											title="Deactivate User"
+											title="Remove Access"
 										>
-											<XCircle class="h-4 w-4 text-red-600" />
+											<XCircle class="w-4 h-4 text-red-600" />
 										</Button>
 									{/if}
 								</div>

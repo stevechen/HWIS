@@ -62,7 +62,7 @@ test.describe('Archive & Reset Page', () => {
 			e2eTag: `e2e-test_${suffix}`
 		});
 
-		await page.getByPlaceholder('Search by name or student ID...').fill(englishName);
+		await page.getByRole('textbox', { name: 'Search students' }).fill(englishName);
 		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 	});
 
@@ -82,7 +82,7 @@ test.describe('Archive & Reset Page', () => {
 			e2eTag: `e2e-test_${suffix}`
 		});
 
-		await page.getByPlaceholder('Search by name or student ID...').fill(englishName);
+		await page.getByRole('textbox', { name: 'Search students' }).fill(englishName);
 
 		await page
 			.getByRole('row', { name: englishName })
