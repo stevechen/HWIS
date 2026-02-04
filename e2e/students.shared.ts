@@ -4,10 +4,9 @@ import { cleanupTestData } from './convex-client';
 
 export { getTestSuffix, expect };
 
-export async function cleanupE2EData(page: Page, testId: string) {
-	const suffix = getTestSuffix(testId);
+export async function cleanupE2EData(_page: Page, tag: string) {
 	try {
-		await cleanupTestData(suffix);
+		await cleanupTestData(tag);
 	} catch {
 		// Cleanup skipped
 	}

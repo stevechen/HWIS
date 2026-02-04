@@ -1,18 +1,8 @@
 <script lang="ts">
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import { goto } from '$app/navigation';
-	import {
-		ArrowLeft,
-		Search,
-		X,
-		GripVertical,
-		ChevronsUpDown,
-		FileText,
-		Columns
-	} from '@lucide/svelte';
+	import { Search, X, GripVertical, ChevronsUpDown, FileText, Columns } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Input from '$lib/components/ui/input';
@@ -358,71 +348,51 @@
 				return '';
 		}
 	}
-
-	
 </script>
 
 <div class="container mx-auto max-w-[1400px] py-8">
-	<header class="mb-8 flex items-start justify-between">
-		<div class="flex items-start gap-6">
-			<Button variant="outline" onclick={() => void goto('/admin')}>
-				<ArrowLeft class="mr-2 h-4 w-4" />
-				Back to Admin
+	<div class="mb-6 flex items-center justify-end gap-2">
+		{#if !isDefaultOrder()}
+			<Button variant="outline" onclick={resetColumnOrder} class="mr-2" aria-label="Reset Columns">
+				<GripVertical class="mr-2 size-4" />
+				Reset Columns
 			</Button>
-			<div>
-				<h1 class="text-foreground mb-1 text-2xl font-semibold">Audit Log</h1>
-				<p class="text-muted-foreground">View all system activity and changes.</p>
-			</div>
-		</div>
-		<div class="flex items-center gap-2">
-			{#if !isDefaultOrder()}
-				<Button
-					variant="outline"
-					onclick={resetColumnOrder}
-					class="mr-2"
-					aria-label="Reset Columns"
-				>
-					<GripVertical class="mr-2 h-4 w-4" />
-					Reset Columns
+		{/if}
+		<Popover.Root bind:open={isColumnSelectorOpen}>
+			<Popover.Trigger>
+				<Button variant="outline" aria-label="Columns">
+					<Columns class="mr-2 size-4" />
+					Columns
 				</Button>
-			{/if}
-			<Popover.Root bind:open={isColumnSelectorOpen}>
-				<Popover.Trigger>
-					<Button variant="outline" aria-label="Columns">
-						<Columns class="mr-2 h-4 w-4" />
-						Columns
-					</Button>
-				</Popover.Trigger>
-				<Popover.Content class="w-56 p-0" align="end">
-					<div class="flex items-center border-b px-3 py-2">
-						<span class="text-sm font-medium">Show Columns</span>
-					</div>
-					<div class="max-h-72 overflow-y-auto py-1">
-						{#each allAvailableColumns.filter((c) => c.optional) as column (column.key)}
-							<label
-								class="hover:bg-accent flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm"
-							>
-								<input
-									type="checkbox"
-									checked={isColumnVisible(column.key)}
-									onchange={() => toggleColumn(column.key)}
-									class="h-4 w-4 rounded border-gray-300"
-								/>
-								<span>{column.label}</span>
-							</label>
-						{/each}
-					</div>
-				</Popover.Content>
-			</Popover.Root>
-			<ThemeToggle />
-		</div>
-	</header>
+			</Popover.Trigger>
+			<Popover.Content class="w-56 p-0" align="end">
+				<div class="flex items-center border-b px-3 py-2">
+					<span class="text-sm font-medium">Show Columns</span>
+				</div>
+				<div class="max-h-72 overflow-y-auto py-1">
+					{#each allAvailableColumns.filter((c) => c.optional) as column (column.key)}
+						<label
+							class="hover:bg-accent flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm"
+						>
+							<input
+								type="checkbox"
+								checked={isColumnVisible(column.key)}
+								onchange={() => toggleColumn(column.key)}
+								class="size-4 rounded border-gray-300"
+							/>
+							<span>{column.label}</span>
+						</label>
+					{/each}
+				</div>
+			</Popover.Content>
+		</Popover.Root>
+	</div>
 
 	<div class="mb-6">
 		<div class="flex flex-wrap items-center gap-2">
 			{#if isStudentIdVisible}
 				<div class="relative h-9 items-center md:flex">
-					<Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+					<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 					<Input.Root
 						class="w-28 pl-10"
 						placeholder="ID"
@@ -432,7 +402,7 @@
 				</div>
 			{/if}
 			<div class="relative flex h-9 items-center">
-				<Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+				<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 				<Input.Root
 					class="w-48 pl-10"
 					placeholder="Student"
@@ -454,7 +424,7 @@
 				</Select.Root>
 			{/if}
 			<div class="relative flex h-9 items-center">
-				<Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+				<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 				<Input.Root
 					class="w-48 pl-10"
 					placeholder="Teacher"
@@ -464,7 +434,7 @@
 			</div>
 			{#if hasActiveFilters()}
 				<Button variant="outline" onclick={clearFilters} aria-label="Clear all filters">
-					<X class="mr-2 h-4 w-4" />
+					<X class="mr-2 size-4" />
 					Clear Filters
 				</Button>
 			{/if}
@@ -509,13 +479,13 @@
 												? 'justify-center'
 												: ''}"
 										>
-											<GripVertical class="text-muted-foreground h-4 w-4 cursor-move" />
+											<GripVertical class="text-muted-foreground size-4 cursor-move" />
 											<span>{column.label}</span>
 											{#if column.sortable}
 												{#if sortBy === column.key}
-													<ChevronsUpDown class="h-4 w-4" />
+													<ChevronsUpDown class="size-4" />
 												{:else}
-													<ChevronsUpDown class="invisible h-4 w-4" />
+													<ChevronsUpDown class="invisible size-4" />
 												{/if}
 											{/if}
 										</div>

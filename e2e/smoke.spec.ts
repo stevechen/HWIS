@@ -5,12 +5,17 @@ import { createStudent, cleanupTestData } from './convex-client';
 test.describe('Smoke Tests @smoke', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
-	test.beforeEach(async () => {});
+	let testE2eTag: string | null = null;
+
+	test.beforeEach(async () => {
+		testE2eTag = null;
+	});
 
 	test.afterEach(async () => {
-		const suffix = getTestSuffix('smoke');
 		try {
-			await cleanupTestData(suffix);
+			if (testE2eTag) {
+				await cleanupTestData(testE2eTag);
+			}
 		} catch {
 			// Ignore cleanup errors
 		}
@@ -39,6 +44,7 @@ test.describe('Smoke Tests @smoke', () => {
 		const suffix = getTestSuffix('smokeList');
 		const studentId = `SL_${suffix}`;
 		const englishName = `SmokeList_${suffix}`;
+		testE2eTag = `e2e-test_${suffix}`;
 
 		await createStudent({
 			studentId,
@@ -46,7 +52,7 @@ test.describe('Smoke Tests @smoke', () => {
 			chineseName: '列表測試',
 			grade: 10,
 			status: 'Enrolled',
-			e2eTag: `e2e-test_${suffix}`
+			e2eTag: testE2eTag
 		});
 
 		// Teachers should be redirected away from admin pages
@@ -63,12 +69,17 @@ test.describe('Smoke Tests @smoke', () => {
 test.describe('Student Table UI Tests @students', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-	test.beforeEach(async () => {});
+	let testE2eTag: string | null = null;
+
+	test.beforeEach(async () => {
+		testE2eTag = null;
+	});
 
 	test.afterEach(async () => {
-		const suffix = getTestSuffix('smokeFilter');
 		try {
-			await cleanupTestData(suffix);
+			if (testE2eTag) {
+				await cleanupTestData(testE2eTag);
+			}
 		} catch {
 			// Ignore cleanup errors
 		}
@@ -78,6 +89,7 @@ test.describe('Student Table UI Tests @students', () => {
 		const suffix = getTestSuffix('smokeSearch');
 		const studentId = `SS_${suffix}`;
 		const englishName = `SmokeSearch_${suffix}`;
+		testE2eTag = `e2e-test_${suffix}`;
 
 		await createStudent({
 			studentId,
@@ -85,7 +97,7 @@ test.describe('Student Table UI Tests @students', () => {
 			chineseName: '搜尋測試',
 			grade: 10,
 			status: 'Enrolled',
-			e2eTag: `e2e-test_${suffix}`
+			e2eTag: testE2eTag
 		});
 
 		await page.goto('/admin/students');
@@ -94,7 +106,7 @@ test.describe('Student Table UI Tests @students', () => {
 		// Wait for students to load
 		await page.waitForSelector('text=Loading students...', { state: 'detached' });
 
-		const searchInput = page.getByLabel('Search by name or student ID');
+		const searchInput = page.getByLabel('Search students');
 		await searchInput.fill(englishName);
 
 		// Wait for filter to apply and student to appear
@@ -105,6 +117,7 @@ test.describe('Student Table UI Tests @students', () => {
 		const suffix = getTestSuffix('smokeGrade');
 		const studentId = `SG_${suffix}`;
 		const englishName = `SmokeGrade_${suffix}`;
+		testE2eTag = `e2e-test_${suffix}`;
 
 		await createStudent({
 			studentId,
@@ -112,7 +125,7 @@ test.describe('Student Table UI Tests @students', () => {
 			chineseName: '年級測試',
 			grade: 10,
 			status: 'Enrolled',
-			e2eTag: `e2e-test_${suffix}`
+			e2eTag: testE2eTag
 		});
 
 		await page.goto('/admin/students');

@@ -62,7 +62,7 @@
 	});
 
 	// Environment info
-	let environment: Environment = 'unknown';
+	let environment = $state<Environment>('unknown');
 	let environmentInfo = $state({
 		frontend: '',
 		convex: '',

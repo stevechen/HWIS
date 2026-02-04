@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import { goto } from '$app/navigation';
-	import { ArrowLeft, Search, User } from '@lucide/svelte';
+	import { Search, User } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import { Input } from '$lib/components/ui/input';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
 
@@ -69,7 +67,7 @@
 	let showDetails = $state(false);
 
 	// Sorted evaluations
-	const sortedEvaluations = $derived(() => {
+	const sortedEvaluations = $derived.by(() => {
 		const evals = filteredEvaluations;
 		if (sortAscending) {
 			return [...evals].sort((a, b) => a.timestamp - b.timestamp);
@@ -82,23 +80,13 @@
 		teacherFilter = '';
 	}
 
-	function handleCardClick(entry: EvaluationEntry) {
+	function handleCardClick(_entry: EvaluationEntry): void {
 		// Navigation handled by href
+		void _entry;
 	}
 </script>
 
 <div class="mx-auto max-w-6xl p-8">
-	<header class="mb-6 flex items-center justify-between">
-		<div class="flex items-center gap-4">
-			<Button variant="outline" onclick={() => void goto('/admin')}>
-				<ArrowLeft class="size-4" />
-				<span class="ml-2 hidden sm:inline">Back to Admin</span>
-			</Button>
-			<h1 class="text-foreground text-lg font-semibold sm:text-2xl">All Evaluation Review</h1>
-		</div>
-		<ThemeToggle />
-	</header>
-
 	{#if evaluationsQuery.isLoading}
 		<div class="text-muted-foreground py-16 text-center">Loading evaluations...</div>
 	{:else if evaluationsQuery.error}
@@ -116,9 +104,7 @@
 				<div class="flex flex-col gap-4 sm:flex-row sm:items-center">
 					<!-- Student Name Filter -->
 					<div class="relative">
-						<Search
-							class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
-						/>
+						<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 						<Input
 							type="text"
 							placeholder="Search by student name..."
@@ -129,7 +115,7 @@
 
 					<!-- Teacher Name Filter -->
 					<div class="relative">
-						<User class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+						<User class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 						<select
 							bind:value={teacherFilter}
 							class="bg-background border-input focus:ring-ring h-10 w-full rounded-md border px-3 pr-8 pl-9 shadow-sm transition-colors focus:ring-1 focus:outline-none sm:w-48"
@@ -164,7 +150,7 @@
 		</div>
 
 		<EvaluationsTimeline
-			evaluations={sortedEvaluations()}
+			evaluations={sortedEvaluations}
 			title="All Evaluations"
 			showStudentName={true}
 			isAdmin={true}

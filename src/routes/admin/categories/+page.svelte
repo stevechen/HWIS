@@ -2,10 +2,8 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
-	import { goto } from '$app/navigation';
 	import { Plus, Trash2, Pencil, X } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
@@ -144,17 +142,6 @@
 </script>
 
 <div class="container mx-auto max-w-6xl py-8">
-	<header class="mb-8 flex items-start justify-between">
-		<div class="flex items-start gap-6">
-			<Button variant="outline" onclick={() => goto('/admin')}>← Back to Admin</Button>
-			<div>
-				<h1 class="text-foreground mb-1 text-2xl font-semibold">Categories</h1>
-				<p class="text-muted-foreground">Manage point categories and sub-categories.</p>
-			</div>
-		</div>
-		<ThemeToggle />
-	</header>
-
 	<div class="bg-card rounded-lg border shadow-sm">
 		<Table.Root>
 			<Table.Header>
@@ -189,7 +176,7 @@
 									onclick={() => startEdit(category)}
 									aria-label="Edit"
 								>
-									<Pencil class="h-4 w-4" />
+									<Pencil class="size-4" />
 								</Button>
 								<Button
 									variant="ghost"
@@ -197,7 +184,7 @@
 									onclick={() => confirmDelete(category)}
 									aria-label="Delete"
 								>
-									<Trash2 class="h-4 w-4" />
+									<Trash2 class="size-4" />
 								</Button>
 							</div>
 						</Table.Cell>
@@ -215,7 +202,7 @@
 
 	<div class="mt-6 flex justify-end">
 		<Button onclick={startAdd}>
-			<Plus class="mr-2 h-4 w-4" />
+			<Plus class="mr-2 size-4" />
 			Add new category
 		</Button>
 	</div>
@@ -231,7 +218,7 @@
 			<div class="mb-4 flex items-center justify-between">
 				<h2 class="text-xl font-semibold">{editingId ? 'Edit Category' : 'Add New Category'}</h2>
 				<Button variant="ghost" size="icon" onclick={handleCancel} aria-label="Close">
-					<X class="h-4 w-4" />
+					<X class="size-4" />
 				</Button>
 			</div>
 

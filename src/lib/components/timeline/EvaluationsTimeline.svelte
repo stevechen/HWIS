@@ -11,27 +11,13 @@
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
-
-	export interface EvaluationEntry {
-		_id: string;
-		value: number;
-		category: string;
-		subCategory?: string;
-		details?: string;
-		timestamp: number;
-		teacherName?: string;
-		isAdmin?: boolean;
-		englishName?: string;
-		grade?: number;
-		studentId?: string;
-	}
+	import type { EvaluationEntry } from './types.js';
 
 	interface Props {
 		evaluations: EvaluationEntry[];
 		title: string;
 		showStudentName?: boolean;
 		studentGrade?: number;
-		isAdmin?: boolean;
 		showTeacherFilter?: boolean;
 		uniqueTeachers?: string[];
 		selectedTeacherFilter?: string;
@@ -50,7 +36,6 @@
 		title,
 		showStudentName = false,
 		studentGrade,
-		isAdmin = false,
 		showTeacherFilter = false,
 		uniqueTeachers = [],
 		selectedTeacherFilter = '',

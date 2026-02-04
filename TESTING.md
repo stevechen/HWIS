@@ -8,7 +8,7 @@ This document provides comprehensive guidance for AI agents working on the HWIS 
 # Run unit tests (fast, no server needed)
 bun run test:unit
 
-# Run e2e tests (requires dev server running)
+# Run e2e tests (Playwright will start dev server)
 bun run test:e2e
 
 # Run all tests
@@ -123,18 +123,10 @@ describe('Students Page', () => {
 3. **Mock Convex Properly**:
 
    ```typescript
+   import { createMockConvexHooks } from '../../mocks/convex';
+
    vi.mock('convex-svelte', () => ({
-   	useQuery: vi.fn((_api: unknown) => {
-   		const apiStr = JSON.stringify(_api);
-   		if (apiStr.includes('viewer')) {
-   			return { data: { role: 'admin' }, loading: false, error: null };
-   		}
-   		return { data: [], loading: false, error: null };
-   	}),
-   	useConvexClient: vi.fn(() => ({
-   		mutation: vi.fn().mockResolvedValue(undefined),
-   		query: vi.fn().mockResolvedValue({})
-   	}))
+   	...createMockConvexHooks()
    }));
 
    vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
@@ -143,6 +135,17 @@ describe('Students Page', () => {
    		isAuthenticated: true,
    		data: { user: { name: 'Test Admin' } }
    	}))
+   }));
+   ```
+
+   If you need custom data, pass it into the helper:
+
+   ```typescript
+   import { createMockConvexHooks } from '../../mocks/convex';
+   import { mockStudents } from '../../mocks/convex';
+
+   vi.mock('convex-svelte', () => ({
+   	...createMockConvexHooks(mockStudents)
    }));
    ```
 
@@ -164,13 +167,13 @@ describe('Students Page', () => {
 
 ```bash
 # Run all browser unit tests
-bunx vitest run --project=client
+bun run test:component
 
 # Run specific test file
-bunx vitest run tests/routes/admin/students/student-table.test.ts
+bunx vitest run --config vitest.component.config.ts tests/routes/admin/students/students.test.ts
 
 # Run with UI
-bunx vitest run --ui
+bunx vitest run --config vitest.component.config.ts --ui
 ```
 
 ## Server Unit Tests (convex-test)
@@ -200,9 +203,9 @@ test('creates student', async () => {
 
 ```bash
 # Run all server unit tests
-bunx vitest run --project=server
+bun run test:unit
 
-# Run specific file
+# Run specific file (example)
 bunx vitest run src/convex/students.test.ts
 ```
 
@@ -252,7 +255,7 @@ From `e2e/convex-client.ts`:
 ### Running E2E Tests
 
 ```bash
-# Run all e2e tests (requires dev server)
+# Run all e2e tests (Playwright starts dev server)
 bun run test:e2e
 
 # Run specific test
@@ -260,16 +263,24 @@ bunx playwright test e2e/students.spec.ts
 
 # Run with single worker (more stable)
 bunx playwright test e2e/students.spec.ts --workers=1
+
+# Run setup/auth/cleanup flows
+bun run test:e2e:setup
+bun run test:e2e:auth
+bun run test:e2e:cleanup
+
+# Full e2e pipeline (setup -> tests -> cleanup)
+bun run test:e2e:full
 ```
 
 ## All Test Commands
 
 ```bash
 # Browser unit tests (locator pattern)
-bunx vitest run --config vite.config.ts
+bun run test:component
 
 # Server unit tests (convex-test)
-bunx vitest run src/convex/*.test.ts
+bun run test:unit
 
 # E2E tests (Playwright)
 bun run test:e2e
@@ -334,44 +345,39 @@ Tests run on every PR:
 
 ## Test Coverage Summary
 
-### Current Coverage (as of Jan 2026)
+### Current Coverage (as of Feb 2026)
 
 | Category           | Test Files | Tests           |
 | ------------------ | ---------- | --------------- |
-| Browser unit tests | 11         | ~54             |
-| Server unit tests  | 6          | 68              |
+| Browser unit tests | 10         | varies          |
+| Server unit tests  | 7          | varies          |
 | E2E tests          | 19         | varies          |
-| **Total**          | **36**     | **157 passing** |
 
 ### Pages with Browser Tests
 
-| Route               | Tests | Coverage             |
-| ------------------- | ----- | -------------------- |
-| `/admin`            | 1     | Basic structure      |
-| `/admin/academic`   | 3     | Structure            |
-| `/admin/audit`      | 4     | Structure, buttons   |
-| `/admin/backup`     | 6     | Structure, buttons   |
-| `/admin/categories` | 8     | Dialogs, form fields |
-| `/admin/students`   | 10    | Dialogs, form fields |
-| `/admin/users`      | 3     | Structure            |
-| `/evaluations`     | 4     | Timeline, navigation, sorting, details toggle |
-| `/evaluations/new`  | 7     | Form structure       |
-| `/evaluations/student/[id]` | 31 | Timeline, sorting, filtering, admin features |
-| `/rejected`         | 4     | Static page          |
-| `$lib/utils.ts`     | 8     | cn() utility         |
+| Route               | Tests | Coverage         |
+| ------------------- | ----- | ---------------- |
+| `/login`            | 1     | Structure        |
+| `/admin`            | 1     | Structure        |
+| `/admin/academic`   | 1     | Structure        |
+| `/admin/students`   | 2     | Dialogs, fields  |
+| `/admin/weekly-reports` | 1 | Structure        |
+| `/evaluations`      | 1     | Structure        |
+| `/evaluations/new`  | 1     | Structure        |
+| `/rejected`         | 1     | Static page      |
+| `$lib/utils.ts`     | 1     | cn() utility     |
 
 ### Convex Functions with Tests
 
 | Function            | Edge Cases                   |
 | ------------------- | ---------------------------- |
-| `categories.create` | Basic, subCategories         |
-| `categories.update` | Name, subCategories, removal |
-| `categories.remove` | Cascade, error handling      |
-| `categories.list`   | Filters, sorting             |
-| `students.create`   | Validation, duplicates       |
-| `students.update`   | Field preservation           |
-| `students.list`     | Search, filters, sorting     |
-| `students.remove`   | Cascade, status changes      |
+| `audit.*`           | Access, filtering            |
+| `backup.*`          | Basic flows                  |
+| `categories.*`      | CRUD, subCategories          |
+| `evaluations.*`     | CRUD, sorting, filters       |
+| `students.*`        | Validation, duplicates       |
+| `students.duplicates.*` | Deduping paths          |
+| `weekly-reports.*`  | CRUD, filters                |
 
 ### Test Strategy
 

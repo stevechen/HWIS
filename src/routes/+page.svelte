@@ -6,7 +6,6 @@
 	import { api } from '$convex/_generated/api';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
-	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Card from '$lib/components/ui/card';
 
 	let { data }: { data: { authState?: { isAuthenticated: boolean } } } = $props();
@@ -62,17 +61,6 @@
 <div class="flex flex-col items-center bg-gray-50 p-4 h-screen">
 	<header class="flex justify-between items-center mb-6 w-full max-w-2xl">
 		<h1 class="font-bold text-gray-800 text-2xl">HWIS</h1>
-		<div class="flex items-center gap-4">
-			<ThemeToggle />
-			{#if isLoggedIn}
-				<button
-					onclick={signOut}
-					class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-white transition-colors"
-				>
-					Sign out
-				</button>
-			{/if}
-		</div>
 	</header>
 
 	<main class="w-full max-w-2xl">

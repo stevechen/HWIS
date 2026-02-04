@@ -7,6 +7,7 @@ test.describe('Login Page', () => {
 		await page.waitForSelector('body.hydrated');
 		await expect(page).toHaveURL(/\/login/);
 		await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Sign out' })).not.toBeVisible();
 	});
 
 	test('preserves callbackUrl after redirect', async ({ page }) => {
@@ -14,6 +15,7 @@ test.describe('Login Page', () => {
 		await page.waitForURL(/\/login/);
 		await expect(page).toHaveURL(/\/login/);
 		await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Sign out' })).not.toBeVisible();
 	});
 
 	test('shows loading state during auth check', async ({ page }) => {
@@ -37,6 +39,7 @@ test.describe('Authenticated User', () => {
 	test('redirects to evaluations when authenticated as teacher', async ({ page }) => {
 		await page.waitForURL(/\/evaluations/, { timeout: 10000 });
 		await expect(page).toHaveURL(/\/evaluations/);
+		await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 	});
 });
 
@@ -51,5 +54,6 @@ test.describe('Authenticated Admin', () => {
 	test('redirects to admin when authenticated as admin', async ({ page }) => {
 		await page.waitForURL(/\/admin/, { timeout: 10000 });
 		await expect(page).toHaveURL(/\/admin/);
+		await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 	});
 });

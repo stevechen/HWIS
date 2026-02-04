@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import { goto } from '$app/navigation';
 	import { CheckCircle2, XCircle } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Select from '$lib/components/ui/select';
@@ -68,23 +66,9 @@
 		}
 	}
 
-	function handleBackToAdmin() {
-		void goto('/admin');
-	}
 </script>
 
 <div class="container mx-auto max-w-6xl py-8">
-	<header class="mb-8 flex items-start justify-between">
-		<div class="flex items-start gap-6">
-			<Button variant="outline" onclick={handleBackToAdmin}>← Back to Admin</Button>
-			<div>
-				<h1 class="text-foreground mb-1 text-2xl font-semibold">Manage Users</h1>
-				<p class="text-muted-foreground">Review and manage access levels for teachers and staff.</p>
-			</div>
-		</div>
-		<ThemeToggle />
-	</header>
-
 	<div class="bg-card rounded-lg border shadow-sm">
 		{#if usersQuery.isLoading}
 			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">

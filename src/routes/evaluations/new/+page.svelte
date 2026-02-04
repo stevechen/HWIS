@@ -6,7 +6,6 @@
 	import { Search } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { Button } from '$lib/components/ui/button';
-	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import { Input } from '$lib/components/ui/input';
 	import * as Card from '$lib/components/ui/card';
 	import * as Select from '$lib/components/ui/select';
@@ -98,29 +97,17 @@
 			selectedStudentIds.add(id);
 		}
 	}
-
-	function handleBack() {
-		void goto('/evaluations');
-	}
 </script>
 
-<div class="mx-auto p-8 max-w-5xl">
-	<header class="flex justify-between items-center mb-8">
-		<div class="flex items-center gap-4">
-			<Button variant="outline" onclick={handleBack}>← Back</Button>
-			<h1 class="font-semibold text-foreground text-2xl">New Evaluation</h1>
-		</div>
-		<ThemeToggle />
-	</header>
-
-	<div class="gap-8 grid grid-cols-1 lg:grid-cols-2">
+<div class="mx-auto max-w-5xl p-8">
+	<div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>1. Select Students</Card.Title>
 			</Card.Header>
 			<Card.Content>
 				<div class="relative mb-4">
-					<Search class="top-1/2 left-3 absolute w-4 h-4 text-muted-foreground -translate-y-1/2" />
+					<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 					<Input
 						type="text"
 						placeholder="Filter by name or ID..."
@@ -130,15 +117,15 @@
 					/>
 				</div>
 
-				<div class="bg-muted border rounded-md max-h-72 overflow-y-auto">
+				<div class="bg-muted max-h-72 overflow-y-auto rounded-md border">
 					{#if studentsQuery.isLoading}
-						<div class="p-8 text-muted-foreground text-center">Loading students...</div>
+						<div class="text-muted-foreground p-8 text-center">Loading students...</div>
 					{:else if filteredStudents.length === 0}
-						<div class="p-8 text-muted-foreground text-center">No students found</div>
+						<div class="text-muted-foreground p-8 text-center">No students found</div>
 					{:else}
 						{#each filteredStudents as student (student._id)}
 							<div
-								class="bg-background hover:bg-accent border-b last:border-b-0 transition-colors cursor-pointer"
+								class="bg-background hover:bg-accent cursor-pointer border-b transition-colors last:border-b-0"
 								class:bg-accent={selectedStudentIds.has(student._id)}
 								onclick={() => toggleStudent(student._id)}
 								onkeydown={(e) => e.key === 'Enter' && toggleStudent(student._id)}
@@ -150,7 +137,7 @@
 										type="checkbox"
 										checked={selectedStudentIds.has(student._id)}
 										tabindex="-1"
-										class="border-input rounded focus:ring-primary w-4 h-4 text-primary cursor-pointer"
+										class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
 										onclick={(e) => e.stopPropagation()}
 										onchange={(e) => {
 											e.stopPropagation();
@@ -169,7 +156,7 @@
 					{/if}
 				</div>
 
-				<p class="mt-4 font-medium text-primary text-sm">
+				<p class="text-primary mt-4 text-sm font-medium">
 					{selectedStudentIds.size} student(s) selected
 				</p>
 			</Card.Content>
@@ -181,7 +168,7 @@
 			</Card.Header>
 			<Card.Content>
 				<div class="mb-5">
-					<label class="block mb-2 font-medium text-sm">
+					<label class="mb-2 block text-sm font-medium">
 						Category
 						<Select.Root type="single" bind:value={categoryId}>
 							<Select.Trigger class="mt-1" aria-label="Select category">
@@ -199,7 +186,7 @@
 				{#if selectedCategory}
 					{#if selectedCategory.subCategories.length > 0}
 						<div class="mb-5">
-							<label class="block mb-2 font-medium text-sm">
+							<label class="mb-2 block text-sm font-medium">
 								Sub-Category
 								<Select.Root type="single" bind:value={subCategory}>
 									<Select.Trigger class="mt-1" aria-label="Select sub-category">
@@ -219,8 +206,8 @@
 				{/if}
 
 				<fieldset class="mb-5">
-					<legend class="block mb-2 font-medium text-sm">Points</legend>
-					<div class="gap-2 grid grid-cols-4">
+					<legend class="mb-2 block text-sm font-medium">Points</legend>
+					<div class="grid grid-cols-4 gap-2">
 						{#each [-2, -1, 1, 2] as p (p)}
 							<Button
 								type="button"
@@ -235,19 +222,19 @@
 				</fieldset>
 
 				<div class="mb-5">
-					<label class="block mb-2 font-medium text-sm">
+					<label class="mb-2 block text-sm font-medium">
 						Details / Comments
 						<textarea
 							bind:value={details}
 							placeholder="Enter specific details about the behavior..."
-							class="flex bg-background disabled:opacity-50 mt-1 px-3 py-2 border border-input rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ring-offset-background focus-visible:ring-offset-2 w-full min-h-20 placeholder:text-muted-foreground text-sm resize-none disabled:cursor-not-allowed"
+							class="bg-background border-input focus-visible:ring-ring ring-offset-background placeholder:text-muted-foreground mt-1 flex min-h-20 w-full resize-none rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
 							rows="4"
 						></textarea>
 					</label>
 				</div>
 
 				{#if error}
-					<div class="bg-destructive/10 mb-4 p-3 rounded-md text-destructive text-sm">
+					<div role="alert" class="bg-destructive/10 text-destructive mb-4 rounded-md p-3 text-sm">
 						{error}
 					</div>
 				{/if}

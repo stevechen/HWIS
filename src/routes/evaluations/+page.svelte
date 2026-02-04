@@ -2,9 +2,8 @@
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { goto } from '$app/navigation';
-	import { Plus, ArrowLeft } from '@lucide/svelte';
+	import { Plus } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
 
 	const user = useQuery(api.users.viewer, () => ({}));
@@ -45,7 +44,7 @@
 	let showDetails = $state(false);
 
 	// Sorted evaluations
-	const sortedEvaluations = $derived(() => {
+	const sortedEvaluations = $derived.by(() => {
 		const evals = evaluations;
 		if (sortAscending) {
 			return [...evals].sort((a, b) => a.timestamp - b.timestamp);
@@ -53,30 +52,21 @@
 		return [...evals].sort((a, b) => b.timestamp - a.timestamp);
 	});
 
-	function handleCardClick(entry: EvaluationEntry) {
+	function handleCardClick(_entry: EvaluationEntry): void {
 		// Navigation is handled by href
+		void _entry;
 	}
 </script>
 
 <div class="mx-auto max-w-6xl p-8">
-	<header class="mb-6 flex items-center justify-between">
-		<div class="flex items-center gap-4">
-			{#if isAdmin}
-				<Button variant="outline" onclick={() => void goto('/admin')}>
-					<ArrowLeft class="size-4" />
-					<span class="ml-2 hidden sm:inline">Back to Admin</span>
-				</Button>
-			{/if}
-			<h1 class="text-foreground text-lg font-semibold sm:text-2xl">Evaluation History</h1>
-		</div>
-		<div class="flex items-center gap-2">
-			<ThemeToggle />
+	{#if !evaluationsQuery.isLoading && evaluations.length > 0}
+		<div class="mb-6 flex justify-end">
 			<Button onclick={() => void goto('/evaluations/new')}>
 				<Plus class="size-4" />
 				New
 			</Button>
 		</div>
-	</header>
+	{/if}
 
 	{#if evaluationsQuery.isLoading}
 		<div class="text-muted-foreground py-16 text-center">Loading history...</div>
@@ -87,7 +77,7 @@
 		</div>
 	{:else}
 		<EvaluationsTimeline
-			evaluations={sortedEvaluations()}
+			evaluations={sortedEvaluations}
 			title="Recent"
 			showStudentName={true}
 			{isAdmin}

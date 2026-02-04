@@ -1,11 +1,8 @@
 <script lang="ts">
 	import { useConvexClient } from 'convex-svelte';
-	import { api } from '$convex/_generated/api';
 	import { api as apiAny } from '$convex/_generated/api';
-	import { goto } from '$app/navigation';
 	import { RotateCcw } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Card from '$lib/components/ui/card';
 
 	const client = useConvexClient();
@@ -32,18 +29,6 @@
 </script>
 
 <div class="bg-background min-h-screen">
-	<header class="bg-card border-b shadow-sm">
-		<div class="mx-auto max-w-4xl px-4 py-4 sm:px-6 lg:px-8">
-			<div class="flex items-center justify-between">
-				<div class="flex items-center gap-4">
-					<Button variant="outline" onclick={() => goto('/admin')}>Back to Admin</Button>
-					<h1 class="text-foreground text-2xl font-bold">Year-End Reset</h1>
-				</div>
-				<ThemeToggle />
-			</div>
-		</div>
-	</header>
-
 	<main class="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
 		<div class="grid gap-6">
 			<Card.Root>

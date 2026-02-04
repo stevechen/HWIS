@@ -6,7 +6,9 @@
 	const session = browser
 		? authClient.useSession()
 		: {
-				subscribe(run: (value: { isPending: boolean; data: { user: { name?: string } } | null }) => void) {
+				subscribe(
+					run: (value: { isPending: boolean; data: { user: { name?: string } } | null }) => void
+				) {
 					run({ isPending: false, data: null });
 					return () => {};
 				}
@@ -33,18 +35,18 @@
 	}
 </script>
 
-<div class="flex h-screen flex-col items-center justify-center bg-gray-50">
+<div class="flex flex-col justify-center items-center bg-gray-50 h-screen">
 	{#if sessionData?.isPending}
-		<div class="text-lg text-gray-600">Loading...</div>
+		<div class="text-gray-600 text-lg">Loading...</div>
 	{:else if !sessionData?.data}
-		<div class="flex w-full max-w-md flex-col gap-4 rounded-lg bg-white p-6 shadow-md">
-			<h2 class="mb-6 text-center text-2xl font-bold text-gray-800">Sign In</h2>
+		<div class="flex flex-col gap-4 bg-white shadow-md p-6 rounded-lg w-full max-w-md">
+			<h2 class="mb-6 font-bold text-gray-800 text-2xl text-center">Sign In</h2>
 
 			<button
 				onclick={signInWithGoogle}
-				class="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+				class="flex justify-center items-center gap-2 bg-white hover:bg-gray-50 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full font-medium text-gray-700 transition-colors"
 			>
-				<svg class="h-5 w-5" viewBox="0 0 24 24">
+				<svg class="w-5 h-5" viewBox="0 0 24 24">
 					<path
 						fill="#4285F4"
 						d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -64,29 +66,29 @@
 				</svg>
 				Sign in with Google
 			</button>
-
+			<!-- 
 			{#if import.meta.env.DEV}
-				<div class="mt-4 border-t pt-4">
-					<div class="rounded border border-yellow-200 bg-yellow-50 px-4 py-2 text-yellow-800">
-						<p class="text-sm font-medium">Development Mode</p>
+				<div class="mt-4 pt-4 border-t">
+					<div class="bg-yellow-50 px-4 py-2 border border-yellow-200 rounded text-yellow-800">
+						<p class="font-medium text-sm">Development Mode</p>
 						<p class="text-xs">
 							Real Google OAuth required for testing. Mock authentication removed.
 						</p>
 					</div>
 				</div>
-			{/if}
+			{/if} -->
 
-			<p class="mt-4 text-center text-sm text-gray-500">Only for HWIS staffs</p>
+			<p class="mt-4 text-gray-500 text-sm text-center">Only for HWIS staffs</p>
 		</div>
 	{:else}
-		<div class="flex w-full max-w-md flex-col gap-4 rounded-lg bg-white p-6 shadow-md">
-			<h2 class="mb-6 text-center text-2xl font-bold text-gray-800">You're signed in</h2>
+		<div class="flex flex-col gap-4 bg-white shadow-md p-6 rounded-lg w-full max-w-md">
+			<h2 class="mb-6 font-bold text-gray-800 text-2xl text-center">You're signed in</h2>
 
-			<p class="text-center text-gray-600">Redirecting to home...</p>
+			<p class="text-gray-600 text-center">Redirecting to home...</p>
 
 			<button
 				onclick={signOut}
-				class="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+				class="flex justify-center items-center gap-2 bg-white hover:bg-gray-50 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full font-medium text-gray-700 transition-colors"
 			>
 				Sign out
 			</button>

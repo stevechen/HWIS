@@ -150,7 +150,7 @@ test.describe('Weekly Reports Integration', () => {
 			await expect(page.getByRole('dialog')).toBeVisible();
 
 			// Click on table headers to sort
-			const idHeader = page.locator('th').filter({ hasText: 'ID' }).first();
+			const idHeader = page.getByRole('columnheader', { name: 'ID' }).first();
 			if (await idHeader.isVisible().catch(() => false)) {
 				await idHeader.click();
 				await page.waitForTimeout(300);
@@ -173,10 +173,7 @@ test.describe('Weekly Reports Integration', () => {
 			await expect(page.getByRole('dialog')).toBeVisible();
 
 			// Find export button
-			const exportButton = page
-				.locator('button')
-				.filter({ hasText: /Export|CSV/i })
-				.first();
+			const exportButton = page.getByRole('button', { name: /Export|CSV/i }).first();
 			if (await exportButton.isVisible().catch(() => false)) {
 				await expect(exportButton).toBeVisible();
 				// Note: We don't actually click to avoid file download in tests
@@ -198,8 +195,8 @@ test.describe('Weekly Reports Integration', () => {
 			await firstDataRow.click();
 			await expect(page.getByRole('dialog')).toBeVisible();
 
-			// Close with close button (look for button containing "Close" text)
-			const closeButton = page.locator('button').filter({ hasText: 'Close' }).first();
+			// Close with close button
+			const closeButton = page.getByRole('button', { name: 'Close' }).first();
 			if (await closeButton.isVisible().catch(() => false)) {
 				await closeButton.click();
 				await expect(page.getByRole('dialog')).not.toBeVisible();

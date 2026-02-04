@@ -47,10 +47,8 @@ describe('Login Page', () => {
 		render(LoginPage);
 		const button = page.getByRole('button', { name: 'Sign in with Google' });
 		await expect.element(button).toBeInTheDocument();
-		// Verify button contains SVG (Google logo)
-		await expect
-			.element(page.getByRole('button', { name: 'Sign in with Google' }))
-			.toBeInTheDocument();
+		// Verify button contains SVG (Google logo) - find SVG within button context
+		await expect.element(button.getByText('svg').first()).toBeInTheDocument();
 	});
 
 	it('displays domain restriction note', async () => {

@@ -1,13 +1,14 @@
 import { redirect } from '@sveltejs/kit';
 import { getAuthState } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 import { createAuth } from '$convex/auth.js';
+import type { Cookies } from '@sveltejs/kit';
 
 export const load = async ({
 	cookies,
 	url,
 	locals
 }: {
-	cookies: { get: (name: string) => string | undefined };
+	cookies: Cookies;
 	url: URL;
 	locals: { token?: string };
 }) => {

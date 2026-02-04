@@ -48,14 +48,13 @@ test.describe('Delete Student @students', () => {
 			e2eTag: testE2eTag
 		});
 
-		await page.getByLabel('Search by name or student ID').fill(englishName);
+		await page.getByLabel('Search students').fill(englishName);
 
 		await expect(page.getByText(englishName).first()).toBeVisible();
 
 		// Find and click delete button
 		const deleteButton = page
-			.locator('tr')
-			.filter({ hasText: englishName })
+			.getByRole('row', { name: new RegExp(englishName) })
 			.getByRole('button', { name: /delete/i })
 			.first();
 		await deleteButton.click();
@@ -76,6 +75,7 @@ test.describe('Delete Student @students', () => {
 		const suffix = getTestSuffix('delCascade');
 		const studentId = `S_${suffix}`;
 		const englishName = `DelCascade_${suffix}`;
+		testE2eTag = `e2e-test_${suffix}`;
 
 		await seedBaseline();
 		await page.waitForTimeout(500);
@@ -85,21 +85,20 @@ test.describe('Delete Student @students', () => {
 			englishName,
 			grade: 10,
 			status: 'Enrolled',
-			e2eTag: `e2e-test_${suffix}`
+			e2eTag: testE2eTag
 		});
 
 		await createEvaluationForStudent({
 			studentId,
-			e2eTag: `e2e-test_${suffix}`
+			e2eTag: testE2eTag
 		});
 
-		await page.getByLabel('Search by name or student ID').fill(englishName);
+		await page.getByLabel('Search students').fill(englishName);
 
 		await expect(page.getByText(englishName).first()).toBeVisible();
 
 		const deleteButton = page
-			.locator('tr')
-			.filter({ hasText: englishName })
+			.getByRole('row', { name: new RegExp(englishName) })
 			.getByRole('button', { name: /delete/i })
 			.first();
 		await deleteButton.click();
@@ -142,13 +141,12 @@ test.describe('Delete Student @students', () => {
 			e2eTag: testE2eTag
 		});
 
-		await page.getByLabel('Search by name or student ID').fill(englishName);
+		await page.getByLabel('Search students').fill(englishName);
 
 		await expect(page.getByText(englishName).first()).toBeVisible();
 
 		const deleteButton = page
-			.locator('tr')
-			.filter({ hasText: englishName })
+			.getByRole('row', { name: new RegExp(englishName) })
 			.getByRole('button', { name: /delete/i })
 			.first();
 		await deleteButton.click();
@@ -157,7 +155,7 @@ test.describe('Delete Student @students', () => {
 
 		// Check for warning message about evaluations
 		const dialog = page.getByRole('dialog');
-		await expect(dialog.locator('.bg-yellow-50, .dark\\:bg-yellow-950')).toBeVisible();
+		await expect(dialog.getByRole('alert')).toBeVisible();
 		await expect(dialog.getByText(/evaluation record/i)).toBeVisible();
 		await expect(dialog.getByRole('button', { name: 'Set Not Enrolled' })).toBeVisible();
 		await expect(dialog.getByRole('button', { name: 'Delete Anyway' })).toBeVisible();
@@ -187,12 +185,11 @@ test.describe('Delete Student @students', () => {
 			e2eTag: `e2e-test_${suffix}`
 		});
 
-		await page.getByLabel('Search by name or student ID').fill(englishName);
+		await page.getByLabel('Search students').fill(englishName);
 		await expect(page.getByText(englishName).first()).toBeVisible();
 
 		const deleteButton = page
-			.locator('tr')
-			.filter({ hasText: englishName })
+			.getByRole('row', { name: new RegExp(englishName) })
 			.getByRole('button', { name: /delete/i })
 			.first();
 		await deleteButton.click();
@@ -201,10 +198,13 @@ test.describe('Delete Student @students', () => {
 
 		await page.getByRole('dialog').getByRole('button', { name: 'Set Not Enrolled' }).click();
 
-		await page.getByLabel('Search by name or student ID').fill(englishName);
+		await page.getByLabel('Search students').fill(englishName);
 		// Check status cell in the table row contains "Not Enrolled"
 		await expect(
-			page.locator('tr').filter({ hasText: englishName }).getByText('Not Enrolled').first()
+			page
+				.getByRole('row', { name: new RegExp(englishName) })
+				.getByText('Not Enrolled')
+				.first()
 		).toBeVisible();
 	});
 });

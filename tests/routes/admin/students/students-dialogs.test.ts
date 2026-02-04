@@ -75,14 +75,14 @@ describe('Students Page - Edit and Delete Dialogs', () => {
 
 	describe('Edit Dialog', () => {
 		it('opens edit student dialog', async () => {
-			render(StudentsPage, { props: { data: { testRole: 'admin' } } });
+			render(StudentsPage);
 			await expect.element(page.getByText('John Doe')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Edit' }).first().click();
 			await expect.element(page.getByRole('heading', { name: 'Edit Student' })).toBeInTheDocument();
 		});
 
 		it('pre-fills form with student data', async () => {
-			render(StudentsPage, { props: { data: { testRole: 'admin' } } });
+			render(StudentsPage);
 			await expect.element(page.getByText('John Doe')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Edit' }).first().click();
 			await expect
@@ -99,7 +99,7 @@ describe('Students Page - Edit and Delete Dialogs', () => {
 
 	describe('Delete Dialog', () => {
 		it('opens delete confirmation dialog', async () => {
-			render(StudentsPage, { props: { data: { testRole: 'admin' } } });
+			render(StudentsPage);
 			await expect.element(page.getByText('John Doe')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Delete' }).first().click();
 			await expect
@@ -108,7 +108,7 @@ describe('Students Page - Edit and Delete Dialogs', () => {
 		});
 
 		it('shows delete button for student without evaluations', async () => {
-			render(StudentsPage, { props: { data: { testRole: 'admin' } } });
+			render(StudentsPage);
 			await expect.element(page.getByText('John Doe')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Delete' }).first().click();
 			await expect

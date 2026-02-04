@@ -14,8 +14,6 @@
 		ChevronDown,
 		ChevronRight
 	} from '@lucide/svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Card from '$lib/components/ui/card';
 
 	const client = useConvexClient();
@@ -40,13 +38,6 @@
 </script>
 
 <div class="mx-auto max-w-4xl p-8">
-	<header class="mb-8 flex items-center justify-between">
-		<div class="flex items-center gap-4">
-			<h1 class="text-foreground text-2xl font-semibold">Admin Dashboard</h1>
-		</div>
-		<ThemeToggle />
-	</header>
-
 	<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 		<!-- Weekly Reports - Every week -->
 		<a href="/admin/weekly-reports" class="block">
@@ -142,9 +133,9 @@
 			<Settings class="h-5 w-5" />
 			Settings
 			{#if showSettings}
-				<ChevronDown class="h-4 w-4" />
+				<ChevronDown class="size-4" />
 			{:else}
-				<ChevronRight class="h-4 w-4" />
+				<ChevronRight class="size-4" />
 			{/if}
 		</button>
 

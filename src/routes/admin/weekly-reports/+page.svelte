@@ -1,20 +1,11 @@
 <script lang="ts">
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { Download, X, Search, ArrowUp, ArrowDown } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Table from '$lib/components/ui/table';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
-
-	const apiAny = api as {
-		evaluations: {
-			getWeeklyReportsList: (...args: unknown[]) => unknown;
-			getWeeklyReportDetail: (...args: unknown[]) => unknown;
-		};
-	};
 
 	let { data }: { data: { demoMode?: boolean } } = $props();
 
@@ -255,14 +246,14 @@
 		}
 	];
 
-	let reportsQuery = useQuery(apiAny.evaluations.getWeeklyReportsList, () => ({
+	let reportsQuery = useQuery(api.evaluations.getWeeklyReportsList, () => ({
 		sinceTimestamp
 	}));
 
 	const detailQuery = $derived.by(() => {
 		if (isDemoMode || !selectedReport) return undefined;
-		return useQuery(apiAny.evaluations.getWeeklyReportDetail, () => ({
-			fridayDate: selectedReport.fridayDate
+		return useQuery(api.evaluations.getWeeklyReportDetail, () => ({
+			fridayDate: selectedReport!.fridayDate
 		}));
 	});
 
@@ -444,24 +435,14 @@
 </script>
 
 <div class="bg-background min-h-screen">
-	<header class="bg-card border-b shadow-sm">
-		<div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-			<div class="flex items-center justify-between">
-				<div class="flex items-center gap-4">
-					<Button variant="outline" onclick={() => goto('/admin')}>← Back to Admin</Button>
-					<h1 class="text-foreground text-2xl font-bold">Weekly Reports</h1>
-					{#if isDemoMode}
-						<span class="rounded bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800"
-							>Demo Mode</span
-						>
-					{/if}
-				</div>
-				<ThemeToggle />
-			</div>
-		</div>
-	</header>
-
 	<main class="mx-auto px-4 py-6 sm:px-6 lg:px-8" aria-label="Weekly Reports">
+		{#if isDemoMode}
+			<div class="mb-4 flex justify-end">
+				<span class="rounded bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
+					Demo Mode
+				</span>
+			</div>
+		{/if}
 		{#if !isDemoMode && reportsQuery.isLoading}
 			<div class="flex items-center justify-center py-12" role="status" aria-live="polite">
 				<p class="text-muted-foreground">Loading reports...</p>
@@ -487,7 +468,7 @@
 						</Table.Header>
 						<Table.Body>
 							{#each reports as report (report.fridayDate.toString())}
-								<Table.Row class="cursor-pointer" onclick={() => openReport(report)} tabindex="0">
+								<Table.Row class="cursor-pointer" onclick={() => openReport(report)} tabindex={0}>
 									<Table.Cell class="text-center font-medium">{report.weekNumber}</Table.Cell>
 									<Table.Cell>{report.formattedDate}</Table.Cell>
 									<Table.Cell class="text-right">{report.studentCount}</Table.Cell>
@@ -525,7 +506,7 @@
 				</h2>
 				<button
 					onclick={closeDetail}
-					class="text-muted-foreground hover:text-foreground hover:bg-muted ml-auto rounded p-1"
+					class="hover:bg-muted text-muted-foreground hover:text-foreground ml-auto rounded p-1"
 					aria-label="Close"
 				>
 					<X class="h-5 w-5" />
@@ -539,9 +520,7 @@
 			>
 				<div class="flex w-full items-center gap-3">
 					<div class="relative hidden w-36 shrink-0 2xl:block">
-						<Search
-							class="text-muted-foreground absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2"
-						/>
+						<Search class="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
 						<input
 							type="text"
 							placeholder="Filter ID..."
@@ -556,9 +535,7 @@
 						{/each}
 					</NativeSelect.Root>
 					<div class="relative min-w-0 flex-1">
-						<Search
-							class="text-muted-foreground absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2"
-						/>
+						<Search class="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
 						<input
 							type="text"
 							placeholder="Filter name (comma separated)..."
@@ -687,7 +664,7 @@
 				</p>
 				<div class="flex gap-2">
 					<Button variant="outline" onclick={exportToExcel} aria-label="Export report to CSV">
-						<Download class="mr-2 h-4 w-4" />
+						<Download class="mr-2 size-4" />
 						Export CSV
 					</Button>
 					<Button variant="outline" onclick={closeDetail}>Close</Button>

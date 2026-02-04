@@ -125,16 +125,15 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 	});
 
 	test('shows error without student selection', async ({ page }) => {
+		const suffix = getTestSuffix('noStudent');
+		const studentName = `NoStudent_${suffix}`;
+		await createStudentForEval(page, suffix, studentName, '無學生', 10);
+
 		// Try to submit without selecting any students
-		const submitButton = page
-			.locator('button')
-			.filter({ hasText: /submit/i })
-			.first();
-		if (await submitButton.isVisible()) {
-			await submitButton.click();
-			// The error message says "Please select at least one student"
-			await expect(page.getByText(/Please select at least one student/i)).toBeVisible();
-		}
+		const submitButton = page.getByRole('button', { name: /submit/i }).first();
+		await submitButton.click();
+		// The error message says "Please select at least one student"
+		await expect(page.getByText(/Please select at least one student/i)).toBeVisible();
 	});
 
 	test('shows error without category', async ({ page }) => {
@@ -146,10 +145,7 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 		await studentRow.click();
 
 		// Try to submit without selecting category
-		const submitButton = page
-			.locator('button')
-			.filter({ hasText: /submit/i })
-			.first();
+		const submitButton = page.getByRole('button', { name: /submit/i }).first();
 		if (await submitButton.isVisible()) {
 			await submitButton.click();
 			// The error message says "Please select a category"

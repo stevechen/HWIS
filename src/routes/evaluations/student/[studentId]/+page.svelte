@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { ArrowLeft } from '@lucide/svelte';
+	import { browser } from '$app/environment';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
-	import { Button } from '$lib/components/ui/button';
-	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
+	import { headerTitleOverride } from '$lib/stores/header';
+	import { onDestroy } from 'svelte';
 
 	let { data }: { data: { demo?: string; studentId?: string } } = $props();
 
@@ -139,13 +139,13 @@
 	let teacherFilter = $state('');
 
 	// Get unique teachers
-	const uniqueTeachers = $derived(() => {
+	const uniqueTeachers = $derived.by(() => {
 		const teachers = [...new Set(evaluations.map((e) => e.teacherName))];
 		return teachers.sort();
 	});
 
 	// Combined and filtered evaluations
-	const filteredEvaluations = $derived(() => {
+	const filteredEvaluations = $derived.by(() => {
 		let all = [...evaluations];
 		if (teacherFilter) {
 			all = all.filter((e) => e.teacherName === teacherFilter);
@@ -159,29 +159,29 @@
 	function handleTeacherFilterChange(value: string) {
 		teacherFilter = value;
 	}
+
+	$effect(() => {
+		if (!browser) return;
+		if (student?.englishName && student?.grade !== undefined) {
+			$headerTitleOverride = `Evaluation History - G${student.grade} - ${student.englishName}`;
+		}
+	});
+
+	onDestroy(() => {
+		$headerTitleOverride = '';
+	});
 </script>
 
 <div class="mx-auto max-w-6xl p-8">
-	<header class="mb-6 flex items-center justify-between">
-		<div class="flex items-center gap-4">
-			<Button variant="outline" onclick={() => void (window.location.href = '/evaluations')}>
-				<ArrowLeft class="size-4" />
-				<span class="ml-2 hidden sm:inline">Back to Evaluations</span>
-			</Button>
-			<h1 class="text-foreground text-lg font-semibold sm:text-2xl">
-				<span class="hidden sm:inline">Evaluation History - </span>
-				<span>G{student.grade} - {student.englishName}</span>
-			</h1>
-			{#if isDemo}
-				<span
-					class="rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
-				>
-					DEMO MODE ({demoRole.toUpperCase()})
-				</span>
-			{/if}
+	{#if isDemo}
+		<div class="mb-6">
+			<span
+				class="rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
+			>
+				DEMO MODE ({demoRole.toUpperCase()})
+			</span>
 		</div>
-		<ThemeToggle />
-	</header>
+	{/if}
 
 	<!-- Loading State -->
 	{#if !isDemo && (userQuery?.isLoading ?? false)}
@@ -194,13 +194,13 @@
 		<div class="text-muted-foreground py-12 text-center">Loading your evaluations...</div>
 	{:else}
 		<EvaluationsTimeline
-			evaluations={filteredEvaluations()}
+			evaluations={filteredEvaluations}
 			title={isAdmin ? 'All Points History' : 'Your Assigned Points'}
 			showStudentName={false}
 			studentGrade={student.grade}
 			{isAdmin}
 			showTeacherFilter={isAdmin}
-			uniqueTeachers={uniqueTeachers()}
+			uniqueTeachers={uniqueTeachers}
 			selectedTeacherFilter={teacherFilter}
 			onTeacherFilterChange={handleTeacherFilterChange}
 			showLegend={true}

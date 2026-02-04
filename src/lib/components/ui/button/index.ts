@@ -1,9 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import Root from './button.svelte';
-import { buttonVariants } from './button.svelte';
-import type { VariantProps } from 'class-variance-authority';
-
-export type { ButtonVariant, ButtonSize } from './button.svelte';
+import { buttonVariants } from './types.js';
+import type { ButtonVariant, ButtonSize } from './types.js';
 
 export {
 	Root,
@@ -11,3 +8,5 @@ export {
 	//
 	Root as Button
 };
+
+export type { ButtonVariant, ButtonSize };

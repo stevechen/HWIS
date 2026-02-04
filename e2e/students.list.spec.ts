@@ -20,15 +20,19 @@ test.describe('Student List @students', () => {
 	test.describe('Admin Access', () => {
 		test.use({ storageState: 'e2e/.auth/admin.json' });
 
+		let testE2eTag: string | null = null;
+
 		test.beforeEach(async ({ page }) => {
+			testE2eTag = null;
 			await page.goto('/admin/students');
 			await page.waitForSelector('body.hydrated');
 		});
 
 		test.afterEach(async () => {
-			const suffix = getTestSuffix('listAccess');
 			try {
-				await cleanupTestData(suffix);
+				if (testE2eTag) {
+					await cleanupTestData(testE2eTag);
+				}
 			} catch {
 				// Cleanup skipped
 			}
@@ -37,6 +41,7 @@ test.describe('Student List @students', () => {
 		test('displays list of created students', async ({ page }) => {
 			const suffix = getTestSuffix('listTest');
 			const studentId = `S_${suffix}`;
+			testE2eTag = `e2e-test_${suffix}`;
 
 			await createStudent({
 				studentId,
@@ -44,7 +49,7 @@ test.describe('Student List @students', () => {
 				chineseName: '學生1',
 				grade: 10,
 				status: 'Enrolled',
-				e2eTag: `e2e-test_${suffix}`
+				e2eTag: testE2eTag
 			});
 
 			await expect(page.getByText(`Student1_${suffix}`)).toBeVisible();
@@ -54,6 +59,7 @@ test.describe('Student List @students', () => {
 			const suffix = getTestSuffix('filterGrade');
 			const grade9Student = `Grade9_${suffix}`;
 			const grade10Student = `Grade10_${suffix}`;
+			testE2eTag = `e2e-test_${suffix}`;
 
 			await createStudent({
 				studentId: `S9_${suffix}`,
@@ -61,7 +67,7 @@ test.describe('Student List @students', () => {
 				chineseName: '九年級',
 				grade: 9,
 				status: 'Enrolled',
-				e2eTag: `e2e-test_${suffix}`
+				e2eTag: testE2eTag
 			});
 
 			await createStudent({
@@ -70,7 +76,7 @@ test.describe('Student List @students', () => {
 				chineseName: '十年級',
 				grade: 10,
 				status: 'Enrolled',
-				e2eTag: `e2e-test_${suffix}`
+				e2eTag: testE2eTag
 			});
 
 			const gradeSelect = page.locator('select[aria-label="Filter by grade"]');
@@ -84,6 +90,7 @@ test.describe('Student List @students', () => {
 			const suffix = getTestSuffix('filterStatus');
 			const enrolledStudent = `Enrolled_${suffix}`;
 			const notEnrolledStudent = `NotEnr_${suffix}`;
+			testE2eTag = `e2e-test_${suffix}`;
 
 			await createStudent({
 				studentId: `SE_${suffix}`,
@@ -91,7 +98,7 @@ test.describe('Student List @students', () => {
 				chineseName: '在讀',
 				grade: 10,
 				status: 'Enrolled',
-				e2eTag: `e2e-test_${suffix}`
+				e2eTag: testE2eTag
 			});
 
 			await createStudent({
@@ -100,7 +107,7 @@ test.describe('Student List @students', () => {
 				chineseName: '不在讀',
 				grade: 10,
 				status: 'Not Enrolled',
-				e2eTag: `e2e-test_${suffix}`
+				e2eTag: testE2eTag
 			});
 
 			const statusSelect = page.locator('select[aria-label="Filter by status"]');
@@ -114,6 +121,7 @@ test.describe('Student List @students', () => {
 			const suffix = getTestSuffix('searchName');
 			const targetStudent = `TargetName_${suffix}`;
 			const otherStudent = `OtherName_${suffix}`;
+			testE2eTag = `e2e-test_${suffix}`;
 
 			await createStudent({
 				studentId: `ST_${suffix}`,
@@ -121,7 +129,7 @@ test.describe('Student List @students', () => {
 				chineseName: '目標學生',
 				grade: 10,
 				status: 'Enrolled',
-				e2eTag: `e2e-test_${suffix}`
+				e2eTag: testE2eTag
 			});
 
 			await createStudent({
@@ -130,7 +138,7 @@ test.describe('Student List @students', () => {
 				chineseName: '其他學生',
 				grade: 10,
 				status: 'Enrolled',
-				e2eTag: `e2e-test_${suffix}`
+				e2eTag: testE2eTag
 			});
 
 			await page.getByPlaceholder('Search by name or student ID...').fill(targetStudent);
@@ -143,6 +151,7 @@ test.describe('Student List @students', () => {
 			const suffix = getTestSuffix('searchId');
 			const targetId = `STID_${suffix}`;
 			const otherId = `SOID_${suffix}`;
+			testE2eTag = `e2e-test_${suffix}`;
 
 			await createStudent({
 				studentId: targetId,
@@ -150,7 +159,7 @@ test.describe('Student List @students', () => {
 				chineseName: '學生A',
 				grade: 10,
 				status: 'Enrolled',
-				e2eTag: `e2e-test_${suffix}`
+				e2eTag: testE2eTag
 			});
 
 			await createStudent({
@@ -159,7 +168,7 @@ test.describe('Student List @students', () => {
 				chineseName: '學生B',
 				grade: 10,
 				status: 'Enrolled',
-				e2eTag: `e2e-test_${suffix}`
+				e2eTag: testE2eTag
 			});
 
 			await page.getByPlaceholder('Search by name or student ID...').fill(targetId);

@@ -60,27 +60,25 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 		await expect(page.getByText(englishName).first()).toBeVisible();
 
 		// Edit student - find and click edit button (first button in the row with pencil icon)
-		const studentRow = page.locator('tr').filter({ hasText: englishName });
-		await studentRow.locator('button').first().click();
+		const studentRow = page.getByRole('row', { name: new RegExp(englishName) });
+		await studentRow.getByRole('button').first().click();
 
 		// Wait for edit dialog
 		await expect(page.getByRole('dialog')).toBeVisible();
 		await expect(page.getByText('Edit Student')).toBeVisible();
 
-		// Change status to Not Enrolled - use the Status select (second select in dialog)
-		const statusSelect = page
-			.locator('[role="dialog"] select')
-			.filter({ hasText: /Enrolled|Not Enrolled/ });
+		// Change status to Not Enrolled - use the Status select
+		const statusSelect = page.getByRole('dialog').getByRole('combobox', { name: 'Student status' });
 		await statusSelect.selectOption('Not Enrolled');
 
-		// Click Update button using filter pattern
-		await page.locator('button').filter({ hasText: 'Update' }).click();
+		// Click Update button - scope to dialog to avoid matching other buttons
+		await page.getByRole('dialog').getByRole('button', { name: 'Update student' }).click();
 
 		// Wait for dialog to close
 		await expect(page.getByRole('dialog')).not.toBeVisible();
 
 		// Verify status changed - check for Not Enrolled badge in the student's row
-		const updatedRow = page.locator('tr').filter({ hasText: englishName });
+		const updatedRow = page.getByRole('row', { name: new RegExp(englishName) });
 		await expect(updatedRow.getByText('Not Enrolled')).toBeVisible();
 
 		// Delete student - find and click delete button (last button in row with trash icon)
@@ -90,8 +88,8 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 		await expect(page.getByRole('dialog')).toBeVisible();
 		await expect(page.getByText('Delete Student')).toBeVisible();
 
-		// Click Delete button using filter pattern
-		await page.locator('button').filter({ hasText: 'Delete' }).first().click();
+		// Click Delete button - scope to dialog
+		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
 
 		// Wait for dialog to close and student to be removed
 		await expect(page.getByRole('dialog')).not.toBeVisible();

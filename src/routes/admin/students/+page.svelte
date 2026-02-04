@@ -2,10 +2,8 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
-	import { goto } from '$app/navigation';
 	import { Plus, Trash2, Pencil, Search, Upload, AlertTriangle, Check, X } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
@@ -15,29 +13,17 @@
 	type Student = {
 		_id: Id<'students'>;
 		_creationTime: number;
+		e2eTag?: string;
 		englishName: string;
 		chineseName: string;
 		studentId: string;
 		grade: number;
 		status: 'Enrolled' | 'Not Enrolled';
-		note: string;
+		note?: string;
 	};
 
-	const apiAny = api as {
-		students: {
-			list: (...args: unknown[]) => unknown;
-			checkStudentIdExists: (...args: unknown[]) => unknown;
-			create: (...args: unknown[]) => unknown;
-			update: (...args: unknown[]) => unknown;
-			remove: (...args: unknown[]) => unknown;
-			removeWithCascade: (...args: unknown[]) => unknown;
-			checkStudentHasEvaluations: (...args: unknown[]) => unknown;
-			disableStudent: (...args: unknown[]) => unknown;
-			bulkImportWithDuplicateCheck: (...args: unknown[]) => unknown;
-		};
-	};
-
-	const studentsQuery = useQuery(apiAny.students.list, () => ({}));
+	const studentsApi = api.students;
+	const studentsQuery = useQuery(studentsApi.list, () => ({}));
 	const client = useConvexClient();
 
 	let searchQuery = $state('');
@@ -94,8 +80,6 @@
 	const grades = [7, 8, 9, 10, 11, 12];
 	const statuses = ['Enrolled', 'Not Enrolled'] as const;
 
-	
-
 	function startAdd() {
 		formStudentId = '';
 		formEnglishName = '';
@@ -132,7 +116,7 @@
 		isCheckingId = true;
 		showAvailabilityMsg = true;
 		try {
-			const result = await client.query(apiAny.students.checkStudentIdExists, {
+			const result = await client.query(studentsApi.checkStudentIdExists, {
 				studentId: formStudentId.trim(),
 				excludeId: editingId || undefined
 			});
@@ -152,7 +136,7 @@
 			if (!formStudentId.trim()) return;
 			isCheckingId = true;
 			try {
-				const result = await client.query(apiAny.students.checkStudentIdExists, {
+				const result = await client.query(studentsApi.checkStudentIdExists, {
 					studentId: formStudentId.trim(),
 					excludeId: editingId || undefined
 				});
@@ -188,7 +172,7 @@
 		isSubmitting = true;
 		try {
 			if (editingId) {
-				await client.mutation(apiAny.students.update, {
+				await client.mutation(studentsApi.update, {
 					id: editingId,
 					englishName: formEnglishName.trim(),
 					chineseName: formChineseName.trim(),
@@ -198,7 +182,7 @@
 					note: formNote.trim()
 				});
 			} else {
-				await client.mutation(apiAny.students.create, {
+				await client.mutation(studentsApi.create, {
 					englishName: formEnglishName.trim(),
 					chineseName: formChineseName.trim(),
 					studentId: formStudentId.trim(),
@@ -218,7 +202,7 @@
 	async function confirmDelete(student: Student) {
 		studentToDelete = student;
 
-		const related = await client.query(apiAny.students.checkStudentHasEvaluations, {
+		const related = await client.query(studentsApi.checkStudentHasEvaluations, {
 			id: student._id
 		});
 		deleteHasRelated = related.hasEvaluations;
@@ -227,7 +211,7 @@
 
 	async function handleSetNotEnrolled() {
 		if (!studentToDelete) return;
-		await client.mutation(apiAny.students.disableStudent, {
+		await client.mutation(studentsApi.disableStudent, {
 			id: studentToDelete._id
 		});
 		studentToDelete = null;
@@ -239,11 +223,11 @@
 
 		try {
 			if (deleteHasRelated) {
-				await client.mutation(apiAny.students.removeWithCascade, {
+				await client.mutation(studentsApi.removeWithCascade, {
 					id: studentToDelete._id
 				});
 			} else {
-				await client.mutation(apiAny.students.remove, {
+				await client.mutation(studentsApi.remove, {
 					id: studentToDelete._id
 				});
 			}
@@ -260,7 +244,7 @@
 
 	async function handleDisable() {
 		if (!studentToDisable) return;
-		await client.mutation(apiAny.students.disableStudent, {
+		await client.mutation(studentsApi.disableStudent, {
 			id: studentToDisable._id
 		});
 		studentToDisable = null;
@@ -312,7 +296,7 @@
 				});
 			}
 
-			const result = await client.mutation(apiAny.students.bulkImportWithDuplicateCheck, {
+			const result = await client.mutation(studentsApi.bulkImportWithDuplicateCheck, {
 				students,
 				mode: importMode
 			});
@@ -351,13 +335,8 @@
 <div class="bg-background min-h-screen">
 	<header class="bg-card border-b shadow-sm">
 		<div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-			<div class="flex items-center justify-between">
-				<div class="flex items-center gap-4">
-					<Button variant="outline" onclick={() => goto('/admin')}>← Back to Admin</Button>
-					<h1 class="text-foreground text-2xl font-bold">Student Management</h1>
-				</div>
+			<div class="flex items-center justify-end">
 				<div class="flex items-center gap-2">
-					<ThemeToggle />
 					<Button
 						variant="outline"
 						onclick={() => {
@@ -365,7 +344,7 @@
 						}}
 						aria-label="Import students from file"
 					>
-						<Upload class="mr-2 h-4 w-4" />
+						<Upload class="mr-2 size-4" />
 						Import
 					</Button>
 					<Button
@@ -376,7 +355,7 @@
 						}}
 						aria-label="Add new student"
 					>
-						<Plus class="mr-2 h-4 w-4" />
+						<Plus class="mr-2 size-4" />
 						Add Student
 					</Button>
 				</div>
@@ -387,12 +366,12 @@
 	<main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
 		<div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 			<div class="relative max-w-md flex-1">
-				<Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+				<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 				<Input
 					placeholder="Search by name or student ID..."
 					class="pl-9"
 					bind:value={searchQuery}
-					aria-label="Search by name or student ID"
+					aria-label="Search students"
 				/>
 			</div>
 			<div class="flex gap-2">
@@ -462,7 +441,7 @@
 										}}
 										aria-label="Edit {student.englishName}"
 									>
-										<Pencil class="h-4 w-4" />
+										<Pencil class="size-4" />
 									</Button>
 									{#if student.status === 'Enrolled'}
 										<Button
@@ -475,7 +454,7 @@
 											aria-label="Set {student.englishName} to not enrolled"
 											title="Disable student"
 										>
-											<AlertTriangle class="h-4 w-4 text-orange-500" />
+											<AlertTriangle class="size-4 text-orange-500" />
 										</Button>
 									{/if}
 									<Button
@@ -487,7 +466,7 @@
 										}}
 										aria-label="Delete {student.englishName}"
 									>
-										<Trash2 class="h-4 w-4 text-red-500" />
+										<Trash2 class="size-4 text-red-500" />
 									</Button>
 								</div>
 							</Table.Cell>
@@ -545,10 +524,10 @@
 									/>
 									{#if idAvailability === 'available'}
 										<Check
-											class="absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2 text-green-500"
+											class="absolute top-1/2 right-2 size-4 -translate-y-1/2 text-green-500"
 										/>
 									{:else if idAvailability === 'taken'}
-										<X class="absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2 text-red-500" />
+										<X class="absolute top-1/2 right-2 size-4 -translate-y-1/2 text-red-500" />
 									{/if}
 								</div>
 								<Button
@@ -560,10 +539,10 @@
 								>
 									{#if isCheckingId}
 										<span
-											class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+											class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
 										></span>
 									{:else}
-										<Check class="h-4 w-4" />
+										<Check class="size-4" />
 									{/if}
 								</Button>
 							</div>
@@ -603,7 +582,7 @@
 					</div>
 					<div class="space-y-2">
 						<Label for="status">Status</Label>
-						<NativeSelect.Root bind:value={formStatus} aria-label="Status">
+						<NativeSelect.Root bind:value={formStatus} aria-label="Student status">
 							<NativeSelect.Option value="" disabled>Select status</NativeSelect.Option>
 							{#each statuses as status (status)}
 								<NativeSelect.Option value={status}>{status}</NativeSelect.Option>
@@ -624,7 +603,11 @@
 					<Button variant="outline" onclick={() => (showForm = false)} disabled={isSubmitting}
 						>Cancel</Button
 					>
-					<Button onclick={handleSubmit} disabled={isSubmitting}>
+					<Button
+						onclick={handleSubmit}
+						disabled={isSubmitting}
+						aria-label={editingId ? 'Update student' : 'Create student'}
+					>
 						{isSubmitting ? 'Saving...' : editingId ? 'Update' : 'Create'}
 					</Button>
 				</div>
@@ -654,6 +637,7 @@
 				<div class="py-4">
 					{#if deleteHasRelated}
 						<div
+							role="alert"
 							class="mb-4 rounded bg-yellow-50 p-4 text-sm text-yellow-700 dark:bg-yellow-950 dark:text-yellow-200"
 						>
 							<p class="font-medium">
