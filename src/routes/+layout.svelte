@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
-	import favicon from '$lib/assets/favicon.svg';
+	import favicon from '$lib/assets/logo.svg';
+	import logo from '$lib/assets/logo.svg';
 	import { browser } from '$app/environment';
 	import { createSvelteAuthClient } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { authClient } from '$lib/auth-client';
@@ -112,27 +113,49 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-<div class="flex min-h-screen flex-col">
-	{#if $page.url.pathname !== '/login'}
-		<div class="bg-background/90 sticky top-0 z-1000 border-b backdrop-blur">
-			<div class="flex h-14 items-center justify-between gap-3 px-4">
-				<div class="flex items-center gap-3">
-					{#if backLabel}
-						<Button variant="outline" onclick={handleBack}>
-							<ArrowLeft class="size-4" />
-							<span class="ml-2 hidden sm:inline">{backLabel}</span>
-						</Button>
-					{/if}
-					<h1 class="text-foreground font-semibold">{headerTitle}</h1>
-				</div>
-				<div class="flex items-center gap-3">
-					<ThemeToggle />
-					<Button variant="outline" onclick={signOut}>Sign out</Button>
+<div class="relative min-h-screen">
+	<!-- Background Logo -->
+	<div class="pointer-events-none fixed inset-0 -z-10 flex items-center justify-center">
+		<img
+			src={logo}
+			alt=""
+			aria-hidden="true"
+			class="h-auto max-h-[70vh] w-auto max-w-[70vw] opacity-3"
+			loading="eager"
+			decoding="async"
+		/>
+	</div>
+
+	<div class="flex min-h-screen flex-col">
+		{#if $page.url.pathname !== '/login'}
+			<div class="bg-primary text-primary-foreground sticky top-0 z-1000 border-b">
+				<div class="flex h-14 items-center justify-between gap-3 px-4">
+					<div class="flex items-center gap-3">
+						{#if backLabel}
+							<Button
+								variant="default"
+								class="border bg-white text-blue-950 hover:bg-gray-100"
+								onclick={handleBack}
+							>
+								<ArrowLeft class="size-4" />
+								<span class="hidden sm:inline">{backLabel}</span>
+							</Button>
+						{/if}
+						<h1 class="text-primary-foreground font-semibold">{headerTitle}</h1>
+					</div>
+					<div class="flex items-center gap-3">
+						<ThemeToggle />
+						<Button
+							variant="default"
+							class="border bg-white text-blue-950 hover:bg-gray-100"
+							onclick={signOut}>Sign out</Button
+						>
+					</div>
 				</div>
 			</div>
+		{/if}
+		<div class="flex-1">
+			{@render children?.()}
 		</div>
-	{/if}
-	<div class="flex-1">
-		{@render children?.()}
 	</div>
 </div>

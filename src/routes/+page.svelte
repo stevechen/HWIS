@@ -14,7 +14,9 @@
 	const session = browser
 		? authClient.useSession()
 		: {
-				subscribe(run: (value: { isPending: boolean; data: { user: { name?: string } } | null }) => void) {
+				subscribe(
+					run: (value: { isPending: boolean; data: { user: { name?: string } } | null }) => void
+				) {
 					run({ isPending: false, data: null });
 					return () => {};
 				}
@@ -68,7 +70,7 @@
 			<Card.Root>
 				<Card.Content class="pt-6">
 					<div class="flex flex-col justify-center items-center gap-4">
-						<h2 class="font-semibold text-xl">Homework & Welfare Incentive System</h2>
+						<h2 class="font-semibold text-xl">HWIS Point System</h2>
 						<p class="text-gray-600">Please sign in to continue</p>
 						<Button onclick={() => void goto('/login')}>Sign in</Button>
 					</div>
