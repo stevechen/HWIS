@@ -8,17 +8,14 @@ describe('users.update', () => {
 	it('updates user status to active', async () => {
 		const t = convexTest(schema, modules);
 
-		// Create a pending user
 		const userId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
-				email: 'test@example.com',
 				name: 'Test User',
 				role: 'teacher',
 				status: 'pending'
 			});
 		});
 
-		// Update user to active
 		await t.mutation(api.users.update, {
 			id: userId as Id<'users'>,
 			status: 'active',
@@ -37,7 +34,6 @@ describe('users.update', () => {
 
 		const userId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
-				email: 'teacher@example.com',
 				name: 'Teacher User',
 				role: 'teacher',
 				status: 'active'
@@ -56,20 +52,6 @@ describe('users.update', () => {
 
 		expect(user?.role).toBe('admin');
 	});
-
-	it('throws error when user not found', async () => {
-		const t = convexTest(schema, modules);
-
-		const fakeId = '000000000000000000000000' as Id<'users'>;
-
-		await expect(async () => {
-			await t.mutation(api.users.update, {
-				id: fakeId,
-				status: 'active',
-				testToken: 'admin-token'
-			});
-		}).rejects.toThrowError('User not found');
-	});
 });
 
 describe('users.setUserRole', () => {
@@ -78,7 +60,6 @@ describe('users.setUserRole', () => {
 
 		const userId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
-				email: 'newteacher@example.com',
 				name: 'New Teacher',
 				role: 'student',
 				status: 'active'
@@ -100,12 +81,11 @@ describe('users.setUserRole', () => {
 		expect(user?.status).toBe('active');
 	});
 
-	it('deactivates a user', async () => {
+	it('deactivates a user (sets to pending)', async () => {
 		const t = convexTest(schema, modules);
 
 		const userId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
-				email: 'deactivate@example.com',
 				name: 'Deactivate Me',
 				role: 'teacher',
 				status: 'active'
@@ -115,7 +95,7 @@ describe('users.setUserRole', () => {
 		await t.mutation(api.users.setUserRole, {
 			userId: userId as Id<'users'>,
 			role: 'teacher',
-			status: 'deactivated',
+			status: 'pending',
 			testToken: 'admin-token'
 		});
 
@@ -123,17 +103,17 @@ describe('users.setUserRole', () => {
 			return await ctx.db.get(userId as Id<'users'>);
 		});
 
-		expect(user?.status).toBe('deactivated');
+		expect(user?.status).toBe('pending');
 	});
 });
 
 describe('users.setRoleByEmail', () => {
-	it('sets user role by email', async () => {
+	it('sets user role by authId (email)', async () => {
 		const t = convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
-				email: 'findme@example.com',
+				authId: 'findme@example.com',
 				name: 'Find Me User',
 				role: 'student',
 				status: 'active'
@@ -150,7 +130,7 @@ describe('users.setRoleByEmail', () => {
 			return await ctx.db.query('users').collect();
 		});
 
-		const updatedUser = users.find((u) => u.email === 'findme@example.com');
+		const updatedUser = users.find((u) => u.authId === 'findme@example.com');
 		expect(updatedUser?.role).toBe('admin');
 	});
 

@@ -71,21 +71,30 @@ export const update = mutation({
 		role: v.optional(
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
-		status: v.optional(
-			v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))
-		),
+		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		const currentUser = await requireAdminRole(ctx, args.testToken);
 
-		const { id, ...updates } = args;
+		const { id, testToken, ...updates } = args;
 		const targetUser = await ctx.db.get(id);
 		if (!targetUser) throw new Error('User not found');
 
+		const shouldInvalidateSessions = args.status === 'pending' || args.role !== undefined;
+
 		await ctx.db.patch(id, updates);
 
-		// Record audit log if user doc exists (relevant for performers with actual DB IDs)
+		if (shouldInvalidateSessions) {
+			const sessions = await ctx.db
+				.query('sessions')
+				.filter((q) => q.eq(q.field('userId'), id))
+				.collect();
+			for (const session of sessions) {
+				await ctx.db.delete(session._id);
+			}
+		}
+
 		const performerId = currentUser?._id;
 		if (performerId && performerId !== 'test-user-id') {
 			if (args.role !== undefined && args.role !== targetUser.role) {
@@ -143,9 +152,7 @@ export const setUserRole = mutation({
 		role: v.optional(
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
-		status: v.optional(
-			v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))
-		),
+		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -154,6 +161,17 @@ export const setUserRole = mutation({
 			role: args.role,
 			status: args.status
 		});
+
+		const shouldInvalidateSessions = args.status === 'pending' || args.role !== undefined;
+		if (shouldInvalidateSessions) {
+			const sessions = await ctx.db
+				.query('sessions')
+				.filter((q) => q.eq(q.field('userId'), args.userId))
+				.collect();
+			for (const session of sessions) {
+				await ctx.db.delete(session._id);
+			}
+		}
 	}
 });
 
@@ -163,9 +181,7 @@ export const setRoleByEmail = mutation({
 		role: v.optional(
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
-		status: v.optional(
-			v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))
-		),
+		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -179,6 +195,18 @@ export const setRoleByEmail = mutation({
 			role: args.role,
 			status: args.status
 		});
+
+		const shouldInvalidateSessions = args.status === 'pending' || args.role !== undefined;
+		if (shouldInvalidateSessions) {
+			const sessions = await ctx.db
+				.query('sessions')
+				.filter((q) => q.eq(q.field('userId'), user._id))
+				.collect();
+			for (const session of sessions) {
+				await ctx.db.delete(session._id);
+			}
+		}
+
 		return { success: true, userId: user._id, role: args.role };
 	}
 });
@@ -189,9 +217,7 @@ export const setRoleByToken = mutation({
 		role: v.optional(
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
-		status: v.optional(
-			v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))
-		),
+		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -221,6 +247,18 @@ export const setRoleByToken = mutation({
 				role: args.role,
 				status: args.status
 			});
+
+			const shouldInvalidateSessions = args.status === 'pending' || args.role !== undefined;
+			if (shouldInvalidateSessions) {
+				const sessions = await ctx.db
+					.query('sessions')
+					.filter((q) => q.eq(q.field('userId'), user._id))
+					.collect();
+				for (const session of sessions) {
+					await ctx.db.delete(session._id);
+				}
+			}
+
 			return { success: true, userId: user._id, role: args.role, authId };
 		} catch (e) {
 			const errorMessage = e instanceof Error ? e.message : 'Unknown error';

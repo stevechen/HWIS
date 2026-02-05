@@ -39,12 +39,43 @@
 		document.body.classList.add('hydrated');
 	});
 
+	async function handleReload() {
+		await authClient.signOut();
+		void goto('/login');
+	}
+
 	async function signOut() {
 		await authClient.signOut();
 		void goto('/login');
 	}
 
 	const user = useQuery(api.users.viewer, () => ({}));
+
+	const shouldShowModal = $derived.by(() => {
+		if (!$page.url.pathname || $page.url.pathname === '/login' || $page.url.pathname === '/') {
+			return false;
+		}
+		if (user.isLoading || !user.data) {
+			return false;
+		}
+		const role = user.data.role;
+		const status = user.data.status;
+		const isNowAdmin = role === 'admin' || role === 'super';
+		const isActive = status === 'active';
+		const isAdminPage = $page.url.pathname.startsWith('/admin');
+		const isEvaluationsPage = $page.url.pathname.startsWith('/evaluations');
+
+		// /admin pages: only admins/super with active status
+		// /evaluations pages: any active user (teacher or admin)
+		if (isAdminPage) {
+			return !(isNowAdmin && isActive);
+		}
+		if (isEvaluationsPage) {
+			return !isActive;
+		}
+		return false;
+	});
+
 	const isAdmin = $derived.by(() => {
 		if (!user.isLoading && user.data?.role) {
 			return user.data.role === 'admin' || user.data.role === 'super';
@@ -127,7 +158,22 @@
 	</div>
 
 	<div class="flex min-h-screen flex-col">
-		{#if $page.url.pathname !== '/login'}
+		{#if shouldShowModal}
+			<div class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80">
+				<div class="bg-background text-foreground m-4 max-w-md rounded-lg border p-6 shadow-lg">
+					<h2 class="mb-4 text-lg font-semibold">Access Restricted</h2>
+					<p class="mb-6 text-muted-foreground">
+						Your account access has been changed. Please sign in again.
+					</p>
+					<Button
+						variant="default"
+						class="w-full cursor-pointer"
+						onclick={handleReload}>Sign In Again</Button
+					>
+				</div>
+			</div>
+		{/if}
+		{#if $page.url.pathname !== '/login' && !shouldShowModal}
 			<div class="bg-primary text-primary-foreground sticky top-0 z-1000 border-b">
 				<div class="flex h-14 items-center justify-between gap-3 px-4">
 					<div class="flex items-center gap-3">

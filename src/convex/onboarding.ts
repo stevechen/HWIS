@@ -60,9 +60,7 @@ export const setMyRole = mutation({
 		role: v.optional(
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
-		status: v.optional(
-			v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))
-		),
+		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -82,9 +80,7 @@ export const createUserProfile = mutation({
 		role: v.optional(
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
-		status: v.optional(
-			v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated'))
-		),
+		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {

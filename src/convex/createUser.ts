@@ -9,7 +9,7 @@ export const createUserByEmail = mutation({
 		role: v.optional(
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active'), v.literal('deactivated')))
+		status: v.optional(v.union(v.literal('pending'), v.literal('active')))
 	},
 	handler: async (ctx, args) => {
 		// Find the Better Auth user by email

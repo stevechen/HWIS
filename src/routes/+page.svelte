@@ -30,12 +30,7 @@
 	// const _isLoading = $derived(auth.isLoading || $session.isPending || dbUser.isLoading);
 	const userName = $derived($session.data?.user.name);
 	const hasProfile = $derived(!!dbUser.data?.authId);
-	const isApproved = $derived(
-		hasProfile &&
-			(dbUser.data?.status === 'active' ||
-				dbUser.data?.role === 'admin' ||
-				dbUser.data?.role === 'super')
-	);
+	const isApproved = $derived(hasProfile && dbUser.data?.status === 'active');
 	const needsProfile = $derived(isLoggedIn && !hasProfile);
 
 	async function ensureProfile() {
@@ -51,6 +46,16 @@
 	$effect(() => {
 		if (needsProfile && !dbUser.isLoading) {
 			ensureProfile();
+		}
+	});
+
+	$effect(() => {
+		if (isApproved && !dbUser.isLoading && dbUser.data) {
+			if (dbUser.data.role === 'admin' || dbUser.data.role === 'super') {
+				window.location.href = '/admin';
+			} else {
+				window.location.href = '/evaluations';
+			}
 		}
 	});
 
