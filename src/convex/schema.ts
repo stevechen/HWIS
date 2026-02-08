@@ -5,9 +5,7 @@ export default defineSchema({
 	users: defineTable({
 		authId: v.optional(v.string()),
 		name: v.optional(v.string()),
-		role: v.optional(
-			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
-		),
+		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
 		e2eTag: v.optional(v.string())
 	}).index('by_authId', ['authId']),

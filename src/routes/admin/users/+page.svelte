@@ -17,7 +17,7 @@
 	let updatingId = $state<Id<'users'> | null>(null);
 	let roleStates = $state<Record<string, string>>({});
 
-	async function updateUserRole(id: Id<'users'>, role: 'super' | 'admin' | 'teacher' | 'student') {
+	async function updateUserRole(id: Id<'users'>, role: 'super' | 'admin' | 'teacher') {
 		updatingId = id;
 		try {
 			await client.mutation(api.users.update, {
@@ -49,8 +49,7 @@
 	const roles = [
 		{ value: 'teacher', label: 'Teacher' },
 		{ value: 'admin', label: 'Admin' },
-		{ value: 'super', label: 'Super User' },
-		{ value: 'student', label: 'Student' }
+		{ value: 'super', label: 'Super User' }
 	];
 
 	function getStatusVariant(
@@ -65,11 +64,11 @@
 	}
 </script>
 
-<div class="mx-auto py-8 max-w-6xl container">
-	<div class="bg-card shadow-sm border rounded-lg">
+<div class="container mx-auto max-w-6xl py-8">
+	<div class="bg-card rounded-lg border shadow-sm">
 		{#if usersQuery.isLoading}
-			<div class="flex flex-col justify-center items-center gap-4 p-16 text-muted-foreground">
-				<div class="border-3 border-muted border-t-primary rounded-full w-8 h-8 animate-spin"></div>
+			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
+				<div class="border-muted border-t-primary h-8 w-8 animate-spin rounded-full border-3"></div>
 				<p>Loading user records...</p>
 			</div>
 		{:else if usersQuery.data}
@@ -93,13 +92,13 @@
 									type="single"
 									value={roleStates[user._id] ?? user.role}
 									onValueChange={(val) =>
-										updateUserRole(user._id, val as 'super' | 'admin' | 'teacher' | 'student')}
+										updateUserRole(user._id, val as 'super' | 'admin' | 'teacher')}
 									disabled={updatingId === user._id ||
 										user._id === (currentUser.data?._id as Id<'users'> | undefined) ||
 										user.role === 'super'}
 								>
 									<Select.Trigger
-										class="w-33 h-8 text-sm"
+										class="h-8 w-33 text-sm"
 										placeholder="Select role"
 										aria-label="Select role for {user.name || 'user'}"
 									>
@@ -128,7 +127,7 @@
 											disabled={updatingId === user._id}
 											title="Approve User"
 										>
-											<CheckCircle2 class="w-4 h-4 text-emerald-600" />
+											<CheckCircle2 class="h-4 w-4 text-emerald-600" />
 										</Button>
 									{/if}
 									{#if user.status === 'active'}
@@ -140,7 +139,7 @@
 												user._id === (currentUser.data?._id as Id<'users'> | undefined)}
 											title="Remove Access"
 										>
-											<XCircle class="w-4 h-4 text-red-600" />
+											<XCircle class="h-4 w-4 text-red-600" />
 										</Button>
 									{/if}
 								</div>

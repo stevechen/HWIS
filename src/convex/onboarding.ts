@@ -57,9 +57,7 @@ export const ensureUserProfile = mutation({
 
 export const setMyRole = mutation({
 	args: {
-		role: v.optional(
-			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
-		),
+		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
 		testToken: v.optional(v.string())
 	},
@@ -77,9 +75,7 @@ export const setMyRole = mutation({
 export const createUserProfile = mutation({
 	args: {
 		authId: v.string(),
-		role: v.optional(
-			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
-		),
+		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
 		testToken: v.optional(v.string())
 	},

@@ -6,9 +6,7 @@ import { authComponent } from './auth';
 export const createUserByEmail = mutation({
 	args: {
 		email: v.string(),
-		role: v.optional(
-			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
-		),
+		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
 		status: v.optional(v.union(v.literal('pending'), v.literal('active')))
 	},
 	handler: async (ctx, args) => {

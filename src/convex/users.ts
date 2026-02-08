@@ -68,16 +68,15 @@ export const list = query({
 export const update = mutation({
 	args: {
 		id: v.id('users'),
-		role: v.optional(
-			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
-		),
+		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		const currentUser = await requireAdminRole(ctx, args.testToken);
 
-		const { id, testToken, ...updates } = args;
+		const { id, ...updates } = args;
+		delete (updates as Record<string, unknown>).testToken;
 		const targetUser = await ctx.db.get(id);
 		if (!targetUser) throw new Error('User not found');
 
@@ -149,9 +148,7 @@ export const seedTestAdmin = mutation({
 export const setUserRole = mutation({
 	args: {
 		userId: v.id('users'),
-		role: v.optional(
-			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
-		),
+		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
 		testToken: v.optional(v.string())
 	},
@@ -178,9 +175,7 @@ export const setUserRole = mutation({
 export const setRoleByEmail = mutation({
 	args: {
 		email: v.string(),
-		role: v.optional(
-			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
-		),
+		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
 		testToken: v.optional(v.string())
 	},
@@ -214,9 +209,7 @@ export const setRoleByEmail = mutation({
 export const setRoleByToken = mutation({
 	args: {
 		token: v.string(),
-		role: v.optional(
-			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
-		),
+		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
 		testToken: v.optional(v.string())
 	},

@@ -61,7 +61,7 @@ describe('users.setUserRole', () => {
 		const userId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
 				name: 'New Teacher',
-				role: 'student',
+				role: 'teacher',
 				status: 'active'
 			});
 		});
@@ -115,7 +115,7 @@ describe('users.setRoleByEmail', () => {
 			await ctx.db.insert('users', {
 				authId: 'findme@example.com',
 				name: 'Find Me User',
-				role: 'student',
+				role: 'teacher',
 				status: 'active'
 			});
 		});

@@ -303,7 +303,7 @@ export function getE2EUtils(): E2EUtils {
 			try {
 				return await client.mutation(api.users.setRoleByEmail, {
 					email,
-					role: role as 'teacher' | 'admin' | 'super' | 'student'
+					role: role as 'teacher' | 'admin' | 'super'
 				});
 			} catch {
 				console.log('Set role by email error');
@@ -314,7 +314,7 @@ export function getE2EUtils(): E2EUtils {
 		async setMyRole(role: string) {
 			try {
 				return await client.mutation(api.onboarding.setMyRole, {
-					role: role as 'teacher' | 'admin' | 'super' | 'student'
+					role: role as 'teacher' | 'admin' | 'super'
 				});
 			} catch {
 				console.log('Set my role error');
@@ -326,7 +326,7 @@ export function getE2EUtils(): E2EUtils {
 			try {
 				return await client.mutation(api.users.setRoleByToken, {
 					token,
-					role: role as 'teacher' | 'admin' | 'super' | 'student'
+					role: role as 'teacher' | 'admin' | 'super'
 				});
 			} catch {
 				console.log('Set role by token error');
