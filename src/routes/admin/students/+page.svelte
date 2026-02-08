@@ -2,7 +2,16 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
-	import { Plus, Trash2, Pencil, Search, Upload, AlertTriangle, Check, X } from '@lucide/svelte';
+	import {
+		Plus,
+		Trash2,
+		Pencil,
+		Search,
+		Upload,
+		Check,
+		X,
+		CircleQuestionMark
+	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
@@ -47,7 +56,7 @@
 	let formStatus = $state<'Enrolled' | 'Not Enrolled'>('Enrolled');
 	let formNote = $state('');
 	let isSubmitting = $state(false);
-	let formError = $state('');
+	let formErrors = $state<string[]>([]);
 
 	// Delete dialog state
 	let studentToDelete = $state<Student | null>(null);
@@ -89,7 +98,7 @@
 		formStatus = 'Enrolled';
 		formNote = '';
 		editingId = null;
-		formError = '';
+		formErrors = [];
 		idAvailability = 'unknown';
 		lastCheckedId = '';
 		showAvailabilityMsg = false;
@@ -105,7 +114,7 @@
 		formNote = student.note || '';
 		originalStatus = student.status;
 		editingId = student._id;
-		formError = '';
+		formErrors = [];
 		idAvailability = 'unknown';
 		lastCheckedId = '';
 		showAvailabilityMsg = false;
@@ -129,45 +138,33 @@
 		}
 	}
 
-	$effect(() => {
-		if (!formStudentId || formStudentId.trim() === lastCheckedId || !showForm) return;
+	async function handleSubmit() {
+		formErrors = [];
 
-		const timer = setTimeout(async () => {
-			if (!formStudentId.trim()) return;
-			isCheckingId = true;
+		// Collect validation errors
+		if (!formStudentId.trim()) {
+			formErrors.push('Student ID required');
+		}
+		if (!formEnglishName.trim()) {
+			formErrors.push('English name required');
+		}
+
+		// Check for duplicate ID before validation
+		if (formStudentId.trim()) {
 			try {
 				const result = await client.query(studentsApi.checkStudentIdExists, {
 					studentId: formStudentId.trim(),
 					excludeId: editingId || undefined
 				});
-				idAvailability = result.exists ? 'taken' : 'available';
-				lastCheckedId = formStudentId.trim();
-				showAvailabilityMsg = true;
+				if (result.exists) {
+					formErrors.push('Student ID taken');
+				}
 			} catch {
-				idAvailability = 'unknown';
-			} finally {
-				isCheckingId = false;
+				// Ignore check errors, let the mutation handle it
 			}
-		}, 500);
-
-		return () => clearTimeout(timer);
-	});
-
-	async function handleSubmit() {
-		formError = '';
-
-		if (!formStudentId.trim()) {
-			formError = 'Student ID is required';
-			return;
 		}
-		if (!formEnglishName.trim()) {
-			formError = 'English name is required';
-			return;
-		}
-		if (formGrade < 7 || formGrade > 12) {
-			formError = 'Grade must be between 7 and 12';
-			return;
-		}
+
+		if (formErrors.length > 0) return;
 
 		isSubmitting = true;
 		try {
@@ -193,7 +190,12 @@
 			}
 			showForm = false;
 		} catch (e) {
-			formError = e instanceof Error ? e.message : 'Failed to save student';
+			const errorMsg = e instanceof Error ? e.message : String(e);
+			if (errorMsg.includes('already exists') || errorMsg.includes('duplicate')) {
+				formErrors.push('Student ID taken');
+			} else {
+				formErrors.push(errorMsg);
+			}
 		} finally {
 			isSubmitting = false;
 		}
@@ -406,32 +408,49 @@
 			<Table.Root>
 				<Table.Header>
 					<Table.Row>
-						<Table.Head>Student ID</Table.Head>
+						<Table.Head class="text-center">Student ID</Table.Head>
 						<Table.Head>English Name</Table.Head>
 						<Table.Head>Chinese Name</Table.Head>
-						<Table.Head>Grade</Table.Head>
-						<Table.Head>Status</Table.Head>
+						<Table.Head class="text-center">Grade</Table.Head>
+						<Table.Head class="text-center">Status</Table.Head>
 						<Table.Head>Note</Table.Head>
-						<Table.Head class="text-right">Actions</Table.Head>
+						<Table.Head class="text-center">Actions</Table.Head>
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
 					{#each filteredStudents as student (student._id)}
-						<Table.Row>
-							<Table.Cell class="font-medium">{student.studentId}</Table.Cell>
+						<Table.Row
+							class={`${student.status === 'Not Enrolled' && 'bg-muted-foreground opacity-60'}`}
+						>
+							<Table.Cell class="text-center">{student.studentId}</Table.Cell>
 							<Table.Cell>{student.englishName}</Table.Cell>
 							<Table.Cell>{student.chineseName}</Table.Cell>
-							<Table.Cell>{student.grade}</Table.Cell>
-							<Table.Cell>
-								<Badge variant={student.status === 'Enrolled' ? 'default' : 'outline'}>
-									{student.status}
-								</Badge>
+							<Table.Cell class="text-center">{student.grade}</Table.Cell>
+							<Table.Cell class="text-center">
+								<Button
+									variant="ghost"
+									size="sm"
+									onclick={() =>
+										client.mutation(studentsApi.changeStatus, {
+											id: student._id,
+											status: student.status === 'Enrolled' ? 'Not Enrolled' : 'Enrolled'
+										})}
+									aria-label="Toggle {student.studentId} status"
+									class="cursor-pointer"
+								>
+									<Badge
+										variant={student.status === 'Enrolled' ? 'default' : 'outline'}
+										class="hover:ring-primary/50 w-22 hover:ring-2 hover:ring-offset-1"
+									>
+										{student.status}
+									</Badge>
+								</Button>
 							</Table.Cell>
 							<Table.Cell class="text-muted-foreground max-w-xs truncate text-sm"
 								>{student.note || '-'}</Table.Cell
 							>
-							<Table.Cell class="text-right">
-								<div class="flex justify-end gap-1">
+							<Table.Cell class="text-center">
+								<div class="flex justify-center gap-1">
 									<Button
 										variant="ghost"
 										size="icon"
@@ -439,24 +458,11 @@
 											startEdit(student);
 											showForm = true;
 										}}
-										aria-label="Edit {student.englishName}"
+										aria-label="Edit {student.studentId}"
+										class="hover:ring-primary/50 cursor-pointer hover:ring-2 hover:ring-offset-1"
 									>
 										<Pencil class="size-4" />
 									</Button>
-									{#if student.status === 'Enrolled'}
-										<Button
-											variant="ghost"
-											size="icon"
-											onclick={() => {
-												confirmDisable(student);
-												showDisable = true;
-											}}
-											aria-label="Set {student.englishName} to not enrolled"
-											title="Disable student"
-										>
-											<AlertTriangle class="size-4 text-orange-500" />
-										</Button>
-									{/if}
 									<Button
 										variant="ghost"
 										size="icon"
@@ -464,7 +470,8 @@
 											confirmDelete(student);
 											showDelete = true;
 										}}
-										aria-label="Delete {student.englishName}"
+										aria-label="Delete {student.studentId}"
+										class="hover:ring-destructive/50 cursor-pointer hover:ring-2 hover:ring-offset-1"
 									>
 										<Trash2 class="size-4 text-red-500" />
 									</Button>
@@ -484,7 +491,7 @@
 		class="fixed inset-0 z-50 flex items-center justify-center p-4"
 		role="dialog"
 		aria-modal="true"
-		aria-labelledby="student-form-title"
+		aria-label="student form"
 	>
 		<div
 			class="fixed inset-0 bg-black/50"
@@ -495,16 +502,21 @@
 		></div>
 		<div class="bg-background relative w-full max-w-lg rounded-lg border p-6 shadow-lg">
 			<div class="p-6">
-				<h2 id="student-form-title" class="text-lg font-semibold">
+				<h2 id="Student form-title" class="text-lg font-semibold">
 					{editingId ? 'Edit Student' : 'Add New Student'}
 				</h2>
 				<div class="grid gap-4 py-4">
-					{#if formError}
+					{#if formErrors.length > 0}
 						<div
 							role="alert"
 							class="rounded bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400"
+							aria-label="Form errors"
 						>
-							{formError}
+							<ul class="list-disc pl-4">
+								{#each formErrors as error}
+									<li>{error}</li>
+								{/each}
+							</ul>
 						</div>
 					{/if}
 					<div class="grid grid-cols-2 gap-4">
@@ -516,43 +528,37 @@
 										id="studentId"
 										bind:value={formStudentId}
 										placeholder="e.g., S1001"
-										class={idAvailability === 'taken'
-											? 'border-red-500 pr-8'
-											: idAvailability === 'available'
-												? 'border-green-500 pr-8'
-												: 'pr-8'}
+										onblur={checkIdAvailability}
+										class={`
+										${idAvailability === 'available' && 'text-green-600 dark:text-green-400'}
+										${idAvailability === 'taken' && 'text-red-600 dark:text-red-400'}`}
+										aria-label="Student ID"
 									/>
-									{#if idAvailability === 'available'}
-										<Check
-											class="absolute top-1/2 right-2 size-4 -translate-y-1/2 text-green-500"
-										/>
-									{:else if idAvailability === 'taken'}
-										<X class="absolute top-1/2 right-2 size-4 -translate-y-1/2 text-red-500" />
-									{/if}
 								</div>
 								<Button
 									variant="outline"
 									size="default"
 									onclick={checkIdAvailability}
 									disabled={!formStudentId.trim() || isCheckingId}
-									title="Check if student ID is available"
+									title="Check ID"
+									class={`
+										${idAvailability === 'available' && 'text-green-600 dark:text-green-400'}
+										${idAvailability === 'taken' && 'text-red-600 dark:text-red-400'}`}
+									aria-label="ID {idAvailability}}"
 								>
 									{#if isCheckingId}
 										<span
 											class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
 										></span>
-									{:else}
+									{:else if idAvailability === 'available'}
 										<Check class="size-4" />
+									{:else if idAvailability === 'taken'}
+										<X class="size-4" />
+									{:else}
+										<CircleQuestionMark class="size-4" />
 									{/if}
 								</Button>
 							</div>
-							{#if showAvailabilityMsg}
-								{#if idAvailability === 'available'}
-									<p class="text-xs text-green-600 dark:text-green-400">Student ID is available</p>
-								{:else if idAvailability === 'taken'}
-									<p class="text-xs text-red-600 dark:text-red-400">Student ID already exists</p>
-								{/if}
-							{/if}
 						</div>
 						<div class="space-y-2">
 							<Label for="grade">Grade *</Label>
