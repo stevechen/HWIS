@@ -25,7 +25,8 @@ export const create = mutation({
 		subCategory: v.string(),
 		details: v.string(),
 		semesterId: v.string(),
-		testToken: v.optional(v.string())
+		testToken: v.optional(v.string()),
+		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		const userDoc = await requireUserProfile(ctx, args.testToken);
@@ -43,7 +44,8 @@ export const create = mutation({
 				subCategory: args.subCategory,
 				details: args.details,
 				timestamp,
-				semesterId: args.semesterId
+				semesterId: args.semesterId,
+				e2eTag: args.e2eTag
 			});
 
 			evaluationIds.push(evaluationId);

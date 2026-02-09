@@ -24,9 +24,17 @@ export async function cleanupTestData(tag: string) {
 	return await utils.cleanupTestData(tag);
 }
 
-export async function cleanupAuditLogs() {
+export async function cleanupAuditLogs(authIdString?: string) {
 	const utils = getUtils();
-	return await utils.cleanupAuditLogs();
+	return await utils.cleanupAuditLogs(authIdString);
+}
+
+export async function cleanupByTag(
+	dataType: 'students' | 'categories' | 'evaluations' | 'all',
+	e2eTag: string
+) {
+	const utils = getUtils();
+	return await utils.cleanupByTag(dataType, e2eTag);
 }
 
 export async function cleanupTestUsers() {
@@ -62,6 +70,15 @@ export async function seedAuditLogs(authId?: string) {
 export async function createStudent(opts: CreateStudentOptions) {
 	const utils = getUtils();
 	return await utils.createStudentWithId(opts);
+}
+
+export async function setE2eTag(
+	dataType: 'students' | 'categories' | 'evaluations',
+	dataId: string,
+	e2eTag: string
+) {
+	const utils = getUtils();
+	return await utils.setE2eTag(dataType, dataId, e2eTag);
 }
 
 export async function createCategory(opts: {
@@ -112,14 +129,14 @@ export async function checkEvaluationExists(categoryName: string) {
 	return await utils.checkEvaluationExists(categoryName);
 }
 
-export async function createWeeklyReportTestData() {
+export async function createWeeklyReportTestData(tag?: string) {
 	const utils = getUtils();
-	return await utils.createWeeklyReportTestData();
+	return await utils.createWeeklyReportTestData(tag);
 }
 
-export async function cleanupWeeklyReportTestData() {
+export async function cleanupWeeklyReportTestData(tag?: string) {
 	const utils = getUtils();
-	return await utils.cleanupWeeklyReportTestData();
+	return await utils.cleanupWeeklyReportTestData(tag);
 }
 
 export function getE2EUtilsClient() {

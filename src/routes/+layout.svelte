@@ -162,13 +162,11 @@
 			<div class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80">
 				<div class="bg-background text-foreground m-4 max-w-md rounded-lg border p-6 shadow-lg">
 					<h2 class="mb-4 text-lg font-semibold">Access Restricted</h2>
-					<p class="mb-6 text-muted-foreground">
+					<p class="text-muted-foreground mb-6">
 						Your account access has been changed. Please sign in again.
 					</p>
-					<Button
-						variant="default"
-						class="w-full cursor-pointer"
-						onclick={handleReload}>Sign In Again</Button
+					<Button variant="default" class="w-full cursor-pointer" onclick={handleReload}
+						>Sign In Again</Button
 					>
 				</div>
 			</div>

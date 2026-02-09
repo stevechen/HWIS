@@ -1,51 +1,50 @@
 import { test, expect } from '@playwright/test';
-import { getTestSuffix } from './students.shared';
-// Mock auth removed - using real storageState files now
-import { createStudent, cleanupTestData } from './convex-client';
+import { getTestSuffix } from './helpers';
+import { createStudent, cleanupByTag } from './convex-client';
 
-test.describe('Edit Student @students', () => {
+test.describe('Edit Student - Data Tests', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-	let testE2eTag: string | null = null;
+	const suffix = getTestSuffix('editStatus');
+	const studentId = `S_${suffix}`;
+	const englishName = `Status_${suffix}`;
+	let testStudent = false;
 
-	test.beforeEach(async ({ page }) => {
-		testE2eTag = null;
-		await page.goto('/admin/students');
-		await page.waitForSelector('body.hydrated');
-	});
-
-	test.afterEach(async () => {
-		try {
-			if (testE2eTag) {
-				await cleanupTestData(testE2eTag);
-			}
-		} catch {
-			// Cleanup skipped
-		}
-	});
-
-	test('can update student status', async ({ page }) => {
-		const suffix = getTestSuffix('editStatus');
-		const studentId = `S_${suffix}`;
-		const englishName = `Status_${suffix}`;
-		testE2eTag = `e2e-test_${suffix}`;
-
+	test.beforeEach(async () => {
 		await createStudent({
 			studentId,
 			englishName,
 			grade: 10,
 			status: 'Enrolled',
-			e2eTag: testE2eTag
+			e2eTag: `e2e-test_${suffix}`
 		});
+		testStudent = true;
+	});
+
+	test.afterEach(async () => {
+		if (testStudent) await cleanupByTag('students', `e2e-test_${suffix}`);
+	});
+
+	test.beforeEach(async ({ page }) => {
+		await page.goto('/admin/students');
+		await page.waitForSelector('body.hydrated');
 
 		// Wait for student to appear in list (Convex reactivity)
 		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
+	});
 
+	test('can update student status', async ({ page }) => {
 		// Search for the student to filter the list
 		await page.getByRole('textbox', { name: 'Search students' }).fill(englishName);
 
+		// Edit status through the toggle
+		await page.getByRole('button', { name: `Toggle ${studentId} status` }).click();
+		await expect(page.getByRole('button', { name: `Toggle ${studentId} status` })).toHaveText(
+			'Not Enrolled'
+		);
+
 		// Find and click edit button for this student - look for Pencil icon button
-		const studentRow = page.getByRole('row', { name: new RegExp(englishName) });
+		const studentRow = page.getByRole('row', { name: englishName });
 		const editButton = studentRow
 			.getByRole('button')
 			.filter({ has: page.locator('svg') })
@@ -53,21 +52,19 @@ test.describe('Edit Student @students', () => {
 		await editButton.click();
 
 		// Wait for dialog and change status
-		await expect(page.getByRole('dialog').first()).toBeVisible();
+		const dialog = page.getByRole('dialog', { name: 'Student Form' });
+		await expect(dialog).toBeVisible();
 
 		// Select the status dropdown and change it
 		// Use a more specific selector to target the status dropdown
-		const statusSelect = page
-			.getByRole('dialog')
-			.getByRole('combobox', { name: /status/i })
-			.first();
-		await statusSelect.selectOption('Not Enrolled');
+		const statusSelect = dialog.getByLabel('Status');
+		await statusSelect.selectOption('Enrolled');
 
 		// Click Update button
-		await page.getByRole('button', { name: 'Update' }).click();
+		await dialog.getByRole('button', { name: 'Update student' }).click();
 
 		// Wait for dialog to close and Convex to update
-		await expect(page.getByRole('dialog').first()).not.toBeVisible();
+		await expect(dialog).not.toBeVisible();
 
 		// Clear search filter to see all students
 		await page.getByRole('textbox', { name: 'Search students' }).fill('');
@@ -78,10 +75,10 @@ test.describe('Edit Student @students', () => {
 			await statusFilter.selectOption('');
 		}
 
-		// Verify the specific student's status was updated to "Not Enrolled"
+		// Verify the specific student's status was updated to "Enrolled"
 		// The test is specific because we created a unique student and verify their status
 		const updatedStudentRow = page.getByRole('row', { name: englishName });
 		await expect(updatedStudentRow).toBeVisible();
-		await expect(updatedStudentRow.getByText('Not Enrolled')).toBeVisible();
+		await expect(updatedStudentRow.getByText('Enrolled')).toBeVisible();
 	});
 });

@@ -30,23 +30,29 @@ const config: PlaywrightTestConfig = {
 		{
 			name: 'chromium',
 			use: { ...devices['Desktop Chrome'] },
-			testMatch: /^(?!.*(setup|cleanup)).*\.spec\.ts$/,
-			dependencies: ['setup']
+			testMatch: /^(?!.*(setup|cleanup|evaluations)).*\.spec\.ts$/,
+			dependencies: ['setup'],
+			teardown: 'cleanup',
+			workers: 1
 		},
 		{
-			name: 'chromium-authenticated',
+			name: 'chromium-super',
 			use: {
 				...devices['Desktop Chrome'],
-				storageState: 'e2e/.auth/admin.json'
+				storageState: 'e2e/.auth/super.json'
 			},
 			testMatch: 'e2e/audit.spec.ts',
-			dependencies: ['setup']
+			dependencies: ['setup'],
+			teardown: 'cleanup',
+			workers: 1
 		},
 		{
 			name: 'webkit',
 			use: { ...devices['Desktop Safari'] },
-			testMatch: /^(?!.*(setup|cleanup)).*\.spec\.ts$/,
-			dependencies: ['setup']
+			testMatch: /^(?!.*(setup|cleanup|evaluations)).*\.spec\.ts$/,
+			dependencies: ['setup'],
+			teardown: 'cleanup',
+			workers: 1
 		},
 		...(hasTeacherAuth || process.env.CI
 			? [
@@ -57,27 +63,30 @@ const config: PlaywrightTestConfig = {
 							storageState: 'e2e/.auth/teacher.json'
 						},
 						testMatch: 'e2e/evaluations.spec.ts',
-						dependencies: ['setup']
+						dependencies: ['setup'],
+						teardown: 'cleanup',
+						workers: 1
 					}
 				]
 			: []),
 		...(hasSuperAuth || process.env.CI
 			? [
 					{
-						name: 'chromium-super',
+						name: 'webkit-super',
 						use: {
-							...devices['Desktop Chrome'],
+							...devices['Desktop Safari'],
 							storageState: 'e2e/.auth/super.json'
 						},
 						testMatch: 'e2e/audit.spec.ts',
-						dependencies: ['setup']
+						dependencies: ['setup'],
+						teardown: 'cleanup',
+						workers: 1
 					}
 				]
 			: []),
 		{
 			name: 'cleanup',
-			testMatch: 'e2e/cleanup.spec.ts',
-			dependencies: ['setup']
+			testMatch: 'e2e/cleanup.spec.ts'
 		}
 	]
 };

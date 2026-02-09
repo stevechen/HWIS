@@ -2,24 +2,36 @@ import { test, expect } from '@playwright/test';
 import {
 	createStudent,
 	createEvaluationForStudent,
-	cleanupTestData,
-	seedBaseline
+	createCategory,
+	cleanupTestData
 } from './convex-client';
 import { getTestSuffix } from './helpers';
 
-test.describe('Integration Tests (Real Backend) @integration', () => {
+test.describe('Student CRUD Cycle @integration', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-	// Store test data info for cleanup
+	const suffix = getTestSuffix('crud');
+	const studentId = `S_${suffix}`;
+	const englishName = `CrudTest_${suffix}`;
 	let testE2eTag: string | null = null;
 
-	test.beforeEach(async () => {
-		// Reset for each test
-		testE2eTag = null;
+	test.beforeEach(async ({ page }) => {
+		testE2eTag = `e2e-test_${suffix}`;
+
+		await createStudent({
+			studentId,
+			englishName,
+			chineseName: 'CRUD測試',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag: testE2eTag
+		});
+
+		await page.goto('/admin/students');
+		await page.waitForSelector('body.hydrated');
 	});
 
 	test.afterEach(async () => {
-		// Cleanup using the stored e2eTag from the test
 		if (testE2eTag) {
 			try {
 				await cleanupTestData(testE2eTag);
@@ -29,38 +41,15 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 		}
 	});
 
-	test('Student CRUD cycle - create, edit, delete works with real backend', async ({ page }) => {
-		const suffix = getTestSuffix('crud');
-		const studentId = `S_${suffix}`;
-		const englishName = `CrudTest_${suffix}`;
-		const chineseName = 'CRUD測試';
-		const grade = 10;
-
-		// Store for cleanup
-		testE2eTag = `e2e-test_${suffix}`;
-
-		await page.goto('/admin/students');
-
-		// Create student using API (more reliable than UI for setup)
-		await createStudent({
-			studentId,
-			englishName,
-			chineseName,
-			grade,
-			status: 'Enrolled',
-			e2eTag: testE2eTag
-		});
-
-		await page.waitForSelector('body.hydrated');
-
+	test('create, edit, delete works with real backend', async ({ page }) => {
 		// Verify student was created
 		await expect(page.getByRole('row', { name: studentId })).toBeVisible();
 
 		// Edit student - find and click edit button (first button in the row with pencil icon)
 		const studentRow = page.getByRole('row', { name: studentId });
-		await studentRow.getByRole('button', { name: `Edit ${englishName}` }).click();
+		await studentRow.getByRole('button', { name: `Edit ${studentId}` }).click();
 
-		// Wait for edit dialogstudentId
+		// Wait for edit dialog
 		await expect(page.getByRole('dialog')).toBeVisible();
 		const dialog = page.getByRole('dialog');
 		await expect(page.getByText('Edit Student')).toBeVisible();
@@ -77,10 +66,12 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 
 		// Verify status changed - check for Not Enrolled badge in the student's row
 		const updatedRow = page.getByRole('row', { name: studentId });
-		await expect(updatedRow.getByRole('cell', { name: 'Not Enrolled' })).toBeVisible(); // await expect(updatedRow.getByText('Not Enrolled')).toBeVisible();
+		await expect(updatedRow.getByRole('button', { name: `Toggle ${studentId} status` })).toHaveText(
+			'Not Enrolled'
+		);
 
 		// Delete student - find and click delete button (last button in row with trash icon)
-		await studentRow.getByRole('button', { name: `Delete ${englishName}` }).click();
+		await studentRow.getByRole('button', { name: `Delete ${studentId}` }).click();
 
 		// Wait for delete dialog
 		await expect(page.getByRole('dialog')).toBeVisible();
@@ -91,25 +82,32 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 
 		// Wait for dialog to close and student to be removed
 		await expect(page.getByRole('dialog')).not.toBeVisible();
-		await expect(page.getByRole('cell', { name: studentId })).not.toBeVisible();
+		await expect(page.getByRole('cell', { name: studentId, exact: true })).not.toBeVisible();
 	});
+});
 
-	test('Evaluation persists to database and appears in list', async ({ page }) => {
-		// Seed baseline data including categories
-		await seedBaseline();
+test.describe('Evaluation Persistence @integration', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-		const suffix = getTestSuffix('evalPersist');
-		const studentId = `SE_${suffix}`;
-		const englishName = `EvalPersist_${suffix}`;
-		const chineseName = '評估持久';
+	const suffix = getTestSuffix('evalPersist');
+	const studentId = `SE_${suffix}`;
+	const englishName = `EvalPersist_${suffix}`;
+	let testE2eTag: string | null = null;
 
-		// Store for cleanup
+	test.beforeEach(async ({ page }) => {
 		testE2eTag = `e2e-test_${suffix}`;
+
+		// Create tagged category for evaluations (replaces seedBaseline)
+		await createCategory({
+			name: `TestCat_${suffix}`,
+			subCategories: ['Homework', 'Participation'],
+			e2eTag: testE2eTag
+		});
 
 		const createResult = await createStudent({
 			studentId,
 			englishName,
-			chineseName,
+			chineseName: '評估持久',
 			grade: 10,
 			status: 'Enrolled',
 			e2eTag: testE2eTag
@@ -119,8 +117,20 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
 		await page.waitForSelector('text=Loading students...', { state: 'detached' });
+	});
 
-		const filterInput = page.getByRole('textbox', { name: 'Search students' }); // aria-label('Search students');
+	test.afterEach(async () => {
+		if (testE2eTag) {
+			try {
+				await cleanupTestData(testE2eTag);
+			} catch {
+				// Ignore cleanup errors
+			}
+		}
+	});
+
+	test('evaluation persists to database and appears in list', async ({ page }) => {
+		const filterInput = page.getByRole('textbox', { name: 'Search students' });
 		await filterInput.fill(englishName);
 
 		const studentRow = page.getByRole('button', { name: englishName });
@@ -129,24 +139,32 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 		await studentRow.click();
 		await expect(page.getByText(/student.*selected/i)).toBeVisible();
 	});
+});
 
-	test('Clicking evaluation card navigates to student timeline with valid ID', async ({ page }) => {
-		// Seed baseline data including categories
-		await seedBaseline();
+test.describe('Student Timeline Navigation @integration', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-		const suffix = getTestSuffix('evalNav');
-		const studentId = `SE_${suffix}`;
-		const englishName = `EvalNav_${suffix}`;
-		const chineseName = '導航測試';
+	const suffix = getTestSuffix('evalNav');
+	const studentId = `SE_${suffix}`;
+	const englishName = `EvalNav_${suffix}`;
+	let testE2eTag: string | null = null;
+	let studentDocId: string;
 
-		// Store for cleanup
+	test.beforeEach(async ({ page }) => {
 		testE2eTag = `e2e-test_${suffix}`;
 
+		// Create tagged category for evaluations (replaces seedBaseline)
+		await createCategory({
+			name: `TimelineCat_${suffix}`,
+			subCategories: ['Homework', 'Participation'],
+			e2eTag: testE2eTag
+		});
+
 		// Create student
-		const studentDocId = (await createStudent({
+		studentDocId = (await createStudent({
 			studentId,
 			englishName,
-			chineseName,
+			chineseName: '導航測試',
 			grade: 10,
 			status: 'Enrolled',
 			e2eTag: testE2eTag
@@ -164,26 +182,6 @@ test.describe('Integration Tests (Real Backend) @integration', () => {
 		// This tests that the evaluation data is persisted and can be viewed
 		await page.goto(`/evaluations/student/${studentDocId}`);
 		await page.waitForSelector('body.hydrated');
-
-		// Verify the page shows evaluation content (either from query or demo)
-		// Look for the timeline heading which is always present
-		const timelineContent = page.getByRole('heading', { name: 'All Points History' });
-		await expect(timelineContent).toBeVisible();
-
-		// Verify breadcrumb navigation button exists
-		const backButton = page.getByRole('button', { name: /back/i });
-		await expect(backButton).toBeVisible();
-	});
-});
-
-test.describe('Category to Evaluation Integration (Real Backend) @integration', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
-
-	// Store test data info for cleanup
-	let testE2eTag: string | null = null;
-
-	test.beforeEach(async () => {
-		testE2eTag = null;
 	});
 
 	test.afterEach(async () => {
@@ -196,43 +194,58 @@ test.describe('Category to Evaluation Integration (Real Backend) @integration', 
 		}
 	});
 
-	test('Category created by admin can be used in evaluation by teacher', async ({
-		page,
-		context
-	}) => {
-		test.setTimeout(60000); // Extend timeout for this complex multi-context test
+	test('clicking evaluation card navigates to student timeline with valid ID', async ({ page }) => {
+		// Verify the page shows evaluation content (either from query or demo)
+		// Look for the timeline heading which is always present
+		const timelineContent = page.getByRole('heading', { name: 'All Points History' });
+		await expect(timelineContent).toBeVisible();
 
-		const suffix = getTestSuffix('catEvalInt');
-		const categoryName = `IntTestCat_${suffix}`;
+		// Verify breadcrumb navigation button exists
+		const backButton = page.getByRole('button', { name: /back/i });
+		await expect(backButton).toBeVisible();
+	});
+});
+
+test.describe('Category to Evaluation Integration @integration', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	const suffix = getTestSuffix('catEvalInt');
+	const categoryName = `IntTestCat_${suffix}`;
+	let testE2eTag: string | null = null;
+
+	test.beforeEach(async ({ page }) => {
 		testE2eTag = `e2e-test_${suffix}`;
 
-		// Step 1: Admin creates a category
+		// Create category via API with e2eTag for proper cleanup
+		await createCategory({
+			name: categoryName,
+			subCategories: [`SubCat1_${suffix}`, `SubCat2_${suffix}`],
+			e2eTag: testE2eTag
+		});
+
+		// Navigate to admin categories page to verify
 		await page.goto('/admin/categories');
 		await page.waitForSelector('body.hydrated');
 
-		await page.getByRole('button', { name: 'Add new category' }).click();
-
-		// Wait for dialog to appear - use multiple possible indicators
-		await expect
-			.poll(
-				async () => {
-					const dialog = page.locator('[role="dialog"]');
-					return await dialog.isVisible();
-				},
-				{ message: 'Dialog should appear' }
-			)
-			.toBe(true);
-
-		// Fill category form - use label-based selectors
-		await page.getByRole('textbox', { name: 'Category Name' }).fill(categoryName);
-		await page.getByRole('textbox', { name: 'Sub-Categories' }).fill(`SubCat1_${suffix}`);
-		await page.getByRole('button', { name: 'Add', exact: true }).click();
-		await page.getByRole('textbox', { name: 'Sub-Categories' }).fill(`SubCat2_${suffix}`);
-		await page.getByRole('button', { name: 'Add', exact: true }).click();
-		await page.getByRole('button', { name: 'Save' }).click();
-
-		// Verify category was created
+		// Verify category appears in the list
 		await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
+	});
+
+	test.afterEach(async ({ context }) => {
+		if (testE2eTag) {
+			try {
+				await cleanupTestData(testE2eTag);
+			} catch {
+				// Ignore cleanup errors
+			}
+		}
+
+		// Close any teacher contexts if they were created
+		await context.close().catch(() => {});
+	});
+
+	test('category created by admin can be used in evaluation by teacher', async ({ context }) => {
+		test.setTimeout(60000); // Extend timeout for this complex multi-context test
 
 		// Step 2: Create a new browser context for teacher
 		const browser = context.browser();

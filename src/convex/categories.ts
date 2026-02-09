@@ -75,15 +75,26 @@ export const create = mutation({
 	args: {
 		name: v.string(),
 		subCategories: v.array(v.string()),
-		testToken: v.optional(v.string())
+		testToken: v.optional(v.string()),
+		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
 
-		const id = await ctx.db.insert('point_categories', {
+		const data: {
+			name: string;
+			subCategories: string[];
+			e2eTag?: string;
+		} = {
 			name: args.name,
 			subCategories: args.subCategories
-		});
+		};
+
+		if (args.e2eTag) {
+			data.e2eTag = args.e2eTag;
+		}
+
+		const id = await ctx.db.insert('point_categories', data);
 		return id;
 	}
 });

@@ -1,5 +1,5 @@
 import { test as setup, expect } from '@playwright/test';
-import { seedBaseline, setupTestUsers } from './convex-client';
+import { setupTestUsers, cleanupTestUsers } from './convex-client';
 import { mkdir, writeFile } from 'fs/promises';
 import { readFileSync } from 'fs';
 import path from 'path';
@@ -151,6 +151,9 @@ async function buildStorageState(sessionToken: string): Promise<StorageState> {
 }
 
 setup('seed test data and verify setup', async ({ page }) => {
+	// Clean up old test users first to avoid accumulation
+	await cleanupTestUsers();
+
 	const setupResult = await setupTestUsers();
 	expect(setupResult?.adminSessionToken).toBeTruthy();
 	expect(setupResult?.teacherSessionToken).toBeTruthy();
@@ -171,7 +174,7 @@ setup('seed test data and verify setup', async ({ page }) => {
 	await page.goto(`${BASE_URL}/`);
 	await page.waitForSelector('body.hydrated');
 
-	await seedBaseline();
+	// seedBaseline() removed - tests now create their own data
 
 	await page.goto(`${BASE_URL}/admin/academic`);
 	await page.waitForSelector('body.hydrated');

@@ -1,34 +1,37 @@
 import { test, expect } from '@playwright/test';
-import { getTestSuffix, cleanupE2EData } from './students.shared';
-import { createStudent } from './convex-client';
+import { getTestSuffix } from './helpers';
+import { createStudent, cleanupByTag, setE2eTag } from './convex-client';
 
-test.describe('Add Student @students', () => {
+test.describe('Add Student - UI Data Tests', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	const suffix = getTestSuffix('addStud');
+	const studentId = `S_${suffix}`;
+	const englishName = `AddTest_${suffix}`;
+	const e2eTag = `e2e-test_${suffix}`;
+	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
 	});
 
-	test.afterEach(async ({ page }) => {
-		await cleanupE2EData(page, 'addStudent');
+	test.afterEach(async () => {
+		if (testStudent) await cleanupByTag('students', e2eTag);
 	});
 
 	test('can add a new student', async ({ page }) => {
-		const suffix = getTestSuffix('addStud');
-		const studentId = `S_${suffix}`;
-		const englishName = `AddTest_${suffix}`;
 		const chineseName = '新增測試';
 
 		// Click Add Student button using aria-label
 		await page.getByRole('button', { name: 'Add new student' }).click();
 
 		// Wait for dialog to open - the form is in a div with role="dialog"
-		await expect(page.getByRole('dialog').first()).toBeVisible();
+		const dialog = page.getByRole('dialog', { name: 'Student form' });
+		await expect(dialog).toBeVisible();
 
 		// Fill form using accessible labels
-		const dialog = page.getByRole('dialog').first();
-		await dialog.getByRole('textbox', { name: 'Student ID *' }).fill(studentId);
+		await dialog.getByRole('textbox', { name: 'Student ID' }).fill(studentId);
 		await dialog.getByRole('textbox', { name: 'English Name *' }).fill(englishName);
 		await dialog.getByRole('textbox', { name: 'Chinese Name' }).fill(chineseName);
 
@@ -36,97 +39,75 @@ test.describe('Add Student @students', () => {
 		await page.getByRole('button', { name: 'Create student' }).click();
 
 		// Wait for the dialog to close
-		await expect(page.getByRole('dialog').first()).not.toBeVisible();
-
+		await expect(dialog).not.toBeVisible();
 		await page.waitForSelector('body.hydrated');
 
 		// Wait for the student to appear in the list
 		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
-	});
-});
 
-test.describe('Student ID Validation @students', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
-
-	test.beforeEach(async ({ page }) => {
-		await page.goto('/admin/students');
-		await page.waitForSelector('body.hydrated');
-	});
-
-	test.afterEach(async ({ page }) => {
-		await cleanupE2EData(page, 'dupIdCheck');
+		// Set e2eTag on the student for cleanup
+		await setE2eTag('students', studentId, e2eTag);
+		testStudent = true;
 	});
 
 	test('shows check icon for unique student ID after manual check', async ({ page }) => {
-		const suffix = getTestSuffix('dupIdCheck');
-		const studentId = `S_${suffix}`;
+		const suffix2 = getTestSuffix('dupIdCheck');
+		const studentId2 = `S_${suffix2}`;
 
 		// Open add student dialog using aria-label
 		await page.getByRole('button', { name: 'Add new student' }).click();
-		await expect(page.getByRole('dialog').first()).toBeVisible();
+		const dialog = page.getByRole('dialog', { name: 'Student form' });
+
+		await expect(dialog).toBeVisible();
 
 		// Fill in student ID
-		await page.getByRole('dialog').first().getByLabel('Student ID').fill(studentId);
+		await dialog.getByRole('textbox', { name: 'Student ID' }).fill(studentId2);
+		await dialog.getByRole('button', { name: 'ID unknown' }).click();
 
-		const dialog = page.getByRole('dialog').first();
-		await expect(dialog.getByText('Student ID is available')).toBeVisible();
+		await expect(dialog.getByRole('button', { name: 'ID available' })).toBeVisible();
 	});
+});
 
-	test('shows error when submitting duplicate student ID via form', async ({ page }) => {
-		const suffix = getTestSuffix('dupIdForm');
-		const studentId = `S_${suffix}`;
-		const englishName = `First_${suffix}`;
+test.describe('Student ID Validation - Duplicate Data Tests', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-		// First create a student using server API
+	const suffix = getTestSuffix('dupIdForm');
+	const studentId = `S_${suffix}`;
+	const englishName = `First_${suffix}`;
+	let testStudent = false;
+
+	test.beforeEach(async ({ page }) => {
+		// Create the student first so we can test duplicate detection
 		await createStudent({
 			studentId,
 			englishName,
 			grade: 10,
 			e2eTag: `e2e-test_${suffix}`
 		});
+		testStudent = true;
+
+		await page.goto('/admin/students');
+		await page.waitForSelector('body.hydrated');
 
 		// Wait for student to appear in the list
 		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
+	});
 
+	test.afterEach(async () => {
+		if (testStudent) await cleanupByTag('students', `e2e-test_${suffix}`);
+	});
+
+	test('shows error when submitting duplicate student ID via form', async ({ page }) => {
 		// Try to add duplicate via form
 		await page.getByRole('button', { name: 'Add new student' }).click();
-		await expect(page.getByRole('dialog').first()).toBeVisible();
-		await page.getByRole('dialog').first().getByLabel('Student ID').fill(studentId);
-		await page.getByRole('dialog').first().getByLabel('English Name').fill('Duplicate Test');
-		await page.getByRole('dialog').first().getByRole('button', { name: 'Create student' }).click();
 
-		// Wait for error to appear - use positive assertion with timeout
-		// Validation error should appear within reasonable time
+		const dialog = page.getByRole('dialog', { name: 'Student form' });
+		await expect(dialog).toBeVisible();
+		await dialog.getByRole('textbox', { name: 'Student ID' }).fill(studentId);
+		await dialog.getByLabel('English Name').fill('Duplicate Test');
+		await dialog.getByRole('button', { name: 'Create student' }).click();
 
-		// Wait for any error indicator to be visible using timeout-based polling
-		await page.waitForFunction(() => {
-			const hasAlert = document.querySelector('[role="alert"]') !== null;
-			const hasAlreadyExists =
-				document.evaluate('//*[contains(text(), "already exists")]', document).iterateNext() !==
-				null;
-			const hasDuplicate =
-				document.evaluate('//*[contains(text(), "duplicate")]', document).iterateNext() !== null;
-			return hasAlert || hasAlreadyExists || hasDuplicate;
-		});
-
-		// Verify at least one error indicator is now visible
-		const alertVisible = await page
-			.locator('role=alert')
-			.isVisible()
-			.catch(() => false);
-		const alreadyExistsVisible = await page
-			.getByRole('dialog')
-			.first()
-			.locator('text=already exists')
-			.isVisible()
-			.catch(() => false);
-		const duplicateVisible = await page
-			.getByRole('dialog')
-			.first()
-			.locator('text=duplicate')
-			.isVisible()
-			.catch(() => false);
-		const errorVisible = alertVisible || alreadyExistsVisible || duplicateVisible;
-		expect(errorVisible).toBe(true);
+		await dialog.getByRole('alert', { name: 'Form errors' }).isVisible();
+		await expect(dialog.getByRole('alert', { name: 'Form errors' })).toHaveText(/taken/);
 	});
 });

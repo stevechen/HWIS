@@ -252,10 +252,12 @@
 
 	const detailQuery = $derived.by(() => {
 		if (isDemoMode || !selectedReport) return undefined;
-		return useQuery(api.evaluations.getWeeklyReportDetail, () => ({
-			fridayDate: selectedReport!.fridayDate
-		}));
+		return { fridayDate: selectedReport!.fridayDate };
 	});
+
+	const detailData = useQuery(api.evaluations.getWeeklyReportDetail, () =>
+		isDemoMode || !selectedReport ? 'skip' : { fridayDate: selectedReport.fridayDate }
+	);
 
 	let reports = $derived(isDemoMode ? demoReports : reportsQuery.data || []);
 
@@ -266,7 +268,7 @@
 				: selectedReport?.weekNumber === 2
 					? demoStudentsWeek2
 					: demoStudentsWeek1
-			: detailQuery?.data || []
+			: (detailData?.data ?? [])
 	);
 
 	let availableGrades = $derived(
@@ -381,7 +383,7 @@
 				: selectedReport?.weekNumber === 2
 					? demoStudentsWeek2
 					: demoStudentsWeek1
-			: detailQuery?.data || [];
+			: (detailData?.data ?? []);
 		if (!students.length) return;
 
 		const headers = ['Student ID', 'English Name', 'Chinese Name', 'Grade', 'Total Points'];
@@ -547,11 +549,11 @@
 			</div>
 
 			<div class="flex-1 overflow-auto" role="region" aria-label="Student details table">
-				{#if !isDemoMode && detailQuery?.isLoading}
+				{#if !isDemoMode && detailData?.isLoading}
 					<div class="flex items-center justify-center py-8" role="status" aria-live="polite">
 						<p class="text-muted-foreground">Loading details...</p>
 					</div>
-				{:else if !isDemoMode && detailQuery?.error}
+				{:else if !isDemoMode && detailData?.error}
 					<div class="flex items-center justify-center py-8" role="alert">
 						<p class="text-red-500">Error loading details</p>
 					</div>

@@ -65,12 +65,21 @@ export interface E2EUtils {
 	seedAuditLogs: (authId?: string) => Promise<void>;
 	cleanupAll: () => Promise<CleanupResult>;
 	cleanupTestData: (tag: string) => Promise<CleanupResult>;
+	cleanupByTag: (
+		dataType: 'students' | 'categories' | 'evaluations' | 'all',
+		e2eTag: string
+	) => Promise<CleanupResult>;
 	seedBaseline: () => Promise<SeedBaselineResult>;
 	cleanupTestUsers: () => Promise<CleanupResult>;
-	cleanupAuditLogs: () => Promise<CleanupResult>;
+	cleanupAuditLogs: (authIdString?: string) => Promise<CleanupResult>;
 	setupTestUsers: () => Promise<SetupTestUsersResult>;
 	createStudent: (opts?: CreateStudentOptions) => Promise<unknown>;
 	createStudentWithId: (opts: CreateStudentOptions) => Promise<unknown>;
+	setE2eTag: (
+		dataType: 'students' | 'categories' | 'evaluations',
+		dataId: string,
+		e2eTag: string
+	) => Promise<unknown>;
 	createCategory: (opts?: CreateCategoryOptions) => Promise<unknown>;
 	createCategoryWithSubs: (opts: CreateCategoryWithSubsOptions) => Promise<unknown>;
 	createEvalForCategory: (categoryName: string) => Promise<unknown>;
@@ -79,8 +88,8 @@ export interface E2EUtils {
 	setRoleByEmail: (email: string, role: string) => Promise<unknown>;
 	setMyRole: (role: string) => Promise<unknown>;
 	setRoleByToken: (token: string, role: string) => Promise<unknown>;
-	createWeeklyReportTestData: () => Promise<unknown>;
-	cleanupWeeklyReportTestData: () => Promise<unknown>;
+	createWeeklyReportTestData: (tag?: string) => Promise<unknown>;
+	cleanupWeeklyReportTestData: (tag?: string) => Promise<unknown>;
 }
 
 export function getE2EUtils(): E2EUtils {
@@ -171,6 +180,24 @@ export function getE2EUtils(): E2EUtils {
 			}
 		},
 
+		async cleanupByTag(
+			dataType: 'students' | 'categories' | 'evaluations' | 'all',
+			e2eTag: string
+		): Promise<CleanupResult> {
+			try {
+				const result = await client.mutation(api.testCleanup.cleanupByTag, {
+					dataType,
+					e2eTag,
+					testToken: TEST_TOKEN
+				});
+				console.log('Cleanup by tag result:', result);
+				return result;
+			} catch {
+				console.log('Cleanup by tag error');
+				return { error: 'Error' };
+			}
+		},
+
 		async seedBaseline(): Promise<SeedBaselineResult> {
 			try {
 				const result = await client.mutation(api.dataFactory.seedBaseline, {
@@ -195,9 +222,9 @@ export function getE2EUtils(): E2EUtils {
 			}
 		},
 
-		async cleanupAuditLogs(): Promise<CleanupResult> {
+		async cleanupAuditLogs(authIdString?: string): Promise<CleanupResult> {
 			try {
-				const result = await client.mutation(api.testCleanup.cleanupAuditLogs, {});
+				const result = await client.mutation(api.testCleanup.cleanupAuditLogs, { authIdString });
 				console.log('Cleanup audit logs result:', result);
 				return result;
 			} catch {
@@ -237,6 +264,24 @@ export function getE2EUtils(): E2EUtils {
 				});
 			} catch (e) {
 				console.log('Create student with ID error:', e);
+				return { error: e instanceof Error ? e.message : String(e) };
+			}
+		},
+
+		async setE2eTag(
+			dataType: 'students' | 'categories' | 'evaluations',
+			dataId: string,
+			e2eTag: string
+		) {
+			try {
+				return await client.mutation(api.dataFactory.setE2eTag, {
+					dataType,
+					dataId,
+					e2eTag,
+					testToken: TEST_TOKEN
+				});
+			} catch (e) {
+				console.log('Set e2eTag error:', e);
 				return { error: e instanceof Error ? e.message : String(e) };
 			}
 		},
@@ -334,11 +379,11 @@ export function getE2EUtils(): E2EUtils {
 			}
 		},
 
-		async createWeeklyReportTestData() {
+		async createWeeklyReportTestData(tag?: string) {
 			try {
 				const result = await client.mutation(
 					api.testData.weeklyReports.createWeeklyReportTestData,
-					{}
+					{ tag: tag || undefined }
 				);
 				console.log('Create weekly report test data result:', result);
 				return result;
@@ -348,11 +393,11 @@ export function getE2EUtils(): E2EUtils {
 			}
 		},
 
-		async cleanupWeeklyReportTestData() {
+		async cleanupWeeklyReportTestData(tag?: string) {
 			try {
 				const result = await client.mutation(
 					api.testData.weeklyReports.cleanupWeeklyReportTestData,
-					{}
+					{ tag: tag || undefined }
 				);
 				console.log('Cleanup weekly report test data result:', result);
 				return result;

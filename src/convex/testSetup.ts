@@ -7,6 +7,10 @@ interface TestUser {
 	name: string;
 }
 
+// Core infrastructure users that should not be deleted during test teardowns
+// because they are shared across parallel tests and have valid storageState.
+const PROTECTED_EMAILS = new Set(['teacher@hwis.test', 'admin@hwis.test', 'super@hwis.test']);
+
 export const setupTestUsers = mutation({
 	args: {},
 	handler: async (ctx) => {
@@ -17,7 +21,10 @@ export const setupTestUsers = mutation({
 
 		const existingUsers = (await adapter.findMany({ model: 'user', where: [] })) as TestUser[];
 		for (const user of existingUsers) {
-			if (user.email.includes('test') || user.email.includes('hwis.test')) {
+			if (
+				(user.email.includes('test') || user.email.includes('hwis.test')) &&
+				!PROTECTED_EMAILS.has(user.email)
+			) {
 				await adapter.deleteMany({
 					model: 'session',
 					where: [{ field: 'userId', value: user.id }]
@@ -30,38 +37,19 @@ export const setupTestUsers = mutation({
 			}
 		}
 
-		const teacherUser = await adapter.create({
-			model: 'user',
-			data: {
-				name: 'Test Teacher',
-				email: 'teacher@hwis.test',
-				emailVerified: true,
-				createdAt: now,
-				updatedAt: now
-			}
-		});
+		// Let's refine the logic to find existing protected users first.
+		const findOrCreate = async (email: string, name: string) => {
+			const existing = existingUsers.find((u) => u.email === email);
+			if (existing) return existing;
+			return await adapter.create({
+				model: 'user',
+				data: { name, email, emailVerified: true, createdAt: now, updatedAt: now }
+			});
+		};
 
-		const adminUser = await adapter.create({
-			model: 'user',
-			data: {
-				name: 'Test Admin',
-				email: 'admin@hwis.test',
-				emailVerified: true,
-				createdAt: now,
-				updatedAt: now
-			}
-		});
-
-		const superUser = await adapter.create({
-			model: 'user',
-			data: {
-				name: 'Test Super Admin',
-				email: 'super@hwis.test',
-				emailVerified: true,
-				createdAt: now,
-				updatedAt: now
-			}
-		});
+		const teacherUser = await findOrCreate('teacher@hwis.test', 'Test Teacher');
+		const adminUser = await findOrCreate('admin@hwis.test', 'Test Admin');
+		const superUser = await findOrCreate('super@hwis.test', 'Test Super Admin');
 
 		const existingTeacher = await ctx.db
 			.query('users')
@@ -171,7 +159,10 @@ export const cleanupTestUsers = mutation({
 		const existingUsers = (await adapter.findMany({ model: 'user', where: [] })) as TestUser[];
 		let deleted = 0;
 		for (const u of existingUsers) {
-			if (u.email.includes('test') || u.email.includes('hwis.test')) {
+			if (
+				(u.email.includes('test') || u.email.includes('hwis.test')) &&
+				!PROTECTED_EMAILS.has(u.email)
+			) {
 				await adapter.deleteMany({ model: 'session', where: [{ field: 'userId', value: u.id }] });
 				await adapter.deleteMany({ model: 'account', where: [{ field: 'userId', value: u.id }] });
 				await adapter.deleteMany({ model: 'user', where: [{ field: 'id', value: u.id }] });

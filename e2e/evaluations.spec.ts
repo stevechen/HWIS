@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { getTestSuffix } from './helpers';
-import { createStudent, createCategoryWithSubs, cleanupTestData } from './convex-client';
+import { createStudent, createCategoryWithSubs, cleanupByTag } from './convex-client';
 
 async function createStudentForEval(
 	page: Page,
@@ -64,15 +64,6 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 		await page.waitForSelector('body.hydrated');
 	});
 
-	test.afterEach(async () => {
-		const suffix = getTestSuffix('eval');
-		try {
-			await cleanupTestData(suffix);
-		} catch {
-			// Ignore cleanup errors
-		}
-	});
-
 	test('displays new evaluation page', async ({ page }) => {
 		await expect(page.getByRole('heading', { name: 'New Evaluation' })).toBeVisible();
 	});
@@ -89,13 +80,28 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 		await expect(page.getByText('1. Select Students')).toBeVisible();
 		await expect(page.getByRole('textbox', { name: 'Search students' })).toBeVisible();
 	});
+});
+
+test.describe('Evaluations - Select Student', () => {
+	test.use({ storageState: 'e2e/.auth/teacher.json' });
+
+	let suffix: string;
+	let studentName: string;
+	let testStudent = false;
+
+	test.beforeEach(async ({ page }) => {
+		suffix = getTestSuffix('selectStudent');
+		studentName = `SelectMe_${suffix}`;
+		// createStudentForEval navigates to /evaluations/new
+		await createStudentForEval(page, suffix, studentName, '選擇我', 10);
+		testStudent = true;
+	});
+
+	test.afterEach(async () => {
+		if (testStudent) await cleanupByTag('all', `e2e-test_${suffix}`);
+	});
 
 	test('allows selecting a student', async ({ page }) => {
-		const suffix = getTestSuffix('selectStudent');
-		const studentName = `SelectMe_${suffix}`;
-
-		await createStudentForEval(page, suffix, studentName, '選擇我', 10);
-
 		const studentRow = page.getByRole('button', { name: new RegExp(studentName, 'i') });
 		await expect(studentRow).toBeVisible();
 
@@ -103,59 +109,128 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 
 		await expect(page.getByText(/student.*selected/i)).toBeVisible();
 	});
+});
+
+test.describe('Evaluations - Student Count', () => {
+	test.use({ storageState: 'e2e/.auth/teacher.json' });
+
+	let suffix: string;
+	let studentName: string;
+	let testStudent = false;
+
+	test.beforeEach(async ({ page }) => {
+		suffix = getTestSuffix('countStudent');
+		studentName = `CountMe_${suffix}`;
+		// createStudentForEval navigates to /evaluations/new
+		await createStudentForEval(page, suffix, studentName, '計數我', 10);
+		testStudent = true;
+	});
+
+	test.afterEach(async () => {
+		if (testStudent) await cleanupByTag('all', `e2e-test_${suffix}`);
+	});
 
 	test('shows selected student count', async ({ page }) => {
-		const suffix = getTestSuffix('countStudent');
-		const studentName = `CountMe_${suffix}`;
-		await createStudentForEval(page, suffix, studentName, '計數我', 10);
-
 		const studentRow = page.getByRole('button', { name: studentName });
 		await studentRow.click();
 		await expect(page.getByText(/student.*selected/i)).toBeVisible();
 	});
+});
+
+test.describe('Evaluations - No Student Error', () => {
+	test.use({ storageState: 'e2e/.auth/teacher.json' });
+
+	let suffix: string;
+	let studentName: string;
+	let testStudent = false;
+
+	test.beforeEach(async ({ page }) => {
+		suffix = getTestSuffix('noStudent');
+		studentName = `NoStudent_${suffix}`;
+		// createStudentForEval navigates to /evaluations/new
+		await createStudentForEval(page, suffix, studentName, '無學生', 10);
+		testStudent = true;
+	});
+
+	test.afterEach(async () => {
+		if (testStudent) await cleanupByTag('all', `e2e-test_${suffix}`);
+	});
 
 	test('shows error without student selection', async ({ page }) => {
-		const suffix = getTestSuffix('noStudent');
-		const studentName = `NoStudent_${suffix}`;
-		await createStudentForEval(page, suffix, studentName, '無學生', 10);
-
 		// Try to submit without selecting any students
 		const submitButton = page.getByRole('button', { name: /submit/i }).first();
+		await expect(submitButton).toBeVisible();
 		await submitButton.click();
 		// The error message says "Please select at least one student"
 		await expect(page.getByText(/Please select at least one student/i)).toBeVisible();
 	});
+});
 
-	test('shows error without category', async ({ page }) => {
-		const suffix = getTestSuffix('noCat');
-		const studentName = `NoCat_${suffix}`;
+test.describe('Evaluations - No Category Error', () => {
+	test.use({ storageState: 'e2e/.auth/teacher.json' });
+
+	let suffix: string;
+	let studentName: string;
+	let testStudent = false;
+
+	test.beforeEach(async ({ page }) => {
+		suffix = getTestSuffix('noCat');
+		studentName = `NoCat_${suffix}`;
+		// createStudentForEval navigates to /evaluations/new
 		await createStudentForEval(page, suffix, studentName, '無類別', 10);
-
-		const studentRow = page.getByRole('button', { name: new RegExp(studentName, 'i') });
-		await studentRow.click();
-
-		// Try to submit without selecting category
-		const submitButton = page.getByRole('button', { name: /submit/i }).first();
-		if (await submitButton.isVisible()) {
-			await submitButton.click();
-			// The error message says "Please select a category"
-			await expect(page.getByText(/Please select a category/i)).toBeVisible();
-		}
+		testStudent = true;
 	});
 
-	test('shows error without sub-category', async ({ page }) => {
+	test.afterEach(async () => {
+		if (testStudent) await cleanupByTag('all', `e2e-test_${suffix}`);
+	});
+
+	test('shows error without category', async ({ page }) => {
+		const studentRow = page.getByRole('button', { name: new RegExp(studentName, 'i') });
+		await expect(studentRow).toBeVisible();
+		await studentRow.click();
+
+		// Wait for submit button to be visible after selecting student
+		const submitButton = page.getByRole('button', { name: 'Submit Evaluation' });
+		await expect(submitButton).toBeVisible();
+
+		// Try to submit without selecting category
+		await submitButton.click();
+
+		// The error message says "Please select a category"
+		await expect(page.getByText(/Please select a category/i)).toBeVisible();
+	});
+});
+
+test.describe('Evaluations - No Sub-Category Error', () => {
+	test.use({ storageState: 'e2e/.auth/teacher.json' });
+
+	let suffix: string;
+	let categoryName: string;
+	let studentName: string;
+	let testData = false;
+
+	test.beforeEach(async ({ page }) => {
+		suffix = getTestSuffix('noSub');
+		categoryName = `TestCategory_${suffix}`;
+		studentName = `NoSub_${suffix}`;
 		// Create a category with sub-categories first
-		const suffix = getTestSuffix('noSub');
-		const categoryName = `TestCategory_${suffix}`;
 		await createCategoryWithSubs({
 			name: categoryName,
 			subCategories: ['SubCategory1', 'SubCategory2'],
 			e2eTag: `e2e-test_${suffix}`
 		});
+		testData = true;
 
-		const studentName = `NoSub_${suffix}`;
+		// createStudentForEval navigates to /evaluations/new
 		await createStudentForEval(page, suffix, studentName, '無子類別', 10);
+	});
 
+	test.afterEach(async () => {
+		if (testData) await cleanupByTag('all', `e2e-test_${suffix}`);
+	});
+
+	test('shows error without sub-category', async ({ page }) => {
 		const studentRow = page.getByRole('button', { name: new RegExp(studentName, 'i') });
 		await studentRow.click();
 
@@ -176,20 +251,39 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 		// Should show error about sub-category
 		await expect(page.getByText(/Please select a sub-category/i)).toBeVisible();
 	});
+});
 
-	test('successfully submits evaluation', async ({ page }) => {
+test.describe('Evaluations - Submit Success', () => {
+	test.use({ storageState: 'e2e/.auth/teacher.json' });
+
+	let suffix: string;
+	let categoryName: string;
+	let studentName: string;
+	let testData = false;
+	let testStudent = false;
+
+	test.beforeEach(async ({ page }) => {
+		suffix = getTestSuffix('submit');
+		categoryName = `TestCategory_${suffix}`;
+		studentName = `Submit_${suffix}`;
 		// Create a category with sub-categories first
-		const suffix = getTestSuffix('submit');
-		const categoryName = `TestCategory_${suffix}`;
 		await createCategoryWithSubs({
 			name: categoryName,
 			subCategories: ['SubCategory1', 'SubCategory2'],
 			e2eTag: `e2e-test_${suffix}`
 		});
+		testData = true;
 
-		const studentName = `Submit_${suffix}`;
+		// createStudentForEval navigates to /evaluations/new
 		await createStudentForEval(page, suffix, studentName, '提交', 10);
+		testStudent = true;
+	});
 
+	test.afterEach(async () => {
+		if (testData || testStudent) await cleanupByTag('all', `e2e-test_${suffix}`);
+	});
+
+	test('successfully submits evaluation', async ({ page }) => {
 		const studentRow = page.getByRole('button', { name: studentName });
 		await studentRow.click();
 		await expect(page.getByText(/student.*selected/i)).toBeVisible();

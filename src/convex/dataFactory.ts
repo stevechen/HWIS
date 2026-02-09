@@ -247,9 +247,12 @@ export const createEvaluationForStudent = mutation({
 			teacher = { _id: teacherId, _creationTime: Date.now(), role: 'teacher' as const };
 		}
 
-		// Find a category with subCategories, or any category
+		// Find a category with matching e2eTag, or a category with subCategories
 		const categories = await ctx.db.query('point_categories').collect();
-		let category = categories.find((c) => c.subCategories && c.subCategories.length > 0);
+		let category = categories.find((c) => c.e2eTag === args.e2eTag);
+		if (!category) {
+			category = categories.find((c) => c.subCategories && c.subCategories.length > 0);
+		}
 		if (!category) {
 			category = categories[0];
 		}
@@ -365,10 +368,11 @@ export const createCategory = mutation({
 	handler: async (ctx, args) => {
 		// Validate test token for cloud Convex compatibility
 		await getAuthenticatedUser(ctx, args.testToken);
-		void (args.e2eTag || getE2ETag());
+		const tag = args.e2eTag || getE2ETag();
 		return await ctx.db.insert('point_categories', {
 			name: args.name ?? `Category_${Date.now().toString().slice(-6)}`,
-			subCategories: args.subCategories ?? []
+			subCategories: args.subCategories ?? [],
+			e2eTag: tag
 		});
 	}
 });
@@ -383,10 +387,87 @@ export const createCategoryWithSubs = mutation({
 	handler: async (ctx, args) => {
 		// Validate test token for cloud Convex compatibility
 		await getAuthenticatedUser(ctx, args.testToken);
-		void (args.e2eTag || getE2ETag());
+		const tag = args.e2eTag || getE2ETag();
 		return await ctx.db.insert('point_categories', {
 			name: args.name,
-			subCategories: args.subCategories
+			subCategories: args.subCategories,
+			e2eTag: tag
 		});
+	}
+});
+
+export const setStudentE2eTag = mutation({
+	args: {
+		studentId: v.string(),
+		e2eTag: v.string(),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		// Validate test token for cloud Convex compatibility
+		await getAuthenticatedUser(ctx, args.testToken);
+		const student = await ctx.db
+			.query('students')
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
+			.first();
+
+		if (!student) {
+			throw new Error(`Student with ID "${args.studentId}" not found`);
+		}
+
+		await ctx.db.patch(student._id, { e2eTag: args.e2eTag });
+		return { success: true, studentId: args.studentId };
+	}
+});
+
+export const setE2eTag = mutation({
+	args: {
+		dataType: v.union(v.literal('students'), v.literal('categories'), v.literal('evaluations')),
+		dataId: v.string(),
+		e2eTag: v.string(),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		// Validate test token for cloud Convex compatibility
+		await getAuthenticatedUser(ctx, args.testToken);
+
+		if (args.dataType === 'students') {
+			const student = await ctx.db
+				.query('students')
+				.withIndex('by_studentId', (q) => q.eq('studentId', args.dataId))
+				.first();
+
+			if (!student) {
+				throw new Error(`Student with ID "${args.dataId}" not found`);
+			}
+
+			await ctx.db.patch(student._id, { e2eTag: args.e2eTag });
+			return { success: true, dataType: args.dataType, dataId: args.dataId };
+		}
+
+		if (args.dataType === 'categories') {
+			const categories = await ctx.db.query('point_categories').collect();
+			const category = categories.find((c) => c.name === args.dataId);
+
+			if (!category) {
+				throw new Error(`Category "${args.dataId}" not found`);
+			}
+
+			await ctx.db.patch(category._id, { e2eTag: args.e2eTag });
+			return { success: true, dataType: args.dataType, dataId: args.dataId };
+		}
+
+		if (args.dataType === 'evaluations') {
+			const evaluations = await ctx.db.query('evaluations').collect();
+			const evalItem = evaluations.find((e) => e._id.toString() === args.dataId);
+
+			if (!evalItem) {
+				throw new Error(`Evaluation with ID "${args.dataId}" not found`);
+			}
+
+			await ctx.db.patch(evalItem._id, { e2eTag: args.e2eTag });
+			return { success: true, dataType: args.dataType, dataId: args.dataId };
+		}
+
+		throw new Error(`Unknown data type: ${args.dataType}`);
 	}
 });

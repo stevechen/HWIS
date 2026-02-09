@@ -1,7 +1,14 @@
 <script lang="ts">
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import { Search, X, GripVertical, ChevronsUpDown, FileText, Columns } from '@lucide/svelte';
+	import {
+		Search,
+		X,
+		GripVertical,
+		ChevronsUpDown,
+		FileText,
+		Columns3 as Columns
+	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
@@ -81,20 +88,25 @@
 	let sortBy = $state<ColumnKey>('timestamp');
 	let sortDirection = $state<'asc' | 'desc'>('desc');
 
+	// Columns state - initialized with defaults
+	// Will be updated from localStorage on client after hydration
 	let columns = $state<Column[]>(allColumns.filter((c) => c.defaultVisible));
-	let allAvailableColumns = $state<Column[]>(allColumns);
-	let draggedColumn = $state<ColumnKey | null>(null);
-	let dateRange = $state<{
-		start: Date | null;
-		end: Date | null;
-	}>({ start: null, end: null });
-	let isColumnSelectorOpen = $state(false);
 
-	const isStudentIdVisible = $derived(columns.some((col) => col.key === 'studentId'));
-	const isStudentGradeVisible = $derived(columns.some((col) => col.key === 'studentGrade'));
+	// Track if columns have been loaded from localStorage
+	let columnsLoaded = $state(false);
 
-	function loadSavedColumns() {
-		if (!browser) return;
+	// Derived values for visibility
+	// Default to true during SSR to prevent hydration mismatch
+	const isStudentIdVisible = $derived(
+		!columnsLoaded || columns.some((col) => col.key === 'studentId')
+	);
+	const isStudentGradeVisible = $derived(
+		!columnsLoaded || columns.some((col) => col.key === 'studentGrade')
+	);
+
+	// Load saved columns only on client - runs once after hydration
+	$effect(() => {
+		if (!browser || columnsLoaded) return;
 		const saved = localStorage.getItem(VISIBLE_COLUMNS_KEY);
 		if (saved) {
 			try {
@@ -109,11 +121,16 @@
 				// Failed to load saved columns, use defaults
 			}
 		}
-	}
-
-	$effect(() => {
-		loadSavedColumns();
+		columnsLoaded = true;
 	});
+
+	let allAvailableColumns = $state<Column[]>(allColumns);
+	let draggedColumn = $state<ColumnKey | null>(null);
+	let dateRange = $state<{
+		start: Date | null;
+		end: Date | null;
+	}>({ start: null, end: null });
+	let isColumnSelectorOpen = $state(false);
 
 	function saveColumnOrder() {
 		if (!browser) return;
@@ -359,8 +376,8 @@
 			</Button>
 		{/if}
 		<Popover.Root bind:open={isColumnSelectorOpen}>
-			<Popover.Trigger>
-				<Button variant="outline" aria-label="Columns">
+			<Popover.Trigger aria-label="Columns control">
+				<Button variant="outline">
 					<Columns class="mr-2 size-4" />
 					Columns
 				</Button>
@@ -369,7 +386,7 @@
 				<div class="flex items-center border-b px-3 py-2">
 					<span class="text-sm font-medium">Show Columns</span>
 				</div>
-				<div class="max-h-72 overflow-y-auto py-1">
+				<div class="max-h-72 overflow-y-auto py-1" role="menu" aria-label="Available columns">
 					{#each allAvailableColumns.filter((c) => c.optional) as column (column.key)}
 						<label
 							class="hover:bg-accent flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm"
@@ -455,82 +472,96 @@
 				</div>
 			{:else}
 				<div class="overflow-x-auto">
-					<Table.Root>
+					<Table.Root aria-label="Audit log table">
 						<Table.Header>
 							<Table.Row>
-								{#each columns as column (column.key)}
-									<Table.Head
-										class="hover:bg-muted/50 cursor-pointer select-none {column.key ===
-										'studentGrade'
-											? 'text-center'
-											: ''} {getColumnWidthClass(column.key)} {getHiddenClass(
-											column.key
-										)} bg-muted/30 border-b-2 font-semibold"
-										draggable="true"
-										ondragstart={(e) => handleDragStart(column.key, e)}
-										ondragend={handleDragEnd}
-										ondragover={handleDragOver}
-										ondragenter={(e) => handleDragEnter(column.key, e)}
-										ondrop={(e) => handleDrop(column.key, e)}
-										onclick={() => column.sortable && handleSort(column.key)}
-									>
-										<div
-											class="flex items-center gap-2 {column.key === 'studentGrade'
-												? 'justify-center'
-												: ''}"
+								{#each allAvailableColumns as column (column.key)}
+									{@const isVisible = columns.some((c) => c.key === column.key)}
+									{#if isVisible}
+										<Table.Head
+											class="hover:bg-muted/50 cursor-pointer select-none {column.key ===
+											'studentGrade'
+												? 'text-center'
+												: ''} {getColumnWidthClass(column.key)} {getHiddenClass(
+												column.key
+											)} bg-muted/30 border-b-2 font-semibold"
+											draggable="true"
+											ondragstart={(e) => handleDragStart(column.key, e)}
+											ondragend={handleDragEnd}
+											ondragover={handleDragOver}
+											ondragenter={(e) => handleDragEnter(column.key, e)}
+											ondrop={(e) => handleDrop(column.key, e)}
+											onclick={() => column.sortable && handleSort(column.key)}
 										>
-											<GripVertical class="text-muted-foreground size-4 cursor-move" />
-											<span>{column.label}</span>
-											{#if column.sortable}
-												{#if sortBy === column.key}
-													<ChevronsUpDown class="size-4" />
-												{:else}
-													<ChevronsUpDown class="invisible size-4" />
+											<div
+												class="flex items-center gap-2 {column.key === 'studentGrade'
+													? 'justify-center'
+													: ''}"
+											>
+												<GripVertical class="text-muted-foreground size-4 cursor-move" />
+												<span>{column.label}</span>
+												{#if column.sortable}
+													{#if sortBy === column.key}
+														<ChevronsUpDown class="size-4" />
+													{:else}
+														<ChevronsUpDown class="invisible size-4" />
+													{/if}
 												{/if}
-											{/if}
-										</div>
-									</Table.Head>
+											</div>
+										</Table.Head>
+									{/if}
 								{/each}
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
 							{#each getSortedLogs() as log (log._id)}
 								<Table.Row class="hover:bg-muted/50">
-									{#each columns as column (column.key)}
-										<Table.Cell
-											class="{column.key === 'studentGrade'
-												? 'text-center'
-												: ''} {getCellHiddenClass(column.key)}"
-										>
-											{#if column.key === 'timestamp'}
-												{formatTimestamp(log.timestamp)}
-											{:else if column.key === 'studentId'}
-												{log.studentId || '-'}
-											{:else if column.key === 'studentName'}
-												{log.studentName || '-'}
-											{:else if column.key === 'studentGrade'}
-												{log.studentGrade !== null ? `G${log.studentGrade}` : '-'}
-											{:else if column.key === 'action'}
-												<Badge variant={getActionVariant(log.action)}>{log.actionLabel}</Badge>
-											{:else if column.key === 'performerId'}
-												{log.performerName || '-'}
-											{:else if column.key === 'category'}
-												<span class="flex flex-col">
-													<span>{log.category || '-'}</span>
-													{#if log.subCategory}
-														<span class="text-muted-foreground text-xs">{log.subCategory}</span>
-													{/if}
-												</span>
-											{:else if column.key === 'subCategory'}
-												{log.subCategory || '-'}
-											{:else if column.key === 'points'}
-												<span class="font-medium">{log.points ?? '-'}</span>
-											{:else if column.key === 'details'}
-												<span class="text-muted-foreground block max-w-52 truncate">
-													{log.details || '-'}
-												</span>
-											{/if}
-										</Table.Cell>
+									{#each allAvailableColumns as column (column.key)}
+										{@const isVisible = columns.some((c) => c.key === column.key)}
+										{#if isVisible}
+											<Table.Cell
+												class="{column.key === 'studentGrade'
+													? 'text-center'
+													: ''} {getColumnWidthClass(column.key)} {getCellHiddenClass(column.key)}"
+											>
+												{#if column.key === 'timestamp'}
+													{formatTimestamp(log.timestamp)}
+												{:else if column.key === 'studentId'}
+													{log.studentId || '-'}
+												{:else if column.key === 'studentName'}
+													<div class="flex items-center gap-2">
+														{#if log.studentGrade !== null}
+															<Badge variant="outline" class="text-muted-foreground">
+																G{log.studentGrade}
+															</Badge>
+														{/if}
+														<span class="font-medium">{log.studentName || '-'}</span>
+													</div>
+												{:else if column.key === 'studentGrade'}
+													{log.studentGrade !== null ? `G${log.studentGrade}` : '-'}
+												{:else if column.key === 'action'}
+													<Badge variant={getActionVariant(log.action)}>
+														{log.actionLabel || log.action}
+													</Badge>
+												{:else if column.key === 'performerId'}
+													<div class="flex items-center gap-2">
+														<span>{log.performerName || '-'}</span>
+													</div>
+												{:else if column.key === 'category'}
+													{log.category || '-'}
+												{:else if column.key === 'subCategory'}
+													{log.subCategory || '-'}
+												{:else if column.key === 'points'}
+													{log.points !== null ? log.points : '-'}
+												{:else if column.key === 'details'}
+													<span class="line-clamp-1" title={log.details || ''}>
+														{log.details || '-'}
+													</span>
+												{:else}
+													-
+												{/if}
+											</Table.Cell>
+										{/if}
 									{/each}
 								</Table.Row>
 							{/each}

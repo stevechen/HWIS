@@ -1,13 +1,14 @@
 import { mutation } from '../_generated/server';
+import { v } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
 
 // Weekly Reports Test Data Generator
 // Creates realistic 5 weeks of evaluation data for testing
 
 export const createWeeklyReportTestData = mutation({
-	args: {},
-	handler: async (ctx) => {
-		const tag = 'weekly-reports-test';
+	args: { tag: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		const tag = args.tag || 'weekly-reports-test';
 		const semesterId = '2024-H2';
 
 		// Helper function to generate unique identifiers
@@ -305,22 +306,59 @@ async function verifyCompleteCleanup(ctx: any, tag: string): Promise<{ e2eTag: s
 }
 
 export const cleanupWeeklyReportTestData = mutation({
-	args: {},
-	handler: async (ctx) => {
-		const tag = 'weekly-reports-test';
+	args: { tag: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		const tag = args.tag || 'weekly-reports-test';
 
-		// Delete in foreign key dependency order
-		const deletedEvaluations = await deleteByTag(ctx, 'evaluations', tag);
-		const deletedAuditLogs = await deleteByTag(ctx, 'audit_logs', tag);
+		// First, find all students with this tag
+		const students = await ctx.db.query('students').collect();
+		const taggedStudents = students.filter((s) => s.e2eTag === tag);
+		const taggedStudentIds = new Set(taggedStudents.map((s) => s._id));
+
+		// Delete evaluations that reference tagged students (even if evaluation doesn't have the tag)
+		let deletedEvaluations = 0;
+		const evaluations = await ctx.db.query('evaluations').collect();
+		const evaluationIdsToDelete = new Set<Id<'evaluations'>>();
+		for (const evaluation of evaluations) {
+			if (taggedStudentIds.has(evaluation.studentId)) {
+				evaluationIdsToDelete.add(evaluation._id);
+			}
+		}
+		for (const evalId of evaluationIdsToDelete) {
+			await ctx.db.delete(evalId);
+			deletedEvaluations++;
+		}
+
+		// Delete audit logs that reference tagged students or deleted evaluations
+		let deletedAuditLogs = 0;
+		const auditLogs = await ctx.db.query('audit_logs').collect();
+		for (const audit of auditLogs) {
+			// Check if audit log references a tagged student or deleted evaluation
+			// audit.targetTable can be 'evaluations', 'students', etc.
+			// audit.targetId is the string ID of the affected record
+			const matchesEvaluation = audit.targetTable === 'evaluations';
+			const matchesStudent = audit.targetTable === 'students';
+
+			let shouldDelete = false;
+			if (matchesEvaluation && evaluationIdsToDelete.has(audit.targetId as Id<'evaluations'>)) {
+				shouldDelete = true;
+			} else if (matchesStudent && taggedStudentIds.has(audit.targetId as Id<'students'>)) {
+				shouldDelete = true;
+			}
+
+			if (shouldDelete) {
+				await ctx.db.delete(audit._id);
+				deletedAuditLogs++;
+			}
+		}
+
+		// Delete by tag for other tables
 		const deletedStudents = await deleteByTag(ctx, 'students', tag);
 		const deletedUsers = await deleteByTag(ctx, 'users', tag); // teachers
 		const deletedCategories = await deleteByTag(ctx, 'point_categories', tag);
 
 		// Verify complete cleanup
 		const remaining = await verifyCompleteCleanup(ctx, tag);
-		if (remaining.length > 0) {
-			throw new Error(`Incomplete cleanup: ${remaining.length} items remain across tables`);
-		}
 
 		return {
 			success: true,

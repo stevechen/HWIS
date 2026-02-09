@@ -243,7 +243,7 @@
 					class="w-full"
 					onclick={handleSubmit}
 					disabled={loading}
-					aria-label="Submit evaluation for {selectedStudentIds.size} student(s)"
+					aria-label="Submit evaluation"
 				>
 					{#if loading}
 						Saving...

@@ -405,7 +405,7 @@
 					: 'No students yet. Add one or import from Excel!'}
 			</div>
 		{:else}
-			<Table.Root>
+			<Table.Root aria-label="Student table">
 				<Table.Header>
 					<Table.Row>
 						<Table.Head class="text-center">Student ID</Table.Head>

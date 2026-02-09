@@ -6,7 +6,7 @@ This document provides comprehensive guidance for AI agents working on the HWIS 
 
 ```bash
 # Run unit tests (fast, no server needed)
-bun run test:unit
+bunx vitest run --config vite.config.ts
 
 # Run e2e tests (Playwright will start dev server)
 bun run test:e2e
@@ -34,10 +34,6 @@ HWIS/
 │   └── routes/
 │       └── admin/
 │           └── +page.svelte    # Components under test
-├── tests/
-│   └── routes/
-│       └── admin/
-│           └── *.test.ts       # Browser unit tests (vitest-browser-svelte)
 ├── e2e/
 │   └── *.spec.ts               # Playwright E2E tests
 └── TESTING.md                  # This file
@@ -55,24 +51,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 
 vi.mock('convex-svelte', () => ({
-	useQuery: vi.fn((_api: unknown) => {
-		const apiStr = JSON.stringify(_api);
-		if (apiStr.includes('viewer')) {
-			return { data: { role: 'admin' }, loading: false, error: null };
-		}
-		return { data: [], loading: false, error: null };
-	}),
+	useQuery: vi.fn(() => ({
+		data: [],
+		loading: false,
+		error: null
+	})),
 	useConvexClient: vi.fn(() => ({
 		mutation: vi.fn().mockResolvedValue(undefined),
 		query: vi.fn().mockResolvedValue({})
-	}))
-}));
-
-vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
-	useAuth: vi.fn(() => ({
-		isLoading: false,
-		isAuthenticated: true,
-		data: { user: { name: 'Test Admin' } }
 	}))
 }));
 
@@ -100,6 +86,12 @@ describe('Students Page', () => {
 		const searchInput = page.getByPlaceholder('Search by name or student ID...');
 		await expect.element(searchInput).toBeInTheDocument();
 	});
+
+	it('renders filter dropdowns', async () => {
+		render(StudentsPage);
+		const gradeFilter = page.getByRole('combobox', { name: /filter by grade/i });
+		await expect.element(gradeFilter).toBeInTheDocument();
+	});
 });
 ```
 
@@ -111,6 +103,7 @@ describe('Students Page', () => {
    - `page.getByRole('option')` - for options
    - `page.getByRole('checkbox')` - for checkboxes
    - `page.getByRole('textbox')` - for inputs
+   - `page.getByLabel()` - for inputs
    - `page.getByRole('combobox')` - for dropdowns
    - `page.getByPlaceholder()` - for placeholder text
    - `page.getByText()` - fallback for static text
@@ -125,57 +118,39 @@ describe('Students Page', () => {
 3. **Mock Convex Properly**:
 
    ```typescript
-   import { createMockConvexHooks } from '../../mocks/convex';
-
    vi.mock('convex-svelte', () => ({
-   	...createMockConvexHooks()
-   }));
-
-   vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
-   	useAuth: vi.fn(() => ({
-   		isLoading: false,
-   		isAuthenticated: true,
-   		data: { user: { name: 'Test Admin' } }
+   	useQuery: vi.fn(() => ({
+   		data: [],
+   		loading: false,
+   		error: null
+   	})),
+   	useConvexClient: vi.fn(() => ({
+   		mutation: vi.fn().mockResolvedValue(undefined),
+   		query: vi.fn().mockResolvedValue({})
    	}))
    }));
    ```
 
-   If you need custom data, pass it into the helper:
-
-   ```typescript
-   import { createMockConvexHooks } from '../../mocks/convex';
-   import { mockStudents } from '../../mocks/convex';
-
-   vi.mock('convex-svelte', () => ({
-   	...createMockConvexHooks(mockStudents)
-   }));
-   ```
+   Use `loading: false` to prevent hydration issues. Use `isLoading: true` for pages with auth redirects.
 
 4. **Test Static Structure Only**:
    - Headers, buttons, form labels, table structures
    - Avoid testing Convex-dynamic content (doesn't render with mocks)
 
-5. **Use `isLoading: true`** for pages with auth redirects:
-   ```typescript
-   useQuery: vi.fn(() => ({
-   	data: { role: 'admin' },
-   	isLoading: true, // Prevents redirect during test
-   	loading: true,
-   	error: null
-   }));
-   ```
-
 ### Running Browser Tests
 
 ```bash
-# Run all browser unit tests
-bun run test:component
+# Run all browser unit tests (locator pattern, real Chromium)
+bunx vitest run --config vite.config.ts
 
 # Run specific test file
-bunx vitest run --config vitest.component.config.ts tests/routes/admin/students/students.test.ts
+bunx vitest run src/convex/students.test.ts
 
-# Run with UI
-bunx vitest run --config vitest.component.config.ts --ui
+# Run only students tests
+bunx vitest run src/convex/students.test.ts
+
+# Run only categories tests
+bunx vitest run src/convex/categories.test.ts
 ```
 
 ## Server Unit Tests (convex-test)
@@ -189,63 +164,195 @@ bunx vitest run --config vitest.component.config.ts --ui
 ### Pattern
 
 ```typescript
-import { convexTest } from './test';
-import { expect, test } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { convexTest } from './test.setup';
 
-test('creates student', async () => {
-  convexTest.run(async (ctx) => {
-    const studentId = await ctx.db.insert('students', { ... });
-    const student = await ctx.db.get(studentId);
-    expect(student).toMatchObject({ name: 'Test' });
-  });
+describe('Students', () => {
+	beforeEach(() => {
+		convexTest.clearDatabase();
+	});
+
+	it('creates student', async () => {
+		convexTest.run(async (ctx) => {
+			const studentId = await ctx.db.insert('students', { ... });
+			const student = await ctx.db.get(studentId);
+			expect(student).toMatchObject({ name: 'Test' });
+		});
+	});
 });
 ```
+
+### Key patterns:
+
+- Each test gets a fresh mock database
+- Use `t.mutation()` to call mutations
+- Use `t.query()` to call queries
+- Use `t.run()` to directly insert data into the mock database
+- Foreign keys (like `teacherId`) need valid IDs created via `t.run()`
 
 ### Running Server Tests
 
 ```bash
 # Run all server unit tests
-bun run test:unit
+bunx vitest run src/convex/*.test.ts
 
-# Run specific file (example)
+# Run only students tests
 bunx vitest run src/convex/students.test.ts
+
+# Run only categories tests
+bunx vitest run src/convex/categories.test.ts
 ```
 
 ## E2E Tests (Playwright)
 
 ### Use Convenience Imports
 
-Import from `e2e/convex-client.ts`:
+Import data helpers from `e2e/convex-client.ts`:
 
 ```typescript
 import { test, expect } from '@playwright/test';
-import { createCategory, cleanupTestData, getTestSuffix } from './convex-client';
+import { createStudent, createCategory, cleanupTestData, getTestSuffix } from './convex-client';
 
-test.describe('Categories @categories', () => {
+test.describe('Students @students', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/admin/categories');
+		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated'); // Critical!
 	});
 
-	test('can add category', async ({ page }) => {
+	test('can add student', async ({ page }) => {
 		const suffix = getTestSuffix('add');
-		const categoryName = `Category_${suffix}`;
+		const studentId = `STU_${suffix}`;
+		const englishName = `Student_${suffix}`;
 
-		await page.getByRole('button', { name: 'Add new category' }).click();
-		await page.getByLabel('Category Name').fill(categoryName);
+		await page.getByRole('button', { name: 'Add new student' }).click();
+		await page.getByLabel('Student ID').fill(studentId);
+		await page.getByLabel('English Name').fill(englishName);
 		await page.getByRole('button', { name: 'Save' }).click();
 
 		// Web-first assertion - waits for Convex subscription update
-		await expect(page.getByText(categoryName)).toBeVisible();
+		await expect(page.getByText(englishName)).toBeVisible();
 	});
 });
 ```
+
+### Recommended E2E Test Structure (Isolated Pattern)
+
+For reliable automatic cleanup, use isolated `test.describe()` blocks:
+
+```typescript
+test.describe('Test Feature - Specific Test Name', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	// CONSTANTS - Define at top of describe
+	let suffix: string;
+	let entityName: string;
+	let e2eTag: string;
+	let testEntity = false;
+
+	// DATA SEEDING & Navigation
+	test.beforeEach(async ({ page }) => {
+		suffix = getTestSuffix('testId');
+		entityName = `Entity_${suffix}`;
+		e2eTag = `e2e-test_${suffix}`;
+		await createEntity({ name: entityName, e2eTag });
+		testEntity = true;
+		await page.goto('/admin/entities');
+		await page.waitForSelector('body.hydrated');
+	});
+
+	// CLEANUP - Conditional based on flag
+	test.afterEach(async () => {
+		if (testEntity) await cleanupByTag('entities', e2eTag);
+	});
+
+	// TEST - The actual test
+	test('can perform action', async ({ page }) => {
+		// Test assertions
+	});
+});
+```
+
+#### For UI-Created Data
+
+When data is created via UI form submission:
+
+```typescript
+test('can create entity via UI', async ({ page }) => {
+	await page.getByRole('button', { name: 'Add' }).click();
+	await page.getByRole('textbox', { name: 'Name' }).fill(entityName);
+	await page.getByRole('button', { name: 'Save' }).click();
+
+	// Tag the entity for cleanup AFTER successful creation
+	await setE2eTag('entities', entityName, e2eTag);
+	testEntity = true;
+
+	await expect(page.getByRole('cell', { name: entityName })).toBeVisible();
+});
+```
+
+#### For Delete Tests
+
+When the test deletes the entity, reset the flag to skip cleanup:
+
+```typescript
+test('can delete entity', async ({ page }) => {
+	const row = page.getByRole('row', { name: new RegExp(entityName) });
+	await expect(row).toBeVisible();
+
+	await row.getByRole('button', { name: 'Delete' }).click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+
+	await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+	await expect(page.getByRole('dialog')).not.toBeVisible();
+
+	// Entity was deleted, skip afterEach cleanup
+	testEntity = false;
+});
+```
+
+### Boolean Flag Convention
+
+- Use `let testEntity = false;` at describe level
+- Set to `true` after successful data creation
+- Check in `afterEach()` before cleanup
+
+### Helper Functions
+
+#### `createTestEntity(suffix: string)`
+
+Helper function for tests that need data seeded:
+
+```typescript
+function createTestEntity(suffix: string) {
+	const entityName = `Entity_${suffix}`;
+	const e2eTag = `e2e-test_${suffix}`;
+	return { entityName, e2eTag };
+}
+```
+
+### Key Differences from Old Pattern
+
+| Old Pattern | New Pattern |
+|-------------|--------------|
+| Shared `beforeEach` in parent describe | Each test in own describe with isolated hooks |
+| Relied on `seedBaseline` | Each test seeds its own data |
+| Manual cleanup calls | Automatic cleanup via `afterEach()` |
+| No tagging | `e2eTag` for reliable cleanup |
+
+### Refactor Status
+
+| Status | Test Files |
+| ------ | ---------- |
+| ✅ Completed | `e2e/students.delete.spec.ts` - 8 tests |
+| ✅ Completed | `e2e/students.list.spec.ts` - 11 tests |
+| ✅ Completed | `e2e/categories.spec.ts` - 34 tests |
+| ⏳ Pending | `e2e/evaluations.spec.ts` |
+| ⏳ Pending | Other test files |
 
 ### Available E2E Imports
 
 From `e2e/convex-client.ts`:
 
-- `seedBaseline()` - Seeds users, categories
 - `createStudent(opts)` - Create student with ID
 - `createCategory(opts)` - Create category
 - `createCategoryWithSubs(opts)` - Category with subcategories
@@ -253,41 +360,118 @@ From `e2e/convex-client.ts`:
 - `createEvalForCategory(categoryName)` - Create evaluation for category
 - `cleanupTestData(tag)` - Cleanup by e2eTag
 - `cleanupAll()` - Nuclear cleanup
+- `getTestSuffix(prefix)` - Generate unique test suffix
 
 ### Running E2E Tests
 
 ```bash
-# Run all e2e tests (Playwright starts dev server)
+# Run all e2e tests (requires dev server running)
 bun run test:e2e
 
-# Run specific test
+# Run specific test file
 bunx playwright test e2e/students.spec.ts
 
 # Run with single worker (more stable)
 bunx playwright test e2e/students.spec.ts --workers=1
-
-# Run setup/auth/cleanup flows
-bun run test:e2e:setup
-bun run test:e2e:auth
-bun run test:e2e:cleanup
-
-# Full e2e pipeline (setup -> tests -> cleanup)
-bun run test:e2e:full
 ```
+
+### Convex Reactivity Pattern
+
+When testing mutations that create data:
+
+1. **After creating data via UI form**, the list should update automatically via Convex reactivity:
+
+   ```typescript
+   // After submitting form and dialog closes
+   await expect(page.locator('[role="dialog"]').first()).not.toBeVisible();
+
+   // Wait for new data to appear (Convex reactivity)
+   await expect(page.getByText(englishName)).toBeVisible();
+   ```
+
+2. **IMPORTANT: Reset filters** - If you previously filtered the list (e.g., by grade),
+   the new student might not appear in filtered results. Clear filters first:
+
+   ```typescript
+   const searchInput = page.getByPlaceholder('Search by name or student ID...');
+   await searchInput.fill('');
+   const statusFilter = page.getByLabel('Filter by status');
+   await statusFilter.selectOption('');
+   // Now the new student will be visible
+   await expect(page.getByText(englishName)).toBeVisible();
+   ```
+
+3. **When creating data via API** (convex-client.ts), the UI won't auto-update.
+   Use web-first assertions to poll for the data:
+
+   ```typescript
+   await createStudent({ studentId, englishName, grade: 10 });
+   // UI updates via Convex reactivity - use polling assertion
+   await expect(page.getByText(englishName)).toBeVisible();
+   ```
+
+### Best Practices for Parallel Execution
+
+To ensure tests can run in parallel (`fullyParallel: true`) without data collisions, follow these rules:
+
+#### 1. Gold Standard: Generate IDs in `beforeEach`
+**Never** generate test IDs or suffixes at the top level of the file. If multiple workers run tests from the same file, they will share the ID and collide.
+
+```typescript
+// ✅ CORRECT: Unique ID per test execution
+test.describe('Feature', () => {
+    let suffix: string;
+    let studentId: string;
+
+    test.beforeEach(() => {
+        suffix = getTestSuffix('myFeature'); // Generates unique suffix
+        studentId = `S_${suffix}`;
+    });
+});
+```
+
+```typescript
+// ❌ WRONG: Shared ID across all workers/retries
+const suffix = getTestSuffix('myFeature'); 
+const studentId = `S_${suffix}`;
+
+test.describe('Feature', () => { ... });
+```
+
+#### 2. Robustness Pattern: Search over Wait
+When waiting for an item to appear in a list (e.g., Student Table), **do not** just wait for it to appear. If the list is long or loading is delayed, the item might be off-screen.
+**Always filter** the list to the specific ID you created.
+
+```typescript
+// ✅ CORRECT: Force UI to show ONLY your item
+await page.getByPlaceholder('Search...').fill(studentId); 
+await expect(page.getByRole('row', { name: studentId })).toBeVisible();
+```
+
+```typescript
+// ❌ FLAKY: Might fail if list is long or slow
+await expect(page.getByRole('row', { name: studentId })).toBeVisible();
+```
+
+### Avoid
+
+- `page.waitForTimeout()` - use web-first assertions with timeout instead
+- `page.reload()` - only use if absolutely necessary; prefer web-first assertions
+- `window.e2e.*` - use imports from `convex-client.ts`
 
 ## All Test Commands
 
 ```bash
-# Browser unit tests (locator pattern)
-bun run test:component
+# Run browser unit tests (locator pattern, real Chromium)
+bunx vitest run --config vite.config.ts
 
-# Server unit tests (convex-test)
-bun run test:unit
+# Run server unit tests (convex-test)
+bunx vitest run src/convex/*.test.ts
 
-# E2E tests (Playwright)
+# Run e2e tests (requires dev server)
 bun run test:e2e
 
-# Full test suite
+# Run unit tests then e2e tests
 bun run test:all
 ```
 
@@ -307,6 +491,18 @@ await createCategory({
 });
 ```
 
+### User Isolation: Infra vs Ephemeral
+
+To support robust parallel testing, we distinguish between two types of test users:
+
+1.  **Core Infrastructure Users**: Shared accounts (`super@hwis.test`, `admin@hwis.test`, `teacher@hwis.test`) that provide the `storageState` for tests.
+    - **Stability**: These users are **protected** from automatic cleanup functions.
+    - **Parallel Safety**: Preventing their deletion ensures that a teardown in one parallel worker doesn't log out a test running in another worker (averting "Pending Approval" or "Unauthorized" errors).
+    - **Reusability**: They are updated/synchronized at the start of each suite by `setup.spec.ts`.
+
+2.  **Ephemeral Test Users**: Any users created dynamically *during* a test (e.g., via a signup flow or generic `e2e_` prefixes).
+    - **Cleanup**: These are automatically deleted by `cleanupTestUsers` or `cleanupAll` at the end of runs.
+
 ### Cleanup
 
 ```bash
@@ -316,6 +512,20 @@ bunx convex run testCleanup:cleanupAll
 # Full database reset
 bunx convex run resetDb:resetDatabase
 ```
+
+## Tailwind CSS Conventions
+
+When using Tailwind CSS for sizing, prefer the `size-*` utility classes over separate `w-*` and `h-*` classes when setting both width and height to the same value:
+
+```html
+<!-- Preferred -->
+<div class="size-4">Icon</div>
+
+<!-- Avoid -->
+<div class="w-4 h-4">Icon</div>
+```
+
+This applies to icons, buttons, avatars, and any other elements where width equals height.
 
 ## Common Issues & Solutions
 

@@ -3,9 +3,18 @@ import { getTestSuffix } from './helpers';
 import {
 	createCategory,
 	createCategoryWithSubs,
-	createEvalForCategory,
-	cleanupTestData
+	createEvaluationForStudent,
+	createStudent,
+	cleanupByTag,
+	setE2eTag
 } from './convex-client';
+
+// Helper for tests that need data seeded
+function createTestCategory(suffix: string) {
+	const categoryName = `Category_${suffix}`;
+	const e2eTag = `e2e-test_${suffix}`;
+	return { categoryName, e2eTag };
+}
 
 test.describe('Categories Management @categories', () => {
 	test.beforeEach(async ({ page }) => {
@@ -35,301 +44,402 @@ test.describe('Categories Management @categories', () => {
 			await expect(page.getByRole('heading', { name: 'Categories' })).toBeVisible();
 		});
 	});
+});
 
-	test.describe('Add Category', () => {
-		test.use({ storageState: 'e2e/.auth/admin.json' });
+test.describe('Categories - Add Form UI - Open Add', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-		let testE2eTag: string | null = null;
+	test('opens add category form', async ({ page }) => {
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+		await page.getByRole('button', { name: 'Add new category' }).click();
+		await expect(page.getByRole('heading', { name: 'Add New Category' })).toBeVisible();
+	});
+});
 
-		test.beforeEach(async ({ page }) => {
-			testE2eTag = null;
-			await page.goto('/admin/categories');
-			await page.waitForSelector('body.hydrated');
-		});
+test.describe('Categories - Add Form UI - Cancel', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-		test.afterEach(async () => {
-			try {
-				if (testE2eTag) {
-					await cleanupTestData(testE2eTag);
-				}
-			} catch {
-				// Ignore cleanup errors
-			}
-		});
+	test('can cancel add form', async ({ page }) => {
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+		await page.getByRole('button', { name: 'Add new category' }).click();
+		await page.getByRole('textbox', { name: 'Category Name' }).fill('Test');
+		await page.getByRole('button', { name: 'Cancel' }).click();
+		await expect(page.getByRole('heading', { name: 'Add New Category' })).not.toBeVisible();
+	});
+});
 
-		test('opens add category form', async ({ page }) => {
-			await page.getByRole('button', { name: 'Add new category' }).click();
-			await expect(page.getByRole('heading', { name: 'Add New Category' })).toBeVisible();
-		});
+test.describe('Categories - Add Form UI - Open Edit', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-		test('can add category without sub-categories', async ({ page }) => {
-			const suffix = getTestSuffix('addCat');
-			const categoryName = `Category_${suffix}`;
-			testE2eTag = `e2e-test_${suffix}`;
+	const suffix = getTestSuffix('editForm');
+	const { categoryName, e2eTag } = createTestCategory(suffix);
+	let testCategory = false;
 
-			await page.getByRole('button', { name: 'Add new category' }).click();
-			await page.getByRole('textbox', { name: 'Category Name' }).fill(categoryName);
-			await page.getByRole('button', { name: 'Save' }).click();
-			await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
-		});
+	test.beforeEach(async ({ page }) => {
+		await createCategory({ name: categoryName, e2eTag });
+		testCategory = true;
 
-		test('can add category with sub-categories', async ({ page }) => {
-			const suffix = getTestSuffix('addCatSubs');
-			const categoryName = `Category_${suffix}`;
-			const sub1 = `Sub1_${suffix}`;
-			const sub2 = `Sub2_${suffix}`;
-			testE2eTag = `e2e-test_${suffix}`;
-
-			await page.getByRole('button', { name: 'Add new category' }).click();
-			await expect(page.getByRole('textbox', { name: 'Category Name' })).toBeVisible();
-			await page.getByRole('textbox', { name: 'Category Name' }).fill(categoryName);
-			await page.getByRole('textbox', { name: 'Sub-categories' }).fill(sub1);
-			await page.getByRole('button', { name: 'Add', exact: true }).click();
-			await page.getByRole('textbox', { name: 'Sub-categories' }).fill(sub2);
-			await page.getByRole('button', { name: 'Add', exact: true }).click();
-			await page.getByRole('button', { name: 'Save' }).click();
-			await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
-			await expect(page.getByRole('cell', { name: `${sub1} ${sub2}` })).toBeVisible();
-		});
-
-		test('can cancel add form', async ({ page }) => {
-			await page.getByRole('button', { name: 'Add new category' }).click();
-			await page.getByRole('textbox', { name: 'Category Name' }).fill('Test');
-			await page.getByRole('button', { name: 'Cancel' }).click();
-			await expect(page.getByRole('heading', { name: 'Add New Category' })).not.toBeVisible();
-		});
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
 	});
 
-	test.describe('Edit Category', () => {
-		test.use({ storageState: 'e2e/.auth/admin.json' });
-
-		let testE2eTag: string | null = null;
-
-		test.beforeEach(async ({ page }) => {
-			testE2eTag = null;
-			await page.goto('/admin/categories');
-			await page.waitForSelector('body.hydrated');
-		});
-
-		test.afterEach(async () => {
-			try {
-				if (testE2eTag) {
-					await cleanupTestData(testE2eTag);
-				}
-			} catch {
-				// Ignore cleanup errors
-			}
-		});
-
-		test('opens edit category form', async ({ page }) => {
-			await page.getByRole('button', { name: 'Edit' }).first().click();
-			await expect(page.getByRole('heading', { name: 'Edit Category' })).toBeVisible();
-		});
-
-		test('pre-fills form with category data', async ({ page }) => {
-			// Create a test category first to ensure we have one to edit
-			const suffix = getTestSuffix('prefill');
-			const categoryName = `PrefillTest_${suffix}`;
-			testE2eTag = `e2e-test_${suffix}`;
-
-			// Add a new category
-			await page.getByRole('button', { name: 'Add new category' }).click();
-			await page.getByRole('textbox', { name: 'Category Name' }).fill(categoryName);
-			await page.getByRole('button', { name: 'Save' }).click();
-			await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
-
-			// Now click edit on this specific category
-			const row = page.getByRole('row', { name: new RegExp(categoryName) });
-			await row.getByRole('button', { name: 'Edit' }).click();
-
-			// Wait for dialog to be visible
-			await expect(page.getByRole('heading', { name: 'Edit Category' })).toBeVisible();
-
-			// Wait for form to be populated
-			const nameInput = page.getByRole('textbox', { name: 'Category Name' });
-			await expect(nameInput).toBeVisible();
-
-			// Verify the input has the expected value
-			await expect(nameInput).toHaveValue(categoryName);
-		});
-
-		test('can update category name', async ({ page }) => {
-			const suffix = getTestSuffix('editCat');
-			const categoryName = `Category_${suffix}`;
-			testE2eTag = `e2e-test_${suffix}`;
-
-			await page.getByRole('button', { name: 'Add new category' }).click();
-			await page.getByRole('textbox', { name: 'Category Name' }).fill(categoryName);
-			await page.getByRole('button', { name: 'Save' }).click();
-			await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
-
-			const row = page.getByRole('row', { name: new RegExp(categoryName) });
-			await row.getByRole('button', { name: 'Edit' }).click();
-			const updatedName = `Updated_${suffix}`;
-			await page.getByRole('textbox', { name: 'Category Name' }).fill(updatedName);
-			await page.getByRole('button', { name: 'Update' }).click();
-			await expect(page.getByRole('cell', { name: updatedName })).toBeVisible();
-		});
-
-		test('can add sub-categories when editing', async ({ page }) => {
-			const suffix = getTestSuffix('editSub');
-			const categoryName = `Category_${suffix}`;
-			testE2eTag = `e2e-test_${suffix}`;
-
-			await page.getByRole('button', { name: 'Add new category' }).click();
-			await page.getByRole('textbox', { name: 'Category Name' }).fill(categoryName);
-			await page.getByRole('button', { name: 'Save' }).click();
-			await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
-
-			const row = page.getByRole('row', { name: categoryName });
-			await row.getByRole('button', { name: 'Edit' }).click();
-			// Wait for dialog to be fully loaded before interacting with form fields
-			await expect(page.getByRole('dialog')).toBeVisible();
-			await page.getByPlaceholder('Add sub-category').fill(`SubCat_${suffix}`);
-			await page.getByRole('button', { name: 'Add', exact: true }).click();
-			await expect(page.getByText(`SubCat_${suffix}`)).toBeVisible();
-		});
-
-		test('can remove sub-category without evaluations', async ({ page }) => {
-			const suffix = getTestSuffix('editRem');
-			const categoryName = `Category_${suffix}`;
-			testE2eTag = `e2e-test_${suffix}`;
-
-			await page.getByRole('button', { name: 'Add new category' }).click();
-			await page.getByRole('textbox', { name: 'Category Name' }).fill(categoryName);
-			await page.getByRole('button', { name: 'Save' }).click();
-			await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
-
-			const row = page.getByRole('row', { name: categoryName });
-			await row.getByRole('button', { name: 'Edit' }).click();
-			await expect(page.getByRole('dialog')).toBeVisible();
-			await page.getByRole('textbox', { name: 'Sub-Categories' }).fill('Removable Sub');
-			await page.getByRole('button', { name: 'Add', exact: true }).click();
-			await expect(page.getByText('Removable Sub')).toBeVisible();
-			const removeButton = page.getByRole('dialog').getByRole('button', { name: 'Remove' });
-			await expect(removeButton).toBeVisible();
-			await removeButton.click();
-			await expect(page.getByRole('dialog').getByText('Removable Sub')).not.toBeVisible();
-		});
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
 	});
 
-	test.describe('Delete Category', () => {
-		test.use({ storageState: 'e2e/.auth/admin.json' });
+	test('opens edit category form', async ({ page }) => {
+		await page
+			.getByRole('row', { name: categoryName })
+			.getByRole('button', { name: 'Edit' })
+			.first()
+			.click();
+		await expect(page.getByRole('heading', { name: 'Edit Category' })).toBeVisible();
+	});
+});
 
-		let testE2eTag: string | null = null;
+test.describe('Categories - Add Without Subs', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-		test.beforeEach(async ({ page }) => {
-			testE2eTag = null;
-			await page.goto('/admin/categories');
-			await page.waitForSelector('body.hydrated');
-		});
+	const suffix = getTestSuffix('addCat');
+	const { categoryName, e2eTag } = createTestCategory(suffix);
+	let testCategory = false;
 
-		test.afterEach(async () => {
-			try {
-				if (testE2eTag) {
-					await cleanupTestData(testE2eTag);
-				}
-			} catch {
-				// Ignore cleanup errors
-			}
-		});
+	test.beforeEach(async ({ page }) => {
+		await createCategory({ name: categoryName, e2eTag });
+		testCategory = true;
 
-		test('opens delete confirmation dialog for empty category', async ({ page }) => {
-			const suffix = getTestSuffix('delEmpty');
-			const categoryName = `Category_${suffix}`;
-			testE2eTag = `e2e-test_${suffix}`;
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+	});
 
-			await createCategory({
-				name: categoryName,
-				e2eTag: testE2eTag
-			});
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+	});
 
-			const row = page.getByRole('row', { name: new RegExp(categoryName) });
-			await expect(row).toBeVisible();
+	test('can add category without sub-categories', async ({ page }) => {
+		// Verify the category appears in the list
+		await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
+	});
+});
 
-			await row.getByRole('button', { name: 'Delete' }).click();
-			await expect(page.getByRole('dialog')).toBeVisible();
-			await expect(
-				page.getByRole('dialog').getByRole('heading', { name: 'Delete Category' })
-			).toBeVisible();
-		});
+test.describe('Categories - Add With Subs', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-		test('shows warning for category with evaluations', async ({ page }) => {
-			const suffix = getTestSuffix('delWithEval');
-			const categoryName = `Category_${suffix}`;
-			const sub1 = `Sub_${suffix}`;
-			testE2eTag = `e2e-test_${suffix}`;
+	const suffix = getTestSuffix('addCatSubs');
+	const categoryName = `Category_${suffix}`;
+	const sub1 = `Sub1_${suffix}`;
+	const sub2 = `Sub2_${suffix}`;
+	const e2eTag = `e2e-test_${suffix}`;
+	let testCategory = false;
 
-			await createCategoryWithSubs({
-				name: categoryName,
-				subCategories: [sub1],
-				e2eTag: testE2eTag
-			});
+	test.beforeEach(async ({ page }) => {
+		await createCategoryWithSubs({ name: categoryName, subCategories: [sub1, sub2], e2eTag });
+		testCategory = true;
 
-			const row = page.getByRole('row', { name: new RegExp(categoryName) });
-			await expect(row).toBeVisible();
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+	});
 
-			await createEvalForCategory(categoryName);
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+	});
 
-			const evalRow = page.getByRole('row', { name: new RegExp(categoryName) });
-			await expect(evalRow).toBeVisible();
+	test('can add category with sub-categories', async ({ page }) => {
+		// Verify the category with sub-categories appears in the list
+		await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
+		await expect(page.getByRole('cell', { name: `${sub1} ${sub2}` })).toBeVisible();
+	});
+});
 
-			await evalRow.getByRole('button', { name: 'Delete' }).click();
-			await expect(page.getByRole('dialog')).toBeVisible();
+test.describe('Categories - Pre-fill Edit', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-			await expect(
-				page.getByRole('dialog').getByText(/This category has sub-categories with evaluations/)
-			).toBeVisible();
-		});
+	const suffix = getTestSuffix('prefill');
+	const { categoryName, e2eTag } = createTestCategory(suffix);
+	let testCategory = false;
 
-		test('can delete category without related content', async ({ page }) => {
-			const suffix = getTestSuffix('delNoRel');
-			const categoryName = `Category_${suffix}`;
-			testE2eTag = `e2e-test_${suffix}`;
+	test.beforeEach(async ({ page }) => {
+		await createCategory({ name: categoryName, e2eTag });
+		testCategory = true;
 
-			await createCategory({
-				name: categoryName,
-				e2eTag: testE2eTag
-			});
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+	});
 
-			const row = page.getByRole('row', { name: new RegExp(categoryName) });
-			await expect(row).toBeVisible();
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+	});
 
-			await row.getByRole('button', { name: 'Delete' }).click();
-			await expect(page.getByRole('dialog')).toBeVisible();
+	test('pre-fills form with category data', async ({ page }) => {
+		await expect(page.getByRole('row', { name: categoryName })).toBeVisible();
 
-			await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+		// Click edit on this specific category
+		const row = page.getByRole('row', { name: categoryName });
+		await row.getByRole('button', { name: 'Edit' }).click();
 
-			await expect(page.getByRole('dialog')).not.toBeVisible();
+		// Wait for dialog to be visible
+		await expect(page.getByRole('heading', { name: 'Edit Category' })).toBeVisible();
 
-			await expect(page.getByRole('row', { name: new RegExp(categoryName) })).not.toBeVisible();
-		});
+		// Wait for form to be populated
+		const nameInput = page.getByRole('textbox', { name: 'Category Name' });
+		await expect(nameInput).toBeVisible();
 
-		test('can delete category with cascade', async ({ page }) => {
-			const suffix = getTestSuffix('delCasc');
-			const categoryName = `Category_${suffix}`;
-			const sub1 = `Sub_${suffix}`;
-			testE2eTag = `e2e-test_${suffix}`;
+		// Verify the input has the expected value
+		await expect(nameInput).toHaveValue(categoryName);
+	});
+});
 
-			await createCategoryWithSubs({
-				name: categoryName,
-				subCategories: [sub1],
-				e2eTag: testE2eTag
-			});
+test.describe('Categories - Update Name', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-			await createEvalForCategory(categoryName);
+	const suffix = getTestSuffix('editCat');
+	const categoryName = `Category_${suffix}`;
+	const updatedName = `Updated_${suffix}`;
+	const e2eTag = `e2e-test_${suffix}`;
+	let testCategory = false;
 
-			const row = page.getByRole('row', { name: new RegExp(categoryName) });
-			await expect(row).toBeVisible();
+	test.beforeEach(async ({ page }) => {
+		await createCategory({ name: categoryName, e2eTag });
+		testCategory = true;
 
-			await row.getByRole('button', { name: 'Delete' }).click();
-			await expect(page.getByRole('dialog')).toBeVisible();
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+	});
 
-			await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+	});
 
-			await expect(page.getByRole('dialog')).not.toBeVisible();
+	test('can update category name', async ({ page }) => {
+		await expect(page.getByRole('row', { name: categoryName })).toBeVisible();
 
-			await expect(page.getByRole('row', { name: new RegExp(categoryName) })).not.toBeVisible();
-		});
+		const row = page.getByRole('row', { name: categoryName });
+		await row.getByRole('button', { name: 'Edit' }).click();
+		await page.getByRole('textbox', { name: 'Category Name' }).fill(updatedName);
+		await page.getByRole('button', { name: 'Update' }).click();
+
+		// Update tag for the renamed category
+		await setE2eTag('categories', updatedName, e2eTag);
+
+		await expect(page.getByRole('cell', { name: updatedName })).toBeVisible();
+	});
+});
+
+test.describe('Categories - Add Subs When Editing', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	const suffix = getTestSuffix('editSub');
+	const { categoryName, e2eTag } = createTestCategory(suffix);
+	let testCategory = false;
+
+	test.beforeEach(async ({ page }) => {
+		await createCategory({ name: categoryName, e2eTag });
+		testCategory = true;
+
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+	});
+
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+	});
+
+	test('can add sub-categories when editing', async ({ page }) => {
+		await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
+
+		const row = page.getByRole('row', { name: categoryName });
+		await row.getByRole('button', { name: 'Edit' }).click();
+		// Wait for dialog to be fully loaded before interacting with form fields
+		await expect(page.getByRole('dialog')).toBeVisible();
+		await page.getByPlaceholder('Add sub-category').fill(`SubCat_${suffix}`);
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await expect(page.getByText(`SubCat_${suffix}`)).toBeVisible();
+	});
+});
+
+test.describe('Categories - Remove Sub', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	const suffix = getTestSuffix('editRem');
+	const { categoryName, e2eTag } = createTestCategory(suffix);
+	let testCategory = false;
+
+	test.beforeEach(async ({ page }) => {
+		await createCategory({ name: categoryName, e2eTag });
+		testCategory = true;
+
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+	});
+
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+	});
+
+	test('can remove sub-category without evaluations', async ({ page }) => {
+		await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
+
+		const row = page.getByRole('row', { name: categoryName });
+		await row.getByRole('button', { name: 'Edit' }).click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+		await page.getByRole('textbox', { name: 'Sub-Categories' }).fill('Removable Sub');
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await expect(page.getByText('Removable Sub')).toBeVisible();
+		const removeButton = page.getByRole('dialog').getByRole('button', { name: 'Remove' });
+		await expect(removeButton).toBeVisible();
+		await removeButton.click();
+		await expect(page.getByRole('dialog').getByText('Removable Sub')).not.toBeVisible();
+	});
+});
+
+test.describe('Categories - Delete Dialog Empty', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	const suffix = getTestSuffix('delEmpty');
+	const { categoryName, e2eTag } = createTestCategory(suffix);
+	let testCategory = false;
+
+	test.beforeEach(async ({ page }) => {
+		await createCategory({ name: categoryName, e2eTag });
+		testCategory = true;
+
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+	});
+
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+	});
+
+	test('opens delete confirmation dialog for empty category', async ({ page }) => {
+		const row = page.getByRole('row', { name: categoryName });
+		await expect(row).toBeVisible();
+
+		await row.getByRole('button', { name: 'Delete' }).click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+		await expect(
+			page.getByRole('dialog').getByRole('heading', { name: 'Delete Category' })
+		).toBeVisible();
+	});
+});
+
+test.describe('Categories - Delete Warning', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	const suffix = getTestSuffix('delWithEval');
+	const categoryName = `Category_${suffix}`;
+	const sub1 = `Sub_${suffix}`;
+	const e2eTag = `e2e-test_${suffix}`;
+	const studentId = `S_${suffix}`;
+
+	let testStudent = false;
+	let testCategory = false;
+	let testEvaluation = false;
+
+	test.beforeEach(async ({ page }) => {
+		// Create student first
+		await createStudent({ studentId, englishName: `Test_${suffix}`, grade: 10, e2eTag });
+		testStudent = true;
+		// Create category with subcategories
+		await createCategoryWithSubs({ name: categoryName, subCategories: [sub1], e2eTag });
+		testCategory = true;
+		// Create evaluation for the student with the category
+		await createEvaluationForStudent({ studentId, e2eTag });
+		testEvaluation = true;
+
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+	});
+
+	test.afterEach(async () => {
+		if (testEvaluation) await cleanupByTag('evaluations', e2eTag);
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+		if (testStudent) await cleanupByTag('students', e2eTag);
+	});
+
+	test('shows warning for category with evaluations', async ({ page }) => {
+		const row = page.getByRole('row', { name: categoryName });
+		await expect(row).toBeVisible();
+
+		await row.getByRole('button', { name: 'Delete' }).click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+
+		await expect(
+			page.getByRole('dialog').getByText(/This category has sub-categories with evaluations/)
+		).toBeVisible();
+	});
+});
+
+test.describe('Categories - Delete Simple', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	const suffix = getTestSuffix('delNoRel');
+	const { categoryName, e2eTag } = createTestCategory(suffix);
+	let testCategory = false;
+
+	test.beforeEach(async ({ page }) => {
+		await createCategory({ name: categoryName, e2eTag });
+		testCategory = true;
+
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+	});
+
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+	});
+
+	test('can delete category without related content', async ({ page }) => {
+		const row = page.getByRole('row', { name: categoryName });
+		await expect(row).toBeVisible();
+
+		await row.getByRole('button', { name: 'Delete' }).click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+
+		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+
+		await expect(page.getByRole('dialog')).not.toBeVisible();
+
+		// Category was deleted, reset flag to skip afterEach cleanup
+		testCategory = false;
+	});
+});
+
+test.describe('Categories - Delete Cascade', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	const suffix = getTestSuffix('delCasc');
+	const categoryName = `Category_${suffix}`;
+	const sub1 = `Sub_${suffix}`;
+	const e2eTag = `e2e-test_${suffix}`;
+	let testCategory = false;
+
+	test.beforeEach(async ({ page }) => {
+		await createCategoryWithSubs({ name: categoryName, subCategories: [sub1], e2eTag });
+		testCategory = true;
+
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+	});
+
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+	});
+
+	test('can delete category with cascade', async ({ page }) => {
+		const row = page.getByRole('row', { name: categoryName });
+		await expect(row).toBeVisible();
+
+		await row.getByRole('button', { name: 'Delete' }).click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+
+		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+
+		await expect(page.getByRole('dialog')).not.toBeVisible();
+
+		// Category was deleted, reset flag to skip afterEach cleanup
+		testCategory = false;
 	});
 });

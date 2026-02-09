@@ -433,12 +433,23 @@ export const e2eSeedAuditLogs = mutation({
 	handler: async (ctx, args) => {
 		const authId = args.authId || 'default_user';
 
-		const performerId = await ctx.db.insert('users', {
-			authId: authId,
-			name: 'Test Performer',
-			role: 'teacher',
-			status: 'active'
-		});
+		// Check if user already exists, if so reuse it
+		let performerId;
+		const existingUser = await ctx.db
+			.query('users')
+			.withIndex('by_authId', (q) => q.eq('authId', authId))
+			.first();
+
+		if (existingUser) {
+			performerId = existingUser._id;
+		} else {
+			performerId = await ctx.db.insert('users', {
+				authId: authId,
+				name: `Test Performer ${authId}`,
+				role: 'teacher',
+				status: 'active'
+			});
+		}
 
 		await ctx.db.insert('audit_logs', {
 			action: 'student_created',
@@ -447,7 +458,8 @@ export const e2eSeedAuditLogs = mutation({
 			targetId: 'student1',
 			oldValue: null,
 			newValue: { englishName: 'Audit Student', studentId: 'S2001', grade: 10 },
-			timestamp: Date.now() - 100000
+			timestamp: Date.now() - 100000,
+			e2eTag: authId
 		});
 
 		await ctx.db.insert('audit_logs', {
@@ -457,7 +469,8 @@ export const e2eSeedAuditLogs = mutation({
 			targetId: 'eval1',
 			oldValue: null,
 			newValue: { studentId: 'S2002', category: 'Homework', points: 5 },
-			timestamp: Date.now() - 50000
+			timestamp: Date.now() - 50000,
+			e2eTag: authId
 		});
 
 		await ctx.db.insert('audit_logs', {
@@ -467,7 +480,8 @@ export const e2eSeedAuditLogs = mutation({
 			targetId: 'student3',
 			oldValue: { status: 'Enrolled' },
 			newValue: { status: 'Not Enrolled' },
-			timestamp: Date.now()
+			timestamp: Date.now(),
+			e2eTag: authId
 		});
 
 		return { message: 'Audit logs seeded', performerAuthId: authId };
