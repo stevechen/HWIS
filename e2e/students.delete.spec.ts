@@ -4,7 +4,8 @@ import {
 	createEvaluationForStudent,
 	createStudent,
 	cleanupByTag,
-	createCategoryWithSubs
+	createCategoryWithSubs,
+	useRole
 } from './convex-client';
 
 test.describe('Delete Student - Without Evaluations', () => {
@@ -18,6 +19,7 @@ test.describe('Delete Student - Without Evaluations', () => {
 	let testCategory = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		// Create category first (needed for students)
 		await createCategoryWithSubs({
 			name: `Cat_${suffix}`,
@@ -84,15 +86,20 @@ test.describe('Delete Student - Without Evaluations', () => {
 test.describe('Delete Student - With Cascade', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-	const suffix = getTestSuffix('delCascade');
-	const studentId = `S_${suffix}`;
-	const englishName = `DelCascade_${suffix}`;
-	const e2eTag = `e2e-test_${suffix}`;
+	let suffix: string;
+	let studentId: string;
+	let englishName: string;
+	let e2eTag: string;
 	let testStudent = false;
 	let testCategory = false;
 	let testEvaluation = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
+		suffix = getTestSuffix('delCascade');
+		studentId = `S_${suffix}`;
+		englishName = `DelCascade_${suffix}`;
+		e2eTag = `e2e-test_${suffix}`;
 		// Create category
 		await createCategoryWithSubs({
 			name: `Cat_${suffix}`,
@@ -173,6 +180,7 @@ test.describe('Delete Dialog - Shows Options', () => {
 	let testEvaluation = false;
 
 	test.beforeEach(async () => {
+		useRole('admin');
 		// Create category
 		await createCategoryWithSubs({
 			name: `Cat_${suffix}`,

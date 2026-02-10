@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { getTestSuffix } from './helpers';
-import { createStudent, cleanupByTag } from './convex-client';
+import { createStudent, cleanupByTag, useRole } from './convex-client';
 
 test.describe('Edit Student - Data Tests', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
@@ -11,6 +11,7 @@ test.describe('Edit Student - Data Tests', () => {
 	let testStudent = false;
 
 	test.beforeEach(async () => {
+		useRole('admin');
 		await createStudent({
 			studentId,
 			englishName,

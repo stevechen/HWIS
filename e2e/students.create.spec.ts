@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { getTestSuffix } from './helpers';
-import { createStudent, cleanupByTag, setE2eTag } from './convex-client';
+import { createStudent, cleanupByTag, setE2eTag, useRole } from './convex-client';
 
 test.describe('Add Student - UI Data Tests', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
@@ -12,6 +12,7 @@ test.describe('Add Student - UI Data Tests', () => {
 	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
 	});
@@ -21,6 +22,7 @@ test.describe('Add Student - UI Data Tests', () => {
 	});
 
 	test('can add a new student', async ({ page }) => {
+		useRole('admin');
 		const chineseName = '新增測試';
 
 		// Click Add Student button using aria-label
@@ -77,6 +79,7 @@ test.describe('Student ID Validation - Duplicate Data Tests', () => {
 	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		// Create the student first so we can test duplicate detection
 		await createStudent({
 			studentId,

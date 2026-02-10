@@ -4,7 +4,8 @@ import {
 	createStudent,
 	createCategoryWithSubs,
 	createEvaluationForStudent,
-	cleanupByTag
+	cleanupByTag,
+	useRole
 } from './convex-client';
 
 async function createStudentForEval(
@@ -65,6 +66,7 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
 	test.beforeEach(async ({ page }) => {
+		useRole('teacher');
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
 	});
@@ -95,6 +97,7 @@ test.describe('Evaluations - Select Student', () => {
 	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('teacher');
 		suffix = getTestSuffix('selectStudent');
 		studentName = `SelectMe_${suffix}`;
 		// createStudentForEval navigates to /evaluations/new
@@ -124,6 +127,7 @@ test.describe('Evaluations - Student Count', () => {
 	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('teacher');
 		suffix = getTestSuffix('countStudent');
 		studentName = `CountMe_${suffix}`;
 		// createStudentForEval navigates to /evaluations/new
@@ -150,6 +154,7 @@ test.describe('Evaluations - No Student Error', () => {
 	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('teacher');
 		suffix = getTestSuffix('noStudent');
 		studentName = `NoStudent_${suffix}`;
 		// createStudentForEval navigates to /evaluations/new
@@ -179,6 +184,7 @@ test.describe('Evaluations - No Category Error', () => {
 	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('teacher');
 		suffix = getTestSuffix('noCat');
 		studentName = `NoCat_${suffix}`;
 		// createStudentForEval navigates to /evaluations/new
@@ -216,6 +222,7 @@ test.describe('Evaluations - No Sub-Category Error', () => {
 	let testData = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('teacher');
 		suffix = getTestSuffix('noSub');
 		categoryName = `TestCategory_${suffix}`;
 		studentName = `NoSub_${suffix}`;
@@ -268,6 +275,7 @@ test.describe('Evaluations - Submit Success', () => {
 	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('teacher');
 		suffix = getTestSuffix('submit');
 		categoryName = `TestCategory_${suffix}`;
 		studentName = `Submit_${suffix}`;
@@ -320,6 +328,7 @@ test.describe('Evaluations (admin user) @evaluations', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await page.goto('/evaluations');
 		await page.waitForSelector('body.hydrated');
 	});
@@ -385,7 +394,7 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 			e2eTag
 		});
 
-		await createEvaluationForStudent({ studentId, e2eTag }, true);
+		await createEvaluationForStudent({ studentId, e2eTag });
 
 		// Navigate to student timeline in demo mode to see evaluations
 		await page.goto('/evaluations/student/demo-student-id?demo=teacher');
@@ -429,7 +438,7 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 			e2eTag
 		});
 
-		await createEvaluationForStudent({ studentId, e2eTag }, true);
+		await createEvaluationForStudent({ studentId, e2eTag });
 
 		// Navigate to student timeline in demo mode to see evaluations
 		await page.goto('/evaluations/student/demo-student-id?demo=teacher');
@@ -481,7 +490,7 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 			e2eTag
 		});
 
-		await createEvaluationForStudent({ studentId, e2eTag }, true);
+		await createEvaluationForStudent({ studentId, e2eTag });
 
 		// Navigate to student timeline in demo mode to see evaluations
 		await page.goto('/evaluations/student/demo-student-id?demo=teacher');
@@ -530,7 +539,7 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 			e2eTag
 		});
 
-		await createEvaluationForStudent({ studentId, e2eTag }, true);
+		await createEvaluationForStudent({ studentId, e2eTag });
 
 		// Navigate to student timeline in demo mode to see evaluations
 		await page.goto('/evaluations/student/demo-student-id?demo=teacher');
@@ -580,7 +589,7 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 			e2eTag
 		});
 
-		await createEvaluationForStudent({ studentId, e2eTag }, true);
+		await createEvaluationForStudent({ studentId, e2eTag });
 
 		// Navigate to evaluations page
 		await page.goto('/evaluations');

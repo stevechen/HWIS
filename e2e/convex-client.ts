@@ -1,7 +1,37 @@
 import { getE2EUtils, type CreateStudentOptions } from '../src/lib/e2e-utils';
+import fs from 'fs';
+import path from 'path';
 
 // Singleton instance to ensure consistent auth token handling
 let e2eUtils: ReturnType<typeof getE2EUtils> | null = null;
+
+export function setAuthToken(token: string) {
+	process.env.CONVEX_AUTH_TOKEN = token;
+	e2eUtils = null; // Reset singleton to pick up new token
+}
+
+export function useRole(role: 'admin' | 'teacher' | 'super') {
+	const authPath = path.join(process.cwd(), 'e2e', '.auth', `${role}.json`);
+	if (fs.existsSync(authPath)) {
+		try {
+			const state = JSON.parse(fs.readFileSync(authPath, 'utf8'));
+			const convexCookie = state.cookies.find((c: any) => c.name === 'convex_jwt');
+			if (convexCookie?.value) {
+				// Set token in environment variable (for Node.js context)
+				setAuthToken(convexCookie.value);
+
+				// Also set in localStorage (for browser context)
+				if (typeof localStorage !== 'undefined') {
+					localStorage.setItem('convexAuth', JSON.stringify({ token: convexCookie.value }));
+				}
+				return true;
+			}
+		} catch (e) {
+			console.error(`Failed to load storage state from ${authPath}:`, e);
+		}
+	}
+	return false;
+}
 
 function getUtils(): ReturnType<typeof getE2EUtils> {
 	if (!e2eUtils) {
@@ -105,12 +135,9 @@ export async function createEvalForCategory(categoryName: string) {
 	return await utils.createEvalForCategory(categoryName);
 }
 
-export async function createEvaluationForStudent(
-	data: { studentId: string; e2eTag?: string },
-	useRealAuth?: boolean
-) {
+export async function createEvaluationForStudent(data: { studentId: string; e2eTag?: string }) {
 	const utils = getUtils();
-	return await utils.createEvaluationForStudent(data, useRealAuth);
+	return await utils.createEvaluationForStudent(data);
 }
 
 export async function setRoleByEmail(email: string, role: string) {

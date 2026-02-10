@@ -3,7 +3,8 @@ import {
 	createStudent,
 	createEvaluationForStudent,
 	createCategory,
-	cleanupTestData
+	cleanupTestData,
+	useRole
 } from './convex-client';
 import { getTestSuffix } from './helpers';
 
@@ -16,6 +17,7 @@ test.describe('Student CRUD Cycle @integration', () => {
 	let testE2eTag: string | null = null;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		testE2eTag = `e2e-test_${suffix}`;
 
 		await createStudent({
@@ -95,6 +97,7 @@ test.describe('Evaluation Persistence @integration', () => {
 	let testE2eTag: string | null = null;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		testE2eTag = `e2e-test_${suffix}`;
 
 		// Create tagged category for evaluations (replaces seedBaseline)
@@ -151,6 +154,7 @@ test.describe('Student Timeline Navigation @integration', () => {
 	let studentDocId: string;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		testE2eTag = `e2e-test_${suffix}`;
 
 		// Create tagged category for evaluations (replaces seedBaseline)
@@ -214,6 +218,7 @@ test.describe('Category to Evaluation Integration @integration', () => {
 	let testE2eTag: string | null = null;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		testE2eTag = `e2e-test_${suffix}`;
 
 		// Create category via API with e2eTag for proper cleanup

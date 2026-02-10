@@ -3,7 +3,8 @@ import {
 	createWeeklyReportTestData,
 	cleanupWeeklyReportTestData,
 	createStudent,
-	createCategoryWithSubs
+	createCategoryWithSubs,
+	useRole
 } from './convex-client';
 import { getTestSuffix, getUniqueTag } from './helpers';
 
@@ -19,6 +20,7 @@ test.describe('Weekly Reports - Data Display @weekly', () => {
 	let testData = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		e2eTag = getUniqueTag('weekly-report');
 		await cleanupWeeklyReportTestData(e2eTag);
 		await createWeeklyReportTestData(e2eTag);
@@ -54,6 +56,7 @@ test.describe('Weekly Reports - Dialog Interactions @weekly', () => {
 	let testData = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		e2eTag = getUniqueTag('weekly-report');
 		await cleanupWeeklyReportTestData(e2eTag);
 		await createWeeklyReportTestData(e2eTag);
@@ -181,6 +184,7 @@ test.describe('Weekly Reports - Create Report @weekly', () => {
 	let testData = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		suffix = getTestSuffix('createReport');
 		studentId = `WR_${suffix}`;
 		e2eTag = getUniqueTag('weekly-report');
@@ -275,6 +279,7 @@ test.describe('Weekly Reports - Update Report @weekly', () => {
 	let testData = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		suffix = getTestSuffix('updateReport');
 		studentId = `WR_UPDATE_${suffix}`;
 		categoryName = `UpdateCategory_${suffix}`;
@@ -408,6 +413,7 @@ test.describe('Weekly Reports - Empty State @weekly', () => {
 	let testData = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		e2eTag = getUniqueTag('weekly-report');
 		// Clean up all evaluations first to ensure empty state
 		await cleanupWeeklyReportTestData(e2eTag);

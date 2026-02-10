@@ -160,7 +160,7 @@ export const cleanupAllTestData = mutation({
 			console.log('audit_logs table error:', e);
 		}
 
-const TEST_USERS_REQUIRING_AUTHENTICATION = [
+		const TEST_USERS_REQUIRING_AUTHENTICATION = [
 			'test-user-id',
 			'test_admin',
 			'default_user',

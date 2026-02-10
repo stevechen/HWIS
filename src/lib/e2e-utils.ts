@@ -5,7 +5,7 @@ import { api } from '$convex/_generated/api';
 const CONVEX_URL = process.env.CONVEX_URL || 'http://127.0.0.1:3210';
 
 // Test token for e2e authentication (works with both local and cloud Convex)
-const TEST_TOKEN = 'test-token-admin-mock';
+const TEST_TOKEN = 'unit-test-token';
 
 export interface CreateStudentOptions {
 	studentId: string;

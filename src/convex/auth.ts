@@ -129,21 +129,7 @@ export function isAllowedDomain(email: string): boolean {
 	return email.endsWith(`@${ALLOWED_DOMAIN}`);
 }
 
-// Helper to get authenticated user
 export const getAuthenticatedUser = async (ctx: any, testToken?: string) => {
-	// Check for test token first (for e2e testing)
-	if (testToken === 'test-token-admin-mock' || testToken === 'test-token') {
-		// Return a mock test admin user (no database lookup needed for e2e tests)
-		return {
-			_id: 'test-user-id' as any,
-			authId: 'test-user-id',
-			name: 'Test Admin',
-			role: 'admin',
-			status: 'active',
-			email: 'test@hwis.local'
-		} as any;
-	}
-
 	try {
 		const user = await authComponent.getAuthUser(ctx);
 		if (user) {
@@ -165,8 +151,8 @@ export const getAuthenticatedUser = async (ctx: any, testToken?: string) => {
 	// Return a mock admin user to allow tests to run
 	if (testToken === 'unit-test-token') {
 		return {
-			_id: 'test-user-id' as any,
-			authId: 'test-user-id',
+			_id: 'testuser123' as any,
+			authId: 'test_admin',
 			name: 'Test Admin',
 			role: 'admin',
 			status: 'active'

@@ -6,7 +6,8 @@ import {
 	createEvaluationForStudent,
 	createStudent,
 	cleanupByTag,
-	setE2eTag
+	setE2eTag,
+	useRole
 } from './convex-client';
 
 // Helper for tests that need data seeded
@@ -72,12 +73,11 @@ test.describe('Categories - Add Form UI - Cancel', () => {
 
 test.describe('Categories - Add Form UI - Open Edit', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
-
+	let testCategory = false;
 	const suffix = getTestSuffix('editForm');
 	const { categoryName, e2eTag } = createTestCategory(suffix);
-	let testCategory = false;
-
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createCategory({ name: categoryName, e2eTag });
 		testCategory = true;
 
@@ -107,6 +107,7 @@ test.describe('Categories - Add Without Subs', () => {
 	let testCategory = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createCategory({ name: categoryName, e2eTag });
 		testCategory = true;
 
@@ -135,6 +136,7 @@ test.describe('Categories - Add With Subs', () => {
 	let testCategory = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createCategoryWithSubs({ name: categoryName, subCategories: [sub1, sub2], e2eTag });
 		testCategory = true;
 
@@ -161,6 +163,7 @@ test.describe('Categories - Pre-fill Edit', () => {
 	let testCategory = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createCategory({ name: categoryName, e2eTag });
 		testCategory = true;
 
@@ -201,6 +204,7 @@ test.describe('Categories - Update Name', () => {
 	let testCategory = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createCategory({ name: categoryName, e2eTag });
 		testCategory = true;
 
@@ -235,6 +239,7 @@ test.describe('Categories - Add Subs When Editing', () => {
 	let testCategory = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createCategory({ name: categoryName, e2eTag });
 		testCategory = true;
 
@@ -267,6 +272,7 @@ test.describe('Categories - Remove Sub', () => {
 	let testCategory = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createCategory({ name: categoryName, e2eTag });
 		testCategory = true;
 
@@ -302,6 +308,7 @@ test.describe('Categories - Delete Dialog Empty', () => {
 	let testCategory = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createCategory({ name: categoryName, e2eTag });
 		testCategory = true;
 
@@ -328,17 +335,23 @@ test.describe('Categories - Delete Dialog Empty', () => {
 test.describe('Categories - Delete Warning', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-	const suffix = getTestSuffix('delWithEval');
-	const categoryName = `Category_${suffix}`;
-	const sub1 = `Sub_${suffix}`;
-	const e2eTag = `e2e-test_${suffix}`;
-	const studentId = `S_${suffix}`;
+	let suffix: string;
+	let categoryName: string;
+	let sub1: string;
+	let e2eTag: string;
+	let studentId: string;
 
 	let testStudent = false;
 	let testCategory = false;
 	let testEvaluation = false;
 
 	test.beforeEach(async ({ page }) => {
+		suffix = getTestSuffix('delWithEval');
+		categoryName = `Category_${suffix}`;
+		sub1 = `Sub_${suffix}`;
+		e2eTag = `e2e-test_${suffix}`;
+		studentId = `S_${suffix}`;
+		useRole('admin');
 		// Create student first
 		await createStudent({ studentId, englishName: `Test_${suffix}`, grade: 10, e2eTag });
 		testStudent = true;
@@ -375,11 +388,15 @@ test.describe('Categories - Delete Warning', () => {
 test.describe('Categories - Delete Simple', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
+	// let categoryName: string = '';
+	// let e2eTag: string;
+	let testCategory = false;
 	const suffix = getTestSuffix('delNoRel');
 	const { categoryName, e2eTag } = createTestCategory(suffix);
-	let testCategory = false;
 
 	test.beforeEach(async ({ page }) => {
+		// suffix = getTestSuffix('delNoRel');
+		useRole('admin');
 		await createCategory({ name: categoryName, e2eTag });
 		testCategory = true;
 
@@ -410,13 +427,18 @@ test.describe('Categories - Delete Simple', () => {
 test.describe('Categories - Delete Cascade', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-	const suffix = getTestSuffix('delCasc');
-	const categoryName = `Category_${suffix}`;
-	const sub1 = `Sub_${suffix}`;
-	const e2eTag = `e2e-test_${suffix}`;
+	let suffix: string;
+	let categoryName: string;
+	let sub1: string;
+	let e2eTag: string;
 	let testCategory = false;
 
 	test.beforeEach(async ({ page }) => {
+		suffix = getTestSuffix('delCasc');
+		categoryName = `Category_${suffix}`;
+		sub1 = `Sub_${suffix}`;
+		e2eTag = `e2e-test_${suffix}`;
+		useRole('admin');
 		await createCategoryWithSubs({ name: categoryName, subCategories: [sub1], e2eTag });
 		testCategory = true;
 

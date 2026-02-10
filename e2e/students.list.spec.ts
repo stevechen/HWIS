@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { getTestSuffix } from './helpers';
-import { createStudent, cleanupByTag } from './convex-client';
+import { createStudent, cleanupByTag, useRole } from './convex-client';
 
 test.describe('Student List @students', () => {
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await page.goto('/');
 		await page.waitForLoadState('networkidle');
 	});
@@ -26,6 +27,7 @@ test.describe('Student List - Display @students', () => {
 	let testCreated = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createStudent({
 			studentId,
 			englishName: `Student1_${suffix}`,
@@ -57,6 +59,7 @@ test.describe('Student List - Filter by Grade @students', () => {
 	let testCreated = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createStudent({
 			studentId: `S9_${suffix}`,
 			englishName: `Grade9_${suffix}`,
@@ -101,6 +104,7 @@ test.describe('Student List - Filter by Status @students', () => {
 	let testCreated = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createStudent({
 			studentId: `SE_${suffix}`,
 			englishName: `Enrolled_${suffix}`,
@@ -145,6 +149,7 @@ test.describe('Student List - Search by Name @students', () => {
 	let testCreated = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createStudent({
 			studentId: `ST_${suffix}`,
 			englishName: `TargetName_${suffix}`,
@@ -189,6 +194,7 @@ test.describe('Student List - Search by ID @students', () => {
 	let testStudents = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createStudent({
 			studentId: targetId,
 			englishName: `StudentA_${suffix}`,
@@ -233,6 +239,7 @@ test.describe('Student List - Empty State @students', () => {
 	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		await createStudent({
 			studentId: targetId,
 			englishName: `StudentA_${suffix}`,

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { createStudent, cleanupByTag } from './convex-client';
+import { createStudent, cleanupByTag, useRole } from './convex-client';
 import { getTestSuffix } from './helpers';
 
 test.describe('Admin Controls Visibility @admin', () => {
@@ -10,6 +10,7 @@ test.describe('Admin Controls Visibility @admin', () => {
 	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
+		useRole('admin');
 		const suffix = getTestSuffix('adminActions');
 		studentId = `SA_${suffix}`;
 		testE2eTag = `e2e-test_${suffix}`;
@@ -60,6 +61,7 @@ test.describe('Teacher User', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
 	test.beforeEach(async ({ page }) => {
+		useRole('teacher');
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
 	});
