@@ -1,5 +1,6 @@
 import { getE2EUtils, type CreateStudentOptions } from '../src/lib/e2e-utils';
 
+// Singleton instance to ensure consistent auth token handling
 let e2eUtils: ReturnType<typeof getE2EUtils> | null = null;
 
 function getUtils(): ReturnType<typeof getE2EUtils> {
@@ -104,9 +105,12 @@ export async function createEvalForCategory(categoryName: string) {
 	return await utils.createEvalForCategory(categoryName);
 }
 
-export async function createEvaluationForStudent(data: { studentId: string; e2eTag?: string }) {
+export async function createEvaluationForStudent(
+	data: { studentId: string; e2eTag?: string },
+	useRealAuth?: boolean
+) {
 	const utils = getUtils();
-	return await utils.createEvaluationForStudent(data);
+	return await utils.createEvaluationForStudent(data, useRealAuth);
 }
 
 export async function setRoleByEmail(email: string, role: string) {

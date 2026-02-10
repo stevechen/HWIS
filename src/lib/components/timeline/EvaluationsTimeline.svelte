@@ -29,6 +29,9 @@
 		onCardClick?: (entry: EvaluationEntry) => void;
 		sortAscending?: boolean;
 		showDetails?: boolean;
+		enableLongPress?: boolean;
+		onLongPress?: (entry: EvaluationEntry) => void;
+		canEditEntry?: (entry: EvaluationEntry) => boolean;
 	}
 
 	let {
@@ -46,10 +49,59 @@
 		cardHref,
 		onCardClick,
 		sortAscending: sortAscending = $bindable(false),
-		showDetails: showDetails = $bindable(false)
+		showDetails: showDetails = $bindable(false),
+		enableLongPress = false,
+		onLongPress,
+		canEditEntry
 	}: Props = $props();
 
 	let hoveredIndex = $state<number | null>(null);
+	let longPressTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+	let isLongPress = $state(false);
+	const LONG_PRESS_THRESHOLD = 500; // ms
+
+	function handleMouseDown(entry: EvaluationEntry): void {
+		if (!enableLongPress || !onLongPress) return;
+		if (canEditEntry && !canEditEntry(entry)) return;
+
+		isLongPress = false;
+		longPressTimer = setTimeout(() => {
+			isLongPress = true;
+			onLongPress(entry);
+		}, LONG_PRESS_THRESHOLD);
+	}
+
+	function handleMouseUp(): void {
+		if (longPressTimer) {
+			clearTimeout(longPressTimer);
+			longPressTimer = null;
+		}
+	}
+
+	function handleTouchStart(entry: EvaluationEntry): void {
+		if (!enableLongPress || !onLongPress) return;
+		if (canEditEntry && !canEditEntry(entry)) return;
+
+		isLongPress = false;
+		longPressTimer = setTimeout(() => {
+			isLongPress = true;
+			onLongPress(entry);
+		}, LONG_PRESS_THRESHOLD);
+	}
+
+	function handleTouchEnd(): void {
+		if (longPressTimer) {
+			clearTimeout(longPressTimer);
+			longPressTimer = null;
+		}
+	}
+
+	function handleCardClick(entry: EvaluationEntry): void {
+		// Only navigate if NOT a long-press
+		if (!isLongPress && enableCardClick && onCardClick) {
+			onCardClick(entry);
+		}
+	}
 
 	function formatDate(ts: number): string {
 		const date = new Date(ts);
@@ -77,22 +129,16 @@
 			return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400';
 		return 'bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400';
 	}
-
-	function handleCardClick(entry: EvaluationEntry): void {
-		if (enableCardClick && onCardClick) {
-			onCardClick(entry);
-		}
-	}
 </script>
 
-<div class="flex justify-between items-center mb-6">
-	<h2 class="font-semibold text-xl">{title}</h2>
+<div class="mb-6 flex items-center justify-between">
+	<h2 class="text-xl font-semibold">{title}</h2>
 	<div class="flex items-center gap-2">
 		{#if showTeacherFilter}
 			<select
 				bind:value={selectedTeacherFilter}
 				onchange={(e) => onTeacherFilterChange?.((e.target as HTMLSelectElement).value)}
-				class="bg-background shadow-sm px-3 py-1 border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring h-9 text-sm transition-colors"
+				class="bg-background border-input focus:ring-ring h-9 rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus:ring-1 focus:outline-none"
 			>
 				<option value="">All Teachers</option>
 				{#each uniqueTeachers as teacher (teacher)}
@@ -128,37 +174,37 @@
 {#if evaluations.length === 0}
 	<Card.Root class="p-8 text-center">
 		<Card.Content class="pt-6">
-			<p class="mb-6 text-muted-foreground">No evaluations found.</p>
+			<p class="text-muted-foreground mb-6">No evaluations found.</p>
 		</Card.Content>
 	</Card.Root>
 {:else}
-	<div class="relative bg-background">
+	<div class="bg-background relative">
 		<div
-			class="top-0 bottom-0 left-1/2 absolute border-border border-l w-0.5 -translate-x-1/2"
+			class="border-border absolute top-0 bottom-0 left-1/2 w-0.5 -translate-x-1/2 border-l"
 			role="separator"
 			aria-label="Timeline divider"
 		></div>
 
-		<div class="relative flex flex-col gap-6 py-4 min-h-25">
+		<div class="relative flex min-h-25 flex-col gap-6 py-4">
 			{#each evaluations as entry, idx (entry._id)}
 				{#if idx % 2 === 0}
-					<div class="items-center gap-2 sm:gap-4 grid grid-cols-[1fr_auto_1fr]">
+					<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
 						<div
-							class="flex flex-col justify-center items-end self-center pr-2 sm:w-full sm:min-w-38 text-muted-foreground text-right"
+							class="text-muted-foreground flex flex-col items-end justify-center self-center pr-2 text-right sm:w-full sm:min-w-38"
 						>
 							<div class="flex items-center gap-1 text-xs">
 								<Calendar class="size-3" />
 								<span>{formatDate(entry.timestamp)}</span>
 							</div>
 							{#if showTeacherName && entry.teacherName}
-								<div class="flex items-center gap-1 mt-1 text-xs">
+								<div class="mt-1 flex items-center gap-1 text-xs">
 									<User class="size-3" />
 									<span class={getTeacherNameColor(entry)}>{entry.teacherName}</span>
 								</div>
 							{/if}
 						</div>
 
-						<div class="z-10 flex justify-center items-center">
+						<div class="z-10 flex items-center justify-center">
 							<div
 								class="border-background size-3 rounded-full border-2 {getNodeColor(entry.value)}"
 							></div>
@@ -172,10 +218,23 @@
 									)}"
 									role="button"
 									tabindex="0"
+									aria-label="Evaluation for {entry.category}, {entry.value > 0
+										? '+'
+										: ''}{entry.value} points"
 									onmouseenter={() => (hoveredIndex = idx)}
-									onmouseleave={() => (hoveredIndex = null)}
+									onmouseleave={() => {
+										hoveredIndex = null;
+										handleMouseUp();
+									}}
+									onmousedown={() => handleMouseDown(entry)}
+									onmouseup={handleMouseUp}
+									ontouchstart={() => handleTouchStart(entry)}
+									ontouchend={handleTouchEnd}
 									onclick={() => handleCardClick(entry)}
-									onkeydown={(e) => e.key === 'Enter' && handleCardClick(entry)}
+									onkeydown={(e) => {
+										if (e.key === 'Enter') handleCardClick(entry);
+										if (e.key === 'Escape') handleMouseUp();
+									}}
 								>
 									{@render cardContent(entry, idx)}
 								</div>
@@ -186,9 +245,23 @@
 									class="bg-card relative max-w-40 cursor-pointer rounded-lg border p-3 shadow-sm transition-shadow hover:shadow-md sm:max-w-full sm:min-w-50 {getCardBorderColor(
 										entry
 									)}"
-									role="group"
+									role="button"
+									tabindex="0"
+									aria-label="Evaluation for {entry.category}, {entry.value > 0
+										? '+'
+										: ''}{entry.value} points"
 									onmouseenter={() => (hoveredIndex = idx)}
-									onmouseleave={() => (hoveredIndex = null)}
+									onmouseleave={() => {
+										hoveredIndex = null;
+										handleMouseUp();
+									}}
+									onmousedown={() => handleMouseDown(entry)}
+									onmouseup={handleMouseUp}
+									ontouchstart={() => handleTouchStart(entry)}
+									ontouchend={handleTouchEnd}
+									onkeydown={(e) => {
+										if (e.key === 'Escape') handleMouseUp();
+									}}
 								>
 									{@render cardContent(entry, idx)}
 								</div>
@@ -196,7 +269,7 @@
 						{/if}
 					</div>
 				{:else}
-					<div class="items-center gap-2 sm:gap-4 grid grid-cols-[1fr_auto_1fr]">
+					<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
 						{#if enableCardClick && cardHref}
 							<a href={cardHref(entry)} class="flex justify-end self-center pr-2 sm:w-full">
 								<div
@@ -205,10 +278,23 @@
 									)}"
 									role="button"
 									tabindex="0"
+									aria-label="Evaluation for {entry.category}, {entry.value > 0
+										? '+'
+										: ''}{entry.value} points"
 									onmouseenter={() => (hoveredIndex = idx)}
-									onmouseleave={() => (hoveredIndex = null)}
+									onmouseleave={() => {
+										hoveredIndex = null;
+										handleMouseUp();
+									}}
+									onmousedown={() => handleMouseDown(entry)}
+									onmouseup={handleMouseUp}
+									ontouchstart={() => handleTouchStart(entry)}
+									ontouchend={handleTouchEnd}
 									onclick={() => handleCardClick(entry)}
-									onkeydown={(e) => e.key === 'Enter' && handleCardClick(entry)}
+									onkeydown={(e) => {
+										if (e.key === 'Enter') handleCardClick(entry);
+										if (e.key === 'Escape') handleMouseUp();
+									}}
 								>
 									{@render cardContent(entry, idx)}
 								</div>
@@ -219,30 +305,44 @@
 									class="bg-card relative max-w-40 cursor-pointer rounded-lg border p-3 shadow-sm transition-shadow hover:shadow-md sm:max-w-full sm:min-w-50 {getCardBorderColor(
 										entry
 									)}"
-									role="group"
+									role="button"
+									tabindex="0"
+									aria-label="Evaluation for {entry.category}, {entry.value > 0
+										? '+'
+										: ''}{entry.value} points"
 									onmouseenter={() => (hoveredIndex = idx)}
-									onmouseleave={() => (hoveredIndex = null)}
+									onmouseleave={() => {
+										hoveredIndex = null;
+										handleMouseUp();
+									}}
+									onmousedown={() => handleMouseDown(entry)}
+									onmouseup={handleMouseUp}
+									ontouchstart={() => handleTouchStart(entry)}
+									ontouchend={handleTouchEnd}
+									onkeydown={(e) => {
+										if (e.key === 'Escape') handleMouseUp();
+									}}
 								>
 									{@render cardContent(entry, idx)}
 								</div>
 							</div>
 						{/if}
 
-						<div class="z-10 flex justify-center items-center">
+						<div class="z-10 flex items-center justify-center">
 							<div
 								class="border-background size-3 rounded-full border-2 {getNodeColor(entry.value)}"
 							></div>
 						</div>
 
 						<div
-							class="flex flex-col justify-center items-start self-center pl-2 sm:w-full sm:min-w-38 text-muted-foreground"
+							class="text-muted-foreground flex flex-col items-start justify-center self-center pl-2 sm:w-full sm:min-w-38"
 						>
 							<div class="flex items-center gap-1 text-xs">
 								<Calendar class="size-3" />
 								<span>{formatDate(entry.timestamp)}</span>
 							</div>
 							{#if showTeacherName && entry.teacherName}
-								<div class="flex items-center gap-1 mt-1 text-xs">
+								<div class="mt-1 flex items-center gap-1 text-xs">
 									<User class="size-3" />
 									<span class={getTeacherNameColor(entry)}>{entry.teacherName}</span>
 								</div>
@@ -257,14 +357,14 @@
 
 {#if showLegend}
 	<div
-		class="right-0 bottom-0 left-0 z-50 fixed flex justify-center items-center gap-6 bg-card shadow-lg p-3 border-t text-muted-foreground text-sm"
+		class="bg-card text-muted-foreground fixed right-0 bottom-0 left-0 z-50 flex items-center justify-center gap-6 border-t p-3 text-sm shadow-lg"
 	>
 		<div class="flex items-center gap-2">
-			<div class="bg-emerald-500 rounded-full w-3 h-3"></div>
+			<div class="h-3 w-3 rounded-full bg-emerald-500"></div>
 			<span>Positive Points</span>
 		</div>
 		<div class="flex items-center gap-2">
-			<div class="bg-red-500 rounded-full w-3 h-3"></div>
+			<div class="h-3 w-3 rounded-full bg-red-500"></div>
 			<span>Negative Points</span>
 		</div>
 	</div>
@@ -273,19 +373,19 @@
 
 {#snippet cardContent(entry: EvaluationEntry, idx: number)}
 	{#if showStudentName && entry.englishName}
-		<div class="flex items-center gap-2 mb-1 text-sm">
+		<div class="mb-1 flex items-center gap-2 text-sm">
 			<User class="size-3" />
 			<span class="font-semibold">{entry.englishName}</span>
 			{#if studentGrade || entry.grade}
-				<span class="bg-muted px-2 py-0.5 rounded-full text-xs">G{studentGrade || entry.grade}</span
+				<span class="bg-muted rounded-full px-2 py-0.5 text-xs">G{studentGrade || entry.grade}</span
 				>
 			{/if}
 		</div>
 	{/if}
-	<div class="flex sm:flex-row flex-col sm:items-center gap-0.5 sm:gap-2 mb-1">
-		<span class="font-semibold text-sm">{entry.category}</span>
+	<div class="mb-1 flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
+		<span class="text-sm font-semibold">{entry.category}</span>
 		{#if entry.subCategory}
-			<span class="hidden sm:inline text-muted-foreground text-xs">›</span>
+			<span class="text-muted-foreground hidden text-xs sm:inline">›</span>
 			<span class="text-muted-foreground text-xs">{entry.subCategory}</span>
 		{/if}
 	</div>

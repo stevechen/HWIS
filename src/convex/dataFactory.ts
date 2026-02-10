@@ -224,27 +224,27 @@ export const createEvaluationForStudent = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Validate test token for cloud Convex compatibility
-		await getAuthenticatedUser(ctx, args.testToken);
+		// Get authenticated user info
+		const authUser = await getAuthenticatedUser(ctx, args.testToken);
+
+		// Look up the user by authId to get the real Convex ID
+		const authId = authUser.authId || authUser._id;
+		const userFromDb = await ctx.db
+			.query('users')
+			.withIndex('by_authId', (q) => q.eq('authId', authId))
+			.first();
+
+		if (!userFromDb) {
+			throw new Error(`User not found for authId: ${authId}`);
+		}
+
+		const teacherId = userFromDb._id;
+
+		// Find the student
 		const students = await ctx.db.query('students').collect();
 		const student = students.find((s) => s.studentId === args.studentId);
 		if (!student) {
 			throw new Error(`Student with ID "${args.studentId}" not found`);
-		}
-
-		// Find a teacher or admin user
-		const users = await ctx.db.query('users').collect();
-		let teacher = users.find((u) => u.role === 'teacher' || u.role === 'admin');
-
-		// If no teacher/admin found, create a fallback user
-		if (!teacher) {
-			const teacherId = await ctx.db.insert('users', {
-				authId: 'eval_teacher',
-				name: 'Evaluation Teacher',
-				role: 'teacher',
-				status: 'active'
-			});
-			teacher = { _id: teacherId, _creationTime: Date.now(), role: 'teacher' as const };
 		}
 
 		// Find a category with matching e2eTag, or a category with subCategories
@@ -272,15 +272,9 @@ export const createEvaluationForStudent = mutation({
 		}
 
 		const now = Date.now();
-		console.log('Creating evaluation for student:', {
-			studentId: args.studentId,
-			studentConvexId: student._id,
-			teacherId: teacher._id,
-			category: category.name
-		});
 		return await ctx.db.insert('evaluations', {
 			studentId: student._id,
-			teacherId: teacher._id,
+			teacherId,
 			value: 1,
 			category: category.name,
 			subCategory: category.subCategories[0] || '',

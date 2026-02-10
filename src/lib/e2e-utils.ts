@@ -93,7 +93,23 @@ export interface E2EUtils {
 }
 
 export function getE2EUtils(): E2EUtils {
-	const client = new ConvexHttpClient(CONVEX_URL);
+	// Get convex auth token from browser's localStorage if available (for e2e tests)
+	let authToken: string | undefined;
+	if (typeof window !== 'undefined') {
+		try {
+			const convexAuth = localStorage.getItem('convexAuth');
+			if (convexAuth) {
+				const authData = JSON.parse(convexAuth);
+				authToken = authData.token;
+			}
+		} catch {
+			// Ignore localStorage errors
+		}
+	}
+
+	// Only pass auth option if we have a token
+	const clientOptions = authToken ? { auth: authToken } : {};
+	const client = new ConvexHttpClient(CONVEX_URL, clientOptions);
 
 	return {
 		async resetAll() {
@@ -338,9 +354,9 @@ export function getE2EUtils(): E2EUtils {
 					...data,
 					testToken: TEST_TOKEN
 				});
-			} catch {
-				console.log('Create evaluation for student error');
-				return { error: 'Error' };
+			} catch (e) {
+				console.log('Create evaluation for student error:', e);
+				return { error: e instanceof Error ? e.message : String(e) };
 			}
 		},
 

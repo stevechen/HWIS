@@ -106,6 +106,7 @@ export const listRecent = query({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		// Require authentication and filter by teacher
 		const authUser = await getAuthenticatedUser(ctx, args.testToken);
 		if (!authUser) return [];
 
@@ -134,6 +135,7 @@ export const listRecent = query({
 			/* eslint-disable @typescript-eslint/no-explicit-any */
 			_id: any;
 			studentId: any;
+			teacherId: any;
 			englishName: string;
 			grade: number;
 			studentIdCode: string;
@@ -148,6 +150,7 @@ export const listRecent = query({
 			results.push({
 				_id: eval_._id,
 				studentId: eval_.studentId,
+				teacherId: eval_.teacherId,
 				englishName: student?.englishName || 'Unknown Student',
 				grade: student?.grade || 0,
 				studentIdCode: student?.studentId || 'N/A',
@@ -443,5 +446,63 @@ export const listAllEvaluations = query({
 		});
 
 		return enriched;
+	}
+});
+
+export const update = mutation({
+	args: {
+		id: v.id('evaluations'),
+		value: v.optional(v.number()),
+		category: v.optional(v.string()),
+		subCategory: v.optional(v.string()),
+		details: v.optional(v.string()),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		const userDoc = await requireUserProfile(ctx, args.testToken);
+		const evaluation = await ctx.db.get(args.id);
+
+		if (!evaluation) {
+			throw new Error('Evaluation not found');
+		}
+
+		// Only allow editing own evaluations (admins are also teachers)
+		// Admins can only edit evaluations they created, same as regular teachers
+		if (evaluation.teacherId !== userDoc._id) {
+			throw new Error('Not authorized to edit this evaluation');
+		}
+
+		const updates: Partial<typeof evaluation> = {};
+		if (args.value !== undefined) updates.value = args.value;
+		if (args.category !== undefined) updates.category = args.category;
+		if (args.subCategory !== undefined) updates.subCategory = args.subCategory;
+		if (args.details !== undefined) updates.details = args.details;
+
+		await ctx.db.patch(args.id, updates);
+
+		await ctx.db.insert('audit_logs', {
+			action: 'update_evaluation',
+			performerId: userDoc._id,
+			targetTable: 'evaluations',
+			targetId: args.id.toString(),
+			oldValue: { ...evaluation },
+			newValue: updates,
+			timestamp: Date.now()
+		});
+
+		return { success: true };
+	}
+});
+
+export const getEvaluation = query({
+	args: { id: v.id('evaluations'), testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user) return null;
+
+		const evaluation = await ctx.db.get(args.id);
+		if (!evaluation) return null;
+
+		return evaluation;
 	}
 });

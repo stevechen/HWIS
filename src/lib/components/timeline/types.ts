@@ -10,4 +10,5 @@ export interface EvaluationEntry {
 	englishName?: string;
 	grade?: number;
 	studentId?: string;
+	teacherId?: string; // for ownership check
 }

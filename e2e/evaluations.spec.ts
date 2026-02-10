@@ -1,6 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import { getTestSuffix } from './helpers';
-import { createStudent, createCategoryWithSubs, cleanupByTag } from './convex-client';
+import {
+	createStudent,
+	createCategoryWithSubs,
+	createEvaluationForStudent,
+	cleanupByTag
+} from './convex-client';
 
 async function createStudentForEval(
 	page: Page,
@@ -352,5 +357,260 @@ test.describe('Evaluations (admin user) @evaluations', () => {
 
 		// Verify "Back to Admin" button is still visible
 		await expect(page.getByRole('button', { name: /Back to Admin/i })).toBeVisible();
+	});
+});
+
+test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
+	test.use({ storageState: 'e2e/.auth/teacher.json' });
+
+	test('long-press on own evaluation opens edit dialog', async ({ page }) => {
+		// Create UNIQUE data for this test
+		const suffix = getTestSuffix('longpress-dialog');
+		const e2eTag = `e2e-test_${suffix}`;
+		const studentId = `STU_${suffix}`;
+
+		// Create category and student via API
+		await createCategoryWithSubs({
+			name: `Cat_${suffix}`,
+			subCategories: ['Sub1', 'Sub2'],
+			e2eTag
+		});
+
+		await createStudent({
+			studentId,
+			englishName: `Student_${suffix}`,
+			chineseName: '學生',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+
+		await createEvaluationForStudent({ studentId, e2eTag }, true);
+
+		// Navigate to student timeline in demo mode to see evaluations
+		await page.goto('/evaluations/student/demo-student-id?demo=teacher');
+		await page.waitForSelector('body.hydrated');
+
+		// Find an evaluation card
+		const card = page.locator('.bg-card').first();
+		await expect(card).toBeVisible();
+
+		// Long-press by holding mouse down for 500ms+
+		await card.dispatchEvent('mousedown');
+		await page.waitForTimeout(600);
+		await card.dispatchEvent('mouseup');
+
+		// Should open edit dialog
+		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).toBeVisible();
+
+		// Cleanup after test
+		await cleanupByTag('all', e2eTag);
+	});
+
+	test('can change points in edit dialog using buttons', async ({ page }) => {
+		// Create UNIQUE data for this test
+		const suffix = getTestSuffix('longpress-points');
+		const e2eTag = `e2e-test_${suffix}`;
+		const studentId = `STU_${suffix}`;
+
+		// Create category and student via API
+		await createCategoryWithSubs({
+			name: `Cat_${suffix}`,
+			subCategories: ['Sub1', 'Sub2'],
+			e2eTag
+		});
+
+		await createStudent({
+			studentId,
+			englishName: `Student_${suffix}`,
+			chineseName: '學生',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+
+		await createEvaluationForStudent({ studentId, e2eTag }, true);
+
+		// Navigate to student timeline in demo mode to see evaluations
+		await page.goto('/evaluations/student/demo-student-id?demo=teacher');
+		await page.waitForSelector('body.hydrated');
+
+		// Find and long-press on an evaluation card
+		const card = page.locator('.bg-card').first();
+		await expect(card).toBeVisible();
+
+		await card.dispatchEvent('mousedown');
+		await page.waitForTimeout(600);
+		await card.dispatchEvent('mouseup');
+
+		// Edit dialog should be visible
+		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).toBeVisible();
+
+		// Click on +2 points button
+		await page.getByRole('button', { name: /Award 2 points/i }).click();
+
+		// Save changes
+		await page.getByRole('button', { name: /Save Changes/i }).click();
+
+		// Dialog should close
+		await expect(page.getByRole('dialog')).not.toBeVisible();
+
+		// Cleanup after test
+		await cleanupByTag('all', e2eTag);
+	});
+
+	test('can cancel edit dialog', async ({ page }) => {
+		// Create UNIQUE data for this test
+		const suffix = getTestSuffix('longpress-cancel');
+		const e2eTag = `e2e-test_${suffix}`;
+		const studentId = `STU_${suffix}`;
+
+		// Create category and student via API
+		await createCategoryWithSubs({
+			name: `Cat_${suffix}`,
+			subCategories: ['Sub1', 'Sub2'],
+			e2eTag
+		});
+
+		await createStudent({
+			studentId,
+			englishName: `Student_${suffix}`,
+			chineseName: '學生',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+
+		await createEvaluationForStudent({ studentId, e2eTag }, true);
+
+		// Navigate to student timeline in demo mode to see evaluations
+		await page.goto('/evaluations/student/demo-student-id?demo=teacher');
+		await page.waitForSelector('body.hydrated');
+
+		// Find and long-press on an evaluation card
+		const card = page.locator('.bg-card').first();
+		await expect(card).toBeVisible();
+
+		await card.dispatchEvent('mousedown');
+		await page.waitForTimeout(600);
+		await card.dispatchEvent('mouseup');
+
+		// Edit dialog should be visible
+		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).toBeVisible();
+
+		// Click cancel
+		await page.getByRole('button', { name: /Cancel/i }).click();
+
+		// Dialog should close
+		await expect(page.getByRole('dialog')).not.toBeVisible();
+
+		// Cleanup after test
+		await cleanupByTag('all', e2eTag);
+	});
+
+	test('shows delete confirmation dialog after delete request', async ({ page }) => {
+		// Create UNIQUE data for this test
+		const suffix = getTestSuffix('longpress-delete-confirm');
+		const e2eTag = `e2e-test_${suffix}`;
+		const studentId = `STU_${suffix}`;
+
+		// Create category and student via API
+		await createCategoryWithSubs({
+			name: `Cat_${suffix}`,
+			subCategories: ['Sub1', 'Sub2'],
+			e2eTag
+		});
+
+		await createStudent({
+			studentId,
+			englishName: `Student_${suffix}`,
+			chineseName: '學生',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+
+		await createEvaluationForStudent({ studentId, e2eTag }, true);
+
+		// Navigate to student timeline in demo mode to see evaluations
+		await page.goto('/evaluations/student/demo-student-id?demo=teacher');
+		await page.waitForSelector('body.hydrated');
+
+		// Find an evaluation card
+		const card = page.locator('.bg-card').first();
+		await expect(card).toBeVisible();
+
+		// Long-press to open edit dialog
+		await card.dispatchEvent('mousedown');
+		await page.waitForTimeout(600);
+		await card.dispatchEvent('mouseup');
+
+		// Wait for edit dialog
+		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).toBeVisible();
+
+		// Delete button should be visible - click it
+		await page.getByRole('button', { name: /Delete/i }).click();
+
+		// Delete confirmation dialog should appear
+		await expect(page.getByRole('dialog', { name: /Delete Evaluation/i })).toBeVisible();
+
+		// Cleanup after test
+		await cleanupByTag('all', e2eTag);
+	});
+
+	test.fixme('can delete evaluation via long-press on evaluations page', async ({ page }) => {
+		// Create UNIQUE data for this test
+		const suffix = getTestSuffix('longpress-delete');
+		const e2eTag = `e2e-test_${suffix}`;
+		const studentId = `STU_${suffix}`;
+
+		// Create category and student via API
+		await createCategoryWithSubs({
+			name: `Cat_${suffix}`,
+			subCategories: ['Sub1', 'Sub2'],
+			e2eTag
+		});
+
+		await createStudent({
+			studentId,
+			englishName: `Student_${suffix}`,
+			chineseName: '學生',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+
+		await createEvaluationForStudent({ studentId, e2eTag }, true);
+
+		// Navigate to evaluations page
+		await page.goto('/evaluations');
+		await page.waitForSelector('body.hydrated');
+
+		// Wait for the evaluation to appear via Convex reactivity
+		const card = page.locator('.bg-card').first();
+		await expect(card).toBeVisible({ timeout: 10000 });
+
+		// Long-press to open edit dialog
+		await card.dispatchEvent('mousedown');
+		await page.waitForTimeout(600);
+		await card.dispatchEvent('mouseup');
+
+		// Edit dialog should open
+		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).toBeVisible();
+
+		// Click Delete button
+		await page.getByRole('button', { name: /Delete/i }).click();
+
+		// Delete confirmation dialog should appear
+		await expect(page.getByRole('dialog', { name: /Delete Evaluation/i })).toBeVisible();
+
+		// Confirm deletion
+		await page.getByRole('button', { name: /Delete/i, exact: true }).click();
+
+		// Delete confirmation dialog should close
+		await expect(page.getByRole('dialog')).not.toBeVisible();
+
+		// Cleanup after test
+		await cleanupByTag('all', e2eTag);
 	});
 });
