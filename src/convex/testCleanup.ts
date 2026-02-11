@@ -300,7 +300,10 @@ export const cleanupByTag = mutation({
 	},
 	handler: async (ctx, args) => {
 		// Validate test token for cloud Convex compatibility
-		await getAuthenticatedUser(ctx, args.testToken);
+		const authUser = await getAuthenticatedUser(ctx, args.testToken);
+		if (!authUser) {
+			throw new Error('Not authenticated for cleanupByTag');
+		}
 
 		let totalDeleted = 0;
 
@@ -371,12 +374,14 @@ export const cleanupByTag = mutation({
 			const auditLogs = await ctx.db.query('audit_logs').collect();
 			for (const log of auditLogs) {
 				if (
-					// Evaluation audit logs
+					// Audit logs with matching e2eTag (most reliable method)
+					log.e2eTag === args.e2eTag ||
+					// Evaluation audit logs (fallback: match by category name)
 					(log.targetTable === 'evaluations' &&
 						categoryNamesWithTag.includes(log.newValue?.category || '')) ||
-					// Student audit logs
+					// Student audit logs (fallback: match by targetId as string)
 					(log.targetTable === 'students' &&
-						studentIdsWithTag.includes(log.targetId as Id<'students'>)) ||
+						studentIdsWithTag.some((id) => id.toString() === log.targetId)) ||
 					// User modification audit logs (by performer)
 					(args.dataType === 'all' && testUserIds.includes(log.performerId))
 				) {

@@ -1,5 +1,6 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
+import type { Id } from './_generated/dataModel';
 import { getAuthenticatedUser } from './auth';
 
 // Data factory helper functions for E2E testing
@@ -227,7 +228,7 @@ export const createEvaluationForStudent = mutation({
 		// Get authenticated user info - use JWT auth or testToken bypass
 		const authUser = await getAuthenticatedUser(ctx, args.testToken);
 
-		let teacherId: any;
+		let teacherId: Id<'users'>;
 
 		// For testToken bypass, create/get test teacher user
 		if (args.testToken === 'unit-test-token') {
@@ -297,7 +298,7 @@ export const createEvaluationForStudent = mutation({
 		}
 
 		const now = Date.now();
-		return await ctx.db.insert('evaluations', {
+		const evaluationId = await ctx.db.insert('evaluations', {
 			studentId: student._id,
 			teacherId,
 			value: 1,
@@ -308,6 +309,24 @@ export const createEvaluationForStudent = mutation({
 			semesterId: '2024-H2',
 			e2eTag: args.e2eTag || getE2ETag()
 		});
+
+		// Also create an audit log for the evaluation creation
+		await ctx.db.insert('audit_logs', {
+			action: 'create_evaluation',
+			performerId: teacherId,
+			targetTable: 'evaluations',
+			targetId: evaluationId.toString(),
+			oldValue: null,
+			newValue: {
+				studentId: student._id,
+				value: 1,
+				category: category.name
+			},
+			timestamp: now,
+			e2eTag: args.e2eTag || getE2ETag()
+		});
+
+		return evaluationId;
 	}
 });
 

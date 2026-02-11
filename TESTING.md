@@ -346,7 +346,7 @@ function createTestEntity(suffix: string) {
 | ✅ Completed | `e2e/students.delete.spec.ts` - 8 tests |
 | ✅ Completed | `e2e/students.list.spec.ts` - 11 tests |
 | ✅ Completed | `e2e/categories.spec.ts` - 34 tests |
-| ⏳ Pending | `e2e/evaluations.spec.ts` |
+| ✅ Completed | `e2e/evaluations.spec.ts` - 18 tests |
 | ⏳ Pending | Other test files |
 
 ### Available E2E Imports
@@ -538,6 +538,87 @@ This applies to icons, buttons, avatars, and any other elements where width equa
 | Test times out         | Use web-first assertions with timeout                     |
 | Wrong element found    | Use specific selectors with name option                   |
 | Version mismatch       | Ensure `@vitest/browser` and `vitest` versions match      |
+| Category not found     | Wait for UI update before `setE2eTag` (timing issue)      |
+
+### TestToken Bypass Pattern
+
+For e2e tests that create data via Convex mutations, the `testToken` bypass allows tests to run without real authentication:
+
+**File: `src/lib/e2e-utils.ts`**
+
+```typescript
+const TEST_TOKEN = 'unit-test-token'; // Must match the bypass check in Convex
+```
+
+**How it works:**
+
+1. All e2e utility functions pass `testToken: TEST_TOKEN` to mutations
+2. Convex mutations check `if (args.testToken === 'unit-test-token')`
+3. If true, they bypass real auth and use/create test users
+
+**Example bypass in Convex mutation:**
+
+```typescript
+// dataFactory.ts
+if (args.testToken === 'unit-test-token') {
+  // Look for existing test teacher or create one
+  const existingUser = await ctx.db
+    .query('users')
+    .withIndex('by_authId', (q) => q.eq('authId', 'e2e_test_teacher'))
+    .first();
+
+  if (existingUser) {
+    teacherId = existingUser._id;
+  } else {
+    teacherId = await ctx.db.insert('users', {
+      authId: 'e2e_test_teacher',
+      name: 'E2E Test Teacher',
+      role: 'teacher',
+      status: 'active'
+    });
+  }
+}
+```
+
+**Important:** The `cleanupByTag` mutation must also accept `testToken`:
+
+```typescript
+// testCleanup.ts
+export const cleanupByTag = mutation({
+  args: {
+    dataType: v.union(...),
+    e2eTag: v.string(),
+    testToken: v.optional(v.string()) // Required for bypass
+  },
+  handler: async (ctx, args) => {
+    await getAuthenticatedUser(ctx, args.testToken); // Uses bypass
+    // ... cleanup logic
+  }
+});
+```
+
+### Timing Issues with setE2eTag
+
+When renaming entities via UI and then calling `setE2eTag`, you must wait for the UI to update first:
+
+```typescript
+// ❌ WRONG - Timing issue, name change may not be visible yet
+await page.getByRole('button', { name: 'Update' }).click();
+await setE2eTag('categories', updatedName, e2eTag); // Fails - category not found
+```
+
+```typescript
+// ✅ CORRECT - Wait for UI update first
+await page.getByRole('button', { name: 'Update' }).click();
+
+// Wait for the new name to appear in the UI
+await expect(page.getByRole('cell', { name: updatedName })).toBeVisible();
+
+// Now safe to tag
+await setE2eTag('categories', updatedName, e2eTag);
+```
+
+This ensures the Convex mutation can find the entity by its new name.
 
 ## CI/CD Pipeline
 

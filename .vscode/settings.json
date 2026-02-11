@@ -6,12 +6,14 @@
 		"Casc",
 		"Evals",
 		"hwis",
+		"longpress",
 		"Lookback",
 		"mmailaender",
 		"mytest",
 		"SOID",
 		"STID",
-		"studentid"
+		"studentid",
+		"teardowns"
 	],
 	"cSpell.diagnosticLevel": "hint"
 }

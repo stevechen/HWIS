@@ -161,9 +161,8 @@ test.describe('Delete Student - With Cascade', () => {
 		// Verify deletion
 		await expect(page.getByRole('row', { name: englishName })).not.toBeVisible();
 
-		// Student and evaluation deleted via cascade, but category still needs cleanup
+		// Student and evaluation deleted via cascade, but category & audit log (through evaluation clean up) still needs cleanup
 		testStudent = false;
-		testEvaluation = false;
 		// testCategory remains true for cleanup
 	});
 });

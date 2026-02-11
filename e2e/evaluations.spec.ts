@@ -403,8 +403,8 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 		await createEvaluationForStudent({ studentId, e2eTag });
 		testData = true;
 
-		// Navigate to student timeline in demo mode to see evaluations
-		await page.goto('/evaluations/student/demo-student-id?demo=teacher');
+		// Navigate to student timeline using custom studentId URL (now supported!)
+		await page.goto(`/evaluations/student/${studentId}`);
 		await page.waitForSelector('body.hydrated');
 	});
 
@@ -564,10 +564,7 @@ test.describe('Evaluations Long-Press Delete @evaluations-longpress', () => {
 		await deleteDialog.getByRole('button', { name: /Delete/i, exact: true }).click();
 
 		// Delete confirmation dialog should close
-		await expect(page.getByRole('dialog')).not.toBeVisible();
+		await expect(deleteDialog).not.toBeVisible();
 		await expect(nameOnCard).not.toBeVisible();
-
-		// Evaluation was deleted, skip afterEach cleanup
-		testData = false;
 	});
 });

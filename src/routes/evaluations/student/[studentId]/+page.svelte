@@ -100,30 +100,57 @@
 		}
 	];
 
-	// Real Convex queries
+	// Helper to check if studentId is a Convex ID (starts with lowercase letter followed by numbers)
+	function isConvexId(id: string): boolean {
+		return /^[a-z][\w-]*$/.test(id);
+	}
+
+	// Determine if URL studentId is a Convex ID or custom studentId code (reactive)
+	const urlStudentId = $derived(data.studentId || '');
+	const useConvexIdQuery = $derived(isConvexId(urlStudentId));
+
+	// Real Convex queries - support both Convex ID and custom studentId code
 	const studentQuery = $derived.by(() => {
 		if (isDemo) return undefined;
-		const studentId = data.studentId as Id<'students'>;
-		return useQuery(api.evaluations.getStudent, () => ({
-			studentId
+		if (useConvexIdQuery) {
+			const studentId = urlStudentId as Id<'students'>;
+			return useQuery(api.evaluations.getStudent, () => ({
+				studentId
+			}));
+		}
+		// Use custom studentId code
+		return useQuery(api.evaluations.getStudentByStudentIdCode, () => ({
+			studentIdCode: urlStudentId
 		}));
 	});
 
 	const teacherEvalsQuery = $derived.by(() => {
 		if (isDemo) return undefined;
 		if (isAdmin) return undefined;
-		const studentId = data.studentId as Id<'students'>;
-		return useQuery(api.evaluations.getStudentEvaluationsByTeacher, () => ({
-			studentId
+		if (useConvexIdQuery) {
+			const studentId = urlStudentId as Id<'students'>;
+			return useQuery(api.evaluations.getStudentEvaluationsByTeacher, () => ({
+				studentId
+			}));
+		}
+		// Use custom studentId code
+		return useQuery(api.evaluations.getStudentEvaluationsByTeacherByStudentIdCode, () => ({
+			studentIdCode: urlStudentId
 		}));
 	});
 
 	const allEvalsQuery = $derived.by(() => {
 		if (isDemo) return undefined;
 		if (!isAdmin) return undefined;
-		const studentId = data.studentId as Id<'students'>;
-		return useQuery(api.evaluations.getStudentEvaluationsAll, () => ({
-			studentId
+		if (useConvexIdQuery) {
+			const studentId = urlStudentId as Id<'students'>;
+			return useQuery(api.evaluations.getStudentEvaluationsAll, () => ({
+				studentId
+			}));
+		}
+		// Use custom studentId code
+		return useQuery(api.evaluations.getStudentEvaluationsAllByStudentIdCode, () => ({
+			studentIdCode: urlStudentId
 		}));
 	});
 

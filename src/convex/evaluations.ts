@@ -61,7 +61,8 @@ export const create = mutation({
 					value: args.value,
 					category: args.category
 				},
-				timestamp
+				timestamp,
+				e2eTag: args.e2eTag
 			});
 		}
 
@@ -95,7 +96,8 @@ export const remove = mutation({
 				category: evaluation.category
 			},
 			newValue: null,
-			timestamp: Date.now()
+			timestamp: Date.now(),
+			e2eTag: evaluation.e2eTag
 		});
 	}
 });
@@ -315,6 +317,19 @@ export const getStudent = query({
 	}
 });
 
+// Get student by custom studentId code (e.g., "S1001")
+export const getStudentByStudentIdCode = query({
+	args: { studentIdCode: v.string(), testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user) return null;
+		return await ctx.db
+			.query('students')
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentIdCode))
+			.first();
+	}
+});
+
 // Get evaluation history for a student (teacher view - only their own evaluations)
 export const getStudentEvaluationsByTeacher = query({
 	args: {
@@ -344,6 +359,47 @@ export const getStudentEvaluationsByTeacher = query({
 	}
 });
 
+// Get evaluation history for a student by custom studentId code (teacher view)
+export const getStudentEvaluationsByTeacherByStudentIdCode = query({
+	args: {
+		studentIdCode: v.string(),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		const user = await requireUserProfile(ctx, args.testToken);
+
+		// Look up student by custom studentId code to get the Convex ID
+		const student = await ctx.db
+			.query('students')
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentIdCode))
+			.first();
+
+		if (!student) {
+			return [];
+		}
+
+		// Fetch evaluations for this student by this teacher
+		const evaluations = await ctx.db
+			.query('evaluations')
+			.withIndex('by_studentId_teacherId', (q) =>
+				q.eq('studentId', student._id).eq('teacherId', user._id)
+			)
+			.collect();
+
+		// Enrich evaluations with teacher data
+		const teacher = await ctx.db.get(user._id);
+		const teacherName = teacher?.name || 'Unknown Teacher';
+
+		const enriched = evaluations.map((e) => ({
+			...e,
+			teacherName,
+			isAdmin: false
+		}));
+
+		return enriched.sort((a, b) => b.timestamp - a.timestamp);
+	}
+});
+
 // Get all evaluation history for a student (admin view - all evaluations)
 export const getStudentEvaluationsAll = query({
 	args: {
@@ -355,6 +411,54 @@ export const getStudentEvaluationsAll = query({
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
+			.collect();
+
+		// Optimization: Batch fetch all teacher data to avoid N+1 queries
+		const teacherIds = [...new Set(evaluations.map((e) => e.teacherId))];
+		const teachers = new Map();
+		for (const teacherId of teacherIds) {
+			const teacher = await ctx.db.get(teacherId);
+			if (teacher) teachers.set(teacherId, teacher);
+		}
+
+		// Enrich evaluations with teacher data
+		const enriched = evaluations.map((e) => {
+			const teacher = teachers.get(e.teacherId);
+			const isAdminUser = teacher?.role === 'admin' || teacher?.role === 'super';
+			return {
+				...e,
+				teacherName: teacher?.name || 'Unknown Teacher',
+				isAdmin: isAdminUser
+			};
+		});
+
+		return enriched.sort((a, b) => b.timestamp - a.timestamp);
+	}
+});
+
+// Get all evaluations for a student by custom studentId code (e.g., "S1001")
+export const getStudentEvaluationsAllByStudentIdCode = query({
+	args: {
+		studentIdCode: v.string(),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
+
+		// Look up student by custom studentId code to get the Convex ID
+		const student = await ctx.db
+			.query('students')
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentIdCode))
+			.first();
+
+		if (!student) {
+			return [];
+		}
+
+		// Fetch all evaluations for this student
+		const evaluations = await ctx.db
+			.query('evaluations')
+			.withIndex('by_studentId', (q) => q.eq('studentId', student._id))
 			.collect();
 
 		// Optimization: Batch fetch all teacher data to avoid N+1 queries
