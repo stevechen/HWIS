@@ -7,6 +7,54 @@ const CONVEX_URL = process.env.CONVEX_URL || 'http://127.0.0.1:3210';
 // Test token for e2e authentication (works with both local and cloud Convex)
 const TEST_TOKEN = 'unit-test-token';
 
+// Check if we're using real JWT auth (set by useRole() in tests)
+function isUsingRealAuth(): boolean {
+	return !!process.env.CONVEX_AUTH_TOKEN;
+}
+
+// Get auth options based on current context
+function getAuthOptions(): { auth?: string } {
+	// First check environment variable (set by useRole() in Playwright tests)
+	if (process.env.CONVEX_AUTH_TOKEN) {
+		return { auth: process.env.CONVEX_AUTH_TOKEN };
+	}
+	// Fallback to localStorage for browser context
+	if (typeof window !== 'undefined') {
+		try {
+			const convexAuth = localStorage.getItem('convexAuth');
+			if (convexAuth) {
+				const authData = JSON.parse(convexAuth);
+				if (authData.token) {
+					return { auth: authData.token };
+				}
+			}
+		} catch {
+			// Ignore localStorage errors
+		}
+	}
+	return {};
+}
+
+// Create a fresh Convex client with current auth options
+function createConvexClient() {
+	return new ConvexHttpClient(CONVEX_URL, getAuthOptions());
+}
+
+// Singleton instance
+let client: ReturnType<typeof createConvexClient> | null = null;
+
+function getClient(): ReturnType<typeof createConvexClient> {
+	if (!client) {
+		client = createConvexClient();
+	}
+	return client;
+}
+
+// Force refresh the client with current auth options
+export function refreshClient(): void {
+	client = createConvexClient();
+}
+
 export interface CreateStudentOptions {
 	studentId: string;
 	englishName?: string;
@@ -93,28 +141,12 @@ export interface E2EUtils {
 }
 
 export function getE2EUtils(): E2EUtils {
-	// Get convex auth token from browser's localStorage if available (for e2e tests)
-	let authToken: string | undefined;
-	if (typeof window !== 'undefined') {
-		try {
-			const convexAuth = localStorage.getItem('convexAuth');
-			if (convexAuth) {
-				const authData = JSON.parse(convexAuth);
-				authToken = authData.token;
-			}
-		} catch {
-			// Ignore localStorage errors
-		}
-	}
-
-	// Only pass auth option if we have a token
-	const clientOptions = authToken ? { auth: authToken } : {};
-	const client = new ConvexHttpClient(CONVEX_URL, clientOptions);
+	const c = getClient();
 
 	return {
 		async resetAll() {
 			try {
-				await client.mutation(api.testE2E.e2eResetAll, {});
+				await c.mutation(api.testE2E.e2eResetAll, {});
 			} catch {
 				console.log('Reset all error');
 			}
@@ -122,7 +154,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async resetCategoriesAndEvals() {
 			try {
-				await client.mutation(api.testE2E.e2eResetCategoriesAndEvals, {});
+				await c.mutation(api.testE2E.e2eResetCategoriesAndEvals, {});
 			} catch {
 				console.log('Reset categories and evals error');
 			}
@@ -130,7 +162,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async seedAll() {
 			try {
-				await client.mutation(api.testE2E.e2eSeedAll, {});
+				await c.mutation(api.testE2E.e2eSeedAll, {});
 			} catch {
 				console.log('Seed all error');
 			}
@@ -138,7 +170,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async clearAuditOnly() {
 			try {
-				await client.mutation(api.testE2E.e2eClearAuditOnly, {});
+				await c.mutation(api.testE2E.e2eClearAuditOnly, {});
 			} catch {
 				console.log('Clear audit error');
 			}
@@ -146,7 +178,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async seedCategoriesForDelete() {
 			try {
-				const result = await client.mutation(api.testE2E.e2eSeedCategoriesForDelete, {});
+				const result = await c.mutation(api.testE2E.e2eSeedCategoriesForDelete, {});
 				console.log('Seed categories for delete result:', result);
 				return result;
 			} catch {
@@ -157,7 +189,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async seedStudentsForDisable() {
 			try {
-				await client.mutation(api.testE2E.e2eSeedStudentsForDisable, {});
+				await c.mutation(api.testE2E.e2eSeedStudentsForDisable, {});
 			} catch {
 				console.log('Seed students for disable error');
 			}
@@ -165,7 +197,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async seedAuditLogs(authId?: string) {
 			try {
-				await client.mutation(api.testE2E.e2eSeedAuditLogs, { authId });
+				await c.mutation(api.testE2E.e2eSeedAuditLogs, { authId });
 			} catch {
 				console.log('Seed audit logs error');
 			}
@@ -173,7 +205,11 @@ export function getE2EUtils(): E2EUtils {
 
 		async cleanupAll(): Promise<CleanupResult> {
 			try {
-				const result = await client.mutation(api.dataFactory.cleanupAll, { testToken: TEST_TOKEN });
+				// Use testToken only if not using real auth
+				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
+				const result = await c.mutation(api.dataFactory.cleanupAll, {
+					testToken: token
+				});
 				console.log('Cleanup all result:', result);
 				return result;
 			} catch {
@@ -184,9 +220,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async cleanupTestData(tag: string): Promise<CleanupResult> {
 			try {
-				const result = await client.mutation(api.dataFactory.cleanupAll, {
+				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
+				const result = await c.mutation(api.dataFactory.cleanupAll, {
 					tag,
-					testToken: TEST_TOKEN
+					testToken: token
 				});
 				console.log('Cleanup test data result:', result);
 				return result;
@@ -201,10 +238,11 @@ export function getE2EUtils(): E2EUtils {
 			e2eTag: string
 		): Promise<CleanupResult> {
 			try {
-				const result = await client.mutation(api.testCleanup.cleanupByTag, {
+				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
+				const result = await c.mutation(api.testCleanup.cleanupByTag, {
 					dataType,
 					e2eTag,
-					testToken: TEST_TOKEN
+					testToken: token
 				});
 				console.log('Cleanup by tag result:', result);
 				return result;
@@ -216,8 +254,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async seedBaseline(): Promise<SeedBaselineResult> {
 			try {
-				const result = await client.mutation(api.dataFactory.seedBaseline, {
-					testToken: TEST_TOKEN
+				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
+				const result = await c.mutation(api.dataFactory.seedBaseline, {
+					testToken: token
 				});
 				console.log('Seed baseline result:', result);
 				return result;
@@ -229,7 +268,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async cleanupTestUsers(): Promise<CleanupResult> {
 			try {
-				const result = await client.mutation(api.testCleanup.cleanupAllTestUsers, {});
+				const result = await c.mutation(api.testCleanup.cleanupAllTestUsers, {});
 				console.log('Cleanup test users result:', result);
 				return result;
 			} catch {
@@ -240,7 +279,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async cleanupAuditLogs(authIdString?: string): Promise<CleanupResult> {
 			try {
-				const result = await client.mutation(api.testCleanup.cleanupAuditLogs, { authIdString });
+				const result = await c.mutation(api.testCleanup.cleanupAuditLogs, { authIdString });
 				console.log('Cleanup audit logs result:', result);
 				return result;
 			} catch {
@@ -251,7 +290,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async setupTestUsers(): Promise<SetupTestUsersResult> {
 			try {
-				const result = await client.mutation(api.testSetup.setupTestUsers, {});
+				const result = await c.mutation(api.testSetup.setupTestUsers, {});
 				console.log('Setup test users result:', result);
 				return result as SetupTestUsersResult;
 			} catch {
@@ -262,9 +301,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async createStudent(opts?: CreateStudentOptions) {
 			try {
-				return await client.mutation(api.dataFactory.createStudent, {
+				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
+				return await c.mutation(api.dataFactory.createStudent, {
 					...(opts || {}),
-					testToken: TEST_TOKEN
+					testToken: token
 				});
 			} catch {
 				console.log('Create student error');
@@ -274,9 +314,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async createStudentWithId(opts: CreateStudentOptions) {
 			try {
-				return await client.mutation(api.dataFactory.createStudentWithId, {
+				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
+				return await c.mutation(api.dataFactory.createStudentWithId, {
 					...opts,
-					testToken: TEST_TOKEN
+					testToken: token
 				});
 			} catch (e) {
 				console.log('Create student with ID error:', e);
@@ -290,11 +331,12 @@ export function getE2EUtils(): E2EUtils {
 			e2eTag: string
 		) {
 			try {
-				return await client.mutation(api.dataFactory.setE2eTag, {
+				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
+				return await c.mutation(api.dataFactory.setE2eTag, {
 					dataType,
 					dataId,
 					e2eTag,
-					testToken: TEST_TOKEN
+					testToken: token
 				});
 			} catch (e) {
 				console.log('Set e2eTag error:', e);
@@ -304,9 +346,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async createCategory(opts?: CreateCategoryOptions) {
 			try {
-				return await client.mutation(api.dataFactory.createCategory, {
+				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
+				return await c.mutation(api.dataFactory.createCategory, {
 					...(opts || {}),
-					testToken: TEST_TOKEN
+					testToken: token
 				});
 			} catch {
 				console.log('Create category error');
@@ -316,9 +359,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async createCategoryWithSubs(opts: CreateCategoryWithSubsOptions) {
 			try {
-				return await client.mutation(api.dataFactory.createCategoryWithSubs, {
+				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
+				return await c.mutation(api.dataFactory.createCategoryWithSubs, {
 					...opts,
-					testToken: TEST_TOKEN
+					testToken: token
 				});
 			} catch {
 				console.log('Create category with subs error');
@@ -328,7 +372,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async createEvalForCategory(categoryName: string) {
 			try {
-				const result = await client.mutation(api.testE2E.e2eCreateEvaluationForCategory, {
+				const result = await c.mutation(api.testE2E.e2eCreateEvaluationForCategory, {
 					categoryName
 				});
 				console.log('Create evaluation for category result:', result);
@@ -341,7 +385,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async checkEvaluationExists(categoryName: string) {
 			try {
-				return await client.query(api.testE2E.e2eCheckEvaluationExists, { categoryName });
+				return await c.query(api.testE2E.e2eCheckEvaluationExists, { categoryName });
 			} catch {
 				console.log('Check evaluation exists error');
 				return { error: 'Error' };
@@ -350,9 +394,11 @@ export function getE2EUtils(): E2EUtils {
 
 		async createEvaluationForStudent(data: CreateEvaluationForStudentData) {
 			try {
-				return await client.mutation(api.dataFactory.createEvaluationForStudent, {
+				// When using real auth, don't pass testToken - let it use JWT auth
+				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
+				return await c.mutation(api.dataFactory.createEvaluationForStudent, {
 					...data,
-					testToken: TEST_TOKEN
+					testToken: token
 				});
 			} catch (e) {
 				console.log('Create evaluation for student error:', e);
@@ -362,7 +408,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async setRoleByEmail(email: string, role: string) {
 			try {
-				return await client.mutation(api.users.setRoleByEmail, {
+				return await c.mutation(api.users.setRoleByEmail, {
 					email,
 					role: role as 'teacher' | 'admin' | 'super'
 				});
@@ -374,7 +420,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async setMyRole(role: string) {
 			try {
-				return await client.mutation(api.onboarding.setMyRole, {
+				return await c.mutation(api.onboarding.setMyRole, {
 					role: role as 'teacher' | 'admin' | 'super'
 				});
 			} catch {
@@ -385,7 +431,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async setRoleByToken(token: string, role: string) {
 			try {
-				return await client.mutation(api.users.setRoleByToken, {
+				return await c.mutation(api.users.setRoleByToken, {
 					token,
 					role: role as 'teacher' | 'admin' | 'super'
 				});
@@ -397,10 +443,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async createWeeklyReportTestData(tag?: string) {
 			try {
-				const result = await client.mutation(
-					api.testData.weeklyReports.createWeeklyReportTestData,
-					{ tag: tag || undefined }
-				);
+				const result = await c.mutation(api.testData.weeklyReports.createWeeklyReportTestData, {
+					tag: tag || undefined
+				});
 				console.log('Create weekly report test data result:', result);
 				return result;
 			} catch {
@@ -411,10 +456,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async cleanupWeeklyReportTestData(tag?: string) {
 			try {
-				const result = await client.mutation(
-					api.testData.weeklyReports.cleanupWeeklyReportTestData,
-					{ tag: tag || undefined }
-				);
+				const result = await c.mutation(api.testData.weeklyReports.cleanupWeeklyReportTestData, {
+					tag: tag || undefined
+				});
 				console.log('Cleanup weekly report test data result:', result);
 				return result;
 			} catch {

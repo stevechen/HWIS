@@ -65,6 +65,7 @@ test.describe('Categories - Add Form UI - Cancel', () => {
 		await page.goto('/admin/categories');
 		await page.waitForSelector('body.hydrated');
 		await page.getByRole('button', { name: 'Add new category' }).click();
+		await expect(page.getByRole('heading', { name: 'Add New Category' })).toBeVisible();
 		await page.getByRole('textbox', { name: 'Category Name' }).fill('Test');
 		await page.getByRole('button', { name: 'Cancel' }).click();
 		await expect(page.getByRole('heading', { name: 'Add New Category' })).not.toBeVisible();
@@ -224,10 +225,11 @@ test.describe('Categories - Update Name', () => {
 		await page.getByRole('textbox', { name: 'Category Name' }).fill(updatedName);
 		await page.getByRole('button', { name: 'Update' }).click();
 
+		// Wait for the rename to be visible before tagging (timing fix)
+		await expect(page.getByRole('cell', { name: updatedName })).toBeVisible();
+
 		// Update tag for the renamed category
 		await setE2eTag('categories', updatedName, e2eTag);
-
-		await expect(page.getByRole('cell', { name: updatedName })).toBeVisible();
 	});
 });
 

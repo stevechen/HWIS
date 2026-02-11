@@ -224,7 +224,7 @@ export const createEvaluationForStudent = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Get authenticated user info
+		// Get authenticated user info - use JWT auth or testToken bypass
 		const authUser = await getAuthenticatedUser(ctx, args.testToken);
 
 		let teacherId: any;
@@ -248,8 +248,11 @@ export const createEvaluationForStudent = mutation({
 				});
 			}
 		} else {
-			// Normal lookup
-			const authId = authUser.authId || authUser._id;
+			// Normal lookup using authenticated user's authId
+			if (!authUser) {
+				throw new Error('User not authenticated. Provide testToken or use JWT auth.');
+			}
+			const authId = (authUser as any).authId || (authUser as any)._id;
 			const userFromDb = await ctx.db
 				.query('users')
 				.withIndex('by_authId', (q) => q.eq('authId', authId))

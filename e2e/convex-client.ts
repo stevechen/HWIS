@@ -1,21 +1,42 @@
-import { getE2EUtils, type CreateStudentOptions } from '../src/lib/e2e-utils';
+import { getE2EUtils, type CreateStudentOptions, refreshClient } from '../src/lib/e2e-utils';
 import fs from 'fs';
 import path from 'path';
 
 // Singleton instance to ensure consistent auth token handling
 let e2eUtils: ReturnType<typeof getE2EUtils> | null = null;
 
+// Track if we've been initialized with auth
+let authInitialized = false;
+
 export function setAuthToken(token: string) {
 	process.env.CONVEX_AUTH_TOKEN = token;
 	e2eUtils = null; // Reset singleton to pick up new token
+	refreshClient(); // Also refresh the Convex client
+	authInitialized = true;
+}
+
+export function clearAuth() {
+	process.env.CONVEX_AUTH_TOKEN = undefined;
+	e2eUtils = null;
+	authInitialized = false;
+}
+
+export function isAuthInitialized(): boolean {
+	return authInitialized;
 }
 
 export function useRole(role: 'admin' | 'teacher' | 'super') {
 	const authPath = path.join(process.cwd(), 'e2e', '.auth', `${role}.json`);
 	if (fs.existsSync(authPath)) {
 		try {
-			const state = JSON.parse(fs.readFileSync(authPath, 'utf8'));
-			const convexCookie = state.cookies.find((c: any) => c.name === 'convex_jwt');
+			interface Cookie {
+				name: string;
+				value: string;
+				[key: string]: unknown;
+			}
+
+			const state: { cookies: Cookie[] } = JSON.parse(fs.readFileSync(authPath, 'utf8'));
+			const convexCookie = state.cookies?.find((c: Cookie) => c.name === 'better-auth.convex_jwt');
 			if (convexCookie?.value) {
 				// Set token in environment variable (for Node.js context)
 				setAuthToken(convexCookie.value);
@@ -135,6 +156,11 @@ export async function createEvalForCategory(categoryName: string) {
 	return await utils.createEvalForCategory(categoryName);
 }
 
+export async function checkEvaluationExists(categoryName: string) {
+	const utils = getUtils();
+	return await utils.checkEvaluationExists(categoryName);
+}
+
 export async function createEvaluationForStudent(data: { studentId: string; e2eTag?: string }) {
 	const utils = getUtils();
 	return await utils.createEvaluationForStudent(data);
@@ -153,11 +179,6 @@ export async function setMyRole(role: string) {
 export async function setRoleByToken(token: string, role: string) {
 	const utils = getUtils();
 	return await utils.setRoleByToken(token, role);
-}
-
-export async function checkEvaluationExists(categoryName: string) {
-	const utils = getUtils();
-	return await utils.checkEvaluationExists(categoryName);
 }
 
 export async function createWeeklyReportTestData(tag?: string) {

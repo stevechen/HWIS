@@ -272,7 +272,6 @@ test.describe('Evaluations - Submit Success', () => {
 	let categoryName: string;
 	let studentName: string;
 	let testData = false;
-	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
 		useRole('teacher');
@@ -289,11 +288,10 @@ test.describe('Evaluations - Submit Success', () => {
 
 		// createStudentForEval navigates to /evaluations/new
 		await createStudentForEval(page, suffix, studentName, '提交', 10);
-		testStudent = true;
 	});
 
 	test.afterEach(async () => {
-		if (testData || testStudent) await cleanupByTag('all', `e2e-test_${suffix}`);
+		if (testData) await cleanupByTag('all', `e2e-test_${suffix}`);
 	});
 
 	test('successfully submits evaluation', async ({ page }) => {
@@ -372,11 +370,18 @@ test.describe('Evaluations (admin user) @evaluations', () => {
 test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
-	test('long-press on own evaluation opens edit dialog', async ({ page }) => {
-		// Create UNIQUE data for this test
-		const suffix = getTestSuffix('longpress-dialog');
-		const e2eTag = `e2e-test_${suffix}`;
-		const studentId = `STU_${suffix}`;
+	// CONSTANTS - Define at top of describe
+	let suffix: string;
+	let e2eTag: string;
+	let studentId: string;
+	let testData = false;
+
+	// DATA SEEDING & Navigation
+	test.beforeEach(async ({ page }) => {
+		useRole('teacher');
+		suffix = getTestSuffix('longpressEdit');
+		e2eTag = `e2e-test_${suffix}`;
+		studentId = `STU_${suffix}`;
 
 		// Create category and student via API
 		await createCategoryWithSubs({
@@ -394,12 +399,22 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 			e2eTag
 		});
 
+		// Create evaluation as the authenticated teacher (using JWT from useRole)
 		await createEvaluationForStudent({ studentId, e2eTag });
+		testData = true;
 
 		// Navigate to student timeline in demo mode to see evaluations
 		await page.goto('/evaluations/student/demo-student-id?demo=teacher');
 		await page.waitForSelector('body.hydrated');
+	});
 
+	// CLEANUP - Conditional based on flag
+	test.afterEach(async () => {
+		if (testData) await cleanupByTag('all', e2eTag);
+	});
+
+	// TESTS
+	test('long-press on own evaluation opens edit dialog', async ({ page }) => {
 		// Find an evaluation card
 		const card = page.locator('.bg-card').first();
 		await expect(card).toBeVisible();
@@ -411,39 +426,9 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 
 		// Should open edit dialog
 		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).toBeVisible();
-
-		// Cleanup after test
-		await cleanupByTag('all', e2eTag);
 	});
 
 	test('can change points in edit dialog using buttons', async ({ page }) => {
-		// Create UNIQUE data for this test
-		const suffix = getTestSuffix('longpress-points');
-		const e2eTag = `e2e-test_${suffix}`;
-		const studentId = `STU_${suffix}`;
-
-		// Create category and student via API
-		await createCategoryWithSubs({
-			name: `Cat_${suffix}`,
-			subCategories: ['Sub1', 'Sub2'],
-			e2eTag
-		});
-
-		await createStudent({
-			studentId,
-			englishName: `Student_${suffix}`,
-			chineseName: '學生',
-			grade: 10,
-			status: 'Enrolled',
-			e2eTag
-		});
-
-		await createEvaluationForStudent({ studentId, e2eTag });
-
-		// Navigate to student timeline in demo mode to see evaluations
-		await page.goto('/evaluations/student/demo-student-id?demo=teacher');
-		await page.waitForSelector('body.hydrated');
-
 		// Find and long-press on an evaluation card
 		const card = page.locator('.bg-card').first();
 		await expect(card).toBeVisible();
@@ -463,39 +448,9 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 
 		// Dialog should close
 		await expect(page.getByRole('dialog')).not.toBeVisible();
-
-		// Cleanup after test
-		await cleanupByTag('all', e2eTag);
 	});
 
 	test('can cancel edit dialog', async ({ page }) => {
-		// Create UNIQUE data for this test
-		const suffix = getTestSuffix('longpress-cancel');
-		const e2eTag = `e2e-test_${suffix}`;
-		const studentId = `STU_${suffix}`;
-
-		// Create category and student via API
-		await createCategoryWithSubs({
-			name: `Cat_${suffix}`,
-			subCategories: ['Sub1', 'Sub2'],
-			e2eTag
-		});
-
-		await createStudent({
-			studentId,
-			englishName: `Student_${suffix}`,
-			chineseName: '學生',
-			grade: 10,
-			status: 'Enrolled',
-			e2eTag
-		});
-
-		await createEvaluationForStudent({ studentId, e2eTag });
-
-		// Navigate to student timeline in demo mode to see evaluations
-		await page.goto('/evaluations/student/demo-student-id?demo=teacher');
-		await page.waitForSelector('body.hydrated');
-
 		// Find and long-press on an evaluation card
 		const card = page.locator('.bg-card').first();
 		await expect(card).toBeVisible();
@@ -512,39 +467,9 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 
 		// Dialog should close
 		await expect(page.getByRole('dialog')).not.toBeVisible();
-
-		// Cleanup after test
-		await cleanupByTag('all', e2eTag);
 	});
 
 	test('shows delete confirmation dialog after delete request', async ({ page }) => {
-		// Create UNIQUE data for this test
-		const suffix = getTestSuffix('longpress-delete-confirm');
-		const e2eTag = `e2e-test_${suffix}`;
-		const studentId = `STU_${suffix}`;
-
-		// Create category and student via API
-		await createCategoryWithSubs({
-			name: `Cat_${suffix}`,
-			subCategories: ['Sub1', 'Sub2'],
-			e2eTag
-		});
-
-		await createStudent({
-			studentId,
-			englishName: `Student_${suffix}`,
-			chineseName: '學生',
-			grade: 10,
-			status: 'Enrolled',
-			e2eTag
-		});
-
-		await createEvaluationForStudent({ studentId, e2eTag });
-
-		// Navigate to student timeline in demo mode to see evaluations
-		await page.goto('/evaluations/student/demo-student-id?demo=teacher');
-		await page.waitForSelector('body.hydrated');
-
 		// Find an evaluation card
 		const card = page.locator('.bg-card').first();
 		await expect(card).toBeVisible();
@@ -562,16 +487,26 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 
 		// Delete confirmation dialog should appear
 		await expect(page.getByRole('dialog', { name: /Delete Evaluation/i })).toBeVisible();
-
-		// Cleanup after test
-		await cleanupByTag('all', e2eTag);
 	});
+});
 
-	test.fixme('can delete evaluation via long-press on evaluations page', async ({ page }) => {
-		// Create UNIQUE data for this test
-		const suffix = getTestSuffix('longpress-delete');
-		const e2eTag = `e2e-test_${suffix}`;
-		const studentId = `STU_${suffix}`;
+test.describe('Evaluations Long-Press Delete @evaluations-longpress', () => {
+	test.use({ storageState: 'e2e/.auth/teacher.json' });
+
+	// CONSTANTS - Define at top of describe
+	let suffix: string;
+	let e2eTag: string;
+	let englishName: string;
+	let studentId: string;
+	let testData = false;
+
+	// DATA SEEDING & Navigation
+	test.beforeEach(async ({ page }) => {
+		useRole('teacher');
+		suffix = getTestSuffix('longpressDelete');
+		e2eTag = `e2e-test_${suffix}`;
+		englishName = `Student_${suffix}`;
+		studentId = `STU_${suffix}`;
 
 		// Create category and student via API
 		await createCategoryWithSubs({
@@ -582,44 +517,57 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 
 		await createStudent({
 			studentId,
-			englishName: `Student_${suffix}`,
+			englishName,
 			chineseName: '學生',
 			grade: 10,
 			status: 'Enrolled',
 			e2eTag
 		});
 
+		// Create evaluation as the authenticated admin (using JWT from useRole)
 		await createEvaluationForStudent({ studentId, e2eTag });
+		testData = true;
 
 		// Navigate to evaluations page
 		await page.goto('/evaluations');
 		await page.waitForSelector('body.hydrated');
+	});
 
+	// CLEANUP - Conditional based on flag
+	test.afterEach(async () => {
+		if (testData) await cleanupByTag('all', e2eTag);
+	});
+
+	test('can delete evaluation via long-press on evaluations page', async ({ page }) => {
 		// Wait for the evaluation to appear via Convex reactivity
-		const card = page.locator('.bg-card').first();
-		await expect(card).toBeVisible({ timeout: 10000 });
+		// The card shows the student's name. Can't locate by button name cause test name is too long. Either Playwright or html server truncates it.
+		const nameOnCard = page.getByRole('button', { name: /Evaluation for/i }).getByText(englishName);
+		await expect(nameOnCard).toBeVisible();
 
-		// Long-press to open edit dialog
-		await card.dispatchEvent('mousedown');
+		// Long-press to open edit dialog (hold for 600ms)
+		await nameOnCard.dispatchEvent('mousedown');
 		await page.waitForTimeout(600);
-		await card.dispatchEvent('mouseup');
+		await nameOnCard.dispatchEvent('mouseup');
 
 		// Edit dialog should open
-		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).toBeVisible();
+		const editDialog = page.getByRole('dialog', { name: /Edit Evaluation/i });
+		await expect(editDialog).toBeVisible();
 
 		// Click Delete button
-		await page.getByRole('button', { name: /Delete/i }).click();
+		await editDialog.getByRole('button', { name: /Delete/i }).click();
 
 		// Delete confirmation dialog should appear
-		await expect(page.getByRole('dialog', { name: /Delete Evaluation/i })).toBeVisible();
+		const deleteDialog = page.getByRole('dialog', { name: /Delete Evaluation/i });
+		await expect(deleteDialog).toBeVisible();
 
 		// Confirm deletion
-		await page.getByRole('button', { name: /Delete/i, exact: true }).click();
+		await deleteDialog.getByRole('button', { name: /Delete/i, exact: true }).click();
 
 		// Delete confirmation dialog should close
 		await expect(page.getByRole('dialog')).not.toBeVisible();
+		await expect(nameOnCard).not.toBeVisible();
 
-		// Cleanup after test
-		await cleanupByTag('all', e2eTag);
+		// Evaluation was deleted, skip afterEach cleanup
+		testData = false;
 	});
 });
