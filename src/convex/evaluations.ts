@@ -102,15 +102,28 @@ export const remove = mutation({
 	}
 });
 
+// Helper function for server-side filtering
+function matchesMultiSearch(filter: string, value: string): boolean {
+	if (!filter.trim()) return true;
+	const searchTerms = filter
+		.split(',')
+		.map((s) => s.trim().toLowerCase())
+		.filter(Boolean);
+	if (searchTerms.length === 0) return true;
+	return searchTerms.some((term) => value.toLowerCase().includes(term));
+}
+
 export const listRecent = query({
 	args: {
 		limit: v.optional(v.number()),
+		cursor: v.optional(v.union(v.string(), v.null())),
+		studentFilter: v.optional(v.string()),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		// Require authentication and filter by teacher
 		const authUser = await getAuthenticatedUser(ctx, args.testToken);
-		if (!authUser) return [];
+		if (!authUser) return { evaluations: [], cursor: null };
 
 		const authId = authUser.authId || (authUser as any)._id;
 
@@ -119,37 +132,27 @@ export const listRecent = query({
 			.withIndex('by_authId', (q) => q.eq('authId', authId))
 			.first();
 
-		if (!userDoc) return [];
+		if (!userDoc) return { evaluations: [], cursor: null };
 
-		const evaluations = await ctx.db
+		const pageSize = Math.min(args.limit || 50, 100);
+
+		// Use cursor-based pagination
+		const paginationResult = await ctx.db
 			.query('evaluations')
 			.withIndex('by_teacherId', (q) => q.eq('teacherId', userDoc._id))
 			.order('desc')
-			.take(args.limit || 50);
+			.paginate({ numItems: pageSize, cursor: args.cursor ?? null });
 
-		const studentIds = [...new Set(evaluations.map((e) => e.studentId))];
+		// Fetch student data for enrichment
+		const studentIds = [...new Set(paginationResult.page.map((e) => e.studentId))];
 		const students = await Promise.all(studentIds.map((id) => ctx.db.get(id)));
 		const studentMap = new Map(
 			students.filter((s): s is NonNullable<typeof s> => s != null).map((s) => [s._id, s])
 		);
 
-		const results: {
-			/* eslint-disable @typescript-eslint/no-explicit-any */
-			_id: any;
-			studentId: any;
-			teacherId: any;
-			englishName: string;
-			grade: number;
-			studentIdCode: string;
-			value: number;
-			category: string;
-			subCategory: string;
-			details: string;
-			timestamp: number;
-		}[] = [];
-		for (const eval_ of evaluations) {
+		let results = paginationResult.page.map((eval_) => {
 			const student = studentMap.get(eval_.studentId);
-			results.push({
+			return {
 				_id: eval_._id,
 				studentId: eval_.studentId,
 				teacherId: eval_.teacherId,
@@ -161,9 +164,19 @@ export const listRecent = query({
 				subCategory: eval_.subCategory,
 				details: eval_.details,
 				timestamp: eval_.timestamp
-			});
+			};
+		});
+
+		// Server-side filtering if studentFilter is provided
+		if (args.studentFilter && args.studentFilter.trim()) {
+			results = results.filter((e) => matchesMultiSearch(args.studentFilter!, e.englishName ?? ''));
 		}
-		return results;
+
+		return {
+			evaluations: results,
+			cursor: paginationResult.continueCursor,
+			isDone: paginationResult.isDone
+		};
 	}
 });
 
@@ -488,19 +501,26 @@ export const getStudentEvaluationsAllByStudentIdCode = query({
 export const listAllEvaluations = query({
 	args: {
 		limit: v.optional(v.number()),
+		cursor: v.optional(v.string()),
+		studentFilter: v.optional(v.string()),
+		teacherFilter: v.optional(v.string()),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
 
-		// Fetch evaluations (100 by default, max 500)
-		const pageSize = Math.min(args.limit || 100, 500);
+		const pageSize = Math.min(args.limit || 50, 100);
 
-		const results = await ctx.db.query('evaluations').order('desc').take(pageSize);
+		// Use cursor-based pagination
+		const paginationResult = await ctx.db
+			.query('evaluations')
+			.withIndex('by_timestamp')
+			.order('desc')
+			.paginate({ numItems: pageSize, cursor: args.cursor ?? null });
 
-		// Deduplicate IDs using Set BEFORE fetching
-		const studentIds = [...new Set(results.map((e) => e.studentId))];
-		const teacherIds = [...new Set(results.map((e) => e.teacherId))];
+		// Fetch student and teacher data for enrichment
+		const studentIds = [...new Set(paginationResult.page.map((e) => e.studentId))];
+		const teacherIds = [...new Set(paginationResult.page.map((e) => e.teacherId))];
 
 		// Parallel fetch students and teachers
 		const [students, teachers] = await Promise.all([
@@ -516,21 +536,7 @@ export const listAllEvaluations = query({
 			teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
 		);
 
-		// Build results (single pass through evaluations)
-		const enriched: Array<{
-			_id: string;
-			studentId: string;
-			englishName: string;
-			grade: number;
-			studentIdCode: string;
-			value: number;
-			category: string;
-			subCategory: string;
-			details: string;
-			timestamp: number;
-			teacherName: string;
-			teacherId: string;
-		}> = results.map((eval_) => {
+		let enriched = paginationResult.page.map((eval_) => {
 			const student = studentMap.get(eval_.studentId);
 			const teacher = teacherMap.get(eval_.teacherId);
 			return {
@@ -549,7 +555,24 @@ export const listAllEvaluations = query({
 			};
 		});
 
-		return enriched;
+		// Server-side filtering
+		if (args.studentFilter && args.studentFilter.trim()) {
+			enriched = enriched.filter((e) =>
+				matchesMultiSearch(args.studentFilter!, e.englishName ?? '')
+			);
+		}
+
+		if (args.teacherFilter && args.teacherFilter.trim()) {
+			enriched = enriched.filter((e) =>
+				matchesMultiSearch(args.teacherFilter!, e.teacherName ?? '')
+			);
+		}
+
+		return {
+			evaluations: enriched,
+			cursor: paginationResult.continueCursor,
+			isDone: paginationResult.isDone
+		};
 	}
 });
 

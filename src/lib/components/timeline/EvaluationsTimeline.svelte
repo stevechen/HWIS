@@ -1,5 +1,14 @@
 <script lang="ts">
-	import { ArrowUp, ArrowDown, Calendar, User, Eye, EyeOff } from '@lucide/svelte';
+	import {
+		ArrowUp,
+		ArrowDown,
+		Calendar,
+		User,
+		Eye,
+		EyeOff,
+		ListChevronsDownUp,
+		ListChevronsUpDown
+	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import type { EvaluationEntry } from './types.js';
@@ -115,7 +124,7 @@
 	}
 </script>
 
-<div class="flex flex-wrap md:flex-nowrap justify-between items-center gap-4 mb-6">
+<div class="flex flex-wrap md:flex-nowrap justify-between items-center gap-4">
 	<div class="flex flex-wrap items-center gap-4">
 		{#if title}
 			<h2 class="font-semibold text-xl">{title}</h2>
@@ -148,9 +157,9 @@
 			title={showDetails ? 'Hide Details' : 'Show Details'}
 		>
 			{#if showDetails}
-				<EyeOff class="size-4" />
+				<ListChevronsDownUp class="size-4" />
 			{:else}
-				<Eye class="size-4" />
+				<ListChevronsUpDown class="size-4" />
 			{/if}
 		</Button>
 	</div>

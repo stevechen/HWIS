@@ -8,7 +8,7 @@
 	import { onDestroy } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Select from '$lib/components/ui/select';
-	import { Filter } from '@lucide/svelte';
+	import { Funnel } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 
@@ -340,7 +340,7 @@
 				<div class="flex sm:flex-row flex-col sm:items-center gap-4">
 					<!-- Teacher Name Filter -->
 					<div class="relative">
-						<Filter class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
+						<Funnel class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
 						<Input
 							type="text"
 							placeholder="Filter by teacher(s)…"

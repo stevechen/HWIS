@@ -77,7 +77,7 @@
 	];
 
 	const auditLogs = useQuery(api.audit.list, () => ({
-		limit: 100
+		limit: 50
 	}));
 
 	let filterName = $state('');
@@ -367,8 +367,8 @@
 	}
 </script>
 
-<div class="container mx-auto max-w-[1400px] py-8">
-	<div class="mb-6 flex items-center justify-end gap-2">
+<div class="mx-auto py-8 max-w-[1400px] container">
+	<div class="flex justify-end items-center gap-2 mb-6">
 		{#if !isDefaultOrder()}
 			<Button variant="outline" onclick={resetColumnOrder} class="mr-2" aria-label="Reset Columns">
 				<GripVertical class="mr-2 size-4" />
@@ -382,20 +382,20 @@
 					Columns
 				</Button>
 			</Popover.Trigger>
-			<Popover.Content class="w-56 p-0" align="end">
-				<div class="flex items-center border-b px-3 py-2">
-					<span class="text-sm font-medium">Show Columns</span>
+			<Popover.Content class="p-0 w-56" align="end">
+				<div class="flex items-center px-3 py-2 border-b">
+					<span class="font-medium text-sm">Show Columns</span>
 				</div>
-				<div class="max-h-72 overflow-y-auto py-1" role="menu" aria-label="Available columns">
+				<div class="py-1 max-h-72 overflow-y-auto" role="menu" aria-label="Available columns">
 					{#each allAvailableColumns.filter((c) => c.optional) as column (column.key)}
 						<label
-							class="hover:bg-accent flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm"
+							class="flex items-center gap-2 hover:bg-accent px-3 py-1.5 text-sm cursor-pointer"
 						>
 							<input
 								type="checkbox"
 								checked={isColumnVisible(column.key)}
 								onchange={() => toggleColumn(column.key)}
-								class="size-4 rounded border-gray-300"
+								class="border-gray-300 rounded size-4"
 							/>
 							<span>{column.label}</span>
 						</label>
@@ -408,20 +408,20 @@
 	<div class="mb-6">
 		<div class="flex flex-wrap items-center gap-2">
 			{#if isStudentIdVisible}
-				<div class="relative h-9 items-center md:flex">
-					<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+				<div class="relative md:flex items-center h-9">
+					<Search class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
 					<Input.Root
-						class="w-28 pl-10"
+						class="pl-10 w-28"
 						placeholder="ID"
 						bind:value={filterId}
 						aria-label="Filter by ID"
 					/>
 				</div>
 			{/if}
-			<div class="relative flex h-9 items-center">
-				<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+			<div class="relative flex items-center h-9">
+				<Search class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
 				<Input.Root
-					class="w-48 pl-10"
+					class="pl-10 w-48"
 					placeholder="Student"
 					bind:value={filterName}
 					aria-label="Filter by student name"
@@ -440,10 +440,10 @@
 					</Select.Content>
 				</Select.Root>
 			{/if}
-			<div class="relative flex h-9 items-center">
-				<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+			<div class="relative flex items-center h-9">
+				<Search class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
 				<Input.Root
-					class="w-48 pl-10"
+					class="pl-10 w-48"
 					placeholder="Teacher"
 					bind:value={filterTeacher}
 					aria-label="Filter by teacher name"
@@ -458,16 +458,16 @@
 		</div>
 	</div>
 
-	<div class="bg-card rounded-lg border shadow-sm">
+	<div class="bg-card shadow-sm border rounded-lg">
 		{#if auditLogs.isLoading}
-			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
-				<div class="border-muted border-t-primary h-8 w-8 animate-spin rounded-full border-3"></div>
+			<div class="flex flex-col justify-center items-center gap-4 p-16 text-muted-foreground">
+				<div class="border-3 border-muted border-t-primary rounded-full w-8 h-8 animate-spin"></div>
 				<p>Loading audit logs...</p>
 			</div>
 		{:else if auditLogs.data && auditLogs.data.length > 0}
 			{#if getSortedLogs().length === 0}
-				<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
-					<FileText class="h-8 w-8 opacity-50" />
+				<div class="flex flex-col justify-center items-center gap-4 p-16 text-muted-foreground">
+					<FileText class="opacity-50 w-8 h-8" />
 					<p>No matching audit logs found.</p>
 				</div>
 			{:else}
@@ -498,7 +498,7 @@
 													? 'justify-center'
 													: ''}"
 											>
-												<GripVertical class="text-muted-foreground size-4 cursor-move" />
+												<GripVertical class="size-4 text-muted-foreground cursor-move" />
 												<span>{column.label}</span>
 												{#if column.sortable}
 													{#if sortBy === column.key}
@@ -570,8 +570,8 @@
 				</div>
 			{/if}
 		{:else}
-			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
-				<FileText class="h-8 w-8 opacity-50" />
+			<div class="flex flex-col justify-center items-center gap-4 p-16 text-muted-foreground">
+				<FileText class="opacity-50 w-8 h-8" />
 				<p>No audit logs found.</p>
 			</div>
 		{/if}

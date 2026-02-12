@@ -2,24 +2,13 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { goto } from '$app/navigation';
-	import { Plus, Filter } from '@lucide/svelte';
+	import { Plus, Funnel, Loader } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Select from '$lib/components/ui/select';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
-
-	// Helper function for multi-search matching
-	function matchesMultiSearch(filter: string, value: string): boolean {
-		if (!filter.trim()) return true;
-		const searchTerms = filter
-			.split(',')
-			.map((s) => s.trim().toLowerCase())
-			.filter(Boolean);
-		if (searchTerms.length === 0) return true;
-		return searchTerms.some((term) => value.toLowerCase().includes(term));
-	}
 
 	const user = useQuery(api.users.viewer, () => ({}));
 	const client = useConvexClient();
@@ -34,35 +23,16 @@
 
 	const currentUserId = $derived(user.data?._id);
 
-	const evaluationsQuery = useQuery(api.evaluations.listRecent, () => ({
-		limit: 50,
-		showAll: undefined
-	}));
-
-	// Transform query data to EvaluationEntry format
-	const evaluations = $derived.by(() => {
-		if (evaluationsQuery.data) {
-			return evaluationsQuery.data.map((e) => ({
-				_id: e._id,
-				value: e.value,
-				category: e.category,
-				subCategory: e.subCategory,
-				details: e.details,
-				timestamp: e.timestamp,
-				englishName: e.englishName,
-				grade: e.grade,
-				studentId: e.studentId,
-				teacherId: e.teacherId,
-				isAdmin: false
-			})) as EvaluationEntry[];
-		}
-		return [];
-	});
-
-	// Student filter state
+	// Filter state
 	let studentFilter = $state('');
 	let showSummary = $state(false);
 	let summaryTimeout: ReturnType<typeof setTimeout>;
+
+	// Pagination state
+	let cursor = $state<string | null | undefined>(undefined);
+	let accumulatedEvaluations = $state<EvaluationEntry[]>([]);
+	let isLoadingMore = $state(false);
+	let nextCursor = $state<string | null | undefined>(undefined); // Track when loadMore is triggered
 
 	$effect(() => {
 		if (studentFilter) {
@@ -76,29 +46,96 @@
 		}
 	});
 
-	// Filtered evaluations by student name
+	// Reset accumulated evaluations when filter changes
+	$effect(() => {
+		if (studentFilter !== undefined) {
+			cursor = undefined;
+			nextCursor = undefined;
+			accumulatedEvaluations = [];
+		}
+	});
+
+	// Fetch evaluations with pagination
+	const evaluationsQuery = useQuery(api.evaluations.listRecent, () => ({
+		limit: 50,
+		cursor: cursor ?? undefined,
+		studentFilter: studentFilter || undefined
+	}));
+
+	// Transform query data to EvaluationEntry format
+	function transformEvaluation(e: {
+		_id: string;
+		value: number;
+		category: string;
+		subCategory?: string;
+		details?: string;
+		timestamp: number;
+		englishName: string;
+		grade: number;
+		studentId: string;
+		teacherId: string;
+	}): EvaluationEntry {
+		return {
+			_id: e._id,
+			value: e.value,
+			category: e.category,
+			subCategory: e.subCategory,
+			details: e.details,
+			timestamp: e.timestamp,
+			englishName: e.englishName,
+			grade: e.grade,
+			studentId: e.studentId,
+			teacherId: e.teacherId,
+			isAdmin: false
+		};
+	}
+
+	// Accumulate pagination results when query updates with nextCursor set (load more triggered)
+	$effect(() => {
+		if (!evaluationsQuery.data) return;
+
+		// If loadMore was triggered and we got new data, accumulate it
+		if (nextCursor !== undefined) {
+			// Check if the response has new data (cursor should have changed from nextCursor)
+			if (evaluationsQuery.data.evaluations.length > 0) {
+				const newEvals = evaluationsQuery.data.evaluations || [];
+				const existingIds = new Set(accumulatedEvaluations.map((e) => e._id));
+				const uniqueNew = newEvals.filter((e) => !existingIds.has(e._id)).map(transformEvaluation);
+
+				if (uniqueNew.length > 0) {
+					accumulatedEvaluations = [...accumulatedEvaluations, ...uniqueNew];
+				}
+			}
+
+			// Clear loadMore state
+			nextCursor = undefined;
+			isLoadingMore = false;
+		} else if (accumulatedEvaluations.length === 0) {
+			// Initial load - just set accumulatedEvaluations from query
+			accumulatedEvaluations = evaluationsQuery.data.evaluations.map(transformEvaluation);
+		}
+	});
+
+	// Display evaluations
+	const evaluations = $derived.by(() => {
+		if (accumulatedEvaluations.length > 0) {
+			return accumulatedEvaluations;
+		}
+		if (evaluationsQuery.data) {
+			return evaluationsQuery.data.evaluations.map(transformEvaluation);
+		}
+		return [];
+	});
+
+	// Filtered evaluations
 	const filteredEvaluations = $derived.by(() => {
-		return evaluations.filter((e: EvaluationEntry) => {
-			return matchesMultiSearch(studentFilter, e.englishName ?? '');
-		});
+		return [...evaluations].sort((a, b) => b.timestamp - a.timestamp);
 	});
 
 	// Sort state
 	let sortAscending = $state(false);
 	// Show details state
 	let showDetails = $state(false);
-
-	// Dialog states
-	let editDialogOpen = $state(false);
-	let deleteDialogOpen = $state(false);
-	let selectedEvaluation = $state<EvaluationEntry | null>(null);
-
-	// Edit form state
-	let editValue = $state(0);
-	let editCategory = $state('');
-	let editSubCategory = $state('');
-	let editDetails = $state('');
-	let editLoading = $state(false);
 
 	// Sorted evaluations
 	const sortedEvaluations = $derived.by(() => {
@@ -114,7 +151,6 @@
 	}
 
 	function handleCardClick(_entry: EvaluationEntry): void {
-		// Navigation is handled by href
 		void _entry;
 	}
 
@@ -162,11 +198,42 @@
 		deleteDialogOpen = false;
 		selectedEvaluation = null;
 	}
+
+	// Load more evaluations
+	async function loadMore(): Promise<void> {
+		if (isLoadingMore) return;
+		if (!evaluationsQuery.data) return;
+		if (evaluationsQuery.data.isDone) return;
+
+		// Trigger a new query with the next cursor
+		nextCursor = evaluationsQuery.data.cursor;
+		cursor = nextCursor;
+		isLoadingMore = true;
+	}
+
+	// Dialog states
+	let editDialogOpen = $state(false);
+	let deleteDialogOpen = $state(false);
+	let selectedEvaluation = $state<EvaluationEntry | null>(null);
+
+	// Edit form state
+	let editValue = $state(0);
+	let editCategory = $state('');
+	let editSubCategory = $state('');
+	let editDetails = $state('');
+	let editLoading = $state(false);
 </script>
 
 <div class="mx-auto p-8 max-w-6xl">
-	{#if evaluationsQuery.isLoading}
-		<div class="py-16 text-muted-foreground text-center">Loading history...</div>
+	{#if evaluationsQuery.isLoading && accumulatedEvaluations.length === 0}
+		<div class="flex justify-center items-center gap-2 py-16 text-muted-foreground text-center">
+			<Loader class="size-5 animate-spin" />
+			Loading history...
+		</div>
+	{:else if evaluationsQuery.error}
+		<div class="bg-card p-8 border border-destructive rounded-lg text-center">
+			<p class="text-destructive">Error loading evaluations: {evaluationsQuery.error.message}</p>
+		</div>
 	{:else if evaluations.length === 0}
 		<div class="bg-card p-8 border border-input rounded-lg text-center">
 			<p class="mb-6 text-muted-foreground">No evaluations found. Start by awarding some points!</p>
@@ -188,25 +255,21 @@
 		>
 			{#snippet children()}
 				<!-- Filters Section with New Button -->
-				<div class="relative">
-					<div class="flex sm:flex-row flex-col sm:items-center gap-4 mb-4">
-						<Button onclick={() => void goto('/evaluations/new')}>
-							<Plus class="size-4" />
-							New
-						</Button>
+				<div class="flex sm:flex-row flex-col sm:items-center gap-4">
+					<Button onclick={() => void goto('/evaluations/new')}>
+						<Plus class="size-4" />
+						New
+					</Button>
 
-						<!-- Filter Input -->
-						<div class="relative">
-							<Filter
-								class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2"
-							/>
-							<Input
-								type="text"
-								placeholder="Filter by student(s)…"
-								bind:value={studentFilter}
-								class="pl-9 w-full sm:w-64"
-							/>
-						</div>
+					<!-- Filter Input -->
+					<div class="relative">
+						<Funnel class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
+						<Input
+							type="text"
+							placeholder="Filter by student(s)…"
+							bind:value={studentFilter}
+							class="pl-9 w-full sm:w-64"
+						/>
 					</div>
 				</div>
 
@@ -214,13 +277,25 @@
 				{#if showSummary}
 					<div class="bottom-6 left-1/2 z-50 fixed -translate-x-1/2">
 						<p class="bg-card/90 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full text-sm">
-							Showing {filteredEvaluations.length} of {evaluations.length} evaluations matching student
-							"{studentFilter}"
+							Showing {filteredEvaluations.length} evaluations matching student "{studentFilter}"
 						</p>
 					</div>
 				{/if}
 			{/snippet}
 		</EvaluationsTimeline>
+
+		{#if evaluationsQuery.data && !evaluationsQuery.data.isDone && evaluations.length > 0}
+			<div class="flex justify-center mt-4">
+				<Button variant="outline" onclick={loadMore} disabled={isLoadingMore}>
+					{#if isLoadingMore}
+						<Loader class="mr-2 size-4 animate-spin" />
+						Loading...
+					{:else}
+						More
+					{/if}
+				</Button>
+			</div>
+		{/if}
 	{/if}
 </div>
 
@@ -255,7 +330,6 @@
 						{editSubCategory || 'Select Subcategory'}
 					</Select.Trigger>
 					<Select.Content>
-						<!-- Show subcategories based on selected category, or all if none selected -->
 						{#each categoriesQuery.data?.find((c) => c.name === editCategory)?.subCategories || [] as sub (sub)}
 							<Select.Item value={sub}>{sub}</Select.Item>
 						{/each}

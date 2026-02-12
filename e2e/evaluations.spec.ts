@@ -45,16 +45,14 @@ async function createStudentForEval(
 	// Student items display as "englishName (chineseName)" format
 	// Look for the student name in the list - check for "No students found" first
 	const noStudentsMsg = page.getByText('No students found');
-	const hasNoStudents = await noStudentsMsg.isVisible().catch(() => false);
+	await expect(noStudentsMsg).not.toBeVisible();
 
-	if (hasNoStudents) {
-		await page.waitForSelector('body.hydrated');
+	await page.waitForSelector('body.hydrated');
 
-		// Try searching again
-		const filterInput2 = page.locator('input[aria-label="Search students"]').first();
-		await filterInput2.fill('');
-		await filterInput2.fill(englishName.toLowerCase());
-	}
+	// Try searching again
+	const filterInput2 = page.locator('input[aria-label="Search students"]').first();
+	await filterInput2.fill('');
+	await filterInput2.fill(englishName.toLowerCase());
 
 	// Student items are clickable divs with text in format "englishName (chineseName)"
 	// Use case-insensitive search since the filter is case-insensitive
@@ -794,5 +792,300 @@ test.describe('Evaluations - Student Filter Multi-Search', () => {
 		await expect(
 			page.getByRole('button', { name: `Evaluation for ${englishName2}` })
 		).toBeVisible();
+	});
+});
+
+test.describe('Admin Evaluations - Combined Filters', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	// CONSTANTS
+	let suffix: string;
+	let e2eTag: string;
+	let studentId1: string;
+	let studentId2: string;
+	let englishName1: string;
+	let englishName2: string;
+	let testData = false;
+
+	// DATA SEEDING
+	test.beforeEach(async ({ page }) => {
+		useRole('admin');
+		suffix = getTestSuffix('adminCombined');
+		e2eTag = `e2e-test_${suffix}`;
+		studentId1 = `STU1_${suffix}`;
+		studentId2 = `STU2_${suffix}`;
+		englishName1 = `Frank_${suffix}`;
+		englishName2 = `Grace_${suffix}`;
+
+		// Create two students
+		await createStudent({
+			studentId: studentId1,
+			englishName: englishName1,
+			chineseName: '學生1',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+
+		await createStudent({
+			studentId: studentId2,
+			englishName: englishName2,
+			chineseName: '學生2',
+			grade: 11,
+			status: 'Enrolled',
+			e2eTag
+		});
+
+		// Create evaluations
+		await createEvaluationForStudent({ studentId: studentId1, e2eTag });
+		await createEvaluationForStudent({ studentId: studentId2, e2eTag });
+		testData = true;
+
+		// Navigate to admin evaluations page
+		await page.goto('/admin/evaluations');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+	});
+
+	test.afterEach(async () => {
+		if (testData) await cleanupByTag('all', e2eTag);
+	});
+
+	test('filters by both student and teacher', async ({ page }) => {
+		// Get student filter and search for one student
+		const studentFilter = page.getByRole('textbox', { name: 'Filter by student(s)…' });
+		await studentFilter.fill(englishName1);
+
+		// Only Frank's card should be visible
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName1}` })
+		).toBeVisible();
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName2}` })
+		).not.toBeVisible();
+	});
+
+	test('clearing one filter preserves the other', async ({ page }) => {
+		const studentFilter = page.getByRole('textbox', { name: 'Filter by student(s)…' });
+		await studentFilter.fill(englishName1);
+
+		// Verify filtering works
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName1}` })
+		).toBeVisible();
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName2}` })
+		).not.toBeVisible();
+
+		// Clear student filter
+		await studentFilter.fill('');
+
+		// Both should be visible again
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName1}` })
+		).toBeVisible();
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName2}` })
+		).toBeVisible();
+	});
+});
+
+test.describe('Admin Evaluations - Pagination', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	// CONSTANTS
+	let suffix: string;
+	let e2eTag: string;
+	let testData = false;
+	const limit = 50; // Assuming the pagination limit is 50
+
+	// DATA SEEDING
+	test.beforeEach(async ({ page }) => {
+		useRole('admin');
+		suffix = getTestSuffix('adminPaging');
+		e2eTag = `e2e-test_${suffix}`;
+
+		// Create 55 students with evaluations to test pagination (limit is 50)
+		for (let i = 1; i <= limit + 1; i++) {
+			await createStudent({
+				studentId: `STU_${suffix}_${i}`,
+				englishName: `Paging_${suffix}_${i}`,
+				chineseName: `學生${i}`,
+				grade: 10,
+				status: 'Enrolled',
+				e2eTag
+			});
+			await createEvaluationForStudent({ studentId: `STU_${suffix}_${i}`, e2eTag });
+		}
+		testData = true;
+
+		// Navigate to admin evaluations page
+		await page.goto('/admin/evaluations');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+	});
+
+	test.afterEach(async () => {
+		if (testData) await cleanupByTag('all', e2eTag);
+	});
+
+	test('displays More button when more results exist', async ({ page }) => {
+		// With 55 evaluations and limit of 50, More button should be visible
+		const moreButton = page.getByRole('button', { name: /More/i });
+		await expect(moreButton).toBeVisible();
+	});
+
+	test('loads more evaluations on click', async ({ page }) => {
+		// Initial count should be 50
+		const cards = page.getByRole('button', { name: /Evaluation for/ });
+		await expect(cards.nth(limit - 1)).toBeVisible();
+		await expect(cards.nth(limit)).not.toBeVisible();
+
+		// Click More button to load remaining 5
+		const moreButton = page.getByRole('button', { name: /More/i });
+		await moreButton.click();
+
+		// Wait for additional cards to appear
+		await expect(cards.nth(limit)).toBeVisible();
+
+		// More button should be hidden (all loaded)
+		await expect(moreButton).not.toBeVisible();
+	});
+
+	test('shows loading state while fetching', async ({ page }) => {
+		// More button should be visible
+		const moreButton = page.getByRole('button', { name: /More/i });
+		await expect(moreButton).toBeVisible();
+
+		// Button should contain loading or More text
+		await expect(moreButton).toContainText(/More|Loading/);
+	});
+});
+
+test.describe('Evaluations - Pagination', () => {
+	test.use({ storageState: 'e2e/.auth/teacher.json' });
+
+	// CONSTANTS
+	let suffix: string;
+	let e2eTag: string;
+	let testData = false;
+	const limit = 50; // Assuming the pagination limit is 50
+
+	// DATA SEEDING
+	test.beforeEach(async ({ page }) => {
+		useRole('teacher');
+		suffix = getTestSuffix('evalPaging');
+		e2eTag = `e2e-test_${suffix}`;
+
+		// Create 55 students with evaluations to test pagination (limit is 50)
+		for (let i = 1; i <= limit + 1; i++) {
+			await createStudent({
+				studentId: `STU_${suffix}_${i}`,
+				englishName: `Pager_${suffix}_${i}`,
+				chineseName: `學生${i}`,
+				grade: 10,
+				status: 'Enrolled',
+				e2eTag
+			});
+			await createEvaluationForStudent({ studentId: `STU_${suffix}_${i}`, e2eTag });
+		}
+		testData = true;
+
+		// Navigate to evaluations page
+		await page.goto('/evaluations');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+	});
+
+	test.afterEach(async () => {
+		if (testData) await cleanupByTag('all', e2eTag);
+	});
+
+	test('displays More button when more results exist', async ({ page }) => {
+		const moreButton = page.getByRole('button', { name: /More/i });
+		await expect(moreButton).toBeVisible();
+	});
+
+	test('loads more evaluations on click', async ({ page }) => {
+		// Initial count should be 50
+		const cards = page.locator('.bg-card');
+		await expect(cards.nth(limit - 1)).toBeVisible();
+		await expect(cards.nth(limit)).not.toBeVisible();
+
+		// Click More button to load remaining 5
+		const moreButton = page.getByRole('button', { name: /More/i });
+		await moreButton.click();
+
+		// Wait for additional cards to appear
+		await expect(cards.nth(limit)).toBeVisible();
+
+		// More button should be hidden (all loaded)
+		await expect(moreButton).not.toBeVisible();
+	});
+
+	test('shows loading state while fetching', async ({ page }) => {
+		const moreButton = page.getByRole('button', { name: /More/i });
+		await expect(moreButton).toBeVisible();
+		await expect(moreButton).toContainText(/More|Loading/);
+	});
+
+	test('shows New button', async ({ page }) => {
+		const newButton = page.getByRole('button', { name: 'New', exact: true });
+		await expect(newButton).toBeVisible();
+	});
+});
+
+test.describe('Evaluations - UI Controls', () => {
+	test.use({ storageState: 'e2e/.auth/teacher.json' });
+
+	// CONSTANTS
+	let suffix: string;
+	let e2eTag: string;
+	let studentId: string;
+	let englishName: string;
+	let testData = false;
+
+	// DATA SEEDING
+	test.beforeEach(async ({ page }) => {
+		useRole('teacher');
+		suffix = getTestSuffix('evalUI');
+		e2eTag = `e2e-test_${suffix}`;
+		studentId = `STU_${suffix}`;
+		englishName = `UIName_${suffix}`;
+
+		await createStudent({
+			studentId,
+			englishName,
+			chineseName: '學生',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+
+		await createEvaluationForStudent({ studentId, e2eTag });
+		testData = true;
+
+		await page.goto('/evaluations');
+		await page.waitForSelector('body.hydrated');
+	});
+
+	test.afterEach(async () => {
+		if (testData) await cleanupByTag('all', e2eTag);
+	});
+
+	test('shows evaluation cards with student name', async ({ page }) => {
+		const card = page.getByRole('button', { name: `Evaluation for ${englishName}` });
+		await expect(card).toBeVisible();
+	});
+
+	test('can navigate to student detail by clicking card', async ({ page }) => {
+		const card = page.getByRole('button', { name: `Evaluation for ${englishName}` });
+		await expect(card).toBeVisible();
+
+		// Click on the card
+		await card.click();
+
+		// Should navigate to student detail page
+		await expect(page).toHaveURL(/.*evaluations\/student\/.*/);
 	});
 });
