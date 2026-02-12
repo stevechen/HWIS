@@ -228,7 +228,7 @@ test.describe('Student Timeline Page', () => {
 		});
 
 		test('admin filter dropdown exists', async ({ page }) => {
-			await expect(page.getByRole('textbox', { name: 'Filter by teacher(s)…' })).toBeVisible();
+			await expect(page.getByRole('textbox', { name: 'Filter by teacher' })).toBeVisible();
 		});
 	});
 

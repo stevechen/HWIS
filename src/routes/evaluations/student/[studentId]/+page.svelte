@@ -6,11 +6,19 @@
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
 	import { headerTitleOverride } from '$lib/stores/header';
 	import { onDestroy } from 'svelte';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import { Funnel } from '@lucide/svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import {
+		matchesMultiSearch,
+		sortEvaluations,
+		createFilterSummaryState,
+		createEvaluationDisplayState
+	} from '$lib/evaluations';
+	import {
+		FilterInput,
+		FilterSummaryToast,
+		EvaluationsLoadingState,
+		EditEvaluationDialog,
+		DeleteEvaluationDialog
+	} from '$lib/evaluations/components';
 
 	let { data }: { data: { demo?: string; studentId?: string } } = $props();
 
@@ -23,9 +31,6 @@
 		if (isDemo) return undefined;
 		return useQuery(api.users.viewer, () => ({}));
 	});
-
-	const client = useConvexClient();
-	const categoriesQuery = useQuery(api.categories.list, () => ({}));
 
 	// Determine if user is admin
 	const isAdmin = $derived.by(() => {
@@ -177,34 +182,22 @@
 		return teacherEvalsQuery?.data ?? [];
 	});
 
-	// Helper function for multi-search matching
-	function matchesMultiSearch(filter: string, value: string): boolean {
-		if (!filter.trim()) return true;
-		const searchTerms = filter
-			.split(',')
-			.map((s) => s.trim().toLowerCase())
-			.filter(Boolean);
-		if (searchTerms.length === 0) return true;
-		return searchTerms.some((term) => value.toLowerCase().includes(term));
-	}
-
-	// State for sorting and display
-	let sortAscending = $state(false);
-	let showDetails = $state(false);
+	// Filter state
 	let teacherFilter = $state('');
-	let showSummary = $state(false);
-	let summaryTimeout: ReturnType<typeof setTimeout>;
 
+	// Use shared state management
+	const filterSummary = createFilterSummaryState();
+	const displayState = createEvaluationDisplayState();
+
+	// Update filter summary when filter changes
 	$effect(() => {
-		if (teacherFilter) {
-			showSummary = true;
-			clearTimeout(summaryTimeout);
-			summaryTimeout = setTimeout(() => {
-				showSummary = false;
-			}, 3000);
-		} else {
-			showSummary = false;
-		}
+		filterSummary.updateSummary(!!teacherFilter);
+	});
+
+	// Cleanup on destroy
+	onDestroy(() => {
+		filterSummary.cleanup();
+		$headerTitleOverride = '';
 	});
 
 	// Dialog states
@@ -212,23 +205,13 @@
 	let deleteDialogOpen = $state(false);
 	let selectedEvaluation = $state<EvaluationEntry | null>(null);
 
-	// Edit form state
-	let editValue = $state(0);
-	let editCategory = $state('');
-	let editSubCategory = $state('');
-	let editDetails = $state('');
-	let editLoading = $state(false);
-
 	// Combined and filtered evaluations
 	const filteredEvaluations = $derived.by(() => {
 		let all = [...evaluations];
 		if (teacherFilter && teacherFilter.trim()) {
 			all = all.filter((e) => matchesMultiSearch(teacherFilter, e.teacherName ?? ''));
 		}
-		all.sort((a, b) => {
-			return sortAscending ? a.timestamp - b.timestamp : b.timestamp - a.timestamp;
-		});
-		return all;
+		return sortEvaluations(all, displayState.sortAscending);
 	});
 
 	function canEditEntry(entry: EvaluationEntry): boolean {
@@ -241,56 +224,14 @@
 
 	function handleLongPress(entry: EvaluationEntry): void {
 		selectedEvaluation = entry;
-		editValue = entry.value;
-		editCategory = entry.category;
-		editSubCategory = entry.subCategory || '';
-		editDetails = entry.details || '';
 		editDialogOpen = true;
 	}
 
-	async function handleEditConfirm(): Promise<void> {
-		if (!selectedEvaluation) return;
-
-		editLoading = true;
-		try {
-			if (isDemo) {
-				// Demo mode - just close the dialog
-				editDialogOpen = false;
-				selectedEvaluation = null;
-			} else {
-				await client.mutation(api.evaluations.update, {
-					id: selectedEvaluation._id as Id<'evaluations'>,
-					value: editValue,
-					category: editCategory,
-					subCategory: editSubCategory,
-					details: editDetails
-				});
-
-				editDialogOpen = false;
-				selectedEvaluation = null;
-			}
-		} finally {
-			editLoading = false;
-		}
+	function handleDeleteRequest(): void {
+		deleteDialogOpen = true;
 	}
 
-	async function handleDeleteConfirm(): Promise<void> {
-		if (!selectedEvaluation) return;
-
-		if (isDemo) {
-			// Demo mode - just close the dialog
-			deleteDialogOpen = false;
-			selectedEvaluation = null;
-		} else {
-			await client.mutation(api.evaluations.remove, {
-				id: selectedEvaluation._id as Id<'evaluations'>
-			});
-
-			deleteDialogOpen = false;
-			selectedEvaluation = null;
-		}
-	}
-
+	// Set header title override
 	$effect(() => {
 		if (!browser) return;
 		if (student?.englishName && student?.grade !== undefined) {
@@ -298,8 +239,22 @@
 		}
 	});
 
-	onDestroy(() => {
-		$headerTitleOverride = '';
+	// Determine loading state
+	const isLoading = $derived.by(() => {
+		if (isDemo) return false;
+		if (userQuery?.isLoading) return true;
+		if (studentQuery?.isLoading) return true;
+		if (isAdmin && allEvalsQuery?.isLoading) return true;
+		if (!isAdmin && teacherEvalsQuery?.isLoading) return true;
+		return false;
+	});
+
+	// Determine loading message
+	const loadingMessage = $derived.by(() => {
+		if (userQuery?.isLoading) return 'Loading user data...';
+		if (studentQuery?.isLoading) return 'Loading student data...';
+		if (isAdmin) return 'Loading evaluations...';
+		return 'Loading your evaluations...';
 	});
 </script>
 
@@ -315,22 +270,16 @@
 	{/if}
 
 	<!-- Loading State -->
-	{#if !isDemo && (userQuery?.isLoading ?? false)}
-		<div class="py-12 text-muted-foreground text-center">Loading user data...</div>
-	{:else if !isDemo && (studentQuery?.isLoading ?? false)}
-		<div class="py-12 text-muted-foreground text-center">Loading student data...</div>
-	{:else if !isDemo && isAdmin && (allEvalsQuery?.isLoading ?? false)}
-		<div class="py-12 text-muted-foreground text-center">Loading evaluations...</div>
-	{:else if !isDemo && !isAdmin && (teacherEvalsQuery?.isLoading ?? false)}
-		<div class="py-12 text-muted-foreground text-center">Loading your evaluations...</div>
+	{#if isLoading}
+		<EvaluationsLoadingState message={loadingMessage} />
 	{:else}
 		<EvaluationsTimeline
 			evaluations={filteredEvaluations}
 			showStudentName={false}
 			studentGrade={student.grade}
 			showTeacherName={true}
-			bind:sortAscending
-			bind:showDetails
+			bind:sortAscending={displayState.sortAscending}
+			bind:showDetails={displayState.showDetails}
 			enableLongPress={true}
 			onLongPress={handleLongPress}
 			{canEditEntry}
@@ -339,133 +288,38 @@
 				<!-- Filters Section -->
 				<div class="flex sm:flex-row flex-col sm:items-center gap-4">
 					<!-- Teacher Name Filter -->
-					<div class="relative">
-						<Funnel class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
-						<Input
-							type="text"
-							placeholder="Filter by teacher(s)…"
-							bind:value={teacherFilter}
-							class="pl-9 w-full sm:w-48"
-						/>
-					</div>
+					<FilterInput
+						bind:value={teacherFilter}
+						placeholder="Filter by teacher(s)…"
+						ariaLabel="Filter by teacher"
+						class="w-full sm:w-48"
+					/>
 				</div>
-
-				<!-- Filter Summary -->
-				{#if showSummary}
-					<div class="bottom-6 left-1/2 z-50 fixed -translate-x-1/2">
-						<p class="bg-card/90 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full text-sm">
-							Showing {filteredEvaluations.length} of {evaluations.length} evaluation{evaluations.length ===
-							1
-								? ''
-								: 's'} for teacher "{teacherFilter}"
-						</p>
-					</div>
-				{/if}
 			{/snippet}
 		</EvaluationsTimeline>
+
+		<!-- Filter Summary -->
+		<FilterSummaryToast
+			show={filterSummary.showSummary}
+			count={filteredEvaluations.length}
+			total={evaluations.length}
+			filterLabel="teacher"
+			filterValue={teacherFilter}
+		/>
 	{/if}
 </div>
 
 <!-- Edit Dialog -->
-<Dialog.Root bind:open={editDialogOpen}>
-	<Dialog.Content aria-label="Edit Evaluation">
-		<Dialog.Header>
-			<Dialog.Title>Edit Evaluation</Dialog.Title>
-		</Dialog.Header>
-
-		<div class="space-y-4 py-4">
-			<!-- Category -->
-			<div class="space-y-2">
-				<label class="font-medium text-sm" for="category-select">Category</label>
-				<Select.Root type="single" bind:value={editCategory}>
-					<Select.Trigger id="category-select" aria-label="Select category">
-						{editCategory || 'Select Category'}
-					</Select.Trigger>
-					<Select.Content>
-						{#each categoriesQuery.data || [] as cat (cat._id)}
-							<Select.Item value={cat.name}>{cat.name}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			</div>
-
-			<!-- SubCategory -->
-			<div class="space-y-2">
-				<label class="font-medium text-sm" for="subcategory-select">Subcategory</label>
-				<Select.Root type="single" bind:value={editSubCategory}>
-					<Select.Trigger id="subcategory-select" aria-label="Select subcategory">
-						{editSubCategory || 'Select Subcategory'}
-					</Select.Trigger>
-					<Select.Content>
-						<!-- Show subcategories based on selected category, or all if none selected -->
-						{#each categoriesQuery.data?.find((c) => c.name === editCategory)?.subCategories || [] as sub (sub)}
-							<Select.Item value={sub}>{sub}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			</div>
-
-			<!-- Points - Only -2, -1, +1, +2 -->
-			<fieldset class="space-y-2">
-				<legend class="font-medium text-sm">Points</legend>
-				<div class="gap-2 grid grid-cols-4" role="group" aria-label="Point values">
-					{#each [-2, -1, 1, 2] as p (p)}
-						<Button
-							type="button"
-							variant={editValue === p ? 'default' : 'outline'}
-							onclick={() => (editValue = p)}
-							aria-label={p > 0 ? `Award ${p} points` : `Deduct ${Math.abs(p)} points`}
-						>
-							{p > 0 ? '+' : ''}{p}
-						</Button>
-					{/each}
-				</div>
-			</fieldset>
-
-			<!-- Details -->
-			<div class="space-y-2">
-				<label class="font-medium text-sm" for="evaluation-details">Details / Comments</label>
-				<textarea
-					id="evaluation-details"
-					bind:value={editDetails}
-					placeholder="Enter specific details..."
-					class="bg-background p-3 border border-input rounded-md w-full text-sm"
-					rows="3"
-					aria-label="Evaluation details"
-				></textarea>
-			</div>
-		</div>
-
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (editDialogOpen = false)}>Cancel</Button>
-			<Button
-				variant="destructive"
-				onclick={() => {
-					deleteDialogOpen = true;
-					editDialogOpen = false;
-				}}>Delete</Button
-			>
-			<Button onclick={handleEditConfirm} disabled={editLoading}>
-				{editLoading ? 'Saving...' : 'Save Changes'}
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+<EditEvaluationDialog
+	bind:open={editDialogOpen}
+	evaluation={selectedEvaluation}
+	onClose={() => {
+		editDialogOpen = false;
+		selectedEvaluation = null;
+	}}
+	onDelete={handleDeleteRequest}
+	{isDemo}
+/>
 
 <!-- Delete Confirmation Dialog -->
-<Dialog.Root bind:open={deleteDialogOpen}>
-	<Dialog.Content aria-label="Delete Evaluation">
-		<Dialog.Header>
-			<Dialog.Title>Delete Evaluation</Dialog.Title>
-		</Dialog.Header>
-
-		<p class="py-4">
-			Are you sure you want to delete this evaluation? This action cannot be undone.
-		</p>
-
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (deleteDialogOpen = false)}>Cancel</Button>
-			<Button variant="destructive" onclick={handleDeleteConfirm}>Delete</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+<DeleteEvaluationDialog bind:open={deleteDialogOpen} evaluation={selectedEvaluation} {isDemo} />
