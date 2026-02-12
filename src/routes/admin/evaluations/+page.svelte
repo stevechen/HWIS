@@ -59,6 +59,7 @@
 		englishName: string;
 		grade: number;
 		studentId: string;
+		studentIdCode: string;
 		teacherName: string;
 	}): EvaluationEntry {
 		return {
@@ -71,6 +72,7 @@
 			englishName: e.englishName,
 			grade: e.grade,
 			studentId: e.studentId,
+			studentIdCode: e.studentIdCode,
 			teacherName: e.teacherName
 		};
 	}
@@ -169,7 +171,7 @@
 			showTeacherFilter={false}
 			showTeacherName={true}
 			enableCardClick={true}
-			cardHref={(entry) => `/evaluations/student/${entry.studentId}`}
+			cardHref={(entry) => `/evaluations/student/${entry.studentIdCode}`}
 			onCardClick={handleCardClick}
 			bind:sortAscending
 			bind:showDetails

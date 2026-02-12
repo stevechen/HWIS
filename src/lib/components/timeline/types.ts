@@ -10,5 +10,6 @@ export interface EvaluationEntry {
 	englishName?: string;
 	grade?: number;
 	studentId?: string;
+	studentIdCode?: string; // The actual student ID code (e.g., SE2024001)
 	teacherId?: string; // for ownership check
 }
