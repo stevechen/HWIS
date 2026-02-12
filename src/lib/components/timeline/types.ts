@@ -12,4 +12,5 @@ export interface EvaluationEntry {
 	studentId?: string;
 	studentIdCode?: string; // The actual student ID code (e.g., SE2024001)
 	teacherId?: string; // for ownership check
+	status?: 'Enrolled' | 'Not Enrolled'; // Student enrollment status
 }

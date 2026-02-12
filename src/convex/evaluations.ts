@@ -115,8 +115,6 @@ function matchesMultiSearch(filter: string, value: string): boolean {
 
 export const listRecent = query({
 	args: {
-		limit: v.optional(v.number()),
-		cursor: v.optional(v.union(v.string(), v.null())),
 		studentFilter: v.optional(v.string()),
 		testToken: v.optional(v.string())
 	},
@@ -132,25 +130,27 @@ export const listRecent = query({
 			.withIndex('by_authId', (q) => q.eq('authId', authId))
 			.first();
 
-		if (!userDoc) return { evaluations: [], cursor: null };
+		if (!userDoc) return [];
 
-		const pageSize = Math.min(args.limit || 50, 100);
+		// Check if user is admin
+		const userRole = userDoc?.role;
+		const isAdmin = userRole === 'admin' || userRole === 'super';
 
-		// Use cursor-based pagination
-		const paginationResult = await ctx.db
+		// Fetch all evaluations for this teacher (collect() for better reactivity)
+		const allEvaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_teacherId', (q) => q.eq('teacherId', userDoc._id))
 			.order('desc')
-			.paginate({ numItems: pageSize, cursor: args.cursor ?? null });
+			.collect();
 
-		// Fetch student data for enrichment
-		const studentIds = [...new Set(paginationResult.page.map((e) => e.studentId))];
+		// Fetch all students for enrichment
+		const studentIds = [...new Set(allEvaluations.map((e) => e.studentId))];
 		const students = await Promise.all(studentIds.map((id) => ctx.db.get(id)));
 		const studentMap = new Map(
 			students.filter((s): s is NonNullable<typeof s> => s != null).map((s) => [s._id, s])
 		);
 
-		let results = paginationResult.page.map((eval_) => {
+		let results = allEvaluations.map((eval_) => {
 			const student = studentMap.get(eval_.studentId);
 			return {
 				_id: eval_._id,
@@ -159,6 +159,7 @@ export const listRecent = query({
 				englishName: student?.englishName || 'Unknown Student',
 				grade: student?.grade || 0,
 				studentIdCode: student?.studentId || 'N/A',
+				status: student?.status || 'Not Enrolled',
 				value: eval_.value,
 				category: eval_.category,
 				subCategory: eval_.subCategory,
@@ -172,11 +173,13 @@ export const listRecent = query({
 			results = results.filter((e) => matchesMultiSearch(args.studentFilter!, e.englishName ?? ''));
 		}
 
-		return {
-			evaluations: results,
-			cursor: paginationResult.continueCursor,
-			isDone: paginationResult.isDone
-		};
+		// Filter out evaluations for unenrolled students (non-admin view)
+		if (!isAdmin) {
+			results = results.filter((e) => e.status !== 'Not Enrolled');
+		}
+
+		// Sort by timestamp descending
+		return results.sort((a, b) => b.timestamp - a.timestamp);
 	}
 });
 
@@ -500,27 +503,24 @@ export const getStudentEvaluationsAllByStudentIdCode = query({
 // Get all evaluations from all teachers (admin view)
 export const listAllEvaluations = query({
 	args: {
-		limit: v.optional(v.number()),
-		cursor: v.optional(v.string()),
 		studentFilter: v.optional(v.string()),
 		teacherFilter: v.optional(v.string()),
+		showUnenrolled: v.optional(v.boolean()),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
 
-		const pageSize = Math.min(args.limit || 50, 100);
-
-		// Use cursor-based pagination
-		const paginationResult = await ctx.db
+		// Fetch all evaluations (collect() for better reactivity)
+		const allEvaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_timestamp')
 			.order('desc')
-			.paginate({ numItems: pageSize, cursor: args.cursor ?? null });
+			.collect();
 
 		// Fetch student and teacher data for enrichment
-		const studentIds = [...new Set(paginationResult.page.map((e) => e.studentId))];
-		const teacherIds = [...new Set(paginationResult.page.map((e) => e.teacherId))];
+		const studentIds = [...new Set(allEvaluations.map((e) => e.studentId))];
+		const teacherIds = [...new Set(allEvaluations.map((e) => e.teacherId))];
 
 		// Parallel fetch students and teachers
 		const [students, teachers] = await Promise.all([
@@ -536,7 +536,7 @@ export const listAllEvaluations = query({
 			teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
 		);
 
-		let enriched = paginationResult.page.map((eval_) => {
+		let enriched = allEvaluations.map((eval_) => {
 			const student = studentMap.get(eval_.studentId);
 			const teacher = teacherMap.get(eval_.teacherId);
 			return {
@@ -545,6 +545,7 @@ export const listAllEvaluations = query({
 				englishName: student?.englishName || 'Unknown Student',
 				grade: student?.grade || 0,
 				studentIdCode: student?.studentId || 'N/A',
+				status: student?.status || 'Not Enrolled',
 				value: eval_.value,
 				category: eval_.category,
 				subCategory: eval_.subCategory,
@@ -568,11 +569,14 @@ export const listAllEvaluations = query({
 			);
 		}
 
-		return {
-			evaluations: enriched,
-			cursor: paginationResult.continueCursor,
-			isDone: paginationResult.isDone
-		};
+		// Filter unenrolled students unless showUnenrolled is true
+		// Default is to hide unenrolled students (showUnenrolled = false or undefined)
+		if (args.showUnenrolled !== true) {
+			enriched = enriched.filter((e) => e.status !== 'Not Enrolled');
+		}
+
+		// Sort by timestamp descending
+		return enriched.sort((a, b) => b.timestamp - a.timestamp);
 	}
 });
 

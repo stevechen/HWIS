@@ -96,5 +96,12 @@ export default defineSchema({
 		filename: v.string(),
 		data: v.any(),
 		createdAt: v.number()
-	}).index('by_createdAt', ['createdAt'])
+	}).index('by_createdAt', ['createdAt']),
+
+	settings: defineTable({
+		key: v.string(),
+		value: v.string(),
+		updatedAt: v.number(),
+		updatedBy: v.id('users')
+	}).index('by_key', ['key'])
 });

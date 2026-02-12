@@ -25,6 +25,8 @@
 		onCardClick?: (entry: EvaluationEntry) => void;
 		sortAscending?: boolean;
 		showDetails?: boolean;
+		showUnenrolled?: boolean;
+		onToggleShowUnenrolled?: () => void;
 		enableLongPress?: boolean;
 		onLongPress?: (entry: EvaluationEntry) => void;
 		canEditEntry?: (entry: EvaluationEntry) => boolean;
@@ -42,11 +44,19 @@
 		onCardClick,
 		sortAscending: sortAscending = $bindable(false),
 		showDetails: showDetails = $bindable(false),
+		showUnenrolled: showUnenrolled = false,
+		onToggleShowUnenrolled,
 		enableLongPress = false,
 		onLongPress,
 		canEditEntry,
 		children
 	}: Props = $props();
+
+	// Client-side fallback filter (server handles primary filtering)
+	const filteredEvaluations = $derived.by(() => {
+		if (showUnenrolled) return evaluations;
+		return evaluations.filter((e) => e.status !== 'Not Enrolled');
+	});
 
 	let hoveredIndex = $state<number | null>(null);
 	let longPressTimer = $state<ReturnType<typeof setTimeout> | null>(null);
@@ -150,22 +160,40 @@
 			{/if}
 		</Button>
 
+		<!-- Toggle show unenrolled students (admin only) -->
+		{#if onToggleShowUnenrolled}
+			<Button
+				aria-label={showUnenrolled ? 'Hide unenrolled students' : 'Show unenrolled students'}
+				variant="outline"
+				size="sm"
+				onclick={() => onToggleShowUnenrolled()}
+				title={showUnenrolled ? 'Hide unenrolled students' : 'Show unenrolled students'}
+			>
+				{#if showUnenrolled}
+					<Eye class="size-4" />
+				{:else}
+					<EyeOff class="size-4" />
+				{/if}
+			</Button>
+		{/if}
+
 		<Button
+			aria-label={showDetails ? 'Hide Details' : 'Show Details'}
 			variant="outline"
 			size="sm"
 			onclick={() => (showDetails = !showDetails)}
 			title={showDetails ? 'Hide Details' : 'Show Details'}
 		>
 			{#if showDetails}
-				<ListChevronsDownUp class="size-4" />
-			{:else}
 				<ListChevronsUpDown class="size-4" />
+			{:else}
+				<ListChevronsDownUp class="size-4" />
 			{/if}
 		</Button>
 	</div>
 </div>
 
-{#if evaluations.length === 0}
+{#if filteredEvaluations.length === 0}
 	<Card.Root class="p-8 text-center">
 		<Card.Content class="pt-6">
 			<p class="mb-6 text-muted-foreground">No evaluations found.</p>
@@ -183,7 +211,7 @@
 			aria-label="Timeline divider"
 		></div>
 		<div class="relative flex flex-col gap-6 py-4 min-h-25">
-			{#each evaluations as entry, idx (entry._id)}
+			{#each filteredEvaluations as entry, idx (entry._id)}
 				<div class="items-center gap-2 sm:gap-4 grid grid-cols-[1fr_auto_1fr]">
 					<div
 						class={[

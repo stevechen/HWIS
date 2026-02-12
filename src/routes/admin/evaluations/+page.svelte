@@ -13,11 +13,18 @@
 	let showSummary = $state(false);
 	let summaryTimeout: ReturnType<typeof setTimeout>;
 
-	// Pagination state
-	let cursor = $state<string | null | undefined>(undefined);
-	let accumulatedEvaluations = $state<EvaluationEntry[]>([]);
-	let isLoadingMore = $state(false);
-	let nextCursor = $state<string | null | undefined>(undefined); // Track when loadMore is triggered
+	// Sort state
+	let sortAscending = $state(false);
+	// Show details state
+	let showDetails = $state(false);
+
+	// Show unenrolled toggle - default to OFF, no persistence
+	let showUnenrolled = $state(false);
+
+	// Toggle function - just updates local state (resets on page reload)
+	function toggleShowUnenrolled(): void {
+		showUnenrolled = !showUnenrolled;
+	}
 
 	$effect(() => {
 		if (studentFilter || teacherFilter) {
@@ -31,22 +38,15 @@
 		}
 	});
 
-	// Reset accumulated evaluations when filter changes
-	$effect(() => {
-		if (studentFilter !== undefined || teacherFilter !== undefined) {
-			cursor = undefined;
-			nextCursor = undefined;
-			accumulatedEvaluations = [];
-		}
+	// Query args - showUnenrolled defaults to false
+	const evaluationsQueryArgs = $derived({
+		studentFilter: studentFilter || undefined,
+		teacherFilter: teacherFilter || undefined,
+		showUnenrolled
 	});
 
-	// Fetch all evaluations with pagination support
-	const evaluationsQuery = useQuery(api.evaluations.listAllEvaluations, () => ({
-		limit: 50,
-		cursor: cursor ?? undefined,
-		studentFilter: studentFilter || undefined,
-		teacherFilter: teacherFilter || undefined
-	}));
+	// The evaluations query
+	const evaluationsQuery = useQuery(api.evaluations.listAllEvaluations, () => evaluationsQueryArgs);
 
 	// Transform query data to EvaluationEntry format
 	function transformEvaluation(e: {
@@ -61,6 +61,7 @@
 		studentId: string;
 		studentIdCode: string;
 		teacherName: string;
+		status?: 'Enrolled' | 'Not Enrolled';
 	}): EvaluationEntry {
 		return {
 			_id: e._id,
@@ -73,85 +74,28 @@
 			grade: e.grade,
 			studentId: e.studentId,
 			studentIdCode: e.studentIdCode,
-			teacherName: e.teacherName
+			teacherName: e.teacherName,
+			status: e.status
 		};
 	}
 
-	// Accumulate pagination results when query updates with nextCursor set (load more triggered)
-	$effect(() => {
-		if (!evaluationsQuery.data) return;
-
-		// If loadMore was triggered and we got new data, accumulate it
-		if (nextCursor !== undefined) {
-			// Check if the response has new data (cursor should have changed from nextCursor)
-			if (evaluationsQuery.data.evaluations.length > 0) {
-				const newEvals = evaluationsQuery.data.evaluations || [];
-				const existingIds = new Set(accumulatedEvaluations.map((e) => e._id));
-				const uniqueNew = newEvals.filter((e) => !existingIds.has(e._id)).map(transformEvaluation);
-
-				if (uniqueNew.length > 0) {
-					accumulatedEvaluations = [...accumulatedEvaluations, ...uniqueNew];
-				}
-			}
-
-			// Clear loadMore state
-			nextCursor = undefined;
-			isLoadingMore = false;
-		} else if (accumulatedEvaluations.length === 0) {
-			// Initial load - just set accumulatedEvaluations from query
-			accumulatedEvaluations = evaluationsQuery.data.evaluations.map(transformEvaluation);
-		}
-	});
-
-	// Display evaluations
-	const displayEvaluations = $derived.by(() => {
-		if (accumulatedEvaluations.length > 0) {
-			return accumulatedEvaluations;
-		}
-		if (evaluationsQuery.data) {
-			return evaluationsQuery.data.evaluations.map(transformEvaluation);
-		}
-		return [];
-	});
-
-	// Filtered evaluations - client-side sort only (filtering is server-side)
-	const filteredEvaluations = $derived.by(() => {
-		return [...displayEvaluations].sort((a, b) => b.timestamp - a.timestamp);
-	});
-
-	// Sort state
-	let sortAscending = $state(false);
-	// Show details state
-	let showDetails = $state(false);
-
-	// Sorted evaluations
+	// Sorted evaluations - directly from query data (reactive)
 	const sortedEvaluations = $derived.by(() => {
-		const evals = filteredEvaluations;
-		if (sortAscending) {
-			return [...evals].sort((a, b) => a.timestamp - b.timestamp);
-		}
-		return [...evals].sort((a, b) => b.timestamp - a.timestamp);
+		if (!evaluationsQuery.data) return [];
+
+		const evals = evaluationsQuery.data.map(transformEvaluation);
+		return sortAscending
+			? [...evals].sort((a, b) => a.timestamp - b.timestamp)
+			: [...evals].sort((a, b) => b.timestamp - a.timestamp);
 	});
 
 	function handleCardClick(_entry: EvaluationEntry): void {
 		void _entry;
 	}
-
-	// Load more evaluations
-	async function loadMore(): Promise<void> {
-		if (isLoadingMore) return;
-		if (!evaluationsQuery.data) return;
-		if (evaluationsQuery.data.isDone) return;
-
-		// Trigger a new query with the next cursor
-		nextCursor = evaluationsQuery.data.cursor;
-		cursor = nextCursor;
-		isLoadingMore = true;
-	}
 </script>
 
 <div class="mx-auto p-8 max-w-6xl">
-	{#if evaluationsQuery.isLoading && accumulatedEvaluations.length === 0}
+	{#if evaluationsQuery.isLoading}
 		<div class="flex justify-center items-center gap-2 py-16 text-muted-foreground text-center">
 			<Loader class="size-5 animate-spin" />
 			Loading evaluations...
@@ -160,7 +104,7 @@
 		<div class="bg-card p-8 border border-destructive rounded-lg text-center">
 			<p class="text-destructive">Error loading evaluations: {evaluationsQuery.error.message}</p>
 		</div>
-	{:else if displayEvaluations.length === 0}
+	{:else if sortedEvaluations.length === 0}
 		<div class="bg-card p-8 border border-input rounded-lg text-center">
 			<p class="mb-6 text-muted-foreground">No evaluations found.</p>
 		</div>
@@ -175,74 +119,49 @@
 			onCardClick={handleCardClick}
 			bind:sortAscending
 			bind:showDetails
+			{showUnenrolled}
+			onToggleShowUnenrolled={toggleShowUnenrolled}
 		>
 			{#snippet children()}
 				<!-- Filters Section -->
 				<div class="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4">
-					<!-- New Button and Filters -->
-					<div class="flex sm:flex-row flex-col sm:items-center gap-4">
-						<Button onclick={() => void goto('/evaluations/new')}>
-							<Plus class="size-4" />
-							New
-						</Button>
-
-						<!-- Student Name Filter -->
-						<div class="relative">
+					<div class="flex sm:flex-row flex-col gap-4">
+						<div class="relative w-full sm:w-64">
 							<Funnel
 								class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2"
 							/>
 							<Input
-								type="text"
-								placeholder="Filter by student(s)…"
 								bind:value={studentFilter}
-								class="pl-9 w-full sm:w-64"
+								placeholder="Filter by student name..."
+								class="pl-9"
+								aria-label="Filter by student name"
 							/>
 						</div>
-
-						<!-- Teacher Name Filter -->
-						<div class="relative">
+						<div class="relative w-full sm:w-64">
 							<Funnel
 								class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2"
 							/>
 							<Input
-								type="text"
-								placeholder="Filter by teacher(s)…"
 								bind:value={teacherFilter}
-								class="pl-9 w-full sm:w-48"
+								placeholder="Filter by teacher..."
+								class="pl-9"
+								aria-label="Filter by teacher"
 							/>
 						</div>
+					</div>
+					<div class="flex gap-2">
+						{#if showSummary}
+							<div class="flex items-center gap-2 text-muted-foreground text-sm">
+								<span
+									>Showing {sortedEvaluations.length} evaluation{sortedEvaluations.length === 1
+										? ''
+										: 's'}</span
+								>
+							</div>
+						{/if}
 					</div>
 				</div>
-
-				<!-- Filter Summary -->
-				{#if showSummary}
-					<div class="bottom-6 left-1/2 z-50 fixed -translate-x-1/2">
-						<p class="bg-card/90 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full text-sm">
-							Showing {filteredEvaluations.length} evaluations
-							{#if studentFilter && teacherFilter}
-								matching student "{studentFilter}" and teacher "{teacherFilter}"
-							{:else if studentFilter}
-								matching student "{studentFilter}"
-							{:else if teacherFilter}
-								for teacher "{teacherFilter}"
-							{/if}
-						</p>
-					</div>
-				{/if}
 			{/snippet}
 		</EvaluationsTimeline>
-
-		{#if evaluationsQuery.data && !evaluationsQuery.data.isDone && displayEvaluations.length > 0}
-			<div class="flex justify-center mt-4">
-				<Button variant="outline" onclick={loadMore} disabled={isLoadingMore}>
-					{#if isLoadingMore}
-						<Loader class="mr-2 size-4 animate-spin" />
-						Loading...
-					{:else}
-						More
-					{/if}
-				</Button>
-			</div>
-		{/if}
 	{/if}
 </div>

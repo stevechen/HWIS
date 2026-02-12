@@ -30,7 +30,8 @@ const config: PlaywrightTestConfig = {
 		{
 			name: 'chromium',
 			use: { ...devices['Desktop Chrome'] },
-			testMatch: /^(?!.*(setup|cleanup|evaluations)).*\.spec\.ts$/,
+			testMatch: '**/*.spec.ts',
+			testIgnore: ['**/setup.spec.ts', '**/cleanup.spec.ts', '**/evaluations.spec.ts'],
 			dependencies: ['setup'],
 			teardown: 'cleanup',
 			workers: 1
@@ -49,7 +50,8 @@ const config: PlaywrightTestConfig = {
 		{
 			name: 'webkit',
 			use: { ...devices['Desktop Safari'] },
-			testMatch: /^(?!.*(setup|cleanup|evaluations)).*\.spec\.ts$/,
+			testMatch: '**/*.spec.ts',
+			testIgnore: ['**/setup.spec.ts', '**/cleanup.spec.ts', '**/evaluations.spec.ts'],
 			dependencies: ['setup'],
 			teardown: 'cleanup',
 			workers: 1

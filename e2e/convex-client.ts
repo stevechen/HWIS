@@ -73,7 +73,7 @@ export async function cleanupAll() {
 
 export async function cleanupTestData(tag: string) {
 	const utils = getUtils();
-	return await utils.cleanupTestData(tag);
+	return await utils.cleanupByTag('all', tag);
 }
 
 export async function cleanupAuditLogs(authIdString?: string) {

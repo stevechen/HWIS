@@ -28,12 +28,6 @@
 	let showSummary = $state(false);
 	let summaryTimeout: ReturnType<typeof setTimeout>;
 
-	// Pagination state
-	let cursor = $state<string | null | undefined>(undefined);
-	let accumulatedEvaluations = $state<EvaluationEntry[]>([]);
-	let isLoadingMore = $state(false);
-	let nextCursor = $state<string | null | undefined>(undefined); // Track when loadMore is triggered
-
 	$effect(() => {
 		if (studentFilter) {
 			showSummary = true;
@@ -46,19 +40,8 @@
 		}
 	});
 
-	// Reset accumulated evaluations when filter changes
-	$effect(() => {
-		if (studentFilter !== undefined) {
-			cursor = undefined;
-			nextCursor = undefined;
-			accumulatedEvaluations = [];
-		}
-	});
-
-	// Fetch evaluations with pagination
+	// Fetch all evaluations (collect() for better reactivity)
 	const evaluationsQuery = useQuery(api.evaluations.listRecent, () => ({
-		limit: 50,
-		cursor: cursor ?? undefined,
 		studentFilter: studentFilter || undefined
 	}));
 
@@ -75,6 +58,7 @@
 		studentId: string;
 		studentIdCode: string;
 		teacherId: string;
+		status?: 'Enrolled' | 'Not Enrolled';
 	}): EvaluationEntry {
 		return {
 			_id: e._id,
@@ -88,65 +72,27 @@
 			studentId: e.studentId,
 			studentIdCode: e.studentIdCode,
 			teacherId: e.teacherId,
+			status: e.status,
 			isAdmin: false
 		};
 	}
 
-	// Accumulate pagination results when query updates with nextCursor set (load more triggered)
-	$effect(() => {
-		if (!evaluationsQuery.data) return;
+	// Sorted evaluations - directly from query data (reactive)
+	const sortedEvaluations = $derived.by(() => {
+		if (!evaluationsQuery.data) return [];
 
-		// If loadMore was triggered and we got new data, accumulate it
-		if (nextCursor !== undefined) {
-			// Check if the response has new data (cursor should have changed from nextCursor)
-			if (evaluationsQuery.data.evaluations.length > 0) {
-				const newEvals = evaluationsQuery.data.evaluations || [];
-				const existingIds = new Set(accumulatedEvaluations.map((e) => e._id));
-				const uniqueNew = newEvals.filter((e) => !existingIds.has(e._id)).map(transformEvaluation);
+		const evals = evaluationsQuery.data.map(transformEvaluation);
 
-				if (uniqueNew.length > 0) {
-					accumulatedEvaluations = [...accumulatedEvaluations, ...uniqueNew];
-				}
-			}
-
-			// Clear loadMore state
-			nextCursor = undefined;
-			isLoadingMore = false;
-		} else if (accumulatedEvaluations.length === 0) {
-			// Initial load - just set accumulatedEvaluations from query
-			accumulatedEvaluations = evaluationsQuery.data.evaluations.map(transformEvaluation);
+		if (sortAscending) {
+			return [...evals].sort((a, b) => a.timestamp - b.timestamp);
 		}
-	});
-
-	// Display evaluations
-	const evaluations = $derived.by(() => {
-		if (accumulatedEvaluations.length > 0) {
-			return accumulatedEvaluations;
-		}
-		if (evaluationsQuery.data) {
-			return evaluationsQuery.data.evaluations.map(transformEvaluation);
-		}
-		return [];
-	});
-
-	// Filtered evaluations
-	const filteredEvaluations = $derived.by(() => {
-		return [...evaluations].sort((a, b) => b.timestamp - a.timestamp);
+		return [...evals].sort((a, b) => b.timestamp - a.timestamp);
 	});
 
 	// Sort state
 	let sortAscending = $state(false);
 	// Show details state
 	let showDetails = $state(false);
-
-	// Sorted evaluations
-	const sortedEvaluations = $derived.by(() => {
-		const evals = filteredEvaluations;
-		if (sortAscending) {
-			return [...evals].sort((a, b) => a.timestamp - b.timestamp);
-		}
-		return [...evals].sort((a, b) => b.timestamp - a.timestamp);
-	});
 
 	function canEditEntry(entry: EvaluationEntry): boolean {
 		return entry.teacherId === currentUserId;
@@ -201,18 +147,6 @@
 		selectedEvaluation = null;
 	}
 
-	// Load more evaluations
-	async function loadMore(): Promise<void> {
-		if (isLoadingMore) return;
-		if (!evaluationsQuery.data) return;
-		if (evaluationsQuery.data.isDone) return;
-
-		// Trigger a new query with the next cursor
-		nextCursor = evaluationsQuery.data.cursor;
-		cursor = nextCursor;
-		isLoadingMore = true;
-	}
-
 	// Dialog states
 	let editDialogOpen = $state(false);
 	let deleteDialogOpen = $state(false);
@@ -227,7 +161,7 @@
 </script>
 
 <div class="mx-auto p-8 max-w-6xl">
-	{#if evaluationsQuery.isLoading && accumulatedEvaluations.length === 0}
+	{#if evaluationsQuery.isLoading}
 		<div class="flex justify-center items-center gap-2 py-16 text-muted-foreground text-center">
 			<Loader class="size-5 animate-spin" />
 			Loading history...
@@ -236,7 +170,7 @@
 		<div class="bg-card p-8 border border-destructive rounded-lg text-center">
 			<p class="text-destructive">Error loading evaluations: {evaluationsQuery.error.message}</p>
 		</div>
-	{:else if evaluations.length === 0}
+	{:else if sortedEvaluations.length === 0}
 		<div class="bg-card p-8 border border-input rounded-lg text-center">
 			<p class="mb-6 text-muted-foreground">No evaluations found. Start by awarding some points!</p>
 			<Button onclick={() => void goto('/evaluations/new')}>Give Points</Button>
@@ -279,25 +213,12 @@
 				{#if showSummary}
 					<div class="bottom-6 left-1/2 z-50 fixed -translate-x-1/2">
 						<p class="bg-card/90 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full text-sm">
-							Showing {filteredEvaluations.length} evaluations matching student "{studentFilter}"
+							Showing {sortedEvaluations.length} evaluations matching student "{studentFilter}"
 						</p>
 					</div>
 				{/if}
 			{/snippet}
 		</EvaluationsTimeline>
-
-		{#if evaluationsQuery.data && !evaluationsQuery.data.isDone && evaluations.length > 0}
-			<div class="flex justify-center mt-4">
-				<Button variant="outline" onclick={loadMore} disabled={isLoadingMore}>
-					{#if isLoadingMore}
-						<Loader class="mr-2 size-4 animate-spin" />
-						Loading...
-					{:else}
-						More
-					{/if}
-				</Button>
-			</div>
-		{/if}
 	{/if}
 </div>
 
