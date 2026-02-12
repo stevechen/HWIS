@@ -116,7 +116,7 @@ test.describe('Student Timeline Page', () => {
 
 		test('timeline entries container exists', async ({ page }) => {
 			// Timeline container should exist
-			await expect(page.getByRole('heading', { name: 'Your Assigned Points' })).toBeVisible();
+			await expect(page.getByRole('separator', { name: 'Timeline divider' })).toBeVisible();
 		});
 
 		test('timeline has central line', async ({ page }) => {
@@ -228,7 +228,7 @@ test.describe('Student Timeline Page', () => {
 		});
 
 		test('admin filter dropdown exists', async ({ page }) => {
-			await expect(page.getByRole('combobox')).toBeVisible();
+			await expect(page.getByRole('textbox', { name: 'Filter by teacher(s)…' })).toBeVisible();
 		});
 	});
 
@@ -325,11 +325,6 @@ test.describe('Student Timeline Page', () => {
 
 		test.afterEach(async () => {
 			if (testData) await cleanupByTag('all', e2eTag);
-		});
-
-		test('legend shows point type indicators', async ({ page }) => {
-			await expect(page.getByText('Positive Points')).toBeVisible();
-			await expect(page.getByText('Negative Points')).toBeVisible();
 		});
 	});
 

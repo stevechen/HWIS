@@ -2,12 +2,24 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { goto } from '$app/navigation';
-	import { Plus } from '@lucide/svelte';
+	import { Plus, Filter } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Select from '$lib/components/ui/select';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
+
+	// Helper function for multi-search matching
+	function matchesMultiSearch(filter: string, value: string): boolean {
+		if (!filter.trim()) return true;
+		const searchTerms = filter
+			.split(',')
+			.map((s) => s.trim().toLowerCase())
+			.filter(Boolean);
+		if (searchTerms.length === 0) return true;
+		return searchTerms.some((term) => value.toLowerCase().includes(term));
+	}
 
 	const user = useQuery(api.users.viewer, () => ({}));
 	const client = useConvexClient();
@@ -47,6 +59,30 @@
 		return [];
 	});
 
+	// Student filter state
+	let studentFilter = $state('');
+	let showSummary = $state(false);
+	let summaryTimeout: ReturnType<typeof setTimeout>;
+
+	$effect(() => {
+		if (studentFilter) {
+			showSummary = true;
+			clearTimeout(summaryTimeout);
+			summaryTimeout = setTimeout(() => {
+				showSummary = false;
+			}, 3000);
+		} else {
+			showSummary = false;
+		}
+	});
+
+	// Filtered evaluations by student name
+	const filteredEvaluations = $derived.by(() => {
+		return evaluations.filter((e: EvaluationEntry) => {
+			return matchesMultiSearch(studentFilter, e.englishName ?? '');
+		});
+	});
+
 	// Sort state
 	let sortAscending = $state(false);
 	// Show details state
@@ -66,7 +102,7 @@
 
 	// Sorted evaluations
 	const sortedEvaluations = $derived.by(() => {
-		const evals = evaluations;
+		const evals = filteredEvaluations;
 		if (sortAscending) {
 			return [...evals].sort((a, b) => a.timestamp - b.timestamp);
 		}
@@ -128,30 +164,18 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl p-8">
-	{#if !evaluationsQuery.isLoading && evaluations.length > 0}
-		<div class="mb-6 flex justify-end">
-			<Button onclick={() => void goto('/evaluations/new')}>
-				<Plus class="size-4" />
-				New
-			</Button>
-		</div>
-	{/if}
-
+<div class="mx-auto p-8 max-w-6xl">
 	{#if evaluationsQuery.isLoading}
-		<div class="text-muted-foreground py-16 text-center">Loading history...</div>
+		<div class="py-16 text-muted-foreground text-center">Loading history...</div>
 	{:else if evaluations.length === 0}
-		<div class="bg-card border-input rounded-lg border p-8 text-center">
-			<p class="text-muted-foreground mb-6">No evaluations found. Start by awarding some points!</p>
+		<div class="bg-card p-8 border border-input rounded-lg text-center">
+			<p class="mb-6 text-muted-foreground">No evaluations found. Start by awarding some points!</p>
 			<Button onclick={() => void goto('/evaluations/new')}>Give Points</Button>
 		</div>
 	{:else}
 		<EvaluationsTimeline
 			evaluations={sortedEvaluations}
-			title="Recent"
 			showStudentName={true}
-			showTeacherFilter={false}
-			showLegend={false}
 			showTeacherName={false}
 			enableCardClick={true}
 			cardHref={(entry) => `/evaluations/student/${entry.studentId}`}
@@ -161,7 +185,42 @@
 			enableLongPress={true}
 			onLongPress={handleLongPress}
 			{canEditEntry}
-		/>
+		>
+			{#snippet children()}
+				<!-- Filters Section with New Button -->
+				<div class="relative">
+					<div class="flex sm:flex-row flex-col sm:items-center gap-4 mb-4">
+						<Button onclick={() => void goto('/evaluations/new')}>
+							<Plus class="size-4" />
+							New
+						</Button>
+
+						<!-- Filter Input -->
+						<div class="relative">
+							<Filter
+								class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2"
+							/>
+							<Input
+								type="text"
+								placeholder="Filter by student(s)…"
+								bind:value={studentFilter}
+								class="pl-9 w-full sm:w-64"
+							/>
+						</div>
+					</div>
+				</div>
+
+				<!-- Filter Summary -->
+				{#if showSummary}
+					<div class="bottom-6 left-1/2 z-50 fixed -translate-x-1/2">
+						<p class="bg-card/90 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full text-sm">
+							Showing {filteredEvaluations.length} of {evaluations.length} evaluations matching student
+							"{studentFilter}"
+						</p>
+					</div>
+				{/if}
+			{/snippet}
+		</EvaluationsTimeline>
 	{/if}
 </div>
 
@@ -175,7 +234,7 @@
 		<div class="space-y-4 py-4">
 			<!-- Category -->
 			<div class="space-y-2">
-				<label class="text-sm font-medium" for="category-select">Category</label>
+				<label class="font-medium text-sm" for="category-select">Category</label>
 				<Select.Root type="single" bind:value={editCategory}>
 					<Select.Trigger id="category-select" aria-label="Select category">
 						{editCategory || 'Select Category'}
@@ -190,7 +249,7 @@
 
 			<!-- SubCategory -->
 			<div class="space-y-2">
-				<label class="text-sm font-medium" for="subcategory-select">Subcategory</label>
+				<label class="font-medium text-sm" for="subcategory-select">Subcategory</label>
 				<Select.Root type="single" bind:value={editSubCategory}>
 					<Select.Trigger id="subcategory-select" aria-label="Select subcategory">
 						{editSubCategory || 'Select Subcategory'}
@@ -206,8 +265,8 @@
 
 			<!-- Points - Only -2, -1, +1, +2 -->
 			<fieldset class="space-y-2">
-				<legend class="text-sm font-medium">Points</legend>
-				<div class="grid grid-cols-4 gap-2" role="group" aria-label="Point values">
+				<legend class="font-medium text-sm">Points</legend>
+				<div class="gap-2 grid grid-cols-4" role="group" aria-label="Point values">
 					{#each [-2, -1, 1, 2] as p (p)}
 						<Button
 							type="button"
@@ -223,12 +282,12 @@
 
 			<!-- Details -->
 			<div class="space-y-2">
-				<label class="text-sm font-medium" for="evaluation-details">Details / Comments</label>
+				<label class="font-medium text-sm" for="evaluation-details">Details / Comments</label>
 				<textarea
 					id="evaluation-details"
 					bind:value={editDetails}
 					placeholder="Enter specific details..."
-					class="bg-background border-input w-full rounded-md border p-3 text-sm"
+					class="bg-background p-3 border border-input rounded-md w-full text-sm"
 					rows="3"
 					aria-label="Evaluation details"
 				></textarea>

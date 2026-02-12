@@ -37,14 +37,14 @@
 	}
 </script>
 
-<div class="mx-auto max-w-4xl p-8">
-	<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+<div class="mx-auto p-8 max-w-4xl">
+	<div class="gap-6 grid grid-cols-1 md:grid-cols-2">
 		<!-- Weekly Reports - Every week -->
 		<a href="/admin/weekly-reports" class="block">
-			<Card.Root class="hover:border-primary/50 cursor-pointer transition-all hover:shadow-md">
+			<Card.Root class="hover:shadow-md hover:border-primary/50 transition-all cursor-pointer">
 				<Card.Header>
-					<div class="text-primary mb-2 flex items-center gap-3">
-						<History class="h-5 w-5" />
+					<div class="flex items-center gap-3 mb-2 text-primary">
+						<History class="w-5 h-5" />
 						<Card.Title class="text-lg">Weekly Reports</Card.Title>
 					</div>
 					<Card.Description>Review weekly reports.</Card.Description>
@@ -54,10 +54,10 @@
 
 		<!-- Evaluation Review - A few times a week -->
 		<a href="/evaluations" class="block">
-			<Card.Root class="hover:border-primary/50 cursor-pointer transition-all hover:shadow-md">
+			<Card.Root class="hover:shadow-md hover:border-primary/50 transition-all cursor-pointer">
 				<Card.Header>
-					<div class="text-primary mb-2 flex items-center gap-3">
-						<FileText class="h-5 w-5" />
+					<div class="flex items-center gap-3 mb-2 text-primary">
+						<FileText class="w-5 h-5" />
 						<Card.Title class="text-lg">My Evaluation Review</Card.Title>
 					</div>
 					<Card.Description>View and review evaluation history.</Card.Description>
@@ -67,11 +67,11 @@
 
 		<!-- All Evaluation Review - Admin only -->
 		<a href="/admin/evaluations" class="block">
-			<Card.Root class="hover:border-primary/50 cursor-pointer transition-all hover:shadow-md">
+			<Card.Root class="hover:shadow-md hover:border-primary/50 transition-all cursor-pointer">
 				<Card.Header>
-					<div class="text-primary mb-2 flex items-center gap-3">
-						<FileText class="h-5 w-5" />
-						<Card.Title class="text-lg">All Evaluation Review</Card.Title>
+					<div class="flex items-center gap-3 mb-2 text-primary">
+						<FileText class="w-5 h-5" />
+						<Card.Title class="text-lg">All Evaluations</Card.Title>
 					</div>
 					<Card.Description>View all evaluations by all teachers.</Card.Description>
 				</Card.Header>
@@ -80,10 +80,10 @@
 
 		<!-- Student Management - Beginning of year, sporadic -->
 		<a href="/admin/students" class="block">
-			<Card.Root class="hover:border-primary/50 cursor-pointer transition-all hover:shadow-md">
+			<Card.Root class="hover:shadow-md hover:border-primary/50 transition-all cursor-pointer">
 				<Card.Header>
-					<div class="text-primary mb-2 flex items-center gap-3">
-						<GraduationCap class="h-5 w-5" />
+					<div class="flex items-center gap-3 mb-2 text-primary">
+						<GraduationCap class="w-5 h-5" />
 						<Card.Title class="text-lg">Student Management</Card.Title>
 					</div>
 					<Card.Description
@@ -95,10 +95,10 @@
 
 		<!-- User Accounts - Beginning of year, very limited -->
 		<a href="/admin/users" class="block">
-			<Card.Root class="hover:border-primary/50 cursor-pointer transition-all hover:shadow-md">
+			<Card.Root class="hover:shadow-md hover:border-primary/50 transition-all cursor-pointer">
 				<Card.Header>
-					<div class="text-primary mb-2 flex items-center gap-3">
-						<Users class="h-5 w-5" />
+					<div class="flex items-center gap-3 mb-2 text-primary">
+						<Users class="w-5 h-5" />
 						<Card.Title class="text-lg">User Accounts</Card.Title>
 					</div>
 					<Card.Description
@@ -110,10 +110,10 @@
 
 		<!-- Categories - Beginning of year -->
 		<a href="/admin/categories" class="block">
-			<Card.Root class="hover:border-primary/50 cursor-pointer transition-all hover:shadow-md">
+			<Card.Root class="hover:shadow-md hover:border-primary/50 transition-all cursor-pointer">
 				<Card.Header>
-					<div class="text-primary mb-2 flex items-center gap-3">
-						<Tags class="h-5 w-5" />
+					<div class="flex items-center gap-3 mb-2 text-primary">
+						<Tags class="w-5 h-5" />
 						<Card.Title class="text-lg">Categories</Card.Title>
 					</div>
 					<Card.Description
@@ -127,10 +127,10 @@
 	<!-- Settings Section (Collapsible) -->
 	<div class="mt-8">
 		<button
-			class="text-muted-foreground hover:text-foreground mb-4 flex items-center gap-2 text-lg font-semibold transition-colors"
+			class="flex items-center gap-2 mb-4 font-semibold text-muted-foreground hover:text-foreground text-lg transition-colors"
 			onclick={() => (showSettings = !showSettings)}
 		>
-			<Settings class="h-5 w-5" />
+			<Settings class="w-5 h-5" />
 			Settings
 			{#if showSettings}
 				<ChevronDown class="size-4" />
@@ -141,14 +141,14 @@
 
 		{#if showSettings}
 			<div
-				class="slide-in-from-top-2 animate-in grid grid-cols-1 gap-6 duration-200 md:grid-cols-2"
+				class="gap-6 grid grid-cols-1 md:grid-cols-2 slide-in-from-top-2 animate-in duration-200"
 			>
 				<!-- Audit Log - A few times a year -->
 				<a href="/admin/audit" class="block">
-					<Card.Root class="hover:border-primary/50 cursor-pointer transition-all hover:shadow-md">
+					<Card.Root class="hover:shadow-md hover:border-primary/50 transition-all cursor-pointer">
 						<Card.Header>
-							<div class="text-primary mb-2 flex items-center gap-3">
-								<ShieldAlert class="h-5 w-5" />
+							<div class="flex items-center gap-3 mb-2 text-primary">
+								<ShieldAlert class="w-5 h-5" />
 								<Card.Title class="text-lg">Audit Log</Card.Title>
 							</div>
 							<Card.Description>View system activity, changes, and history.</Card.Description>
@@ -158,10 +158,10 @@
 
 				<!-- Backup - A few times a year -->
 				<a href="/admin/backup" class="block">
-					<Card.Root class="hover:border-primary/50 cursor-pointer transition-all hover:shadow-md">
+					<Card.Root class="hover:shadow-md hover:border-primary/50 transition-all cursor-pointer">
 						<Card.Header>
-							<div class="text-primary mb-2 flex items-center gap-3">
-								<CloudBackup class="h-5 w-5" />
+							<div class="flex items-center gap-3 mb-2 text-primary">
+								<CloudBackup class="w-5 h-5" />
 								<Card.Title class="text-lg">Backup</Card.Title>
 							</div>
 							<Card.Description>Create backups, restore data, or clear database.</Card.Description>
@@ -172,11 +172,11 @@
 				<!-- Archive & Reset - Once or twice a year -->
 				<a href="/admin/academic" class="block">
 					<Card.Root
-						class="border-destructive/50 hover:border-destructive cursor-pointer transition-all hover:shadow-md"
+						class="hover:shadow-md border-destructive/50 hover:border-destructive transition-all cursor-pointer"
 					>
 						<Card.Header>
-							<div class="text-destructive mb-2 flex items-center gap-3">
-								<ShieldAlert class="h-5 w-5" />
+							<div class="flex items-center gap-3 mb-2 text-destructive">
+								<ShieldAlert class="w-5 h-5" />
 								<Card.Title class="text-lg">Archive & Reset</Card.Title>
 							</div>
 							<Card.Description
@@ -190,12 +190,12 @@
 				<button
 					onclick={handleSeed}
 					disabled={seeding}
-					class="w-full cursor-pointer rounded-lg text-left transition-all hover:shadow-md"
+					class="hover:shadow-md rounded-lg w-full text-left transition-all cursor-pointer"
 				>
 					<Card.Root class="pointer-events-none">
 						<Card.Header>
-							<div class="text-primary mb-2 flex items-center gap-3">
-								<Database class="h-5 w-5" />
+							<div class="flex items-center gap-3 mb-2 text-primary">
+								<Database class="w-5 h-5" />
 								<Card.Title class="text-lg">Seed Initial Data</Card.Title>
 							</div>
 							<Card.Description

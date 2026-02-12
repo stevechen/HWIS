@@ -346,7 +346,7 @@ test.describe('Evaluations (admin user) @evaluations', () => {
 	});
 
 	test('displays evaluation history for admin users', async ({ page }) => {
-		await expect(page.getByRole('heading', { name: 'Evaluation History' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'My Evaluations' })).toBeVisible();
 	});
 
 	test('can navigate back to admin then return to evaluations', async ({ page }) => {
@@ -566,5 +566,233 @@ test.describe('Evaluations Long-Press Delete @evaluations-longpress', () => {
 		// Delete confirmation dialog should close
 		await expect(deleteDialog).not.toBeVisible();
 		await expect(nameOnCard).not.toBeVisible();
+	});
+});
+
+test.describe('Admin Evaluations - Multi-Search Filters', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	let suffix: string;
+	let e2eTag: string;
+	let studentId1: string;
+	let studentId2: string;
+	let englishName1: string;
+	let englishName2: string;
+	let testData = false;
+
+	// DATA SEEDING & Navigation
+	test.beforeEach(async ({ page }) => {
+		useRole('admin');
+		suffix = getTestSuffix('adminEvalFilter');
+		e2eTag = `e2e-test_${suffix}`;
+		studentId1 = `STU1_${suffix}`;
+		studentId2 = `STU2_${suffix}`;
+		englishName1 = `Alice_${suffix}`;
+		englishName2 = `Bob_${suffix}`;
+
+		// Create two students with different names
+		await createStudent({
+			studentId: studentId1,
+			englishName: englishName1,
+			chineseName: '學生1',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+
+		await createStudent({
+			studentId: studentId2,
+			englishName: englishName2,
+			chineseName: '學生2',
+			grade: 11,
+			status: 'Enrolled',
+			e2eTag
+		});
+
+		// Create evaluations for both students
+		await createEvaluationForStudent({ studentId: studentId1, e2eTag });
+		await createEvaluationForStudent({ studentId: studentId2, e2eTag });
+		testData = true;
+
+		// Navigate to admin evaluations page
+		await page.goto('/admin/evaluations');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+	});
+
+	// CLEANUP - Conditional based on flag
+	test.afterEach(async () => {
+		if (testData) await cleanupByTag('all', e2eTag);
+	});
+
+	test('renders student and teacher filter inputs', async ({ page }) => {
+		const studentFilter = page.getByRole('textbox', { name: 'Filter by student(s)…' });
+		await expect(studentFilter).toBeVisible();
+
+		const teacherFilter = page.getByRole('textbox', { name: 'Filter by teacher(s)…' });
+		await expect(teacherFilter).toBeVisible();
+	});
+
+	test('filters by single student name', async ({ page }) => {
+		const studentFilter = page.getByRole('textbox', { name: 'Filter by student(s)…' });
+		await studentFilter.fill(englishName1);
+
+		// Alice's card should be visible
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName1}` })
+		).toBeVisible();
+		// Bob's card should not be visible
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName2}` })
+		).not.toBeVisible();
+	});
+
+	test('filters by multiple student names (comma-separated)', async ({ page }) => {
+		const studentFilter = page.getByRole('textbox', { name: 'Filter by student(s)…' });
+		// Search for both students using comma-separated names
+		await studentFilter.fill(`${englishName1}, ${englishName2}`);
+
+		// Both students' cards should be visible
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName1}` })
+		).toBeVisible();
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName2}` })
+		).toBeVisible();
+	});
+
+	test('clears student filter', async ({ page }) => {
+		const studentFilter = page.getByRole('textbox', { name: 'Filter by student(s)…' });
+		await studentFilter.fill(englishName1);
+
+		// Verify only Alice is visible
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName1}` })
+		).toBeVisible();
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName2}` })
+		).not.toBeVisible();
+
+		// Both students should be visible again
+		await studentFilter.clear();
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName1}` })
+		).toBeVisible();
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName2}` })
+		).toBeVisible();
+	});
+});
+
+test.describe('Evaluations - Student Filter Multi-Search', () => {
+	test.use({ storageState: 'e2e/.auth/teacher.json' });
+
+	// CONSTANTS - Define at top of describe
+	let suffix: string;
+	let e2eTag: string;
+	let studentId1: string;
+	let studentId2: string;
+	let englishName1: string;
+	let englishName2: string;
+	let testData = false;
+
+	// DATA SEEDING & Navigation
+	test.beforeEach(async ({ page }) => {
+		useRole('teacher');
+		suffix = getTestSuffix('evalFilter');
+		e2eTag = `e2e-test_${suffix}`;
+		studentId1 = `STU1_${suffix}`;
+		studentId2 = `STU2_${suffix}`;
+		englishName1 = `Carol_${suffix}`;
+		englishName2 = `Dave_${suffix}`;
+
+		// Create two students with different names
+		await createStudent({
+			studentId: studentId1,
+			englishName: englishName1,
+			chineseName: '學生1',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+
+		await createStudent({
+			studentId: studentId2,
+			englishName: englishName2,
+			chineseName: '學生2',
+			grade: 11,
+			status: 'Enrolled',
+			e2eTag
+		});
+
+		// Create evaluations for both students
+		await createEvaluationForStudent({ studentId: studentId1, e2eTag });
+		await createEvaluationForStudent({ studentId: studentId2, e2eTag });
+		testData = true;
+
+		// Navigate to evaluations page
+		await page.goto('/evaluations');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+	});
+
+	// CLEANUP - Conditional based on flag
+	test.afterEach(async () => {
+		if (testData) await cleanupByTag('all', e2eTag);
+	});
+
+	test('renders student filter input', async ({ page }) => {
+		const studentFilter = page.getByRole('textbox', { name: 'Filter by student(s)…' });
+		await expect(studentFilter).toBeVisible();
+	});
+
+	test('filters by single student name', async ({ page }) => {
+		const studentFilter = page.getByRole('textbox', { name: 'Filter by student(s)…' });
+		await studentFilter.fill(englishName1);
+
+		// Carol's card should be visible
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName1}` })
+		).toBeVisible();
+		// Dave's card should not be visible
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName2}` })
+		).not.toBeVisible();
+	});
+
+	test('filters by multiple student names (comma-separated)', async ({ page }) => {
+		const studentFilter = page.getByRole('textbox', { name: 'Filter by student(s)…' });
+		// Search for both students using comma-separated names
+		await studentFilter.fill(`${englishName1}, ${englishName2}`);
+
+		// Both students' cards should be visible
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName1}` })
+		).toBeVisible();
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName2}` })
+		).toBeVisible();
+	});
+
+	test('clears student filter', async ({ page }) => {
+		const studentFilter = page.getByRole('textbox', { name: 'Filter by student(s)…' });
+		await studentFilter.fill(englishName1);
+
+		// Verify only Carol is visible
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName1}` })
+		).toBeVisible();
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName2}` })
+		).not.toBeVisible();
+
+		// Clear the filter
+		await studentFilter.fill('');
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName1}` })
+		).toBeVisible();
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName2}` })
+		).toBeVisible();
 	});
 });

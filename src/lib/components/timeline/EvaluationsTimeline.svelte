@@ -1,19 +1,15 @@
 <script lang="ts">
-	import { ArrowUp, ArrowDown, Calendar, User, Eye } from '@lucide/svelte';
+	import { ArrowUp, ArrowDown, Calendar, User, Eye, EyeOff } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import type { EvaluationEntry } from './types.js';
 
 	interface Props {
 		evaluations: EvaluationEntry[];
-		title: string;
+		title?: string;
 		showStudentName?: boolean;
-		studentGrade?: number;
 		showTeacherFilter?: boolean;
-		uniqueTeachers?: string[];
-		selectedTeacherFilter?: string;
-		onTeacherFilterChange?: (value: string) => void;
-		showLegend?: boolean;
+		studentGrade?: number;
 		showTeacherName?: boolean;
 		enableCardClick?: boolean;
 		cardHref?: (entry: EvaluationEntry) => string;
@@ -23,18 +19,14 @@
 		enableLongPress?: boolean;
 		onLongPress?: (entry: EvaluationEntry) => void;
 		canEditEntry?: (entry: EvaluationEntry) => boolean;
+		children?: import('svelte').Snippet;
 	}
 
 	let {
 		evaluations,
-		title,
+		title = undefined,
 		showStudentName = false,
 		studentGrade,
-		showTeacherFilter = false,
-		uniqueTeachers = [],
-		selectedTeacherFilter = '',
-		onTeacherFilterChange,
-		showLegend = false,
 		showTeacherName = false,
 		enableCardClick = false,
 		cardHref,
@@ -43,7 +35,8 @@
 		showDetails: showDetails = $bindable(false),
 		enableLongPress = false,
 		onLongPress,
-		canEditEntry
+		canEditEntry,
+		children
 	}: Props = $props();
 
 	let hoveredIndex = $state<number | null>(null);
@@ -122,22 +115,18 @@
 	}
 </script>
 
-<div class="flex justify-between items-center mb-6">
-	<h2 class="font-semibold text-xl">{title}</h2>
-	<div class="flex items-center gap-2">
-		{#if showTeacherFilter}
-			<select
-				bind:value={selectedTeacherFilter}
-				onchange={(e) => onTeacherFilterChange?.((e.target as HTMLSelectElement).value)}
-				class="bg-background shadow-sm px-3 py-1 border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring h-9 text-sm transition-colors"
-			>
-				<option value="">All Teachers</option>
-				{#each uniqueTeachers as teacher (teacher)}
-					<option value={teacher}>{teacher}</option>
-				{/each}
-			</select>
+<div class="flex flex-wrap md:flex-nowrap justify-between items-center gap-4 mb-6">
+	<div class="flex flex-wrap items-center gap-4">
+		{#if title}
+			<h2 class="font-semibold text-xl">{title}</h2>
 		{/if}
-
+		{#if children}
+			<div class="flex flex-wrap items-center gap-2">
+				{@render children()}
+			</div>
+		{/if}
+	</div>
+	<div class="flex items-center gap-2">
 		<Button
 			aria-label={sortAscending ? 'Oldest First' : 'Newest First'}
 			variant="outline"
@@ -158,7 +147,11 @@
 			onclick={() => (showDetails = !showDetails)}
 			title={showDetails ? 'Hide Details' : 'Show Details'}
 		>
-			<Eye class="size-4" />
+			{#if showDetails}
+				<EyeOff class="size-4" />
+			{:else}
+				<Eye class="size-4" />
+			{/if}
 		</Button>
 	</div>
 </div>
@@ -170,7 +163,11 @@
 		</Card.Content>
 	</Card.Root>
 {:else}
-	<div class="relative bg-background">
+	<div
+		role="region"
+		aria-label="Evaluations"
+		class="relative bg-linear-to-b from-white-100/0 via-white/80 to-white-100/0"
+	>
 		<div
 			class="top-0 bottom-0 left-1/2 absolute border-border border-l w-0.5 -translate-x-1/2"
 			role="separator"
@@ -219,22 +216,6 @@
 			{/each}
 		</div>
 	</div>
-{/if}
-
-{#if showLegend}
-	<div
-		class="right-0 bottom-0 left-0 z-50 fixed flex justify-center items-center gap-6 bg-card shadow-lg p-3 border-t text-muted-foreground text-sm"
-	>
-		<div class="flex items-center gap-2">
-			<div class="bg-emerald-500 rounded-full w-3 h-3"></div>
-			<span>Positive Points</span>
-		</div>
-		<div class="flex items-center gap-2">
-			<div class="bg-red-500 rounded-full w-3 h-3"></div>
-			<span>Negative Points</span>
-		</div>
-	</div>
-	<div class="h-16"></div>
 {/if}
 
 {#snippet card(entry: EvaluationEntry, idx: number)}

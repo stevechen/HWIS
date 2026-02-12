@@ -8,7 +8,9 @@
 	import { onDestroy } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Select from '$lib/components/ui/select';
+	import { Filter } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 
 	let { data }: { data: { demo?: string; studentId?: string } } = $props();
 
@@ -175,10 +177,35 @@
 		return teacherEvalsQuery?.data ?? [];
 	});
 
+	// Helper function for multi-search matching
+	function matchesMultiSearch(filter: string, value: string): boolean {
+		if (!filter.trim()) return true;
+		const searchTerms = filter
+			.split(',')
+			.map((s) => s.trim().toLowerCase())
+			.filter(Boolean);
+		if (searchTerms.length === 0) return true;
+		return searchTerms.some((term) => value.toLowerCase().includes(term));
+	}
+
 	// State for sorting and display
 	let sortAscending = $state(false);
 	let showDetails = $state(false);
 	let teacherFilter = $state('');
+	let showSummary = $state(false);
+	let summaryTimeout: ReturnType<typeof setTimeout>;
+
+	$effect(() => {
+		if (teacherFilter) {
+			showSummary = true;
+			clearTimeout(summaryTimeout);
+			summaryTimeout = setTimeout(() => {
+				showSummary = false;
+			}, 3000);
+		} else {
+			showSummary = false;
+		}
+	});
 
 	// Dialog states
 	let editDialogOpen = $state(false);
@@ -192,17 +219,11 @@
 	let editDetails = $state('');
 	let editLoading = $state(false);
 
-	// Get unique teachers
-	const uniqueTeachers = $derived.by(() => {
-		const teachers = [...new Set(evaluations.map((e) => e.teacherName))];
-		return teachers.sort();
-	});
-
 	// Combined and filtered evaluations
 	const filteredEvaluations = $derived.by(() => {
 		let all = [...evaluations];
-		if (teacherFilter) {
-			all = all.filter((e) => e.teacherName === teacherFilter);
+		if (teacherFilter && teacherFilter.trim()) {
+			all = all.filter((e) => matchesMultiSearch(teacherFilter, e.teacherName ?? ''));
 		}
 		all.sort((a, b) => {
 			return sortAscending ? a.timestamp - b.timestamp : b.timestamp - a.timestamp;
@@ -216,10 +237,6 @@
 			return true;
 		}
 		return entry.teacherId === currentUserId;
-	}
-
-	function handleTeacherFilterChange(value: string) {
-		teacherFilter = value;
 	}
 
 	function handleLongPress(entry: EvaluationEntry): void {
@@ -277,7 +294,7 @@
 	$effect(() => {
 		if (!browser) return;
 		if (student?.englishName && student?.grade !== undefined) {
-			$headerTitleOverride = `Evaluation History - G${student.grade} - ${student.englishName}`;
+			$headerTitleOverride = `G${student.grade} - ${student.englishName} Evaluations`;
 		}
 	});
 
@@ -286,11 +303,11 @@
 	});
 </script>
 
-<div class="mx-auto max-w-6xl p-8">
+<div class="mx-auto p-8 max-w-6xl">
 	{#if isDemo}
 		<div class="mb-6">
 			<span
-				class="rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
+				class="bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded-full text-yellow-800 dark:text-yellow-100 text-xs"
 			>
 				DEMO MODE ({demoRole.toUpperCase()})
 			</span>
@@ -299,31 +316,53 @@
 
 	<!-- Loading State -->
 	{#if !isDemo && (userQuery?.isLoading ?? false)}
-		<div class="text-muted-foreground py-12 text-center">Loading user data...</div>
+		<div class="py-12 text-muted-foreground text-center">Loading user data...</div>
 	{:else if !isDemo && (studentQuery?.isLoading ?? false)}
-		<div class="text-muted-foreground py-12 text-center">Loading student data...</div>
+		<div class="py-12 text-muted-foreground text-center">Loading student data...</div>
 	{:else if !isDemo && isAdmin && (allEvalsQuery?.isLoading ?? false)}
-		<div class="text-muted-foreground py-12 text-center">Loading evaluation history...</div>
+		<div class="py-12 text-muted-foreground text-center">Loading evaluations...</div>
 	{:else if !isDemo && !isAdmin && (teacherEvalsQuery?.isLoading ?? false)}
-		<div class="text-muted-foreground py-12 text-center">Loading your evaluations...</div>
+		<div class="py-12 text-muted-foreground text-center">Loading your evaluations...</div>
 	{:else}
 		<EvaluationsTimeline
 			evaluations={filteredEvaluations}
-			title={isAdmin ? 'All Points History' : 'Your Assigned Points'}
 			showStudentName={false}
 			studentGrade={student.grade}
-			showTeacherFilter={isAdmin}
-			{uniqueTeachers}
-			selectedTeacherFilter={teacherFilter}
-			onTeacherFilterChange={handleTeacherFilterChange}
-			showLegend={true}
-			showTeacherName={isAdmin}
+			showTeacherName={true}
 			bind:sortAscending
 			bind:showDetails
 			enableLongPress={true}
 			onLongPress={handleLongPress}
 			{canEditEntry}
-		/>
+		>
+			{#snippet children()}
+				<!-- Filters Section -->
+				<div class="flex sm:flex-row flex-col sm:items-center gap-4">
+					<!-- Teacher Name Filter -->
+					<div class="relative">
+						<Filter class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
+						<Input
+							type="text"
+							placeholder="Filter by teacher(s)…"
+							bind:value={teacherFilter}
+							class="pl-9 w-full sm:w-48"
+						/>
+					</div>
+				</div>
+
+				<!-- Filter Summary -->
+				{#if showSummary}
+					<div class="bottom-6 left-1/2 z-50 fixed -translate-x-1/2">
+						<p class="bg-card/90 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full text-sm">
+							Showing {filteredEvaluations.length} of {evaluations.length} evaluation{evaluations.length ===
+							1
+								? ''
+								: 's'} for teacher "{teacherFilter}"
+						</p>
+					</div>
+				{/if}
+			{/snippet}
+		</EvaluationsTimeline>
 	{/if}
 </div>
 
@@ -337,7 +376,7 @@
 		<div class="space-y-4 py-4">
 			<!-- Category -->
 			<div class="space-y-2">
-				<label class="text-sm font-medium" for="category-select">Category</label>
+				<label class="font-medium text-sm" for="category-select">Category</label>
 				<Select.Root type="single" bind:value={editCategory}>
 					<Select.Trigger id="category-select" aria-label="Select category">
 						{editCategory || 'Select Category'}
@@ -352,7 +391,7 @@
 
 			<!-- SubCategory -->
 			<div class="space-y-2">
-				<label class="text-sm font-medium" for="subcategory-select">Subcategory</label>
+				<label class="font-medium text-sm" for="subcategory-select">Subcategory</label>
 				<Select.Root type="single" bind:value={editSubCategory}>
 					<Select.Trigger id="subcategory-select" aria-label="Select subcategory">
 						{editSubCategory || 'Select Subcategory'}
@@ -368,8 +407,8 @@
 
 			<!-- Points - Only -2, -1, +1, +2 -->
 			<fieldset class="space-y-2">
-				<legend class="text-sm font-medium">Points</legend>
-				<div class="grid grid-cols-4 gap-2" role="group" aria-label="Point values">
+				<legend class="font-medium text-sm">Points</legend>
+				<div class="gap-2 grid grid-cols-4" role="group" aria-label="Point values">
 					{#each [-2, -1, 1, 2] as p (p)}
 						<Button
 							type="button"
@@ -385,12 +424,12 @@
 
 			<!-- Details -->
 			<div class="space-y-2">
-				<label class="text-sm font-medium" for="evaluation-details">Details / Comments</label>
+				<label class="font-medium text-sm" for="evaluation-details">Details / Comments</label>
 				<textarea
 					id="evaluation-details"
 					bind:value={editDetails}
 					placeholder="Enter specific details..."
-					class="bg-background border-input w-full rounded-md border p-3 text-sm"
+					class="bg-background p-3 border border-input rounded-md w-full text-sm"
 					rows="3"
 					aria-label="Evaluation details"
 				></textarea>

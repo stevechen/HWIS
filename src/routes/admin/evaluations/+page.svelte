@@ -1,10 +1,22 @@
 <script lang="ts">
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import { Search, User } from '@lucide/svelte';
+	import { goto } from '$app/navigation';
+	import { Funnel, Plus } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
+
+	// Helper function for multi-search matching
+	function matchesMultiSearch(filter: string, value: string): boolean {
+		if (!filter.trim()) return true;
+		const searchTerms = filter
+			.split(',')
+			.map((s) => s.trim().toLowerCase())
+			.filter(Boolean);
+		if (searchTerms.length === 0) return true;
+		return searchTerms.some((term) => value.toLowerCase().includes(term));
+	}
 
 	// Fetch all evaluations
 	const evaluationsQuery = useQuery(api.evaluations.listAllEvaluations, () => ({
@@ -14,6 +26,20 @@
 	// Filter states
 	let studentFilter = $state('');
 	let teacherFilter = $state('');
+	let showSummary = $state(false);
+	let summaryTimeout: ReturnType<typeof setTimeout>;
+
+	$effect(() => {
+		if (studentFilter || teacherFilter) {
+			showSummary = true;
+			clearTimeout(summaryTimeout);
+			summaryTimeout = setTimeout(() => {
+				showSummary = false;
+			}, 3000);
+		} else {
+			showSummary = false;
+		}
+	});
 
 	// Transform query data to EvaluationEntry format
 	const evaluations = $derived.by(() => {
@@ -47,16 +73,11 @@
 		return [];
 	});
 
-	// Get unique teacher names for dropdown
-	const uniqueTeachers = $derived([...new Set(evaluations.map((e) => e.teacherName))].sort());
-
 	// Filtered evaluations
 	const filteredEvaluations = $derived.by(() => {
 		return evaluations.filter((e: EvaluationEntry) => {
-			const matchesStudent =
-				!studentFilter ||
-				(e.englishName?.toLowerCase() ?? '').includes(studentFilter.toLowerCase());
-			const matchesTeacher = !teacherFilter || e.teacherName === teacherFilter;
+			const matchesStudent = matchesMultiSearch(studentFilter, e.englishName ?? '');
+			const matchesTeacher = matchesMultiSearch(teacherFilter, e.teacherName ?? '');
 			return matchesStudent && matchesTeacher;
 		});
 	});
@@ -74,11 +95,6 @@
 		}
 		return [...evals].sort((a, b) => b.timestamp - a.timestamp);
 	});
-
-	function clearFilters() {
-		studentFilter = '';
-		teacherFilter = '';
-	}
 
 	function handleCardClick(_entry: EvaluationEntry): void {
 		// Navigation handled by href
@@ -98,69 +114,73 @@
 			<p class="mb-6 text-muted-foreground">No evaluations found.</p>
 		</div>
 	{:else}
-		<!-- Filters Section -->
-		<div class="bg-card mb-6 p-4 border rounded-lg">
-			<div class="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4">
-				<div class="flex sm:flex-row flex-col sm:items-center gap-4">
-					<!-- Student Name Filter -->
-					<div class="relative">
-						<Search class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
-						<Input
-							type="text"
-							placeholder="Search by student name..."
-							bind:value={studentFilter}
-							class="pl-9 w-full sm:w-64"
-						/>
-					</div>
-
-					<!-- Teacher Name Filter -->
-					<div class="relative">
-						<User class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
-						<select
-							bind:value={teacherFilter}
-							class="bg-background shadow-sm px-3 pr-8 pl-9 border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring w-full sm:w-48 h-10 transition-colors"
-						>
-							<option value="">All Teachers</option>
-							{#each uniqueTeachers as teacher (teacher)}
-								<option value={teacher}>{teacher}</option>
-							{/each}
-						</select>
-					</div>
-				</div>
-
-				<!-- Clear Filters Button -->
-				{#if studentFilter || teacherFilter}
-					<Button variant="outline" size="sm" onclick={clearFilters}>Clear Filters</Button>
-				{/if}
-			</div>
-
-			<!-- Filter Summary -->
-			{#if studentFilter || teacherFilter}
-				<p class="mt-3 text-muted-foreground text-sm">
-					Showing {filteredEvaluations.length} of {evaluations.length} evaluations
-					{#if studentFilter && teacherFilter}
-						matching student "{studentFilter}" and teacher "{teacherFilter}"
-					{:else if studentFilter}
-						matching student "{studentFilter}"
-					{:else if teacherFilter}
-						for teacher "{teacherFilter}"
-					{/if}
-				</p>
-			{/if}
-		</div>
-
 		<EvaluationsTimeline
 			evaluations={sortedEvaluations}
-			title="All Evaluations"
 			showStudentName={true}
 			showTeacherFilter={false}
-			showLegend={false}
 			showTeacherName={true}
 			enableCardClick={true}
 			cardHref={(entry) => `/evaluations/student/${entry.studentId}`}
 			onCardClick={handleCardClick}
 			bind:sortAscending
 			bind:showDetails
-		/>
+		>
+			{#snippet children()}
+				<!-- Filters Section -->
+				<div class="p-4">
+					<div class="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4">
+						<!-- New Button and Filters -->
+						<div class="flex sm:flex-row flex-col sm:items-center gap-4">
+							<Button onclick={() => void goto('/evaluations/new')}>
+								<Plus class="size-4" />
+								New
+							</Button>
+
+							<!-- Student Name Filter -->
+							<div class="relative">
+								<Funnel
+									class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2"
+								/>
+								<Input
+									type="text"
+									placeholder="Filter by student(s)…"
+									bind:value={studentFilter}
+									class="pl-9 w-full sm:w-64"
+								/>
+							</div>
+
+							<!-- Teacher Name Filter -->
+							<div class="relative">
+								<Funnel
+									class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2"
+								/>
+								<Input
+									type="text"
+									placeholder="Filter by teacher(s)…"
+									bind:value={teacherFilter}
+									class="pl-9 w-full sm:w-48"
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Filter Summary -->
+				{#if showSummary}
+					<div class="bottom-6 left-1/2 z-50 fixed -translate-x-1/2">
+						<p class="bg-card/90 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full text-sm">
+							Showing {filteredEvaluations.length} of {evaluations.length} evaluations
+							{#if studentFilter && teacherFilter}
+								matching student "{studentFilter}" and teacher "{teacherFilter}"
+							{:else if studentFilter}
+								matching student "{studentFilter}"
+							{:else if teacherFilter}
+								for teacher "{teacherFilter}"
+							{/if}
+						</p>
+					</div>
+				{/if}
+			{/snippet}
+		</EvaluationsTimeline>
 	{/if}
 </div>

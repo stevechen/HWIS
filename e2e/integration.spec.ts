@@ -199,11 +199,6 @@ test.describe('Student Timeline Navigation @integration', () => {
 	});
 
 	test('clicking evaluation card navigates to student timeline with valid ID', async ({ page }) => {
-		// Verify the page shows evaluation content (either from query or demo)
-		// Look for the timeline heading which is always present
-		const timelineContent = page.getByRole('heading', { name: 'All Points History' });
-		await expect(timelineContent).toBeVisible();
-
 		// Verify breadcrumb navigation button exists
 		const backButton = page.getByRole('button', { name: /back/i });
 		await expect(backButton).toBeVisible();
