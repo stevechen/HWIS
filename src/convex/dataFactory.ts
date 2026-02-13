@@ -3,6 +3,9 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { getAuthenticatedUser } from './auth';
 
+// Type for authenticated user objects from auth (has authId or _id)
+type AuthUserInfo = { authId?: string; _id?: string };
+
 // Data factory helper functions for E2E testing
 const TABLES = ['students', 'point_categories', 'evaluations', 'audit_logs'] as const;
 
@@ -253,7 +256,7 @@ export const createEvaluationForStudent = mutation({
 			if (!authUser) {
 				throw new Error('User not authenticated. Provide testToken or use JWT auth.');
 			}
-			const authId = (authUser as any).authId || (authUser as any)._id;
+			const authId = (authUser as AuthUserInfo).authId || (authUser as AuthUserInfo)._id;
 			const userFromDb = await ctx.db
 				.query('users')
 				.withIndex('by_authId', (q) => q.eq('authId', authId))
