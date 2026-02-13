@@ -311,83 +311,58 @@ export const cleanupByTag = mutation({
 		const studentIdsWithTag: Id<'students'>[] = [];
 		const categoryNamesWithTag: string[] = [];
 
+		// Use indexed queries to avoid full table scans and reduce conflicts
 		if (args.dataType === 'students' || args.dataType === 'all') {
-			const students = await ctx.db.query('students').collect();
+			const students = await ctx.db
+				.query('students')
+				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', args.e2eTag))
+				.collect();
 			for (const student of students) {
-				if (student.e2eTag === args.e2eTag) {
-					ctx.db.delete(student._id);
-					totalDeleted++;
-					studentIdsWithTag.push(student._id);
-				}
+				await ctx.db.delete(student._id);
+				totalDeleted++;
+				studentIdsWithTag.push(student._id);
 			}
 		}
 
 		if (args.dataType === 'categories' || args.dataType === 'all') {
-			const categories = await ctx.db.query('point_categories').collect();
+			const categories = await ctx.db
+				.query('point_categories')
+				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', args.e2eTag))
+				.collect();
 			for (const cat of categories) {
-				if (cat.e2eTag === args.e2eTag) {
-					ctx.db.delete(cat._id);
-					totalDeleted++;
-					categoryNamesWithTag.push(cat.name);
-				}
+				await ctx.db.delete(cat._id);
+				totalDeleted++;
+				categoryNamesWithTag.push(cat.name);
 			}
 		}
 
 		if (args.dataType === 'evaluations' || args.dataType === 'all') {
-			const evaluations = await ctx.db.query('evaluations').collect();
+			// First delete evaluations with matching e2eTag (indexed query)
+			const evaluations = await ctx.db
+				.query('evaluations')
+				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', args.e2eTag))
+				.collect();
 			for (const evalItem of evaluations) {
-				// Delete evaluations that have matching e2eTag OR reference a student/category with matching e2eTag
-				if (
-					evalItem.e2eTag === args.e2eTag ||
-					studentIdsWithTag.includes(evalItem.studentId) ||
-					categoryNamesWithTag.includes(evalItem.category)
-				) {
-					ctx.db.delete(evalItem._id);
-					totalDeleted++;
-				}
+				await ctx.db.delete(evalItem._id);
+				totalDeleted++;
 			}
+			// Note: We no longer cascade delete evaluations by studentId/categoryName
+			// to avoid full table scans. Tests should create evaluations with e2eTag.
 		}
 
-		// Collect test user IDs for audit log cleanup
-		const testUserIds: Id<'users'>[] = [];
-		if (args.dataType === 'all') {
-			const users = await ctx.db.query('users').collect();
-			for (const user of users) {
-				if (
-					user.authId === 'test-user-id' ||
-					user.authId === 'test_admin' ||
-					user.authId === 'e2e_teacher1' ||
-					user.authId === 'e2e_teacher2' ||
-					(user.authId && (user.authId.startsWith('e2e_') || user.authId.startsWith('test_')))
-				) {
-					testUserIds.push(user._id);
-				}
-			}
-		}
-
-		// Clean up audit logs for deleted students, evaluations, and user modifications
+		// Clean up audit logs with matching e2eTag using indexed query
 		if (
 			args.dataType === 'students' ||
 			args.dataType === 'evaluations' ||
 			args.dataType === 'all'
 		) {
-			const auditLogs = await ctx.db.query('audit_logs').collect();
+			const auditLogs = await ctx.db
+				.query('audit_logs')
+				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', args.e2eTag))
+				.collect();
 			for (const log of auditLogs) {
-				if (
-					// Audit logs with matching e2eTag (most reliable method)
-					log.e2eTag === args.e2eTag ||
-					// Evaluation audit logs (fallback: match by category name)
-					(log.targetTable === 'evaluations' &&
-						categoryNamesWithTag.includes(log.newValue?.category || '')) ||
-					// Student audit logs (fallback: match by targetId as string)
-					(log.targetTable === 'students' &&
-						studentIdsWithTag.some((id) => id.toString() === log.targetId)) ||
-					// User modification audit logs (by performer)
-					(args.dataType === 'all' && testUserIds.includes(log.performerId))
-				) {
-					ctx.db.delete(log._id);
-					totalDeleted++;
-				}
+				await ctx.db.delete(log._id);
+				totalDeleted++;
 			}
 		}
 

@@ -27,6 +27,7 @@
 		showDetails?: boolean;
 		showUnenrolled?: boolean;
 		onToggleShowUnenrolled?: () => void;
+		showControls?: boolean;
 		enableLongPress?: boolean;
 		onLongPress?: (entry: EvaluationEntry) => void;
 		canEditEntry?: (entry: EvaluationEntry) => boolean;
@@ -46,6 +47,7 @@
 		showDetails: showDetails = $bindable(false),
 		showUnenrolled: showUnenrolled = false,
 		onToggleShowUnenrolled,
+		showControls: showControls = true,
 		enableLongPress = false,
 		onLongPress,
 		canEditEntry,
@@ -134,64 +136,79 @@
 	}
 </script>
 
-<div class="flex flex-wrap md:flex-nowrap justify-between items-center gap-4">
-	<div class="flex flex-wrap items-center gap-4">
-		{#if title}
-			<h2 class="font-semibold text-xl">{title}</h2>
-		{/if}
-		{#if children}
-			<div class="flex flex-wrap items-center gap-2">
-				{@render children()}
-			</div>
-		{/if}
-	</div>
-	<div class="flex items-center gap-2">
-		<Button
-			aria-label={sortAscending ? 'Oldest First' : 'Newest First'}
-			variant="outline"
-			size="sm"
-			onclick={() => (sortAscending = !sortAscending)}
-			title={sortAscending ? 'Oldest First' : 'Newest First'}
-		>
-			{#if sortAscending}
-				<ArrowUp class="size-4" />
-			{:else}
-				<ArrowDown class="size-4" />
+{#if showControls}
+	<div class="flex flex-wrap md:flex-nowrap justify-between items-center gap-4">
+		<div class="flex flex-wrap items-center gap-4">
+			{#if title}
+				<h2 class="font-semibold text-xl">{title}</h2>
 			{/if}
-		</Button>
-
-		<!-- Toggle show unenrolled students (admin only) -->
-		{#if onToggleShowUnenrolled}
+			{#if children}
+				<div class="flex flex-wrap items-center gap-2">
+					{@render children()}
+				</div>
+			{/if}
+		</div>
+		<div class="flex items-center gap-2">
 			<Button
-				aria-label={showUnenrolled ? 'Hide unenrolled students' : 'Show unenrolled students'}
+				aria-label={sortAscending ? 'Oldest First' : 'Newest First'}
 				variant="outline"
 				size="sm"
-				onclick={() => onToggleShowUnenrolled()}
-				title={showUnenrolled ? 'Hide unenrolled students' : 'Show unenrolled students'}
+				onclick={() => (sortAscending = !sortAscending)}
+				title={sortAscending ? 'Oldest First' : 'Newest First'}
 			>
-				{#if showUnenrolled}
-					<Eye class="size-4" />
+				{#if sortAscending}
+					<ArrowUp class="size-4" />
 				{:else}
-					<EyeOff class="size-4" />
+					<ArrowDown class="size-4" />
 				{/if}
 			</Button>
-		{/if}
 
-		<Button
-			aria-label={showDetails ? 'Hide Details' : 'Show Details'}
-			variant="outline"
-			size="sm"
-			onclick={() => (showDetails = !showDetails)}
-			title={showDetails ? 'Hide Details' : 'Show Details'}
-		>
-			{#if showDetails}
-				<ListChevronsUpDown class="size-4" />
-			{:else}
-				<ListChevronsDownUp class="size-4" />
+			<!-- Toggle show unenrolled students (admin only) -->
+			{#if onToggleShowUnenrolled}
+				<Button
+					aria-label={showUnenrolled ? 'Hide unenrolled students' : 'Show unenrolled students'}
+					variant="outline"
+					size="sm"
+					onclick={() => onToggleShowUnenrolled()}
+					title={showUnenrolled ? 'Hide unenrolled students' : 'Show unenrolled students'}
+				>
+					{#if showUnenrolled}
+						<Eye class="size-4" />
+					{:else}
+						<EyeOff class="size-4" />
+					{/if}
+				</Button>
 			{/if}
-		</Button>
+
+			<Button
+				aria-label={showDetails ? 'Hide Details' : 'Show Details'}
+				variant="outline"
+				size="sm"
+				onclick={() => (showDetails = !showDetails)}
+				title={showDetails ? 'Hide Details' : 'Show Details'}
+			>
+				{#if showDetails}
+					<ListChevronsUpDown class="size-4" />
+				{:else}
+					<ListChevronsDownUp class="size-4" />
+				{/if}
+			</Button>
+		</div>
 	</div>
-</div>
+{:else if title || children}
+	<div class="flex flex-wrap md:flex-nowrap justify-between items-center gap-4">
+		<div class="flex flex-wrap items-center gap-4">
+			{#if title}
+				<h2 class="font-semibold text-xl">{title}</h2>
+			{/if}
+			{#if children}
+				<div class="flex flex-wrap items-center gap-2">
+					{@render children()}
+				</div>
+			{/if}
+		</div>
+	</div>
+{/if}
 
 {#if filteredEvaluations.length === 0}
 	<Card.Root class="p-8 text-center">
@@ -257,11 +274,11 @@
 
 {#snippet card(entry: EvaluationEntry, idx: number)}
 	<div
-		class="bg-card relative max-w-40 cursor-pointer rounded-lg border p-3 shadow-sm transition-shadow hover:shadow-md sm:max-w-full sm:min-w-50 {getCardBorderColor(
+		class="bg-card relative max-w-40 cursor-pointer overflow-clip rounded-lg border p-3 shadow-sm transition-shadow hover:shadow-md sm:max-w-full sm:min-w-50 {getCardBorderColor(
 			entry
 		)}"
 		role="button"
-		aria-label="Evaluation for {showStudentName ? entry.englishName : entry.category}}"
+		aria-label="Evaluation for {showStudentName ? entry.englishName : entry.category}"
 		tabindex="0"
 		onmouseenter={() => (hoveredIndex = idx)}
 		onmouseleave={() => {
@@ -280,17 +297,17 @@
 	>
 		{#if showStudentName && entry.englishName}
 			<div class="flex items-center gap-2 mb-1 text-sm">
-				<User class="size-3" />
-				<span class="font-semibold">{entry.englishName}</span>
+				<User class="size-3 shrink-0" />
+				<span class="font-semibold break-words">{entry.englishName}</span>
 				{#if studentGrade || entry.grade}
-					<span class="bg-muted px-2 py-0.5 rounded-full text-xs"
+					<span class="bg-muted px-2 py-0.5 rounded-full text-xs shrink-0"
 						>G{studentGrade || entry.grade}</span
 					>
 				{/if}
 			</div>
 		{/if}
 		<div class="flex sm:flex-row flex-col sm:items-center gap-0.5 sm:gap-2 mb-1">
-			<span class="font-semibold text-sm">{entry.category}</span>
+			<span class="font-semibold text-sm break-words">{entry.category}</span>
 			{#if entry.subCategory}
 				<span class="hidden sm:inline text-muted-foreground text-xs">›</span>
 				<span class="text-muted-foreground text-xs">{entry.subCategory}</span>

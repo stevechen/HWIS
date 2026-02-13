@@ -246,9 +246,10 @@ export function getE2EUtils(): E2EUtils {
 				});
 				console.log('Cleanup by tag result:', result);
 				return result;
-			} catch {
-				console.log('Cleanup by tag error');
-				return { error: 'Error' };
+			} catch (e) {
+				console.log('Cleanup by tag error:', e);
+				// Re-throw to make test failures visible
+				throw e;
 			}
 		},
 

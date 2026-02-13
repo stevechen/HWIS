@@ -1,7 +1,8 @@
 // Filter summary state with auto-hide timeout
 export function createFilterSummaryState() {
 	let showSummary = $state(false);
-	let summaryTimeout = $state<ReturnType<typeof setTimeout> | null>(null);
+	// Use regular variable (not $state) for timeout handle to avoid reactive tracking
+	let summaryTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	function updateSummary(hasFilter: boolean): void {
 		if (hasFilter) {

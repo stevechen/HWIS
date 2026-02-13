@@ -4,7 +4,6 @@
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
 	import {
 		transformEvaluation,
-		sortEvaluations,
 		createFilterSummaryState,
 		createEvaluationDisplayState
 	} from '$lib/evaluations';
@@ -15,7 +14,17 @@
 		EvaluationsErrorState,
 		EvaluationsEmptyState
 	} from '$lib/evaluations/components';
-	import { onDestroy } from 'svelte';
+	import { Button } from '$lib/components/ui/button';
+	import {
+		Loader,
+		ArrowUp,
+		ArrowDown,
+		Eye,
+		EyeOff,
+		ListChevronsUpDown,
+		ListChevronsDownUp
+	} from '@lucide/svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 
 	// Filter states
 	let studentFilter = $state('');
@@ -32,31 +41,160 @@
 	const filterSummary = createFilterSummaryState();
 	const displayState = createEvaluationDisplayState();
 
+	// Pagination state
+	let cursor = $state<string | null>(null);
+	let accumulatedEvaluations = $state<EvaluationEntry[]>([]);
+	let isDone = $state(false);
+	let isLoadingMore = $state(false);
+
+	// Track previous filter values to detect changes
+	// Use regular variables (not $state) to avoid infinite reactive loops
+	let prevStudentFilter = '';
+	let prevTeacherFilter = '';
+	let prevShowUnenrolled = false;
+	let prevSortAscending = false;
+
+	// Determine if any filters are active
+	const hasActiveFilters = $derived(!!(studentFilter?.trim() || teacherFilter?.trim()));
+
 	// Update filter summary when filters change
 	$effect(() => {
 		filterSummary.updateSummary(!!(studentFilter || teacherFilter));
 	});
 
-	// Cleanup on destroy
-	onDestroy(() => {
-		filterSummary.cleanup();
+	// Reset pagination when filters or sort change
+	$effect(() => {
+		const filtersChanged =
+			studentFilter !== prevStudentFilter ||
+			teacherFilter !== prevTeacherFilter ||
+			showUnenrolled !== prevShowUnenrolled ||
+			displayState.sortAscending !== prevSortAscending;
+
+		if (filtersChanged) {
+			cursor = null;
+			accumulatedEvaluations = [];
+			isDone = false;
+			isLoadingMore = false;
+
+			// Update previous values
+			prevStudentFilter = studentFilter;
+			prevTeacherFilter = teacherFilter;
+			prevShowUnenrolled = showUnenrolled;
+			prevSortAscending = displayState.sortAscending;
+		}
 	});
 
-	// Query args - showUnenrolled defaults to false
-	const evaluationsQueryArgs = $derived({
+	// Query args for non-paginated query (used when filters are active)
+	const nonPaginatedQueryArgs = $derived({
 		studentFilter: studentFilter || undefined,
 		teacherFilter: teacherFilter || undefined,
 		showUnenrolled
 	});
 
-	// The evaluations query
-	const evaluationsQuery = useQuery(api.evaluations.listAllEvaluations, () => evaluationsQueryArgs);
+	// Query args for paginated query (used when no filters are active)
+	const paginatedQueryArgs = $derived({
+		studentFilter: undefined,
+		teacherFilter: undefined,
+		showUnenrolled,
+		sortAscending: displayState.sortAscending,
+		paginationOpts: {
+			cursor: cursor,
+			numItems: 20
+		}
+	});
 
-	// Sorted evaluations - directly from query data (reactive)
-	const sortedEvaluations = $derived.by(() => {
-		if (!evaluationsQuery.data) return [];
-		const evals = evaluationsQuery.data.map(transformEvaluation);
-		return sortEvaluations(evals, displayState.sortAscending);
+	// Non-paginated query for filtered results (fetches all, filters server-side)
+	const nonPaginatedQuery = useQuery(
+		api.evaluations.listAllEvaluations,
+		() => nonPaginatedQueryArgs
+	);
+
+	// Paginated query for unfiltered results (infinite scroll)
+	const paginatedQuery = useQuery(
+		api.evaluations.listAllEvaluationsPaginated,
+		() => paginatedQueryArgs
+	);
+
+	// Handle non-paginated query results (when filters are active)
+	$effect(() => {
+		if (hasActiveFilters && nonPaginatedQuery.data) {
+			const results = nonPaginatedQuery.data.map(transformEvaluation);
+			// Sort by timestamp based on sort order
+			const sorted = displayState.sortAscending
+				? results.sort((a, b) => a.timestamp - b.timestamp)
+				: results.sort((a, b) => b.timestamp - a.timestamp);
+			accumulatedEvaluations = sorted;
+			isDone = true;
+			isLoadingMore = false;
+		}
+	});
+
+	// Handle paginated query results - accumulate pages (when no filters)
+	$effect(() => {
+		if (!hasActiveFilters && paginatedQuery.data) {
+			const newPage = paginatedQuery.data.page.map(transformEvaluation);
+
+			// Use untrack to read cursor without tracking it (prevents infinite loop)
+			const currentCursor = untrack(() => cursor);
+
+			if (currentCursor === null) {
+				// First load or filter reset - replace all
+				accumulatedEvaluations = newPage;
+			} else {
+				// Append to existing, avoiding duplicates
+				// Use untrack to read accumulatedEvaluations without tracking it
+				const existing = untrack(() => accumulatedEvaluations);
+				const existingIds = new Set(existing.map((e) => e._id));
+				const uniqueNew = newPage.filter((e) => !existingIds.has(e._id));
+				accumulatedEvaluations = [...existing, ...uniqueNew];
+			}
+
+			isDone = paginatedQuery.data.isDone;
+			isLoadingMore = false;
+		}
+	});
+
+	// Load more function (only used for paginated/infinite scroll mode)
+	function loadMore() {
+		// Don't load more if filters are active (using non-paginated query)
+		if (hasActiveFilters) return;
+		if (isDone || isLoadingMore || paginatedQuery.isLoading) return;
+		if (!paginatedQuery.data?.continueCursor) return;
+
+		isLoadingMore = true;
+		cursor = paginatedQuery.data.continueCursor;
+	}
+
+	// Intersection observer for infinite scroll
+	let sentinelElement: HTMLElement | null = $state(null);
+	let observer: IntersectionObserver | null = null;
+
+	onMount(() => {
+		observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0].isIntersecting && !isDone && !isLoadingMore) {
+					loadMore();
+				}
+			},
+			{ rootMargin: '100px' }
+		);
+
+		if (sentinelElement) {
+			observer.observe(sentinelElement);
+		}
+	});
+
+	onDestroy(() => {
+		observer?.disconnect();
+		filterSummary.cleanup();
+	});
+
+	// Re-observe when sentinel changes
+	$effect(() => {
+		if (sentinelElement && observer) {
+			observer.disconnect();
+			observer.observe(sentinelElement);
+		}
 	});
 
 	function handleCardClick(_entry: EvaluationEntry): void {
@@ -65,15 +203,82 @@
 </script>
 
 <div class="mx-auto p-8 max-w-6xl">
-	{#if evaluationsQuery.isLoading}
+	<!-- Filters Section - Always visible -->
+	<div class="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4 mb-6">
+		<div class="flex sm:flex-row flex-col sm:items-center gap-4">
+			<FilterInput
+				bind:value={studentFilter}
+				placeholder="Filter by student name..."
+				ariaLabel="Filter by student name"
+				class="w-full sm:w-64"
+			/>
+			<FilterInput
+				bind:value={teacherFilter}
+				placeholder="Filter by teacher..."
+				ariaLabel="Filter by teacher"
+				class="w-full sm:w-64"
+			/>
+		</div>
+		<!-- Toggle controls aligned with filters -->
+		<div class="flex items-center gap-2">
+			<Button
+				aria-label={displayState.sortAscending ? 'Oldest First' : 'Newest First'}
+				variant="outline"
+				size="sm"
+				onclick={() => (displayState.sortAscending = !displayState.sortAscending)}
+				title={displayState.sortAscending ? 'Oldest First' : 'Newest First'}
+			>
+				{#if displayState.sortAscending}
+					<ArrowUp class="size-4" />
+				{:else}
+					<ArrowDown class="size-4" />
+				{/if}
+			</Button>
+			<Button
+				aria-label={showUnenrolled ? 'Hide unenrolled students' : 'Show unenrolled students'}
+				variant="outline"
+				size="sm"
+				onclick={toggleShowUnenrolled}
+				title={showUnenrolled ? 'Hide unenrolled students' : 'Show unenrolled students'}
+			>
+				{#if showUnenrolled}
+					<Eye class="size-4" />
+				{:else}
+					<EyeOff class="size-4" />
+				{/if}
+			</Button>
+			<Button
+				aria-label={displayState.showDetails ? 'Hide Details' : 'Show Details'}
+				variant="outline"
+				size="sm"
+				onclick={() => (displayState.showDetails = !displayState.showDetails)}
+				title={displayState.showDetails ? 'Hide Details' : 'Show Details'}
+			>
+				{#if displayState.showDetails}
+					<ListChevronsUpDown class="size-4" />
+				{:else}
+					<ListChevronsDownUp class="size-4" />
+				{/if}
+			</Button>
+		</div>
+	</div>
+
+	{#if (hasActiveFilters ? nonPaginatedQuery.isLoading : paginatedQuery.isLoading) && cursor === null}
 		<EvaluationsLoadingState />
-	{:else if evaluationsQuery.error}
-		<EvaluationsErrorState message={evaluationsQuery.error.message} />
-	{:else if sortedEvaluations.length === 0}
-		<EvaluationsEmptyState />
+	{:else if hasActiveFilters ? nonPaginatedQuery.error : paginatedQuery.error}
+		<EvaluationsErrorState
+			message={(hasActiveFilters ? nonPaginatedQuery.error : paginatedQuery.error)?.message ||
+				'An error occurred'}
+		/>
+	{:else if accumulatedEvaluations.length === 0}
+		<EvaluationsEmptyState
+			message={hasActiveFilters
+				? 'No evaluations match your search criteria.'
+				: 'No evaluations found.'}
+		/>
 	{:else}
 		<EvaluationsTimeline
-			evaluations={sortedEvaluations}
+			evaluations={accumulatedEvaluations}
 			showStudentName={true}
 			showTeacherFilter={false}
 			showTeacherName={true}
@@ -83,29 +288,24 @@
 			bind:sortAscending={displayState.sortAscending}
 			bind:showDetails={displayState.showDetails}
 			{showUnenrolled}
-			onToggleShowUnenrolled={toggleShowUnenrolled}
-		>
-			{#snippet children()}
-				<!-- Filters Section -->
-				<div class="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4">
-					<div class="flex sm:flex-row flex-col gap-4">
-						<FilterInput
-							bind:value={studentFilter}
-							placeholder="Filter by student name..."
-							ariaLabel="Filter by student name"
-							class="w-full sm:w-64"
-						/>
-						<FilterInput
-							bind:value={teacherFilter}
-							placeholder="Filter by teacher..."
-							ariaLabel="Filter by teacher"
-							class="w-full sm:w-64"
-						/>
-					</div>
-				</div>
-			{/snippet}
-		</EvaluationsTimeline>
+			showControls={false}
+		/>
 
-		<FilterSummaryToast show={filterSummary.showSummary} count={sortedEvaluations.length} />
+		<!-- Load more sentinel -->
+		<div bind:this={sentinelElement} class="h-4"></div>
+
+		<!-- Loading indicator -->
+		{#if isLoadingMore}
+			<div class="flex justify-center py-4">
+				<Loader class="size-6 text-muted-foreground animate-spin" />
+			</div>
+		{/if}
+
+		<!-- End of list indicator -->
+		{#if isDone && accumulatedEvaluations.length > 0}
+			<div class="py-4 text-muted-foreground text-sm text-center">No more evaluations</div>
+		{/if}
 	{/if}
+
+	<FilterSummaryToast show={filterSummary.showSummary} count={accumulatedEvaluations.length} />
 </div>

@@ -52,7 +52,8 @@ export default defineSchema({
 	})
 		.index('by_studentId', ['studentId'])
 		.index('by_grade', ['grade'])
-		.index('by_status', ['status']),
+		.index('by_status', ['status'])
+		.index('by_e2eTag', ['e2eTag']),
 
 	audit_logs: defineTable({
 		action: v.string(),
@@ -66,13 +67,14 @@ export default defineSchema({
 	})
 		.index('by_timestamp', ['timestamp'])
 		.index('by_performerId', ['performerId'])
-		.index('by_target', ['targetTable', 'targetId']),
+		.index('by_target', ['targetTable', 'targetId'])
+		.index('by_e2eTag', ['e2eTag']),
 
 	point_categories: defineTable({
 		name: v.string(),
 		subCategories: v.array(v.string()),
 		e2eTag: v.optional(v.string())
-	}),
+	}).index('by_e2eTag', ['e2eTag']),
 
 	evaluations: defineTable({
 		studentId: v.id('students'),
@@ -90,7 +92,8 @@ export default defineSchema({
 		.index('by_teacherId', ['teacherId'])
 		.index('by_timestamp', ['timestamp'])
 		.index('by_category', ['category'])
-		.index('by_category_subCategory', ['category', 'subCategory']),
+		.index('by_category_subCategory', ['category', 'subCategory'])
+		.index('by_e2eTag', ['e2eTag']),
 
 	backups: defineTable({
 		filename: v.string(),

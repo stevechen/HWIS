@@ -159,7 +159,7 @@
 
 	<div class="flex flex-col min-h-screen">
 		{#if shouldShowModal}
-			<div class="z-[9999] fixed inset-0 flex justify-center items-center bg-black/80">
+			<div class="z-9999 fixed inset-0 flex justify-center items-center bg-black/80">
 				<div class="bg-background shadow-lg m-4 p-6 border rounded-lg max-w-md text-foreground">
 					<h2 class="mb-4 font-semibold text-lg">Access Restricted</h2>
 					<p class="mb-6 text-muted-foreground">

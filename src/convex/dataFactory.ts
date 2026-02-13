@@ -273,27 +273,23 @@ export const createEvaluationForStudent = mutation({
 			throw new Error(`Student with ID "${args.studentId}" not found`);
 		}
 
-		// Find a category with matching e2eTag, or a category with subCategories
+		// Find a category with matching e2eTag, or create one with the tag for proper cleanup
 		const categories = await ctx.db.query('point_categories').collect();
 		let category = categories.find((c) => c.e2eTag === args.e2eTag);
-		if (!category) {
-			category = categories.find((c) => c.subCategories && c.subCategories.length > 0);
-		}
-		if (!category) {
-			category = categories[0];
-		}
 
-		// If still no category, create a fallback one
+		// If no category with matching e2eTag, create a new one for this test
 		if (!category) {
 			const catId = await ctx.db.insert('point_categories', {
-				name: 'General',
-				subCategories: ['Homework']
+				name: `TestCategory_${args.e2eTag || getE2ETag()}`,
+				subCategories: ['Homework'],
+				e2eTag: args.e2eTag || getE2ETag()
 			});
 			category = {
 				_id: catId,
 				_creationTime: Date.now(),
-				name: 'General',
-				subCategories: ['Homework']
+				name: `TestCategory_${args.e2eTag || getE2ETag()}`,
+				subCategories: ['Homework'],
+				e2eTag: args.e2eTag || getE2ETag()
 			};
 		}
 

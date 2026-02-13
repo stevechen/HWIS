@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
+import { paginationOptsValidator } from 'convex/server';
 import { requireUserProfile, getAuthenticatedUser, requireAdminRole } from './auth';
 
 export const getUserByAuthId = query({
@@ -577,6 +578,92 @@ export const listAllEvaluations = query({
 
 		// Sort by timestamp descending
 		return enriched.sort((a, b) => b.timestamp - a.timestamp);
+	}
+});
+
+// Paginated version of listAllEvaluations for infinite scroll
+export const listAllEvaluationsPaginated = query({
+	args: {
+		studentFilter: v.optional(v.string()),
+		teacherFilter: v.optional(v.string()),
+		showUnenrolled: v.boolean(),
+		sortAscending: v.boolean(),
+		paginationOpts: paginationOptsValidator,
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
+
+		const order = args.sortAscending ? 'asc' : 'desc';
+
+		// Use paginate() instead of collect() for cursor-based pagination
+		const result = await ctx.db
+			.query('evaluations')
+			.withIndex('by_timestamp')
+			.order(order)
+			.paginate(args.paginationOpts);
+
+		// Enrich only the current page
+		const studentIds = [...new Set(result.page.map((e) => e.studentId))];
+		const teacherIds = [...new Set(result.page.map((e) => e.teacherId))];
+
+		// Parallel fetch students and teachers
+		const [students, teachers] = await Promise.all([
+			Promise.all(studentIds.map((id) => ctx.db.get(id))),
+			Promise.all(teacherIds.map((id) => ctx.db.get(id)))
+		]);
+
+		// Build maps for O(1) lookup
+		const studentMap = new Map(
+			students.filter((s): s is NonNullable<typeof s> => s != null).map((s) => [s._id, s])
+		);
+		const teacherMap = new Map(
+			teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
+		);
+
+		let enriched = result.page.map((eval_) => {
+			const student = studentMap.get(eval_.studentId);
+			const teacher = teacherMap.get(eval_.teacherId);
+			return {
+				_id: eval_._id.toString(),
+				studentId: eval_.studentId.toString(),
+				englishName: student?.englishName || 'Unknown Student',
+				grade: student?.grade || 0,
+				studentIdCode: student?.studentId || 'N/A',
+				status: student?.status || 'Not Enrolled',
+				value: eval_.value,
+				category: eval_.category,
+				subCategory: eval_.subCategory,
+				details: eval_.details,
+				timestamp: eval_.timestamp,
+				teacherName: teacher?.name || 'Unknown Teacher',
+				teacherId: eval_.teacherId.toString()
+			};
+		});
+
+		// Server-side: unenrolled filter
+		if (args.showUnenrolled !== true) {
+			enriched = enriched.filter((e) => e.status !== 'Not Enrolled');
+		}
+
+		// Server-side: text filters (may reduce results below limit)
+		if (args.studentFilter && args.studentFilter.trim()) {
+			enriched = enriched.filter((e) =>
+				matchesMultiSearch(args.studentFilter!, e.englishName ?? '')
+			);
+		}
+
+		if (args.teacherFilter && args.teacherFilter.trim()) {
+			enriched = enriched.filter((e) =>
+				matchesMultiSearch(args.teacherFilter!, e.teacherName ?? '')
+			);
+		}
+
+		return {
+			page: enriched,
+			isDone: result.isDone,
+			continueCursor: result.continueCursor
+		};
 	}
 });
 
