@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { Search } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { onMount, onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as Card from '$lib/components/ui/card';
@@ -97,17 +98,84 @@
 			selectedStudentIds.add(id);
 		}
 	}
+
+	// Derived values for "check all" checkbox state
+	let allFilteredSelected = $derived(
+		filteredStudents.length > 0 && filteredStudents.every((s) => selectedStudentIds.has(s._id))
+	);
+
+	let someFilteredSelected = $derived(
+		filteredStudents.some((s) => selectedStudentIds.has(s._id)) && !allFilteredSelected
+	);
+
+	function toggleAllFiltered() {
+		if (allFilteredSelected) {
+			// Deselect all filtered students
+			for (const student of filteredStudents) {
+				selectedStudentIds.delete(student._id);
+			}
+		} else {
+			// Select all filtered students
+			for (const student of filteredStudents) {
+				selectedStudentIds.add(student._id);
+			}
+		}
+	}
+
+	function handleGlobalKeydown(e: KeyboardEvent) {
+		const isInputFocused =
+			document.activeElement instanceof HTMLInputElement ||
+			document.activeElement instanceof HTMLTextAreaElement ||
+			document.activeElement instanceof HTMLSelectElement;
+
+		// Allow Ctrl/Cmd+Enter even when input is focused
+		if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+			e.preventDefault();
+			handleSubmit();
+			return;
+		}
+
+		// Skip other shortcuts when typing in inputs
+		if (isInputFocused) {
+			return;
+		}
+
+		// Process point shortcuts
+		if (e.key === '1' || e.key === '+') {
+			e.preventDefault();
+			points = 1;
+		} else if (e.key === '2') {
+			e.preventDefault();
+			points = 2;
+		} else if ((e.key === '!' && e.shiftKey) || e.key === '-') {
+			// Shift+1 = '!' or '-' key for -1
+			e.preventDefault();
+			points = -1;
+		} else if (e.key === '@' && e.shiftKey) {
+			// Shift+2 = '@' for -2
+			e.preventDefault();
+			points = -2;
+		}
+	}
+
+	onMount(() => {
+		window.addEventListener('keydown', handleGlobalKeydown);
+	});
+
+	onDestroy(() => {
+		window.removeEventListener('keydown', handleGlobalKeydown);
+	});
 </script>
 
-<div class="mx-auto p-8 max-w-5xl">
-	<div class="gap-8 grid grid-cols-1 lg:grid-cols-2">
+<div class="mx-auto max-w-5xl p-8">
+	<div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>1. Select Students</Card.Title>
 			</Card.Header>
 			<Card.Content>
 				<div class="relative mb-4">
-					<Search class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
+					<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 					<Input
 						type="text"
 						placeholder="Filter by name or ID..."
@@ -117,15 +185,42 @@
 					/>
 				</div>
 
-				<div class="bg-muted border rounded-md max-h-72 overflow-y-auto">
+				<div class="bg-muted max-h-72 overflow-y-auto rounded-md border">
 					{#if studentsQuery.isLoading}
-						<div class="p-8 text-muted-foreground text-center">Loading students...</div>
+						<div class="text-muted-foreground p-8 text-center">Loading students...</div>
 					{:else if filteredStudents.length === 0}
-						<div class="p-8 text-muted-foreground text-center">No students found</div>
+						<div class="text-muted-foreground p-8 text-center">No students found</div>
 					{:else}
+						{#if filteredStudents.length > 1}
+							<div
+								class="bg-background hover:bg-accent cursor-pointer border-b transition-colors"
+								onclick={toggleAllFiltered}
+								onkeydown={(e) => e.key === 'Enter' && toggleAllFiltered()}
+								role="button"
+								tabindex="0"
+							>
+								<div class="flex items-center gap-4 p-3">
+									<input
+										id="select-all"
+										type="checkbox"
+										checked={allFilteredSelected}
+										indeterminate={someFilteredSelected}
+										tabindex="-1"
+										class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
+										aria-label="Select all students"
+										onclick={(e) => e.stopPropagation()}
+										onchange={(e) => {
+											e.stopPropagation();
+											toggleAllFiltered();
+										}}
+									/>
+									<span class="text-sm font-medium">Select all ({filteredStudents.length})</span>
+								</div>
+							</div>
+						{/if}
 						{#each filteredStudents as student (student._id)}
 							<div
-								class="bg-background hover:bg-accent border-b last:border-b-0 transition-colors cursor-pointer"
+								class="bg-background hover:bg-accent cursor-pointer border-b transition-colors last:border-b-0"
 								class:bg-accent={selectedStudentIds.has(student._id)}
 								onclick={() => toggleStudent(student._id)}
 								onkeydown={(e) => e.key === 'Enter' && toggleStudent(student._id)}
@@ -134,10 +229,11 @@
 							>
 								<div class="flex items-center gap-4 p-3">
 									<input
+										id={`select-${student.englishName}`}
 										type="checkbox"
 										checked={selectedStudentIds.has(student._id)}
 										tabindex="-1"
-										class="border-input rounded focus:ring-primary size-4 text-primary cursor-pointer"
+										class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
 										onclick={(e) => e.stopPropagation()}
 										onchange={(e) => {
 											e.stopPropagation();
@@ -156,7 +252,7 @@
 					{/if}
 				</div>
 
-				<p class="mt-4 font-medium text-primary text-sm">
+				<p class="text-primary mt-4 text-sm font-medium">
 					{selectedStudentIds.size} student(s) selected
 				</p>
 			</Card.Content>
@@ -168,7 +264,7 @@
 			</Card.Header>
 			<Card.Content>
 				<div class="mb-5">
-					<label class="block mb-2 font-medium text-sm">
+					<label class="mb-2 block text-sm font-medium">
 						Category
 						<Select.Root type="single" bind:value={categoryId}>
 							<Select.Trigger class="mt-1" aria-label="Select category">
@@ -186,7 +282,7 @@
 				{#if selectedCategory}
 					{#if selectedCategory.subCategories.length > 0}
 						<div class="mb-5">
-							<label class="block mb-2 font-medium text-sm">
+							<label class="mb-2 block text-sm font-medium">
 								Sub-Category
 								<Select.Root type="single" bind:value={subCategory}>
 									<Select.Trigger class="mt-1" aria-label="Select sub-category">
@@ -206,35 +302,66 @@
 				{/if}
 
 				<fieldset class="mb-5">
-					<legend class="block mb-2 font-medium text-sm">Points</legend>
-					<div class="gap-2 grid grid-cols-4">
-						{#each [-2, -1, 1, 2] as p (p)}
-							<Button
-								type="button"
-								variant={points === p ? 'default' : 'outline'}
-								onclick={() => (points = p)}
-								aria-label={p > 0 ? `Award ${p} points` : `Deduct ${Math.abs(p)} points`}
-							>
-								{p > 0 ? '+' : ''}{p}
-							</Button>
-						{/each}
+					<legend class="mb-2 block text-sm font-medium">Points</legend>
+					<div class="grid grid-cols-4 gap-2">
+						<Button
+							type="button"
+							variant={points === -2 ? 'default' : 'outline'}
+							onclick={() => (points = -2)}
+							aria-label="Deduct 2 points"
+							title="-2 points (press Shift+2)"
+							aria-keyshortcuts="Shift+2"
+						>
+							-2
+						</Button>
+						<Button
+							type="button"
+							variant={points === -1 ? 'default' : 'outline'}
+							onclick={() => (points = -1)}
+							aria-label="Deduct 1 point"
+							title="-1 point (press Shift+1 or -)"
+							aria-keyshortcuts="Shift+1 -"
+						>
+							-1
+						</Button>
+						<Button
+							type="button"
+							variant={points === 1 ? 'default' : 'outline'}
+							onclick={() => (points = 1)}
+							aria-label="Award 1 point"
+							title="+1 point (press 1 or +)"
+							aria-keyshortcuts="1 +"
+						>
+							+1
+						</Button>
+						<Button
+							type="button"
+							variant={points === 2 ? 'default' : 'outline'}
+							onclick={() => (points = 2)}
+							aria-label="Award 2 points"
+							title="+2 points (press 2)"
+							aria-keyshortcuts="2"
+						>
+							+2
+						</Button>
 					</div>
 				</fieldset>
 
 				<div class="mb-5">
-					<label class="block mb-2 font-medium text-sm">
+					<label class="mb-2 block text-sm font-medium">
 						Details / Comments
 						<textarea
+							id="evaluation-details"
 							bind:value={details}
 							placeholder="Enter specific details about the behavior..."
-							class="flex bg-background disabled:opacity-50 mt-1 px-3 py-2 border border-input rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ring-offset-background focus-visible:ring-offset-2 w-full min-h-20 placeholder:text-muted-foreground text-sm resize-none disabled:cursor-not-allowed"
+							class="bg-background border-input focus-visible:ring-ring ring-offset-background placeholder:text-muted-foreground mt-1 flex min-h-20 w-full resize-none rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
 							rows="4"
 						></textarea>
 					</label>
 				</div>
 
 				{#if error}
-					<div role="alert" class="bg-destructive/10 mb-4 p-3 rounded-md text-destructive text-sm">
+					<div role="alert" class="bg-destructive/10 text-destructive mb-4 rounded-md p-3 text-sm">
 						{error}
 					</div>
 				{/if}
@@ -244,6 +371,7 @@
 					onclick={handleSubmit}
 					disabled={loading}
 					aria-label="Submit evaluation"
+					title="Submit evaluation (Ctrl+Enter)"
 				>
 					{#if loading}
 						Saving...

@@ -137,10 +137,12 @@
 </script>
 
 {#if showControls}
-	<div class="flex flex-wrap md:flex-nowrap justify-between items-center gap-4">
+	<div
+		class="bg-background sticky top-14 z-10 flex flex-wrap items-center justify-between gap-4 border-b pb-4 md:flex-nowrap"
+	>
 		<div class="flex flex-wrap items-center gap-4">
 			{#if title}
-				<h2 class="font-semibold text-xl">{title}</h2>
+				<h2 class="text-xl font-semibold">{title}</h2>
 			{/if}
 			{#if children}
 				<div class="flex flex-wrap items-center gap-2">
@@ -196,10 +198,12 @@
 		</div>
 	</div>
 {:else if title || children}
-	<div class="flex flex-wrap md:flex-nowrap justify-between items-center gap-4">
+	<div
+		class="bg-background sticky top-14 z-10 flex flex-wrap items-center justify-between gap-4 border-b pb-4 md:flex-nowrap"
+	>
 		<div class="flex flex-wrap items-center gap-4">
 			{#if title}
-				<h2 class="font-semibold text-xl">{title}</h2>
+				<h2 class="text-xl font-semibold">{title}</h2>
 			{/if}
 			{#if children}
 				<div class="flex flex-wrap items-center gap-2">
@@ -213,23 +217,23 @@
 {#if filteredEvaluations.length === 0}
 	<Card.Root class="p-8 text-center">
 		<Card.Content class="pt-6">
-			<p class="mb-6 text-muted-foreground">No evaluations found.</p>
+			<p class="text-muted-foreground mb-6">No evaluations found.</p>
 		</Card.Content>
 	</Card.Root>
 {:else}
 	<div
 		role="region"
 		aria-label="Evaluations"
-		class="relative bg-linear-to-b from-white-100/0 via-white/80 to-white-100/0"
+		class="from-background/0 via-background/80 to-background/0 relative bg-linear-to-b"
 	>
 		<div
-			class="top-0 bottom-0 left-1/2 absolute border-border border-l w-0.5 -translate-x-1/2"
+			class="border-border absolute top-0 bottom-0 left-1/2 w-0.5 -translate-x-1/2 border-l"
 			role="separator"
 			aria-label="Timeline divider"
 		></div>
-		<div class="relative flex flex-col gap-6 py-4 min-h-25">
+		<div class="relative flex min-h-25 flex-col gap-6 py-4">
 			{#each filteredEvaluations as entry, idx (entry._id)}
-				<div class="items-center gap-2 sm:gap-4 grid grid-cols-[1fr_auto_1fr]">
+				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
 					<div
 						class={[
 							idx % 2 === 0 && 'order-1 items-end pr-2 text-right',
@@ -242,14 +246,14 @@
 							<span>{formatDate(entry.timestamp)}</span>
 						</div>
 						{#if showTeacherName && entry.teacherName}
-							<div class="flex items-center gap-1 mt-1 text-xs">
+							<div class="mt-1 flex items-center gap-1 text-xs">
 								<User class="size-3" />
 								<span class={getTeacherNameColor(entry)}>{entry.teacherName}</span>
 							</div>
 						{/if}
 					</div>
 
-					<div class="z-10 flex justify-center items-center order-2">
+					<div class="order-2 flex items-center justify-center">
 						<div
 							class="border-background size-3 rounded-full border-2 {getNodeColor(entry.value)}"
 						></div>
@@ -274,7 +278,7 @@
 
 {#snippet card(entry: EvaluationEntry, idx: number)}
 	<div
-		class="bg-card relative max-w-40 cursor-pointer overflow-clip rounded-lg border p-3 shadow-sm transition-shadow hover:shadow-md sm:max-w-full sm:min-w-50 {getCardBorderColor(
+		class="bg-card relative max-w-40 cursor-pointer rounded-lg border p-3 shadow-sm transition-shadow hover:shadow-md sm:max-w-full sm:min-w-50 {getCardBorderColor(
 			entry
 		)}"
 		role="button"
@@ -296,20 +300,20 @@
 		}}
 	>
 		{#if showStudentName && entry.englishName}
-			<div class="flex items-center gap-2 mb-1 text-sm">
+			<div class="mb-1 flex items-center gap-2 text-sm">
 				<User class="size-3 shrink-0" />
 				<span class="font-semibold break-words">{entry.englishName}</span>
 				{#if studentGrade || entry.grade}
-					<span class="bg-muted px-2 py-0.5 rounded-full text-xs shrink-0"
+					<span class="bg-muted shrink-0 rounded-full px-2 py-0.5 text-xs"
 						>G{studentGrade || entry.grade}</span
 					>
 				{/if}
 			</div>
 		{/if}
-		<div class="flex sm:flex-row flex-col sm:items-center gap-0.5 sm:gap-2 mb-1">
-			<span class="font-semibold text-sm break-words">{entry.category}</span>
+		<div class="mb-1 flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
+			<span class="text-sm font-semibold break-words">{entry.category}</span>
 			{#if entry.subCategory}
-				<span class="hidden sm:inline text-muted-foreground text-xs">›</span>
+				<span class="text-muted-foreground hidden text-xs sm:inline">›</span>
 				<span class="text-muted-foreground text-xs">{entry.subCategory}</span>
 			{/if}
 		</div>

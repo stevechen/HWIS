@@ -202,10 +202,12 @@
 	}
 </script>
 
-<div class="mx-auto p-8 max-w-6xl">
-	<!-- Filters Section - Always visible -->
-	<div class="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4 mb-6">
-		<div class="flex sm:flex-row flex-col sm:items-center gap-4">
+<div class="mx-auto max-w-6xl p-8 pt-0">
+	<!-- Filters Section - Sticky for easy access while scrolling -->
+	<div
+		class="from-background to-background/85 sticky top-14 z-10 -mx-8 flex flex-col gap-4 border-b bg-linear-to-b px-8 py-2 sm:flex-row sm:items-center sm:justify-between"
+	>
+		<div class="flex flex-col gap-4 sm:flex-row sm:items-center">
 			<FilterInput
 				bind:value={studentFilter}
 				placeholder="Filter by student name..."
@@ -297,13 +299,13 @@
 		<!-- Loading indicator -->
 		{#if isLoadingMore}
 			<div class="flex justify-center py-4">
-				<Loader class="size-6 text-muted-foreground animate-spin" />
+				<Loader class="text-muted-foreground size-6 animate-spin" />
 			</div>
 		{/if}
 
 		<!-- End of list indicator -->
 		{#if isDone && accumulatedEvaluations.length > 0}
-			<div class="py-4 text-muted-foreground text-sm text-center">No more evaluations</div>
+			<div class="text-muted-foreground py-4 text-center text-sm">No more evaluations</div>
 		{/if}
 	{/if}
 
