@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { getTestSuffix } from './helpers';
 import {
-	createEvaluationForStudent,
 	createStudent,
+	createStudentWithEvaluations,
 	cleanupByTag,
 	createCategoryWithSubs,
 	useRole
@@ -109,16 +109,15 @@ test.describe('Delete Student - With Cascade', () => {
 		testCategory = true;
 
 		// Create student WITH evaluation
-		await createStudent({
+		await createStudentWithEvaluations({
 			studentId: studentId,
 			englishName: englishName,
+			chineseName: '刪除 cascade',
 			grade: 10,
 			status: 'Enrolled',
 			e2eTag: e2eTag
 		});
 		testStudent = true;
-
-		await createEvaluationForStudent({ studentId, e2eTag });
 		testEvaluation = true;
 
 		await page.goto('/admin/students');
@@ -189,16 +188,15 @@ test.describe('Delete Dialog - Shows Options', () => {
 		testCategory = true;
 
 		// Create student WITH evaluation
-		await createStudent({
+		await createStudentWithEvaluations({
 			studentId: studentId,
 			englishName: englishName,
+			chineseName: '對話框測試',
 			grade: 10,
 			status: 'Enrolled',
 			e2eTag: e2eTag
 		});
 		testStudent = true;
-
-		await createEvaluationForStudent({ studentId, e2eTag });
 		testEvaluation = true;
 	});
 
@@ -262,16 +260,15 @@ test.describe('Delete - Set Not Enrolled', () => {
 		testCategory = true;
 
 		// Create student WITH evaluation
-		await createStudent({
+		await createStudentWithEvaluations({
 			studentId: studentId,
 			englishName: englishName,
+			chineseName: '設為未註冊',
 			grade: 10,
 			status: 'Enrolled',
 			e2eTag: e2eTag
 		});
 		testStudent = true;
-
-		await createEvaluationForStudent({ studentId, e2eTag });
 		testEvaluation = true;
 
 		await page.goto('/admin/students');

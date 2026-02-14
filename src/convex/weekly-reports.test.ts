@@ -64,6 +64,16 @@ describe('Weekly Reports', () => {
 			});
 		});
 
+		// Create categories
+		const creativityId = await t.mutation(api.categories.create, {
+			name: 'Creativity',
+			subCategories: ['Leadership']
+		});
+		const responsibilityId = await t.mutation(api.categories.create, {
+			name: 'Responsibility',
+			subCategories: ['Punctuality']
+		});
+
 		const fridayJan17 = getFridayOfWeek(new Date('2025-01-17T10:00:00Z').getTime());
 
 		await t.run(async (ctx) => {
@@ -71,7 +81,7 @@ describe('Weekly Reports', () => {
 				studentId: student1Id,
 				teacherId,
 				value: 2,
-				category: 'Creativity',
+				categoryId: creativityId,
 				subCategory: 'Leadership',
 				details: 'Great work!',
 				timestamp: new Date('2025-01-15T10:00:00Z').getTime(),
@@ -84,7 +94,7 @@ describe('Weekly Reports', () => {
 				studentId: student2Id,
 				teacherId,
 				value: 1,
-				category: 'Responsibility',
+				categoryId: responsibilityId,
 				subCategory: 'Punctuality',
 				details: 'On time',
 				timestamp: new Date('2025-01-16T10:00:00Z').getTime(),
@@ -125,12 +135,17 @@ describe('Weekly Reports', () => {
 			});
 		});
 
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Creativity',
+			subCategories: ['Leadership']
+		});
+
 		await t.run(async (ctx) => {
 			await ctx.db.insert('evaluations', {
 				studentId,
 				teacherId,
 				value: 1,
-				category: 'Creativity',
+				categoryId,
 				subCategory: 'Leadership',
 				details: 'Week 1',
 				timestamp: new Date('2025-01-08T10:00:00Z').getTime(),
@@ -143,7 +158,7 @@ describe('Weekly Reports', () => {
 				studentId,
 				teacherId,
 				value: 2,
-				category: 'Creativity',
+				categoryId,
 				subCategory: 'Leadership',
 				details: 'Week 2',
 				timestamp: new Date('2025-01-15T10:00:00Z').getTime(),
@@ -156,7 +171,7 @@ describe('Weekly Reports', () => {
 				studentId,
 				teacherId,
 				value: 3,
-				category: 'Creativity',
+				categoryId,
 				subCategory: 'Leadership',
 				details: 'Week 3',
 				timestamp: new Date('2025-01-22T10:00:00Z').getTime(),
@@ -207,6 +222,16 @@ describe('Weekly Reports', () => {
 			});
 		});
 
+		// Create categories
+		const creativityId = await t.mutation(api.categories.create, {
+			name: 'Creativity',
+			subCategories: ['Leadership']
+		});
+		const responsibilityId = await t.mutation(api.categories.create, {
+			name: 'Responsibility',
+			subCategories: ['Punctuality']
+		});
+
 		const friday = getFridayOfWeek(new Date('2025-01-17T10:00:00Z').getTime());
 
 		await t.run(async (ctx) => {
@@ -214,7 +239,7 @@ describe('Weekly Reports', () => {
 				studentId: student1Id,
 				teacherId,
 				value: 2,
-				category: 'Creativity',
+				categoryId: creativityId,
 				subCategory: 'Leadership',
 				details: 'Great work!',
 				timestamp: new Date('2025-01-15T10:00:00Z').getTime(),
@@ -227,7 +252,7 @@ describe('Weekly Reports', () => {
 				studentId: student1Id,
 				teacherId,
 				value: 1,
-				category: 'Responsibility',
+				categoryId: responsibilityId,
 				subCategory: 'Punctuality',
 				details: 'Good!',
 				timestamp: new Date('2025-01-16T10:00:00Z').getTime(),
@@ -240,7 +265,7 @@ describe('Weekly Reports', () => {
 				studentId: student2Id,
 				teacherId,
 				value: 3,
-				category: 'Creativity',
+				categoryId: creativityId,
 				subCategory: 'Innovation',
 				details: 'Excellent!',
 				timestamp: new Date('2025-01-15T10:00:00Z').getTime(),
@@ -282,6 +307,11 @@ describe('Weekly Reports', () => {
 			});
 		});
 
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Creativity',
+			subCategories: ['Leadership', 'Innovation']
+		});
+
 		const friday = getFridayOfWeek(new Date('2025-01-17T10:00:00Z').getTime());
 
 		await t.run(async (ctx) => {
@@ -289,7 +319,7 @@ describe('Weekly Reports', () => {
 				studentId,
 				teacherId,
 				value: 2,
-				category: 'Creativity',
+				categoryId,
 				subCategory: 'Leadership',
 				details: 'First',
 				timestamp: new Date('2025-01-15T10:00:00Z').getTime(),
@@ -302,7 +332,7 @@ describe('Weekly Reports', () => {
 				studentId,
 				teacherId,
 				value: 1,
-				category: 'Creativity',
+				categoryId,
 				subCategory: 'Innovation',
 				details: 'Second',
 				timestamp: new Date('2025-01-16T10:00:00Z').getTime(),
@@ -344,6 +374,11 @@ describe('Weekly Reports', () => {
 			});
 		});
 
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Creativity',
+			subCategories: ['Leadership']
+		});
+
 		const friday = getFridayOfWeek(new Date('2025-01-17T10:00:00Z').getTime());
 
 		await t.run(async (ctx) => {
@@ -351,7 +386,7 @@ describe('Weekly Reports', () => {
 				studentId,
 				teacherId,
 				value: 2,
-				category: 'Creativity',
+				categoryId,
 				subCategory: 'Leadership',
 				details: 'Week 1',
 				timestamp: new Date('2025-01-15T10:00:00Z').getTime(),
@@ -364,7 +399,7 @@ describe('Weekly Reports', () => {
 				studentId,
 				teacherId,
 				value: 1,
-				category: 'Creativity',
+				categoryId,
 				subCategory: 'Leadership',
 				details: 'Week 2',
 				timestamp: new Date('2025-01-22T10:00:00Z').getTime(),

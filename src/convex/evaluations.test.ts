@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { convexTest, modules } from './test.setup';
 import schema from './schema';
 import { api } from './_generated/api';
+import type { Id } from './_generated/dataModel';
 
 test('evaluations table operations work correctly', async () => {
 	const t = convexTest(schema, modules);
@@ -25,12 +26,19 @@ test('evaluations table operations work correctly', async () => {
 		});
 	});
 
+	const categoryId = await t.run(async (ctx) => {
+		return await ctx.db.insert('point_categories', {
+			name: 'Creativity',
+			subCategories: ['Leadership']
+		});
+	});
+
 	const evaluationId = await t.run(async (ctx) => {
 		return await ctx.db.insert('evaluations', {
 			studentId,
 			teacherId,
 			value: 1,
-			category: 'Creativity',
+			categoryId,
 			subCategory: 'Leadership',
 			details: 'Great work!',
 			timestamp: Date.now(),
@@ -45,7 +53,7 @@ test('evaluations table operations work correctly', async () => {
 	});
 
 	expect(evaluations).toHaveLength(1);
-	expect(evaluations[0].category).toBe('Creativity');
+	expect(evaluations[0].categoryId).toEqual(categoryId);
 	expect(evaluations[0].value).toBe(1);
 	expect(evaluations[0].studentId).toEqual(studentId);
 	expect(evaluations[0].teacherId).toEqual(teacherId);
@@ -73,12 +81,19 @@ test('evaluations query by teacherId works correctly', async () => {
 		});
 	});
 
+	const categoryId = await t.run(async (ctx) => {
+		return await ctx.db.insert('point_categories', {
+			name: 'Responsibility',
+			subCategories: ['Punctuality']
+		});
+	});
+
 	await t.run(async (ctx) => {
 		await ctx.db.insert('evaluations', {
 			studentId,
 			teacherId,
 			value: 2,
-			category: 'Responsibility',
+			categoryId,
 			subCategory: 'Punctuality',
 			details: 'Always on time',
 			timestamp: Date.now(),
@@ -94,7 +109,7 @@ test('evaluations query by teacherId works correctly', async () => {
 	});
 
 	expect(evaluations).toHaveLength(1);
-	expect(evaluations[0].category).toBe('Responsibility');
+	expect(evaluations[0].categoryId).toEqual(categoryId);
 });
 
 test('evaluations query by studentId works correctly', async () => {
@@ -128,12 +143,26 @@ test('evaluations query by studentId works correctly', async () => {
 		});
 	});
 
+	const categoryId1 = await t.run(async (ctx) => {
+		return await ctx.db.insert('point_categories', {
+			name: 'Creativity',
+			subCategories: ['Innovation']
+		});
+	});
+
+	const categoryId2 = await t.run(async (ctx) => {
+		return await ctx.db.insert('point_categories', {
+			name: 'Responsibility',
+			subCategories: ['Teamwork']
+		});
+	});
+
 	await t.run(async (ctx) => {
 		await ctx.db.insert('evaluations', {
 			studentId,
 			teacherId: teacherId1,
 			value: 3,
-			category: 'Creativity',
+			categoryId: categoryId1,
 			subCategory: 'Innovation',
 			details: 'Creative solutions',
 			timestamp: Date.now(),
@@ -146,7 +175,7 @@ test('evaluations query by studentId works correctly', async () => {
 			studentId,
 			teacherId: teacherId2,
 			value: 1,
-			category: 'Responsibility',
+			categoryId: categoryId2,
 			subCategory: 'Teamwork',
 			details: 'Good teamwork',
 			timestamp: Date.now() + 1000,
@@ -197,6 +226,18 @@ test('listAllEvaluationsPaginated returns paginated results', async () => {
 		});
 	});
 
+	// Create categories for testing
+	const categoryIds: string[] = [];
+	for (let i = 0; i < 5; i++) {
+		const catId = await t.run(async (ctx) => {
+			return await ctx.db.insert('point_categories', {
+				name: `Category ${i}`,
+				subCategories: ['SubCategory']
+			});
+		});
+		categoryIds.push(catId);
+	}
+
 	// Create multiple evaluations
 	const now = Date.now();
 	for (let i = 0; i < 5; i++) {
@@ -205,7 +246,7 @@ test('listAllEvaluationsPaginated returns paginated results', async () => {
 				studentId,
 				teacherId,
 				value: i + 1,
-				category: `Category ${i}`,
+				categoryId: categoryIds[i],
 				subCategory: 'SubCategory',
 				details: `Details ${i}`,
 				timestamp: now + i * 1000,
@@ -261,6 +302,18 @@ test('listAllEvaluationsPaginated respects sortAscending', async () => {
 		});
 	});
 
+	// Create categories for testing
+	const categoryIds: string[] = [];
+	for (let i = 0; i < 3; i++) {
+		const catId = await t.run(async (ctx) => {
+			return await ctx.db.insert('point_categories', {
+				name: `SortCat ${i}`,
+				subCategories: ['SubCategory']
+			});
+		});
+		categoryIds.push(catId);
+	}
+
 	// Create multiple evaluations
 	const now = Date.now();
 	for (let i = 0; i < 3; i++) {
@@ -269,7 +322,7 @@ test('listAllEvaluationsPaginated respects sortAscending', async () => {
 				studentId,
 				teacherId,
 				value: i + 1,
-				category: `SortCat ${i}`,
+				categoryId: categoryIds[i],
 				subCategory: 'SubCategory',
 				details: `Details ${i}`,
 				timestamp: now + i * 1000,
@@ -335,13 +388,28 @@ test('listAllEvaluationsPaginated filters by showUnenrolled', async () => {
 		});
 	});
 
+	// Create categories
+	const enrolledCategoryId = await t.run(async (ctx) => {
+		return await ctx.db.insert('point_categories', {
+			name: 'Enrolled Cat',
+			subCategories: ['SubCategory']
+		});
+	});
+
+	const unenrolledCategoryId = await t.run(async (ctx) => {
+		return await ctx.db.insert('point_categories', {
+			name: 'Unenrolled Cat',
+			subCategories: ['SubCategory']
+		});
+	});
+
 	// Create evaluations for both students
 	await t.run(async (ctx) => {
 		await ctx.db.insert('evaluations', {
 			studentId: enrolledStudentId,
 			teacherId,
 			value: 1,
-			category: 'Enrolled Cat',
+			categoryId: enrolledCategoryId,
 			subCategory: 'SubCategory',
 			details: 'Enrolled student evaluation',
 			timestamp: Date.now(),
@@ -351,7 +419,7 @@ test('listAllEvaluationsPaginated filters by showUnenrolled', async () => {
 			studentId: unenrolledStudentId,
 			teacherId,
 			value: 2,
-			category: 'Unenrolled Cat',
+			categoryId: unenrolledCategoryId,
 			subCategory: 'SubCategory',
 			details: 'Unenrolled student evaluation',
 			timestamp: Date.now() + 1000,
@@ -421,13 +489,28 @@ test('listAllEvaluationsPaginated filters by student name', async () => {
 		});
 	});
 
+	// Create categories
+	const aliceCategoryId = await t.run(async (ctx) => {
+		return await ctx.db.insert('point_categories', {
+			name: 'Alice Category',
+			subCategories: ['SubCategory']
+		});
+	});
+
+	const bobCategoryId = await t.run(async (ctx) => {
+		return await ctx.db.insert('point_categories', {
+			name: 'Bob Category',
+			subCategories: ['SubCategory']
+		});
+	});
+
 	// Create evaluations for both students
 	await t.run(async (ctx) => {
 		await ctx.db.insert('evaluations', {
 			studentId: student1Id,
 			teacherId,
 			value: 1,
-			category: 'Alice Category',
+			categoryId: aliceCategoryId,
 			subCategory: 'SubCategory',
 			details: 'Alice evaluation',
 			timestamp: Date.now(),
@@ -437,7 +520,7 @@ test('listAllEvaluationsPaginated filters by student name', async () => {
 			studentId: student2Id,
 			teacherId,
 			value: 2,
-			category: 'Bob Category',
+			categoryId: bobCategoryId,
 			subCategory: 'SubCategory',
 			details: 'Bob evaluation',
 			timestamp: Date.now() + 1000,
@@ -499,13 +582,28 @@ test('listAllEvaluationsPaginated filters by teacher name', async () => {
 		});
 	});
 
+	// Create categories
+	const andersonCategoryId = await t.run(async (ctx) => {
+		return await ctx.db.insert('point_categories', {
+			name: 'Anderson Category',
+			subCategories: ['SubCategory']
+		});
+	});
+
+	const brownCategoryId = await t.run(async (ctx) => {
+		return await ctx.db.insert('point_categories', {
+			name: 'Brown Category',
+			subCategories: ['SubCategory']
+		});
+	});
+
 	// Create evaluations from both teachers
 	await t.run(async (ctx) => {
 		await ctx.db.insert('evaluations', {
 			studentId,
 			teacherId: teacher1Id,
 			value: 1,
-			category: 'Anderson Category',
+			categoryId: andersonCategoryId,
 			subCategory: 'SubCategory',
 			details: 'Anderson evaluation',
 			timestamp: Date.now(),
@@ -515,7 +613,7 @@ test('listAllEvaluationsPaginated filters by teacher name', async () => {
 			studentId,
 			teacherId: teacher2Id,
 			value: 2,
-			category: 'Brown Category',
+			categoryId: brownCategoryId,
 			subCategory: 'SubCategory',
 			details: 'Brown evaluation',
 			timestamp: Date.now() + 1000,
@@ -568,6 +666,16 @@ test('listAllEvaluationsPaginated continues with cursor', async () => {
 		});
 	});
 
+	// Create categories for the evaluations
+	const categoryIds: Id<'point_categories'>[] = [];
+	for (let i = 0; i < 5; i++) {
+		const categoryId = await t.mutation(api.categories.create, {
+			name: `CursorCat ${i}`,
+			subCategories: ['SubCategory']
+		});
+		categoryIds.push(categoryId);
+	}
+
 	// Create 5 evaluations
 	const now = Date.now();
 	for (let i = 0; i < 5; i++) {
@@ -576,7 +684,7 @@ test('listAllEvaluationsPaginated continues with cursor', async () => {
 				studentId,
 				teacherId,
 				value: i + 1,
-				category: `CursorCat ${i}`,
+				categoryId: categoryIds[i],
 				subCategory: 'SubCategory',
 				details: `Details ${i}`,
 				timestamp: now + i * 1000,
@@ -629,3 +737,152 @@ test('listAllEvaluationsPaginated continues with cursor', async () => {
 		'CursorCat 0'
 	]);
 });
+
+// Tests for categoryId reference integrity
+test('evaluation queries resolve category name from categoryId', async () => {
+	const t = convexTest(schema, modules);
+
+	// Create admin user for authentication
+	await t.run(async (ctx) => {
+		await ctx.db.insert('users', {
+			authId: 'test-auth-id-category-resolve',
+			name: 'Admin User',
+			role: 'admin',
+			status: 'active'
+		});
+	});
+
+	const studentId = await t.run(async (ctx) => {
+		return await ctx.db.insert('students', {
+			englishName: 'Category Test Student',
+			chineseName: '類別測試學生',
+			studentId: 'STU-CAT-RESOLVE',
+			grade: 10,
+			status: 'Enrolled'
+		});
+	});
+
+	const teacherId = await t.run(async (ctx) => {
+		return await ctx.db.insert('users', {
+			authId: 'teacher-cat-resolve',
+			name: 'Teacher Category',
+			role: 'teacher',
+			status: 'active'
+		});
+	});
+
+	// Create category
+	const categoryId = await t.run(async (ctx) => {
+		return await ctx.db.insert('point_categories', {
+			name: 'Original Category Name',
+			subCategories: ['SubCategory']
+		});
+	});
+
+	// Create evaluation with categoryId reference
+	await t.run(async (ctx) => {
+		await ctx.db.insert('evaluations', {
+			studentId,
+			teacherId,
+			value: 5,
+			categoryId,
+			subCategory: 'SubCategory',
+			details: 'Test evaluation',
+			timestamp: Date.now(),
+			semesterId: '2025-H1'
+		});
+	});
+
+	// Query should return resolved category name
+	const result = await t.query(api.evaluations.listAllEvaluationsPaginated, {
+		showUnenrolled: false,
+		sortAscending: false,
+		paginationOpts: { numItems: 10, cursor: null }
+	});
+
+	expect(result.page).toHaveLength(1);
+	expect(result.page[0].category).toBe('Original Category Name');
+	expect(result.page[0].categoryId).toBe(categoryId);
+});
+
+test('changing category name reflects in evaluation queries', async () => {
+	const t = convexTest(schema, modules);
+
+	// Create admin user for authentication
+	await t.run(async (ctx) => {
+		await ctx.db.insert('users', {
+			authId: 'test-auth-id-name-change',
+			name: 'Admin User',
+			role: 'admin',
+			status: 'active'
+		});
+	});
+
+	const studentId = await t.run(async (ctx) => {
+		return await ctx.db.insert('students', {
+			englishName: 'Name Change Student',
+			chineseName: '改名測試學生',
+			studentId: 'STU-NAME-CHANGE',
+			grade: 10,
+			status: 'Enrolled'
+		});
+	});
+
+	const teacherId = await t.run(async (ctx) => {
+		return await ctx.db.insert('users', {
+			authId: 'teacher-name-change',
+			name: 'Teacher NameChange',
+			role: 'teacher',
+			status: 'active'
+		});
+	});
+
+	// Create category
+	const categoryId = await t.mutation(api.categories.create, {
+		name: 'Old Category Name',
+		subCategories: ['SubCategory']
+	});
+
+	// Create evaluation with categoryId reference
+	await t.run(async (ctx) => {
+		await ctx.db.insert('evaluations', {
+			studentId,
+			teacherId,
+			value: 5,
+			categoryId,
+			subCategory: 'SubCategory',
+			details: 'Test evaluation',
+			timestamp: Date.now(),
+			semesterId: '2025-H1'
+		});
+	});
+
+	// Verify initial category name
+	const resultBefore = await t.query(api.evaluations.listAllEvaluationsPaginated, {
+		showUnenrolled: false,
+		sortAscending: false,
+		paginationOpts: { numItems: 10, cursor: null }
+	});
+	expect(resultBefore.page[0].category).toBe('Old Category Name');
+
+	// Update category name
+	await t.mutation(api.categories.update, {
+		id: categoryId,
+		name: 'New Category Name',
+		subCategories: ['SubCategory']
+	});
+
+	// Query should now return the new category name (no orphaning!)
+	const resultAfter = await t.query(api.evaluations.listAllEvaluationsPaginated, {
+		showUnenrolled: false,
+		sortAscending: false,
+		paginationOpts: { numItems: 10, cursor: null }
+	});
+	expect(resultAfter.page).toHaveLength(1);
+	expect(resultAfter.page[0].category).toBe('New Category Name');
+	// categoryId should remain the same
+	expect(resultAfter.page[0].categoryId).toBe(categoryId);
+});
+
+// Note: Update evaluation tests are covered by e2e tests in e2e/evaluations.spec.ts
+// The unit test infrastructure has limitations with Convex ID validation for authorization

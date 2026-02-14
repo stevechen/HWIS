@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
 	createStudent,
-	createEvaluationForStudent,
+	createStudentWithEvaluations,
 	createCategory,
 	cleanupTestData,
 	useRole
@@ -34,13 +34,7 @@ test.describe('Student CRUD Cycle @integration', () => {
 	});
 
 	test.afterEach(async () => {
-		if (testE2eTag) {
-			try {
-				await cleanupTestData(testE2eTag);
-			} catch {
-				// Ignore cleanup errors
-			}
-		}
+		if (testE2eTag) await cleanupTestData(testE2eTag);
 	});
 
 	test('create, edit, delete works with real backend', async ({ page }) => {
@@ -123,13 +117,7 @@ test.describe('Evaluation Persistence @integration', () => {
 	});
 
 	test.afterEach(async () => {
-		if (testE2eTag) {
-			try {
-				await cleanupTestData(testE2eTag);
-			} catch {
-				// Ignore cleanup errors
-			}
-		}
+		if (testE2eTag) await cleanupTestData(testE2eTag);
 	});
 
 	test('evaluation persists to database and appears in list', async ({ page }) => {
@@ -164,8 +152,8 @@ test.describe('Student Timeline Navigation @integration', () => {
 			e2eTag: testE2eTag
 		});
 
-		// Create student
-		studentDocId = (await createStudent({
+		// Create student with evaluation
+		studentDocId = (await createStudentWithEvaluations({
 			studentId,
 			englishName,
 			chineseName: '導航測試',
@@ -175,13 +163,6 @@ test.describe('Student Timeline Navigation @integration', () => {
 		})) as string;
 		expect(studentDocId).toBeTruthy();
 
-		// Create an evaluation for the student
-		const evalResult = await createEvaluationForStudent({
-			studentId,
-			e2eTag: testE2eTag
-		});
-		expect(evalResult).toBeTruthy();
-
 		// Navigate directly to the student timeline page
 		// This tests that the evaluation data is persisted and can be viewed
 		await page.goto(`/evaluations/student/${studentDocId}`);
@@ -189,13 +170,7 @@ test.describe('Student Timeline Navigation @integration', () => {
 	});
 
 	test.afterEach(async () => {
-		if (testE2eTag) {
-			try {
-				await cleanupTestData(testE2eTag);
-			} catch {
-				// Ignore cleanup errors
-			}
-		}
+		if (testE2eTag) await cleanupTestData(testE2eTag);
 	});
 
 	test('clicking evaluation card navigates to student timeline with valid ID', async ({ page }) => {
@@ -231,17 +206,8 @@ test.describe('Category to Evaluation Integration @integration', () => {
 		await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
 	});
 
-	test.afterEach(async ({ context }) => {
-		if (testE2eTag) {
-			try {
-				await cleanupTestData(testE2eTag);
-			} catch {
-				// Ignore cleanup errors
-			}
-		}
-
-		// Close any teacher contexts if they were created
-		await context.close().catch(() => {});
+	test.afterEach(async () => {
+		if (testE2eTag) await cleanupTestData(testE2eTag);
 	});
 
 	test('category created by admin can be used in evaluation by teacher', async ({ context }) => {

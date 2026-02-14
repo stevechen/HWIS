@@ -13,7 +13,7 @@ export const list = query({
 
 export const getEvaluationCount = query({
 	args: {
-		categoryName: v.string(),
+		categoryId: v.id('point_categories'),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -21,7 +21,7 @@ export const getEvaluationCount = query({
 		if (!user) return 0;
 		const matches = await ctx.db
 			.query('evaluations')
-			.withIndex('by_category', (q) => q.eq('category', args.categoryName))
+			.withIndex('by_categoryId', (q) => q.eq('categoryId', args.categoryId))
 			.collect();
 		return matches.length;
 	}
@@ -29,7 +29,7 @@ export const getEvaluationCount = query({
 
 export const getSubCategoryEvaluationCount = query({
 	args: {
-		categoryName: v.string(),
+		categoryId: v.id('point_categories'),
 		subCategory: v.string(),
 		testToken: v.optional(v.string())
 	},
@@ -38,8 +38,8 @@ export const getSubCategoryEvaluationCount = query({
 		if (!user) return 0;
 		const matches = await ctx.db
 			.query('evaluations')
-			.withIndex('by_category_subCategory', (q) =>
-				q.eq('category', args.categoryName).eq('subCategory', args.subCategory)
+			.withIndex('by_categoryId_subCategory', (q) =>
+				q.eq('categoryId', args.categoryId).eq('subCategory', args.subCategory)
 			)
 			.collect();
 		return matches.length;
@@ -125,9 +125,10 @@ export const remove = mutation({
 		const category = await ctx.db.get(args.id);
 		if (!category) throw new Error('Category not found');
 
+		// Cascade delete all evaluations with this categoryId
 		const relatedEvaluations = await ctx.db
 			.query('evaluations')
-			.withIndex('by_category', (q) => q.eq('category', category.name))
+			.withIndex('by_categoryId', (q) => q.eq('categoryId', args.id))
 			.collect();
 
 		for (const eval_ of relatedEvaluations) {
@@ -135,5 +136,40 @@ export const remove = mutation({
 		}
 
 		await ctx.db.delete(args.id);
+
+		return { deletedEvaluationCount: relatedEvaluations.length };
+	}
+});
+
+export const removeSubCategory = mutation({
+	args: {
+		categoryId: v.id('point_categories'),
+		subCategory: v.string(),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
+		const category = await ctx.db.get(args.categoryId);
+		if (!category) throw new Error('Category not found');
+
+		// Cascade delete all evaluations with this categoryId and subCategory
+		const relatedEvaluations = await ctx.db
+			.query('evaluations')
+			.withIndex('by_categoryId_subCategory', (q) =>
+				q.eq('categoryId', args.categoryId).eq('subCategory', args.subCategory)
+			)
+			.collect();
+
+		for (const eval_ of relatedEvaluations) {
+			await ctx.db.delete(eval_._id);
+		}
+
+		// Remove subCategory from the category
+		const updatedSubCategories = category.subCategories.filter((s) => s !== args.subCategory);
+		await ctx.db.patch(args.categoryId, {
+			subCategories: updatedSubCategories
+		});
+
+		return { deletedEvaluationCount: relatedEvaluations.length };
 	}
 });

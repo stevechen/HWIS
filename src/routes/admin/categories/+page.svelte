@@ -2,7 +2,7 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
-	import { Plus, Trash2, Pencil, X } from '@lucide/svelte';
+	import { Plus, Trash2, Pencil, X, Check } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
@@ -28,6 +28,20 @@
 		subCategories: string[];
 	} | null>(null);
 	let subCategoryWarning = $state<{ subCategory: string; count: number } | null>(null);
+	let subCategoryToDelete = $state<{
+		categoryId: Id<'point_categories'>;
+		subCategory: string;
+	} | null>(null);
+	let toastMessage = $state<string | null>(null);
+	let toastTimeout = $state<ReturnType<typeof setTimeout> | null>(null);
+
+	function showToast(message: string) {
+		toastMessage = message;
+		if (toastTimeout) clearTimeout(toastTimeout);
+		toastTimeout = setTimeout(() => {
+			toastMessage = null;
+		}, 3000);
+	}
 
 	function startAdd() {
 		categoryName = '';
@@ -53,6 +67,7 @@
 		categoryName = '';
 		subCategories = [];
 		newSubCategory = '';
+		subCategoryToDelete = null;
 	}
 
 	async function handleSubmit() {
@@ -62,11 +77,21 @@
 		formError = '';
 		try {
 			if (editingId) {
+				// Get evaluation count before update for toast notification
+				const evalCount = await client.query(api.categories.getEvaluationCount, {
+					categoryId: editingId
+				});
+
 				await client.mutation(api.categories.update, {
 					id: editingId,
 					name: categoryName,
 					subCategories
 				});
+
+				// Show toast if there are evaluations affected
+				if (evalCount > 0) {
+					showToast(`Category updated. ${evalCount} evaluation(s) now display the new name.`);
+				}
 			} else {
 				await client.mutation(api.categories.create, {
 					name: categoryName,
@@ -89,8 +114,55 @@
 		}
 	}
 
-	function removeSubCategory(sub: string) {
-		subCategories = subCategories.filter((s) => s !== sub);
+	async function removeSubCategory(sub: string) {
+		if (!editingId) return;
+
+		// Check if this subcategory has evaluations
+		try {
+			const count = await client.query(api.categories.getSubCategoryEvaluationCount, {
+				categoryId: editingId,
+				subCategory: sub
+			});
+
+			if (count && count > 0) {
+				// Show confirmation dialog
+				subCategoryToDelete = { categoryId: editingId, subCategory: sub };
+				subCategoryWarning = { subCategory: sub, count };
+			} else {
+				// No evaluations, just remove
+				subCategories = subCategories.filter((s) => s !== sub);
+			}
+		} catch {
+			// Error handled silently - just remove the subcategory
+			subCategories = subCategories.filter((s) => s !== sub);
+		}
+	}
+
+	function cancelSubCategoryDelete() {
+		subCategoryToDelete = null;
+		subCategoryWarning = null;
+	}
+
+	async function confirmSubCategoryDelete() {
+		if (!subCategoryToDelete) return;
+
+		isSubmitting = true;
+		const subToDelete = subCategoryToDelete;
+		try {
+			// Delete evaluations and remove subcategory
+			await client.mutation(api.categories.removeSubCategory, {
+				categoryId: subToDelete.categoryId,
+				subCategory: subToDelete.subCategory
+			});
+			// Update local state
+			subCategories = subCategories.filter((s) => s !== subToDelete.subCategory);
+			subCategoryToDelete = null;
+			subCategoryWarning = null;
+		} catch {
+			// Error handled silently
+		} finally {
+			isSubmitting = false;
+		}
 	}
 
 	async function confirmDelete(category: {
@@ -101,21 +173,19 @@
 		categoryToDelete = category;
 		subCategoryWarning = null;
 
-		if (category.subCategories.length > 0) {
-			try {
-				const count = await client.query(apiAny.categories.getSubCategoryEvaluationCount, {
-					categoryName: category.name,
-					subCategory: category.subCategories[0]
-				});
-				if (count && count > 0) {
-					subCategoryWarning = {
-						subCategory: category.subCategories[0],
-						count
-					};
-				}
-			} catch {
-				// Error handled silently
+		// Check for evaluations with this category (any subcategory)
+		try {
+			const count = await client.query(api.categories.getEvaluationCount, {
+				categoryId: category._id
+			});
+			if (count && count > 0) {
+				subCategoryWarning = {
+					subCategory: 'all subcategories',
+					count
+				};
 			}
+		} catch {
+			// Error handled silently
 		}
 	}
 
@@ -141,14 +211,24 @@
 	}
 </script>
 
+{#if toastMessage}
+	<div
+		class="fixed right-4 bottom-4 z-50 flex items-center gap-2 rounded-lg bg-green-600 px-4 py-3 text-white shadow-lg"
+		role="alert"
+	>
+		<Check class="size-5" />
+		<span>{toastMessage}</span>
+	</div>
+{/if}
+
 <div class="container mx-auto max-w-6xl py-8">
 	<div class="bg-card rounded-lg border shadow-sm">
-		<Table.Root>
-			<Table.Header>
+		<Table.Root aria-label="Categories">
+			<Table.Header class="text-red">
 				<Table.Row>
 					<Table.Head class="w-50">Category</Table.Head>
 					<Table.Head>Sub-Categories</Table.Head>
-					<Table.Head class="w-25 text-right">Actions</Table.Head>
+					<Table.Head class="w-25 text-center">Actions</Table.Head>
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
@@ -309,14 +389,44 @@
 			{#if subCategoryWarning}
 				<div class="bg-destructive/10 text-destructive mb-4 rounded-md p-3 text-sm">
 					<strong>Warning:</strong>
-					This category has sub-categories with evaluations.
-					{subCategoryWarning.count} evaluation(s) will be affected.
+					This category has evaluations. {subCategoryWarning.count} evaluation(s) will be permanently
+					deleted.
 				</div>
 			{/if}
 
 			<div class="flex justify-end gap-2">
 				<Button variant="outline" onclick={cancelDelete}>Cancel</Button>
 				<Button variant="destructive" onclick={handleDelete} disabled={isSubmitting}>Delete</Button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if subCategoryToDelete}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+		role="dialog"
+		aria-label="Confirm remove sub-category"
+		aria-modal="true"
+	>
+		<div class="bg-background w-full max-w-md rounded-lg p-6 shadow-lg">
+			<h2 class="mb-2 text-xl font-semibold">Remove Sub-Category</h2>
+			<p class="text-muted-foreground mb-4">
+				Are you sure you want to remove "{subCategoryToDelete.subCategory}"?
+			</p>
+
+			{#if subCategoryWarning}
+				<div class="bg-destructive/10 text-destructive mb-4 rounded-md p-3 text-sm">
+					<strong>Warning:</strong>
+					This sub-category has {subCategoryWarning.count} evaluation(s) that will be permanently deleted.
+				</div>
+			{/if}
+
+			<div class="flex justify-end gap-2">
+				<Button variant="outline" onclick={cancelSubCategoryDelete}>Cancel</Button>
+				<Button variant="destructive" onclick={confirmSubCategoryDelete} disabled={isSubmitting}>
+					Remove
+				</Button>
 			</div>
 		</div>
 	</div>

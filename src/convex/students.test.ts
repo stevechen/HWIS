@@ -176,12 +176,17 @@ describe('students.remove', () => {
 			});
 		});
 
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Academic',
+			subCategories: ['Homework']
+		});
+
 		await t.run(async (ctx) => {
 			await ctx.db.insert('evaluations', {
 				studentId: studentId,
 				teacherId: teacherId,
 				value: 5,
-				category: 'Academic',
+				categoryId,
 				subCategory: 'Homework',
 				details: 'Test evaluation',
 				timestamp: Date.now(),
@@ -369,12 +374,21 @@ describe('students.removeWithCascade', () => {
 			});
 		});
 
+		const academicCategoryId = await t.mutation(api.categories.create, {
+			name: 'Academic',
+			subCategories: ['Homework']
+		});
+		const activityCategoryId = await t.mutation(api.categories.create, {
+			name: 'Activity',
+			subCategories: ['Sports']
+		});
+
 		await t.run(async (ctx) => {
 			await ctx.db.insert('evaluations', {
 				studentId: studentId,
 				teacherId: teacherId,
 				value: 5,
-				category: 'Academic',
+				categoryId: academicCategoryId,
 				subCategory: 'Homework',
 				details: 'Evaluation 1',
 				timestamp: Date.now(),
@@ -384,7 +398,7 @@ describe('students.removeWithCascade', () => {
 				studentId: studentId,
 				teacherId: teacherId,
 				value: 10,
-				category: 'Activity',
+				categoryId: activityCategoryId,
 				subCategory: 'Sports',
 				details: 'Evaluation 2',
 				timestamp: Date.now(),

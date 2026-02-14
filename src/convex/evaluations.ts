@@ -22,7 +22,7 @@ export const create = mutation({
 	args: {
 		studentIds: v.array(v.id('students')),
 		value: v.number(),
-		category: v.string(),
+		categoryId: v.id('point_categories'),
 		subCategory: v.string(),
 		details: v.string(),
 		semesterId: v.string(),
@@ -33,6 +33,12 @@ export const create = mutation({
 		const userDoc = await requireUserProfile(ctx, args.testToken);
 		const teacherId = userDoc._id;
 
+		// Validate category exists
+		const category = await ctx.db.get(args.categoryId);
+		if (!category) {
+			throw new Error(`Category with ID ${args.categoryId} does not exist`);
+		}
+
 		const timestamp = Date.now();
 		const evaluationIds: string[] = [];
 
@@ -41,7 +47,7 @@ export const create = mutation({
 				studentId,
 				teacherId,
 				value: args.value,
-				category: args.category,
+				categoryId: args.categoryId,
 				subCategory: args.subCategory,
 				details: args.details,
 				timestamp,
@@ -60,7 +66,8 @@ export const create = mutation({
 				newValue: {
 					studentId,
 					value: args.value,
-					category: args.category
+					categoryId: args.categoryId,
+					categoryName: category.name
 				},
 				timestamp,
 				e2eTag: args.e2eTag
@@ -94,7 +101,7 @@ export const remove = mutation({
 			oldValue: {
 				studentId: evaluation.studentId,
 				value: evaluation.value,
-				category: evaluation.category
+				categoryId: evaluation.categoryId
 			},
 			newValue: null,
 			timestamp: Date.now(),
@@ -144,15 +151,25 @@ export const listRecent = query({
 			.order('desc')
 			.collect();
 
-		// Fetch all students for enrichment
+		// Fetch all students and categories for enrichment
 		const studentIds = [...new Set(allEvaluations.map((e) => e.studentId))];
-		const students = await Promise.all(studentIds.map((id) => ctx.db.get(id)));
+		const categoryIds = [...new Set(allEvaluations.map((e) => e.categoryId))];
+
+		const [students, categories] = await Promise.all([
+			Promise.all(studentIds.map((id) => ctx.db.get(id))),
+			Promise.all(categoryIds.map((id) => ctx.db.get(id)))
+		]);
+
 		const studentMap = new Map(
 			students.filter((s): s is NonNullable<typeof s> => s != null).map((s) => [s._id, s])
+		);
+		const categoryMap = new Map(
+			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
 		);
 
 		let results = allEvaluations.map((eval_) => {
 			const student = studentMap.get(eval_.studentId);
+			const category = categoryMap.get(eval_.categoryId);
 			return {
 				_id: eval_._id,
 				studentId: eval_.studentId,
@@ -162,7 +179,8 @@ export const listRecent = query({
 				studentIdCode: student?.studentId || 'N/A',
 				status: student?.status || 'Not Enrolled',
 				value: eval_.value,
-				category: eval_.category,
+				categoryId: eval_.categoryId,
+				category: category?.name || 'Unknown Category',
 				subCategory: eval_.subCategory,
 				details: eval_.details,
 				timestamp: eval_.timestamp
@@ -277,9 +295,18 @@ export const getWeeklyReportDetail = query({
 			.collect();
 
 		const studentIds = [...new Set(evaluations.map((e) => e.studentId))];
-		const students = await Promise.all(studentIds.map((id) => ctx.db.get(id)));
+		const categoryIds = [...new Set(evaluations.map((e) => e.categoryId))];
+
+		const [students, categories] = await Promise.all([
+			Promise.all(studentIds.map((id) => ctx.db.get(id))),
+			Promise.all(categoryIds.map((id) => ctx.db.get(id)))
+		]);
+
 		const studentMap = new Map(
 			students.filter((s): s is NonNullable<typeof s> => s != null).map((s) => [s._id, s])
+		);
+		const categoryMap = new Map(
+			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
 		);
 
 		const studentPointsMap = new Map<
@@ -298,6 +325,9 @@ export const getWeeklyReportDetail = query({
 			const student = studentMap.get(eval_.studentId);
 			if (!student) continue;
 
+			const category = categoryMap.get(eval_.categoryId);
+			const categoryName = category?.name || 'Unknown Category';
+
 			let studentData = studentPointsMap.get(eval_.studentId.toString());
 			if (!studentData) {
 				studentData = {
@@ -311,10 +341,10 @@ export const getWeeklyReportDetail = query({
 				studentPointsMap.set(eval_.studentId.toString(), studentData);
 			}
 
-			if (!studentData.pointsByCategory[eval_.category]) {
-				studentData.pointsByCategory[eval_.category] = 0;
+			if (!studentData.pointsByCategory[categoryName]) {
+				studentData.pointsByCategory[categoryName] = 0;
 			}
-			studentData.pointsByCategory[eval_.category] += eval_.value;
+			studentData.pointsByCategory[categoryName] += eval_.value;
 			studentData.totalPoints += eval_.value;
 		}
 
@@ -362,15 +392,27 @@ export const getStudentEvaluationsByTeacher = query({
 			)
 			.collect();
 
-		// Enrich evaluations with teacher data (single fetch)
+		// Enrich evaluations with teacher and category data
 		const teacher = await ctx.db.get(user._id);
 		const teacherName = teacher?.name || 'Unknown Teacher';
 
-		const enriched = evaluations.map((e) => ({
-			...e,
-			teacherName,
-			isAdmin: false
-		}));
+		// Fetch categories for name lookup
+		const categoryIds = [...new Set(evaluations.map((e) => e.categoryId))];
+		const categories = await Promise.all(categoryIds.map((id) => ctx.db.get(id)));
+		const categoryMap = new Map(
+			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
+		);
+
+		const enriched = evaluations.map((e) => {
+			const category = categoryMap.get(e.categoryId);
+			return {
+				...e,
+				categoryId: e.categoryId.toString(),
+				category: category?.name || 'Unknown Category',
+				teacherName,
+				isAdmin: false
+			};
+		});
 
 		return enriched.sort((a, b) => b.timestamp - a.timestamp);
 	}
@@ -403,15 +445,27 @@ export const getStudentEvaluationsByTeacherByStudentIdCode = query({
 			)
 			.collect();
 
-		// Enrich evaluations with teacher data
+		// Enrich evaluations with teacher and category data
 		const teacher = await ctx.db.get(user._id);
 		const teacherName = teacher?.name || 'Unknown Teacher';
 
-		const enriched = evaluations.map((e) => ({
-			...e,
-			teacherName,
-			isAdmin: false
-		}));
+		// Fetch categories for name lookup
+		const categoryIds = [...new Set(evaluations.map((e) => e.categoryId))];
+		const categories = await Promise.all(categoryIds.map((id) => ctx.db.get(id)));
+		const categoryMap = new Map(
+			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
+		);
+
+		const enriched = evaluations.map((e) => {
+			const category = categoryMap.get(e.categoryId);
+			return {
+				...e,
+				categoryId: e.categoryId.toString(),
+				category: category?.name || 'Unknown Category',
+				teacherName,
+				isAdmin: false
+			};
+		});
 
 		return enriched.sort((a, b) => b.timestamp - a.timestamp);
 	}
@@ -430,20 +484,31 @@ export const getStudentEvaluationsAll = query({
 			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
 			.collect();
 
-		// Optimization: Batch fetch all teacher data to avoid N+1 queries
+		// Optimization: Batch fetch all teacher and category data to avoid N+1 queries
 		const teacherIds = [...new Set(evaluations.map((e) => e.teacherId))];
-		const teachers = new Map();
-		for (const teacherId of teacherIds) {
-			const teacher = await ctx.db.get(teacherId);
-			if (teacher) teachers.set(teacherId, teacher);
-		}
+		const categoryIds = [...new Set(evaluations.map((e) => e.categoryId))];
 
-		// Enrich evaluations with teacher data
+		const [teachers, categories] = await Promise.all([
+			Promise.all(teacherIds.map((id) => ctx.db.get(id))),
+			Promise.all(categoryIds.map((id) => ctx.db.get(id)))
+		]);
+
+		const teacherMap = new Map(
+			teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
+		);
+		const categoryMap = new Map(
+			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
+		);
+
+		// Enrich evaluations with teacher and category data
 		const enriched = evaluations.map((e) => {
-			const teacher = teachers.get(e.teacherId);
+			const teacher = teacherMap.get(e.teacherId);
+			const category = categoryMap.get(e.categoryId);
 			const isAdminUser = teacher?.role === 'admin' || teacher?.role === 'super';
 			return {
 				...e,
+				categoryId: e.categoryId.toString(),
+				category: category?.name || 'Unknown Category',
 				teacherName: teacher?.name || 'Unknown Teacher',
 				isAdmin: isAdminUser
 			};
@@ -478,20 +543,31 @@ export const getStudentEvaluationsAllByStudentIdCode = query({
 			.withIndex('by_studentId', (q) => q.eq('studentId', student._id))
 			.collect();
 
-		// Optimization: Batch fetch all teacher data to avoid N+1 queries
+		// Optimization: Batch fetch all teacher and category data to avoid N+1 queries
 		const teacherIds = [...new Set(evaluations.map((e) => e.teacherId))];
-		const teachers = new Map();
-		for (const teacherId of teacherIds) {
-			const teacher = await ctx.db.get(teacherId);
-			if (teacher) teachers.set(teacherId, teacher);
-		}
+		const categoryIds = [...new Set(evaluations.map((e) => e.categoryId))];
 
-		// Enrich evaluations with teacher data
+		const [teachers, categories] = await Promise.all([
+			Promise.all(teacherIds.map((id) => ctx.db.get(id))),
+			Promise.all(categoryIds.map((id) => ctx.db.get(id)))
+		]);
+
+		const teacherMap = new Map(
+			teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
+		);
+		const categoryMap = new Map(
+			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
+		);
+
+		// Enrich evaluations with teacher and category data
 		const enriched = evaluations.map((e) => {
-			const teacher = teachers.get(e.teacherId);
+			const teacher = teacherMap.get(e.teacherId);
+			const category = categoryMap.get(e.categoryId);
 			const isAdminUser = teacher?.role === 'admin' || teacher?.role === 'super';
 			return {
 				...e,
+				categoryId: e.categoryId.toString(),
+				category: category?.name || 'Unknown Category',
 				teacherName: teacher?.name || 'Unknown Teacher',
 				isAdmin: isAdminUser
 			};
@@ -519,14 +595,16 @@ export const listAllEvaluations = query({
 			.order('desc')
 			.collect();
 
-		// Fetch student and teacher data for enrichment
+		// Fetch student, teacher, and category data for enrichment
 		const studentIds = [...new Set(allEvaluations.map((e) => e.studentId))];
 		const teacherIds = [...new Set(allEvaluations.map((e) => e.teacherId))];
+		const categoryIds = [...new Set(allEvaluations.map((e) => e.categoryId))];
 
-		// Parallel fetch students and teachers
-		const [students, teachers] = await Promise.all([
+		// Parallel fetch students, teachers, and categories
+		const [students, teachers, categories] = await Promise.all([
 			Promise.all(studentIds.map((id) => ctx.db.get(id))),
-			Promise.all(teacherIds.map((id) => ctx.db.get(id)))
+			Promise.all(teacherIds.map((id) => ctx.db.get(id))),
+			Promise.all(categoryIds.map((id) => ctx.db.get(id)))
 		]);
 
 		// Build maps for O(1) lookup
@@ -536,10 +614,14 @@ export const listAllEvaluations = query({
 		const teacherMap = new Map(
 			teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
 		);
+		const categoryMap = new Map(
+			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
+		);
 
 		let enriched = allEvaluations.map((eval_) => {
 			const student = studentMap.get(eval_.studentId);
 			const teacher = teacherMap.get(eval_.teacherId);
+			const category = categoryMap.get(eval_.categoryId);
 			return {
 				_id: eval_._id.toString(),
 				studentId: eval_.studentId.toString(),
@@ -548,7 +630,8 @@ export const listAllEvaluations = query({
 				studentIdCode: student?.studentId || 'N/A',
 				status: student?.status || 'Not Enrolled',
 				value: eval_.value,
-				category: eval_.category,
+				categoryId: eval_.categoryId.toString(),
+				category: category?.name || 'Unknown Category',
 				subCategory: eval_.subCategory,
 				details: eval_.details,
 				timestamp: eval_.timestamp,
@@ -606,11 +689,13 @@ export const listAllEvaluationsPaginated = query({
 		// Enrich only the current page
 		const studentIds = [...new Set(result.page.map((e) => e.studentId))];
 		const teacherIds = [...new Set(result.page.map((e) => e.teacherId))];
+		const categoryIds = [...new Set(result.page.map((e) => e.categoryId))];
 
-		// Parallel fetch students and teachers
-		const [students, teachers] = await Promise.all([
+		// Parallel fetch students, teachers, and categories
+		const [students, teachers, categories] = await Promise.all([
 			Promise.all(studentIds.map((id) => ctx.db.get(id))),
-			Promise.all(teacherIds.map((id) => ctx.db.get(id)))
+			Promise.all(teacherIds.map((id) => ctx.db.get(id))),
+			Promise.all(categoryIds.map((id) => ctx.db.get(id)))
 		]);
 
 		// Build maps for O(1) lookup
@@ -620,10 +705,14 @@ export const listAllEvaluationsPaginated = query({
 		const teacherMap = new Map(
 			teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
 		);
+		const categoryMap = new Map(
+			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
+		);
 
 		let enriched = result.page.map((eval_) => {
 			const student = studentMap.get(eval_.studentId);
 			const teacher = teacherMap.get(eval_.teacherId);
+			const category = categoryMap.get(eval_.categoryId);
 			return {
 				_id: eval_._id.toString(),
 				studentId: eval_.studentId.toString(),
@@ -632,7 +721,8 @@ export const listAllEvaluationsPaginated = query({
 				studentIdCode: student?.studentId || 'N/A',
 				status: student?.status || 'Not Enrolled',
 				value: eval_.value,
-				category: eval_.category,
+				categoryId: eval_.categoryId.toString(),
+				category: category?.name || 'Unknown Category',
 				subCategory: eval_.subCategory,
 				details: eval_.details,
 				timestamp: eval_.timestamp,
@@ -671,7 +761,7 @@ export const update = mutation({
 	args: {
 		id: v.id('evaluations'),
 		value: v.optional(v.number()),
-		category: v.optional(v.string()),
+		categoryId: v.optional(v.id('point_categories')),
 		subCategory: v.optional(v.string()),
 		details: v.optional(v.string()),
 		testToken: v.optional(v.string())
@@ -690,9 +780,17 @@ export const update = mutation({
 			throw new Error('Not authorized to edit this evaluation');
 		}
 
+		// Validate category exists if provided
+		if (args.categoryId !== undefined) {
+			const category = await ctx.db.get(args.categoryId);
+			if (!category) {
+				throw new Error(`Category with ID ${args.categoryId} does not exist`);
+			}
+		}
+
 		const updates: Partial<typeof evaluation> = {};
 		if (args.value !== undefined) updates.value = args.value;
-		if (args.category !== undefined) updates.category = args.category;
+		if (args.categoryId !== undefined) updates.categoryId = args.categoryId;
 		if (args.subCategory !== undefined) updates.subCategory = args.subCategory;
 		if (args.details !== undefined) updates.details = args.details;
 

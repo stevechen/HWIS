@@ -126,7 +126,7 @@ describe('categories.remove', () => {
 				studentId: studentId,
 				teacherId: teacherId,
 				value: 5,
-				category: 'Category With Evals',
+				categoryId: category._id,
 				subCategory: 'Sub',
 				details: 'Test evaluation',
 				timestamp: Date.now(),
@@ -191,13 +191,13 @@ describe('categories.getEvaluationCount', () => {
 	it('returns 0 for category with no evaluations', async () => {
 		const t = convexTest(schema, modules);
 
-		await t.mutation(api.categories.create, {
+		const categoryId = await t.mutation(api.categories.create, {
 			name: 'Empty Category',
 			subCategories: ['Sub']
 		});
 
 		const count = await t.query(api.categories.getEvaluationCount, {
-			categoryName: 'Empty Category'
+			categoryId
 		});
 
 		expect(count).toBe(0);
@@ -206,7 +206,7 @@ describe('categories.getEvaluationCount', () => {
 	it('returns count of evaluations for category', async () => {
 		const t = convexTest(schema, modules);
 
-		await t.mutation(api.categories.create, {
+		const categoryId = await t.mutation(api.categories.create, {
 			name: 'Evaluated Category',
 			subCategories: ['Sub']
 		});
@@ -232,7 +232,7 @@ describe('categories.getEvaluationCount', () => {
 				studentId: studentId,
 				teacherId: teacherId,
 				value: 5,
-				category: 'Evaluated Category',
+				categoryId: categoryId,
 				subCategory: 'Sub',
 				details: 'Eval 1',
 				timestamp: Date.now(),
@@ -242,7 +242,7 @@ describe('categories.getEvaluationCount', () => {
 				studentId: studentId,
 				teacherId: teacherId,
 				value: 10,
-				category: 'Evaluated Category',
+				categoryId: categoryId,
 				subCategory: 'Sub',
 				details: 'Eval 2',
 				timestamp: Date.now(),
@@ -251,7 +251,7 @@ describe('categories.getEvaluationCount', () => {
 		});
 
 		const count = await t.query(api.categories.getEvaluationCount, {
-			categoryName: 'Evaluated Category'
+			categoryId
 		});
 
 		expect(count).toBe(2);
@@ -262,7 +262,7 @@ describe('categories.getSubCategoryEvaluationCount', () => {
 	it('returns count for specific subcategory', async () => {
 		const t = convexTest(schema, modules);
 
-		await t.mutation(api.categories.create, {
+		const categoryId = await t.mutation(api.categories.create, {
 			name: 'Multi Sub Category',
 			subCategories: ['SubA', 'SubB']
 		});
@@ -288,7 +288,7 @@ describe('categories.getSubCategoryEvaluationCount', () => {
 				studentId: studentId,
 				teacherId: teacherId,
 				value: 5,
-				category: 'Multi Sub Category',
+				categoryId: categoryId,
 				subCategory: 'SubA',
 				details: 'Eval in SubA',
 				timestamp: Date.now(),
@@ -298,7 +298,7 @@ describe('categories.getSubCategoryEvaluationCount', () => {
 				studentId: studentId,
 				teacherId: teacherId,
 				value: 10,
-				category: 'Multi Sub Category',
+				categoryId: categoryId,
 				subCategory: 'SubB',
 				details: 'Eval in SubB',
 				timestamp: Date.now(),
@@ -307,12 +307,12 @@ describe('categories.getSubCategoryEvaluationCount', () => {
 		});
 
 		const countA = await t.query(api.categories.getSubCategoryEvaluationCount, {
-			categoryName: 'Multi Sub Category',
+			categoryId,
 			subCategory: 'SubA'
 		});
 
 		const countB = await t.query(api.categories.getSubCategoryEvaluationCount, {
-			categoryName: 'Multi Sub Category',
+			categoryId,
 			subCategory: 'SubB'
 		});
 
@@ -400,5 +400,113 @@ describe('categories edge cases', () => {
 
 		const updated = (await t.query(api.categories.list, {}))[0];
 		expect(updated.subCategories).toEqual(['New Sub 1', 'New Sub 2', 'New Sub 3']);
+	});
+});
+
+describe('categories.removeSubCategory', () => {
+	it('removes subcategory without evaluations', async () => {
+		const t = convexTest(schema, modules);
+
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Category With Subs',
+			subCategories: ['SubA', 'SubB', 'SubC']
+		});
+
+		await t.mutation(api.categories.removeSubCategory, {
+			categoryId,
+			subCategory: 'SubB'
+		});
+
+		const category = (await t.query(api.categories.list, {}))[0];
+		expect(category.subCategories).toEqual(['SubA', 'SubC']);
+	});
+
+	it('removes subcategory and cascades to delete related evaluations', async () => {
+		const t = convexTest(schema, modules);
+
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Category With Evals',
+			subCategories: ['SubA', 'SubB']
+		});
+
+		const teacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				name: 'Test Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const studentId = await t.mutation(api.students.create, {
+			englishName: 'Test Student',
+			chineseName: '測試學生',
+			studentId: 'S_SUBCAT_CASCADE',
+			grade: 10,
+			status: 'Enrolled'
+		});
+
+		// Create evaluations in both subcategories
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId: studentId,
+				teacherId: teacherId,
+				value: 5,
+				categoryId: categoryId,
+				subCategory: 'SubA',
+				details: 'Eval in SubA',
+				timestamp: Date.now(),
+				semesterId: '2024-1'
+			});
+			await ctx.db.insert('evaluations', {
+				studentId: studentId,
+				teacherId: teacherId,
+				value: 10,
+				categoryId: categoryId,
+				subCategory: 'SubB',
+				details: 'Eval in SubB',
+				timestamp: Date.now(),
+				semesterId: '2024-1'
+			});
+		});
+
+		let evaluations = await t.run(async (ctx) => {
+			return await ctx.db.query('evaluations').collect();
+		});
+		expect(evaluations).toHaveLength(2);
+
+		// Remove SubA - should cascade delete its evaluation
+		const result = await t.mutation(api.categories.removeSubCategory, {
+			categoryId,
+			subCategory: 'SubA'
+		});
+
+		expect(result.deletedEvaluationCount).toBe(1);
+
+		// Check SubA evaluation is deleted but SubB remains
+		evaluations = await t.run(async (ctx) => {
+			return await ctx.db.query('evaluations').collect();
+		});
+		expect(evaluations).toHaveLength(1);
+		expect(evaluations[0].subCategory).toBe('SubB');
+
+		// Check subcategory is removed from category
+		const category = (await t.query(api.categories.list, {}))[0];
+		expect(category.subCategories).toEqual(['SubB']);
+	});
+
+	it('returns 0 deleted count when subcategory has no evaluations', async () => {
+		const t = convexTest(schema, modules);
+
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Empty Subs Category',
+			subCategories: ['EmptySub']
+		});
+
+		const result = await t.mutation(api.categories.removeSubCategory, {
+			categoryId,
+			subCategory: 'EmptySub'
+		});
+
+		expect(result.deletedEvaluationCount).toBe(0);
 	});
 });

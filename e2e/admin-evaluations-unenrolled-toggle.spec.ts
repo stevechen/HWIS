@@ -1,6 +1,6 @@
 import { test, expect, Locator } from '@playwright/test';
 import { getTestSuffix } from './helpers';
-import { createStudent, createEvaluationForStudent, cleanupByTag, useRole } from './convex-client';
+import { createStudentWithEvaluations, cleanupByTag, useRole } from './convex-client';
 
 test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
@@ -23,8 +23,8 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations'
 		const enrolledStudentId = `SE_ENROLLED_${suffix}`;
 		const unenrolledStudentId = `SE_UNENROLLED_${suffix}`;
 
-		// Create an enrolled student
-		await createStudent({
+		// Create an enrolled student with evaluation
+		await createStudentWithEvaluations({
 			studentId: enrolledStudentId,
 			englishName: enrolledStudentName,
 			chineseName: '已入學',
@@ -34,8 +34,8 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations'
 		});
 		testEntity = true;
 
-		// Create an unenrolled student
-		await createStudent({
+		// Create an unenrolled student with evaluation
+		await createStudentWithEvaluations({
 			studentId: unenrolledStudentId,
 			englishName: unenrolledStudentName,
 			chineseName: '未入學',
@@ -44,9 +44,6 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations'
 			e2eTag
 		});
 
-		// Create evaluations for both students
-		await createEvaluationForStudent({ studentId: enrolledStudentId, e2eTag });
-		await createEvaluationForStudent({ studentId: unenrolledStudentId, e2eTag });
 		enrolled = page.getByRole('button', { name: `Evaluation for ${enrolledStudentName}` });
 		unEnrolled = page.getByRole('button', { name: `Evaluation for ${unenrolledStudentName}` });
 
@@ -138,8 +135,8 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations'
 		const enrolledStudentId = `SE_ENROLLED_${suffix}`;
 		const unenrolledStudentId = `SE_UNENROLLED_${suffix}`;
 
-		// Create an enrolled student
-		await createStudent({
+		// Create an enrolled student with evaluation
+		await createStudentWithEvaluations({
 			studentId: enrolledStudentId,
 			englishName: enrolledStudentName,
 			chineseName: '已入學',
@@ -149,8 +146,8 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations'
 		});
 		testEntity = true;
 
-		// Create an unenrolled student
-		await createStudent({
+		// Create an unenrolled student with evaluation
+		await createStudentWithEvaluations({
 			studentId: unenrolledStudentId,
 			englishName: unenrolledStudentName,
 			chineseName: '未入學',
@@ -159,9 +156,6 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations'
 			e2eTag
 		});
 
-		// Create evaluations for both students
-		await createEvaluationForStudent({ studentId: enrolledStudentId, e2eTag });
-		await createEvaluationForStudent({ studentId: unenrolledStudentId, e2eTag });
 		enrolled = page.getByRole('button', { name: `Evaluation for ${enrolledStudentName}` });
 		unEnrolled = page.getByRole('button', { name: `Evaluation for ${unenrolledStudentName}` });
 
@@ -229,8 +223,8 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases', () => {
 		student1Id = `SE_STUDENT1_${suffix}`;
 		student2Id = `SE_STUDENT2_${suffix}`;
 
-		// Create only enrolled students
-		await createStudent({
+		// Create only enrolled students with evaluations
+		await createStudentWithEvaluations({
 			studentId: student1Id,
 			englishName: student1Name,
 			chineseName: '學生1',
@@ -239,7 +233,7 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases', () => {
 			e2eTag
 		});
 
-		await createStudent({
+		await createStudentWithEvaluations({
 			studentId: student2Id,
 			englishName: student2Name,
 			chineseName: '學生2',
@@ -247,9 +241,6 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases', () => {
 			status: 'Enrolled',
 			e2eTag
 		});
-
-		await createEvaluationForStudent({ studentId: student1Id, e2eTag });
-		await createEvaluationForStudent({ studentId: student2Id, e2eTag });
 
 		testEntity = true;
 	});
@@ -318,7 +309,7 @@ test.describe('Unenrolled Toggle - Icon Visibility @icons', () => {
 		unenrolledName = `Unenrolled_${suffix}`;
 		unenrolledStudentId = `SE_UNENROLLED_${suffix}`;
 
-		await createStudent({
+		await createStudentWithEvaluations({
 			studentId: enrolledStudentId,
 			englishName: enrolledName,
 			chineseName: '已入學',
@@ -327,7 +318,7 @@ test.describe('Unenrolled Toggle - Icon Visibility @icons', () => {
 			e2eTag
 		});
 
-		await createStudent({
+		await createStudentWithEvaluations({
 			studentId: unenrolledStudentId,
 			englishName: unenrolledName,
 			chineseName: '未入學',
@@ -335,9 +326,6 @@ test.describe('Unenrolled Toggle - Icon Visibility @icons', () => {
 			status: 'Not Enrolled',
 			e2eTag
 		});
-
-		await createEvaluationForStudent({ studentId: enrolledStudentId, e2eTag });
-		await createEvaluationForStudent({ studentId: unenrolledStudentId, e2eTag });
 
 		testEntity = true;
 	});

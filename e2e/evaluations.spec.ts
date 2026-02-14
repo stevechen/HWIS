@@ -1,64 +1,12 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { getTestSuffix } from './helpers';
 import {
 	createStudent,
+	createStudentWithEvaluations,
 	createCategoryWithSubs,
-	createEvaluationForStudent,
 	cleanupByTag,
 	useRole
 } from './convex-client';
-
-async function createStudentForEval(
-	page: Page,
-	suffix: string,
-	englishName: string,
-	chineseName: string,
-	grade: number,
-	status: string = 'Enrolled'
-) {
-	const studentId = `SE_${suffix}`;
-
-	const createResult = await createStudent({
-		studentId,
-		englishName,
-		chineseName,
-		grade,
-		status,
-		e2eTag: `e2e-test_${suffix}`
-	});
-	expect(createResult).toBeTruthy();
-
-	// Navigate to the evaluations page with test mode to bypass auth
-	await page.goto('/evaluations/new');
-	await page.waitForSelector('body.hydrated');
-
-	await expect(page.getByText('1. Select Students')).toBeVisible();
-
-	// Use aria-label to find the search input
-	const filterInput = page.getByRole('textbox', { name: 'Search students' });
-	await expect(filterInput).toBeVisible();
-
-	// Clear the search input first, then type the student name (lowercase for case-insensitive search)
-	await filterInput.fill('');
-	await filterInput.fill(englishName.toLowerCase());
-
-	// Student items display as "englishName (chineseName)" format
-	// Look for the student name in the list - check for "No students found" first
-	const noStudentsMsg = page.getByText('No students found');
-	await expect(noStudentsMsg).not.toBeVisible();
-
-	await page.waitForSelector('body.hydrated');
-
-	// Try searching again
-	const filterInput2 = page.locator('input[aria-label="Search students"]').first();
-	await filterInput2.fill('');
-	await filterInput2.fill(englishName.toLowerCase());
-
-	// Student items are clickable divs with text in format "englishName (chineseName)"
-	// Use case-insensitive search since the filter is case-insensitive
-	const studentRow = page.getByRole('button', { name: new RegExp(englishName, 'i') });
-	await expect(studentRow).toBeVisible();
-}
 
 test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
@@ -90,21 +38,44 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 test.describe('Evaluations - Select Student', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
+	// CONSTANTS - Define at top of describe
 	let suffix: string;
+	let e2eTag: string;
+	let studentId: string;
 	let studentName: string;
 	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
 		useRole('teacher');
+		testStudent = false; // Reset at start of each test
 		suffix = getTestSuffix('selectStudent');
+		e2eTag = `e2e-test_${suffix}`;
+		studentId = `SE_${suffix}`;
 		studentName = `SelectMe_${suffix}`;
-		// createStudentForEval navigates to /evaluations/new
-		await createStudentForEval(page, suffix, studentName, '選擇我', 10);
+
+		// Create student via API
+		await createStudent({
+			studentId,
+			englishName: studentName,
+			chineseName: ' seçme',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
 		testStudent = true;
+
+		// Navigate to the evaluations page
+		await page.goto('/evaluations/new');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('1. Select Students')).toBeVisible();
+
+		// Search for the student to make them visible in the list
+		const filterInput = page.getByRole('textbox', { name: 'Search students' });
+		await filterInput.fill(studentName.toLowerCase());
 	});
 
 	test.afterEach(async () => {
-		if (testStudent) await cleanupByTag('all', `e2e-test_${suffix}`);
+		if (testStudent) await cleanupByTag('all', e2eTag);
 	});
 
 	test('allows selecting a student', async ({ page }) => {
@@ -120,21 +91,44 @@ test.describe('Evaluations - Select Student', () => {
 test.describe('Evaluations - Student Count', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
+	// CONSTANTS - Define at top of describe
 	let suffix: string;
+	let e2eTag: string;
+	let studentId: string;
 	let studentName: string;
 	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
 		useRole('teacher');
+		testStudent = false; // Reset at start of each test
 		suffix = getTestSuffix('countStudent');
+		e2eTag = `e2e-test_${suffix}`;
+		studentId = `SE_${suffix}`;
 		studentName = `CountMe_${suffix}`;
-		// createStudentForEval navigates to /evaluations/new
-		await createStudentForEval(page, suffix, studentName, '計數我', 10);
+
+		// Create student via API
+		await createStudent({
+			studentId,
+			englishName: studentName,
+			chineseName: ' saya',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
 		testStudent = true;
+
+		// Navigate to the evaluations page
+		await page.goto('/evaluations/new');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('1. Select Students')).toBeVisible();
+
+		// Search for the student to make them visible in the list
+		const filterInput = page.getByRole('textbox', { name: 'Search students' });
+		await filterInput.fill(studentName.toLowerCase());
 	});
 
 	test.afterEach(async () => {
-		if (testStudent) await cleanupByTag('all', `e2e-test_${suffix}`);
+		if (testStudent) await cleanupByTag('all', e2eTag);
 	});
 
 	test('shows selected student count', async ({ page }) => {
@@ -147,21 +141,39 @@ test.describe('Evaluations - Student Count', () => {
 test.describe('Evaluations - No Student Error', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
+	// CONSTANTS - Define at top of describe
 	let suffix: string;
+	let e2eTag: string;
+	let studentId: string;
 	let studentName: string;
 	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
 		useRole('teacher');
+		testStudent = false; // Reset at start of each test
 		suffix = getTestSuffix('noStudent');
+		e2eTag = `e2e-test_${suffix}`;
+		studentId = `SE_${suffix}`;
 		studentName = `NoStudent_${suffix}`;
-		// createStudentForEval navigates to /evaluations/new
-		await createStudentForEval(page, suffix, studentName, '無學生', 10);
+
+		// Create student via API
+		await createStudent({
+			studentId,
+			englishName: studentName,
+			chineseName: ' ogrenci',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
 		testStudent = true;
+
+		// Navigate to the evaluations page
+		await page.goto('/evaluations/new');
+		await page.waitForSelector('body.hydrated');
 	});
 
 	test.afterEach(async () => {
-		if (testStudent) await cleanupByTag('all', `e2e-test_${suffix}`);
+		if (testStudent) await cleanupByTag('all', e2eTag);
 	});
 
 	test('shows error without student selection', async ({ page }) => {
@@ -177,21 +189,45 @@ test.describe('Evaluations - No Student Error', () => {
 test.describe('Evaluations - No Category Error', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
+	// CONSTANTS - Define at top of describe
 	let suffix: string;
+	let e2eTag: string;
+	let studentId: string;
 	let studentName: string;
 	let testStudent = false;
 
 	test.beforeEach(async ({ page }) => {
 		useRole('teacher');
+		testStudent = false; // Reset at start of each test
 		suffix = getTestSuffix('noCat');
+		e2eTag = `e2e-test_${suffix}`;
+		studentId = `SE_${suffix}`;
 		studentName = `NoCat_${suffix}`;
-		// createStudentForEval navigates to /evaluations/new
-		await createStudentForEval(page, suffix, studentName, '無類別', 10);
+
+		// Create student via API
+		await createStudent({
+			studentId,
+			englishName: studentName,
+			chineseName: ' kategori',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
 		testStudent = true;
+
+		// Navigate to the evaluations page
+		await page.goto('/evaluations/new');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('list', { name: 'Students' })).toBeVisible();
+		// await expect(page.getByText('1. Select Students')).toBeVisible();
+
+		// Search for the student to make them visible in the list
+		const filterInput = page.getByRole('textbox', { name: 'Search students' });
+		await filterInput.fill(studentName.toLowerCase());
 	});
 
 	test.afterEach(async () => {
-		if (testStudent) await cleanupByTag('all', `e2e-test_${suffix}`);
+		if (testStudent) await cleanupByTag('all', e2eTag);
 	});
 
 	test('shows error without category', async ({ page }) => {
@@ -214,30 +250,53 @@ test.describe('Evaluations - No Category Error', () => {
 test.describe('Evaluations - No Sub-Category Error', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
+	// CONSTANTS - Define at top of describe
 	let suffix: string;
+	let e2eTag: string;
+	let studentId: string;
 	let categoryName: string;
 	let studentName: string;
 	let testData = false;
 
 	test.beforeEach(async ({ page }) => {
 		useRole('teacher');
+		testData = false; // Reset at start of each test
 		suffix = getTestSuffix('noSub');
+		e2eTag = `e2e-test_${suffix}`;
+		studentId = `SE_${suffix}`;
 		categoryName = `TestCategory_${suffix}`;
 		studentName = `NoSub_${suffix}`;
+
 		// Create a category with sub-categories first
 		await createCategoryWithSubs({
 			name: categoryName,
 			subCategories: ['SubCategory1', 'SubCategory2'],
-			e2eTag: `e2e-test_${suffix}`
+			e2eTag
+		});
+
+		// Create student via API
+		await createStudent({
+			studentId,
+			englishName: studentName,
+			chineseName: ' altkategori',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
 		});
 		testData = true;
 
-		// createStudentForEval navigates to /evaluations/new
-		await createStudentForEval(page, suffix, studentName, '無子類別', 10);
+		// Navigate to the evaluations page
+		await page.goto('/evaluations/new');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('list', { name: 'Students' })).toBeVisible();
+
+		// Search for the student to make them visible in the list
+		const filterInput = page.getByRole('textbox', { name: 'Search students' });
+		await filterInput.fill(studentName.toLowerCase());
 	});
 
 	test.afterEach(async () => {
-		if (testData) await cleanupByTag('all', `e2e-test_${suffix}`);
+		if (testData) await cleanupByTag('all', e2eTag);
 	});
 
 	test('shows error without sub-category', async ({ page }) => {
@@ -266,30 +325,53 @@ test.describe('Evaluations - No Sub-Category Error', () => {
 test.describe('Evaluations - Submit Success', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
+	// CONSTANTS - Define at top of describe
 	let suffix: string;
+	let e2eTag: string;
+	let studentId: string;
 	let categoryName: string;
 	let studentName: string;
 	let testData = false;
 
 	test.beforeEach(async ({ page }) => {
 		useRole('teacher');
+		testData = false; // Reset at start of each test
 		suffix = getTestSuffix('submit');
+		e2eTag = `e2e-test_${suffix}`;
+		studentId = `SE_${suffix}`;
 		categoryName = `TestCategory_${suffix}`;
 		studentName = `Submit_${suffix}`;
+
 		// Create a category with sub-categories first
 		await createCategoryWithSubs({
 			name: categoryName,
 			subCategories: ['SubCategory1', 'SubCategory2'],
-			e2eTag: `e2e-test_${suffix}`
+			e2eTag
+		});
+
+		// Create student via API
+		await createStudent({
+			studentId,
+			englishName: studentName,
+			chineseName: ' gönder',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
 		});
 		testData = true;
 
-		// createStudentForEval navigates to /evaluations/new
-		await createStudentForEval(page, suffix, studentName, '提交', 10);
+		// Navigate to the evaluations page
+		await page.goto('/evaluations/new');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('list', { name: 'Students' })).toBeVisible();
+
+		// Search for the student to make them visible in the list
+		const filterInput = page.getByRole('textbox', { name: 'Search students' });
+		await filterInput.fill(studentName.toLowerCase());
 	});
 
 	test.afterEach(async () => {
-		if (testData) await cleanupByTag('all', `e2e-test_${suffix}`);
+		if (testData) await cleanupByTag('all', e2eTag);
 	});
 
 	test('successfully submits evaluation', async ({ page }) => {
@@ -377,6 +459,7 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 	// DATA SEEDING & Navigation
 	test.beforeEach(async ({ page }) => {
 		useRole('teacher');
+		testData = false; // Reset at start of each test
 		suffix = getTestSuffix('longpressEdit');
 		e2eTag = `e2e-test_${suffix}`;
 		studentId = `STU_${suffix}`;
@@ -388,22 +471,20 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 			e2eTag
 		});
 
-		await createStudent({
+		await createStudentWithEvaluations({
 			studentId,
 			englishName: `Student_${suffix}`,
-			chineseName: '學生',
+			chineseName: ' ogrenci',
 			grade: 10,
 			status: 'Enrolled',
 			e2eTag
 		});
-
-		// Create evaluation as the authenticated teacher (using JWT from useRole)
-		await createEvaluationForStudent({ studentId, e2eTag });
 		testData = true;
 
 		// Navigate to student timeline using custom studentId URL (now supported!)
 		await page.goto(`/evaluations/student/${studentId}`);
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
 	});
 
 	// CLEANUP - Conditional based on flag
@@ -501,6 +582,7 @@ test.describe('Evaluations Long-Press Delete @evaluations-longpress', () => {
 	// DATA SEEDING & Navigation
 	test.beforeEach(async ({ page }) => {
 		useRole('teacher');
+		testData = false; // Reset at start of each test
 		suffix = getTestSuffix('longpressDelete');
 		e2eTag = `e2e-test_${suffix}`;
 		englishName = `DeleteMe_${suffix}`;
@@ -513,17 +595,14 @@ test.describe('Evaluations Long-Press Delete @evaluations-longpress', () => {
 			e2eTag
 		});
 
-		await createStudent({
+		await createStudentWithEvaluations({
 			studentId,
 			englishName,
-			chineseName: '學生',
+			chineseName: ' ogrenci',
 			grade: 10,
 			status: 'Enrolled',
 			e2eTag
 		});
-
-		// Create evaluation as the authenticated teacher (using JWT from useRole)
-		await createEvaluationForStudent({ studentId, e2eTag });
 		testData = true;
 
 		// Navigate to student timeline using custom studentId URL (now supported!)
@@ -539,7 +618,7 @@ test.describe('Evaluations Long-Press Delete @evaluations-longpress', () => {
 	// TESTS
 	test('can delete own evaluation', async ({ page }) => {
 		// Find an evaluation card
-		const card = page.getByRole('button', { name: /Evaluation for/ }).first();
+		const card = page.getByRole('button', { name: /Evaluation by/ }).first();
 		await expect(card).toBeVisible();
 
 		// Long-press to open edit dialog
@@ -613,21 +692,20 @@ test.describe('Evaluations - UI Controls', () => {
 	// DATA SEEDING
 	test.beforeEach(async ({ page }) => {
 		useRole('teacher');
+		testData = false; // Reset at start of each test
 		suffix = getTestSuffix('evalUI');
 		e2eTag = `e2e-test_${suffix}`;
 		studentId = `STU_${suffix}`;
 		englishName = `UIName_${suffix}`;
 
-		await createStudent({
+		await createStudentWithEvaluations({
 			studentId,
 			englishName,
-			chineseName: '學生',
+			chineseName: ' ogrenci',
 			grade: 10,
 			status: 'Enrolled',
 			e2eTag
 		});
-
-		await createEvaluationForStudent({ studentId, e2eTag });
 		testData = true;
 
 		await page.goto('/evaluations');

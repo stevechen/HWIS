@@ -5,6 +5,7 @@ export function transformEvaluation(e: {
 	_id: string;
 	value: number;
 	category: string;
+	categoryId?: string;
 	subCategory?: string;
 	details?: string;
 	timestamp: number;
@@ -21,6 +22,7 @@ export function transformEvaluation(e: {
 		_id: e._id,
 		value: e.value,
 		category: e.category,
+		categoryId: e.categoryId,
 		subCategory: e.subCategory,
 		details: e.details,
 		timestamp: e.timestamp,

@@ -22,7 +22,7 @@
 
 	// Form state
 	let editValue = $state(0);
-	let editCategory = $state('');
+	let editCategoryId = $state('');
 	let editSubCategory = $state('');
 	let editDetails = $state('');
 	let editLoading = $state(false);
@@ -31,7 +31,7 @@
 	$effect(() => {
 		if (evaluation) {
 			editValue = evaluation.value;
-			editCategory = evaluation.category;
+			editCategoryId = evaluation.categoryId || '';
 			editSubCategory = evaluation.subCategory || '';
 			editDetails = evaluation.details || '';
 		}
@@ -48,7 +48,7 @@
 				await client.mutation(api.evaluations.update, {
 					id: evaluation._id as Id<'evaluations'>,
 					value: editValue,
-					category: editCategory,
+					categoryId: editCategoryId as Id<'point_categories'>,
 					subCategory: editSubCategory,
 					details: editDetails
 				});
@@ -69,38 +69,47 @@
 		<div class="space-y-4 py-4">
 			<!-- Category -->
 			<div class="space-y-2">
-				<label class="font-medium text-sm" for="category-select">Category</label>
-				<Select.Root type="single" bind:value={editCategory}>
+				<label class="text-sm font-medium" for="category-select">Category</label>
+				<Select.Root type="single" bind:value={editCategoryId}>
 					<Select.Trigger id="category-select" aria-label="Select category">
-						{editCategory || 'Select Category'}
+						{#if categoriesQuery.isLoading}
+							Loading...
+						{:else if editCategoryId && categoriesQuery.data}
+							{categoriesQuery.data.find((c) => c._id === editCategoryId)?.name ||
+								'Select Category'}
+						{:else}
+							Select Category
+						{/if}
 					</Select.Trigger>
 					<Select.Content>
 						{#each categoriesQuery.data || [] as cat (cat._id)}
-							<Select.Item value={cat.name}>{cat.name}</Select.Item>
+							<Select.Item value={cat._id}>{cat.name}</Select.Item>
 						{/each}
 					</Select.Content>
 				</Select.Root>
 			</div>
 
-			<!-- SubCategory -->
-			<div class="space-y-2">
-				<label class="font-medium text-sm" for="subcategory-select">Subcategory</label>
-				<Select.Root type="single" bind:value={editSubCategory}>
-					<Select.Trigger id="subcategory-select" aria-label="Select subcategory">
-						{editSubCategory || 'Select Subcategory'}
-					</Select.Trigger>
-					<Select.Content>
-						{#each categoriesQuery.data?.find((c) => c.name === editCategory)?.subCategories || [] as sub (sub)}
-							<Select.Item value={sub}>{sub}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			</div>
+			<!-- SubCategory - only show if selected category has subcategories -->
+			{#if editCategoryId && categoriesQuery.data?.find((c) => c._id === editCategoryId)?.subCategories?.length}
+				<div class="space-y-2">
+					<label class="text-sm font-medium" for="subcategory-select">Subcategory</label>
+					<Select.Root type="single" bind:value={editSubCategory}>
+						<Select.Trigger id="subcategory-select" aria-label="Select subcategory">
+							{editSubCategory || 'Select Subcategory'}
+						</Select.Trigger>
+						<Select.Content>
+							{#each categoriesQuery.data.find((c) => c._id === editCategoryId)?.subCategories || [] as sub (sub)}
+								<Select.Item value={sub}>{sub}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
+			{/if}
 
 			<!-- Points -->
 			<fieldset class="space-y-2">
-				<legend class="font-medium text-sm">Points</legend>
-				<div class="gap-2 grid grid-cols-4" role="group" aria-label="Point values">
+				<legend class="text-sm font-medium">Points</legend>
+				<div class="grid grid-cols-4 gap-2" role="group" aria-label="Point values">
 					{#each [-2, -1, 1, 2] as p (p)}
 						<Button
 							type="button"
@@ -116,12 +125,12 @@
 
 			<!-- Details -->
 			<div class="space-y-2">
-				<label class="font-medium text-sm" for="evaluation-details">Details / Comments</label>
+				<label class="text-sm font-medium" for="evaluation-details">Details / Comments</label>
 				<textarea
 					id="evaluation-details"
 					bind:value={editDetails}
 					placeholder="Enter specific details..."
-					class="bg-background p-3 border border-input rounded-md w-full text-sm"
+					class="bg-background border-input w-full rounded-md border p-3 text-sm"
 					rows="3"
 					aria-label="Evaluation details"
 				></textarea>

@@ -170,7 +170,8 @@ export const createWeeklyReportTestData = mutation({
 			friday: number;
 			studentId: string;
 			teacherId: string;
-			category: string;
+			categoryId: string;
+			categoryName: string;
 			value: number;
 			timestamp: number;
 		}[] = [];
@@ -198,7 +199,12 @@ export const createWeeklyReportTestData = mutation({
 				const categoryIndex = teacherIndex % teacher.focus.length;
 				const categoryName = teacher.focus[categoryIndex];
 
-				// Get subcategory for this category
+				// Get category ID and subcategory
+				const categoryId =
+					categoryMap.get(categoryName) ||
+					categoryIds[categories.findIndex((c) => c.name === categoryName)];
+				if (!categoryId) continue; // Skip if category not found
+
 				const category = categories.find((c) => c.name === categoryName);
 				if (!category) continue; // Skip if category not found
 				const subCategories = category.subCategories || [];
@@ -232,7 +238,7 @@ export const createWeeklyReportTestData = mutation({
 					studentId,
 					teacherId,
 					value: pointValue,
-					category: categoryName,
+					categoryId: categoryId as Id<'point_categories'>,
 					subCategory,
 					details: `${teacher.name} evaluation for ${category.name}${subCategory ? ' - ' + subCategory : ''}`,
 					timestamp,
@@ -246,7 +252,8 @@ export const createWeeklyReportTestData = mutation({
 					friday: week.friday,
 					studentId,
 					teacherId,
-					category: categoryName,
+					categoryId: categoryId,
+					categoryName,
 					value: pointValue,
 					timestamp
 				});

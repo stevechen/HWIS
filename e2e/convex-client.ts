@@ -161,9 +161,53 @@ export async function checkEvaluationExists(categoryName: string) {
 	return await utils.checkEvaluationExists(categoryName);
 }
 
-export async function createEvaluationForStudent(data: { studentId: string; e2eTag?: string }) {
+// Internal helper - not exported, use createStudentWithEvaluations instead
+async function createEvaluationForStudent(data: { studentId: string; e2eTag?: string }) {
 	const utils = getUtils();
 	return await utils.createEvaluationForStudent(data);
+}
+
+/**
+ * Create a student with multiple evaluations in parallel.
+ * This is more efficient than creating them separately.
+ * @param opts.studentId - The student ID
+ * @param opts.englishName - The English name for the student
+ * @param opts.chineseName - The Chinese name for the student
+ * @param opts.grade - The grade level
+ * @param opts.status - The enrollment status
+ * @param opts.evaluationCount - Number of evaluations to create (default: 1)
+ * @param opts.e2eTag - The e2e tag for cleanup
+ * @returns The student document ID
+ */
+export async function createStudentWithEvaluations(opts: {
+	studentId: string;
+	englishName: string;
+	chineseName: string;
+	grade: number;
+	status: string;
+	evaluationCount?: number;
+	e2eTag: string;
+}) {
+	const { evaluationCount = 1, ...studentOpts } = opts;
+
+	// Create student first and get the doc ID
+	const studentDocId = await createStudent({
+		studentId: studentOpts.studentId,
+		englishName: studentOpts.englishName,
+		chineseName: studentOpts.chineseName,
+		grade: studentOpts.grade,
+		status: studentOpts.status,
+		e2eTag: studentOpts.e2eTag
+	});
+
+	// Create all evaluations in parallel
+	await Promise.all(
+		Array(evaluationCount)
+			.fill(null)
+			.map(() => createEvaluationForStudent({ studentId: opts.studentId, e2eTag: opts.e2eTag }))
+	);
+
+	return studentDocId;
 }
 
 export async function setRoleByEmail(email: string, role: string) {

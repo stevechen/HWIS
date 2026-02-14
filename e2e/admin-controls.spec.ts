@@ -27,6 +27,7 @@ test.describe('Admin Controls Visibility @admin', () => {
 
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('table', { name: 'Student table' })).toBeVisible();
 	});
 
 	test.afterEach(async () => {

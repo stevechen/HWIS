@@ -301,7 +301,7 @@ export const createEvaluationForStudent = mutation({
 			studentId: student._id,
 			teacherId,
 			value: 1,
-			category: category.name,
+			categoryId: category._id,
 			subCategory: category.subCategories[0] || '',
 			details: '',
 			timestamp: now,
@@ -319,7 +319,8 @@ export const createEvaluationForStudent = mutation({
 			newValue: {
 				studentId: student._id,
 				value: 1,
-				category: category.name
+				categoryId: category._id,
+				categoryName: category.name
 			},
 			timestamp: now,
 			e2eTag: args.e2eTag || getE2ETag()

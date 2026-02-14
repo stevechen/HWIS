@@ -80,7 +80,7 @@ export default defineSchema({
 		studentId: v.id('students'),
 		teacherId: v.id('users'),
 		value: v.number(),
-		category: v.string(),
+		categoryId: v.id('point_categories'),
 		subCategory: v.string(),
 		details: v.string(),
 		timestamp: v.number(),
@@ -91,8 +91,8 @@ export default defineSchema({
 		.index('by_studentId_teacherId', ['studentId', 'teacherId'])
 		.index('by_teacherId', ['teacherId'])
 		.index('by_timestamp', ['timestamp'])
-		.index('by_category', ['category'])
-		.index('by_category_subCategory', ['category', 'subCategory'])
+		.index('by_categoryId', ['categoryId'])
+		.index('by_categoryId_subCategory', ['categoryId', 'subCategory'])
 		.index('by_e2eTag', ['e2eTag']),
 
 	backups: defineTable({

@@ -1,6 +1,7 @@
 import { expect, test, describe } from 'vitest';
 import { convexTest, modules } from './test.setup';
 import schema from './schema';
+import { api } from './_generated/api';
 
 describe('backup clearing logic', () => {
 	test('clearing evaluations clears related audit logs', async () => {
@@ -25,12 +26,17 @@ describe('backup clearing logic', () => {
 			});
 		});
 
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Creativity',
+			subCategories: ['Leadership']
+		});
+
 		await t.run(async (ctx) => {
 			await ctx.db.insert('evaluations', {
 				studentId,
 				teacherId,
 				value: 1,
-				category: 'Creativity',
+				categoryId,
 				subCategory: 'Leadership',
 				details: 'Great work',
 				timestamp: Date.now(),
@@ -111,23 +117,21 @@ describe('backup clearing logic', () => {
 			});
 		});
 
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Creativity',
+			subCategories: ['Leadership']
+		});
+
 		await t.run(async (ctx) => {
 			await ctx.db.insert('evaluations', {
 				studentId,
 				teacherId,
 				value: 1,
-				category: 'Creativity',
+				categoryId,
 				subCategory: 'Leadership',
 				details: 'Great work',
 				timestamp: Date.now(),
 				semesterId: '2025-H1'
-			});
-		});
-
-		await t.run(async (ctx) => {
-			await ctx.db.insert('point_categories', {
-				name: 'Creativity',
-				subCategories: ['Leadership']
 			});
 		});
 
@@ -372,6 +376,11 @@ describe('backup clearing logic', () => {
 			});
 		});
 
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Creativity',
+			subCategories: ['Leadership']
+		});
+
 		const studentId = await t.run(async (ctx) => {
 			return (await ctx.db.query('students').collect())[0]._id;
 		});
@@ -381,7 +390,7 @@ describe('backup clearing logic', () => {
 				studentId,
 				teacherId,
 				value: 1,
-				category: 'Creativity',
+				categoryId,
 				subCategory: 'Leadership',
 				details: 'Great work',
 				timestamp: Date.now(),

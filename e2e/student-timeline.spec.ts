@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { getTestSuffix } from './helpers';
 import {
-	createStudent,
+	createStudentWithEvaluations,
 	createCategoryWithSubs,
-	createEvaluationForStudent,
 	cleanupByTag,
 	useRole
 } from './convex-client';
@@ -32,7 +31,7 @@ test.describe('Student Timeline Page', () => {
 				e2eTag
 			});
 
-			await createStudent({
+			await createStudentWithEvaluations({
 				studentId,
 				englishName,
 				chineseName: '學生',
@@ -40,9 +39,6 @@ test.describe('Student Timeline Page', () => {
 				status: 'Enrolled',
 				e2eTag
 			});
-
-			// Create evaluation for the student
-			await createEvaluationForStudent({ studentId, e2eTag });
 			testData = true;
 
 			// Navigate to the real student's timeline page
@@ -92,7 +88,7 @@ test.describe('Student Timeline Page', () => {
 				e2eTag
 			});
 
-			await createStudent({
+			await createStudentWithEvaluations({
 				studentId,
 				englishName,
 				chineseName: '學生',
@@ -100,9 +96,6 @@ test.describe('Student Timeline Page', () => {
 				status: 'Enrolled',
 				e2eTag
 			});
-
-			// Create evaluation for the student
-			await createEvaluationForStudent({ studentId, e2eTag });
 			testData = true;
 
 			// Navigate to the real student's timeline page
@@ -146,7 +139,7 @@ test.describe('Student Timeline Page', () => {
 				e2eTag
 			});
 
-			await createStudent({
+			await createStudentWithEvaluations({
 				studentId,
 				englishName,
 				chineseName: '學生',
@@ -154,9 +147,6 @@ test.describe('Student Timeline Page', () => {
 				status: 'Enrolled',
 				e2eTag
 			});
-
-			// Create evaluation for the student
-			await createEvaluationForStudent({ studentId, e2eTag });
 			testData = true;
 
 			// Navigate to the real student's timeline page
@@ -205,7 +195,7 @@ test.describe('Student Timeline Page', () => {
 				e2eTag
 			});
 
-			await createStudent({
+			await createStudentWithEvaluations({
 				studentId,
 				englishName,
 				chineseName: '學生',
@@ -213,9 +203,6 @@ test.describe('Student Timeline Page', () => {
 				status: 'Enrolled',
 				e2eTag
 			});
-
-			// Create evaluation for the student
-			await createEvaluationForStudent({ studentId, e2eTag });
 			testData = true;
 
 			// Navigate to the real student's timeline page
@@ -253,7 +240,7 @@ test.describe('Student Timeline Page', () => {
 				e2eTag
 			});
 
-			await createStudent({
+			await createStudentWithEvaluations({
 				studentId,
 				englishName,
 				chineseName: '學生',
@@ -261,9 +248,6 @@ test.describe('Student Timeline Page', () => {
 				status: 'Enrolled',
 				e2eTag
 			});
-
-			// Create evaluation for the student
-			await createEvaluationForStudent({ studentId, e2eTag });
 			testData = true;
 
 			// Navigate to the real student's timeline page
@@ -305,7 +289,7 @@ test.describe('Student Timeline Page', () => {
 				e2eTag
 			});
 
-			await createStudent({
+			await createStudentWithEvaluations({
 				studentId,
 				englishName,
 				chineseName: '學生',
@@ -313,9 +297,6 @@ test.describe('Student Timeline Page', () => {
 				status: 'Enrolled',
 				e2eTag
 			});
-
-			// Create evaluation for the student
-			await createEvaluationForStudent({ studentId, e2eTag });
 			testData = true;
 
 			// Navigate to the real student's timeline page
@@ -349,7 +330,7 @@ test.describe('Student Timeline Page', () => {
 				e2eTag
 			});
 
-			await createStudent({
+			await createStudentWithEvaluations({
 				studentId,
 				englishName,
 				chineseName: '學生',
@@ -357,9 +338,6 @@ test.describe('Student Timeline Page', () => {
 				status: 'Enrolled',
 				e2eTag
 			});
-
-			// Create evaluation for the student
-			await createEvaluationForStudent({ studentId, e2eTag });
 			testData = true;
 
 			// Navigate to the real student's timeline page
@@ -408,7 +386,7 @@ test.describe('Student Timeline Long-Press @timeline-longpress', () => {
 			e2eTag
 		});
 
-		await createStudent({
+		await createStudentWithEvaluations({
 			studentId,
 			englishName,
 			chineseName: '學生',
@@ -416,9 +394,6 @@ test.describe('Student Timeline Long-Press @timeline-longpress', () => {
 			status: 'Enrolled',
 			e2eTag
 		});
-
-		// Create evaluation for the student
-		await createEvaluationForStudent({ studentId, e2eTag });
 		testData = true;
 
 		// Navigate to the real student's timeline page
@@ -432,7 +407,7 @@ test.describe('Student Timeline Long-Press @timeline-longpress', () => {
 
 	test('long-press on evaluation card opens edit dialog', async ({ page }) => {
 		// Find evaluation card by partial button name pattern, then get by englishName
-		const evalCard = page.getByRole('button', { name: /Evaluation for/ });
+		const evalCard = page.getByRole('button', { name: /Evaluation by/ });
 		await expect(evalCard).toBeVisible();
 
 		// Long-press by holding mouse down
@@ -446,7 +421,7 @@ test.describe('Student Timeline Long-Press @timeline-longpress', () => {
 
 	test('can navigate away during long-press if not held long enough', async ({ page }) => {
 		// Find evaluation card
-		const evalCard = page.getByRole('button', { name: /Evaluation for/ });
+		const evalCard = page.getByRole('button', { name: /Evaluation by/ });
 		await expect(evalCard).toBeVisible();
 
 		// Quick click (not long-press)
@@ -482,7 +457,7 @@ test.describe('Student Timeline Long-Press Admin @timeline-longpress', () => {
 			e2eTag
 		});
 
-		await createStudent({
+		await createStudentWithEvaluations({
 			studentId,
 			englishName,
 			chineseName: '學生',
@@ -490,9 +465,6 @@ test.describe('Student Timeline Long-Press Admin @timeline-longpress', () => {
 			status: 'Enrolled',
 			e2eTag
 		});
-
-		// Create evaluation for the student
-		await createEvaluationForStudent({ studentId, e2eTag });
 		testData = true;
 
 		// Navigate to the real student's timeline page
@@ -506,7 +478,7 @@ test.describe('Student Timeline Long-Press Admin @timeline-longpress', () => {
 
 	test('admin can long-press on own evaluations', async ({ page }) => {
 		// Find evaluation card by partial button name pattern, then get by englishName
-		const evalCard = page.getByRole('button', { name: `Evaluation for Cat_${suffix}` });
+		const evalCard = page.getByRole('button', { name: /Evaluation by/ });
 		await expect(evalCard).toBeVisible();
 
 		// Long-press should work
@@ -542,7 +514,7 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress', () => {
 			e2eTag
 		});
 
-		await createStudent({
+		await createStudentWithEvaluations({
 			studentId,
 			englishName,
 			chineseName: '學生',
@@ -550,9 +522,6 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress', () => {
 			status: 'Enrolled',
 			e2eTag
 		});
-
-		// Create evaluation for the student
-		await createEvaluationForStudent({ studentId, e2eTag });
 		testData = true;
 
 		// Navigate to the real student's timeline page
@@ -566,7 +535,7 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress', () => {
 
 	test('edit dialog has all required elements', async ({ page }) => {
 		// Find evaluation card
-		const evalCard = page.getByRole('button', { name: `Evaluation for Cat_${suffix}` });
+		const evalCard = page.getByRole('button', { name: /Evaluation by/ });
 		await expect(evalCard).toBeVisible();
 
 		// Long-press to open edit dialog
@@ -596,7 +565,7 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress', () => {
 
 	test('can edit evaluation details', async ({ page }) => {
 		// Find evaluation card
-		const evalCard = page.getByRole('button', { name: `Evaluation for Cat_${suffix}` });
+		const evalCard = page.getByRole('button', { name: /Evaluation by/ });
 		await expect(evalCard).toBeVisible();
 
 		// Long-press to open edit dialog
@@ -619,7 +588,7 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress', () => {
 
 	test('can delete evaluation via long-press', async ({ page }) => {
 		// Find evaluation card
-		const evalCard = page.getByRole('button', { name: `Evaluation for Cat_${suffix}` });
+		const evalCard = page.getByRole('button', { name: /Evaluation by/i });
 		await expect(evalCard).toBeVisible();
 
 		// Long-press to open edit dialog

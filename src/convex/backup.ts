@@ -87,7 +87,7 @@ export const restoreFromBackup = mutation({
 				studentId: evaluation.studentId,
 				teacherId: evaluation.teacherId,
 				value: evaluation.value,
-				category: evaluation.category,
+				categoryId: evaluation.categoryId,
 				subCategory: evaluation.subCategory,
 				details: evaluation.details,
 				timestamp: evaluation.timestamp,

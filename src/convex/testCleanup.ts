@@ -336,6 +336,9 @@ export const cleanupByTag = mutation({
 			}
 		}
 
+		// Collect evaluation IDs for cascade cleanup of audit logs
+		const evaluationIdsToDelete: string[] = [];
+
 		if (args.dataType === 'evaluations' || args.dataType === 'all') {
 			// First delete evaluations with matching e2eTag (indexed query)
 			const evaluations = await ctx.db
@@ -343,11 +346,24 @@ export const cleanupByTag = mutation({
 				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', args.e2eTag))
 				.collect();
 			for (const evalItem of evaluations) {
+				evaluationIdsToDelete.push(evalItem._id);
 				await ctx.db.delete(evalItem._id);
 				totalDeleted++;
 			}
-			// Note: We no longer cascade delete evaluations by studentId/categoryName
-			// to avoid full table scans. Tests should create evaluations with e2eTag.
+
+			// Also cascade delete evaluations for students with matching e2eTag
+			// This handles evaluations created via UI that don't have e2eTag set
+			for (const studentId of studentIdsWithTag) {
+				const studentEvaluations = await ctx.db
+					.query('evaluations')
+					.withIndex('by_studentId', (q) => q.eq('studentId', studentId))
+					.collect();
+				for (const evalItem of studentEvaluations) {
+					evaluationIdsToDelete.push(evalItem._id);
+					await ctx.db.delete(evalItem._id);
+					totalDeleted++;
+				}
+			}
 		}
 
 		// Clean up audit logs with matching e2eTag using indexed query
@@ -363,6 +379,19 @@ export const cleanupByTag = mutation({
 			for (const log of auditLogs) {
 				await ctx.db.delete(log._id);
 				totalDeleted++;
+			}
+
+			// Also cascade delete audit logs for evaluations that were just deleted
+			// This handles audit logs created via UI that don't have e2eTag set
+			for (const evalId of evaluationIdsToDelete) {
+				const evalAuditLogs = await ctx.db
+					.query('audit_logs')
+					.withIndex('by_target', (q) => q.eq('targetTable', 'evaluations').eq('targetId', evalId))
+					.collect();
+				for (const log of evalAuditLogs) {
+					await ctx.db.delete(log._id);
+					totalDeleted++;
+				}
 			}
 		}
 

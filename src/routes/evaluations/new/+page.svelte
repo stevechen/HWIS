@@ -3,6 +3,7 @@
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import { Search } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { onMount, onDestroy } from 'svelte';
@@ -77,7 +78,7 @@
 			await client.mutation(api.evaluations.create, {
 				studentIds: Array.from(selectedStudentIds) as Id<'students'>[],
 				value: points,
-				category: selectedCategory!.name,
+				categoryId: categoryId as Id<'point_categories'>,
 				subCategory: resolvedSubCategory,
 				details,
 				semesterId: getCurrentSemesterId()
@@ -159,11 +160,15 @@
 	}
 
 	onMount(() => {
-		window.addEventListener('keydown', handleGlobalKeydown);
+		if (browser) {
+			window.addEventListener('keydown', handleGlobalKeydown);
+		}
 	});
 
 	onDestroy(() => {
-		window.removeEventListener('keydown', handleGlobalKeydown);
+		if (browser) {
+			window.removeEventListener('keydown', handleGlobalKeydown);
+		}
 	});
 </script>
 
@@ -185,7 +190,11 @@
 					/>
 				</div>
 
-				<div class="bg-muted max-h-72 overflow-y-auto rounded-md border">
+				<div
+					class="bg-muted max-h-72 overflow-y-auto rounded-md border"
+					role="list"
+					aria-label="Students"
+				>
 					{#if studentsQuery.isLoading}
 						<div class="text-muted-foreground p-8 text-center">Loading students...</div>
 					{:else if filteredStudents.length === 0}
@@ -225,6 +234,7 @@
 								onclick={() => toggleStudent(student._id)}
 								onkeydown={(e) => e.key === 'Enter' && toggleStudent(student._id)}
 								role="button"
+								aria-label={`Select ${student.englishName}`}
 								tabindex="0"
 							>
 								<div class="flex items-center gap-4 p-3">

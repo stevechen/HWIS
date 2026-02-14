@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { getTestSuffix } from './helpers';
-import { createStudent, createEvaluationForStudent, cleanupByTag, useRole } from './convex-client';
+import { createStudentWithEvaluations, cleanupByTag, useRole } from './convex-client';
 
 test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
@@ -16,30 +16,33 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll', () => {
 		suffix = getTestSuffix('infiniteScroll');
 		e2eTag = `e2e-test_${suffix}`;
 
-		// Create multiple students with evaluations for testing pagination
-		// We need enough data to trigger pagination (more than 20 items per page)
-		for (let i = 0; i < 25; i++) {
+		// Create students with evaluations in parallel for faster setup
+		// 5 students × 6 evaluations = 30 evaluations (enough for pagination)
+		// This is more efficient than 15 students × 2 evaluations (saves 10 API calls)
+		const createPromises = [];
+		for (let i = 0; i < 5; i++) {
 			const studentId = `SE_SCROLL_${i}_${suffix}`;
 			const englishName = `ScrollStudent_${i}_${suffix}`;
-			await createStudent({
-				studentId,
-				englishName,
-				chineseName: `滾動學生${i}`,
-				grade: 10,
-				status: 'Enrolled',
-				e2eTag
-			});
-			// Create multiple evaluations per student to ensure we have enough data
-			await createEvaluationForStudent({ studentId, e2eTag });
-			await createEvaluationForStudent({ studentId, e2eTag });
+			createPromises.push(
+				createStudentWithEvaluations({
+					studentId,
+					englishName,
+					chineseName: `Student${i}`,
+					grade: 10,
+					status: 'Enrolled',
+					evaluationCount: 6,
+					e2eTag
+				})
+			);
 		}
+		await Promise.all(createPromises);
 		testEntity = true;
 
 		// Navigate to admin evaluations page
 		await page.goto('/admin/evaluations');
 		await page.waitForSelector('body.hydrated');
+		// Wait for evaluations to load
 		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {
@@ -48,19 +51,19 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll', () => {
 	});
 
 	test('initial page load shows evaluations', async ({ page }) => {
-		// Verify the evaluations region is visible
 		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
 
 		// Verify at least one evaluation is displayed
 		const evaluationButtons = page.getByRole('button', { name: /Evaluation for ScrollStudent_/ });
 		await expect(evaluationButtons.first()).toBeVisible();
 
-		// Verify the count shows at least some evaluations loaded
-		const count = await evaluationButtons.count();
-		expect(count).toBeGreaterThan(0);
+		// Verify at least some evaluations loaded
+		await expect(evaluationButtons.nth(1)).toBeVisible();
 	});
 
 	test('shows "No more evaluations" message at end of list', async ({ page }) => {
+		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+
 		// Scroll until we see "No more evaluations" or timeout
 		// This handles the case where multiple pages need to be loaded
 		const noMoreText = page.getByText('No more evaluations');
@@ -78,9 +81,12 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll', () => {
 	});
 
 	test('filter changes reset pagination and show filtered results', async ({ page }) => {
-		// Get initial count of evaluations
+		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+
+		// Verify multiple students are visible initially (at least 2 different ones)
 		const initialButtons = page.getByRole('button', { name: /Evaluation for ScrollStudent_/ });
-		const initialCount = await initialButtons.count();
+		await expect(initialButtons.first()).toBeVisible();
+		await expect(initialButtons.nth(1)).toBeVisible();
 
 		// Apply a filter for a specific student
 		const studentFilterInput = page.getByPlaceholder('Filter by student name...');
@@ -89,22 +95,26 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll', () => {
 		// Wait for the filter to apply (Convex reactivity)
 		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
 
-		// Verify only filtered results are shown
+		// Verify only filtered results are shown (ScrollStudent_0)
 		const filteredButtons = page.getByRole('button', { name: /Evaluation for ScrollStudent_0/ });
 		await expect(filteredButtons.first()).toBeVisible();
 
-		// The filtered count should be less than or equal to initial count
-		const filteredCount = await filteredButtons.count();
-		expect(filteredCount).toBeLessThanOrEqual(initialCount);
+		// Verify that other students are NOT visible (filter is working)
+		const otherStudentButtons = page.getByRole('button', {
+			name: /Evaluation for ScrollStudent_1/
+		});
+		await expect(otherStudentButtons).not.toBeVisible();
 
 		// Clear the filter
 		await studentFilterInput.fill('');
-		// await page.waitForTimeout(500);
 
-		// Verify all results are back
+		// Wait for the filter to clear (Convex reactivity)
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+
+		// Verify multiple students are visible again (at least 2 different ones)
 		const restoredButtons = page.getByRole('button', { name: /Evaluation for ScrollStudent_/ });
-		const restoredCount = await restoredButtons.count();
-		expect(restoredCount).toBeGreaterThanOrEqual(filteredCount);
+		await expect(restoredButtons.first()).toBeVisible();
+		await expect(restoredButtons.nth(1)).toBeVisible();
 	});
 
 	test('sort order toggle resets pagination', async ({ page }) => {
@@ -184,24 +194,12 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll', () => {
 	});
 });
 
-test.describe('Admin Evaluations - Infinite Scroll Edge Cases @infinite-scroll-edge', () => {
+test.describe('Admin Evaluations - Empty State @infinite-scroll-empty', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-	let suffix: string;
-	let e2eTag: string;
-	let testEntity = false;
-
-	test.beforeEach(async () => {
-		useRole('admin');
-		suffix = getTestSuffix('scrollEdge');
-		e2eTag = `e2e-test_${suffix}`;
-	});
-
-	test.afterEach(async () => {
-		if (testEntity) await cleanupByTag('all', e2eTag);
-	});
-
 	test('shows empty state when no evaluations exist', async ({ page }) => {
+		useRole('admin');
+
 		// Navigate to admin evaluations page without creating any data
 		await page.goto('/admin/evaluations');
 		await page.waitForSelector('body.hydrated');
@@ -210,25 +208,44 @@ test.describe('Admin Evaluations - Infinite Scroll Edge Cases @infinite-scroll-e
 		// Use web-first assertion with timeout for Convex reactivity
 		await expect(page.getByText('No evaluations found.')).toBeVisible();
 	});
+});
 
-	test('shows "No more evaluations" immediately for small datasets', async ({ page }) => {
-		// Create just one student with one evaluation
-		const studentId = `SE_SMALL_${suffix}`;
-		const englishName = `SmallDataset_${suffix}`;
-		await createStudent({
-			studentId,
-			englishName,
+test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	// CONSTANTS - Define at top of describe
+	let suffix: string;
+	let e2eTag: string;
+	let testEntity = false;
+
+	test.beforeEach(async ({ page }) => {
+		useRole('admin');
+		testEntity = false; // Reset at start of each test
+		suffix = getTestSuffix('scrollSmall');
+		e2eTag = `e2e-test_${suffix}`;
+
+		// Create just one student with one evaluation using the optimized helper
+		await createStudentWithEvaluations({
+			studentId: `SE_SMALL_${suffix}`,
+			englishName: `SmallDataset_${suffix}`,
 			chineseName: '小數據',
 			grade: 10,
 			status: 'Enrolled',
+			evaluationCount: 1,
 			e2eTag
 		});
-		await createEvaluationForStudent({ studentId, e2eTag });
 		testEntity = true;
 
 		// Navigate to admin evaluations page
 		await page.goto('/admin/evaluations');
 		await page.waitForSelector('body.hydrated');
+	});
+
+	test.afterEach(async () => {
+		if (testEntity) await cleanupByTag('all', e2eTag);
+	});
+
+	test('shows "No more evaluations" immediately for small datasets', async ({ page }) => {
 		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
 
 		// Scroll to bottom
@@ -238,25 +255,45 @@ test.describe('Admin Evaluations - Infinite Scroll Edge Cases @infinite-scroll-e
 		// Should show "No more evaluations" since we have less than a page of data
 		await expect(page.getByText('No more evaluations')).toBeVisible();
 	});
+});
 
-	test('filter with no matches shows empty state', async ({ page }) => {
-		// Create a student with evaluation
-		const studentId = `SE_FILTER_${suffix}`;
-		const englishName = `FilterTest_${suffix}`;
-		await createStudent({
-			studentId,
-			englishName,
+test.describe('Admin Evaluations - Filter Empty State @infinite-scroll-filter-empty', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	// CONSTANTS - Define at top of describe
+	let suffix: string;
+	let e2eTag: string;
+	let testEntity = false;
+
+	test.beforeEach(async ({ page }) => {
+		useRole('admin');
+		testEntity = false; // Reset at start of each test
+		suffix = getTestSuffix('scrollFilter');
+		e2eTag = `e2e-test_${suffix}`;
+
+		// Create a student with evaluation using the optimized helper
+		await createStudentWithEvaluations({
+			studentId: `SE_FILTER_${suffix}`,
+			englishName: `FilterTest_${suffix}`,
 			chineseName: '過濾測試',
 			grade: 10,
 			status: 'Enrolled',
+			evaluationCount: 1,
 			e2eTag
 		});
-		await createEvaluationForStudent({ studentId, e2eTag });
 		testEntity = true;
 
 		// Navigate to admin evaluations page
 		await page.goto('/admin/evaluations');
 		await page.waitForSelector('body.hydrated');
+		// await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+	});
+
+	test.afterEach(async () => {
+		if (testEntity) await cleanupByTag('all', e2eTag);
+	});
+
+	test('filter with no matches shows empty state', async ({ page }) => {
 		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
 
 		// Apply a filter that matches nothing

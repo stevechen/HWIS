@@ -3,8 +3,7 @@ import { getTestSuffix } from './helpers';
 import {
 	createCategory,
 	createCategoryWithSubs,
-	createEvaluationForStudent,
-	createStudent,
+	createStudentWithEvaluations,
 	cleanupByTag,
 	setE2eTag,
 	useRole
@@ -354,14 +353,19 @@ test.describe('Categories - Delete Warning', () => {
 		e2eTag = `e2e-test_${suffix}`;
 		studentId = `S_${suffix}`;
 		useRole('admin');
-		// Create student first
-		await createStudent({ studentId, englishName: `Test_${suffix}`, grade: 10, e2eTag });
-		testStudent = true;
-		// Create category with subcategories
+		// Create category with subcategories first
 		await createCategoryWithSubs({ name: categoryName, subCategories: [sub1], e2eTag });
 		testCategory = true;
-		// Create evaluation for the student with the category
-		await createEvaluationForStudent({ studentId, e2eTag });
+		// Create student with evaluation
+		await createStudentWithEvaluations({
+			studentId,
+			englishName: `Test_${suffix}`,
+			chineseName: '測試學生',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+		testStudent = true;
 		testEvaluation = true;
 
 		await page.goto('/admin/categories');
@@ -381,9 +385,7 @@ test.describe('Categories - Delete Warning', () => {
 		await row.getByRole('button', { name: 'Delete' }).click();
 		await expect(page.getByRole('dialog')).toBeVisible();
 
-		await expect(
-			page.getByRole('dialog').getByText(/This category has sub-categories with evaluations/)
-		).toBeVisible();
+		await expect(page.getByRole('dialog').getByText(/This category has evaluations/)).toBeVisible();
 	});
 });
 
@@ -465,5 +467,326 @@ test.describe('Categories - Delete Cascade', () => {
 
 		// Category was deleted, reset flag to skip afterEach cleanup
 		testCategory = false;
+	});
+});
+
+test.describe('Categories - Name Change Reflects in Evaluations', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	let suffix: string;
+	let englishName: string;
+	let categoryName: string;
+	let updatedName: string;
+	let sub1: string;
+	let e2eTag: string;
+	let studentId: string;
+	let testCategory = false;
+	let testStudent = false;
+
+	test.beforeEach(async () => {
+		suffix = getTestSuffix('nameReflect');
+		englishName = `English_${suffix}`;
+		categoryName = `Category_${suffix}`;
+		updatedName = `UpdatedCat_${suffix}`;
+		sub1 = `Sub_${suffix}`;
+		e2eTag = `e2e-test_${suffix}`;
+		studentId = `S_${suffix}`;
+		useRole('admin');
+		// Create category with subcategories
+		await createCategoryWithSubs({ name: categoryName, subCategories: [sub1], e2eTag });
+		testCategory = true;
+		// Create student first (required for evaluation)
+		await createStudentWithEvaluations({
+			studentId,
+			englishName,
+			chineseName: ' test student',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+		testStudent = true;
+	});
+
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+		if (testStudent) await cleanupByTag('students', e2eTag);
+	});
+
+	test('changing category name reflects in evaluation displays', async ({ page }) => {
+		// Navigate to admin evaluations page to see the evaluation
+		await page.goto('/admin/evaluations');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+
+		// The evaluation should show the original category name
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName}` }).getByText(categoryName)
+		).toBeVisible();
+
+		// Now rename the category
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('table', { name: 'Categories' })).toBeVisible();
+
+		const row = page.getByRole('row', { name: categoryName });
+		await row.getByRole('button', { name: 'Edit' }).click();
+		await page.getByRole('textbox', { name: 'Category Name' }).fill(updatedName);
+		await page.getByRole('button', { name: 'Update' }).click();
+
+		// Wait for the rename to be visible
+		await expect(page.getByRole('cell', { name: updatedName })).toBeVisible();
+
+		// Navigate back to evaluations - the evaluation should now show the NEW category name
+		await page.goto('/admin/evaluations');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+
+		// The evaluation should now show the updated category name (not orphaned)
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName}` }).getByText(updatedName)
+		).toBeVisible();
+
+		// The old category name should NOT appear (no orphaning)
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName}` }).getByText(categoryName)
+		).not.toBeVisible();
+	});
+});
+
+test.describe('Categories - Delete Cascade Removes Evaluations', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	let suffix: string;
+	let englishName: string;
+	let categoryName: string;
+	let sub1: string;
+	let e2eTag: string;
+	let studentId: string;
+	let testCategory = false;
+	let testStudent = false;
+
+	test.beforeEach(async () => {
+		suffix = getTestSuffix('delCascEval');
+		englishName = `English_${suffix}`;
+		categoryName = `Category_${suffix}`;
+		sub1 = `Sub_${suffix}`;
+		e2eTag = `e2e-test_${suffix}`;
+		studentId = `S_${suffix}`;
+		useRole('admin');
+		// Create category with subcategories
+		await createCategoryWithSubs({ name: categoryName, subCategories: [sub1], e2eTag });
+		testCategory = true;
+		// Create student first (required for evaluation)
+		await createStudentWithEvaluations({
+			studentId,
+			englishName,
+			chineseName: ' test student',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+		testStudent = true;
+	});
+
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+		if (testStudent) await cleanupByTag('students', e2eTag);
+	});
+
+	test('deleting category cascade removes related evaluations', async ({ page }) => {
+		// Navigate to admin evaluations page to verify evaluation exists
+		await page.goto('/admin/evaluations');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+
+		// The evaluation should be visible with this category
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName}` }).getByText(categoryName)
+		).toBeVisible();
+
+		// Now delete the category
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('table', { name: 'Categories' })).toBeVisible();
+
+		const row = page.getByRole('row', { name: categoryName });
+		await expect(row).toBeVisible();
+		await row.getByRole('button', { name: 'Delete' }).click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+		await expect(page.getByRole('dialog')).not.toBeVisible();
+
+		// Category was deleted, reset flag to skip afterEach cleanup
+		testCategory = false;
+
+		// Navigate back to evaluations - the evaluation should be gone (cascade deleted)
+		await page.goto('/admin/evaluations');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+
+		// The evaluation with the deleted category should NOT appear
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName}` }).getByText(categoryName)
+		).not.toBeVisible();
+	});
+});
+
+test.describe('Categories - SubCategory Delete Warning and Cascade', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	let suffix: string;
+	let categoryName: string;
+	let sub1: string;
+	let e2eTag: string;
+	let studentId: string;
+	let englishName: string;
+	let testCategory = false;
+	let testStudent = false;
+
+	test.beforeEach(async ({ page }) => {
+		suffix = getTestSuffix('subDelCasc');
+		categoryName = `Category_${suffix}`;
+		sub1 = `Sub_${suffix}`;
+		e2eTag = `e2e-test_${suffix}`;
+		studentId = `S_${suffix}`;
+		englishName = `Student_${suffix}`;
+		useRole('admin');
+		// Create category with subcategory
+		await createCategoryWithSubs({ name: categoryName, subCategories: [sub1], e2eTag });
+		testCategory = true;
+		// Create student with evaluation
+		await createStudentWithEvaluations({
+			studentId,
+			englishName,
+			chineseName: ' test student',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+		testStudent = true;
+
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+	});
+
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+		if (testStudent) await cleanupByTag('students', e2eTag);
+	});
+
+	test('shows warning when removing subcategory with evaluations', async ({ page }) => {
+		const row = page.getByRole('row', { name: categoryName });
+		await expect(row).toBeVisible();
+
+		// Click edit to open the edit dialog
+		await row.getByRole('button', { name: 'Edit' }).click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+
+		// Click the remove button on the subcategory
+		const removeButton = page.getByRole('dialog').getByRole('button', { name: 'Remove' });
+		await removeButton.click();
+
+		// Should show confirmation dialog with warning
+		await expect(page.getByRole('dialog').getByText(/Warning:/)).toBeVisible();
+	});
+
+	test('cascade deletes evaluations when subcategory removed', async ({ page }) => {
+		// First verify evaluation exists
+		await page.goto('/admin/evaluations');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await expect(page.getByRole('button', { name: `Evaluation for ${englishName}` })).toBeVisible();
+
+		// Go back to categories and remove subcategory
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+
+		const row = page.getByRole('row', { name: categoryName });
+		await row.getByRole('button', { name: 'Edit' }).click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+
+		const removeButton = page.getByRole('dialog').getByRole('button', { name: 'Remove' });
+		await removeButton.click();
+
+		// Confirm the deletion
+		const confirmDialog = page.getByRole('dialog', { name: 'Confirm remove sub-category' });
+		await expect(confirmDialog).toBeVisible();
+		await confirmDialog.getByRole('button', { name: 'Remove' }).click();
+		await expect(confirmDialog).not.toBeVisible();
+
+		// Verify evaluation is gone
+		await page.goto('/admin/evaluations');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await expect(
+			page.getByRole('button', { name: `Evaluation for ${englishName}` })
+		).not.toBeVisible();
+	});
+});
+
+test.describe('Categories - Rename Toast Notification', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	let suffix: string;
+	let categoryName: string;
+	let updatedName: string;
+	let sub1: string;
+	let e2eTag: string;
+	let studentId: string;
+	let englishName: string;
+	let testCategory = false;
+	let testStudent = false;
+
+	test.beforeEach(async ({ page }) => {
+		suffix = getTestSuffix('renameToast');
+		categoryName = `Category_${suffix}`;
+		updatedName = `UpdatedCat_${suffix}`;
+		sub1 = `Sub_${suffix}`;
+		e2eTag = `e2e-test_${suffix}`;
+		studentId = `S_${suffix}`;
+		englishName = `Student_${suffix}`;
+		useRole('admin');
+		// Create category with subcategory
+		await createCategoryWithSubs({ name: categoryName, subCategories: [sub1], e2eTag });
+		testCategory = true;
+		// Create student with evaluation
+		await createStudentWithEvaluations({
+			studentId,
+			englishName,
+			chineseName: ' test student',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+		testStudent = true;
+
+		await page.goto('/admin/categories');
+		await page.waitForSelector('body.hydrated');
+	});
+
+	test.afterEach(async () => {
+		if (testCategory) await cleanupByTag('categories', e2eTag);
+		if (testStudent) await cleanupByTag('students', e2eTag);
+	});
+
+	test('shows toast notification when renaming category with evaluations', async ({ page }) => {
+		const row = page.getByRole('row', { name: categoryName });
+		await row.getByRole('button', { name: 'Edit' }).click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+
+		// Rename the category
+		await page.getByRole('textbox', { name: 'Category Name' }).fill(updatedName);
+		await page.getByRole('button', { name: 'Update' }).click();
+
+		// Wait for the dialog to close
+		await expect(page.getByRole('dialog')).not.toBeVisible();
+
+		// Should show toast notification
+		await expect(page.getByRole('alert').getByText(/now display the new name/)).toBeVisible();
+
+		// Update tag for cleanup
+		await setE2eTag('categories', updatedName, e2eTag);
 	});
 });

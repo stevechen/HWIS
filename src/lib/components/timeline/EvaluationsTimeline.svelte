@@ -112,28 +112,6 @@
 		const date = new Date(ts);
 		return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear().toString().slice(-2)} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}`;
 	}
-
-	function getNodeColor(value: number): string {
-		return value >= 0 ? 'bg-emerald-500' : 'bg-red-500';
-	}
-
-	function getCardBorderColor(entry: EvaluationEntry): string {
-		if (entry.isAdmin) return 'border-purple-300 dark:border-purple-600';
-		return entry.value >= 0
-			? 'border-emerald-200 dark:border-emerald-800'
-			: 'border-red-200 dark:border-red-800';
-	}
-
-	function getTeacherNameColor(entry: EvaluationEntry): string {
-		if (entry.isAdmin) return 'text-purple-600 dark:text-purple-400 font-semibold';
-		return 'text-muted-foreground';
-	}
-
-	function getPointsBadgeClasses(value: number): string {
-		if (value >= 0)
-			return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400';
-		return 'bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400';
-	}
 </script>
 
 {#if showControls}
@@ -233,11 +211,11 @@
 		></div>
 		<div class="relative flex min-h-25 flex-col gap-6 py-4">
 			{#each filteredEvaluations as entry, idx (entry._id)}
+				{@const isOdd = idx % 2 === 0}
 				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
 					<div
 						class={[
-							idx % 2 === 0 && 'order-1 items-end pr-2 text-right',
-							idx % 2 !== 0 && 'order-3 items-start pl-2',
+							(isOdd && 'order-1 items-end pr-2 text-right') || 'order-3 items-start pl-2',
 							'text-muted-foreground flex flex-col justify-center self-center sm:w-full sm:min-w-38'
 						]}
 					>
@@ -248,14 +226,17 @@
 						{#if showTeacherName && entry.teacherName}
 							<div class="mt-1 flex items-center gap-1 text-xs">
 								<User class="size-3" />
-								<span class={getTeacherNameColor(entry)}>{entry.teacherName}</span>
+								<span class="text-muted-foreground">{entry.teacherName}</span>
 							</div>
 						{/if}
 					</div>
 
 					<div class="order-2 flex items-center justify-center">
 						<div
-							class="border-background size-3 rounded-full border-2 {getNodeColor(entry.value)}"
+							class={[
+								(entry.value > 0 && 'bg-emerald-500') || 'bg-red-500',
+								'border-background size-3 rounded-full border-2'
+							]}
 						></div>
 					</div>
 
@@ -263,8 +244,7 @@
 						this={entry && cardHref ? 'a' : 'div'}
 						href={entry && cardHref ? cardHref(entry) : undefined}
 						class={[
-							idx % 2 === 0 && 'order-3 justify-start pl-2',
-							idx % 2 !== 0 && 'order-1 justify-end pr-2',
+							(isOdd && 'order-3 justify-start pl-2') || 'order-1 justify-end pr-2',
 							'flex self-center sm:w-full'
 						]}
 					>
@@ -277,12 +257,17 @@
 {/if}
 
 {#snippet card(entry: EvaluationEntry, idx: number)}
+	{@const isPlus = entry.value > 0}
 	<div
-		class="bg-card relative max-w-40 cursor-pointer rounded-lg border p-3 shadow-sm transition-shadow hover:shadow-md sm:max-w-full sm:min-w-50 {getCardBorderColor(
-			entry
-		)}"
+		class={[
+			(isPlus && 'border-emerald-200 dark:border-emerald-800') ||
+				'border-red-200 dark:border-red-800',
+			'bg-card relative max-w-40 cursor-pointer rounded-lg border p-3 shadow-sm transition-shadow hover:shadow-md sm:max-w-full sm:min-w-50'
+		]}
 		role="button"
-		aria-label="Evaluation for {showStudentName ? entry.englishName : entry.category}"
+		aria-label="Evaluation {showStudentName
+			? 'for ' + entry.englishName
+			: 'by ' + entry.teacherName}"
 		tabindex="0"
 		onmouseenter={() => (hoveredIndex = idx)}
 		onmouseleave={() => {
@@ -326,12 +311,15 @@
 				<p class="text-muted-foreground text-xs">{entry.details}</p>
 			{/if}
 		</div>
+
 		<div
-			class="absolute -top-4 -right-2 flex items-center gap-1 rounded-md px-2 py-1 text-sm font-bold shadow {getPointsBadgeClasses(
-				entry.value
-			)}"
+			class={[
+				(isPlus && 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400') ||
+					'bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400',
+				'absolute -top-4 -right-2 flex items-center gap-1 rounded-md px-2 py-1 text-sm font-bold shadow'
+			]}
 		>
-			<span>{entry.value > 0 ? '+' : ''}{entry.value}</span>
+			<span>{(isPlus && '+') || null}{entry.value}</span>
 		</div>
 	</div>
 {/snippet}
