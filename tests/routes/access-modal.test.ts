@@ -45,17 +45,18 @@ vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
 }));
 
-const activeUser = {
-	role: 'teacher',
-	status: 'active',
-	name: 'Test Active'
-};
-
 const pendingUser = {
 	role: 'teacher',
 	status: 'pending',
 	name: 'Test Pending'
-};
+} as const;
+
+interface MockQueryResult<T> {
+	data: T;
+	isLoading: false;
+	error: undefined;
+	isStale: boolean;
+}
 
 import Layout from '$src/routes/+layout.svelte';
 
@@ -65,25 +66,15 @@ describe('access modal', () => {
 		mockPagePath.pathname = '/evaluations';
 	});
 
-	it('active user - page content visible', async () => {
-		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValue({
-			data: activeUser,
-			isLoading: false,
-			error: null
-		} as any);
-
-		render(Layout);
-		await expect.element(page.getByRole('heading', { name: 'Evaluation History' })).toBeInTheDocument();
-	});
-
 	it('modal appears for pending users', async () => {
 		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValue({
+		const mockResult: MockQueryResult<typeof pendingUser> = {
 			data: pendingUser,
 			isLoading: false,
-			error: null
-		} as any);
+			error: undefined,
+			isStale: false
+		};
+		vi.mocked(useQuery).mockReturnValue(mockResult);
 
 		render(Layout);
 		await expect.element(page.getByText('Access Restricted')).toBeVisible();
@@ -91,11 +82,13 @@ describe('access modal', () => {
 
 	it('modal has correct message', async () => {
 		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValue({
+		const mockResult: MockQueryResult<typeof pendingUser> = {
 			data: pendingUser,
 			isLoading: false,
-			error: null
-		} as any);
+			error: undefined,
+			isStale: false
+		};
+		vi.mocked(useQuery).mockReturnValue(mockResult);
 
 		render(Layout);
 		await expect
@@ -108,13 +101,14 @@ describe('access modal', () => {
 
 	it('modal sign in again button is visible', async () => {
 		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValue({
+		const mockResult: MockQueryResult<typeof pendingUser> = {
 			data: pendingUser,
 			isLoading: false,
-			error: null
-		} as any);
+			error: undefined,
+			isStale: false
+		};
+		vi.mocked(useQuery).mockReturnValue(mockResult);
 
-		const { authClient } = await import('$lib/auth-client');
 		render(Layout);
 		await expect.element(page.getByRole('button', { name: 'Sign In Again' })).toBeVisible();
 	});

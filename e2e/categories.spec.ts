@@ -736,8 +736,9 @@ test.describe('Categories - Rename Toast Notification', () => {
 	let e2eTag: string;
 	let studentId: string;
 	let englishName: string;
-	let testCategory = false;
 	let testStudent = false;
+	let testCategory = false;
+	let testEvaluation = false;
 
 	test.beforeEach(async ({ page }) => {
 		suffix = getTestSuffix('renameToast');
@@ -761,12 +762,14 @@ test.describe('Categories - Rename Toast Notification', () => {
 			e2eTag
 		});
 		testStudent = true;
+		testEvaluation = true;
 
 		await page.goto('/admin/categories');
 		await page.waitForSelector('body.hydrated');
 	});
 
 	test.afterEach(async () => {
+		if (testEvaluation) await cleanupByTag('evaluations', e2eTag);
 		if (testCategory) await cleanupByTag('categories', e2eTag);
 		if (testStudent) await cleanupByTag('students', e2eTag);
 	});

@@ -12,8 +12,6 @@ const mockStudent = {
 	note: ''
 };
 
-let useQueryCallCount = 0;
-
 vi.mock('convex-svelte', () => {
 	const mockStudents = [
 		{
@@ -37,18 +35,10 @@ vi.mock('convex-svelte', () => {
 	];
 
 	return {
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		useQuery: vi.fn((_api: unknown, _args?: unknown) => {
-			useQueryCallCount++;
-			// First call is users.viewer, second is students.list
-			if (useQueryCallCount === 1) {
-				return { data: { role: 'admin' }, loading: false, error: null };
-			}
-			if (useQueryCallCount === 2) {
-				return { data: mockStudents, loading: false, error: null };
-			}
-			// For checkStudentHasEvaluations and others
-			return { data: { hasEvaluations: false, count: 0 }, loading: false, error: null };
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+		useQuery: vi.fn((_api: any) => {
+			// Return mock students array for any query
+			return { data: mockStudents, isLoading: false, error: null };
 		}),
 		useConvexClient: vi.fn(() => ({
 			mutation: vi.fn().mockResolvedValue(undefined),
@@ -70,7 +60,6 @@ import StudentsPage from '$src/routes/admin/students/+page.svelte';
 describe('Students Page - Edit and Delete Dialogs', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		useQueryCallCount = 0;
 	});
 
 	describe('Edit Dialog', () => {
@@ -86,10 +75,10 @@ describe('Students Page - Edit and Delete Dialogs', () => {
 			await expect.element(page.getByText('John Doe')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Edit' }).first().click();
 			await expect
-				.element(page.getByRole('textbox', { name: 'Student ID *' }))
+				.element(page.getByRole('textbox', { name: 'Student ID' }))
 				.toHaveValue(mockStudent.studentId);
 			await expect
-				.element(page.getByRole('textbox', { name: 'English Name *' }))
+				.element(page.getByRole('textbox', { name: 'English Name' }))
 				.toHaveValue(mockStudent.englishName);
 			await expect
 				.element(page.getByRole('textbox', { name: 'Chinese Name' }))

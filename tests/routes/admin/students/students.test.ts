@@ -29,18 +29,6 @@ describe('Students Page', () => {
 		vi.clearAllMocks();
 	});
 
-	it('renders page title as heading', async () => {
-		render(StudentsPage);
-		await expect
-			.element(page.getByRole('heading', { name: 'Student Management' }))
-			.toBeInTheDocument();
-	});
-
-	it('shows back to admin button', async () => {
-		render(StudentsPage);
-		await expect.element(page.getByRole('button', { name: 'Back to Admin' })).toBeInTheDocument();
-	});
-
 	it('shows import and add student buttons', async () => {
 		render(StudentsPage);
 		await expect

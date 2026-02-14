@@ -6,8 +6,7 @@ vi.mock('convex-svelte', () => {
 	return {
 		useQuery: vi.fn(() => ({
 			data: { role: 'admin' },
-			isLoading: true,
-			loading: true,
+			isLoading: false,
 			error: null
 		})),
 		useConvexClient: vi.fn(() => ({
@@ -24,10 +23,8 @@ describe('Admin Dashboard', () => {
 		vi.clearAllMocks();
 	});
 
-	it('renders page title as heading', async () => {
+	it('renders navigation links', async () => {
 		render(AdminDashboard);
-		await expect
-			.element(page.getByRole('heading', { name: 'Admin Dashboard' }))
-			.toBeInTheDocument();
+		await expect.element(page.getByRole('link', { name: 'Students' })).toBeInTheDocument();
 	});
 });

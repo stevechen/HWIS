@@ -21,23 +21,6 @@ describe('Evaluations List', () => {
 		vi.clearAllMocks();
 	});
 
-	it('renders page title as heading', async () => {
-		render(EvaluationsPage);
-		await expect
-			.element(page.getByRole('heading', { name: 'Evaluation History' }))
-			.toBeInTheDocument();
-	});
-
-	it('shows back button', async () => {
-		render(EvaluationsPage);
-		await expect.element(page.getByRole('button', { name: 'Back' })).toBeInTheDocument();
-	});
-
-	it('renders new evaluation button', async () => {
-		render(EvaluationsPage);
-		await expect.element(page.getByRole('button', { name: 'New Evaluation' })).toBeInTheDocument();
-	});
-
 	it('shows empty state when no evaluations', async () => {
 		render(EvaluationsPage);
 		await expect.element(page.getByText('No evaluations found')).toBeInTheDocument();

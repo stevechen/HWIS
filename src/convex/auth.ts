@@ -130,6 +130,17 @@ export function isAllowedDomain(email: string): boolean {
 }
 
 export const getAuthenticatedUser = async (ctx: any, testToken?: string) => {
+	// For unit tests (convex-test), check test token FIRST to avoid hanging on auth component
+	if (testToken === 'unit-test-token') {
+		return {
+			_id: 'test-user-id' as any,
+			authId: 'test_admin',
+			name: 'Test Admin',
+			role: 'admin',
+			status: 'active'
+		} as any;
+	}
+
 	try {
 		const user = await authComponent.getAuthUser(ctx);
 		if (user) {
@@ -145,18 +156,6 @@ export const getAuthenticatedUser = async (ctx: any, testToken?: string) => {
 		}
 	} catch {
 		// Ignore lookup failures
-	}
-
-	// For unit tests (convex-test), authComponent.getAuthUser will fail
-	// Return a mock admin user to allow tests to run
-	if (testToken === 'unit-test-token') {
-		return {
-			_id: 'testuser123' as any,
-			authId: 'test_admin',
-			name: 'Test Admin',
-			role: 'admin',
-			status: 'active'
-		} as any;
 	}
 
 	return null;

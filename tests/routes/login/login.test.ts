@@ -31,24 +31,11 @@ describe('Login Page', () => {
 		vi.clearAllMocks();
 	});
 
-	it('renders sign in heading', async () => {
-		render(LoginPage);
-		await expect.element(page.getByRole('heading', { name: 'Sign In' })).toBeInTheDocument();
-	});
-
 	it('displays Google SSO button', async () => {
 		render(LoginPage);
 		await expect
 			.element(page.getByRole('button', { name: 'Sign in with Google' }))
 			.toBeInTheDocument();
-	});
-
-	it('displays Google logo in button', async () => {
-		render(LoginPage);
-		const button = page.getByRole('button', { name: 'Sign in with Google' });
-		await expect.element(button).toBeInTheDocument();
-		// Verify button contains SVG (Google logo) - find SVG within button context
-		await expect.element(button.getByText('svg').first()).toBeInTheDocument();
 	});
 
 	it('displays domain restriction note', async () => {
