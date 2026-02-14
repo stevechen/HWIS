@@ -509,4 +509,105 @@ describe('categories.removeSubCategory', () => {
 
 		expect(result.deletedEvaluationCount).toBe(0);
 	});
+
+	it('throws error when category not found', async () => {
+		const t = convexTest(schema, modules);
+
+		await expect(async () => {
+			await t.mutation(api.categories.removeSubCategory, {
+				categoryId: 'nonexistent-id' as any,
+				subCategory: 'Sub'
+			});
+		}).rejects.toThrow();
+	});
+
+	it('handles subcategory not in category gracefully', async () => {
+		const t = convexTest(schema, modules);
+
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Test Category',
+			subCategories: ['Existing']
+		});
+
+		// Try to remove non-existent subcategory
+		const result = await t.mutation(api.categories.removeSubCategory, {
+			categoryId,
+			subCategory: 'NonExistent'
+		});
+
+		// Should return 0 deleted, category unchanged
+		expect(result.deletedEvaluationCount).toBe(0);
+
+		const category = (await t.query(api.categories.list, {}))[0];
+		expect(category.subCategories).toEqual(['Existing']);
+	});
+
+	it('deletes multiple evaluations in same subcategory', async () => {
+		const t = convexTest(schema, modules);
+
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Multi Eval Category',
+			subCategories: ['SubA']
+		});
+
+		const teacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				name: 'Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const studentId1 = await t.mutation(api.students.create, {
+			englishName: 'Student 1',
+			chineseName: '學生1',
+			studentId: 'S_MULTI_1',
+			grade: 10,
+			status: 'Enrolled'
+		});
+
+		const studentId2 = await t.mutation(api.students.create, {
+			englishName: 'Student 2',
+			chineseName: '學生2',
+			studentId: 'S_MULTI_2',
+			grade: 10,
+			status: 'Enrolled'
+		});
+
+		// Create evaluations for multiple students in same subcategory
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId: studentId1,
+				teacherId,
+				categoryId,
+				subCategory: 'SubA',
+				value: 5,
+				details: 'Eval 1',
+				timestamp: Date.now(),
+				semesterId: '2024-1'
+			});
+			await ctx.db.insert('evaluations', {
+				studentId: studentId2,
+				teacherId,
+				categoryId,
+				subCategory: 'SubA',
+				value: 10,
+				details: 'Eval 2',
+				timestamp: Date.now(),
+				semesterId: '2024-1'
+			});
+		});
+
+		const result = await t.mutation(api.categories.removeSubCategory, {
+			categoryId,
+			subCategory: 'SubA'
+		});
+
+		expect(result.deletedEvaluationCount).toBe(2);
+
+		const evaluations = await t.run(async (ctx) => {
+			return await ctx.db.query('evaluations').collect();
+		});
+		expect(evaluations).toHaveLength(0);
+	});
 });
