@@ -285,9 +285,9 @@
 		}}
 	>
 		{#if showStudentName && entry.englishName}
-			<div class="mb-1 flex items-center gap-2 text-sm">
+			<div class="mb-1 flex items-center gap-2 text-sm hyphens-auto">
 				<User class="size-3 shrink-0" />
-				<span class="font-semibold break-words">{entry.englishName}</span>
+				<span class="font-semibold">{entry.englishName}</span>
 				{#if studentGrade || entry.grade}
 					<span class="bg-muted shrink-0 rounded-full px-2 py-0.5 text-xs"
 						>G{studentGrade || entry.grade}</span
@@ -295,8 +295,8 @@
 				{/if}
 			</div>
 		{/if}
-		<div class="mb-1 flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
-			<span class="text-sm font-semibold break-words">{entry.category}</span>
+		<div class="mb-1 flex flex-col gap-0.5 hyphens-auto sm:flex-row sm:items-center sm:gap-2">
+			<span class="text-sm font-semibold">{entry.category}</span>
 			{#if entry.subCategory}
 				<span class="text-muted-foreground hidden text-xs sm:inline">›</span>
 				<span class="text-muted-foreground text-xs">{entry.subCategory}</span>
