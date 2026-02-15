@@ -1,5 +1,6 @@
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '$convex/_generated/api';
+import type { Id } from '$convex/_generated/dataModel';
 
 // Use local Convex for e2e tests (matches the site proxy port)
 const CONVEX_URL = process.env.CONVEX_URL || 'http://127.0.0.1:3210';
@@ -384,9 +385,11 @@ export function getE2EUtils(): E2EUtils {
 			}
 		},
 
-		async checkEvaluationExists(categoryName: string) {
+		async checkEvaluationExists(categoryId: string) {
 			try {
-				return await c.query(api.testE2E.e2eCheckEvaluationExists, { categoryName });
+				return await c.query(api.testE2E.e2eCheckEvaluationExists, {
+					categoryId: categoryId as Id<'point_categories'>
+				});
 			} catch {
 				console.log('Check evaluation exists error');
 				return { error: 'Error' };

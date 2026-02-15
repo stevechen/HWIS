@@ -1,4 +1,3 @@
-import { cleanup } from '@testing-library/svelte';
 import { vi, beforeEach, afterEach } from 'vitest';
 
 if (typeof globalThis.global === 'undefined') {
@@ -10,7 +9,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	cleanup();
 	vi.useRealTimers();
 	vi.restoreAllMocks();
 });
