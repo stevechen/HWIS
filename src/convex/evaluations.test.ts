@@ -1,44 +1,45 @@
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { convexTest, modules } from './test.setup';
 import schema from './schema';
 import { api } from './_generated/api';
 import type { Id } from './_generated/dataModel';
+import { generateUniqueStudentId } from '../../tests/fixtures/server-test-helpers';
 
 test('evaluations table operations work correctly', async () => {
 	const t = convexTest(schema, modules);
 
 	const studentId = await t.run(async (ctx) => {
-		return await ctx.db.insert('students', {
+		return ctx.db.insert('students', {
 			englishName: 'John Doe',
 			chineseName: '張三',
-			studentId: 'STU001',
+			studentId: generateUniqueStudentId(),
 			grade: 10,
-			status: 'Enrolled'
+			status: 'Enrolled' as const
 		});
 	});
 
 	const teacherId = await t.run(async (ctx) => {
-		return await ctx.db.insert('users', {
-			authId: 'test-auth-id',
+		return ctx.db.insert('users', {
+			authId: 'teacher-auth-id',
 			name: 'Test Teacher',
-			role: 'teacher',
-			status: 'active'
+			role: 'teacher' as const,
+			status: 'active' as const
 		});
 	});
 
 	const categoryId = await t.run(async (ctx) => {
-		return await ctx.db.insert('point_categories', {
+		return ctx.db.insert('point_categories', {
 			name: 'Creativity',
 			subCategories: ['Leadership']
 		});
 	});
 
 	const evaluationId = await t.run(async (ctx) => {
-		return await ctx.db.insert('evaluations', {
+		return ctx.db.insert('evaluations', {
 			studentId,
 			teacherId,
-			value: 1,
 			categoryId,
+			value: 1,
 			subCategory: 'Leadership',
 			details: 'Great work!',
 			timestamp: Date.now(),
@@ -886,3 +887,300 @@ test('changing category name reflects in evaluation queries', async () => {
 
 // Note: Update evaluation tests are covered by e2e tests in e2e/evaluations.spec.ts
 // The unit test infrastructure has limitations with Convex ID validation for authorization
+
+// ============================================
+// Authorization boundary tests
+// ============================================
+//
+// NOTE: The unit test infrastructure has limitations for authorization testing:
+// 1. The mock user always has role: 'admin' and a string _id ('test-user-id')
+// 2. This prevents testing teacher-specific authorization in unit tests
+// 3. The audit log insert fails because performerId expects a real Convex ID
+// 4. Cannot insert evaluations with string IDs as teacherId (schema validation)
+//
+// Full authorization tests are covered by e2e tests in e2e/evaluations.spec.ts
+
+describe('Authorization boundaries', () => {
+	test("non-creator cannot edit another's evaluation", async () => {
+		const t = convexTest(schema, modules);
+
+		// Create a different teacher (not the authenticated user)
+		const teacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'other-teacher',
+				name: 'Other Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		// Create a student
+		const studentId = await t.run(async (ctx) => {
+			return await ctx.db.insert('students', {
+				englishName: 'Auth Test Student',
+				chineseName: 'Auth Test Student',
+				studentId: 'STU-AUTH-001',
+				grade: 10,
+				status: 'Enrolled'
+			});
+		});
+
+		// Create a category
+		const categoryId = await t.run(async (ctx) => {
+			return await ctx.db.insert('point_categories', {
+				name: 'Auth Test Category',
+				subCategories: ['SubCategory']
+			});
+		});
+
+		// Create an evaluation by the other teacher (not the authenticated user)
+		const evaluationId = await t.run(async (ctx) => {
+			return await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId,
+				value: 1,
+				categoryId,
+				subCategory: 'SubCategory',
+				details: 'Original details by teacher',
+				timestamp: Date.now(),
+				semesterId: '2025-H1'
+			});
+		});
+
+		// Attempt to update the evaluation as the authenticated user (should fail)
+		// The authenticated user is mocked as 'test-user-id', which is different from teacherId
+		await expect(
+			t.mutation(api.evaluations.update, {
+				id: evaluationId,
+				details: 'Modified by non-creator'
+			})
+		).rejects.toThrow('Not authorized to edit this evaluation');
+
+		// Verify the evaluation was not modified
+		const evaluation = await t.run(async (ctx) => {
+			return await ctx.db.get(evaluationId);
+		});
+		expect(evaluation?.details).toBe('Original details by teacher');
+	});
+
+	test("admin cannot edit another teacher's evaluation (only creator can edit)", async () => {
+		const t = convexTest(schema, modules);
+
+		// Create a teacher
+		const teacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'teacher-for-admin-edit',
+				name: 'Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		// Create a student
+		const studentId = await t.run(async (ctx) => {
+			return await ctx.db.insert('students', {
+				englishName: 'Admin Edit Test Student',
+				chineseName: 'Admin Edit Test Student',
+				studentId: 'STU-ADMIN-EDIT-001',
+				grade: 10,
+				status: 'Enrolled'
+			});
+		});
+
+		// Create a category
+		const categoryId = await t.run(async (ctx) => {
+			return await ctx.db.insert('point_categories', {
+				name: 'Admin Edit Category',
+				subCategories: ['SubCategory']
+			});
+		});
+
+		// Create an evaluation by the teacher (not the admin)
+		const evaluationId = await t.run(async (ctx) => {
+			return await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId,
+				value: 1,
+				categoryId,
+				subCategory: 'SubCategory',
+				details: 'Original details by teacher',
+				timestamp: Date.now(),
+				semesterId: '2025-H1'
+			});
+		});
+
+		// Admin (authenticated user with _id: 'test-user-id') should NOT be able to edit
+		// another teacher's evaluation (only the creator can edit, per design decision)
+		await expect(
+			t.mutation(api.evaluations.update, {
+				id: evaluationId,
+				details: 'Modified by admin'
+			})
+		).rejects.toThrow('Not authorized to edit this evaluation');
+
+		// Verify the evaluation was not modified
+		const evaluation = await t.run(async (ctx) => {
+			return await ctx.db.get(evaluationId);
+		});
+		expect(evaluation?.details).toBe('Original details by teacher');
+	});
+
+	describe('evaluations bulk creation', () => {
+		test('creates evaluations for multiple students via direct DB insert', async () => {
+			const t = convexTest(schema, modules);
+
+			// Create multiple students
+			const studentId1 = await t.run(async (ctx) => {
+				return ctx.db.insert('students', {
+					englishName: 'Student One',
+					chineseName: '學生一',
+					studentId: generateUniqueStudentId(),
+					grade: 10,
+					status: 'Enrolled' as const
+				});
+			});
+
+			const studentId2 = await t.run(async (ctx) => {
+				return ctx.db.insert('students', {
+					englishName: 'Student Two',
+					chineseName: '學生二',
+					studentId: generateUniqueStudentId(),
+					grade: 10,
+					status: 'Enrolled' as const
+				});
+			});
+
+			const studentId3 = await t.run(async (ctx) => {
+				return ctx.db.insert('students', {
+					englishName: 'Student Three',
+					chineseName: '學生三',
+					studentId: generateUniqueStudentId(),
+					grade: 10,
+					status: 'Enrolled' as const
+				});
+			});
+
+			const teacherId = await t.run(async (ctx) => {
+				return ctx.db.insert('users', {
+					authId: 'teacher-auth-id',
+					name: 'Test Teacher',
+					role: 'teacher' as const,
+					status: 'active' as const
+				});
+			});
+
+			const categoryId = await t.run(async (ctx) => {
+				return ctx.db.insert('point_categories', {
+					name: 'Academics',
+					subCategories: ['Homework']
+				});
+			});
+
+			// Directly insert multiple evaluations (simulating bulk creation)
+			const timestamp = Date.now();
+			for (const studentId of [studentId1, studentId2, studentId3]) {
+				await t.run(async (ctx) => {
+					await ctx.db.insert('evaluations', {
+						studentId,
+						teacherId,
+						value: 5,
+						categoryId,
+						subCategory: 'Homework',
+						details: 'Great homework!',
+						timestamp,
+						semesterId: '2025-H1'
+					});
+				});
+			}
+
+			const evaluations = await t.run(async (ctx) => {
+				return await ctx.db.query('evaluations').collect();
+			});
+
+			expect(evaluations).toHaveLength(3);
+
+			// Verify all evaluations have the same value
+			for (const e of evaluations) {
+				expect(e.value).toBe(5);
+			}
+
+			// Verify each student got an evaluation
+			const studentIdsWithEvals = evaluations.map((e) => e.studentId);
+			expect(studentIdsWithEvals).toContain(studentId1);
+			expect(studentIdsWithEvals).toContain(studentId2);
+			expect(studentIdsWithEvals).toContain(studentId3);
+		});
+
+		test('handles multiple evaluations with different values', async () => {
+			const t = convexTest(schema, modules);
+
+			// Create students
+			const studentIds: string[] = [];
+			for (let i = 1; i <= 3; i++) {
+				const id = await t.run(async (ctx) => {
+					return ctx.db.insert('students', {
+						englishName: `Student ${i}`,
+						chineseName: `學生${i}`,
+						studentId: generateUniqueStudentId(),
+						grade: 10,
+						status: 'Enrolled' as const
+					});
+				});
+				studentIds.push(id);
+			}
+
+			const teacherId = await t.run(async (ctx) => {
+				return ctx.db.insert('users', {
+					authId: 'teacher-auth-id',
+					name: 'Test Teacher',
+					role: 'teacher' as const,
+					status: 'active' as const
+				});
+			});
+			const categoryId = await t.run(async (ctx) => {
+				return ctx.db.insert('point_categories', {
+					name: 'Behavior',
+					subCategories: ['Participation']
+				});
+			});
+
+			// Insert evaluations with different values
+			await t.run(async (ctx) => {
+				await ctx.db.insert('evaluations', {
+					studentId: studentIds[0],
+					teacherId,
+					value: 3,
+					categoryId,
+					subCategory: 'Participation',
+					details: 'Good',
+					timestamp: Date.now(),
+					semesterId: '2025-H1'
+				});
+			});
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('evaluations', {
+					studentId: studentIds[1],
+					teacherId,
+					value: 5,
+					categoryId,
+					subCategory: 'Participation',
+					details: 'Excellent',
+					timestamp: Date.now(),
+					semesterId: '2025-H1'
+				});
+			});
+
+			const evaluations = await t.run(async (ctx) => {
+				return await ctx.db.query('evaluations').collect();
+			});
+
+			expect(evaluations).toHaveLength(2);
+
+			// Verify the values
+			const evalByStudent = new Map(evaluations.map((e) => [e.studentId, e.value]));
+			expect(evalByStudent.get(studentIds[0])).toBe(3);
+			expect(evalByStudent.get(studentIds[1])).toBe(5);
+		});
+	});
+});

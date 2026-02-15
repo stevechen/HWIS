@@ -1,26 +1,13 @@
 import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { setupConvexMocks, setupAuthMocks } from '../mocks/convex-mocks';
 
 const mockPagePath = { pathname: '/evaluations' };
 
-vi.mock('convex-svelte', () => ({
-	setupConvex: vi.fn(),
-	useQuery: vi.fn(),
-	useConvexClient: vi.fn(() => ({
-		mutation: vi.fn().mockResolvedValue(undefined),
-		query: vi.fn().mockResolvedValue({})
-	}))
-}));
-
-vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
-	createSvelteAuthClient: vi.fn(),
-	useAuth: vi.fn(() => ({
-		isLoading: false,
-		isAuthenticated: true,
-		data: { user: { name: 'Test User' } }
-	}))
-}));
+// Setup mocks using shared utilities
+setupConvexMocks();
+setupAuthMocks();
 
 vi.mock('$app/stores', async () => {
 	const actual = await vi.importActual('$app/stores');

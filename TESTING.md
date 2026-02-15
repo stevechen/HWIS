@@ -133,6 +133,61 @@ describe('Students Page', () => {
 
    Use `loading: false` to prevent hydration issues. Use `isLoading: true` for pages with auth redirects.
 
+### Mocking useQuery with Proper Types
+
+When mocking `useQuery` return values, the type must match `UseQueryReturn` exactly:
+
+```typescript
+// Define a properly typed mock result
+interface MockQueryResult<T> {
+	data: T;
+	isLoading: false;  // Must be literal false, not boolean
+	error: undefined;  // Must be undefined, not null
+	isStale: boolean;
+}
+
+const mockUser = {
+	role: 'admin',
+	status: 'active',
+	name: 'Test Admin'
+} as const;
+
+const mockResult: MockQueryResult<typeof mockUser> = {
+	data: mockUser,
+	isLoading: false,
+	error: undefined,
+	isStale: false
+};
+
+vi.mocked(useQuery).mockReturnValue(mockResult);
+```
+
+**Common Mistakes:**
+- Using `error: null` instead of `error: undefined`
+- Using `isLoading: boolean` instead of literal `false`
+- Using `as any` which hides type errors
+
+### Passing Required Props
+
+Some components require props that are normally provided by SvelteKit's `data` prop. Pass these explicitly:
+
+```typescript
+// Component expects: let { data }: { data: { demoMode?: boolean } } = $props();
+render(WeeklyReportsPage, { data: { demoMode: false } });
+```
+
+### Testing Text vs Headings
+
+Not all visible titles are semantic headings. Card.Title components render as `<div>`, not `<h1>`-`<h6>`:
+
+```typescript
+// ❌ WRONG - Card.Title is not a semantic heading
+await expect.element(page.getByRole('heading', { name: 'Title' })).toBeInTheDocument();
+
+// ✅ CORRECT - Use getByText for non-semantic titles
+await expect.element(page.getByText('Title')).toBeInTheDocument();
+```
+
 4. **Test Static Structure Only**:
    - Headers, buttons, form labels, table structures
    - Avoid testing Convex-dynamic content (doesn't render with mocks)
@@ -243,7 +298,7 @@ For reliable automatic cleanup, use isolated `test.describe()` blocks:
 test.describe('Test Feature - Specific Test Name', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
-	// CONSTANTS - Define at top of describe
+	// VARs - Define at top of describe
 	let suffix: string;
 	let entityName: string;
 	let e2eTag: string;
@@ -596,6 +651,32 @@ export const cleanupByTag = mutation({
   }
 });
 ```
+
+### Server Test Authentication Bypass
+
+For server-side unit tests (convex-test), the `getAuthenticatedUser` function must check the test token **before** making any auth component calls:
+
+```typescript
+// auth.ts
+export const getAuthenticatedUser = async (ctx: any, testToken?: string) => {
+	// CRITICAL: Check test token FIRST to avoid hanging on auth component calls
+	if (testToken === 'unit-test-token') {
+		return {
+			_id: 'test-user-id',  // Must match audit log skip check
+			authId: 'test_admin',
+			name: 'Test Admin',
+			role: 'admin',
+			status: 'active'
+		} as any;
+	}
+	// ... rest of function with real auth
+};
+```
+
+**Why this order matters:**
+- In convex-test environment, auth component calls hang indefinitely
+- The test token check must come before any auth-related operations
+- The mock user `_id` must be `'test-user-id'` to match the audit log skip check in `users.ts`
 
 ### Timing Issues with setE2eTag
 

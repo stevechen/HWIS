@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { getTestSuffix } from './helpers';
-import { createStudent, cleanupByTag, useRole } from './convex-client';
+import { getTestSuffix } from '../helpers';
+import { createStudent, cleanupByTag, useRole } from '../convex-client';
 
 test.describe('Student List @students', () => {
 	test.beforeEach(async ({ page }) => {
@@ -40,6 +40,7 @@ test.describe('Student List - Display @students', () => {
 
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading students...')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {

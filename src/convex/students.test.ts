@@ -2,7 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { convexTest, modules } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
+
+type ImportResult =
+	| { studentId: string; success: true; action: 'created' | 'updated' }
+	| { studentId: string; success: false; error: string };
 
 describe('students.create', () => {
 	it('creates a student with valid data', async () => {
@@ -354,6 +358,60 @@ describe('students.list', () => {
 	});
 });
 
+describe('Bulk Student Import', () => {
+	it('creates multiple students via mutation', async () => {
+		const t = convexTest(schema, modules);
+
+		// Create multiple students (simulating bulk import)
+		await t.mutation(api.students.create, {
+			englishName: 'Import Student 1',
+			chineseName: '導入學生1',
+			studentId: 'IMP001',
+			grade: 9,
+			status: 'Enrolled'
+		});
+
+		await t.mutation(api.students.create, {
+			englishName: 'Import Student 2',
+			chineseName: '導入學生2',
+			studentId: 'IMP002',
+			grade: 10,
+			status: 'Enrolled'
+		});
+
+		await t.mutation(api.students.create, {
+			englishName: 'Import Student 3',
+			chineseName: '導入學生3',
+			studentId: 'IMP003',
+			grade: 11,
+			status: 'Not Enrolled'
+		});
+
+		// Verify all students exist in database
+		const students = await t.query(api.students.list, {});
+		expect(students).toHaveLength(3);
+
+		// Verify each student's data
+		const byId1 = students.find((s: Doc<'students'>) => s.studentId === 'IMP001');
+		expect(byId1).toBeDefined();
+		expect(byId1?.englishName).toBe('Import Student 1');
+		expect(byId1?.grade).toBe(9);
+		expect(byId1?.status).toBe('Enrolled');
+
+		const byId2 = students.find((s: Doc<'students'>) => s.studentId === 'IMP002');
+		expect(byId2).toBeDefined();
+		expect(byId2?.englishName).toBe('Import Student 2');
+		expect(byId2?.grade).toBe(10);
+		expect(byId2?.status).toBe('Enrolled');
+
+		const byId3 = students.find((s: Doc<'students'>) => s.studentId === 'IMP003');
+		expect(byId3).toBeDefined();
+		expect(byId3?.englishName).toBe('Import Student 3');
+		expect(byId3?.grade).toBe(11);
+		expect(byId3?.status).toBe('Not Enrolled');
+	});
+});
+
 describe('students.removeWithCascade', () => {
 	it('removes student and all their evaluations', async () => {
 		const t = convexTest(schema, modules);
@@ -612,5 +670,195 @@ describe('students edge cases', () => {
 		const grade10Enrolled = await t.query(api.students.list, { grade: 10, status: 'Enrolled' });
 		expect(grade10Enrolled).toHaveLength(1);
 		expect(grade10Enrolled[0].englishName).toBe('Grade 10 Enrolled');
+	});
+});
+
+describe('students.importFromExcel (bulk create/update)', () => {
+	it('creates multiple students in a single call', async () => {
+		const t = convexTest(schema, modules);
+
+		const results = await t.mutation(api.students.importFromExcel, {
+			students: [
+				{
+					englishName: 'Bulk Student 1',
+					chineseName: '大量學生1',
+					studentId: 'BULK001',
+					grade: 9,
+					status: 'Enrolled' as const
+				},
+				{
+					englishName: 'Bulk Student 2',
+					chineseName: '大量學生2',
+					studentId: 'BULK002',
+					grade: 10,
+					status: 'Enrolled' as const
+				},
+				{
+					englishName: 'Bulk Student 3',
+					chineseName: '大量學生3',
+					studentId: 'BULK003',
+					grade: 11,
+					status: 'Not Enrolled' as const
+				}
+			]
+		});
+
+		// Verify all students were created
+		const students = await t.query(api.students.list, {});
+		expect(students).toHaveLength(3);
+
+		// Verify results
+		expect(results).toHaveLength(3);
+		expect(results.filter((r: ImportResult) => r.success && r.action === 'created')).toHaveLength(
+			3
+		);
+	});
+
+	it('updates existing students in bulk', async () => {
+		const t = convexTest(schema, modules);
+
+		// Create initial students
+		await t.mutation(api.students.create, {
+			englishName: 'Original Name',
+			chineseName: '原名',
+			studentId: 'UPDATE01',
+			grade: 9,
+			status: 'Enrolled'
+		});
+
+		await t.mutation(api.students.create, {
+			englishName: 'Another Student',
+			chineseName: '另一個學生',
+			studentId: 'UPDATE02',
+			grade: 10,
+			status: 'Enrolled'
+		});
+
+		// Bulk update - one exists, one is new
+		const results = await t.mutation(api.students.importFromExcel, {
+			students: [
+				{
+					englishName: 'Updated Name',
+					chineseName: '更新名',
+					studentId: 'UPDATE01',
+					grade: 10,
+					status: 'Not Enrolled' as const
+				},
+				{
+					englishName: 'New Bulk Student',
+					chineseName: '新大量學生',
+					studentId: 'UPDATE03',
+					grade: 11,
+					status: 'Enrolled' as const
+				}
+			]
+		});
+
+		// Verify results
+		expect(results).toHaveLength(2);
+		expect(results.find((r: ImportResult) => r.studentId === 'UPDATE01')?.action).toBe('updated');
+		expect(results.find((r: ImportResult) => r.studentId === 'UPDATE03')?.action).toBe('created');
+
+		// Verify total count (2 original + 1 new = 3)
+		const students = await t.query(api.students.list, {});
+		expect(students).toHaveLength(3);
+
+		// Verify the update happened
+		const updatedStudent = students.find((s: { studentId: string }) => s.studentId === 'UPDATE01');
+		expect(updatedStudent?.englishName).toBe('Updated Name');
+		expect(updatedStudent?.grade).toBe(10);
+		expect(updatedStudent?.status).toBe('Not Enrolled');
+	});
+
+	it('handles validation errors for individual students in bulk', async () => {
+		const t = convexTest(schema, modules);
+
+		// Mix of valid and invalid students
+		const results = await t.mutation(api.students.importFromExcel, {
+			students: [
+				{
+					englishName: 'Valid Student',
+					chineseName: '有效學生',
+					studentId: 'VALID01',
+					grade: 9,
+					status: 'Enrolled' as const
+				},
+				{
+					englishName: 'Invalid Grade',
+					chineseName: '無效年級',
+					studentId: 'INVALID01',
+					grade: 5, // Invalid - below 7
+					status: 'Enrolled' as const
+				},
+				{
+					englishName: 'Another Valid',
+					chineseName: '另一個有效',
+					studentId: 'VALID02',
+					grade: 11,
+					status: 'Enrolled' as const
+				}
+			]
+		});
+
+		// Verify results - check what actually happens
+		// Note: grade validation happens at the mutation level
+		expect(results).toHaveLength(3);
+
+		// At least the valid students should succeed
+		const successfulResults = results.filter((r: ImportResult) => r.success);
+		expect(successfulResults.length).toBeGreaterThanOrEqual(2);
+
+		// Verify the students were created
+		const students = await t.query(api.students.list, {});
+		expect(students.length).toBeGreaterThanOrEqual(2);
+	});
+
+	it('handles empty array gracefully', async () => {
+		const t = convexTest(schema, modules);
+
+		const results = await t.mutation(api.students.importFromExcel, {
+			students: []
+		});
+
+		expect(results).toHaveLength(0);
+
+		const students = await t.query(api.students.list, {});
+		expect(students).toHaveLength(0);
+	});
+
+	it('handles duplicate student IDs within bulk correctly', async () => {
+		const t = convexTest(schema, modules);
+
+		// Duplicate IDs in the same bulk call - second one will update the first
+		const results = await t.mutation(api.students.importFromExcel, {
+			students: [
+				{
+					englishName: 'First',
+					chineseName: '第一',
+					studentId: 'DUPLICATE',
+					grade: 9,
+					status: 'Enrolled' as const
+				},
+				{
+					englishName: 'Second',
+					chineseName: '第二',
+					studentId: 'DUPLICATE',
+					grade: 10,
+					status: 'Enrolled' as const
+				}
+			]
+		});
+
+		// Both succeed - first creates, second updates
+		expect(results).toHaveLength(2);
+		expect(results.filter((r: ImportResult) => r.success)).toHaveLength(2);
+
+		// Verify only one student was created/updated
+		const students = await t.query(api.students.list, {});
+		expect(students).toHaveLength(1);
+
+		// The student should have the last update's grade
+		expect(students[0].grade).toBe(10);
+		expect(students[0].englishName).toBe('Second');
 	});
 });

@@ -37,7 +37,8 @@ describe('session invalidation', () => {
 		// Change status to pending
 		await t.mutation(api.users.update, {
 			id: userId as Id<'users'>,
-			status: 'pending'
+			status: 'pending',
+			testToken: 'unit-test-token'
 		});
 
 		// Verify session was deleted
@@ -79,7 +80,8 @@ describe('session invalidation', () => {
 		// Change role
 		await t.mutation(api.users.update, {
 			id: userId as Id<'users'>,
-			role: 'admin'
+			role: 'admin',
+			testToken: 'unit-test-token'
 		});
 
 		// Verify session was deleted
@@ -145,7 +147,7 @@ describe('session invalidation', () => {
 		});
 
 		// Create multiple sessions for this user
-		const sessionIds = await Promise.all([
+		await Promise.all([
 			t.run(async (ctx) => {
 				return await ctx.db.insert('sessions', {
 					userId: userId as Id<'users'>,
@@ -175,7 +177,8 @@ describe('session invalidation', () => {
 		// Change status to pending
 		await t.mutation(api.users.update, {
 			id: userId as Id<'users'>,
-			status: 'pending'
+			status: 'pending',
+			testToken: 'unit-test-token'
 		});
 
 		// Verify all sessions were deleted
@@ -184,4 +187,14 @@ describe('session invalidation', () => {
 		});
 		expect(sessionsAfter).toHaveLength(0);
 	});
+
+	/*
+	 * Note: Audit log creation tests for role/status changes are not included
+	 * in this test file because the server code intentionally skips audit logging
+	 * when using the mock test token (performerId === 'test-user-id').
+	 *
+	 * The audit log functionality is tested in:
+	 * - E2E tests (e2e/audit.spec.ts) where real authentication is used
+	 * - The server code in src/convex/users.ts (lines 97-122) handles audit log creation
+	 */
 });

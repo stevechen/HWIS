@@ -1,26 +1,11 @@
 import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { setupConvexMocks, setupAuthMocks } from '../../../mocks/convex-mocks';
 
-vi.mock('convex-svelte', () => ({
-	useQuery: vi.fn(() => ({
-		data: [],
-		isLoading: false,
-		error: null
-	})),
-	useConvexClient: vi.fn(() => ({
-		mutation: vi.fn().mockResolvedValue(undefined),
-		query: vi.fn().mockResolvedValue({})
-	}))
-}));
-
-vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
-	useAuth: vi.fn(() => ({
-		isLoading: false,
-		isAuthenticated: true,
-		data: { user: { name: 'Test Admin', role: 'admin' } }
-	}))
-}));
+// Setup mocks using shared utilities
+setupConvexMocks({ data: [] });
+setupAuthMocks({ user: { name: 'Test Admin', role: 'admin' } });
 
 import StudentsPage from '$src/routes/admin/students/+page.svelte';
 
