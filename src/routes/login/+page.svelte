@@ -2,6 +2,8 @@
 	import { authClient } from '$lib/auth-client';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 
 	const session = browser
 		? authClient.useSession()
@@ -24,6 +26,15 @@
 			sessionData = value;
 		});
 		return unsubscribe;
+	});
+
+	// Redirect when user becomes authenticated
+	$effect(() => {
+		if (sessionData?.data && browser) {
+			// Use callbackUrl if present, otherwise go home
+			const callbackUrl = $page.url.searchParams.get('callbackUrl') || '/';
+			goto(callbackUrl);
+		}
 	});
 
 	async function signInWithGoogle() {

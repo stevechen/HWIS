@@ -157,9 +157,7 @@ test.describe('Edit Student - Data Tests', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
-
-		// Wait for student to appear in list (Convex reactivity)
-		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
+		await expect(page.getByText('Loading students...')).not.toBeVisible();
 	});
 
 	test('can update student status', async ({ page }) => {
@@ -248,6 +246,7 @@ test.describe('Delete Student - Without Evaluations', () => {
 
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading students...')).not.toBeVisible();
 
 		// Clear filters
 		const statusFilter = page.getByLabel('Filter by status');
@@ -264,7 +263,9 @@ test.describe('Delete Student - Without Evaluations', () => {
 	});
 
 	test('can delete student without evaluations', async ({ page }) => {
-		// Wait for student to appear
+		// Filter to the specific student
+		const searchInput = page.getByRole('textbox', { name: 'Search students' });
+		await searchInput.fill(englishName);
 		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 
 		// Click delete button
@@ -291,7 +292,7 @@ test.describe('Delete Student - Without Evaluations', () => {
 	});
 });
 
-test.describe('Delete Student - With Cascade', () => {
+test.describe('Delete Student - With Cascade @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;
@@ -374,7 +375,7 @@ test.describe('Delete Student - With Cascade', () => {
 	});
 });
 
-test.describe('Delete Dialog - Shows Options', () => {
+test.describe('Delete Dialog - Shows Options @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	const suffix = getTestSuffix('dlgNotEnrolled');
@@ -447,7 +448,7 @@ test.describe('Delete Dialog - Shows Options', () => {
 	});
 });
 
-test.describe('Delete - Set Not Enrolled', () => {
+test.describe('Delete - Set Not Enrolled @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	const suffix = getTestSuffix('setNotEnrolled');

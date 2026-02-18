@@ -398,3 +398,77 @@ export const cleanupByTag = mutation({
 		return { deleted: totalDeleted };
 	}
 });
+
+export const cleanupAllE2eTaggedData = mutation({
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		// Validate test token for cloud Convex compatibility
+		const authUser = await getAuthenticatedUser(ctx, args.testToken);
+		if (!authUser) {
+			throw new Error('Not authenticated for cleanupAllE2eTaggedData');
+		}
+
+		let totalDeleted = 0;
+		const studentIdsWithTag: Id<'students'>[] = [];
+		const evaluationIdsToDelete = new Set<Id<'evaluations'>>();
+
+		// Remove students with any e2eTag (collect IDs for cascade cleanup)
+		const students = await ctx.db.query('students').collect();
+		for (const student of students) {
+			if (student.e2eTag) {
+				await ctx.db.delete(student._id);
+				totalDeleted++;
+				studentIdsWithTag.push(student._id);
+			}
+		}
+
+		// Remove categories with any e2eTag
+		const categories = await ctx.db.query('point_categories').collect();
+		for (const cat of categories) {
+			if (cat.e2eTag) {
+				await ctx.db.delete(cat._id);
+				totalDeleted++;
+			}
+		}
+
+		// Remove evaluations with any e2eTag
+		const evaluations = await ctx.db.query('evaluations').collect();
+		for (const evalItem of evaluations) {
+			if (evalItem.e2eTag) {
+				evaluationIdsToDelete.add(evalItem._id);
+				await ctx.db.delete(evalItem._id);
+				totalDeleted++;
+			}
+		}
+
+		// Cascade delete evaluations for tagged students (UI-created evals may lack e2eTag)
+		for (const studentId of studentIdsWithTag) {
+			const studentEvaluations = await ctx.db
+				.query('evaluations')
+				.withIndex('by_studentId', (q) => q.eq('studentId', studentId))
+				.collect();
+			for (const evalItem of studentEvaluations) {
+				if (!evaluationIdsToDelete.has(evalItem._id)) {
+					evaluationIdsToDelete.add(evalItem._id);
+					await ctx.db.delete(evalItem._id);
+					totalDeleted++;
+				}
+			}
+		}
+
+		// Remove audit logs with any e2eTag or tied to deleted evaluations
+		const auditLogs = await ctx.db.query('audit_logs').collect();
+		for (const log of auditLogs) {
+			const isDeletedEvalLog =
+				log.targetTable === 'evaluations' &&
+				log.targetId &&
+				evaluationIdsToDelete.has(log.targetId as Id<'evaluations'>);
+			if (log.e2eTag || isDeletedEvalLog) {
+				await ctx.db.delete(log._id);
+				totalDeleted++;
+			}
+		}
+
+		return { deleted: totalDeleted };
+	}
+});

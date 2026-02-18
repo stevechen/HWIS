@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { getTestSuffix, getStudentId } from './helpers';
 import { createStudent, createCategoryWithSubs, cleanupByTag, useRole } from './convex-client';
 
-test.describe('Bulk Operations @bulk', () => {
+test.describe('Bulk Operations @bulk @sequential', () => {
 	test.describe('Bulk Evaluation Creation', () => {
 		test.use({ storageState: 'e2e/.auth/teacher.json' });
 

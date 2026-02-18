@@ -76,6 +76,11 @@ export async function cleanupTestData(tag: string) {
 	return await utils.cleanupByTag('all', tag);
 }
 
+export async function cleanupAllE2eTaggedData() {
+	const utils = getUtils();
+	return await utils.cleanupAllE2eTaggedData();
+}
+
 export async function cleanupAuditLogs(authIdString?: string) {
 	const utils = getUtils();
 	return await utils.cleanupAuditLogs(authIdString);
@@ -83,10 +88,23 @@ export async function cleanupAuditLogs(authIdString?: string) {
 
 export async function cleanupByTag(
 	dataType: 'students' | 'categories' | 'evaluations' | 'all',
-	e2eTag: string
+	e2eTag: string,
+	maxRetries = 3
 ) {
 	const utils = getUtils();
-	return await utils.cleanupByTag(dataType, e2eTag);
+
+	for (let attempt = 1; attempt <= maxRetries; attempt++) {
+		try {
+			return await utils.cleanupByTag(dataType, e2eTag);
+		} catch (error) {
+			if (attempt === maxRetries) {
+				console.warn(`Cleanup failed after ${maxRetries} attempts:`, error);
+				return; // Don't fail the test for cleanup errors
+			}
+			// Wait before retry (exponential backoff)
+			await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+		}
+	}
 }
 
 export async function cleanupTestUsers() {
@@ -161,6 +179,31 @@ export async function checkEvaluationExists(categoryName: string) {
 	return await utils.checkEvaluationExists(categoryName);
 }
 
+const categorySeedByTag = new Map<string, Promise<void>>();
+
+async function ensureCategoryForTag(e2eTag: string) {
+	if (!e2eTag) return;
+	const existing = categorySeedByTag.get(e2eTag);
+	if (existing) {
+		await existing;
+		return;
+	}
+
+	const creation = createCategoryWithSubs({
+		name: `Cat_${e2eTag}`,
+		subCategories: ['Homework'],
+		e2eTag
+	})
+		.then(() => undefined)
+		.catch((error) => {
+			categorySeedByTag.delete(e2eTag);
+			throw error;
+		});
+
+	categorySeedByTag.set(e2eTag, creation);
+	await creation;
+}
+
 // Internal helper - not exported, use createStudentWithEvaluations instead
 async function createEvaluationForStudent(data: { studentId: string; e2eTag?: string }) {
 	const utils = getUtils();
@@ -200,7 +243,12 @@ export async function createStudentWithEvaluations(opts: {
 		e2eTag: studentOpts.e2eTag
 	});
 
-	// Create all evaluations in parallel
+	// Create ONE category for this test BEFORE creating evaluations in parallel
+	// This prevents OptimisticConcurrencyControlFailure when multiple evaluations
+	// try to create the same category simultaneously
+	await ensureCategoryForTag(opts.e2eTag);
+
+	// Now create all evaluations in parallel (they'll find the existing category)
 	await Promise.all(
 		Array(evaluationCount)
 			.fill(null)

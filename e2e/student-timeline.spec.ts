@@ -7,7 +7,7 @@ import {
 	useRole
 } from './convex-client';
 
-test.describe('Student Timeline Page', () => {
+test.describe('Student Timeline Page @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
 	test.describe('Breadcrumb Navigation', () => {
@@ -44,6 +44,7 @@ test.describe('Student Timeline Page', () => {
 			// Navigate to the real student's timeline page
 			await page.goto(`/evaluations/student/${studentId}`);
 			await page.waitForSelector('body.hydrated');
+			await expect(page.getByText('Loading user data...')).not.toBeVisible();
 		});
 
 		test.afterEach(async () => {
@@ -101,6 +102,7 @@ test.describe('Student Timeline Page', () => {
 			// Navigate to the real student's timeline page
 			await page.goto(`/evaluations/student/${studentId}`);
 			await page.waitForSelector('body.hydrated');
+			await expect(page.getByText('Loading user data...')).not.toBeVisible();
 		});
 
 		test.afterEach(async () => {
@@ -152,6 +154,7 @@ test.describe('Student Timeline Page', () => {
 			// Navigate to the real student's timeline page
 			await page.goto(`/evaluations/student/${studentId}`);
 			await page.waitForSelector('body.hydrated');
+			await expect(page.getByText('Loading user data...')).not.toBeVisible();
 		});
 
 		test.afterEach(async () => {
@@ -253,6 +256,7 @@ test.describe('Student Timeline Page', () => {
 			// Navigate to the real student's timeline page
 			await page.goto(`/evaluations/student/${studentId}`);
 			await page.waitForSelector('body.hydrated');
+			await expect(page.getByText('Loading user data...')).not.toBeVisible();
 		});
 
 		test.afterEach(async () => {
@@ -302,6 +306,7 @@ test.describe('Student Timeline Page', () => {
 			// Navigate to the real student's timeline page
 			await page.goto(`/evaluations/student/${studentId}`);
 			await page.waitForSelector('body.hydrated');
+			await expect(page.getByText('Loading user data...')).not.toBeVisible();
 		});
 
 		test.afterEach(async () => {
@@ -343,6 +348,7 @@ test.describe('Student Timeline Page', () => {
 			// Navigate to the real student's timeline page
 			await page.goto(`/evaluations/student/${studentId}`);
 			await page.waitForSelector('body.hydrated');
+			await expect(page.getByText('Loading user data...')).not.toBeVisible();
 		});
 
 		test.afterEach(async () => {
@@ -363,7 +369,7 @@ test.describe('Student Timeline Page', () => {
 	});
 });
 
-test.describe('Student Timeline Long-Press @timeline-longpress', () => {
+test.describe('Student Timeline Long-Press @timeline-longpress @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
 	let suffix: string;
@@ -399,6 +405,7 @@ test.describe('Student Timeline Long-Press @timeline-longpress', () => {
 		// Navigate to the real student's timeline page
 		await page.goto(`/evaluations/student/${studentId}`);
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading user data...')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {
@@ -434,7 +441,7 @@ test.describe('Student Timeline Long-Press @timeline-longpress', () => {
 	});
 });
 
-test.describe('Student Timeline Long-Press Admin @timeline-longpress', () => {
+test.describe('Student Timeline Long-Press Admin @timeline-longpress @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;
@@ -470,6 +477,7 @@ test.describe('Student Timeline Long-Press Admin @timeline-longpress', () => {
 		// Navigate to the real student's timeline page
 		await page.goto(`/evaluations/student/${studentId}`);
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading user data...')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {
@@ -491,7 +499,7 @@ test.describe('Student Timeline Long-Press Admin @timeline-longpress', () => {
 	});
 });
 
-test.describe('Student Timeline Edit Dialog @timeline-longpress', () => {
+test.describe('Student Timeline Edit Dialog @timeline-longpress @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
 	let suffix: string;
@@ -527,6 +535,7 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress', () => {
 		// Navigate to the real student's timeline page
 		await page.goto(`/evaluations/student/${studentId}`);
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading user data...')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {

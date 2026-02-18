@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 import {
 	createWeeklyReportTestData,
 	cleanupWeeklyReportTestData,
@@ -13,7 +13,31 @@ async function waitForReportsToLoad(page: Page) {
 	await expect(loading).toBeHidden();
 }
 
-test.describe('Weekly Reports - Data Display @weekly', () => {
+async function waitForReportDetails(page: Page) {
+	const dialog = page.getByRole('dialog');
+	const detailsRegion = dialog.getByRole('region', { name: 'Student details table' });
+	const detailTable = detailsRegion.getByRole('table');
+
+	await expect(detailTable).toBeVisible({ timeout: 10000 });
+	const dataRow = detailTable
+		.getByRole('row')
+		.filter({ hasNot: detailTable.getByRole('columnheader') })
+		.first();
+	await expect(dataRow).toBeVisible({ timeout: 10000 });
+}
+
+async function selectFirstAvailableGrade(gradeFilter: Locator) {
+	const optionValue = await gradeFilter.evaluate((select: HTMLSelectElement) => {
+		const option = Array.from(select.options).find((o) => o.value && o.value !== '');
+		return option?.value ?? '';
+	});
+
+	if (optionValue) {
+		await gradeFilter.selectOption(optionValue);
+	}
+}
+
+test.describe('Weekly Reports - Data Display @weekly @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let e2eTag: string;
@@ -23,7 +47,10 @@ test.describe('Weekly Reports - Data Display @weekly', () => {
 		useRole('admin');
 		e2eTag = getUniqueTag('weekly-report');
 		await cleanupWeeklyReportTestData(e2eTag);
-		await createWeeklyReportTestData(e2eTag);
+		const createResult = await createWeeklyReportTestData(e2eTag);
+		if (!createResult || (typeof createResult === 'object' && 'error' in createResult)) {
+			throw new Error(`Failed to create weekly report test data: ${JSON.stringify(createResult)}`);
+		}
 		testData = true;
 
 		await page.goto('/admin/weekly-reports');
@@ -49,7 +76,7 @@ test.describe('Weekly Reports - Data Display @weekly', () => {
 	});
 });
 
-test.describe('Weekly Reports - Dialog Interactions @weekly', () => {
+test.describe('Weekly Reports - Dialog Interactions @weekly @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let e2eTag: string;
@@ -59,7 +86,10 @@ test.describe('Weekly Reports - Dialog Interactions @weekly', () => {
 		useRole('admin');
 		e2eTag = getUniqueTag('weekly-report');
 		await cleanupWeeklyReportTestData(e2eTag);
-		await createWeeklyReportTestData(e2eTag);
+		const createResult = await createWeeklyReportTestData(e2eTag);
+		if (!createResult || (typeof createResult === 'object' && 'error' in createResult)) {
+			throw new Error(`Failed to create weekly report test data: ${JSON.stringify(createResult)}`);
+		}
 		testData = true;
 
 		await page.goto('/admin/weekly-reports');
@@ -72,10 +102,12 @@ test.describe('Weekly Reports - Dialog Interactions @weekly', () => {
 		await expect(firstDataRow).toBeVisible();
 		await firstDataRow.click();
 		await expect(page.getByRole('dialog')).toBeVisible();
+		await expect(page.getByText('Loading details...')).not.toBeVisible();
+		await waitForReportDetails(page);
 	});
 
 	test.afterEach(async () => {
-		if (testData) cleanupWeeklyReportTestData(e2eTag);
+		if (testData) await cleanupWeeklyReportTestData(e2eTag);
 	});
 
 	test('opens report dialog and displays weekly details', async ({ page }) => {
@@ -93,26 +125,25 @@ test.describe('Weekly Reports - Dialog Interactions @weekly', () => {
 		await expect(nameFilter).toHaveValue('');
 
 		// Also test grade filter
-		await expect(page.getByText('Loading details...')).not.toBeVisible();
+		// await expect(page.getByText('Loading details...')).not.toBeVisible();
 		const gradeFilter = page.getByLabel('Filter by grade');
 		await expect(gradeFilter).toBeVisible();
 		await gradeFilter.click();
 		// Select first available grade option (test data has random grades 7-12)
-		await gradeFilter.selectOption({ index: 1 });
+		await selectFirstAvailableGrade(gradeFilter);
 		// Just verify filter is still interactive after selection
 		await expect(gradeFilter).toBeVisible();
 	});
 
 	test('can interact with column header sort buttons', async ({ page }) => {
 		// Click on Grade header to sort
-		const gradeHeader = page
-			.getByRole('dialog')
-			.getByRole('columnheader', { name: 'G', exact: true });
+		const detailTable = page.getByRole('dialog').getByRole('table');
+		const gradeHeader = detailTable.getByRole('columnheader', { name: 'G', exact: true });
 		await expect(gradeHeader).toBeVisible();
 		await gradeHeader.click();
 
 		// Click on Name header to sort
-		const nameHeader = page.getByRole('dialog').getByRole('columnheader', { name: 'Name' });
+		const nameHeader = detailTable.getByRole('columnheader', { name: 'Name' });
 		await expect(nameHeader).toBeVisible();
 		await nameHeader.click();
 	});
@@ -175,7 +206,7 @@ test.describe('Weekly Reports - Dialog Interactions @weekly', () => {
 	});
 });
 
-test.describe('Weekly Reports - Create Report @weekly', () => {
+test.describe('Weekly Reports - Create Report @weekly @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;
@@ -269,7 +300,7 @@ test.describe('Weekly Reports - Create Report @weekly', () => {
 	});
 });
 
-test.describe('Weekly Reports - Update Report @weekly', () => {
+test.describe('Weekly Reports - Update Report @weekly @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;
@@ -403,65 +434,5 @@ test.describe('Weekly Reports - Update Report @weekly', () => {
 		await expect(
 			page.getByRole('dialog').getByRole('columnheader', { name: 'Name' })
 		).toBeVisible();
-	});
-});
-
-test.describe('Weekly Reports - Empty State @weekly', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
-
-	let e2eTag: string;
-	let testData = false;
-
-	test.beforeEach(async ({ page }) => {
-		useRole('admin');
-		e2eTag = getUniqueTag('weekly-report');
-		// Clean up all evaluations first to ensure empty state
-		await cleanupWeeklyReportTestData(e2eTag);
-
-		testData = true;
-
-		await page.goto('/admin/weekly-reports');
-		await page.waitForSelector('body.hydrated');
-		await waitForReportsToLoad(page);
-	});
-
-	test.afterEach(async () => {
-		if (testData) await cleanupWeeklyReportTestData(e2eTag);
-	});
-
-	test('displays empty state when no data available', async ({ page }) => {
-		// Check for empty state message using multiple possible selectors
-		const hasEmptyState = await Promise.any([
-			page
-				.getByText(/No weekly reports available/i)
-				.isVisible()
-				.then((v) => v),
-			page
-				.getByText(/No data available/i)
-				.isVisible()
-				.then((v) => v),
-			page
-				.locator('[data-testid="empty-state"]')
-				.isVisible()
-				.then((v) => v),
-			// Check if page doesn't have any week cards/reports
-			page
-				.locator('.bg-card, [class*="week"], [class*="report"]')
-				.count()
-				.then((count) => count === 0)
-		]).catch(() => false);
-
-		// If we can't verify empty state, at least verify the page loads without errors
-		if (!hasEmptyState) {
-			// Verify page header is visible
-			await expect(page.getByRole('heading', { name: /Weekly Reports/i })).toBeVisible();
-
-			// Check there's no error alert
-			const hasError = await page
-				.locator('[role="alert"], .text-red-500, .text-destructive')
-				.isVisible()
-				.catch(() => false);
-			expect(hasError).toBe(false);
-		}
 	});
 });

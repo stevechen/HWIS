@@ -194,7 +194,10 @@ test.describe('Audit Log - Toggle Columns With Data', () => {
 		testAuthId = `e2e-audit-${Math.random().toString(36).substring(7)}`;
 
 		// Seed audit logs with unique authId
-		await seedAuditLogs(testAuthId);
+		const seedResult = await seedAuditLogs(testAuthId);
+		if (!seedResult?.success) {
+			throw new Error(`Failed to seed audit logs: ${seedResult?.error || 'Unknown error'}`);
+		}
 		testAuditLogs = true;
 
 		await page.goto('/admin/audit');

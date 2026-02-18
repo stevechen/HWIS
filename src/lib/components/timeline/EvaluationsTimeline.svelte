@@ -116,7 +116,7 @@
 
 {#if showControls}
 	<div
-		class="bg-background sticky top-14 z-10 flex flex-wrap items-center justify-between gap-4 border-b pb-4 md:flex-nowrap"
+		class="from-background to-background/85 sticky top-14 z-10 -mx-8 flex flex-col gap-4 border-b bg-linear-to-b px-8 py-2 sm:flex-row sm:items-center sm:justify-between"
 	>
 		<div class="flex flex-wrap items-center gap-4">
 			{#if title}

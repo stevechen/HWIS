@@ -43,6 +43,17 @@
 		return false;
 	});
 
+	// Determine if user is a teacher (not admin, not super)
+	const isTeacher = $derived.by(() => {
+		if (isDemo) {
+			return demoRole === 'teacher';
+		}
+		if (userQuery && !userQuery.isLoading && userQuery.data?.role) {
+			return userQuery.data.role === 'teacher';
+		}
+		return false;
+	});
+
 	// Demo user ID for demo mode (used for ownership check)
 	const demoUserId = 'demo-user-id';
 
@@ -258,11 +269,11 @@
 	});
 </script>
 
-<div class="mx-auto p-8 max-w-6xl">
+<div class="mx-auto max-w-6xl p-8">
 	{#if isDemo}
 		<div class="mb-6">
 			<span
-				class="bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded-full text-yellow-800 dark:text-yellow-100 text-xs"
+				class="rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
 			>
 				DEMO MODE ({demoRole.toUpperCase()})
 			</span>
@@ -277,7 +288,7 @@
 			evaluations={filteredEvaluations}
 			showStudentName={false}
 			studentGrade={student.grade}
-			showTeacherName={true}
+			showTeacherName={!isTeacher}
 			bind:sortAscending={displayState.sortAscending}
 			bind:showDetails={displayState.showDetails}
 			enableLongPress={true}
@@ -286,14 +297,16 @@
 		>
 			{#snippet children()}
 				<!-- Filters Section -->
-				<div class="flex sm:flex-row flex-col sm:items-center gap-4">
-					<!-- Teacher Name Filter -->
-					<FilterInput
-						bind:value={teacherFilter}
-						placeholder="Filter by teacher(s)…"
-						ariaLabel="Filter by teacher"
-						class="w-full sm:w-48"
-					/>
+				<div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+					<!-- Teacher Name Filter (hidden for teachers) -->
+					{#if !isTeacher}
+						<FilterInput
+							bind:value={teacherFilter}
+							placeholder="Filter by teacher(s)…"
+							ariaLabel="Filter by teacher"
+							class="w-full sm:w-48"
+						/>
+					{/if}
 				</div>
 			{/snippet}
 		</EvaluationsTimeline>

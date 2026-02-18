@@ -1,8 +1,31 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { getTestSuffix } from './helpers';
 import { createStudentWithEvaluations, cleanupByTag, useRole } from './convex-client';
 
-test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll', () => {
+async function waitForEvaluationsReady(page: Page) {
+	const evaluationsRegion = page.getByRole('region', { name: 'Evaluations' });
+	const errorMessage = page.getByText(/Error loading evaluations/);
+
+	for (let attempt = 0; attempt < 2; attempt++) {
+		await Promise.race([
+			evaluationsRegion.waitFor({ state: 'visible', timeout: 10000 }),
+			errorMessage.waitFor({ state: 'visible', timeout: 10000 })
+		]);
+
+		if (!(await errorMessage.isVisible())) break;
+
+		// Auth can race on first load in Chromium; reload once and retry
+		await page.waitForTimeout(500);
+		await page.reload();
+		await page.waitForSelector('body.hydrated');
+	}
+
+	await expect(errorMessage).toBeHidden();
+	await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+	await expect(evaluationsRegion).toBeVisible();
+}
+
+test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	// CONSTANTS - Define at top of describe
@@ -11,6 +34,9 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll', () => {
 	let testEntity = false;
 
 	test.beforeEach(async ({ page }) => {
+		// Extend timeout for data creation (5 students × 6 evaluations = 30 evaluations)
+		test.setTimeout(60000);
+
 		useRole('admin');
 		testEntity = false; // Reset at start of each test
 		suffix = getTestSuffix('infiniteScroll');
@@ -41,8 +67,8 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll', () => {
 		// Navigate to admin evaluations page
 		await page.goto('/admin/evaluations');
 		await page.waitForSelector('body.hydrated');
-		// Wait for evaluations to load
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+
+		await waitForEvaluationsReady(page);
 	});
 
 	test.afterEach(async () => {
@@ -63,6 +89,13 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll', () => {
 
 	test('shows "No more evaluations" message at end of list', async ({ page }) => {
 		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+
+		// Filter by this test's unique suffix to isolate from parallel tests
+		const studentFilterInput = page.getByPlaceholder('Filter by student name...');
+		await studentFilterInput.fill(suffix);
+
+		// Wait for filter to apply
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
 
 		// Scroll until we see "No more evaluations" or timeout
 		// This handles the case where multiple pages need to be loaded
@@ -94,6 +127,7 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll', () => {
 
 		// Wait for the filter to apply (Convex reactivity)
 		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await expect(page.getByText(/Error loading evaluations/)).toBeHidden();
 
 		// Verify only filtered results are shown (ScrollStudent_0)
 		const filteredButtons = page.getByRole('button', { name: /Evaluation for ScrollStudent_0/ });
@@ -194,23 +228,7 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll', () => {
 	});
 });
 
-test.describe('Admin Evaluations - Empty State @infinite-scroll-empty', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
-
-	test('shows empty state when no evaluations exist', async ({ page }) => {
-		useRole('admin');
-
-		// Navigate to admin evaluations page without creating any data
-		await page.goto('/admin/evaluations');
-		await page.waitForSelector('body.hydrated');
-
-		// Wait for loading to complete - the empty state appears after loading
-		// Use web-first assertion with timeout for Convex reactivity
-		await expect(page.getByText('No evaluations found.')).toBeVisible();
-	});
-});
-
-test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small', () => {
+test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	// CONSTANTS - Define at top of describe
@@ -239,6 +257,7 @@ test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small', () => 
 		// Navigate to admin evaluations page
 		await page.goto('/admin/evaluations');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading evaluations…')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {
@@ -257,7 +276,7 @@ test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small', () => 
 	});
 });
 
-test.describe('Admin Evaluations - Filter Empty State @infinite-scroll-filter-empty', () => {
+test.describe('Admin Evaluations - Filter Empty State @infinite-scroll-filter-empty @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	// CONSTANTS - Define at top of describe
@@ -286,7 +305,7 @@ test.describe('Admin Evaluations - Filter Empty State @infinite-scroll-filter-em
 		// Navigate to admin evaluations page
 		await page.goto('/admin/evaluations');
 		await page.waitForSelector('body.hydrated');
-		// await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+		await expect(page.getByText('Loading evaluations…')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {

@@ -2,7 +2,7 @@ import { test, expect, Locator } from '@playwright/test';
 import { getTestSuffix } from './helpers';
 import { createStudentWithEvaluations, cleanupByTag, useRole } from './convex-client';
 
-test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations', () => {
+test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	// CONSTANTS - Define at top of describe
@@ -50,6 +50,7 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations'
 		// Navigate to admin evaluations page
 		await page.goto('/admin/evaluations');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading students…')).not.toBeVisible();
 		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
 	});
 
@@ -115,7 +116,7 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations'
 // TEACHER AUTHORIZATION TESTS
 // ============================================
 
-test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations', () => {
+test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
 	let suffix: string;
@@ -136,7 +137,7 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations'
 		const unenrolledStudentId = `SE_UNENROLLED_${suffix}`;
 
 		// Create an enrolled student with evaluation
-		await createStudentWithEvaluations({
+		const enrolledResult = await createStudentWithEvaluations({
 			studentId: enrolledStudentId,
 			englishName: enrolledStudentName,
 			chineseName: '已入學',
@@ -144,10 +145,13 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations'
 			status: 'Enrolled',
 			e2eTag
 		});
+		if (enrolledResult && typeof enrolledResult === 'object' && 'error' in enrolledResult) {
+			throw new Error(`Failed to create enrolled student: ${enrolledResult.error}`);
+		}
 		testEntity = true;
 
 		// Create an unenrolled student with evaluation
-		await createStudentWithEvaluations({
+		const unenrolledResult = await createStudentWithEvaluations({
 			studentId: unenrolledStudentId,
 			englishName: unenrolledStudentName,
 			chineseName: '未入學',
@@ -155,6 +159,9 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations'
 			status: 'Not Enrolled',
 			e2eTag
 		});
+		if (unenrolledResult && typeof unenrolledResult === 'object' && 'error' in unenrolledResult) {
+			throw new Error(`Failed to create unenrolled student: ${unenrolledResult.error}`);
+		}
 
 		enrolled = page.getByRole('button', { name: `Evaluation for ${enrolledStudentName}` });
 		unEnrolled = page.getByRole('button', { name: `Evaluation for ${unenrolledStudentName}` });
@@ -162,6 +169,9 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations'
 		// Navigate to teacher evaluations page
 		await page.goto('/evaluations');
 		await page.waitForSelector('body.hydrated');
+		await expect(
+			page.getByText('No evaluations found. Start by awarding some points! Give Points')
+		).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {
@@ -204,7 +214,7 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations'
 // EDGE CASE TESTS
 // ============================================
 
-test.describe('Unenrolled Toggle - Edge Cases @edge-cases', () => {
+test.describe('Unenrolled Toggle - Edge Cases @edge-cases @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;
@@ -215,7 +225,7 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases', () => {
 	let student1Id: string;
 	let student2Id: string;
 
-	test.beforeEach(async () => {
+	test.beforeEach(async ({ page }) => {
 		suffix = getTestSuffix('edgeAllEnrolled');
 		e2eTag = `e2e-test_${suffix}`;
 		student1Name = `Student1_${suffix}`;
@@ -243,6 +253,10 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases', () => {
 		});
 
 		testEntity = true;
+
+		await page.goto('/admin/evaluations');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {
@@ -251,9 +265,6 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases', () => {
 
 	test('all students enrolled shows all regardless of toggle state', async ({ page }) => {
 		useRole('admin');
-
-		await page.goto('/admin/evaluations');
-		await page.waitForSelector('body.hydrated');
 
 		// Both students should be visible regardless of toggle state
 		await expect(
@@ -290,7 +301,7 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases', () => {
 // ICON VISIBILITY TESTS
 // ============================================
 
-test.describe('Unenrolled Toggle - Icon Visibility @icons', () => {
+test.describe('Unenrolled Toggle - Icon Visibility @icons @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;
@@ -339,6 +350,7 @@ test.describe('Unenrolled Toggle - Icon Visibility @icons', () => {
 
 		await page.goto('/admin/evaluations');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
 
 		// Eye icon should be visible (indicating hidden content)
 		const eyeIcon = page.getByRole('button', { name: 'Show unenrolled students' });
@@ -355,6 +367,7 @@ test.describe('Unenrolled Toggle - Icon Visibility @icons', () => {
 
 		await page.goto('/admin/evaluations');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
 
 		// Click toggle to show both
 		const eyeIcon = page.getByRole('button', { name: 'Show unenrolled students' });

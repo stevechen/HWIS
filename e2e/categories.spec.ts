@@ -169,6 +169,7 @@ test.describe('Categories - Pre-fill Edit', () => {
 
 		await page.goto('/admin/categories');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('No categories found.')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {
@@ -221,6 +222,7 @@ test.describe('Categories - Update Name', () => {
 
 		const row = page.getByRole('row', { name: categoryName });
 		await row.getByRole('button', { name: 'Edit' }).click();
+		await expect(page.getByRole('dialog', { name: 'Edit category' })).toBeVisible();
 		await page.getByRole('textbox', { name: 'Category Name' }).fill(updatedName);
 		await page.getByRole('button', { name: 'Update' }).click();
 
@@ -333,7 +335,7 @@ test.describe('Categories - Delete Dialog Empty', () => {
 	});
 });
 
-test.describe('Categories - Delete Warning', () => {
+test.describe('Categories - Delete Warning @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;
@@ -470,7 +472,7 @@ test.describe('Categories - Delete Cascade', () => {
 	});
 });
 
-test.describe('Categories - Name Change Reflects in Evaluations', () => {
+test.describe('Categories - Name Change Reflects in Evaluations @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;
@@ -510,6 +512,8 @@ test.describe('Categories - Name Change Reflects in Evaluations', () => {
 	test.afterEach(async () => {
 		if (testCategory) await cleanupByTag('categories', e2eTag);
 		if (testStudent) await cleanupByTag('students', e2eTag);
+		// Also clean up evaluations created by createStudentWithEvaluations
+		await cleanupByTag('evaluations', e2eTag);
 	});
 
 	test('changing category name reflects in evaluation displays', async ({ page }) => {
@@ -555,7 +559,7 @@ test.describe('Categories - Name Change Reflects in Evaluations', () => {
 	});
 });
 
-test.describe('Categories - Delete Cascade Removes Evaluations', () => {
+test.describe('Categories - Delete Cascade Removes Evaluations @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;
@@ -564,8 +568,6 @@ test.describe('Categories - Delete Cascade Removes Evaluations', () => {
 	let sub1: string;
 	let e2eTag: string;
 	let studentId: string;
-	let testCategory = false;
-	let testStudent = false;
 
 	test.beforeEach(async () => {
 		suffix = getTestSuffix('delCascEval');
@@ -577,7 +579,6 @@ test.describe('Categories - Delete Cascade Removes Evaluations', () => {
 		useRole('admin');
 		// Create category with subcategories
 		await createCategoryWithSubs({ name: categoryName, subCategories: [sub1], e2eTag });
-		testCategory = true;
 		// Create student first (required for evaluation)
 		await createStudentWithEvaluations({
 			studentId,
@@ -587,12 +588,13 @@ test.describe('Categories - Delete Cascade Removes Evaluations', () => {
 			status: 'Enrolled',
 			e2eTag
 		});
-		testStudent = true;
 	});
 
 	test.afterEach(async () => {
-		if (testCategory) await cleanupByTag('categories', e2eTag);
-		if (testStudent) await cleanupByTag('students', e2eTag);
+		// Always clean up - the UI delete might fail silently
+		await cleanupByTag('categories', e2eTag);
+		await cleanupByTag('students', e2eTag);
+		await cleanupByTag('evaluations', e2eTag);
 	});
 
 	test('deleting category cascade removes related evaluations', async ({ page }) => {
@@ -618,9 +620,6 @@ test.describe('Categories - Delete Cascade Removes Evaluations', () => {
 		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
 		await expect(page.getByRole('dialog')).not.toBeVisible();
 
-		// Category was deleted, reset flag to skip afterEach cleanup
-		testCategory = false;
-
 		// Navigate back to evaluations - the evaluation should be gone (cascade deleted)
 		await page.goto('/admin/evaluations');
 		await page.waitForSelector('body.hydrated');
@@ -633,7 +632,7 @@ test.describe('Categories - Delete Cascade Removes Evaluations', () => {
 	});
 });
 
-test.describe('Categories - SubCategory Delete Warning and Cascade', () => {
+test.describe('Categories - SubCategory Delete Warning and Cascade @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;
@@ -674,6 +673,8 @@ test.describe('Categories - SubCategory Delete Warning and Cascade', () => {
 	test.afterEach(async () => {
 		if (testCategory) await cleanupByTag('categories', e2eTag);
 		if (testStudent) await cleanupByTag('students', e2eTag);
+		// Also clean up evaluations created by createStudentWithEvaluations
+		await cleanupByTag('evaluations', e2eTag);
 	});
 
 	test('shows warning when removing subcategory with evaluations', async ({ page }) => {
@@ -726,7 +727,7 @@ test.describe('Categories - SubCategory Delete Warning and Cascade', () => {
 	});
 });
 
-test.describe('Categories - Rename Toast Notification', () => {
+test.describe('Categories - Rename Toast Notification @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;

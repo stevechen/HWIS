@@ -6,10 +6,14 @@ import { api } from './_generated/api';
 function getFridayOfWeek(timestamp: number): number {
 	const date = new Date(timestamp);
 	const day = date.getDay();
+	// Calculate Monday of the week (used as the week key)
+	// Sunday (0) -> Monday is -6 days
+	// Monday (1) -> Monday is today (0 days)
+	// Saturday (6) -> Monday is -5 days
 	const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-	const friday = new Date(date.setDate(diff));
-	friday.setHours(0, 0, 0, 0);
-	return friday.getTime();
+	const monday = new Date(date.setDate(diff));
+	monday.setHours(0, 0, 0, 0);
+	return monday.getTime();
 }
 
 function getWeekNumber(timestamp: number): number {

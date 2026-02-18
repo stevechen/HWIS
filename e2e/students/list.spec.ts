@@ -48,6 +48,8 @@ test.describe('Student List - Display @students', () => {
 	});
 
 	test('displays list of created students', async ({ page }) => {
+		const searchInput = page.getByRole('textbox', { name: 'Search students' });
+		await searchInput.fill(`Student1_${suffix}`);
 		await expect(page.getByRole('row', { name: `Student1_${suffix}` })).toBeVisible();
 	});
 });
@@ -82,6 +84,7 @@ test.describe('Student List - Filter by Grade @students', () => {
 
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading students...')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {
@@ -92,6 +95,8 @@ test.describe('Student List - Filter by Grade @students', () => {
 		const gradeSelect = page.getByRole('combobox', { name: 'Filter by grade' });
 		await gradeSelect.selectOption('9');
 
+		const searchInput = page.getByRole('textbox', { name: 'Search students' });
+		await searchInput.fill(`Grade9_${suffix}`);
 		await expect(page.getByRole('row', { name: `Grade9_${suffix}` })).toBeVisible();
 		await expect(page.getByRole('row', { name: `Grade10_${suffix}` })).not.toBeVisible();
 	});
@@ -127,6 +132,7 @@ test.describe('Student List - Filter by Status @students', () => {
 
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading students...')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {
@@ -137,6 +143,8 @@ test.describe('Student List - Filter by Status @students', () => {
 		const statusSelect = page.getByRole('combobox', { name: 'Filter by status' });
 		await statusSelect.selectOption('Enrolled');
 
+		const searchInput = page.getByRole('textbox', { name: 'Search students' });
+		await searchInput.fill(`Enrolled_${suffix}`);
 		await expect(page.getByRole('row', { name: `Enrolled_${suffix}` })).toBeVisible();
 		await expect(page.getByRole('row', { name: `NotEnr_${suffix}` })).not.toBeVisible();
 	});
@@ -172,6 +180,7 @@ test.describe('Student List - Search by Name @students', () => {
 
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading students...')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {
@@ -196,7 +205,7 @@ test.describe('Student List - Search by ID @students', () => {
 
 	test.beforeEach(async ({ page }) => {
 		useRole('admin');
-		await createStudent({
+		const result1 = await createStudent({
 			studentId: targetId,
 			englishName: `StudentA_${suffix}`,
 			chineseName: '學生A',
@@ -204,8 +213,11 @@ test.describe('Student List - Search by ID @students', () => {
 			status: 'Enrolled',
 			e2eTag: e2eTag
 		});
+		if (result1 && typeof result1 === 'object' && 'error' in result1) {
+			throw new Error(`Failed to create student A: ${result1.error}`);
+		}
 
-		await createStudent({
+		const result2 = await createStudent({
 			studentId: `SOID_${suffix}`,
 			englishName: `StudentB_${suffix}`,
 			chineseName: '學生B',
@@ -213,10 +225,14 @@ test.describe('Student List - Search by ID @students', () => {
 			status: 'Enrolled',
 			e2eTag: e2eTag
 		});
+		if (result2 && typeof result2 === 'object' && 'error' in result2) {
+			throw new Error(`Failed to create student B: ${result2.error}`);
+		}
 		testStudents = true;
 
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading students...')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {
@@ -241,7 +257,7 @@ test.describe('Student List - Empty State @students', () => {
 
 	test.beforeEach(async ({ page }) => {
 		useRole('admin');
-		await createStudent({
+		const result = await createStudent({
 			studentId: targetId,
 			englishName: `StudentA_${suffix}`,
 			chineseName: '學生A',
@@ -249,10 +265,14 @@ test.describe('Student List - Empty State @students', () => {
 			status: 'Enrolled',
 			e2eTag: e2eTag
 		});
+		if (result && typeof result === 'object' && 'error' in result) {
+			throw new Error(`Failed to create student: ${result.error}`);
+		}
 		testStudent = true;
 
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading students...')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {

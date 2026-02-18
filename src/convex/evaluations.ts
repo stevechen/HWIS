@@ -205,10 +205,14 @@ export const listRecent = query({
 function getFridayOfWeek(timestamp: number): number {
 	const date = new Date(timestamp);
 	const day = date.getDay();
+	// Calculate Monday of the week (used as the week key)
+	// Sunday (0) -> Monday is -6 days
+	// Monday (1) -> Monday is today (0 days)
+	// Saturday (6) -> Monday is -5 days
 	const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-	const friday = new Date(date.setDate(diff));
-	friday.setHours(0, 0, 0, 0);
-	return friday.getTime();
+	const monday = new Date(date.setDate(diff));
+	monday.setHours(0, 0, 0, 0);
+	return monday.getTime();
 }
 
 function getWeekNumber(timestamp: number): number {
@@ -219,10 +223,10 @@ function getWeekNumber(timestamp: number): number {
 	return Math.floor(diff / oneWeek) + 1;
 }
 
-function formatDateRange(fridayTimestamp: number): string {
-	const friday = new Date(fridayTimestamp);
-	const monday = new Date(friday);
-	monday.setDate(friday.getDate() - 6);
+function formatDateRange(mondayTimestamp: number): string {
+	const monday = new Date(mondayTimestamp);
+	const friday = new Date(monday);
+	friday.setDate(monday.getDate() + 4); // Friday is 4 days after Monday
 
 	const mondayStr = monday.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
 	const fridayStr = friday.toLocaleDateString('en-US', {
@@ -286,8 +290,10 @@ export const getWeeklyReportDetail = query({
 		const authUser = await getAuthenticatedUser(ctx, args.testToken);
 		if (!authUser) return [];
 
+		// fridayDate is actually the Monday of the week (despite the name)
+		// Week runs from Monday to end of Friday (Monday + 6 days)
 		const startOfWeek = args.fridayDate;
-		const endOfWeek = args.fridayDate + 7 * 24 * 60 * 60 * 1000 - 1;
+		const endOfWeek = args.fridayDate + 6 * 24 * 60 * 60 * 1000 + 24 * 60 * 60 * 1000 - 1;
 
 		const evaluations = await ctx.db
 			.query('evaluations')

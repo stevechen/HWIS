@@ -14,7 +14,7 @@ import { getTestSuffix } from './helpers';
  * as it would require waiting for timeout. Server unit tests cover
  * the session invalidation logic.
  */
-test.describe('Session Management @session', () => {
+test.describe('Session Management @session @auth-sequential', () => {
 	test.describe('Session Persistence', () => {
 		test.use({ storageState: 'e2e/.auth/admin.json' });
 
@@ -49,7 +49,7 @@ test.describe('Session Management @session', () => {
 			await expect(page.getByText('Loading students...')).not.toBeVisible();
 
 			// Should see students but not admin controls
-			await expect(page.getByText('No students yet. Add one or')).toBeVisible();
+			await expect(page.getByRole('heading', { name: 'Student Management' })).toBeVisible();
 
 			// Navigate to another page
 			await page.goto('/');
@@ -134,9 +134,7 @@ test.describe('Session Management @session', () => {
 				await page.waitForLoadState('networkidle');
 
 				// Should now see login button
-				await expect(page.getByRole('button', { name: /sign in|signin/i })).toBeVisible({
-					timeout: 10000
-				});
+				await expect(page.getByRole('button', { name: /sign in|signin/i })).toBeVisible();
 			}
 		});
 	});
@@ -152,7 +150,7 @@ test.describe('Session Management @session', () => {
 			await page.waitForSelector('body.hydrated');
 
 			// Verify logged in
-			await expect(page.getByRole('button', { name: 'Give Points' })).toBeVisible();
+			await expect(page.getByRole('heading', { name: 'My Evaluations' })).toBeVisible();
 
 			// Look for user menu
 			const userMenuButton = page

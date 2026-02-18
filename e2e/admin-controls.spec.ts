@@ -15,7 +15,7 @@ test.describe('Admin Controls Visibility @admin', () => {
 		studentId = `SA_${suffix}`;
 		testE2eTag = `e2e-test_${suffix}`;
 
-		await createStudent({
+		const result = await createStudent({
 			studentId: studentId,
 			englishName: `AdminTest_${suffix}`,
 			chineseName: '管理測試',
@@ -23,10 +23,16 @@ test.describe('Admin Controls Visibility @admin', () => {
 			status: 'Enrolled',
 			e2eTag: testE2eTag
 		});
+
+		// Verify student was created before proceeding
+		if (result && typeof result === 'object' && 'error' in result) {
+			throw new Error(`Failed to create student: ${result.error}`);
+		}
 		testStudent = true;
 
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading students...')).not.toBeVisible();
 		await expect(page.getByRole('table', { name: 'Student table' })).toBeVisible();
 	});
 

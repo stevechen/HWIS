@@ -11,6 +11,9 @@ bunx vitest run --config vite.config.ts
 # Run e2e tests (Playwright will start dev server)
 bun run test:e2e
 
+# Run e2e tests in UI mode
+bun run test:e2e:ui
+
 # Run all tests
 bun run test:all
 ```
@@ -260,13 +263,46 @@ bunx vitest run src/convex/categories.test.ts
 
 ## E2E Tests (Playwright)
 
+### Project Phases (Ordering)
+
+Playwright runs tests in phases via project dependencies:
+
+1. `setup` (auth + storageState)
+2. `chromium-parallel` and `webkit-parallel` (parallel-safe tests)
+3. `cleanup-after-parallel` (delete all `e2eTag` data)
+4. `chromium-sequential` then `webkit-sequential` (single-worker)
+5. `auth-sequential` (logout/session invalidation tests; runs last)
+
+If a project fails, **all dependent projects are skipped** (shown as “did not run” in UI).
+
+### Waiting for Data Loading
+
+After `body.hydrated`, you must wait for data to load before testing data-dependent elements:
+
+```typescript
+// For pages with data loading (students, categories, evaluations, etc.)
+await page.goto('/admin/students');
+await page.waitForSelector('body.hydrated');
+// Wait for loading state to complete
+await expect(page.getByText('Loading students...')).not.toBeVisible();
+// Now safe to test data-dependent elements
+
+// For pages without data or tests not dependent on data
+await page.goto('/admin/settings');
+await page.waitForSelector('body.hydrated');
+// Just verify the heading is visible
+await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+```
+
+**Important:** Do not test for empty data states in E2E tests (e.g., "No students found"). Other parallel tests may create data that appears in your test. Empty state testing should be done in component tests.
+
 ### Use Convenience Imports
 
 Import data helpers from `e2e/convex-client.ts`:
 
 ```typescript
 import { test, expect } from '@playwright/test';
-import { createStudent, createCategory, cleanupTestData, getTestSuffix } from './convex-client';
+import { createStudent, createCategory, cleanupByTag, getTestSuffix } from './convex-client';
 
 test.describe('Students @students', () => {
 	test.beforeEach(async ({ page }) => {
@@ -398,8 +434,8 @@ function createTestEntity(suffix: string) {
 
 | Status | Test Files |
 | ------ | ---------- |
-| ✅ Completed | `e2e/students.delete.spec.ts` - 8 tests |
-| ✅ Completed | `e2e/students.list.spec.ts` - 11 tests |
+| ✅ Completed | `e2e/students/crud.spec.ts` - student CRUD tests |
+| ✅ Completed | `e2e/students/list.spec.ts` - student list tests |
 | ✅ Completed | `e2e/categories.spec.ts` - 34 tests |
 | ✅ Completed | `e2e/evaluations.spec.ts` - 18 tests |
 | ⏳ Pending | Other test files |
@@ -413,9 +449,11 @@ From `e2e/convex-client.ts`:
 - `createCategoryWithSubs(opts)` - Category with subcategories
 - `createEvaluationForStudent(data)` - Create evaluation for student
 - `createEvalForCategory(categoryName)` - Create evaluation for category
-- `cleanupTestData(tag)` - Cleanup by e2eTag
+- `cleanupByTag(dataType, e2eTag)` - Cleanup by e2eTag
+- `cleanupAllE2eTaggedData()` - Cleanup all data that has `e2eTag`
 - `cleanupAll()` - Nuclear cleanup
 - `getTestSuffix(prefix)` - Generate unique test suffix
+- `useRole(role)` - Set auth token for Convex API calls in tests
 
 ### Running E2E Tests
 
@@ -424,10 +462,10 @@ From `e2e/convex-client.ts`:
 bun run test:e2e
 
 # Run specific test file
-bunx playwright test e2e/students.spec.ts
+bunx playwright test e2e/students/crud.spec.ts
 
 # Run with single worker (more stable)
-bunx playwright test e2e/students.spec.ts --workers=1
+bunx playwright test e2e/students/crud.spec.ts --workers=1
 ```
 
 ### Convex Reactivity Pattern
@@ -514,6 +552,221 @@ await expect(page.getByRole('row', { name: studentId })).toBeVisible();
 - `page.reload()` - only use if absolutely necessary; prefer web-first assertions
 - `window.e2e.*` - use imports from `convex-client.ts`
 
+### Empty State Testing
+
+**Do not test "database empty" states in E2E tests.** When tests run in parallel with a shared backend, another test may create data that causes your empty state test to fail.
+
+#### Problem
+
+```typescript
+// ❌ WRONG - Fails when other tests create data
+test('shows empty state when no evaluations exist', async ({ page }) => {
+    await page.goto('/admin/evaluations');
+    await expect(page.getByText('No evaluations found.')).toBeVisible();
+});
+```
+
+#### Solution: Use Component Tests
+
+Empty states are **UI concerns** that don't need real backend data. Test them with component tests instead:
+
+```typescript
+// tests/lib/components/timeline/EvaluationsTimeline.test.ts
+describe('Empty State', () => {
+    it('shows empty message when no evaluations', async () => {
+        render(EvaluationsTimeline, { evaluations: [] });
+        await expect.element(page.getByText('No evaluations found.')).toBeInTheDocument();
+    });
+});
+```
+
+#### Filter Empty States Are OK
+
+Tests that create data first, then filter to show nothing, are fine:
+
+```typescript
+// ✅ OK - Creates data, then filters to empty
+test('filter with no matches shows empty state', async ({ page }) => {
+    await createStudent({ studentId, englishName, e2eTag });
+    await page.goto('/admin/students');
+    await page.getByPlaceholder('Search...').fill('NonExistentXYZ123');
+    await expect(page.getByText('No students match your filters')).toBeVisible();
+});
+```
+
+#### Summary
+
+| Test Type | Use For |
+|-----------|---------|
+| **Component Tests** | Empty states, loading states, error states |
+| **E2E Tests** | Happy paths, CRUD operations, user flows with data |
+| **E2E Filter Empty** | OK - creates data first, then filters to empty |
+
+## Multi-Browser Parallel Testing
+
+### Browser ID in Test Data
+
+All test data includes a browser identifier to prevent cross-project collisions when multiple browser projects run in parallel:
+
+| Browser | Short ID | Example Suffix |
+|---------|----------|----------------|
+| Chromium | CR | `addCat_CR_0_123456_abc` |
+| WebKit | WK | `addCat_WK_0_123456_abc` |
+| Firefox | FF | `addCat_FF_0_123456_abc` |
+
+The `getTestSuffix()` function automatically includes the browser ID - no manual action required.
+
+### Test Categorization: @parallel vs @sequential vs @auth-sequential
+
+Tests are categorized by their parallel-safety using annotations:
+
+#### Parallel-Safe Tests (Default - No Annotation)
+
+Tests that:
+- Create unique data and assert on that specific data
+- Do NOT assert on counts, totals, or "only" conditions
+- Do NOT test empty states that depend on no data existing
+
+```typescript
+// No annotation needed - parallel by default
+test.describe('CRUD Tests', () => {
+    test('creates category', async ({ page }) => {
+        const suffix = getTestSuffix('create'); // Auto-includes browser ID
+        await createCategory({ name: `Category_${suffix}` });
+        await expect(page.getByText(`Category_${suffix}`)).toBeVisible();
+    });
+});
+```
+
+#### Sequential-Required Tests (@sequential)
+
+Tests that MUST run with `workers: 1`:
+- Assert on exact counts (`toHaveCount(3)`)
+- Test empty states that depend on no data existing
+- Assert "only" conditions
+
+```typescript
+// Tag with @sequential for single-worker execution
+test.describe('Empty State Tests @sequential', () => {
+    test('shows no categories when filtered', async ({ page }) => {
+        await page.goto('/admin/categories');
+        await page.getByPlaceholder('Search').fill('NonExistentXYZ');
+        await expect(page.getByText('No categories match')).toBeVisible();
+    });
+});
+```
+
+#### Auth/Session Tests (@auth-sequential)
+
+Tests that **logout** or **invalidate sessions** must run last because all parallel tests share
+the same storageState users.
+
+```typescript
+test.describe('Session Management @session @auth-sequential', () => {
+	// logout/invalidation tests here
+});
+```
+
+### How To Decide: Parallel vs Sequential
+
+Use this quick decision guide before writing a new test:
+
+**Parallel-safe (default, no tag)** if all are true:
+- Test creates **unique data** (via `getTestSuffix`) and only asserts on that data.
+- Assertions are **existence/visibility** of the unique entity (not counts or totals).
+- Test does **not** require a clean database or “only my data” guarantees.
+- Test does **not** change shared auth/session state.
+
+**Sequential (@sequential)** if any are true:
+- Asserts **counts/totals** (`toHaveCount`, “shows 3 rows”, “only X exists”).
+- Asserts **empty state** that depends on no other data existing.
+- Relies on **global ordering** (e.g., newest/oldest across all users).
+- Mutates shared resources in a way that affects other tests (global settings, shared lists).
+
+**Auth/Session Sequential (@auth-sequential)** if any are true:
+- Logs out or invalidates sessions.
+- Changes user roles/permissions for shared storageState users.
+
+**If unsure:** mark it `@sequential`. It’s slower but stable; you can always relax it later.
+
+### Creating New Tests: Checklist
+
+When creating a new E2E test, follow this checklist:
+
+1. **Use `getTestSuffix()` for all unique identifiers**
+   ```typescript
+   const suffix = getTestSuffix('myTest'); // Auto-includes browser ID
+   const studentId = `STU_${suffix}`;
+   const e2eTag = `e2e-test_${suffix}`;
+   ```
+
+2. **Determine if test is parallel-safe**
+   - Does it assert on specific unique data? **Parallel-safe** (no annotation)
+   - Does it assert on counts or empty states? **Add @sequential**
+
+3. **Use isolated describe blocks**
+   ```typescript
+   test.describe('Feature Name - Test Name', () => {
+       test.use({ storageState: 'e2e/.auth/admin.json' });
+       
+       let suffix: string;
+       let e2eTag: string;
+       let hasData = false;
+       
+       test.beforeEach(async ({ page }) => {
+           suffix = getTestSuffix('testId');
+           e2eTag = `e2e-test_${suffix}`;
+           // Create data, set hasData = true
+       });
+       
+       test.afterEach(async () => {
+           if (hasData) await cleanupByTag('all', e2eTag);
+       });
+       
+       test('does something', async ({ page }) => {
+           // Test assertions
+       });
+   });
+   ```
+
+4. **Never generate IDs at module level**
+   ```typescript
+   // WRONG - shared across workers
+   const suffix = getTestSuffix('test');
+   
+   // RIGHT - unique per test execution
+   test.beforeEach(() => {
+       suffix = getTestSuffix('test');
+   });
+   ```
+
+### Parallel-Safety Decision Tree
+
+```
+Does your test assert on...
+    |
+    +-- Specific unique data (e.g., "Category_CR_0_123_abc exists")
+    |       --> PARALLEL-SAFE (no annotation needed)
+    |
+    +-- Count or total (e.g., "table has 3 rows")
+    |       --> ADD @sequential
+    |
+    +-- Empty state (e.g., "No data found")
+    |       --> ADD @sequential
+    |
+    +-- "Only" condition (e.g., "only my data shows")
+            --> ADD @sequential
+```
+
+### Expected Speed Improvement
+
+| Configuration | Estimated Time (10 min baseline) |
+|---------------|----------------------------------|
+| All sequential (current) | 10 min |
+| Hybrid (75% parallel) | ~5-6 min |
+
+The exact improvement depends on the ratio of parallel-safe tests.
+
 ## All Test Commands
 
 ```bash
@@ -561,8 +814,8 @@ To support robust parallel testing, we distinguish between two types of test use
 ### Cleanup
 
 ```bash
-# Nuclear cleanup
-bunx convex run testCleanup:cleanupAll
+# Cleanup all e2e-tagged data (preferred between test phases)
+bun run test:e2e:cleanup
 
 # Full database reset
 bunx convex run resetDb:resetDatabase

@@ -111,9 +111,10 @@ export interface E2EUtils {
 	clearAuditOnly: () => Promise<void>;
 	seedCategoriesForDelete: () => Promise<unknown>;
 	seedStudentsForDisable: () => Promise<void>;
-	seedAuditLogs: (authId?: string) => Promise<void>;
+	seedAuditLogs: (authId?: string) => Promise<{ success: boolean; error?: string }>;
 	cleanupAll: () => Promise<CleanupResult>;
 	cleanupTestData: (tag: string) => Promise<CleanupResult>;
+	cleanupAllE2eTaggedData: () => Promise<CleanupResult>;
 	cleanupByTag: (
 		dataType: 'students' | 'categories' | 'evaluations' | 'all',
 		e2eTag: string
@@ -196,11 +197,13 @@ export function getE2EUtils(): E2EUtils {
 			}
 		},
 
-		async seedAuditLogs(authId?: string) {
+		async seedAuditLogs(authId?: string): Promise<{ success: boolean; error?: string }> {
 			try {
 				await c.mutation(api.testE2E.e2eSeedAuditLogs, { authId });
-			} catch {
-				console.log('Seed audit logs error');
+				return { success: true };
+			} catch (e) {
+				console.log('Seed audit logs error:', e);
+				return { success: false, error: String(e) };
 			}
 		},
 
@@ -230,6 +233,20 @@ export function getE2EUtils(): E2EUtils {
 				return result;
 			} catch {
 				console.log('Cleanup test data error');
+				return { error: 'Error' };
+			}
+		},
+
+		async cleanupAllE2eTaggedData(): Promise<CleanupResult> {
+			try {
+				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
+				const result = await c.mutation(api.testCleanup.cleanupAllE2eTaggedData, {
+					testToken: token
+				});
+				console.log('Cleanup all e2e-tagged data result:', result);
+				return result;
+			} catch (e) {
+				console.log('Cleanup all e2e-tagged data error:', e);
 				return { error: 'Error' };
 			}
 		},

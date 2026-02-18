@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { getTestSuffix } from './helpers';
 import {
 	createStudent,
@@ -8,6 +8,11 @@ import {
 	useRole
 } from './convex-client';
 
+async function waitForStudentsReady(page: Page) {
+	await expect(page.getByText('Loading students...')).not.toBeVisible();
+	await expect(page.getByRole('list', { name: 'Students' })).toBeVisible();
+}
+
 test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
@@ -15,6 +20,7 @@ test.describe('Evaluations (authenticated as teacher) @evaluations', () => {
 		useRole('teacher');
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
+		await waitForStudentsReady(page);
 	});
 
 	test('displays new evaluation page', async ({ page }) => {
@@ -67,11 +73,14 @@ test.describe('Evaluations - Select Student', () => {
 		// Navigate to the evaluations page
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
+		await waitForStudentsReady(page);
 		await expect(page.getByText('1. Select Students')).toBeVisible();
 
 		// Search for the student to make them visible in the list
 		const filterInput = page.getByRole('textbox', { name: 'Search students' });
 		await filterInput.fill(studentName.toLowerCase());
+		const studentRow = page.getByRole('button', { name: new RegExp(studentName, 'i') });
+		await expect(studentRow).toBeVisible({ timeout: 10000 });
 	});
 
 	test.afterEach(async () => {
@@ -120,6 +129,7 @@ test.describe('Evaluations - Student Count', () => {
 		// Navigate to the evaluations page
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
+		await waitForStudentsReady(page);
 		await expect(page.getByText('1. Select Students')).toBeVisible();
 
 		// Search for the student to make them visible in the list
@@ -170,6 +180,7 @@ test.describe('Evaluations - No Student Error', () => {
 		// Navigate to the evaluations page
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
+		await waitForStudentsReady(page);
 	});
 
 	test.afterEach(async () => {
@@ -205,7 +216,7 @@ test.describe('Evaluations - No Category Error', () => {
 		studentName = `NoCat_${suffix}`;
 
 		// Create student via API
-		await createStudent({
+		const createResult = await createStudent({
 			studentId,
 			englishName: studentName,
 			chineseName: ' kategori',
@@ -213,12 +224,15 @@ test.describe('Evaluations - No Category Error', () => {
 			status: 'Enrolled',
 			e2eTag
 		});
+		if (createResult && typeof createResult === 'object' && 'error' in createResult) {
+			throw new Error(`Failed to create student: ${createResult.error}`);
+		}
 		testStudent = true;
 
 		// Navigate to the evaluations page
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
-		await expect(page.getByRole('list', { name: 'Students' })).toBeVisible();
+		await waitForStudentsReady(page);
 		// await expect(page.getByText('1. Select Students')).toBeVisible();
 
 		// Search for the student to make them visible in the list
@@ -288,7 +302,7 @@ test.describe('Evaluations - No Sub-Category Error', () => {
 		// Navigate to the evaluations page
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
-		await expect(page.getByRole('list', { name: 'Students' })).toBeVisible();
+		await waitForStudentsReady(page);
 
 		// Search for the student to make them visible in the list
 		const filterInput = page.getByRole('textbox', { name: 'Search students' });
@@ -306,7 +320,10 @@ test.describe('Evaluations - No Sub-Category Error', () => {
 		// Click on the category trigger to open the dropdown
 		await page.getByRole('button', { name: 'Select category' }).click();
 
-		// Wait for dropdown to open and select the category we just created
+		// Wait for categories to load (Convex sync) - look for any option first
+		await expect(page.getByRole('option').first()).toBeVisible({ timeout: 10000 });
+
+		// Now wait for our specific category and select it
 		await expect(page.getByRole('option', { name: categoryName })).toBeVisible();
 		await page.getByRole('option', { name: categoryName }).click();
 
@@ -363,7 +380,7 @@ test.describe('Evaluations - Submit Success', () => {
 		// Navigate to the evaluations page
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
-		await expect(page.getByRole('list', { name: 'Students' })).toBeVisible();
+		await waitForStudentsReady(page);
 
 		// Search for the student to make them visible in the list
 		const filterInput = page.getByRole('textbox', { name: 'Search students' });
@@ -382,7 +399,10 @@ test.describe('Evaluations - Submit Success', () => {
 		// Click on the category trigger to open the dropdown
 		await page.getByRole('button', { name: 'Select category' }).click();
 
-		// Wait for dropdown to open and select the category we just created
+		// Wait for categories to load (Convex sync) - look for any option
+		await expect(page.getByRole('option').first()).toBeVisible({ timeout: 10000 });
+
+		// Now wait for our specific category and select it
 		await expect(page.getByRole('option', { name: categoryName })).toBeVisible();
 		await page.getByRole('option', { name: categoryName }).click();
 		// Verify sub-category section appears
@@ -409,6 +429,7 @@ test.describe('Evaluations (admin user) @evaluations', () => {
 		useRole('admin');
 		await page.goto('/evaluations');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
 	});
 
 	test('displays "Back to Admin" button for admin users', async ({ page }) => {
@@ -434,6 +455,7 @@ test.describe('Evaluations (admin user) @evaluations', () => {
 		const backButton = page.getByRole('button', { name: /Back to Admin/i });
 		await expect(backButton).toBeVisible();
 		await backButton.click();
+		await page.waitForSelector('body.hydrated');
 		await expect(page).toHaveURL('/admin');
 
 		// Now navigate back to evaluations using the Evaluation Review card
@@ -447,7 +469,7 @@ test.describe('Evaluations (admin user) @evaluations', () => {
 	});
 });
 
-test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
+test.describe('Evaluations Long-Press Edit @evaluations-longpress @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
 	// CONSTANTS - Define at top of describe
@@ -484,6 +506,8 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 		// Navigate to student timeline using custom studentId URL (now supported!)
 		await page.goto(`/evaluations/student/${studentId}`);
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading user data...')).not.toBeVisible();
+		await expect(page.getByText('No evaluations found.')).not.toBeVisible();
 		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
 	});
 
@@ -569,7 +593,7 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress', () => {
 	});
 });
 
-test.describe('Evaluations Long-Press Delete @evaluations-longpress', () => {
+test.describe('Evaluations Long-Press Delete @evaluations-longpress @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
 	// CONSTANTS - Define at top of describe
@@ -608,6 +632,8 @@ test.describe('Evaluations Long-Press Delete @evaluations-longpress', () => {
 		// Navigate to student timeline using custom studentId URL (now supported!)
 		await page.goto(`/evaluations/student/${studentId}`);
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
 	});
 
 	// CLEANUP - Conditional based on flag
@@ -679,7 +705,7 @@ test.describe('Evaluations Long-Press Delete @evaluations-longpress', () => {
 	});
 });
 
-test.describe('Evaluations - UI Controls', () => {
+test.describe('Evaluations - UI Controls @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
 	// CONSTANTS
@@ -710,6 +736,7 @@ test.describe('Evaluations - UI Controls', () => {
 
 		await page.goto('/evaluations');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {

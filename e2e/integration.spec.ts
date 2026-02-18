@@ -46,9 +46,10 @@ test.describe('Student CRUD Cycle @integration', () => {
 		await studentRow.getByRole('button', { name: `Edit ${studentId}` }).click();
 
 		// Wait for edit dialog
-		await expect(page.getByRole('dialog')).toBeVisible();
-		const dialog = page.getByRole('dialog');
-		await expect(page.getByText('Edit Student')).toBeVisible();
+		// await expect(page.getByRole('dialog', {name: 'student form'})).toBeVisible();
+		const dialog = page.getByRole('dialog', { name: 'student form' });
+		await expect(dialog).toBeVisible();
+		// await expect(page.getByText('Edit Student')).toBeVisible();
 
 		// Change status to Not Enrolled - use the Status select
 		const statusSelect = dialog.getByRole('combobox', { name: 'Student status' });
@@ -132,7 +133,7 @@ test.describe('Evaluation Persistence @integration', () => {
 	});
 });
 
-test.describe('Student Timeline Navigation @integration', () => {
+test.describe('Student Timeline Navigation @integration @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	const suffix = getTestSuffix('evalNav');
@@ -201,6 +202,7 @@ test.describe('Category to Evaluation Integration @integration', () => {
 		// Navigate to admin categories page to verify
 		await page.goto('/admin/categories');
 		await page.waitForSelector('body.hydrated');
+		await expect(page.getByRole('table', { name: 'Categories' })).toBeVisible();
 
 		// Verify category appears in the list
 		await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();

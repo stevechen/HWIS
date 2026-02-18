@@ -292,6 +292,7 @@
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
 		role="dialog"
+		aria-label="Edit category"
 		aria-modal="true"
 	>
 		<div class="bg-background w-full max-w-md rounded-lg p-6 shadow-lg">

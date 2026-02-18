@@ -6,8 +6,15 @@ test.describe('Users Page @users', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/admin/users');
 		await page.waitForSelector('body.hydrated');
-		// Wait for user data to load
-		await page.waitForSelector('text=Loading user records...', { state: 'detached' });
+		// Wait for user data to load - wait for actual data rows, not just loading indicator
+		await expect(page.getByRole('table', { name: 'users' })).toBeVisible();
+		// Wait for at least one data row (not just header row)
+		await expect(
+			page
+				.getByRole('row')
+				.filter({ hasNot: page.getByRole('columnheader') })
+				.first()
+		).toBeVisible({ timeout: 10000 });
 	});
 
 	test('displays table with users', async ({ page }) => {

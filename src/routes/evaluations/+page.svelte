@@ -2,7 +2,7 @@
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { goto } from '$app/navigation';
-	import { Plus } from '@lucide/svelte';
+	import { Plus, ArrowUp, ArrowDown, ListChevronsUpDown, ListChevronsDownUp } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
 	import {
@@ -88,7 +88,7 @@
 	}
 </script>
 
-<div class="mx-auto p-8 max-w-6xl">
+<div class="mx-auto max-w-6xl p-8 pt-0">
 	{#if evaluationsQuery.isLoading}
 		<EvaluationsLoadingState message="Loading history..." />
 	{:else if evaluationsQuery.error}
@@ -112,8 +112,8 @@
 			{canEditEntry}
 		>
 			{#snippet children()}
-				<!-- Filters Section with New Button -->
-				<div class="flex sm:flex-row flex-col sm:items-center gap-4">
+				<!-- Filters Section -->
+				<div class="flex flex-col gap-4 sm:flex-row sm:items-center">
 					<Button onclick={() => void goto('/evaluations/new')}>
 						<Plus class="size-4" />
 						New
