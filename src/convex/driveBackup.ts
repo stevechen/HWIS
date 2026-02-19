@@ -77,23 +77,23 @@ async function uploadToDrive(
 		throw new Error('Failed to upload to Drive: ' + JSON.stringify(data));
 	}
 
-	await fetch(`https://www.googleapis.com/drive/v3/files/${data.id}/permissions`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${accessToken}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ role: 'reader', type: 'anyone' })
-	});
-
 	return { fileId: data.id, createdTime: data.createdTime ?? new Date().toISOString() };
 }
 
 export const backupToDrive = action({
 	args: {},
 	handler: async (ctx) => {
-		const exportDataFn = anyApi.backup.exportData;
-		const exportData = (await ctx.runQuery(exportDataFn)) as {
+		const viewer = (await ctx.runQuery(anyApi.users.viewer, {})) as { role?: string } | null;
+		if (!viewer || (viewer.role !== 'admin' && viewer.role !== 'super')) {
+			throw new Error('Forbidden');
+		}
+
+		const cronSecret = process.env.CRON_SECRET;
+		if (!cronSecret) {
+			throw new Error('CRON_SECRET is not configured');
+		}
+		const exportDataFn = anyApi.backup.exportDataForCron;
+		const exportData = (await ctx.runQuery(exportDataFn, { cronSecret })) as {
 			students: Doc<'students'>[];
 			evaluations: Doc<'evaluations'>[];
 			users: Doc<'users'>[];

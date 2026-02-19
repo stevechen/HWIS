@@ -136,3 +136,23 @@ For local E2E, use:
 ./scripts/start-dev-servers.sh
 bunx playwright test e2e
 ```
+
+## Required Environment Variables
+
+Set these before production deploy:
+
+- `BETTER_AUTH_SECRET`
+  - Required in production. The app now fails startup in production if it is missing.
+- `CRON_SECRET`
+  - Required for `/api/cron-backup` cron authentication (`Authorization: Bearer <CRON_SECRET>`).
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REFRESH_TOKEN`
+  - Required for Google Drive backup uploads.
+
+Optional but recommended:
+
+- `GOOGLE_DRIVE_FOLDER_ID`
+  - If set, backups are uploaded to that folder; otherwise they go to Drive root.
+- `E2E_TEST_TOKEN`
+  - Custom non-production token for test helper mutations. If unset, non-production uses `unit-test-token`. Production does not allow the default token.

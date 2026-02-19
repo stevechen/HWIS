@@ -1,6 +1,6 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { authComponent, getAuthenticatedUser } from './auth';
+import { authComponent, requireAdminForSensitiveOperation } from './auth';
 import type { Id } from './_generated/dataModel';
 
 // Core infrastructure users that should not be deleted during test teardowns
@@ -9,8 +9,9 @@ const PROTECTED_EMAILS = new Set(['teacher@hwis.test', 'admin@hwis.test', 'super
 const TEST_AUTH_ID_PREFIXES = ['e2e_', 'e2e-', 'test_', 'eval_', 'e2e-test_'];
 
 export const cleanupAllTestUsers = mutation({
-	args: {},
-	handler: async (ctx) => {
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const adapter = await authComponent.adapter(ctx)({
 			user: { fields: undefined }
 		});
@@ -52,8 +53,13 @@ export const cleanupAllTestUsers = mutation({
 });
 
 export const cleanupAuditLogs = mutation({
-	args: { authId: v.optional(v.id('users')), authIdString: v.optional(v.string()) },
+	args: {
+		authId: v.optional(v.id('users')),
+		authIdString: v.optional(v.string()),
+		testToken: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const auditLogs = await ctx.db.query('audit_logs').collect();
 		let deleted = 0;
 
@@ -114,8 +120,9 @@ export const cleanupAuditLogs = mutation({
 });
 
 export const cleanupAllTestData = mutation({
-	args: {},
-	handler: async (ctx) => {
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		let totalDeleted = 0;
 		let usersDeleted = 0;
 
@@ -219,8 +226,9 @@ export const cleanupAllTestData = mutation({
 });
 
 export const cleanupAll = mutation({
-	args: {},
-	handler: async (ctx) => {
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const adapter = await authComponent.adapter(ctx)({
 			user: { fields: undefined }
 		});
@@ -316,11 +324,7 @@ export const cleanupByTag = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Validate test token for cloud Convex compatibility
-		const authUser = await getAuthenticatedUser(ctx, args.testToken);
-		if (!authUser) {
-			throw new Error('Not authenticated for cleanupByTag');
-		}
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 
 		let totalDeleted = 0;
 
@@ -419,11 +423,7 @@ export const cleanupByTag = mutation({
 export const cleanupAllE2eTaggedData = mutation({
 	args: { testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
-		// Validate test token for cloud Convex compatibility
-		const authUser = await getAuthenticatedUser(ctx, args.testToken);
-		if (!authUser) {
-			throw new Error('Not authenticated for cleanupAllE2eTaggedData');
-		}
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 
 		let totalDeleted = 0;
 		const studentIdsWithTag: Id<'students'>[] = [];

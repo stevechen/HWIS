@@ -7,7 +7,6 @@ import { fileURLToPath } from 'url';
 import { createCookieGetter, parseSetCookieHeader } from 'better-auth/cookies';
 import { serializeSignedCookie } from 'better-call';
 import { JWT_COOKIE_NAME } from '@convex-dev/better-auth/plugins';
-import { createAuth } from '../src/convex/auth';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,19 +29,22 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173';
 const DEFAULT_BETTER_AUTH_SECRET =
 	'0150ee735cf86820eb80300e6050a1e4be246675a80a65fc62e64489633f7db0';
 const loadEnvSecret = () => {
-	try {
-		const envPath = path.join(__dirname, '..', '.env');
-		const content = readFileSync(envPath, 'utf-8');
-		for (const line of content.split('\n')) {
-			const trimmed = line.trim();
-			if (!trimmed || trimmed.startsWith('#')) continue;
-			const [key, ...rest] = trimmed.split('=');
-			if (key !== 'BETTER_AUTH_SECRET') continue;
-			const rawValue = rest.join('=').trim();
-			return rawValue.replace(/^['"]|['"]$/g, '');
+	const envFiles = ['.env.local', '.env'];
+	for (const envFile of envFiles) {
+		try {
+			const envPath = path.join(__dirname, '..', envFile);
+			const content = readFileSync(envPath, 'utf-8');
+			for (const line of content.split('\n')) {
+				const trimmed = line.trim();
+				if (!trimmed || trimmed.startsWith('#')) continue;
+				const [key, ...rest] = trimmed.split('=');
+				if (key !== 'BETTER_AUTH_SECRET') continue;
+				const rawValue = rest.join('=').trim();
+				return rawValue.replace(/^['"]|['"]$/g, '');
+			}
+		} catch {
+			// ignore missing env file
 		}
-	} catch {
-		// ignore missing env file
 	}
 	return undefined;
 };
@@ -52,13 +54,7 @@ const BETTER_AUTH_SECRET =
 	process.env.AUTH_SECRET ||
 	loadEnvSecret() ||
 	DEFAULT_BETTER_AUTH_SECRET;
-
-type CreateAuthArgs = Parameters<typeof createAuth>[0];
-const auth = createAuth({} as CreateAuthArgs);
-const cookieOptions = { ...auth.options, baseURL: BASE_URL };
-const createCookie = createCookieGetter(cookieOptions);
-const sessionCookieConfig = createCookie('session_token');
-const jwtCookieConfig = createCookie(JWT_COOKIE_NAME);
+process.env.BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET || BETTER_AUTH_SECRET;
 
 const normalizeSameSite = (value?: string): 'Lax' | 'Strict' | 'None' => {
 	if (!value) return 'Lax';
@@ -77,6 +73,29 @@ type CookieConfig = {
 	sameSite?: string;
 };
 
+type RuntimeCookieConfig = {
+	sessionCookieConfig: ReturnType<ReturnType<typeof createCookieGetter>>;
+	jwtCookieConfig: ReturnType<ReturnType<typeof createCookieGetter>>;
+};
+
+let runtimeCookieConfigPromise: Promise<RuntimeCookieConfig> | null = null;
+async function getRuntimeCookieConfig(): Promise<RuntimeCookieConfig> {
+	if (!runtimeCookieConfigPromise) {
+		runtimeCookieConfigPromise = (async () => {
+			const { createAuth } = await import('../src/convex/auth');
+			type CreateAuthArgs = Parameters<typeof createAuth>[0];
+			const auth = createAuth({} as CreateAuthArgs);
+			const cookieOptions = { ...auth.options, baseURL: BASE_URL };
+			const createCookie = createCookieGetter(cookieOptions);
+			return {
+				sessionCookieConfig: createCookie('session_token'),
+				jwtCookieConfig: createCookie(JWT_COOKIE_NAME)
+			};
+		})();
+	}
+	return await runtimeCookieConfigPromise;
+}
+
 const toPlaywrightCookie = (config: CookieConfig) => ({
 	name: config.name,
 	value: config.value,
@@ -89,6 +108,7 @@ const toPlaywrightCookie = (config: CookieConfig) => ({
 });
 
 async function getSignedSessionCookieValue(sessionToken: string): Promise<string> {
+	const { sessionCookieConfig } = await getRuntimeCookieConfig();
 	const cookieString = await serializeSignedCookie(
 		sessionCookieConfig.name,
 		sessionToken,
@@ -103,6 +123,7 @@ async function getSignedSessionCookieValue(sessionToken: string): Promise<string
 }
 
 async function getConvexJwtToken(sessionCookieValue: string): Promise<string> {
+	const { sessionCookieConfig } = await getRuntimeCookieConfig();
 	const response = await fetch(`${BASE_URL}/api/auth/convex/token`, {
 		method: 'GET',
 		headers: {
@@ -124,6 +145,7 @@ async function getConvexJwtToken(sessionCookieValue: string): Promise<string> {
 }
 
 async function buildStorageState(sessionToken: string): Promise<StorageState> {
+	const { sessionCookieConfig, jwtCookieConfig } = await getRuntimeCookieConfig();
 	const signedSessionToken = await getSignedSessionCookieValue(sessionToken);
 	const convexJwtToken = await getConvexJwtToken(signedSessionToken);
 

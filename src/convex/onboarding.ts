@@ -5,7 +5,8 @@ import {
 	getAuthenticatedUser,
 	requireUserProfile,
 	EXCEPTION_EMAILS,
-	authComponent
+	authComponent,
+	requireAdminForSensitiveOperation
 } from './auth';
 
 type BetterAuthUser = {
@@ -71,10 +72,34 @@ export const setMyRole = mutation({
 	},
 	handler: async (ctx, args) => {
 		const userDoc = await requireUserProfile(ctx, args.testToken);
+		const desiredRole = args.role ?? userDoc.role;
+		const desiredStatus = args.status ?? userDoc.status;
+
+		const allUsers = await ctx.db.query('users').collect();
+		const hasPrivilegedUser = allUsers.some((user) => user.role === 'admin' || user.role === 'super');
+
+		if (!hasPrivilegedUser) {
+			const betterAuthUser = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
+			const userEmail = betterAuthUser?.email;
+			if (!userEmail || !EXCEPTION_EMAILS.includes(userEmail)) {
+				throw new Error('Bootstrap is restricted to allowlisted owner emails.');
+			}
+			if (desiredRole !== 'admin' && desiredRole !== 'super') {
+				throw new Error('Initial bootstrap role must be admin or super.');
+			}
+
+			await ctx.db.patch(userDoc._id, {
+				role: desiredRole,
+				status: desiredStatus
+			});
+			return { created: false, bootstrap: true };
+		}
+
+		await requireAdminRole(ctx, args.testToken);
 
 		await ctx.db.patch(userDoc._id, {
-			role: args.role,
-			status: args.status
+			role: desiredRole,
+			status: desiredStatus
 		});
 		return { created: false };
 	}
@@ -125,9 +150,11 @@ export const deleteAllUserProfiles = mutation({
 export const updateUserName = mutation({
 	args: {
 		authId: v.string(),
-		name: v.string()
+		name: v.string(),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const existing = await ctx.db
 			.query('users')
 			.withIndex('by_authId', (q) => q.eq('authId', args.authId))

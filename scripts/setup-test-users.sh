@@ -24,7 +24,7 @@ if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:321
   echo "Convex dev server already running."
 else
   echo "Starting Convex dev server..."
-  bunx convex dev --tail-logs &
+  bunx convex dev --typecheck=disable --tail-logs &
   CONVEX_PID=$!
   CONVEX_STARTED="true"
 
@@ -45,7 +45,7 @@ else
 fi
 
 echo "Setting up test users..."
-RESULT=$(bun convex run testSetup:setupTestUsers 2>&1)
+RESULT=$(bun convex run testSetup:setupTestUsers '{"testToken":"unit-test-token"}' 2>&1)
 
 if [ -z "$RESULT" ] || echo "$RESULT" | grep -q "error"; then
   echo "Error setting up test users: $RESULT"

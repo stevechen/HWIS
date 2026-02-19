@@ -1,7 +1,63 @@
 import { google } from 'googleapis';
 import { env } from '$env/dynamic/private';
+import { createConvexHttpClient } from '@mmailaender/convex-better-auth-svelte/sveltekit';
+import { api } from '$convex/_generated/api';
+import { getConvexUrlFromToken } from '$lib/server/convex-url';
+import type { RequestEvent } from '@sveltejs/kit';
 
-export async function GET() {
+type BackupExportPayload = {
+	students?: unknown[];
+	evaluations?: unknown[];
+	users?: unknown[];
+	categories?: unknown[];
+};
+
+async function isAdminRequest(event: RequestEvent): Promise<boolean> {
+	if (!event.locals.token) {
+		return false;
+	}
+
+	try {
+		const convexUrl = getConvexUrlFromToken(
+			event.locals.token,
+			env.CONVEX_URL || env.PUBLIC_CONVEX_URL
+		);
+		const client = createConvexHttpClient({
+			token: event.locals.token,
+			convexUrl
+		});
+		const viewer = await client.query(api.users.viewer, {});
+		return viewer?.role === 'admin' || viewer?.role === 'super';
+	} catch {
+		return false;
+	}
+}
+
+async function fetchBackupDataForCron(): Promise<BackupExportPayload> {
+	const convexUrl = env.PUBLIC_CONVEX_URL || env.CONVEX_URL || 'http://127.0.0.1:3210';
+	const response = await fetch(`${convexUrl}/api/query/backup.js:exportDataForCron`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ args: { cronSecret: env.CRON_SECRET || '' } })
+	});
+
+	if (!response.ok) {
+		throw new Error(`Convex query failed: ${response.status}`);
+	}
+
+	return (await response.json()) as BackupExportPayload;
+}
+
+async function fetchBackupDataForAdmin(token: string): Promise<BackupExportPayload> {
+	const convexUrl = getConvexUrlFromToken(token, env.CONVEX_URL || env.PUBLIC_CONVEX_URL);
+	const client = createConvexHttpClient({
+		token,
+		convexUrl
+	});
+	return (await client.query(api.backup.exportData, {})) as BackupExportPayload;
+}
+
+export async function GET(event: RequestEvent) {
 	try {
 		if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REFRESH_TOKEN) {
 			return new Response(JSON.stringify({ success: false, error: 'Missing Google credentials' }), {
@@ -10,18 +66,19 @@ export async function GET() {
 			});
 		}
 
-		const convexUrl = env.PUBLIC_CONVEX_URL || 'http://127.0.0.1:3210';
-		const response = await fetch(`${convexUrl}/api/query/backup.js:exportData`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ args: {} })
-		});
-
-		if (!response.ok) {
-			throw new Error(`Convex query failed: ${response.status}`);
+		const authHeader = event.request.headers.get('authorization');
+		const isCronRequest = !!env.CRON_SECRET && authHeader === `Bearer ${env.CRON_SECRET}`;
+		const isAdmin = await isAdminRequest(event);
+		if (!isCronRequest && !isAdmin) {
+			return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+				status: 401,
+				headers: { 'Content-Type': 'application/json' }
+			});
 		}
 
-		const data = await response.json();
+		const data = isCronRequest
+			? await fetchBackupDataForCron()
+			: await fetchBackupDataForAdmin(event.locals.token!);
 		const backup = { exportedAt: new Date().toISOString(), version: '1.0', ...data };
 
 		const filename = `backup-${new Date().toISOString().split('T')[0]}.json`;
@@ -42,9 +99,6 @@ export async function GET() {
 		});
 
 		const fileId = uploadResponse.data?.id;
-		if (fileId) {
-			await drive.permissions.create({ fileId, requestBody: { role: 'reader', type: 'anyone' } });
-		}
 
 		return new Response(
 			JSON.stringify({

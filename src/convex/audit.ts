@@ -136,8 +136,9 @@ export const list = query({
 				details = `${log.oldValue?.status} → ${log.newValue?.status}`;
 			}
 
+			const { performerId: _performerId, ...logWithoutPerformer } = log;
 			results.push({
-				...log,
+				...logWithoutPerformer,
 				performerId: performer?._id?.toString() ?? 'Unknown',
 				performerName: performer?.name ?? 'Unknown',
 				actionLabel: getAuditActionLabel(log.action),
@@ -156,8 +157,9 @@ export const list = query({
 });
 
 export const debugList = query({
-	args: {},
-	handler: async (ctx) => {
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
 		const logs = await ctx.db.query('audit_logs').withIndex('by_timestamp').order('desc').take(20);
 
 		// Also check for test_admin user

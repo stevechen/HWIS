@@ -1,5 +1,6 @@
 import { mutation } from './_generated/server';
-import { authComponent } from './auth';
+import { authComponent, requireAdminForSensitiveOperation } from './auth';
+import { v } from 'convex/values';
 
 interface TestUser {
 	id: string;
@@ -12,8 +13,9 @@ interface TestUser {
 const PROTECTED_EMAILS = new Set(['teacher@hwis.test', 'admin@hwis.test', 'super@hwis.test']);
 
 export const setupTestUsers = mutation({
-	args: {},
-	handler: async (ctx) => {
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const adapter = await authComponent.adapter(ctx)({
 			user: { fields: undefined }
 		});
@@ -150,8 +152,9 @@ export const setupTestUsers = mutation({
 });
 
 export const cleanupTestUsers = mutation({
-	args: {},
-	handler: async (ctx) => {
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const adapter = await authComponent.adapter(ctx)({
 			user: { fields: undefined }
 		});

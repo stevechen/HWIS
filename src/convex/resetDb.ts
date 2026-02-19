@@ -1,5 +1,6 @@
 import { mutation } from './_generated/server';
-import { authComponent } from './auth';
+import { authComponent, requireAdminForSensitiveOperation } from './auth';
+import { v } from 'convex/values';
 
 type BetterAuthUser = {
 	id: string;
@@ -7,8 +8,9 @@ type BetterAuthUser = {
 };
 
 export const resetDatabase = mutation({
-	args: {},
-	handler: async (ctx) => {
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const adapter = await authComponent.adapter(ctx)({
 			user: { fields: undefined }
 		});

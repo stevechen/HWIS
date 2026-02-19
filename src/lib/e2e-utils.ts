@@ -8,11 +8,6 @@ const CONVEX_URL = process.env.CONVEX_URL || 'http://127.0.0.1:3210';
 // Test token for e2e authentication (works with both local and cloud Convex)
 const TEST_TOKEN = 'unit-test-token';
 
-// Check if we're using real JWT auth (set by useRole() in tests)
-function isUsingRealAuth(): boolean {
-	return !!process.env.CONVEX_AUTH_TOKEN;
-}
-
 // Get auth options based on current context
 function getAuthOptions(): { auth?: string } {
 	// First check environment variable (set by useRole() in Playwright tests)
@@ -148,7 +143,7 @@ export function getE2EUtils(): E2EUtils {
 	return {
 		async resetAll() {
 			try {
-				await c.mutation(api.testE2E.e2eResetAll, {});
+				await c.mutation(api.testE2E.e2eResetAll, { testToken: TEST_TOKEN });
 			} catch {
 				console.log('Reset all error');
 			}
@@ -156,7 +151,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async resetCategoriesAndEvals() {
 			try {
-				await c.mutation(api.testE2E.e2eResetCategoriesAndEvals, {});
+				await c.mutation(api.testE2E.e2eResetCategoriesAndEvals, { testToken: TEST_TOKEN });
 			} catch {
 				console.log('Reset categories and evals error');
 			}
@@ -164,7 +159,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async seedAll() {
 			try {
-				await c.mutation(api.testE2E.e2eSeedAll, {});
+				await c.mutation(api.testE2E.e2eSeedAll, { testToken: TEST_TOKEN });
 			} catch {
 				console.log('Seed all error');
 			}
@@ -172,7 +167,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async clearAuditOnly() {
 			try {
-				await c.mutation(api.testE2E.e2eClearAuditOnly, {});
+				await c.mutation(api.testE2E.e2eClearAuditOnly, { testToken: TEST_TOKEN });
 			} catch {
 				console.log('Clear audit error');
 			}
@@ -180,7 +175,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async seedCategoriesForDelete() {
 			try {
-				const result = await c.mutation(api.testE2E.e2eSeedCategoriesForDelete, {});
+				const result = await c.mutation(api.testE2E.e2eSeedCategoriesForDelete, {
+					testToken: TEST_TOKEN
+				});
 				console.log('Seed categories for delete result:', result);
 				return result;
 			} catch {
@@ -191,7 +188,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async seedStudentsForDisable() {
 			try {
-				await c.mutation(api.testE2E.e2eSeedStudentsForDisable, {});
+				await c.mutation(api.testE2E.e2eSeedStudentsForDisable, { testToken: TEST_TOKEN });
 			} catch {
 				console.log('Seed students for disable error');
 			}
@@ -199,7 +196,7 @@ export function getE2EUtils(): E2EUtils {
 
 		async seedAuditLogs(authId?: string): Promise<{ success: boolean; error?: string }> {
 			try {
-				await c.mutation(api.testE2E.e2eSeedAuditLogs, { authId });
+				await c.mutation(api.testE2E.e2eSeedAuditLogs, { authId, testToken: TEST_TOKEN });
 				return { success: true };
 			} catch (e) {
 				console.log('Seed audit logs error:', e);
@@ -209,10 +206,8 @@ export function getE2EUtils(): E2EUtils {
 
 		async cleanupAll(): Promise<CleanupResult> {
 			try {
-				// Use testToken only if not using real auth
-				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
 				const result = await c.mutation(api.dataFactory.cleanupAll, {
-					testToken: token
+					testToken: TEST_TOKEN
 				});
 				console.log('Cleanup all result:', result);
 				return result;
@@ -224,10 +219,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async cleanupTestData(tag: string): Promise<CleanupResult> {
 			try {
-				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
 				const result = await c.mutation(api.dataFactory.cleanupAll, {
 					tag,
-					testToken: token
+					testToken: TEST_TOKEN
 				});
 				console.log('Cleanup test data result:', result);
 				return result;
@@ -239,9 +233,8 @@ export function getE2EUtils(): E2EUtils {
 
 		async cleanupAllE2eTaggedData(): Promise<CleanupResult> {
 			try {
-				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
 				const result = await c.mutation(api.testCleanup.cleanupAllE2eTaggedData, {
-					testToken: token
+					testToken: TEST_TOKEN
 				});
 				console.log('Cleanup all e2e-tagged data result:', result);
 				return result;
@@ -256,11 +249,10 @@ export function getE2EUtils(): E2EUtils {
 			e2eTag: string
 		): Promise<CleanupResult> {
 			try {
-				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
 				const result = await c.mutation(api.testCleanup.cleanupByTag, {
 					dataType,
 					e2eTag,
-					testToken: token
+					testToken: TEST_TOKEN
 				});
 				console.log('Cleanup by tag result:', result);
 				return result;
@@ -273,9 +265,8 @@ export function getE2EUtils(): E2EUtils {
 
 		async seedBaseline(): Promise<SeedBaselineResult> {
 			try {
-				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
 				const result = await c.mutation(api.dataFactory.seedBaseline, {
-					testToken: token
+					testToken: TEST_TOKEN
 				});
 				console.log('Seed baseline result:', result);
 				return result;
@@ -287,7 +278,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async cleanupTestUsers(): Promise<CleanupResult> {
 			try {
-				const result = await c.mutation(api.testCleanup.cleanupAllTestUsers, {});
+				const result = await c.mutation(api.testCleanup.cleanupAllTestUsers, {
+					testToken: TEST_TOKEN
+				});
 				console.log('Cleanup test users result:', result);
 				return result;
 			} catch {
@@ -298,7 +291,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async cleanupAuditLogs(authIdString?: string): Promise<CleanupResult> {
 			try {
-				const result = await c.mutation(api.testCleanup.cleanupAuditLogs, { authIdString });
+				const result = await c.mutation(api.testCleanup.cleanupAuditLogs, {
+					authIdString,
+					testToken: TEST_TOKEN
+				});
 				console.log('Cleanup audit logs result:', result);
 				return result;
 			} catch {
@@ -309,7 +305,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async setupTestUsers(): Promise<SetupTestUsersResult> {
 			try {
-				const result = await c.mutation(api.testSetup.setupTestUsers, {});
+				const result = await c.mutation(api.testSetup.setupTestUsers, {
+					testToken: TEST_TOKEN
+				});
 				console.log('Setup test users result:', result);
 				return result as SetupTestUsersResult;
 			} catch {
@@ -320,10 +318,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async createStudent(opts?: CreateStudentOptions) {
 			try {
-				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
 				return await c.mutation(api.dataFactory.createStudent, {
 					...(opts || {}),
-					testToken: token
+					testToken: TEST_TOKEN
 				});
 			} catch {
 				console.log('Create student error');
@@ -333,10 +330,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async createStudentWithId(opts: CreateStudentOptions) {
 			try {
-				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
 				return await c.mutation(api.dataFactory.createStudentWithId, {
 					...opts,
-					testToken: token
+					testToken: TEST_TOKEN
 				});
 			} catch (e) {
 				console.log('Create student with ID error:', e);
@@ -350,12 +346,11 @@ export function getE2EUtils(): E2EUtils {
 			e2eTag: string
 		) {
 			try {
-				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
 				return await c.mutation(api.dataFactory.setE2eTag, {
 					dataType,
 					dataId,
 					e2eTag,
-					testToken: token
+					testToken: TEST_TOKEN
 				});
 			} catch (e) {
 				console.log('Set e2eTag error:', e);
@@ -365,10 +360,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async createCategory(opts?: CreateCategoryOptions) {
 			try {
-				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
 				return await c.mutation(api.dataFactory.createCategory, {
 					...(opts || {}),
-					testToken: token
+					testToken: TEST_TOKEN
 				});
 			} catch {
 				console.log('Create category error');
@@ -378,10 +372,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async createCategoryWithSubs(opts: CreateCategoryWithSubsOptions) {
 			try {
-				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
 				return await c.mutation(api.dataFactory.createCategoryWithSubs, {
 					...opts,
-					testToken: token
+					testToken: TEST_TOKEN
 				});
 			} catch {
 				console.log('Create category with subs error');
@@ -392,7 +385,8 @@ export function getE2EUtils(): E2EUtils {
 		async createEvalForCategory(categoryName: string) {
 			try {
 				const result = await c.mutation(api.testE2E.e2eCreateEvaluationForCategory, {
-					categoryName
+					categoryName,
+					testToken: TEST_TOKEN
 				});
 				console.log('Create evaluation for category result:', result);
 				return result;
@@ -405,7 +399,8 @@ export function getE2EUtils(): E2EUtils {
 		async checkEvaluationExists(categoryId: string) {
 			try {
 				return await c.query(api.testE2E.e2eCheckEvaluationExists, {
-					categoryId: categoryId as Id<'point_categories'>
+					categoryId: categoryId as Id<'point_categories'>,
+					testToken: TEST_TOKEN
 				});
 			} catch {
 				console.log('Check evaluation exists error');
@@ -415,11 +410,9 @@ export function getE2EUtils(): E2EUtils {
 
 		async createEvaluationForStudent(data: CreateEvaluationForStudentData) {
 			try {
-				// When using real auth, don't pass testToken - let it use JWT auth
-				const token = isUsingRealAuth() ? undefined : TEST_TOKEN;
 				return await c.mutation(api.dataFactory.createEvaluationForStudent, {
 					...data,
-					testToken: token
+					testToken: TEST_TOKEN
 				});
 			} catch (e) {
 				console.log('Create evaluation for student error:', e);

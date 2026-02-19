@@ -13,8 +13,20 @@ const isDev =
 	process.env.NODE_ENV === 'development' ||
 	process.env.SITE_URL?.includes('localhost') ||
 	process.env.CONVEX_DEPLOYMENT?.includes('local');
+const isTestRuntime = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+const isProdDeployment = process.env.CONVEX_DEPLOYMENT?.startsWith('prod:') ?? false;
 
 const siteUrl = isDev ? 'http://localhost:5173' : process.env.SITE_URL || 'https://hwis.vercel.app';
+
+function generateEphemeralSecret(): string {
+	const parts = [
+		Date.now().toString(16),
+		Math.random().toString(16).slice(2),
+		Math.random().toString(16).slice(2),
+		Math.random().toString(16).slice(2)
+	];
+	return parts.join('').slice(0, 64);
+}
 
 if (typeof window === 'undefined') {
 	// Set environment variables for auth component if not already set
@@ -42,10 +54,19 @@ if (typeof window === 'undefined') {
 		normalizeConvexSiteUrl(process.env.CONVEX_SITE_URL || process.env.PUBLIC_CONVEX_SITE_URL) ||
 		normalizeConvexSiteUrl(convexUrl) ||
 		'http://127.0.0.1:3211';
-	// Use env var or generate a secure secret for development
-	const betterAuthSecret =
-		process.env.BETTER_AUTH_SECRET ||
-		'0150ee735cf86820eb80300e6050a1e4be246675a80a65fc62e64489633f7db0';
+	let betterAuthSecret = process.env.BETTER_AUTH_SECRET;
+	if (!betterAuthSecret) {
+		betterAuthSecret = generateEphemeralSecret();
+		if (isDev || isTestRuntime) {
+			console.warn(
+				'[auth] BETTER_AUTH_SECRET is not set. Generated an ephemeral secret for local/test runtime.'
+			);
+		} else {
+			console.warn(
+				'[auth] BETTER_AUTH_SECRET is not set. Using ephemeral secret; set a stable secret in production env.'
+			);
+		}
+	}
 
 	process.env.CONVEX_URL = convexUrl;
 	process.env.PUBLIC_CONVEX_SITE_URL = convexSiteUrl;
@@ -151,8 +172,15 @@ export const getAuthenticatedUser = async (
 	ctx: AuthCtx,
 	testToken?: string
 ): Promise<Doc<'users'> | AuthenticatedUserLike | null> => {
-	// For unit tests (convex-test), check test token FIRST to avoid hanging on auth component
-	if (testToken === 'unit-test-token') {
+	const configuredTestToken = process.env.E2E_TEST_TOKEN;
+	const allowDefaultTestToken = !isProdDeployment;
+	const isValidTestToken =
+		(configuredTestToken && testToken === configuredTestToken) ||
+		(isTestRuntime && testToken === 'unit-test-token') ||
+		(allowDefaultTestToken && testToken === 'unit-test-token');
+
+	// For unit tests/e2e helpers, allow explicit test token bypass.
+	if (isValidTestToken) {
 		return {
 			_id: 'test-user-id' as Id<'users'>,
 			authId: 'test_admin',
@@ -221,4 +249,9 @@ export const requireAdminRole = async (ctx: AuthCtx, _testToken?: string) => {
 	}
 
 	return user;
+};
+
+export const requireAdminForSensitiveOperation = async (ctx: AuthCtx, testToken?: string) => {
+	const effectiveTestToken = isTestRuntime && !testToken ? 'unit-test-token' : testToken;
+	return await requireAdminRole(ctx, effectiveTestToken);
 };

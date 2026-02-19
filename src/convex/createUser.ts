@@ -1,6 +1,6 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { authComponent } from './auth';
+import { authComponent, requireAdminForSensitiveOperation } from './auth';
 
 type BetterAuthUser = {
 	_id?: string;
@@ -13,9 +13,11 @@ export const createUserByEmail = mutation({
 	args: {
 		email: v.string(),
 		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active')))
+		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
+		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		// Find the Better Auth user by email
 		const adapter = await authComponent.adapter(ctx)({
 			user: { fields: undefined }

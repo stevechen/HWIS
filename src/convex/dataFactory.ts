@@ -1,7 +1,7 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
-import { getAuthenticatedUser } from './auth';
+import { authComponent, getAuthenticatedUser, requireAdminForSensitiveOperation } from './auth';
 
 // Type for authenticated user objects from auth (has authId or _id)
 type AuthUserInfo = { authId?: string; _id?: string };
@@ -81,8 +81,7 @@ export const cleanupAll = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Validate test token for cloud Convex compatibility
-		await getAuthenticatedUser(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const e2eTag = args.tag || getE2ETag();
 		let totalDeleted = 0;
 
@@ -105,6 +104,7 @@ export const seedBaseline = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const now = Date.now();
 
 		// Real user emails to PRESERVE
@@ -228,13 +228,34 @@ export const createEvaluationForStudent = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Get authenticated user info - use JWT auth or testToken bypass
-		const authUser = await getAuthenticatedUser(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 
-		let teacherId: Id<'users'>;
+		let teacherId: Id<'users'> | null = null;
+		let resolvedFromJwt = false;
 
-		// For testToken bypass, create/get test teacher user
-		if (args.testToken === 'unit-test-token') {
+		// Prefer the real authenticated JWT user when present so seeded data
+		// reflects the current role (teacher/admin) in UI permission tests.
+		try {
+			const jwtUser = (await authComponent.getAuthUser(ctx)) as AuthUserInfo | null;
+			if (jwtUser) {
+				const authId = jwtUser.authId || (jwtUser as { id?: string }).id || jwtUser._id;
+				if (authId) {
+					const userFromDb = await ctx.db
+						.query('users')
+						.withIndex('by_authId', (q) => q.eq('authId', authId))
+						.first();
+					if (userFromDb) {
+						teacherId = userFromDb._id;
+						resolvedFromJwt = true;
+					}
+				}
+			}
+		} catch {
+			// No JWT session available; fallback to token-based behavior below.
+		}
+
+		// If no JWT user is available, keep token-based fallback for headless setup helpers.
+		if (!resolvedFromJwt && args.testToken === 'unit-test-token') {
 			// Look for existing test teacher or create one
 			const existingUser = await ctx.db
 				.query('users')
@@ -251,7 +272,10 @@ export const createEvaluationForStudent = mutation({
 					status: 'active'
 				});
 			}
-		} else {
+		} else if (!resolvedFromJwt) {
+			// Get authenticated user info - use JWT auth or testToken bypass
+			const authUser = await getAuthenticatedUser(ctx, args.testToken);
+
 			// Normal lookup using authenticated user's authId
 			if (!authUser) {
 				throw new Error('User not authenticated. Provide testToken or use JWT auth.');
@@ -267,6 +291,10 @@ export const createEvaluationForStudent = mutation({
 			}
 
 			teacherId = userFromDb._id;
+		}
+
+		if (!teacherId) {
+			throw new Error('Failed to resolve teacher user for seeded evaluation');
 		}
 
 		// Find the student
@@ -341,8 +369,7 @@ export const createStudent = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Validate test token for cloud Convex compatibility
-		await getAuthenticatedUser(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const tag = args.e2eTag || getE2ETag();
 		return await ctx.db.insert('students', {
 			englishName: args.englishName ?? generateStudentName(),
@@ -366,8 +393,7 @@ export const createStudentWithId = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Validate test token for cloud Convex compatibility
-		await getAuthenticatedUser(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const tag = args.e2eTag || getE2ETag();
 		const existing = await ctx.db
 			.query('students')
@@ -404,8 +430,7 @@ export const createCategory = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Validate test token for cloud Convex compatibility
-		await getAuthenticatedUser(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const tag = args.e2eTag || getE2ETag();
 		return await ctx.db.insert('point_categories', {
 			name: args.name ?? `Category_${Date.now().toString().slice(-6)}`,
@@ -423,8 +448,7 @@ export const createCategoryWithSubs = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Validate test token for cloud Convex compatibility
-		await getAuthenticatedUser(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const tag = args.e2eTag || getE2ETag();
 		return await ctx.db.insert('point_categories', {
 			name: args.name,
@@ -441,8 +465,7 @@ export const setStudentE2eTag = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Validate test token for cloud Convex compatibility
-		await getAuthenticatedUser(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const student = await ctx.db
 			.query('students')
 			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
@@ -465,8 +488,7 @@ export const setE2eTag = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Validate test token for cloud Convex compatibility
-		await getAuthenticatedUser(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 
 		if (args.dataType === 'students') {
 			const student = await ctx.db

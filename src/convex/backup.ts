@@ -1,24 +1,39 @@
-import { query, mutation } from './_generated/server';
+import { query, mutation, type QueryCtx } from './_generated/server';
 import { v, type GenericId } from 'convex/values';
 import { requireAdminRole } from './auth';
 import type { Doc, Id } from './_generated/dataModel';
+
+async function collectBackupData(ctx: QueryCtx) {
+	const students = await ctx.db.query('students').collect();
+	const evaluations = await ctx.db.query('evaluations').collect();
+	const users = await ctx.db.query('users').collect();
+	const categories = await ctx.db.query('point_categories').collect();
+
+	return {
+		exportedAt: new Date().toISOString(),
+		students,
+		evaluations,
+		users,
+		categories
+	};
+}
 
 export const exportData = query({
 	args: { testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
-		const students = await ctx.db.query('students').collect();
-		const evaluations = await ctx.db.query('evaluations').collect();
-		const users = await ctx.db.query('users').collect();
-		const categories = await ctx.db.query('point_categories').collect();
+		return await collectBackupData(ctx);
+	}
+});
 
-		return {
-			exportedAt: new Date().toISOString(),
-			students,
-			evaluations,
-			users,
-			categories
-		};
+export const exportDataForCron = query({
+	args: { cronSecret: v.string() },
+	handler: async (ctx, args) => {
+		const expectedSecret = process.env.CRON_SECRET;
+		if (!expectedSecret || args.cronSecret !== expectedSecret) {
+			throw new Error('Unauthorized');
+		}
+		return await collectBackupData(ctx);
 	}
 });
 

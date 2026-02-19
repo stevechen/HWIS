@@ -5,8 +5,11 @@ This document provides comprehensive guidance for AI agents working on the HWIS 
 ## Quick Start
 
 ```bash
-# Run unit tests (fast, no server needed)
-bunx vitest run --config vite.config.ts
+# Run server unit tests (fast, no browser/server needed)
+bun run test:unit
+
+# Run component/browser tests (Chromium via Vitest browser project)
+bunx vitest run --config vite.config.ts --project client
 
 # Run e2e tests (Playwright will start dev server)
 bun run test:e2e
@@ -201,17 +204,17 @@ await expect.element(page.getByText('Title')).toBeInTheDocument();
 ### Running Browser Tests
 
 ```bash
-# Run all browser unit tests (locator pattern, real Chromium)
-bunx vitest run --config vite.config.ts
+# Run all component/browser tests (locator pattern, real Chromium)
+bunx vitest run --config vite.config.ts --project client
 
 # Run specific test file
-bunx vitest run --config vite.config.ts tests/routes/admin/users/users-page.test.ts
+bunx vitest run --config vite.config.ts --project client tests/routes/admin/users/users-page.test.ts
 
 # Run all component/browser tests
-bunx vitest run --config vite.config.ts tests/**/*.test.ts
+bunx vitest run --config vite.config.ts --project client tests/**/*.test.ts
 
 # Run tests matching a name
-bunx vitest run --config vite.config.ts -t "Users Page"
+bunx vitest run --config vite.config.ts --project client -t "Users Page"
 ```
 
 ## Server Unit Tests (convex-test)
@@ -492,6 +495,13 @@ From `e2e/convex-client.ts`:
 - `cleanupAll()` - Nuclear cleanup
 - `getTestSuffix(prefix)` - Generate unique test suffix
 - `useRole(role)` - Set auth token for Convex API calls in tests
+
+### E2E Auth Guard Notes
+
+- Sensitive Convex test/setup/cleanup helpers are now auth-guarded.
+- `e2e/convex-client.ts` automatically passes `testToken` for helper mutations.
+- In non-production runtimes, default helper token is `unit-test-token`.
+- If you set `E2E_TEST_TOKEN`, helper calls must use the same value.
 
 ### Running E2E Tests
 

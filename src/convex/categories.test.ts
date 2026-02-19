@@ -340,7 +340,7 @@ describe('categories edge cases', () => {
 
 		const categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(3);
-		const names = categories.map((c) => c.name);
+			const names = categories.map((c: { name: string }) => c.name);
 		expect(names).toContain('First Category');
 		expect(names).toContain('Second Category');
 		expect(names).toContain('Third Category');

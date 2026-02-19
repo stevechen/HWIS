@@ -1,8 +1,11 @@
 import { mutation } from './_generated/server';
+import { v } from 'convex/values';
+import { requireAdminForSensitiveOperation } from './auth';
 
 export const seedAllUsersAsAdmin = mutation({
-	args: {},
-	handler: async (ctx) => {
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const allUsers = await ctx.db.query('users').collect();
 
 		for (const user of allUsers) {
