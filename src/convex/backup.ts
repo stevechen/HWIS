@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { query, mutation } from './_generated/server';
 import { v, type GenericId } from 'convex/values';
 import { requireAdminRole } from './auth';
+import type { Doc, Id } from './_generated/dataModel';
 
 export const exportData = query({
 	args: { testToken: v.optional(v.string()) },
@@ -61,6 +61,23 @@ interface BackupRecord {
 	createdAt: number;
 }
 
+type BackupPayload = {
+	students: Array<
+		Pick<
+			Doc<'students'>,
+			'englishName' | 'chineseName' | 'studentId' | 'grade' | 'status' | 'note'
+		>
+	>;
+	evaluations: Array<
+		Pick<
+			Doc<'evaluations'>,
+			'studentId' | 'teacherId' | 'value' | 'categoryId' | 'subCategory' | 'details' | 'timestamp' | 'semesterId'
+		>
+	>;
+	users: Array<Pick<Doc<'users'>, 'authId' | 'name' | 'role' | 'status'>>;
+	categories: Array<Pick<Doc<'point_categories'>, 'name' | 'subCategories'>>;
+};
+
 export const restoreFromBackup = mutation({
 	args: {
 		backupId: v.id('backups'),
@@ -71,7 +88,7 @@ export const restoreFromBackup = mutation({
 		const backup = (await ctx.db.get(args.backupId)) as BackupRecord | null;
 		if (!backup) throw new Error('Backup not found');
 
-		const data = backup.data as any;
+		const data = backup.data as BackupPayload;
 		for (const student of data.students) {
 			await ctx.db.insert('students', {
 				englishName: student.englishName,
@@ -84,10 +101,10 @@ export const restoreFromBackup = mutation({
 		}
 		for (const evaluation of data.evaluations) {
 			await ctx.db.insert('evaluations', {
-				studentId: evaluation.studentId,
-				teacherId: evaluation.teacherId,
+				studentId: evaluation.studentId as Id<'students'>,
+				teacherId: evaluation.teacherId as Id<'users'>,
 				value: evaluation.value,
-				categoryId: evaluation.categoryId,
+				categoryId: evaluation.categoryId as Id<'point_categories'>,
 				subCategory: evaluation.subCategory,
 				details: evaluation.details,
 				timestamp: evaluation.timestamp,

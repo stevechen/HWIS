@@ -11,6 +11,9 @@ bunx vitest run --config vite.config.ts
 # Run e2e tests (Playwright will start dev server)
 bun run test:e2e
 
+# Run e2e tests in Chromium + WebKit (slower)
+E2E_CROSS_BROWSER=1 bun run test:e2e
+
 # Run e2e tests in UI mode
 bun run test:e2e:ui
 
@@ -202,13 +205,13 @@ await expect.element(page.getByText('Title')).toBeInTheDocument();
 bunx vitest run --config vite.config.ts
 
 # Run specific test file
-bunx vitest run src/convex/students.test.ts
+bunx vitest run --config vite.config.ts tests/routes/admin/users/users-page.test.ts
 
-# Run only students tests
-bunx vitest run src/convex/students.test.ts
+# Run all component/browser tests
+bunx vitest run --config vite.config.ts tests/**/*.test.ts
 
-# Run only categories tests
-bunx vitest run src/convex/categories.test.ts
+# Run tests matching a name
+bunx vitest run --config vite.config.ts -t "Users Page"
 ```
 
 ## Server Unit Tests (convex-test)
@@ -218,6 +221,7 @@ bunx vitest run src/convex/categories.test.ts
 - `src/convex/students.test.ts` - Student CRUD tests
 - `src/convex/categories.test.ts` - Category tests
 - `src/convex/*.test.ts` - Other Convex function tests
+- `src/convex/testUtilities.test.ts` - Guardrail tests for test utilities
 
 ### Pattern
 
@@ -250,6 +254,8 @@ describe('Students', () => {
 
 ### Running Server Tests
 
+The server test config (`vitest.config.ts`) includes `src/convex/*.test.ts`.
+
 ```bash
 # Run all server unit tests
 bunx vitest run src/convex/*.test.ts
@@ -259,19 +265,51 @@ bunx vitest run src/convex/students.test.ts
 
 # Run only categories tests
 bunx vitest run src/convex/categories.test.ts
+
+# Run utility guardrail tests
+bunx vitest run src/convex/testUtilities.test.ts
 ```
+
+### Test Utility Guardrails
+
+`src/convex/testUtilities.test.ts` validates safety behavior for:
+
+- `testSetup.ts`
+- `testCleanup.ts`
+- `resetDb.ts`
+- `dedupeUsers.ts`
+
+The focus is intentionally narrow:
+
+- idempotency (safe to run more than once)
+- scope control (only test/prefixed/tagged data is touched)
+- protected account preservation (e.g. `teacher@hwis.test`, `admin@hwis.test`, `super@hwis.test`)
 
 ## E2E Tests (Playwright)
 
 ### Project Phases (Ordering)
 
-Playwright runs tests in phases via project dependencies:
+Playwright runs tests in phases via project dependencies.
+
+Default mode is Chromium-only for speed.  
+Set `E2E_CROSS_BROWSER=1` to include WebKit.
+
+### Default (Chromium-only)
 
 1. `setup` (auth + storageState)
-2. `chromium-parallel` and `webkit-parallel` (parallel-safe tests)
+2. `chromium-parallel` (parallel-safe tests)
 3. `cleanup-after-parallel` (delete all `e2eTag` data)
-4. `chromium-sequential` then `webkit-sequential` (single-worker)
+4. `chromium-sequential` (single-worker)
 5. `auth-sequential` (logout/session invalidation tests; runs last)
+6. `chromium-super` (audit tests with super user)
+
+### Cross-browser Mode (`E2E_CROSS_BROWSER=1`)
+
+Adds:
+
+- `webkit-parallel`
+- `webkit-sequential`
+- `webkit-super`
 
 If a project fails, **all dependent projects are skipped** (shown as “did not run” in UI).
 
@@ -460,6 +498,9 @@ From `e2e/convex-client.ts`:
 ```bash
 # Run all e2e tests (requires dev server running)
 bun run test:e2e
+
+# Run cross-browser e2e tests (Chromium + WebKit)
+E2E_CROSS_BROWSER=1 bun run test:e2e
 
 # Run specific test file
 bunx playwright test e2e/students/crud.spec.ts

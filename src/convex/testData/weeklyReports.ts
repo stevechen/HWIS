@@ -1,6 +1,7 @@
 import { mutation } from '../_generated/server';
 import { v } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
+import type { MutationCtx } from '../_generated/server';
 
 // Weekly Reports Test Data Generator
 // Creates realistic 5 weeks of evaluation data for testing
@@ -282,12 +283,13 @@ export const createWeeklyReportTestData = mutation({
 	}
 });
 
+type E2ETable = 'evaluations' | 'audit_logs' | 'students' | 'users' | 'point_categories';
+type TaggedDoc = { _id: Id<E2ETable>; e2eTag?: string };
+
 // Helper function to delete all tagged data
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function deleteByTag(ctx: any, table: string, tag: string): Promise<number> {
+async function deleteByTag(ctx: MutationCtx, table: E2ETable, tag: string): Promise<number> {
 	const docs = await ctx.db.query(table).collect();
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const taggedDocs = docs.filter((doc: any) => (doc as { e2eTag: string }).e2eTag === tag);
+	const taggedDocs = docs.filter((doc) => (doc as TaggedDoc).e2eTag === tag);
 
 	for (const doc of taggedDocs) {
 		await ctx.db.delete(doc._id);
@@ -297,16 +299,17 @@ async function deleteByTag(ctx: any, table: string, tag: string): Promise<number
 }
 
 // Helper function to verify complete cleanup
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function verifyCompleteCleanup(ctx: any, tag: string): Promise<{ e2eTag: string }[]> {
-	const tables = ['evaluations', 'audit_logs', 'students', 'users', 'point_categories'];
-	const remaining: { e2eTag: string }[] = [];
+async function verifyCompleteCleanup(
+	ctx: MutationCtx,
+	tag: string
+): Promise<Array<{ e2eTag: string }>> {
+	const tables: E2ETable[] = ['evaluations', 'audit_logs', 'students', 'users', 'point_categories'];
+	const remaining: Array<{ e2eTag: string }> = [];
 
 	for (const table of tables) {
 		const docs = await ctx.db.query(table).collect();
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const tagged = docs.filter((doc: any) => (doc as { e2eTag: string }).e2eTag === tag);
-		remaining.push(...tagged);
+		const tagged = docs.filter((doc) => (doc as TaggedDoc).e2eTag === tag);
+		remaining.push(...(tagged as Array<{ e2eTag: string }>));
 	}
 
 	return remaining;

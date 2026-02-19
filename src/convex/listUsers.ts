@@ -1,6 +1,12 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { query } from './_generated/server';
 import { authComponent } from './auth';
+
+type BetterAuthUser = {
+	_id?: string;
+	id?: string;
+	email?: string;
+	name?: string;
+};
 
 export const listAllBAUsers = query({
 	args: {},
@@ -9,8 +15,8 @@ export const listAllBAUsers = query({
 			user: { fields: undefined }
 		});
 
-		const users = await adapter.findMany({ model: 'user', where: [] });
-		return users.map((u: any) => ({
+		const users = (await adapter.findMany({ model: 'user', where: [] })) as BetterAuthUser[];
+		return users.map((u) => ({
 			id: u._id || u.id,
 			email: u.email,
 			name: u.name

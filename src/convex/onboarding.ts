@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
 import {
@@ -9,6 +8,10 @@ import {
 	authComponent
 } from './auth';
 
+type BetterAuthUser = {
+	email?: string;
+};
+
 export const ensureUserProfile = mutation({
 	args: { testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
@@ -18,7 +21,12 @@ export const ensureUserProfile = mutation({
 			throw new Error('Not authenticated');
 		}
 
-		const authId = authUser.authId || (authUser as any)._id;
+		const authId =
+			authUser.authId ||
+			(typeof authUser._id === 'string' ? authUser._id : undefined);
+		if (!authId) {
+			throw new Error('Missing authId');
+		}
 
 		const existing = await ctx.db
 			.query('users')
@@ -37,8 +45,8 @@ export const ensureUserProfile = mutation({
 		}
 
 		// Get email directly from Better Auth (not from profile, which doesn't have email field)
-		const betterAuthUser = await authComponent.getAuthUser(ctx);
-		const userEmail = (betterAuthUser as any)?.email;
+		const betterAuthUser = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
+		const userEmail = betterAuthUser?.email;
 
 		const isExceptionEmail = userEmail && EXCEPTION_EMAILS.includes(userEmail);
 

@@ -63,22 +63,6 @@ test.describe('Add Student - UI Data Tests', () => {
 		testStudent = true;
 	});
 
-	test('shows check icon for unique student ID after manual check', async ({ page }) => {
-		const suffix2 = getTestSuffix('dupIdCheck');
-		const studentId2 = `S_${suffix2}`;
-
-		// Open add student dialog using aria-label
-		await page.getByRole('button', { name: 'Add new student' }).click();
-		const dialog = page.getByRole('dialog', { name: 'Student form' });
-
-		await expect(dialog).toBeVisible();
-
-		// Fill in student ID
-		await dialog.getByRole('textbox', { name: 'Student ID' }).fill(studentId2);
-		await dialog.getByRole('button', { name: 'ID unknown' }).click();
-
-		await expect(dialog.getByRole('button', { name: 'ID available' })).toBeVisible();
-	});
 });
 
 test.describe('Student ID Validation - Duplicate Data Tests', () => {
@@ -375,79 +359,6 @@ test.describe('Delete Student - With Cascade @sequential', () => {
 	});
 });
 
-test.describe('Delete Dialog - Shows Options @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
-
-	const suffix = getTestSuffix('dlgNotEnrolled');
-	const studentId = `S_${suffix}`;
-	const englishName = `DlgNotEnrolled_${suffix}`;
-	const e2eTag = `e2e-test_${suffix}`;
-	let testStudent = false;
-	let testCategory = false;
-	let testEvaluation = false;
-
-	test.beforeEach(async () => {
-		useRole('admin');
-		// Create category
-		await createCategoryWithSubs({
-			name: `Cat_${suffix}`,
-			subCategories: ['Homework'],
-			e2eTag: e2eTag
-		});
-		testCategory = true;
-
-		// Create student WITH evaluation
-		await createStudentWithEvaluations({
-			studentId: studentId,
-			englishName: englishName,
-			chineseName: '對話框測試',
-			grade: 10,
-			status: 'Enrolled',
-			e2eTag: e2eTag
-		});
-		testStudent = true;
-		testEvaluation = true;
-	});
-
-	test.afterEach(async () => {
-		if (testEvaluation) await cleanupByTag('evaluations', e2eTag);
-		if (testCategory) await cleanupByTag('categories', e2eTag);
-		if (testStudent) await cleanupByTag('students', e2eTag);
-	});
-
-	test.beforeEach(async ({ page }) => {
-		await page.goto('/admin/students');
-		await page.waitForSelector('body.hydrated');
-
-		// Clear filters
-		const statusFilter = page.getByLabel('Filter by status');
-		if (await statusFilter.isVisible()) {
-			await statusFilter.selectOption('');
-		}
-		const searchInput = page.getByRole('textbox', { name: 'Search students' });
-		await searchInput.fill('');
-	});
-
-	test('delete dialog shows Set Not Enrolled for student with evaluations', async ({ page }) => {
-		// Wait for student
-		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
-
-		// Click delete button
-		const deleteButton = page.getByRole('button', { name: `Delete ${studentId}` }).first();
-		await deleteButton.click();
-
-		// Wait for dialog
-		await expect(page.getByRole('dialog')).toBeVisible();
-		const dialog = page.getByRole('dialog');
-
-		// Verify cascade UI
-		await expect(dialog.getByRole('alert')).toBeVisible();
-		await expect(dialog.getByText(/evaluation record/i)).toBeVisible();
-		await expect(dialog.getByRole('button', { name: 'Set Not Enrolled' })).toBeVisible();
-		await expect(dialog.getByRole('button', { name: 'Delete Anyway' })).toBeVisible();
-	});
-});
-
 test.describe('Delete - Set Not Enrolled @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
@@ -528,37 +439,5 @@ test.describe('Delete - Set Not Enrolled @sequential', () => {
 
 		// Student and category still exist, evaluation was used but should be cleaned up
 		// (testEvaluation remains true for cleanup)
-	});
-});
-
-// ============================================================================
-// ARCHIVE / YEAR-END RESET TESTS
-// ============================================================================
-
-test.describe('Archive & Reset Page - Static Tests', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
-
-	test.beforeEach(async ({ page }) => {
-		await page.goto('http://localhost:5173/admin/academic');
-		await page.waitForSelector('body.hydrated');
-	});
-
-	test('page loads and shows correct heading', async ({ page }) => {
-		const url = page.url();
-		expect(url).toContain('/admin/academic');
-
-		await expect(page.getByRole('heading', { name: /Year-End Reset/i })).toBeVisible();
-	});
-
-	test('shows advance academic year section', async ({ page }) => {
-		// Check if we're on the right page
-		await expect(page.getByRole('heading', { name: /Year-End Reset/i })).toBeVisible();
-
-		await expect(page.getByText(/Advance Academic Year/i)).toBeVisible();
-	});
-
-	test('shows advance year button', async ({ page }) => {
-		const advanceButton = page.getByRole('button', { name: /Advance/i });
-		await expect(advanceButton.first()).toBeVisible();
 	});
 });

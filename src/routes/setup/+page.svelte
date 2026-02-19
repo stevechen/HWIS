@@ -8,8 +8,6 @@
 
 	const client = useConvexClient();
 	const auth = browser ? useAuth() : { isLoading: false, isAuthenticated: false };
-	/* eslint-disable @typescript-eslint/no-explicit-any */
-	const apiAny = api as any;
 
 	let status = $state('Checking auth...');
 	let error = $state<string | null>(null);
@@ -23,7 +21,7 @@
 		status = 'Creating profile...';
 
 		try {
-			const result = await client.mutation(apiAny.onboarding.ensureUserProfile, {});
+			const result = await client.mutation(api.onboarding.ensureUserProfile, {});
 
 			if (result.created) {
 				status = 'Profile created! Promoting to admin...';

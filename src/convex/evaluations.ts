@@ -131,7 +131,10 @@ export const listRecent = query({
 		const authUser = await getAuthenticatedUser(ctx, args.testToken);
 		if (!authUser) return { evaluations: [], cursor: null };
 
-		const authId = authUser.authId || (authUser as any)._id;
+		const authId =
+			authUser.authId ||
+			(typeof authUser._id === 'string' ? authUser._id : undefined);
+		if (!authId) return { evaluations: [], cursor: null };
 
 		const userDoc = await ctx.db
 			.query('users')

@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use node';
 
 import { action } from './_generated/server';
 import { anyApi } from 'convex/server';
+import type { Doc } from './_generated/dataModel';
 
 async function getAccessToken(): Promise<string> {
 	const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -39,7 +39,7 @@ async function uploadToDrive(
 ): Promise<{ fileId: string; createdTime: string }> {
 	const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-	const metadata: Record<string, any> = {
+	const metadata: { name: string; mimeType: string; parents?: string[] } = {
 		name: filename,
 		mimeType: 'application/json'
 	};
@@ -72,7 +72,7 @@ async function uploadToDrive(
 		}
 	);
 
-	const data = await response.json();
+	const data = (await response.json()) as { id?: string; createdTime?: string };
 	if (!data.id) {
 		throw new Error('Failed to upload to Drive: ' + JSON.stringify(data));
 	}
@@ -86,25 +86,25 @@ async function uploadToDrive(
 		body: JSON.stringify({ role: 'reader', type: 'anyone' })
 	});
 
-	return { fileId: data.id, createdTime: data.createdTime };
+	return { fileId: data.id, createdTime: data.createdTime ?? new Date().toISOString() };
 }
 
 export const backupToDrive = action({
 	args: {},
 	handler: async (ctx) => {
 		const exportDataFn = anyApi.backup.exportData;
-		const students = await ctx.runQuery(exportDataFn);
+		const exportData = (await ctx.runQuery(exportDataFn)) as {
+			students: Doc<'students'>[];
+			evaluations: Doc<'evaluations'>[];
+			users: Doc<'users'>[];
+			categories: Doc<'point_categories'>[];
+		};
 		const {
 			students: studentData,
 			evaluations,
 			users,
 			categories
-		} = students as {
-			students: any[];
-			evaluations: any[];
-			users: any[];
-			categories: any[];
-		};
+		} = exportData;
 
 		const backup = {
 			exportedAt: new Date().toISOString(),

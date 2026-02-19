@@ -1,7 +1,6 @@
 import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { setupConvexMocks, setupAuthMocks } from '../../../mocks/convex-mocks';
 
 // Mock categories data
 const mockCategories = [
@@ -21,13 +20,25 @@ const mockCategories = [
 const mockMutation = vi.fn().mockResolvedValue(undefined);
 const mockQuery = vi.fn().mockResolvedValue(5); // Default evaluation count
 
-// Setup mocks using shared utilities with custom category data
-setupConvexMocks({
-	data: mockCategories,
-	customMutation: mockMutation,
-	customQuery: mockQuery
-});
-setupAuthMocks({ user: { name: 'Test Admin' } });
+vi.mock('convex-svelte', () => ({
+	useQuery: vi.fn(() => ({
+		data: mockCategories,
+		isLoading: false,
+		error: null
+	})),
+	useConvexClient: vi.fn(() => ({
+		mutation: mockMutation,
+		query: mockQuery
+	}))
+}));
+
+vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
+	useAuth: vi.fn(() => ({
+		isLoading: false,
+		isAuthenticated: true,
+		data: { user: { name: 'Test Admin' } }
+	}))
+}));
 
 import CategoriesPage from '$src/routes/admin/categories/+page.svelte';
 

@@ -1,7 +1,13 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { authComponent } from './auth';
+
+type BetterAuthUser = {
+	_id?: string;
+	id: string;
+	email: string;
+	name?: string;
+};
 
 export const createUserByEmail = mutation({
 	args: {
@@ -15,8 +21,8 @@ export const createUserByEmail = mutation({
 			user: { fields: undefined }
 		});
 
-		const baUsers = await adapter.findMany({ model: 'user', where: [] });
-		const baUser = (baUsers as any[]).find((u) => u.email === args.email);
+		const baUsers = (await adapter.findMany({ model: 'user', where: [] })) as BetterAuthUser[];
+		const baUser = baUsers.find((u) => u.email === args.email);
 
 		if (!baUser) {
 			throw new Error(`Better Auth user not found for email: ${args.email}`);

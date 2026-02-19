@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient, type GenericCtx } from '@convex-dev/better-auth';
 import { convex } from '@convex-dev/better-auth/plugins';
 import { components } from './_generated/api';
-import { type DataModel, type Doc } from './_generated/dataModel';
+import { type DataModel, type Doc, type Id } from './_generated/dataModel';
+import type { MutationCtx, QueryCtx } from './_generated/server';
 import { betterAuth } from 'better-auth/minimal';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import authConfig from './auth.config';
@@ -74,6 +74,24 @@ const REJECTION_MESSAGE = 'For Hong Wen International School (HWIS) staffs only.
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
 export const authComponent = createClient<DataModel>(components.betterAuth);
+type AuthCtx = QueryCtx | MutationCtx;
+type AuthenticatedUserLike = {
+	_id?: Id<'users'> | string;
+	id?: string;
+	authId?: string;
+	email?: string;
+	name?: string;
+	role?: 'super' | 'admin' | 'teacher';
+	status?: 'pending' | 'active';
+};
+
+function resolveAuthId(user: AuthenticatedUserLike): string | undefined {
+	return user.authId || user.id || (typeof user._id === 'string' ? user._id : undefined);
+}
+
+function isUserProfile(user: AuthenticatedUserLike): user is Doc<'users'> {
+	return Boolean(user._id && user.role && user.status);
+}
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
 	return betterAuth({
@@ -103,7 +121,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 			after: createAuthMiddleware(async ({ path, context }) => {
 				if (!path?.startsWith('/sign-in/social')) return;
 
-				const email = (context.session?.user as any)?.email;
+				const email = (context.session?.user as { email?: string } | undefined)?.email;
 				if (!email) return;
 
 				const isException = EXCEPTION_EMAILS.includes(email);
@@ -129,26 +147,29 @@ export function isAllowedDomain(email: string): boolean {
 	return email.endsWith(`@${ALLOWED_DOMAIN}`);
 }
 
-export const getAuthenticatedUser = async (ctx: any, testToken?: string) => {
+export const getAuthenticatedUser = async (
+	ctx: AuthCtx,
+	testToken?: string
+): Promise<Doc<'users'> | AuthenticatedUserLike | null> => {
 	// For unit tests (convex-test), check test token FIRST to avoid hanging on auth component
 	if (testToken === 'unit-test-token') {
 		return {
-			_id: 'test-user-id' as any,
+			_id: 'test-user-id' as Id<'users'>,
 			authId: 'test_admin',
 			name: 'Test Admin',
 			role: 'admin',
 			status: 'active'
-		} as any;
+		};
 	}
 
 	try {
-		const user = await authComponent.getAuthUser(ctx);
+		const user = (await authComponent.getAuthUser(ctx)) as AuthenticatedUserLike | null;
 		if (user) {
-			const authId = (user as any).authId || (user as any).id || (user as any)._id;
+			const authId = resolveAuthId(user);
 			if (authId && ctx.db) {
 				const profile = await ctx.db
 					.query('users')
-					.withIndex('by_authId', (q: any) => q.eq('authId', authId))
+					.withIndex('by_authId', (q) => q.eq('authId', authId))
 					.first();
 				if (profile) return profile;
 			}
@@ -162,20 +183,21 @@ export const getAuthenticatedUser = async (ctx: any, testToken?: string) => {
 };
 
 // Unified helper that ensures user AND profile exists
-export const requireUserProfile = async (ctx: any, _testToken?: string): Promise<Doc<'users'>> => {
+export const requireUserProfile = async (
+	ctx: AuthCtx,
+	_testToken?: string
+): Promise<Doc<'users'>> => {
 	const user = await getAuthenticatedUser(ctx, _testToken);
 	if (user) {
 		// If the user object ALREADY looks like a HWIS profile, return it
-		if ((user as any)._id && (user as any).role && (user as any).status) {
-			return user as Doc<'users'>;
-		}
+		if (isUserProfile(user)) return user;
 
 		// Otherwise try to resolve from DB
-		const authId = (user as any).authId || (user as any).id || (user as any)._id;
+		const authId = resolveAuthId(user);
 		if (authId && ctx.db) {
 			const profile = await ctx.db
 				.query('users')
-				.withIndex('by_authId', (q: any) => q.eq('authId', authId))
+				.withIndex('by_authId', (q) => q.eq('authId', authId))
 				.first();
 			if (profile) return profile;
 		}
@@ -185,12 +207,12 @@ export const requireUserProfile = async (ctx: any, _testToken?: string): Promise
 };
 
 // Basic authentication requirement
-export const requireAuthenticatedUser = async (ctx: any, _testToken?: string) => {
+export const requireAuthenticatedUser = async (ctx: AuthCtx, _testToken?: string) => {
 	return await requireUserProfile(ctx, _testToken);
 };
 
 // Admin/Super role requirement
-export const requireAdminRole = async (ctx: any, _testToken?: string) => {
+export const requireAdminRole = async (ctx: AuthCtx, _testToken?: string) => {
 	const user = await requireUserProfile(ctx, _testToken);
 
 	const role = user.role;

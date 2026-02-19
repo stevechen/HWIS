@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect } from 'vitest';
 import { convexTest, modules } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
+import type { Id } from './_generated/dataModel';
 
 describe('categories.create', () => {
 	it('creates a category with subCategories', async () => {
@@ -155,7 +155,7 @@ describe('categories.remove', () => {
 
 		await expect(async () => {
 			await t.mutation(api.categories.remove, {
-				id: 'fake-category-id' as any
+				id: 'fake-category-id' as Id<'point_categories'>
 			});
 		}).rejects.toThrowError();
 	});
@@ -340,7 +340,7 @@ describe('categories edge cases', () => {
 
 		const categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(3);
-		const names = categories.map((c: any) => c.name);
+		const names = categories.map((c) => c.name);
 		expect(names).toContain('First Category');
 		expect(names).toContain('Second Category');
 		expect(names).toContain('Third Category');
@@ -515,7 +515,7 @@ describe('categories.removeSubCategory', () => {
 
 		await expect(async () => {
 			await t.mutation(api.categories.removeSubCategory, {
-				categoryId: 'nonexistent-id' as any,
+				categoryId: 'nonexistent-id' as Id<'point_categories'>,
 				subCategory: 'Sub'
 			});
 		}).rejects.toThrow();

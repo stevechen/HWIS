@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { requireAdminRole, getAuthenticatedUser } from './auth';
+import type { Id } from './_generated/dataModel';
 
 const ACTION_LABELS: Record<string, string> = {
 	create_evaluation: 'Created',
@@ -19,7 +19,7 @@ export function getAuditActionLabel(action: string): string {
 }
 
 interface Student {
-	_id: any;
+	_id: Id<'students'>;
 	englishName: string;
 	chineseName: string;
 	studentId: string;
@@ -27,12 +27,18 @@ interface Student {
 }
 
 interface Evaluation {
-	_id: any;
+	_id: Id<'evaluations'>;
 	details: string;
 	category: string;
 	subCategory: string;
 	value: number;
 }
+
+type AuthUserForAudit = {
+	role?: 'admin' | 'super' | 'teacher';
+	email?: string;
+	authId?: string;
+};
 
 export const list = query({
 	args: {
@@ -44,7 +50,7 @@ export const list = query({
 	handler: async (ctx, args) => {
 		const authUser = await getAuthenticatedUser(ctx, args.testToken);
 		if (!authUser) return [];
-		const user = authUser as any;
+		const user = authUser as AuthUserForAudit;
 		if (
 			user.role !== 'admin' &&
 			user.role !== 'super' &&
@@ -57,14 +63,27 @@ export const list = query({
 		let logs = await ctx.db.query('audit_logs').withIndex('by_timestamp').order('desc').take(100);
 
 		if (args.action) {
-			logs = logs.filter((l: any) => l.action === args.action);
+			logs = logs.filter((l) => l.action === args.action);
 		}
 
 		if (args.performerId) {
-			logs = logs.filter((l: any) => l.performerId === args.performerId);
+			logs = logs.filter((l) => l.performerId === args.performerId);
 		}
 
-		const results: any[] = [];
+		const results: Array<
+			Omit<(typeof logs)[number], 'performerId'> & {
+				performerId: string;
+				performerName: string;
+				actionLabel: string;
+				studentName: string | null;
+				studentGrade: number | null;
+				studentId: string | null;
+				details: string | null;
+				category: string | null;
+				subCategory: string | null;
+				points: number | null;
+			}
+		> = [];
 		for (const log of logs.slice(0, args.limit || 50)) {
 			const performer = await ctx.db.get(log.performerId);
 			let studentName: string | null = null;
@@ -82,7 +101,7 @@ export const list = query({
 					// Try to look up by Convex ID first, then by studentId string
 					let student = null;
 					try {
-						student = (await ctx.db.get(evalStudentId as any)) as Student | null;
+						student = (await ctx.db.get(evalStudentId as Id<'students'>)) as Student | null;
 					} catch {
 						// If not a valid Convex ID, look up by studentId string
 						student = (await ctx.db
@@ -98,7 +117,9 @@ export const list = query({
 				}
 				if (log.targetId && !log.targetId.startsWith && log.targetId.length > 5) {
 					// Only try to get evaluation if it's a valid-looking Convex ID
-					const evaluation = (await ctx.db.get(log.targetId as any)) as Evaluation | null;
+					const evaluation = (await ctx.db.get(log.targetId as Id<'evaluations'>)) as
+						| Evaluation
+						| null;
 					if (evaluation) {
 						details = evaluation.details || null;
 						category = evaluation.category || null;

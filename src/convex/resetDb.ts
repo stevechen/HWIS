@@ -1,6 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { mutation } from './_generated/server';
 import { authComponent } from './auth';
+
+type BetterAuthUser = {
+	id: string;
+	email?: string;
+};
 
 export const resetDatabase = mutation({
 	args: {},
@@ -10,11 +14,14 @@ export const resetDatabase = mutation({
 		});
 
 		// Get all Better Auth users
-		const adapterUsers = await adapter.findMany({ model: 'user', where: [] });
+		const adapterUsers = (await adapter.findMany({
+			model: 'user',
+			where: []
+		})) as BetterAuthUser[];
 
 		// Delete test users (@hwis.test emails)
 		let deletedUsers = 0;
-		for (const user of adapterUsers as any[]) {
+		for (const user of adapterUsers) {
 			if (user.email && (user.email.includes('hwis.test') || user.email.includes('test'))) {
 				await adapter.deleteMany({
 					model: 'session',
@@ -33,7 +40,7 @@ export const resetDatabase = mutation({
 		const allUsers = await ctx.db.query('users').collect();
 		let deletedConvexUsers = 0;
 		for (const user of allUsers) {
-			const existingUser = (adapterUsers as any[]).find((u) => u.id === user.authId);
+			const existingUser = adapterUsers.find((u) => u.id === user.authId);
 			if (!existingUser) {
 				await ctx.db.delete(user._id);
 				deletedConvexUsers++;
@@ -56,6 +63,12 @@ export const resetDatabase = mutation({
 		const auditLogs = await ctx.db.query('audit_logs').collect();
 		for (const a of auditLogs) {
 			await ctx.db.delete(a._id);
+		}
+
+		// Delete all point categories so reseeding is idempotent.
+		const existingCategories = await ctx.db.query('point_categories').collect();
+		for (const cat of existingCategories) {
+			await ctx.db.delete(cat._id);
 		}
 
 		// Re-seed default categories

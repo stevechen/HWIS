@@ -2,8 +2,8 @@ import { type PlaywrightTestConfig, devices } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 
-const hasTeacherAuth = fs.existsSync(path.join(process.cwd(), 'e2e/.auth/teacher.json'));
 const hasSuperAuth = fs.existsSync(path.join(process.cwd(), 'e2e/.auth/super.json'));
+const runCrossBrowser = process.env.E2E_CROSS_BROWSER === '1';
 
 const projects: PlaywrightTestConfig['projects'] = [];
 
@@ -24,22 +24,26 @@ projects.push({
 	workers: process.env.CI ? 2 : 4
 });
 
-// WebKit - Parallel-safe tests (skip @sequential)
-projects.push({
-	name: 'webkit-parallel',
-	use: { ...devices['Desktop Safari'] },
-	testMatch: '**/*.spec.ts',
-	testIgnore: /.*(setup|cleanup|audit)\.spec\.ts$/,
-	grepInvert: /@sequential|@auth-sequential/,
-	dependencies: ['setup'],
-	workers: process.env.CI ? 2 : 4
-});
+if (runCrossBrowser) {
+	// WebKit - Parallel-safe tests (skip @sequential)
+	projects.push({
+		name: 'webkit-parallel',
+		use: { ...devices['Desktop Safari'] },
+		testMatch: '**/*.spec.ts',
+		testIgnore: /.*(setup|cleanup|audit)\.spec\.ts$/,
+		grepInvert: /@sequential|@auth-sequential/,
+		dependencies: ['setup'],
+		workers: process.env.CI ? 2 : 4
+	});
+}
 
 // Cleanup barrier after parallel tests, before sequential tests
 projects.push({
 	name: 'cleanup-after-parallel',
 	testMatch: 'e2e/cleanup.spec.ts',
-	dependencies: ['setup', 'chromium-parallel', 'webkit-parallel'],
+	dependencies: runCrossBrowser
+		? ['setup', 'chromium-parallel', 'webkit-parallel']
+		: ['setup', 'chromium-parallel'],
 	workers: 1
 });
 
@@ -53,15 +57,17 @@ projects.push({
 	workers: 1
 });
 
-// WebKit - Sequential tests (only @sequential)
-projects.push({
-	name: 'webkit-sequential',
-	use: { ...devices['Desktop Safari'] },
-	testMatch: '**/*.spec.ts',
-	grep: /@sequential/,
-	dependencies: ['chromium-sequential'],
-	workers: 1
-});
+if (runCrossBrowser) {
+	// WebKit - Sequential tests (only @sequential)
+	projects.push({
+		name: 'webkit-sequential',
+		use: { ...devices['Desktop Safari'] },
+		testMatch: '**/*.spec.ts',
+		grep: /@sequential/,
+		dependencies: ['chromium-sequential'],
+		workers: 1
+	});
+}
 
 // Auth/session destructive tests (logout, session invalidation) should run last
 projects.push({
@@ -69,50 +75,30 @@ projects.push({
 	use: { ...devices['Desktop Chrome'] },
 	testMatch: '**/*.spec.ts',
 	grep: /@auth-sequential/,
-	dependencies: ['chromium-sequential', 'webkit-sequential'],
+	dependencies: runCrossBrowser ? ['chromium-sequential', 'webkit-sequential'] : ['chromium-sequential'],
 	workers: 1
 });
 
-// Authenticated tests (teacher role)
-if (hasTeacherAuth || process.env.CI) {
-	projects.push({
-		name: 'authenticated',
-		use: {
-			...devices['Desktop Chrome'],
-			storageState: 'e2e/.auth/teacher.json'
-		},
-		testMatch: 'e2e/evaluations.spec.ts',
-		dependencies: [
-			'setup',
-			'chromium-parallel',
-			'webkit-parallel',
-			'chromium-sequential',
-			'webkit-sequential'
-		],
-		workers: 1
-	});
-}
+// Note: evaluations.spec.ts already sets teacher storageState at describe level,
+// so a dedicated "authenticated" project is unnecessary.
 
 // Super admin tests
 if (hasSuperAuth || process.env.CI) {
-	projects.push(
-		{
-			name: 'chromium-super',
-			use: {
-				...devices['Desktop Chrome'],
-				storageState: 'e2e/.auth/super.json'
-			},
-			testMatch: 'e2e/audit.spec.ts',
-			dependencies: [
-				'setup',
-				'chromium-parallel',
-				'webkit-parallel',
-				'chromium-sequential',
-				'webkit-sequential'
-			],
-			workers: 1
+	projects.push({
+		name: 'chromium-super',
+		use: {
+			...devices['Desktop Chrome'],
+			storageState: 'e2e/.auth/super.json'
 		},
-		{
+		testMatch: 'e2e/audit.spec.ts',
+		dependencies: runCrossBrowser
+			? ['setup', 'chromium-parallel', 'webkit-parallel', 'chromium-sequential', 'webkit-sequential']
+			: ['setup', 'chromium-parallel', 'chromium-sequential'],
+		workers: 1
+	});
+
+	if (runCrossBrowser) {
+		projects.push({
 			name: 'webkit-super',
 			use: {
 				...devices['Desktop Safari'],
@@ -127,8 +113,8 @@ if (hasSuperAuth || process.env.CI) {
 				'webkit-sequential'
 			],
 			workers: 1
-		}
-	);
+		});
+	}
 }
 
 // Cleanup should run after all other projects

@@ -9,8 +9,6 @@
 	import { Input } from '$lib/components/ui/input';
 
 	const client = useConvexClient();
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const apiAny = api as any;
 
 	const categoriesQuery = useQuery(api.categories.list, () => ({}));
 	const categories = $derived(categoriesQuery.data ?? []);

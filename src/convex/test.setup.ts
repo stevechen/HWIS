@@ -2,8 +2,9 @@
 
 import { convexTest as originalConvexTest } from 'convex-test';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const modules = import.meta.glob('./**/*.ts') as any;
+export const modules = import.meta.glob('./**/*.ts');
+type ConvexTestSchema = Parameters<typeof originalConvexTest>[0];
+type ConvexTestModules = Parameters<typeof originalConvexTest>[1];
 
 // Test token for unit tests
 const UNIT_TEST_TOKEN = 'unit-test-token';
@@ -12,27 +13,27 @@ const UNIT_TEST_TOKEN = 'unit-test-token';
  * Wrapper around convexTest that automatically injects testToken for auth
  * Use this instead of convexTest from 'convex-test' in unit tests
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function convexTest(schema: any, modules: any) {
+export function convexTest(schema: ConvexTestSchema, modules: ConvexTestModules) {
 	const t = originalConvexTest(schema, modules);
 
 	return {
 		...t,
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		mutation: async (api: any, args: any) => {
+		mutation: async (
+			api: Parameters<typeof t.mutation>[0],
+			args?: Record<string, unknown>
+		) => {
 			// Inject testToken for auth
 			const argsWithToken = args
 				? { ...args, testToken: UNIT_TEST_TOKEN }
 				: { testToken: UNIT_TEST_TOKEN };
-			return t.mutation(api, argsWithToken);
+			return t.mutation(api, argsWithToken as Parameters<typeof t.mutation>[1]);
 		},
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		query: async (api: any, args?: any) => {
+		query: async (api: Parameters<typeof t.query>[0], args?: Record<string, unknown>) => {
 			// Inject testToken for auth
 			const argsWithToken = args
 				? { ...args, testToken: UNIT_TEST_TOKEN }
 				: { testToken: UNIT_TEST_TOKEN };
-			return t.query(api, argsWithToken);
+			return t.query(api, argsWithToken as Parameters<typeof t.query>[1]);
 		},
 		run: t.run.bind(t)
 	};

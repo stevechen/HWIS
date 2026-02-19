@@ -16,7 +16,7 @@ test.describe('Admin Controls Visibility @admin', () => {
 		testE2eTag = `e2e-test_${suffix}`;
 
 		const result = await createStudent({
-			studentId: studentId,
+			studentId,
 			englishName: `AdminTest_${suffix}`,
 			chineseName: '管理測試',
 			grade: 10,
@@ -24,7 +24,6 @@ test.describe('Admin Controls Visibility @admin', () => {
 			e2eTag: testE2eTag
 		});
 
-		// Verify student was created before proceeding
 		if (result && typeof result === 'object' && 'error' in result) {
 			throw new Error(`Failed to create student: ${result.error}`);
 		}
@@ -33,33 +32,17 @@ test.describe('Admin Controls Visibility @admin', () => {
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
 		await expect(page.getByText('Loading students...')).not.toBeVisible();
-		await expect(page.getByRole('table', { name: 'Student table' })).toBeVisible();
 	});
 
 	test.afterEach(async () => {
 		if (testStudent) await cleanupByTag('students', testE2eTag);
 	});
 
-	test('sees Add Student button', async ({ page }) => {
-		await expect(page.getByRole('button', { name: 'Add new student' })).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Import students from file' })).toBeVisible();
-	});
-
-	test('sees action buttons (edit, delete) for students', async ({ page }) => {
-		await expect(page.getByText('Loading students...')).not.toBeVisible();
-		// Filter by student ID to ensure stability
+	test('admin can access student management controls for a student row', async ({ page }) => {
 		await page.getByPlaceholder('Search by name or student ID...').fill(studentId);
-
-		// Wait for the student to appear
 		await expect(page.getByRole('row', { name: studentId })).toBeVisible();
-
-		// Admin should see edit pencil button
 		await expect(page.getByRole('button', { name: `Edit ${studentId}` })).toBeVisible();
-
-		// Admin should see delete trash button
 		await expect(page.getByRole('button', { name: `Delete ${studentId}` })).toBeVisible();
-
-		// Admin should see disable/warning button
 		await expect(page.getByRole('button', { name: `Toggle ${studentId} status` })).toBeVisible();
 	});
 });
@@ -73,23 +56,10 @@ test.describe('Teacher User', () => {
 		await page.waitForSelector('body.hydrated');
 	});
 
-	test('does not see Add Student button', async ({ page }) => {
+	test('teacher cannot access admin student controls', async ({ page }) => {
 		await expect(page.getByRole('button', { name: 'Add new student' })).not.toBeVisible();
-	});
-
-	test('does not see Import button', async ({ page }) => {
 		await expect(page.getByRole('button', { name: 'Import students from file' })).not.toBeVisible();
-	});
-
-	test('does not see delete actions for students', async ({ page }) => {
-		// Even if students are visible, delete actions should be hidden
-		const deleteButtons = page.getByRole('button', { name: /delete/i });
-		await expect(deleteButtons.first()).not.toBeVisible();
-	});
-
-	test('does not see disable/warning actions', async ({ page }) => {
-		// Disable buttons should be hidden for teachers
-		const disableButtons = page.getByRole('button', { name: /not enrolled/i });
-		await expect(disableButtons.first()).not.toBeVisible();
+		await expect(page.getByRole('button', { name: /delete/i }).first()).not.toBeVisible();
+		await expect(page.getByRole('button', { name: /not enrolled/i }).first()).not.toBeVisible();
 	});
 });

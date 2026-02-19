@@ -6,6 +6,7 @@ import type { Id } from './_generated/dataModel';
 // Core infrastructure users that should not be deleted during test teardowns
 // because they are shared across parallel tests and have valid storageState.
 const PROTECTED_EMAILS = new Set(['teacher@hwis.test', 'admin@hwis.test', 'super@hwis.test']);
+const TEST_AUTH_ID_PREFIXES = ['e2e_', 'e2e-', 'test_', 'eval_', 'e2e-test_'];
 
 export const cleanupAllTestUsers = mutation({
 	args: {},
@@ -93,6 +94,21 @@ export const cleanupAuditLogs = mutation({
 			}
 		}
 
+		// If we're cleaning by authId string for a temporary test performer,
+		// also remove the corresponding user record.
+		if (
+			args.authIdString &&
+			TEST_AUTH_ID_PREFIXES.some((prefix) => args.authIdString?.startsWith(prefix))
+		) {
+			const user = await ctx.db
+				.query('users')
+				.withIndex('by_authId', (q) => q.eq('authId', args.authIdString))
+				.first();
+			if (user) {
+				await ctx.db.delete(user._id);
+			}
+		}
+
 		return { deleted };
 	}
 });
@@ -100,8 +116,6 @@ export const cleanupAuditLogs = mutation({
 export const cleanupAllTestData = mutation({
 	args: {},
 	handler: async (ctx) => {
-		const TEST_PREFIXES = ['e2e_', 'test_', 'eval_', 'e2e-test_'];
-
 		let totalDeleted = 0;
 		let usersDeleted = 0;
 
@@ -150,7 +164,8 @@ export const cleanupAllTestData = mutation({
 			for (const log of auditLogs) {
 				if (
 					log.e2eTag ||
-					(log.performerId && TEST_PREFIXES.some((p) => log.performerId?.startsWith(p)))
+					(log.performerId &&
+						TEST_AUTH_ID_PREFIXES.some((prefix) => log.performerId?.startsWith(prefix)))
 				) {
 					await ctx.db.delete(log._id);
 					totalDeleted++;
@@ -188,7 +203,8 @@ export const cleanupAllTestData = mutation({
 
 				if (
 					TEST_USERS_REQUIRING_AUTHENTICATION.includes(user.authId || '') ||
-					(user.authId && TEST_PREFIXES.some((p) => user.authId?.startsWith(p)))
+					(user.authId &&
+						TEST_AUTH_ID_PREFIXES.some((prefix) => user.authId?.startsWith(prefix)))
 				) {
 					await ctx.db.delete(user._id);
 					usersDeleted++;
@@ -209,7 +225,6 @@ export const cleanupAll = mutation({
 			user: { fields: undefined }
 		});
 
-		const TEST_PREFIXES = ['e2e_', 'test_', 'eval_', 'e2e-test_'];
 		let totalDeleted = 0;
 
 		const adapterUsers = (await adapter.findMany({ model: 'user', where: [] })) as {
@@ -259,7 +274,8 @@ export const cleanupAll = mutation({
 		for (const log of auditLogs) {
 			if (
 				log.e2eTag ||
-				(log.performerId && TEST_PREFIXES.some((p) => log.performerId?.startsWith(p)))
+				(log.performerId &&
+					TEST_AUTH_ID_PREFIXES.some((prefix) => log.performerId?.startsWith(prefix)))
 			) {
 				await ctx.db.delete(log._id);
 				totalDeleted++;
@@ -275,7 +291,8 @@ export const cleanupAll = mutation({
 				user.authId === 'default_user' ||
 				user.authId === 'e2e_teacher1' ||
 				user.authId === 'e2e_teacher2' ||
-				(user.authId && TEST_PREFIXES.some((p) => user.authId?.startsWith(p))) ||
+				(user.authId &&
+					TEST_AUTH_ID_PREFIXES.some((prefix) => user.authId?.startsWith(prefix))) ||
 				(user.authId && !validAuthIds.has(user.authId))
 			) {
 				await ctx.db.delete(user._id);

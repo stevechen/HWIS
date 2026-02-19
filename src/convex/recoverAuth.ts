@@ -1,6 +1,19 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { mutation } from './_generated/server';
 import { authComponent } from './auth';
+
+type BetterAuthUser = {
+	_id?: string;
+	id: string;
+	email: string;
+	name?: string;
+	role?: 'super' | 'admin' | 'teacher';
+};
+
+type RecoverAuthResult = {
+	email: string;
+	action: 'updated' | 'created';
+	authId: string;
+};
 
 export const forceCreateUser = mutation({
 	args: {},
@@ -9,10 +22,10 @@ export const forceCreateUser = mutation({
 			user: { fields: undefined }
 		});
 
-		const baUsers = await adapter.findMany({ model: 'user', where: [] });
-		const results: any[] = [];
+		const baUsers = (await adapter.findMany({ model: 'user', where: [] })) as BetterAuthUser[];
+		const results: RecoverAuthResult[] = [];
 
-		for (const u of baUsers as any[]) {
+		for (const u of baUsers) {
 			const authId = u._id || u.id;
 			const email = u.email;
 

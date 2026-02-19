@@ -2,9 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	test: {
-		include: [
-			'src/convex/{students,categories,weekly-reports,users,users.sessionInvalidation,evaluations}.test.ts'
-		],
+		include: ['src/convex/*.test.ts'],
 		exclude: ['**/node_modules/**'],
 		environment: 'edge-runtime',
 		server: {

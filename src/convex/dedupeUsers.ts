@@ -1,9 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { mutation } from './_generated/server';
 import { authComponent } from './auth';
+import type { Id } from './_generated/dataModel';
 
 type User = {
-	_id: string;
+	_id: Id<'users'>;
 	authId: string;
 	_creationTime: number;
 };
@@ -39,7 +39,7 @@ export const dedupeUsers = mutation({
 			usersList.shift();
 
 			for (const user of usersList) {
-				await ctx.db.delete(user._id as any);
+				await ctx.db.delete(user._id);
 				deleted++;
 			}
 		}
