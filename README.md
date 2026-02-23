@@ -130,6 +130,21 @@ bun dev
 - Local Convex site proxy runs on `http://127.0.0.1:3211` (used by Better Auth)
 - Better Auth sets a Convex JWT cookie on sign-in; SSR redirects use it to resolve the viewer
 
+If local Convex gets stuck or fails to start repeatedly, use:
+
+```sh
+bun run convex:local:recover
+bunx convex dev --configure existing --typecheck=disable
+```
+
+Then, while `convex dev` is running in another terminal:
+
+```sh
+bun run convex:local:env-sync
+```
+
+Full runbook: `docs/convex-local-recovery.md`
+
 For local E2E, use:
 
 ```sh

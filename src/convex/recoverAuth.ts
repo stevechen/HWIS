@@ -1,5 +1,5 @@
 import { mutation } from './_generated/server';
-import { authComponent, requireAdminForSensitiveOperation } from './auth';
+import { authComponent, getAllowlistedRole, requireAdminForSensitiveOperation } from './auth';
 import { v } from 'convex/values';
 
 type BetterAuthUser = {
@@ -47,11 +47,7 @@ export const forceCreateUser = mutation({
 				await ctx.db.insert('users', {
 					authId: authId,
 					name: u.name || email.split('@')[0],
-					role: email.includes('steve.stevechen')
-						? 'super'
-						: email.includes('hwhs.tc.edu.tw')
-							? 'admin'
-							: 'teacher',
+					role: getAllowlistedRole(email) ?? 'teacher',
 					status: 'active'
 				});
 				results.push({ email, action: 'created', authId });

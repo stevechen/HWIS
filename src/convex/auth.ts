@@ -85,11 +85,12 @@ const trustedOrigins = [
 
 // Domain restriction configuration
 const ALLOWED_DOMAIN = 'hwhs.tc.edu.tw';
-export const EXCEPTION_EMAILS = [
-	'steve.stevechen@gmail.com',
-	'steve.homecook@gmail.com',
-	'steve@hwhs.tc.edu.tw'
-];
+const ALLOWLISTED_EMAIL_ROLE_MAP: Record<string, 'super' | 'admin' | 'teacher'> = {
+	'steve.stevechen@gmail.com': 'super',
+	'steve@hwhs.tc.edu.tw': 'admin',
+	'steve.homecook@gmail.com': 'teacher'
+};
+export const EXCEPTION_EMAILS = Object.keys(ALLOWLISTED_EMAIL_ROLE_MAP);
 const REJECTION_MESSAGE = 'For Hong Wen International School (HWIS) staffs only.';
 
 // The component client has methods needed for integrating Convex with Better Auth,
@@ -160,7 +161,13 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 
 // Helper function to check if a user is an exception email
 export function isExceptionEmail(email: string): boolean {
-	return EXCEPTION_EMAILS.includes(email);
+	return Boolean(ALLOWLISTED_EMAIL_ROLE_MAP[email.toLowerCase()]);
+}
+
+// Returns preferred bootstrap role for an allowlisted email, or null if not allowlisted.
+export function getAllowlistedRole(email?: string | null): 'super' | 'admin' | 'teacher' | null {
+	if (!email) return null;
+	return ALLOWLISTED_EMAIL_ROLE_MAP[email.toLowerCase()] ?? null;
 }
 
 // Helper function to validate email domain

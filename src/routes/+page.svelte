@@ -29,13 +29,12 @@
 	// isLoading is derived but currently unused - keeping for potential future use
 	// const _isLoading = $derived(auth.isLoading || $session.isPending || dbUser.isLoading);
 	const userName = $derived($session.data?.user.name);
-	const hasProfile = $derived(!!dbUser.data?.authId);
+	const hasProfile = $derived(Boolean(dbUser.data?.role && dbUser.data?.status));
 	const isApproved = $derived(hasProfile && dbUser.data?.status === 'active');
 	const needsProfile = $derived(isLoggedIn && !hasProfile);
+	let hasEnsuredProfile = $state(false);
 
 	async function ensureProfile() {
-		if (!needsProfile) return;
-
 		try {
 			await client.mutation(api.onboarding.ensureUserProfile, {});
 		} catch {
@@ -44,7 +43,12 @@
 	}
 
 	$effect(() => {
-		if (needsProfile && !dbUser.isLoading) {
+		if (!isLoggedIn) {
+			hasEnsuredProfile = false;
+			return;
+		}
+		if (!dbUser.isLoading && !hasEnsuredProfile) {
+			hasEnsuredProfile = true;
 			ensureProfile();
 		}
 	});

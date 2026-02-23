@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	isAllowedDomain,
 	isExceptionEmail,
+	getAllowlistedRole,
 	getAuthenticatedUser,
 	requireUserProfile,
 	requireAuthenticatedUser,
@@ -15,6 +16,13 @@ describe('auth helpers', () => {
 
 	it('isExceptionEmail returns false for non-exception email', () => {
 		expect(isExceptionEmail('teacher@hwhs.tc.edu.tw')).toBe(false);
+	});
+
+	it('getAllowlistedRole returns configured role per email', () => {
+		expect(getAllowlistedRole('steve.stevechen@gmail.com')).toBe('super');
+		expect(getAllowlistedRole('steve@hwhs.tc.edu.tw')).toBe('admin');
+		expect(getAllowlistedRole('steve.homecook@gmail.com')).toBe('teacher');
+		expect(getAllowlistedRole('teacher@hwhs.tc.edu.tw')).toBeNull();
 	});
 
 	it('isAllowedDomain returns true for school domain', () => {

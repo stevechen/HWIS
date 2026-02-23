@@ -24,6 +24,23 @@ bun run test:e2e:ui
 bun run test:all
 ```
 
+## Local Convex Recovery (When `convex dev` Fails to Start)
+
+Use this automated flow:
+
+```bash
+# 1) Backup/cleanup stale local deployment state
+bun run convex:local:recover
+
+# 2) Recreate local deployment
+bunx convex dev --configure existing --typecheck=disable
+
+# 3) In a second terminal, sync auth env vars to local Convex deployment
+bun run convex:local:env-sync
+```
+
+Detailed runbook: `docs/convex-local-recovery.md`
+
 ## Test Architecture
 
 ### Stack

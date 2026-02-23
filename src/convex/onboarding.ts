@@ -4,7 +4,7 @@ import {
 	requireAdminRole,
 	getAuthenticatedUser,
 	requireUserProfile,
-	EXCEPTION_EMAILS,
+	getAllowlistedRole,
 	authComponent,
 	requireAdminForSensitiveOperation
 } from './auth';
@@ -29,30 +29,34 @@ export const ensureUserProfile = mutation({
 			throw new Error('Missing authId');
 		}
 
+		// Get email directly from Better Auth (not from profile, which doesn't have email field)
+		const betterAuthUser = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
+		const userEmail = betterAuthUser?.email?.toLowerCase();
+		const allowlistedRole = getAllowlistedRole(userEmail);
+
 		const existing = await ctx.db
 			.query('users')
 			.withIndex('by_authId', (q) => q.eq('authId', authId))
 			.first();
 
 		if (existing) {
+			// Self-heal privileged owner accounts that may have been created as pending previously.
+			const role = allowlistedRole ?? (existing.role ?? 'teacher');
+			const status = allowlistedRole ? 'active' : (existing.status ?? 'pending');
 			await ctx.db.patch(existing._id, {
-				name: authUser.name
+				name: authUser.name,
+				role,
+				status
 			});
 			return {
 				created: false,
-				role: existing.role ?? 'teacher',
-				status: existing.status ?? 'pending'
+				role,
+				status
 			};
 		}
 
-		// Get email directly from Better Auth (not from profile, which doesn't have email field)
-		const betterAuthUser = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
-		const userEmail = betterAuthUser?.email;
-
-		const isExceptionEmail = userEmail && EXCEPTION_EMAILS.includes(userEmail);
-
-		const role = isExceptionEmail ? 'super' : 'teacher';
-		const status = isExceptionEmail ? 'active' : 'pending';
+		const role = allowlistedRole ?? 'teacher';
+		const status = allowlistedRole ? 'active' : 'pending';
 
 		await ctx.db.insert('users', {
 			authId: authId,
@@ -80,12 +84,19 @@ export const setMyRole = mutation({
 
 		if (!hasPrivilegedUser) {
 			const betterAuthUser = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
-			const userEmail = betterAuthUser?.email;
-			if (!userEmail || !EXCEPTION_EMAILS.includes(userEmail)) {
+			const userEmail = betterAuthUser?.email?.toLowerCase();
+			const allowlistedRole = getAllowlistedRole(userEmail);
+			if (!allowlistedRole) {
 				throw new Error('Bootstrap is restricted to allowlisted owner emails.');
 			}
 			if (desiredRole !== 'admin' && desiredRole !== 'super') {
 				throw new Error('Initial bootstrap role must be admin or super.');
+			}
+			if (allowlistedRole === 'teacher') {
+				throw new Error('This allowlisted account cannot bootstrap privileged roles.');
+			}
+			if (allowlistedRole === 'admin' && desiredRole === 'super') {
+				throw new Error('This allowlisted account can bootstrap admin but not super.');
 			}
 
 			await ctx.db.patch(userDoc._id, {

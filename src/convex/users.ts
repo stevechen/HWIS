@@ -33,11 +33,22 @@ export const viewer = query({
 			.withIndex('by_authId', (q) => q.eq('authId', authIdLookup))
 			.first();
 
+		if (!dbUser) {
+			return {
+				...authUser,
+				authId: undefined,
+				role: undefined,
+				status: undefined,
+				profileExists: false
+			};
+		}
+
 		return {
 			...authUser,
-			authId: dbUser?.authId ?? authIdLookup,
-			role: dbUser?.role ?? 'teacher',
-			status: dbUser?.status ?? 'pending'
+			authId: dbUser.authId,
+			role: dbUser.role ?? 'teacher',
+			status: dbUser.status ?? 'pending',
+			profileExists: true
 		};
 	}
 });
