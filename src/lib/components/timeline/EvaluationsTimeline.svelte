@@ -116,11 +116,11 @@
 
 {#if showControls}
 	<div
-		class="from-background to-background/85 sticky top-14 z-10 -mx-8 flex flex-col gap-4 border-b bg-linear-to-b px-8 py-2 sm:flex-row sm:items-center sm:justify-between"
+		class="top-14 z-10 sticky flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4 bg-linear-to-b from-background to-background/85 -mx-8 px-8 py-2 border-b"
 	>
 		<div class="flex flex-wrap items-center gap-4">
 			{#if title}
-				<h2 class="text-xl font-semibold">{title}</h2>
+				<h2 class="font-semibold text-xl">{title}</h2>
 			{/if}
 			{#if children}
 				<div class="flex flex-wrap items-center gap-2">
@@ -177,11 +177,11 @@
 	</div>
 {:else if title || children}
 	<div
-		class="bg-background sticky top-14 z-10 flex flex-wrap items-center justify-between gap-4 border-b pb-4 md:flex-nowrap"
+		class="top-14 z-10 sticky flex flex-wrap md:flex-nowrap justify-between items-center gap-4 bg-background pb-4 border-b"
 	>
 		<div class="flex flex-wrap items-center gap-4">
 			{#if title}
-				<h2 class="text-xl font-semibold">{title}</h2>
+				<h2 class="font-semibold text-xl">{title}</h2>
 			{/if}
 			{#if children}
 				<div class="flex flex-wrap items-center gap-2">
@@ -195,24 +195,24 @@
 {#if filteredEvaluations.length === 0}
 	<Card.Root class="p-8 text-center">
 		<Card.Content class="pt-6">
-			<p class="text-muted-foreground mb-6">No evaluations found.</p>
+			<p class="mb-6 text-muted-foreground">No evaluations found.</p>
 		</Card.Content>
 	</Card.Root>
 {:else}
 	<div
 		role="region"
 		aria-label="Evaluations"
-		class="from-background/0 via-background/80 to-background/0 relative bg-linear-to-b"
+		class="relative bg-linear-to-b from-background/0 via-background/80 to-background/0"
 	>
 		<div
-			class="border-border absolute top-0 bottom-0 left-1/2 w-0.5 -translate-x-1/2 border-l"
+			class="top-0 bottom-0 left-1/2 absolute border-border border-l w-0.5 -translate-x-1/2"
 			role="separator"
 			aria-label="Timeline divider"
 		></div>
-		<div class="relative flex min-h-25 flex-col gap-6 py-4">
+		<div class="relative flex flex-col gap-6 py-4 min-h-25">
 			{#each filteredEvaluations as entry, idx (entry._id)}
 				{@const isOdd = idx % 2 === 0}
-				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
+				<div class="items-center gap-2 sm:gap-4 grid grid-cols-[1fr_auto_1fr]">
 					<div
 						class={[
 							(isOdd && 'order-1 items-end pr-2 text-right') || 'order-3 items-start pl-2',
@@ -224,14 +224,14 @@
 							<span>{formatDate(entry.timestamp)}</span>
 						</div>
 						{#if showTeacherName && entry.teacherName}
-							<div class="mt-1 flex items-center gap-1 text-xs">
+							<div class="flex items-center gap-1 mt-1 text-xs">
 								<User class="size-3" />
 								<span class="text-muted-foreground">{entry.teacherName}</span>
 							</div>
 						{/if}
 					</div>
 
-					<div class="order-2 flex items-center justify-center">
+					<div class="flex justify-center items-center order-2">
 						<div
 							class={[
 								(entry.value > 0 && 'bg-emerald-500') || 'bg-red-500',
@@ -285,20 +285,20 @@
 		}}
 	>
 		{#if showStudentName && entry.englishName}
-			<div class="mb-1 flex items-center gap-2 text-sm hyphens-auto">
+			<div class="flex items-center gap-2 mb-1 text-sm hyphens-auto">
 				<User class="size-3 shrink-0" />
 				<span class="font-semibold">{entry.englishName}</span>
 				{#if studentGrade || entry.grade}
-					<span class="bg-muted shrink-0 rounded-full px-2 py-0.5 text-xs"
+					<span class="bg-muted px-2 py-0.5 rounded-full text-xs shrink-0"
 						>G{studentGrade || entry.grade}</span
 					>
 				{/if}
 			</div>
 		{/if}
-		<div class="mb-1 flex flex-col gap-0.5 hyphens-auto sm:flex-row sm:items-center sm:gap-2">
-			<span class="text-sm font-semibold">{entry.category}</span>
+		<div class="flex sm:flex-row flex-col sm:items-center gap-0.5 sm:gap-2 mb-1 hyphens-auto">
+			<span class="font-semibold text-sm">{entry.category}</span>
 			{#if entry.subCategory}
-				<span class="text-muted-foreground hidden text-xs sm:inline">›</span>
+				<span class="hidden sm:inline text-muted-foreground text-xs">›</span>
 				<span class="text-muted-foreground text-xs">{entry.subCategory}</span>
 			{/if}
 		</div>
@@ -314,8 +314,9 @@
 
 		<div
 			class={[
-				(isPlus && 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400') ||
-					'bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400',
+				(entry.value > 0 &&
+					'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300') ||
+					'bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-300',
 				'absolute -top-4 -right-2 flex items-center gap-1 rounded-md px-2 py-1 text-sm font-bold shadow'
 			]}
 		>

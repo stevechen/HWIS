@@ -159,6 +159,14 @@
 		}
 	}
 
+	const selectedPointButtonTextClass = 'text-white hover:text-white';
+	const selectedPositivePointButtonClass = `border-emerald-600 bg-emerald-600 hover:bg-emerald-600/90 dark:border-emerald-500 dark:bg-emerald-500 ${selectedPointButtonTextClass}`;
+	const selectedNegativePointButtonClass = `border-red-600 bg-red-600 hover:bg-red-600/90 dark:border-red-500 dark:bg-red-500 ${selectedPointButtonTextClass}`;
+	const unselectedPositivePointButtonClass =
+		'border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/30';
+	const unselectedNegativePointButtonClass =
+		'border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/30';
+
 	onMount(() => {
 		if (browser) {
 			window.addEventListener('keydown', handleGlobalKeydown);
@@ -316,7 +324,11 @@
 					<div class="grid grid-cols-4 gap-2">
 						<Button
 							type="button"
-							variant={points === -2 ? 'default' : 'outline'}
+							variant="outline"
+							class={[
+								(points === -2 && selectedNegativePointButtonClass) ||
+									unselectedNegativePointButtonClass
+							]}
 							onclick={() => (points = -2)}
 							aria-label="Deduct 2 points"
 							title="-2 points (press Shift+2)"
@@ -326,7 +338,11 @@
 						</Button>
 						<Button
 							type="button"
-							variant={points === -1 ? 'default' : 'outline'}
+							variant="outline"
+							class={[
+								(points === -1 && selectedNegativePointButtonClass) ||
+									unselectedNegativePointButtonClass
+							]}
 							onclick={() => (points = -1)}
 							aria-label="Deduct 1 point"
 							title="-1 point (press Shift+1 or -)"
@@ -336,7 +352,11 @@
 						</Button>
 						<Button
 							type="button"
-							variant={points === 1 ? 'default' : 'outline'}
+							variant="outline"
+							class={[
+								(points === 1 && selectedPositivePointButtonClass) ||
+									unselectedPositivePointButtonClass
+							]}
 							onclick={() => (points = 1)}
 							aria-label="Award 1 point"
 							title="+1 point (press 1 or +)"
@@ -346,7 +366,11 @@
 						</Button>
 						<Button
 							type="button"
-							variant={points === 2 ? 'default' : 'outline'}
+							variant="outline"
+							class={[
+								(points === 2 && selectedPositivePointButtonClass) ||
+									unselectedPositivePointButtonClass
+							]}
 							onclick={() => (points = 2)}
 							aria-label="Award 2 points"
 							title="+2 points (press 2)"

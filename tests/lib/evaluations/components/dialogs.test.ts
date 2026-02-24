@@ -311,5 +311,36 @@ describe('Evaluation Dialogs', () => {
 					.toBeInTheDocument();
 			});
 		});
+
+		describe('Keyboard Shortcuts', () => {
+			it('supports point shortcuts while dialog is open', async () => {
+				render(EditEvaluationDialog, {
+					open: true,
+					evaluation: mockEvaluation,
+					onClose: vi.fn(),
+					onDelete: vi.fn()
+				});
+
+				const dialog = page.getByRole('dialog', { name: 'Edit Evaluation' });
+				await dialog.click();
+
+				const dialogElement = document.querySelector('[role="dialog"]');
+				if (dialogElement) {
+					dialogElement.dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true }));
+				}
+
+				await expect
+					.element(page.getByRole('button', { name: 'Award 2 points' }))
+					.toHaveClass(/bg-emerald-600/);
+
+				if (dialogElement) {
+					dialogElement.dispatchEvent(new KeyboardEvent('keydown', { key: '-', bubbles: true }));
+				}
+
+				await expect
+					.element(page.getByRole('button', { name: 'Deduct 1 points' }))
+					.toHaveClass(/bg-red-600/);
+			});
+		});
 	});
 });

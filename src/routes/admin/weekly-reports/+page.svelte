@@ -437,41 +437,41 @@
 </script>
 
 <div class="bg-background min-h-screen">
-	<main class="mx-auto px-4 py-6 sm:px-6 lg:px-8" aria-label="Weekly Reports">
+	<main class="mx-auto px-4 sm:px-6 lg:px-8 py-6" aria-label="Weekly Reports">
 		{#if isDemoMode}
-			<div class="mb-4 flex justify-end">
-				<span class="rounded bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
+			<div class="flex justify-end mb-4">
+				<span class="bg-amber-100 px-2 py-1 rounded font-semibold text-amber-800 text-xs">
 					Demo Mode
 				</span>
 			</div>
 		{/if}
 		{#if !isDemoMode && reportsQuery.isLoading}
-			<div class="flex items-center justify-center py-12" role="status" aria-live="polite">
+			<div class="flex justify-center items-center py-12" role="status" aria-live="polite">
 				<p class="text-muted-foreground">Loading reports...</p>
 			</div>
 		{:else if !isDemoMode && reportsQuery.error}
-			<div class="flex items-center justify-center py-12" role="alert">
+			<div class="flex justify-center items-center py-12" role="alert">
 				<p class="text-red-500">Error loading reports: {reportsQuery.error.message}</p>
 			</div>
 		{:else if reports.length === 0}
-			<div class="flex items-center justify-center py-12" role="status">
+			<div class="flex justify-center items-center py-12" role="status">
 				<p class="text-muted-foreground">No weekly reports available yet.</p>
 			</div>
 		{:else}
 			<div class="flex justify-center" role="region" aria-label="Weekly reports list">
-				<div class="inline-block rounded-md border">
+				<div class="inline-block border rounded-md">
 					<Table.Root>
 						<Table.Header>
 							<Table.Row class="bg-muted/50">
 								<Table.Head class="font-semibold">Week</Table.Head>
 								<Table.Head class="font-semibold">Date Range</Table.Head>
-								<Table.Head class="text-right font-semibold">Students</Table.Head>
+								<Table.Head class="font-semibold text-right">Students</Table.Head>
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
 							{#each reports as report (report.fridayDate.toString())}
 								<Table.Row class="cursor-pointer" onclick={() => openReport(report)} tabindex={0}>
-									<Table.Cell class="text-center font-medium">{report.weekNumber}</Table.Cell>
+									<Table.Cell class="font-medium text-center">{report.weekNumber}</Table.Cell>
 									<Table.Cell>{report.formattedDate}</Table.Cell>
 									<Table.Cell class="text-right">{report.studentCount}</Table.Cell>
 								</Table.Row>
@@ -486,7 +486,7 @@
 
 <dialog
 	bind:this={dialogElement}
-	class="bg-background fixed top-1/2 left-1/2 max-h-[85vh] max-w-5xl -translate-x-1/2 -translate-y-1/2 rounded-lg border-0 p-0 shadow-xl"
+	class="top-1/2 left-1/2 fixed bg-background shadow-xl p-0 border-0 rounded-lg w-[calc(100vw-1rem)] sm:w-[calc(100vw-2rem)] max-w-5xl max-h-[85vh] -translate-x-1/2 -translate-y-1/2"
 	onclose={() => {
 		selectedReport = null;
 	}}
@@ -497,9 +497,9 @@
 	}}
 >
 	{#if selectedReport}
-		<div class="flex max-h-[85vh] w-full max-w-5xl flex-col">
-			<header class="bg-muted/50 flex shrink-0 items-center justify-between border-b px-4 py-3">
-				<h2 class="flex items-center gap-2 text-lg font-semibold">
+		<div class="flex flex-col w-full max-w-5xl max-h-[85vh]">
+			<header class="flex justify-between items-center bg-muted/50 px-4 py-3 border-b shrink-0">
+				<h2 class="flex items-center gap-2 font-semibold text-lg">
 					<span>Week {selectedReport.weekNumber} Report</span>
 					<span class="text-muted-foreground">|</span>
 					<span class="font-normal">{selectedReport.formattedDate}</span>
@@ -508,26 +508,26 @@
 				</h2>
 				<button
 					onclick={closeDetail}
-					class="hover:bg-muted text-muted-foreground hover:text-foreground ml-auto rounded p-1"
+					class="hover:bg-muted ml-auto p-1 rounded text-muted-foreground hover:text-foreground"
 					aria-label="Close"
 				>
-					<X class="h-5 w-5" />
+					<X class="w-5 h-5" />
 				</button>
 			</header>
 
 			<div
-				class="bg-muted/30 shrink-0 border-b px-4 py-2"
+				class="bg-muted/30 px-4 py-2 border-b shrink-0"
 				role="toolbar"
 				aria-label="Filter options"
 			>
-				<div class="flex w-full items-center gap-3">
-					<div class="relative hidden w-36 shrink-0 2xl:block">
-						<Search class="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+				<div class="flex items-center gap-3 w-full">
+					<div class="hidden 2xl:block relative w-36 shrink-0">
+						<Search class="top-1/2 left-2 absolute size-4 text-muted-foreground -translate-y-1/2" />
 						<input
 							type="text"
 							placeholder="Filter ID..."
 							bind:value={filterId}
-							class="bg-background focus:ring-ring h-8 w-full rounded-md border pr-2 pl-8 text-sm focus:ring-1 focus:outline-none"
+							class="bg-background pr-2 pl-8 border rounded-md focus:outline-none focus:ring-1 focus:ring-ring w-full h-8 text-sm"
 						/>
 					</div>
 					<NativeSelect.Root bind:value={filterGrade} aria-label="Filter by grade">
@@ -536,13 +536,13 @@
 							<NativeSelect.Option value={String(grade)}>Grade {grade}</NativeSelect.Option>
 						{/each}
 					</NativeSelect.Root>
-					<div class="relative min-w-0 flex-1">
-						<Search class="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+					<div class="relative flex-1 min-w-0">
+						<Search class="top-1/2 left-2 absolute size-4 text-muted-foreground -translate-y-1/2" />
 						<input
 							type="text"
 							placeholder="Filter name (comma separated)..."
 							bind:value={filterName}
-							class="bg-background focus:ring-ring h-8 w-full rounded-md border pr-2 pl-8 text-sm focus:ring-1 focus:outline-none"
+							class="bg-background pr-2 pl-8 border rounded-md focus:outline-none focus:ring-1 focus:ring-ring w-full h-8 text-sm"
 						/>
 					</div>
 				</div>
@@ -550,28 +550,28 @@
 
 			<div class="flex-1 overflow-auto" role="region" aria-label="Student details table">
 				{#if !isDemoMode && detailData?.isLoading}
-					<div class="flex items-center justify-center py-8" role="status" aria-live="polite">
+					<div class="flex justify-center items-center py-8" role="status" aria-live="polite">
 						<p class="text-muted-foreground">Loading details...</p>
 					</div>
 				{:else if !isDemoMode && detailData?.error}
-					<div class="flex items-center justify-center py-8" role="alert">
+					<div class="flex justify-center items-center py-8" role="alert">
 						<p class="text-red-500">Error loading details</p>
 					</div>
 				{:else if filteredStudents.length === 0}
-					<div class="text-muted-foreground py-8 text-center" role="status">
+					<div class="py-8 text-muted-foreground text-center" role="status">
 						No students match the filters.
 					</div>
 				{:else}
-					<div class="overflow-hidden rounded-md border">
+					<div class="border rounded-md overflow-hidden">
 						<div class="max-h-[calc(85vh-240px)] overflow-auto">
 							<Table.Root class="w-full table-fixed">
 								<Table.Header>
 									<Table.Row class="bg-muted/50">
 										<Table.Head
-											class="bg-muted/50 sticky top-0 z-10 hidden w-20 font-semibold 2xl:table-cell"
+											class="hidden 2xl:table-cell top-0 z-10 sticky bg-muted/50 w-20 font-semibold"
 										>
 											<button
-												class="flex h-full w-full items-center gap-1"
+												class="flex items-center gap-1 w-full h-full"
 												onclick={() => toggleSort('id')}
 											>
 												ID
@@ -585,10 +585,10 @@
 											</button>
 										</Table.Head>
 										<Table.Head
-											class="bg-muted/50 sticky top-0 z-10 w-10 text-center font-semibold"
+											class="top-0 z-10 sticky bg-muted/50 w-10 font-semibold text-center"
 										>
 											<button
-												class="flex h-full w-full items-center justify-center gap-1"
+												class="flex justify-center items-center gap-1 w-full h-full"
 												onclick={() => toggleSort('grade')}
 											>
 												<span>G</span>
@@ -601,12 +601,12 @@
 												{/if}
 											</button>
 										</Table.Head>
-										<Table.Head class="bg-muted/50 sticky top-0 z-10 w-32 font-semibold">
+										<Table.Head class="top-0 z-10 sticky bg-muted/50 w-24 sm:w-32 font-semibold">
 											<button
-												class="flex h-full w-full items-center gap-1"
+												class="flex items-center gap-1 w-full min-w-0 h-full"
 												onclick={() => toggleSort('name')}
 											>
-												Name
+												<span class="truncate">Name</span>
 												{#if sortColumn === 'name'}
 													{#if sortDirection === 'asc'}
 														<ArrowUp class="size-3" />
@@ -618,7 +618,7 @@
 										</Table.Head>
 										{#each categoryColumns as cat (cat)}
 											<Table.Head
-												class="bg-muted/50 sticky top-0 z-10 w-24 text-center font-semibold"
+												class="top-0 z-10 sticky bg-muted/50 w-16 sm:w-20 md:w-24 font-semibold text-xs sm:text-sm text-center break-words leading-tight whitespace-normal"
 												>{cat}</Table.Head
 											>
 										{/each}
@@ -627,27 +627,31 @@
 								<Table.Body>
 									{#each filteredStudents as student (student.studentId)}
 										<Table.Row>
-											<Table.Cell class="hidden w-20 font-mono text-sm 2xl:table-cell"
+											<Table.Cell class="hidden 2xl:table-cell w-20 font-mono text-sm"
 												>{student.studentId}</Table.Cell
 											>
 											<Table.Cell class="w-10 text-center"
 												>{(student as { grade: number }).grade}</Table.Cell
 											>
-											<Table.Cell class="w-32"
-												>{(student as { englishName: string }).englishName}</Table.Cell
+											<Table.Cell
+												class="w-24 sm:w-32 max-w-24 sm:max-w-32 break-words whitespace-normal"
+											>
+												{(student as { englishName: string }).englishName}</Table.Cell
 											>
 											{#each categoryColumns as cat (cat)}
 												{@const points =
 													(student as { pointsByCategory: Record<string, number> })
 														.pointsByCategory[cat] || 0}
-												<Table.Cell class="w-24 text-center">
+												<Table.Cell class="w-16 sm:w-4 md:w-24 text-center">
 													<span
-														class="inline-flex w-full justify-center font-medium"
-														class:text-emerald-600={points > 0}
-														class:text-red-600={points < 0}
-														class:text-muted-foreground={points === 0}
+														class={[
+															points > 0 && 'text-emerald-600',
+															points === 0 && 'text-muted-foreground',
+															points < 0 && 'text-red-600',
+															'inline-flex w-full justify-center font-medium'
+														]}
 													>
-														{points > 0 ? '+' : ''}{points}
+														{(points === 0 && '--') || points}
 													</span>
 												</Table.Cell>
 											{/each}
@@ -660,14 +664,14 @@
 				{/if}
 			</div>
 
-			<footer class="bg-muted/30 flex shrink-0 items-center justify-between border-t px-4 py-3">
+			<footer class="flex justify-between items-center bg-muted/30 px-4 py-3 border-t shrink-0">
 				<p class="text-muted-foreground text-sm">
 					{selectedReport.formattedDate} - Week {selectedReport.weekNumber}
 				</p>
 				<div class="flex gap-2">
 					<Button variant="outline" onclick={exportToExcel} aria-label="Export report to CSV">
 						<Download class="mr-2 size-4" />
-						Export CSV
+						Export
 					</Button>
 					<Button variant="outline" onclick={closeDetail}>Close</Button>
 				</div>
