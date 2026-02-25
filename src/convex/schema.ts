@@ -72,7 +72,6 @@ export default defineSchema({
 
 	point_categories: defineTable({
 		name: v.string(),
-		subCategories: v.array(v.string()),
 		e2eTag: v.optional(v.string())
 	}).index('by_e2eTag', ['e2eTag']),
 
@@ -81,7 +80,6 @@ export default defineSchema({
 		teacherId: v.id('users'),
 		value: v.number(),
 		categoryId: v.id('point_categories'),
-		subCategory: v.string(),
 		details: v.string(),
 		timestamp: v.number(),
 		semesterId: v.string(),
@@ -92,7 +90,6 @@ export default defineSchema({
 		.index('by_teacherId', ['teacherId'])
 		.index('by_timestamp', ['timestamp'])
 		.index('by_categoryId', ['categoryId'])
-		.index('by_categoryId_subCategory', ['categoryId', 'subCategory'])
 		.index('by_e2eTag', ['e2eTag']),
 
 	backups: defineTable({

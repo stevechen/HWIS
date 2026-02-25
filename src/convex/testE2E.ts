@@ -80,19 +80,21 @@ export const e2eSeedAll = mutation({
 
 		// Categories
 		const categoryIds: Record<string, Id<'point_categories'>> = {};
-		const categories = [
-			{ name: 'Academic Excellence', subCategories: ['Homework', 'Test', 'Quiz'] },
-			{ name: 'Participation', subCategories: ['Class Discussion', 'Group Work'] },
-			{ name: 'Behavior', subCategories: [] },
-			{ name: 'Creativity', subCategories: ['Art', 'Music'] }
+		const categoryNames = [
+			'Responsibility',
+			'Excellence',
+			'Service',
+			'Persistence',
+			'Enthusiasm',
+			'Collaboration',
+			'Timeliness'
 		];
 
-		for (const cat of categories) {
+		for (const name of categoryNames) {
 			const id = await ctx.db.insert('point_categories', {
-				name: cat.name,
-				subCategories: cat.subCategories
+				name
 			});
-			categoryIds[cat.name] = id;
+			categoryIds[name] = id;
 		}
 
 		// Students
@@ -188,8 +190,7 @@ export const e2eSeedAll = mutation({
 			studentId: studentIds['S1001'],
 			timestamp: now,
 			teacherId: teacher1Id,
-			categoryId: categoryIds['Academic Excellence'],
-			subCategory: 'Test',
+			categoryId: categoryIds['Excellence'],
 			details: 'Great test score',
 			semesterId: 'current'
 		});
@@ -199,8 +200,7 @@ export const e2eSeedAll = mutation({
 			studentId: studentIds['S1002'],
 			timestamp: now,
 			teacherId: teacher2Id,
-			categoryId: categoryIds['Participation'],
-			subCategory: 'Class Discussion',
+			categoryId: categoryIds['Collaboration'],
 			details: 'Active participation',
 			semesterId: 'current'
 		});
@@ -222,7 +222,7 @@ export const e2eSeedAll = mutation({
 			targetTable: 'evaluations',
 			targetId: 'eval1',
 			oldValue: null,
-			newValue: { studentId: 'S2002', category: 'Academic Excellence', points: 15 },
+			newValue: { studentId: 'S2002', category: 'Excellence', points: 15 },
 			timestamp: now - 50000
 		});
 
@@ -263,13 +263,11 @@ export const e2eSeedCategoriesForDelete = mutation({
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		await ctx.db.insert('point_categories', {
-			name: 'Category Without Evals',
-			subCategories: []
+			name: 'Category Without Evals'
 		});
 
 		await ctx.db.insert('point_categories', {
-			name: 'Category With Evals',
-			subCategories: ['Sub1', 'Sub2']
+			name: 'Category With Evals'
 		});
 
 		return { message: 'Categories seeded for delete tests' };
@@ -285,12 +283,7 @@ export const e2eCreateEvaluationForCategory = mutation({
 		// Get the category
 		const categories = await ctx.db.query('point_categories').collect();
 		const category = categories.find((c) => c.name === args.categoryName);
-		console.log(
-			'[e2e] Found category:',
-			category ? category.name : 'NOT FOUND',
-			'subCats:',
-			category?.subCategories
-		);
+		console.log('[e2e] Found category:', category ? category.name : 'NOT FOUND');
 
 		if (!category) {
 			return { success: false, error: 'Category not found' };
@@ -315,20 +308,13 @@ export const e2eCreateEvaluationForCategory = mutation({
 		const teacherId = teacher?._id || 'test-teacher-id';
 
 		// Create evaluation
-		const subCategory = category.subCategories?.[0] || 'TestSub';
-		console.log(
-			'[e2e] Creating evaluation with categoryId:',
-			category._id,
-			'subCategory:',
-			subCategory
-		);
+		console.log('[e2e] Creating evaluation with categoryId:', category._id);
 
 		await ctx.db.insert('evaluations', {
 			studentId: student._id,
 			teacherId: teacherId as Id<'users'>,
 			value: 1,
 			categoryId: category._id,
-			subCategory,
 			details: 'Test evaluation for e2e test',
 			timestamp: Date.now(),
 			semesterId: '2025-H1'
@@ -419,17 +405,15 @@ export const e2eSeedStudentsForDisable = mutation({
 
 		// Get or create category
 		const categories = await ctx.db.query('point_categories').collect();
-		let academicCategory = categories.find((c) => c.name === 'Academic Excellence');
+		let academicCategory = categories.find((c) => c.name === 'Excellence');
 		if (!academicCategory) {
 			const catId = await ctx.db.insert('point_categories', {
-				name: 'Academic Excellence',
-				subCategories: ['Test']
+				name: 'Excellence'
 			});
 			academicCategory = {
 				_id: catId,
 				_creationTime: Date.now(),
-				name: 'Academic Excellence',
-				subCategories: ['Test']
+				name: 'Excellence'
 			};
 		}
 
@@ -439,7 +423,6 @@ export const e2eSeedStudentsForDisable = mutation({
 			timestamp: Date.now(),
 			teacherId: teacherUserId,
 			categoryId: academicCategory._id,
-			subCategory: 'Test',
 			details: 'Test evaluation for disable test',
 			semesterId: 'current'
 		});
@@ -523,7 +506,6 @@ export const e2eCreateEvaluationInternal = mutation({
 		studentId: v.id('students'),
 		value: v.number(),
 		categoryName: v.string(),
-		subCategory: v.string(),
 		details: v.string(),
 		semesterId: v.string(),
 		testToken: v.optional(v.string())
@@ -538,14 +520,12 @@ export const e2eCreateEvaluationInternal = mutation({
 		let category = categories.find((c) => c.name === args.categoryName);
 		if (!category) {
 			const catId = await ctx.db.insert('point_categories', {
-				name: args.categoryName,
-				subCategories: []
+				name: args.categoryName
 			});
 			category = {
 				_id: catId,
 				_creationTime: Date.now(),
-				name: args.categoryName,
-				subCategories: []
+				name: args.categoryName
 			};
 		}
 
@@ -554,7 +534,6 @@ export const e2eCreateEvaluationInternal = mutation({
 			teacherId: teacher?._id as Id<'users'>,
 			value: args.value,
 			categoryId: category._id,
-			subCategory: args.subCategory,
 			details: args.details,
 			timestamp: Date.now(),
 			semesterId: args.semesterId

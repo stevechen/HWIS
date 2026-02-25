@@ -61,8 +61,7 @@ export const DEFAULT_TEACHER = {
  * Default category values
  */
 export const DEFAULT_CATEGORY = {
-	name: 'Test Category',
-	subCategories: ['Sub1']
+	name: 'Test Category'
 };
 
 /**
@@ -70,7 +69,6 @@ export const DEFAULT_CATEGORY = {
  */
 export const DEFAULT_EVALUATION = {
 	value: 1,
-	subCategory: 'Sub1',
 	details: 'Test evaluation details',
 	timestamp: Date.now(),
 	semesterId: '2025-H1'
@@ -151,7 +149,7 @@ export async function createTestTeacher(
  * @example
  * ```typescript
  * const t = convexTest(schema, modules);
- * const categoryId = await createTestCategory(t, { name: 'Leadership', subCategories: ['Team Lead'] });
+ * const categoryId = await createTestCategory(t, { name: 'Leadership' });
  * ```
  */
 export async function createTestCategory(

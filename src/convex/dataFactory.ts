@@ -164,17 +164,19 @@ export const seedBaseline = mutation({
 		// Step 3: Insert categories only if none exist
 		const existingCategories = await ctx.db.query('point_categories').collect();
 		if (existingCategories.length === 0) {
-			const categories = [
-				{ name: 'Academic Excellence', subCategories: ['Homework', 'Test', 'Quiz'] },
-				{ name: 'Participation', subCategories: ['Class Discussion', 'Group Work'] },
-				{ name: 'Behavior', subCategories: [] },
-				{ name: 'Creativity', subCategories: ['Art', 'Music'] }
+			const categoryNames = [
+				'Responsibility',
+				'Excellence',
+				'Service',
+				'Persistence',
+				'Enthusiasm',
+				'Collaboration',
+				'Timeliness'
 			];
 
-			for (const cat of categories) {
+			for (const name of categoryNames) {
 				await ctx.db.insert('point_categories', {
-					name: cat.name,
-					subCategories: cat.subCategories
+					name
 				});
 			}
 		}
@@ -312,14 +314,12 @@ export const createEvaluationForStudent = mutation({
 		if (!category) {
 			const catId = await ctx.db.insert('point_categories', {
 				name: `TestCategory_${args.e2eTag || getE2ETag()}`,
-				subCategories: ['Homework'],
 				e2eTag: args.e2eTag || getE2ETag()
 			});
 			category = {
 				_id: catId,
 				_creationTime: Date.now(),
 				name: `TestCategory_${args.e2eTag || getE2ETag()}`,
-				subCategories: ['Homework'],
 				e2eTag: args.e2eTag || getE2ETag()
 			};
 		}
@@ -330,7 +330,6 @@ export const createEvaluationForStudent = mutation({
 			teacherId,
 			value: 1,
 			categoryId: category._id,
-			subCategory: category.subCategories[0] || '',
 			details: '',
 			timestamp: now,
 			semesterId: '2024-H2',
@@ -425,7 +424,6 @@ export const createStudentWithId = mutation({
 export const createCategory = mutation({
 	args: {
 		name: v.optional(v.string()),
-		subCategories: v.optional(v.array(v.string())),
 		e2eTag: v.optional(v.string()),
 		testToken: v.optional(v.string())
 	},
@@ -434,25 +432,6 @@ export const createCategory = mutation({
 		const tag = args.e2eTag || getE2ETag();
 		return await ctx.db.insert('point_categories', {
 			name: args.name ?? `Category_${Date.now().toString().slice(-6)}`,
-			subCategories: args.subCategories ?? [],
-			e2eTag: tag
-		});
-	}
-});
-
-export const createCategoryWithSubs = mutation({
-	args: {
-		name: v.string(),
-		subCategories: v.array(v.string()),
-		e2eTag: v.optional(v.string()),
-		testToken: v.optional(v.string())
-	},
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
-		const tag = args.e2eTag || getE2ETag();
-		return await ctx.db.insert('point_categories', {
-			name: args.name,
-			subCategories: args.subCategories,
 			e2eTag: tag
 		});
 	}

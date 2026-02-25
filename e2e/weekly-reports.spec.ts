@@ -3,7 +3,7 @@ import {
 	createWeeklyReportTestData,
 	cleanupWeeklyReportTestData,
 	createStudent,
-	createCategoryWithSubs,
+	createCategory,
 	useRole
 } from './convex-client';
 import { getTestSuffix, getUniqueTag } from './helpers';
@@ -229,11 +229,10 @@ test.describe('Weekly Reports - Create Report @weekly @sequential', () => {
 			e2eTag
 		});
 
-		// Create category with subcategories
+		// Create category
 		const categoryName = `TestCategory_${suffix}`;
-		await createCategoryWithSubs({
+		await createCategory({
 			name: categoryName,
-			subCategories: ['TestSubCategory'],
 			e2eTag
 		});
 
@@ -267,12 +266,6 @@ test.describe('Weekly Reports - Create Report @weekly @sequential', () => {
 		await page.getByRole('button', { name: 'Select category' }).click();
 		await expect(page.getByRole('option', { name: categoryName })).toBeVisible();
 		await page.getByRole('option', { name: categoryName }).click();
-
-		// Wait for sub-category to appear and select it
-		await expect(page.getByText(/Sub-Category/i)).toBeVisible();
-		await page.getByRole('button', { name: 'Select sub-category' }).click();
-		await expect(page.getByRole('option', { name: 'TestSubCategory' })).toBeVisible();
-		await page.getByRole('option', { name: 'TestSubCategory' }).click();
 
 		// Submit the evaluation
 		const submitButton = page.getByRole('button', { name: /Submit Evaluation/i });
@@ -326,9 +319,8 @@ test.describe('Weekly Reports - Update Report @weekly @sequential', () => {
 		});
 
 		// Create category
-		await createCategoryWithSubs({
+		await createCategory({
 			name: categoryName,
-			subCategories: ['UpdateSubCategory'],
 			e2eTag
 		});
 
@@ -350,15 +342,10 @@ test.describe('Weekly Reports - Update Report @weekly @sequential', () => {
 		await studentRow.click();
 		await expect(page.getByText(/student.*selected/i)).toBeVisible();
 
-		// Select category and subcategory
+		// Select category
 		await page.getByRole('button', { name: 'Select category' }).click();
 		await expect(page.getByRole('option', { name: categoryName })).toBeVisible();
 		await page.getByRole('option', { name: categoryName }).click();
-
-		await expect(page.getByText(/Sub-Category/i)).toBeVisible();
-		await page.getByRole('button', { name: 'Select sub-category' }).first().click();
-		await expect(page.getByRole('option', { name: 'UpdateSubCategory' })).toBeVisible();
-		await page.getByRole('option', { name: 'UpdateSubCategory' }).click();
 
 		// Submit first evaluation
 		const submitButton = page.getByRole('button', { name: /Submit Evaluation/i });
@@ -403,15 +390,10 @@ test.describe('Weekly Reports - Update Report @weekly @sequential', () => {
 		await studentRow2.click();
 		await expect(page.getByText(/student.*selected/i)).toBeVisible();
 
-		// Select category and subcategory again
+		// Select category again
 		await page.getByRole('button', { name: 'Select category' }).click();
 		await expect(page.getByRole('option', { name: categoryName })).toBeVisible();
 		await page.getByRole('option', { name: categoryName }).click();
-
-		await expect(page.getByText(/Sub-Category/i)).toBeVisible();
-		await page.getByRole('button', { name: 'Select sub-category' }).click();
-		await expect(page.getByRole('option', { name: 'UpdateSubCategory' })).toBeVisible();
-		await page.getByRole('option', { name: 'UpdateSubCategory' }).click();
 
 		// Submit second evaluation
 		const submitButton2 = page.getByRole('button', { name: /Submit Evaluation/i });

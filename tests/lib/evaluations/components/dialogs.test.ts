@@ -33,7 +33,6 @@ describe('Evaluation Dialogs', () => {
 			value: 5,
 			category: 'Academic',
 			categoryId: 'cat-academic-001',
-			subCategory: 'Homework',
 			details: 'Test details'
 		});
 	});
@@ -160,17 +159,6 @@ describe('Evaluation Dialogs', () => {
 				});
 				// Check for the category label with exact match
 				await expect.element(page.getByText('Category', { exact: true })).toBeInTheDocument();
-			});
-
-			it('shows subcategory select when category has subcategories', async () => {
-				render(EditEvaluationDialog, {
-					open: true,
-					evaluation: mockEvaluation,
-					onClose: vi.fn(),
-					onDelete: vi.fn()
-				});
-				// Subcategory should be visible for Academic category
-				await expect.element(page.getByText('Subcategory', { exact: true })).toBeInTheDocument();
 			});
 
 			it('shows point buttons', async () => {

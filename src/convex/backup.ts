@@ -78,19 +78,16 @@ interface BackupRecord {
 
 type BackupPayload = {
 	students: Array<
-		Pick<
-			Doc<'students'>,
-			'englishName' | 'chineseName' | 'studentId' | 'grade' | 'status' | 'note'
-		>
+		Pick<Doc<'students'>, 'englishName' | 'chineseName' | 'studentId' | 'grade' | 'status' | 'note'>
 	>;
 	evaluations: Array<
 		Pick<
 			Doc<'evaluations'>,
-			'studentId' | 'teacherId' | 'value' | 'categoryId' | 'subCategory' | 'details' | 'timestamp' | 'semesterId'
+			'studentId' | 'teacherId' | 'value' | 'categoryId' | 'details' | 'timestamp' | 'semesterId'
 		>
 	>;
 	users: Array<Pick<Doc<'users'>, 'authId' | 'name' | 'role' | 'status'>>;
-	categories: Array<Pick<Doc<'point_categories'>, 'name' | 'subCategories'>>;
+	categories: Array<Pick<Doc<'point_categories'>, 'name'>>;
 };
 
 export const restoreFromBackup = mutation({
@@ -120,7 +117,6 @@ export const restoreFromBackup = mutation({
 				teacherId: evaluation.teacherId as Id<'users'>,
 				value: evaluation.value,
 				categoryId: evaluation.categoryId as Id<'point_categories'>,
-				subCategory: evaluation.subCategory,
 				details: evaluation.details,
 				timestamp: evaluation.timestamp,
 				semesterId: evaluation.semesterId
@@ -136,8 +132,7 @@ export const restoreFromBackup = mutation({
 		}
 		for (const category of data.categories) {
 			await ctx.db.insert('point_categories', {
-				name: category.name,
-				subCategories: category.subCategories
+				name: category.name
 			});
 		}
 		return { message: `Restored data` };

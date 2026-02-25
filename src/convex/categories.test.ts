@@ -5,75 +5,48 @@ import schema from './schema';
 import type { Id } from './_generated/dataModel';
 
 describe('categories.create', () => {
-	it('creates a category with subCategories', async () => {
+	it('creates a category', async () => {
 		const t = convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
-			name: 'Test Category',
-			subCategories: ['Sub1', 'Sub2', 'Sub3']
+			name: 'Test Category'
 		});
 
 		const categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(1);
 		expect(categories[0].name).toBe('Test Category');
-		expect(categories[0].subCategories).toEqual(['Sub1', 'Sub2', 'Sub3']);
 	});
 
-	it('creates a category without subCategories', async () => {
+	it('creates a category with minimal data', async () => {
 		const t = convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
-			name: 'Simple Category',
-			subCategories: []
+			name: 'Simple Category'
 		});
 
 		const categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(1);
 		expect(categories[0].name).toBe('Simple Category');
-		expect(categories[0].subCategories).toEqual([]);
 	});
 });
 
 describe('categories.update', () => {
-	it('updates category name and subCategories', async () => {
+	it('updates category name', async () => {
 		const t = convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
-			name: 'Original Category',
-			subCategories: ['Original Sub']
+			name: 'Original Category'
 		});
 
 		const category = (await t.query(api.categories.list, {}))[0];
 
 		await t.mutation(api.categories.update, {
 			id: category._id,
-			name: 'Updated Category',
-			subCategories: ['Updated Sub 1', 'Updated Sub 2']
+			name: 'Updated Category'
 		});
 
 		const updated = (await t.query(api.categories.list, {}))[0];
 		expect(updated.name).toBe('Updated Category');
-		expect(updated.subCategories).toEqual(['Updated Sub 1', 'Updated Sub 2']);
-	});
-
-	it('clears subCategories', async () => {
-		const t = convexTest(schema, modules);
-
-		await t.mutation(api.categories.create, {
-			name: 'Category With Subs',
-			subCategories: ['Sub1', 'Sub2']
-		});
-
-		const category = (await t.query(api.categories.list, {}))[0];
-
-		await t.mutation(api.categories.update, {
-			id: category._id,
-			name: 'Category Without Subs',
-			subCategories: []
-		});
-
-		const updated = (await t.query(api.categories.list, {}))[0];
-		expect(updated.subCategories).toEqual([]);
 	});
 });
 
@@ -82,8 +55,7 @@ describe('categories.remove', () => {
 		const t = convexTest(schema, modules);
 
 		const categoryId = await t.mutation(api.categories.create, {
-			name: 'To Delete',
-			subCategories: ['Sub']
+			name: 'To Delete'
 		});
 
 		let categories = await t.query(api.categories.list, {});
@@ -99,8 +71,7 @@ describe('categories.remove', () => {
 		const t = convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
-			name: 'Category With Evals',
-			subCategories: ['Sub']
+			name: 'Category With Evals'
 		});
 
 		const category = (await t.query(api.categories.list, {}))[0];
@@ -127,7 +98,6 @@ describe('categories.remove', () => {
 				teacherId: teacherId,
 				value: 5,
 				categoryId: category._id,
-				subCategory: 'Sub',
 				details: 'Test evaluation',
 				timestamp: Date.now(),
 				semesterId: '2024-1'
@@ -166,13 +136,11 @@ describe('categories.list', () => {
 		const t = convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
-			name: 'Category A',
-			subCategories: ['A1', 'A2']
+			name: 'Category A'
 		});
 
 		await t.mutation(api.categories.create, {
-			name: 'Category B',
-			subCategories: ['B1']
+			name: 'Category B'
 		});
 
 		const categories = await t.query(api.categories.list, {});
@@ -192,8 +160,7 @@ describe('categories.getEvaluationCount', () => {
 		const t = convexTest(schema, modules);
 
 		const categoryId = await t.mutation(api.categories.create, {
-			name: 'Empty Category',
-			subCategories: ['Sub']
+			name: 'Empty Category'
 		});
 
 		const count = await t.query(api.categories.getEvaluationCount, {
@@ -207,8 +174,7 @@ describe('categories.getEvaluationCount', () => {
 		const t = convexTest(schema, modules);
 
 		const categoryId = await t.mutation(api.categories.create, {
-			name: 'Evaluated Category',
-			subCategories: ['Sub']
+			name: 'Evaluated Category'
 		});
 
 		const teacherId = await t.run(async (ctx) => {
@@ -233,7 +199,6 @@ describe('categories.getEvaluationCount', () => {
 				teacherId: teacherId,
 				value: 5,
 				categoryId: categoryId,
-				subCategory: 'Sub',
 				details: 'Eval 1',
 				timestamp: Date.now(),
 				semesterId: '2024-1'
@@ -243,7 +208,6 @@ describe('categories.getEvaluationCount', () => {
 				teacherId: teacherId,
 				value: 10,
 				categoryId: categoryId,
-				subCategory: 'Sub',
 				details: 'Eval 2',
 				timestamp: Date.now(),
 				semesterId: '2024-1'
@@ -258,356 +222,43 @@ describe('categories.getEvaluationCount', () => {
 	});
 });
 
-describe('categories.getSubCategoryEvaluationCount', () => {
-	it('returns count for specific subcategory', async () => {
-		const t = convexTest(schema, modules);
-
-		const categoryId = await t.mutation(api.categories.create, {
-			name: 'Multi Sub Category',
-			subCategories: ['SubA', 'SubB']
-		});
-
-		const teacherId = await t.run(async (ctx) => {
-			return await ctx.db.insert('users', {
-				name: 'Test Teacher',
-				role: 'teacher',
-				status: 'active'
-			});
-		});
-
-		const studentId = await t.mutation(api.students.create, {
-			englishName: 'Test Student',
-			chineseName: '測試學生',
-			studentId: 'S_SUBCAT_COUNT',
-			grade: 10,
-			status: 'Enrolled'
-		});
-
-		await t.run(async (ctx) => {
-			await ctx.db.insert('evaluations', {
-				studentId: studentId,
-				teacherId: teacherId,
-				value: 5,
-				categoryId: categoryId,
-				subCategory: 'SubA',
-				details: 'Eval in SubA',
-				timestamp: Date.now(),
-				semesterId: '2024-1'
-			});
-			await ctx.db.insert('evaluations', {
-				studentId: studentId,
-				teacherId: teacherId,
-				value: 10,
-				categoryId: categoryId,
-				subCategory: 'SubB',
-				details: 'Eval in SubB',
-				timestamp: Date.now(),
-				semesterId: '2024-1'
-			});
-		});
-
-		const countA = await t.query(api.categories.getSubCategoryEvaluationCount, {
-			categoryId,
-			subCategory: 'SubA'
-		});
-
-		const countB = await t.query(api.categories.getSubCategoryEvaluationCount, {
-			categoryId,
-			subCategory: 'SubB'
-		});
-
-		expect(countA).toBe(1);
-		expect(countB).toBe(1);
-	});
-});
-
 describe('categories edge cases', () => {
 	it('creates multiple categories with unique names', async () => {
 		const t = convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
-			name: 'First Category',
-			subCategories: ['Sub1']
+			name: 'First Category'
 		});
 		await t.mutation(api.categories.create, {
-			name: 'Second Category',
-			subCategories: ['Sub2']
+			name: 'Second Category'
 		});
 		await t.mutation(api.categories.create, {
-			name: 'Third Category',
-			subCategories: []
+			name: 'Third Category'
 		});
 
 		const categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(3);
-			const names = categories.map((c: { name: string }) => c.name);
+		const names = categories.map((c: { name: string }) => c.name);
 		expect(names).toContain('First Category');
 		expect(names).toContain('Second Category');
 		expect(names).toContain('Third Category');
 	});
 
-	it('handles categories with many subCategories', async () => {
-		const t = convexTest(schema, modules);
-
-		const manySubs = Array.from({ length: 10 }, (_, i) => `SubCategory_${i + 1}`);
-
-		await t.mutation(api.categories.create, {
-			name: 'Many Subs Category',
-			subCategories: manySubs
-		});
-
-		const categories = await t.query(api.categories.list, {});
-		expect(categories).toHaveLength(1);
-		expect(categories[0].subCategories).toHaveLength(10);
-	});
-
-	it('updates only name, preserving subCategories', async () => {
+	it('updates only name', async () => {
 		const t = convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
-			name: 'Original Name',
-			subCategories: ['Preserved Sub']
+			name: 'Original Name'
 		});
 
 		const category = (await t.query(api.categories.list, {}))[0];
 
 		await t.mutation(api.categories.update, {
 			id: category._id,
-			name: 'New Name',
-			subCategories: ['Preserved Sub']
+			name: 'New Name'
 		});
 
 		const updated = (await t.query(api.categories.list, {}))[0];
 		expect(updated.name).toBe('New Name');
-		expect(updated.subCategories).toEqual(['Preserved Sub']);
-	});
-
-	it('replaces all subCategories with new set', async () => {
-		const t = convexTest(schema, modules);
-
-		await t.mutation(api.categories.create, {
-			name: 'Replace Subs',
-			subCategories: ['Old Sub 1', 'Old Sub 2']
-		});
-
-		const category = (await t.query(api.categories.list, {}))[0];
-
-		await t.mutation(api.categories.update, {
-			id: category._id,
-			name: 'Replace Subs',
-			subCategories: ['New Sub 1', 'New Sub 2', 'New Sub 3']
-		});
-
-		const updated = (await t.query(api.categories.list, {}))[0];
-		expect(updated.subCategories).toEqual(['New Sub 1', 'New Sub 2', 'New Sub 3']);
-	});
-});
-
-describe('categories.removeSubCategory', () => {
-	it('removes subcategory without evaluations', async () => {
-		const t = convexTest(schema, modules);
-
-		const categoryId = await t.mutation(api.categories.create, {
-			name: 'Category With Subs',
-			subCategories: ['SubA', 'SubB', 'SubC']
-		});
-
-		await t.mutation(api.categories.removeSubCategory, {
-			categoryId,
-			subCategory: 'SubB'
-		});
-
-		const category = (await t.query(api.categories.list, {}))[0];
-		expect(category.subCategories).toEqual(['SubA', 'SubC']);
-	});
-
-	it('removes subcategory and cascades to delete related evaluations', async () => {
-		const t = convexTest(schema, modules);
-
-		const categoryId = await t.mutation(api.categories.create, {
-			name: 'Category With Evals',
-			subCategories: ['SubA', 'SubB']
-		});
-
-		const teacherId = await t.run(async (ctx) => {
-			return await ctx.db.insert('users', {
-				name: 'Test Teacher',
-				role: 'teacher',
-				status: 'active'
-			});
-		});
-
-		const studentId = await t.mutation(api.students.create, {
-			englishName: 'Test Student',
-			chineseName: '測試學生',
-			studentId: 'S_SUBCAT_CASCADE',
-			grade: 10,
-			status: 'Enrolled'
-		});
-
-		// Create evaluations in both subcategories
-		await t.run(async (ctx) => {
-			await ctx.db.insert('evaluations', {
-				studentId: studentId,
-				teacherId: teacherId,
-				value: 5,
-				categoryId: categoryId,
-				subCategory: 'SubA',
-				details: 'Eval in SubA',
-				timestamp: Date.now(),
-				semesterId: '2024-1'
-			});
-			await ctx.db.insert('evaluations', {
-				studentId: studentId,
-				teacherId: teacherId,
-				value: 10,
-				categoryId: categoryId,
-				subCategory: 'SubB',
-				details: 'Eval in SubB',
-				timestamp: Date.now(),
-				semesterId: '2024-1'
-			});
-		});
-
-		let evaluations = await t.run(async (ctx) => {
-			return await ctx.db.query('evaluations').collect();
-		});
-		expect(evaluations).toHaveLength(2);
-
-		// Remove SubA - should cascade delete its evaluation
-		const result = await t.mutation(api.categories.removeSubCategory, {
-			categoryId,
-			subCategory: 'SubA'
-		});
-
-		expect(result.deletedEvaluationCount).toBe(1);
-
-		// Check SubA evaluation is deleted but SubB remains
-		evaluations = await t.run(async (ctx) => {
-			return await ctx.db.query('evaluations').collect();
-		});
-		expect(evaluations).toHaveLength(1);
-		expect(evaluations[0].subCategory).toBe('SubB');
-
-		// Check subcategory is removed from category
-		const category = (await t.query(api.categories.list, {}))[0];
-		expect(category.subCategories).toEqual(['SubB']);
-	});
-
-	it('returns 0 deleted count when subcategory has no evaluations', async () => {
-		const t = convexTest(schema, modules);
-
-		const categoryId = await t.mutation(api.categories.create, {
-			name: 'Empty Subs Category',
-			subCategories: ['EmptySub']
-		});
-
-		const result = await t.mutation(api.categories.removeSubCategory, {
-			categoryId,
-			subCategory: 'EmptySub'
-		});
-
-		expect(result.deletedEvaluationCount).toBe(0);
-	});
-
-	it('throws error when category not found', async () => {
-		const t = convexTest(schema, modules);
-
-		await expect(async () => {
-			await t.mutation(api.categories.removeSubCategory, {
-				categoryId: 'nonexistent-id' as Id<'point_categories'>,
-				subCategory: 'Sub'
-			});
-		}).rejects.toThrow();
-	});
-
-	it('handles subcategory not in category gracefully', async () => {
-		const t = convexTest(schema, modules);
-
-		const categoryId = await t.mutation(api.categories.create, {
-			name: 'Test Category',
-			subCategories: ['Existing']
-		});
-
-		// Try to remove non-existent subcategory
-		const result = await t.mutation(api.categories.removeSubCategory, {
-			categoryId,
-			subCategory: 'NonExistent'
-		});
-
-		// Should return 0 deleted, category unchanged
-		expect(result.deletedEvaluationCount).toBe(0);
-
-		const category = (await t.query(api.categories.list, {}))[0];
-		expect(category.subCategories).toEqual(['Existing']);
-	});
-
-	it('deletes multiple evaluations in same subcategory', async () => {
-		const t = convexTest(schema, modules);
-
-		const categoryId = await t.mutation(api.categories.create, {
-			name: 'Multi Eval Category',
-			subCategories: ['SubA']
-		});
-
-		const teacherId = await t.run(async (ctx) => {
-			return await ctx.db.insert('users', {
-				name: 'Teacher',
-				role: 'teacher',
-				status: 'active'
-			});
-		});
-
-		const studentId1 = await t.mutation(api.students.create, {
-			englishName: 'Student 1',
-			chineseName: '學生1',
-			studentId: 'S_MULTI_1',
-			grade: 10,
-			status: 'Enrolled'
-		});
-
-		const studentId2 = await t.mutation(api.students.create, {
-			englishName: 'Student 2',
-			chineseName: '學生2',
-			studentId: 'S_MULTI_2',
-			grade: 10,
-			status: 'Enrolled'
-		});
-
-		// Create evaluations for multiple students in same subcategory
-		await t.run(async (ctx) => {
-			await ctx.db.insert('evaluations', {
-				studentId: studentId1,
-				teacherId,
-				categoryId,
-				subCategory: 'SubA',
-				value: 5,
-				details: 'Eval 1',
-				timestamp: Date.now(),
-				semesterId: '2024-1'
-			});
-			await ctx.db.insert('evaluations', {
-				studentId: studentId2,
-				teacherId,
-				categoryId,
-				subCategory: 'SubA',
-				value: 10,
-				details: 'Eval 2',
-				timestamp: Date.now(),
-				semesterId: '2024-1'
-			});
-		});
-
-		const result = await t.mutation(api.categories.removeSubCategory, {
-			categoryId,
-			subCategory: 'SubA'
-		});
-
-		expect(result.deletedEvaluationCount).toBe(2);
-
-		const evaluations = await t.run(async (ctx) => {
-			return await ctx.db.query('evaluations').collect();
-		});
-		expect(evaluations).toHaveLength(0);
 	});
 });

@@ -297,10 +297,6 @@
 		{/if}
 		<div class="flex sm:flex-row flex-col sm:items-center gap-0.5 sm:gap-2 mb-1 hyphens-auto">
 			<span class="font-semibold text-sm">{entry.category}</span>
-			{#if entry.subCategory}
-				<span class="hidden sm:inline text-muted-foreground text-xs">›</span>
-				<span class="text-muted-foreground text-xs">{entry.subCategory}</span>
-			{/if}
 		</div>
 		<div
 			class="overflow-hidden transition-all duration-300 {showDetails || hoveredIndex === idx

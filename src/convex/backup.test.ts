@@ -27,8 +27,7 @@ describe('backup clearing logic', () => {
 		});
 
 		const categoryId = await t.mutation(api.categories.create, {
-			name: 'Creativity',
-			subCategories: ['Leadership']
+			name: 'Creativity'
 		});
 
 		await t.run(async (ctx) => {
@@ -37,7 +36,6 @@ describe('backup clearing logic', () => {
 				teacherId,
 				value: 1,
 				categoryId,
-				subCategory: 'Leadership',
 				details: 'Great work',
 				timestamp: Date.now(),
 				semesterId: '2025-H1'
@@ -118,8 +116,7 @@ describe('backup clearing logic', () => {
 		});
 
 		const categoryId = await t.mutation(api.categories.create, {
-			name: 'Creativity',
-			subCategories: ['Leadership']
+			name: 'Creativity'
 		});
 
 		await t.run(async (ctx) => {
@@ -128,7 +125,6 @@ describe('backup clearing logic', () => {
 				teacherId,
 				value: 1,
 				categoryId,
-				subCategory: 'Leadership',
 				details: 'Great work',
 				timestamp: Date.now(),
 				semesterId: '2025-H1'
@@ -285,8 +281,7 @@ describe('backup clearing logic', () => {
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('point_categories', {
-				name: 'Restored Category',
-				subCategories: ['Sub1', 'Sub2']
+				name: 'Restored Category'
 			});
 		});
 
@@ -311,7 +306,6 @@ describe('backup clearing logic', () => {
 
 		expect(categories).toHaveLength(1);
 		expect(categories[0].name).toBe('Restored Category');
-		expect(categories[0].subCategories).toEqual(['Sub1', 'Sub2']);
 	});
 
 	test('advanceGradesAndClearEvaluations deletes grade 12 and not enrolled, advances remaining', async () => {
@@ -377,8 +371,7 @@ describe('backup clearing logic', () => {
 		});
 
 		const categoryId = await t.mutation(api.categories.create, {
-			name: 'Creativity',
-			subCategories: ['Leadership']
+			name: 'Creativity'
 		});
 
 		const studentId = await t.run(async (ctx) => {
@@ -391,7 +384,6 @@ describe('backup clearing logic', () => {
 				teacherId,
 				value: 1,
 				categoryId,
-				subCategory: 'Leadership',
 				details: 'Great work',
 				timestamp: Date.now(),
 				semesterId: '2025-H1'

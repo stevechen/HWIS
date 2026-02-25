@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { getTestSuffix } from './helpers';
 import {
 	createStudentWithEvaluations,
-	createCategoryWithSubs,
+	createCategory,
 	cleanupByTag,
 	useRole
 } from './convex-client';
@@ -23,9 +23,8 @@ test.describe('Student Timeline Long-Press @timeline-longpress @sequential', () 
 		englishName = `Student_${suffix}`;
 		e2eTag = `e2e-test_${suffix}`;
 
-		await createCategoryWithSubs({
+		await createCategory({
 			name: `Cat_${suffix}`,
-			subCategories: ['Sub1'],
 			e2eTag
 		});
 
@@ -87,9 +86,8 @@ test.describe('Student Timeline Long-Press Admin @timeline-longpress @sequential
 		englishName = `Student_${suffix}`;
 		e2eTag = `e2e-test_${suffix}`;
 
-		await createCategoryWithSubs({
+		await createCategory({
 			name: `Cat_${suffix}`,
-			subCategories: ['Sub1'],
 			e2eTag
 		});
 
@@ -140,9 +138,8 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress @sequential', ()
 		englishName = `Student_${suffix}`;
 		e2eTag = `e2e-test_${suffix}`;
 
-		await createCategoryWithSubs({
+		await createCategory({
 			name: `Cat_${suffix}`,
-			subCategories: ['Sub1'],
 			e2eTag
 		});
 

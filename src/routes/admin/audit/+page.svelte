@@ -25,7 +25,6 @@
 		| 'action'
 		| 'performerId'
 		| 'category'
-		| 'subCategory'
 		| 'points'
 		| 'details';
 
@@ -50,7 +49,6 @@
 		actionLabel: string;
 		details: string | null;
 		category: string | null;
-		subCategory: string | null;
 		points: number | null;
 	}
 
@@ -65,13 +63,6 @@
 		{ key: 'action', label: 'Type', sortable: true, defaultVisible: true, optional: false },
 		{ key: 'performerId', label: 'Teacher', sortable: true, defaultVisible: true, optional: false },
 		{ key: 'category', label: 'Category', sortable: false, defaultVisible: true, optional: true },
-		{
-			key: 'subCategory',
-			label: 'Subcategory',
-			sortable: false,
-			defaultVisible: false,
-			optional: true
-		},
 		{ key: 'points', label: 'Points', sortable: false, defaultVisible: false, optional: true },
 		{ key: 'details', label: 'Details', sortable: false, defaultVisible: false, optional: true }
 	];
@@ -327,8 +318,6 @@
 				return 'flex-1 min-w-36';
 			case 'category':
 				return 'w-32';
-			case 'subCategory':
-				return 'w-32';
 			case 'points':
 				return 'w-16';
 			case 'details':
@@ -341,7 +330,6 @@
 	function getHiddenClass(key: ColumnKey): string {
 		switch (key) {
 			case 'studentId':
-			case 'subCategory':
 			case 'points':
 				return 'hide-mobile';
 			case 'action':
@@ -355,7 +343,6 @@
 	function getCellHiddenClass(key: ColumnKey): string {
 		switch (key) {
 			case 'studentId':
-			case 'subCategory':
 			case 'points':
 				return 'hide-mobile';
 			case 'action':
@@ -549,8 +536,6 @@
 													</div>
 												{:else if column.key === 'category'}
 													{log.category || '-'}
-												{:else if column.key === 'subCategory'}
-													{log.subCategory || '-'}
 												{:else if column.key === 'points'}
 													{log.points !== null ? log.points : '-'}
 												{:else if column.key === 'details'}

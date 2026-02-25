@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
@@ -23,7 +22,6 @@ export const create = mutation({
 		studentIds: v.array(v.id('students')),
 		value: v.number(),
 		categoryId: v.id('point_categories'),
-		subCategory: v.string(),
 		details: v.string(),
 		semesterId: v.string(),
 		testToken: v.optional(v.string()),
@@ -48,7 +46,6 @@ export const create = mutation({
 				teacherId,
 				value: args.value,
 				categoryId: args.categoryId,
-				subCategory: args.subCategory,
 				details: args.details,
 				timestamp,
 				semesterId: args.semesterId,
@@ -131,9 +128,7 @@ export const listRecent = query({
 		const authUser = await getAuthenticatedUser(ctx, args.testToken);
 		if (!authUser) return { evaluations: [], cursor: null };
 
-		const authId =
-			authUser.authId ||
-			(typeof authUser._id === 'string' ? authUser._id : undefined);
+		const authId = authUser.authId || (typeof authUser._id === 'string' ? authUser._id : undefined);
 		if (!authId) return { evaluations: [], cursor: null };
 
 		const userDoc = await ctx.db
@@ -184,7 +179,6 @@ export const listRecent = query({
 				value: eval_.value,
 				categoryId: eval_.categoryId,
 				category: category?.name || 'Unknown Category',
-				subCategory: eval_.subCategory,
 				details: eval_.details,
 				timestamp: eval_.timestamp
 			};
@@ -641,7 +635,6 @@ export const listAllEvaluations = query({
 				value: eval_.value,
 				categoryId: eval_.categoryId.toString(),
 				category: category?.name || 'Unknown Category',
-				subCategory: eval_.subCategory,
 				details: eval_.details,
 				timestamp: eval_.timestamp,
 				teacherName: teacher?.name || 'Unknown Teacher',
@@ -732,7 +725,6 @@ export const listAllEvaluationsPaginated = query({
 				value: eval_.value,
 				categoryId: eval_.categoryId.toString(),
 				category: category?.name || 'Unknown Category',
-				subCategory: eval_.subCategory,
 				details: eval_.details,
 				timestamp: eval_.timestamp,
 				teacherName: teacher?.name || 'Unknown Teacher',
@@ -771,7 +763,6 @@ export const update = mutation({
 		id: v.id('evaluations'),
 		value: v.optional(v.number()),
 		categoryId: v.optional(v.id('point_categories')),
-		subCategory: v.optional(v.string()),
 		details: v.optional(v.string()),
 		testToken: v.optional(v.string())
 	},
@@ -800,7 +791,6 @@ export const update = mutation({
 		const updates: Partial<typeof evaluation> = {};
 		if (args.value !== undefined) updates.value = args.value;
 		if (args.categoryId !== undefined) updates.categoryId = args.categoryId;
-		if (args.subCategory !== undefined) updates.subCategory = args.subCategory;
 		if (args.details !== undefined) updates.details = args.details;
 
 		await ctx.db.patch(args.id, updates);

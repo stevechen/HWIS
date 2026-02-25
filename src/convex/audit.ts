@@ -29,8 +29,7 @@ interface Student {
 interface Evaluation {
 	_id: Id<'evaluations'>;
 	details: string;
-	category: string;
-	subCategory: string;
+	categoryId: Id<'point_categories'>;
 	value: number;
 }
 
@@ -80,7 +79,6 @@ export const list = query({
 				studentId: string | null;
 				details: string | null;
 				category: string | null;
-				subCategory: string | null;
 				points: number | null;
 			}
 		> = [];
@@ -91,7 +89,6 @@ export const list = query({
 			let studentId: string | null = null;
 			let details: string | null = null;
 			let category: string | null = null;
-			let subCategory: string | null = null;
 			let points: number | null = null;
 
 			if (log.targetTable === 'evaluations') {
@@ -117,13 +114,16 @@ export const list = query({
 				}
 				if (log.targetId && !log.targetId.startsWith && log.targetId.length > 5) {
 					// Only try to get evaluation if it's a valid-looking Convex ID
-					const evaluation = (await ctx.db.get(log.targetId as Id<'evaluations'>)) as
-						| Evaluation
-						| null;
+					const evaluation = (await ctx.db.get(
+						log.targetId as Id<'evaluations'>
+					)) as Evaluation | null;
 					if (evaluation) {
 						details = evaluation.details || null;
-						category = evaluation.category || null;
-						subCategory = evaluation.subCategory || null;
+						// Look up category name from categoryId
+						const categoryDoc = evaluation.categoryId
+							? await ctx.db.get(evaluation.categoryId)
+							: null;
+						category = categoryDoc?.name || null;
 						points = evaluation.value || null;
 					}
 				}
@@ -136,6 +136,7 @@ export const list = query({
 				details = `${log.oldValue?.status} → ${log.newValue?.status}`;
 			}
 
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const { performerId: _performerId, ...logWithoutPerformer } = log;
 			results.push({
 				...logWithoutPerformer,
@@ -147,7 +148,6 @@ export const list = query({
 				studentId,
 				details,
 				category,
-				subCategory,
 				points
 			});
 		}

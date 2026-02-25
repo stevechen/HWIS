@@ -298,6 +298,96 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases @sequential', () => {
 });
 
 // ============================================
+// TEACHER NAME TOGGLE TESTS
+// ============================================
+
+test.describe('Admin Evaluations - Teacher Name Toggle @admin-evaluations @sequential', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	let suffix: string;
+	let e2eTag: string;
+	let testEntity = false;
+	let studentName: string;
+
+	test.beforeEach(async ({ page }) => {
+		useRole('admin');
+		suffix = getTestSuffix('teacherNameToggle');
+		e2eTag = `e2e-test_${suffix}`;
+		studentName = `Student_${suffix}`;
+		const studentId = `SE_STUDENT_${suffix}`;
+
+		// Create a student with evaluation
+		await createStudentWithEvaluations({
+			studentId,
+			englishName: studentName,
+			chineseName: 'Student',
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+		testEntity = true;
+
+		// Navigate to admin evaluations page
+		await page.goto('/admin/evaluations');
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading students')).not.toBeVisible();
+		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+	});
+
+	test.afterEach(async () => {
+		// Cleanup test data after each test
+		if (testEntity) await cleanupByTag('all', e2eTag);
+	});
+
+	test('shows teacher name toggle button with correct default aria-label', async ({ page }) => {
+		// By default, teacher name is hidden, so button should say "Show teacher name"
+		const showTeacherNameButton = page.getByRole('button', { name: 'Show teacher name' });
+		await expect(showTeacherNameButton).toBeVisible();
+	});
+
+	test('clicking toggle changes aria-label from Show to Hide', async ({ page }) => {
+		// Initial state - button should say "Show teacher name" (hidden by default)
+		const showButton = page.getByRole('button', { name: 'Show teacher name' });
+		await expect(showButton).toBeVisible();
+
+		// Click to show teacher names
+		await showButton.click();
+
+		// Button should now say "Hide teacher name"
+		const hideButton = page.getByRole('button', { name: 'Hide teacher name' });
+		await expect(hideButton).toBeVisible();
+	});
+
+	test('can toggle teacher name visibility on and off', async ({ page }) => {
+		// Start with "Show teacher name" (hidden by default)
+		await expect(page.getByRole('button', { name: 'Show teacher name' })).toBeVisible();
+
+		// Click to show
+		await page.getByRole('button', { name: 'Show teacher name' }).click();
+
+		// Now should say "Hide teacher name"
+		await expect(page.getByRole('button', { name: 'Hide teacher name' })).toBeVisible();
+
+		// Click to hide again
+		await page.getByRole('button', { name: 'Hide teacher name' }).click();
+
+		// Should revert to "Show teacher name"
+		await expect(page.getByRole('button', { name: 'Show teacher name' })).toBeVisible();
+	});
+
+	test('teacher name toggle button is in toggle controls section', async ({ page }) => {
+		// Verify the teacher name toggle button exists alongside other toggle buttons
+		const showTeacherNameButton = page.getByRole('button', { name: 'Show teacher name' });
+		await expect(showTeacherNameButton).toBeVisible();
+
+		// Verify other toggle buttons are also present
+		await expect(page.getByRole('button', { name: /newest first/i })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Show unenrolled students' })).toBeVisible();
+		await expect(page.getByRole('button', { name: /show details/i })).toBeVisible();
+	});
+});
+
+// ============================================
 // ICON VISIBILITY TESTS
 // ============================================
 

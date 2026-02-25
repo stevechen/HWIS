@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { getTestSuffix, getStudentId } from './helpers';
-import { createStudent, createCategoryWithSubs, cleanupByTag, useRole } from './convex-client';
+import { createStudent, createCategory, cleanupByTag, useRole } from './convex-client';
 
 test.describe('Bulk Operations @bulk @sequential', () => {
 	test.describe('Bulk Evaluation Creation', () => {
@@ -27,9 +27,8 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 			}
 
 			// Create category for evaluations
-			await createCategoryWithSubs({
+			await createCategory({
 				name: categoryName,
-				subCategories: ['Homework', 'Participation'],
 				e2eTag
 			});
 
@@ -101,13 +100,6 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 			// Select the category we created
 			const categoryOption = page.getByRole('option', { name: categoryName });
 			await categoryOption.click();
-
-			// Select subcategory
-			const subCategoryTrigger = page.getByLabel('Select Sub-category');
-			await subCategoryTrigger.click();
-
-			const subCategoryOption = page.getByRole('option', { name: 'Homework' });
-			await subCategoryOption.click();
 
 			// Fill in evaluation details
 			const detailsInput = page.getByRole('textbox', { name: /details|notes/i });

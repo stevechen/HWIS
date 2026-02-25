@@ -9,7 +9,6 @@ export function createMockEvaluation(overrides: Partial<EvaluationEntry> = {}): 
 		value: 5,
 		category: 'Academic',
 		categoryId: 'cat-academic-001',
-		subCategory: 'Homework',
 		details: 'Excellent work on the assignment',
 		timestamp: Date.now() - 1000 * 60 * 60, // 1 hour ago
 		teacherName: 'Ms. Johnson',
@@ -35,7 +34,6 @@ export function createMockEvaluationSet(): EvaluationEntry[] {
 			value: 5,
 			category: 'Academic',
 			categoryId: 'cat-academic-001',
-			subCategory: 'Homework',
 			timestamp: now - 1000 * 60 * 60 * 2, // 2 hours ago
 			englishName: 'Alice Chen',
 			studentIdCode: 'SE2024001',
@@ -47,7 +45,6 @@ export function createMockEvaluationSet(): EvaluationEntry[] {
 			value: -3,
 			category: 'Behavior',
 			categoryId: 'cat-behavior-001',
-			subCategory: 'Late Arrival',
 			timestamp: now - 1000 * 60 * 60 * 24, // 1 day ago
 			englishName: 'Bob Wang',
 			studentIdCode: 'SE2024002',
@@ -59,7 +56,6 @@ export function createMockEvaluationSet(): EvaluationEntry[] {
 			value: 10,
 			category: 'Special',
 			categoryId: 'cat-special-001',
-			subCategory: 'Achievement',
 			timestamp: now - 1000 * 60 * 60 * 48, // 2 days ago
 			isAdmin: true,
 			teacherName: 'Admin User',
@@ -72,7 +68,6 @@ export function createMockEvaluationSet(): EvaluationEntry[] {
 			value: 2,
 			category: 'Academic',
 			categoryId: 'cat-academic-001',
-			subCategory: 'Participation',
 			timestamp: now - 1000 * 60 * 60 * 72, // 3 days ago
 			status: 'Not Enrolled',
 			englishName: 'David Kim',
@@ -89,18 +84,15 @@ export function createMockEvaluationSet(): EvaluationEntry[] {
 export const mockCategories = [
 	{
 		_id: 'cat-academic-001',
-		name: 'Academic',
-		subCategories: ['Homework', 'Exams', 'Participation']
+		name: 'Academic'
 	},
 	{
 		_id: 'cat-behavior-001',
-		name: 'Behavior',
-		subCategories: ['Late Arrival', 'Conduct', 'Respect']
+		name: 'Behavior'
 	},
 	{
 		_id: 'cat-special-001',
-		name: 'Special',
-		subCategories: ['Achievement', 'Award', 'Recognition']
+		name: 'Special'
 	}
 ];
 

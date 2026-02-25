@@ -151,22 +151,9 @@ export async function setE2eTag(
 	return await utils.setE2eTag(dataType, dataId, e2eTag);
 }
 
-export async function createCategory(opts: {
-	name?: string;
-	subCategories?: string[];
-	e2eTag?: string;
-}) {
+export async function createCategory(opts: { name?: string; e2eTag?: string }) {
 	const utils = getUtils();
 	return await utils.createCategory(opts);
-}
-
-export async function createCategoryWithSubs(opts: {
-	name: string;
-	subCategories: string[];
-	e2eTag?: string;
-}) {
-	const utils = getUtils();
-	return await utils.createCategoryWithSubs(opts);
 }
 
 export async function createEvalForCategory(categoryName: string) {
@@ -189,13 +176,12 @@ async function ensureCategoryForTag(e2eTag: string) {
 		return;
 	}
 
-	const creation = createCategoryWithSubs({
+	const creation = createCategory({
 		name: `Cat_${e2eTag}`,
-		subCategories: ['Homework'],
 		e2eTag
 	})
 		.then(() => undefined)
-		.catch((error) => {
+		.catch((error: Error) => {
 			categorySeedByTag.delete(e2eTag);
 			throw error;
 		});

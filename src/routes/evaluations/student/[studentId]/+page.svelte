@@ -76,7 +76,6 @@
 			_id: 'eval-1',
 			value: 5,
 			category: 'Academic',
-			subCategory: 'Homework',
 			details: 'Excellent homework submission - all problems solved correctly',
 			timestamp: Date.now() - 1000 * 60 * 60 * 24,
 			teacherName: 'Ms. Johnson',
@@ -87,7 +86,6 @@
 			_id: 'eval-2',
 			value: -3,
 			category: 'Behavior',
-			subCategory: 'Late Arrival',
 			details: 'Arrived 15 minutes late to class without permission',
 			timestamp: Date.now() - 1000 * 60 * 60 * 48,
 			teacherName: 'Mr. Smith',
@@ -98,7 +96,6 @@
 			_id: 'eval-3',
 			value: 10,
 			category: 'Academic',
-			subCategory: 'Test Score',
 			details: 'Outstanding performance on midterm exam - scored 95%',
 			timestamp: Date.now() - 1000 * 60 * 60 * 72,
 			teacherName: 'Ms. Johnson',
@@ -109,7 +106,6 @@
 			_id: 'admin-eval-1',
 			value: 15,
 			category: 'Special',
-			subCategory: 'Achievement',
 			details: 'Student of the Month Award',
 			timestamp: Date.now() - 1000 * 60 * 60 * 6,
 			teacherName: 'Admin',
@@ -269,11 +265,11 @@
 	});
 </script>
 
-<div class="mx-auto max-w-6xl p-8">
+<div class="mx-auto p-8 max-w-6xl">
 	{#if isDemo}
 		<div class="mb-6">
 			<span
-				class="rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
+				class="bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded-full text-yellow-800 dark:text-yellow-100 text-xs"
 			>
 				DEMO MODE ({demoRole.toUpperCase()})
 			</span>
@@ -297,7 +293,7 @@
 		>
 			{#snippet children()}
 				<!-- Filters Section -->
-				<div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+				<div class="flex sm:flex-row flex-col sm:items-center gap-4">
 					<!-- Teacher Name Filter (hidden for teachers) -->
 					{#if !isTeacher}
 						<FilterInput

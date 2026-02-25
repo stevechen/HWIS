@@ -62,13 +62,6 @@ export interface CreateStudentOptions {
 
 export interface CreateCategoryOptions {
 	name?: string;
-	subCategories?: string[];
-	e2eTag?: string;
-}
-
-export interface CreateCategoryWithSubsOptions {
-	name: string;
-	subCategories: string[];
 	e2eTag?: string;
 }
 
@@ -126,7 +119,6 @@ export interface E2EUtils {
 		e2eTag: string
 	) => Promise<unknown>;
 	createCategory: (opts?: CreateCategoryOptions) => Promise<unknown>;
-	createCategoryWithSubs: (opts: CreateCategoryWithSubsOptions) => Promise<unknown>;
 	createEvalForCategory: (categoryName: string) => Promise<unknown>;
 	checkEvaluationExists: (categoryName: string) => Promise<unknown>;
 	createEvaluationForStudent: (data: CreateEvaluationForStudentData) => Promise<unknown>;
@@ -366,18 +358,6 @@ export function getE2EUtils(): E2EUtils {
 				});
 			} catch {
 				console.log('Create category error');
-				return { error: 'Error' };
-			}
-		},
-
-		async createCategoryWithSubs(opts: CreateCategoryWithSubsOptions) {
-			try {
-				return await c.mutation(api.dataFactory.createCategoryWithSubs, {
-					...opts,
-					testToken: TEST_TOKEN
-				});
-			} catch {
-				console.log('Create category with subs error');
 				return { error: 'Error' };
 			}
 		},

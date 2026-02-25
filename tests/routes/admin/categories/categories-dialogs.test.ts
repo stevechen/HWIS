@@ -6,13 +6,11 @@ import { render } from 'vitest-browser-svelte';
 const mockCategories = [
 	{
 		_id: 'cat-001',
-		name: 'Leadership',
-		subCategories: ['Teamwork', 'Initiative']
+		name: 'Leadership'
 	},
 	{
 		_id: 'cat-002',
-		name: 'Academic',
-		subCategories: ['Homework', 'Exams']
+		name: 'Academic'
 	}
 ];
 
@@ -105,17 +103,6 @@ describe('Categories Page - Delete Dialogs', () => {
 				.element(page.getByRole('textbox', { name: 'Category Name' }))
 				.toHaveValue('Leadership');
 		});
-
-		it('shows subcategories in edit dialog', async () => {
-			render(CategoriesPage);
-			await expect.element(page.getByText('Leadership')).toBeInTheDocument();
-			await page.getByRole('button', { name: 'Edit' }).first().click();
-
-			// Should show existing subcategories within the dialog
-			const dialog = page.getByRole('dialog');
-			await expect.element(dialog.getByText('Teamwork')).toBeInTheDocument();
-			await expect.element(dialog.getByText('Initiative')).toBeInTheDocument();
-		});
 	});
 });
 
@@ -142,77 +129,6 @@ describe('Categories Page - Add Form', () => {
 		render(CategoriesPage);
 		await page.getByRole('button', { name: 'Add new category' }).click();
 		await expect.element(page.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
-	});
-});
-
-describe('Categories Page - SubCategory Delete', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-		mockQuery.mockResolvedValue(3); // 3 evaluations in subcategory
-	});
-
-	it('shows confirmation dialog when removing subcategory with evaluations', async () => {
-		render(CategoriesPage);
-		await expect.element(page.getByText('Leadership')).toBeInTheDocument();
-
-		// Open edit dialog
-		await page.getByRole('button', { name: 'Edit' }).first().click();
-		await expect.element(page.getByRole('dialog')).toBeInTheDocument();
-
-		// Click remove on first subcategory (the × button with aria-label)
-		const removeButton = page.getByRole('button', { name: /Remove Teamwork/ });
-		await removeButton.click();
-
-		// Should show warning dialog with correct aria-label
-		const confirmDialog = page.getByRole('dialog', { name: 'Confirm remove sub-category' });
-		await expect.element(confirmDialog).toBeInTheDocument();
-	});
-
-	it('shows evaluation count in subcategory delete warning', async () => {
-		render(CategoriesPage);
-		await expect.element(page.getByText('Leadership')).toBeInTheDocument();
-
-		// Open edit dialog
-		await page.getByRole('button', { name: 'Edit' }).first().click();
-
-		// Click remove on first subcategory
-		const removeButton = page.getByRole('button', { name: /Remove Teamwork/ });
-		await removeButton.click();
-
-		// Should show the count in the warning
-		await expect.element(page.getByText(/3 evaluation/)).toBeInTheDocument();
-	});
-
-	it('has cancel button in subcategory delete dialog', async () => {
-		render(CategoriesPage);
-		await expect.element(page.getByText('Leadership')).toBeInTheDocument();
-
-		// Open edit dialog
-		await page.getByRole('button', { name: 'Edit' }).first().click();
-
-		// Click remove on first subcategory
-		const removeButton = page.getByRole('button', { name: /Remove Teamwork/ });
-		await removeButton.click();
-
-		// Should have cancel button in the confirm dialog
-		const confirmDialog = page.getByRole('dialog', { name: 'Confirm remove sub-category' });
-		await expect.element(confirmDialog.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
-	});
-
-	it('has confirm button in subcategory delete dialog', async () => {
-		render(CategoriesPage);
-		await expect.element(page.getByText('Leadership')).toBeInTheDocument();
-
-		// Open edit dialog
-		await page.getByRole('button', { name: 'Edit' }).first().click();
-
-		// Click remove on first subcategory
-		const removeButton = page.getByRole('button', { name: /Remove Teamwork/ });
-		await removeButton.click();
-
-		// Should have Remove button for confirmation
-		const confirmDialog = page.getByRole('dialog', { name: 'Confirm remove sub-category' });
-		await expect.element(confirmDialog.getByRole('button', { name: 'Remove' })).toBeInTheDocument();
 	});
 });
 

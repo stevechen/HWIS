@@ -1,12 +1,24 @@
 import { defineConfig } from 'vitest/config';
+import { playwright } from '@vitest/browser-playwright';
+import { sveltekit } from '@sveltejs/kit/vite';
+import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'path';
 
 export default defineConfig({
+	plugins: [tailwindcss(), sveltekit()],
+
 	test: {
-		// Component tests in tests/ folder - use browser pool
+		// Component tests in tests/ folder - use browser mode
+		name: 'component',
 		include: ['tests/**/*.test.ts'],
 		exclude: ['**/node_modules/**', 'tests/lib/**'],
-		pool: 'browser'
+		setupFiles: ['./vitest-setup-client.ts'],
+
+		browser: {
+			enabled: true,
+			provider: playwright(),
+			instances: [{ browser: 'chromium', headless: true }]
+		}
 	},
 	resolve: {
 		alias: {

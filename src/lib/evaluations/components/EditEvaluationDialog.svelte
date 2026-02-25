@@ -23,7 +23,6 @@
 	// Form state
 	let editValue = $state(0);
 	let editCategoryId = $state('');
-	let editSubCategory = $state('');
 	let editDetails = $state('');
 	let editLoading = $state(false);
 
@@ -32,7 +31,6 @@
 		if (evaluation) {
 			editValue = evaluation.value;
 			editCategoryId = evaluation.categoryId || '';
-			editSubCategory = evaluation.subCategory || '';
 			editDetails = evaluation.details || '';
 		}
 	});
@@ -49,7 +47,6 @@
 					id: evaluation._id as Id<'evaluations'>,
 					value: editValue,
 					categoryId: editCategoryId as Id<'point_categories'>,
-					subCategory: editSubCategory,
 					details: editDetails
 				});
 				open = false;
@@ -112,23 +109,6 @@
 					</Select.Content>
 				</Select.Root>
 			</div>
-
-			<!-- SubCategory - only show if selected category has subcategories -->
-			{#if editCategoryId && categoriesQuery.data?.find((c) => c._id === editCategoryId)?.subCategories?.length}
-				<div class="space-y-2">
-					<label class="font-medium text-sm" for="subcategory-select">Subcategory</label>
-					<Select.Root type="single" bind:value={editSubCategory}>
-						<Select.Trigger id="subcategory-select" aria-label="Select subcategory">
-							{editSubCategory || 'Select Subcategory'}
-						</Select.Trigger>
-						<Select.Content>
-							{#each categoriesQuery.data.find((c) => c._id === editCategoryId)?.subCategories || [] as sub (sub)}
-								<Select.Item value={sub}>{sub}</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
-				</div>
-			{/if}
 
 			<!-- Points -->
 			<fieldset class="space-y-2">

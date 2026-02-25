@@ -98,7 +98,6 @@ test.describe('Evaluation Persistence @integration', () => {
 		// Create tagged category for evaluations (replaces seedBaseline)
 		await createCategory({
 			name: `TestCat_${suffix}`,
-			subCategories: ['Homework', 'Participation'],
 			e2eTag: testE2eTag
 		});
 
@@ -149,7 +148,6 @@ test.describe('Student Timeline Navigation @integration @sequential', () => {
 		// Create tagged category for evaluations (replaces seedBaseline)
 		await createCategory({
 			name: `TimelineCat_${suffix}`,
-			subCategories: ['Homework', 'Participation'],
 			e2eTag: testE2eTag
 		});
 
@@ -195,7 +193,6 @@ test.describe('Category to Evaluation Integration @integration', () => {
 		// Create category via API with e2eTag for proper cleanup
 		await createCategory({
 			name: categoryName,
-			subCategories: [`SubCat1_${suffix}`, `SubCat2_${suffix}`],
 			e2eTag: testE2eTag
 		});
 

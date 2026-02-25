@@ -74,16 +74,18 @@ export const resetDatabase = mutation({
 		}
 
 		// Re-seed default categories
-		const categories = [
-			{ name: 'Academic Excellence', subCategories: ['Homework', 'Test', 'Quiz'] },
-			{ name: 'Participation', subCategories: ['Class Discussion', 'Group Work'] },
-			{ name: 'Behavior', subCategories: [] },
-			{ name: 'Creativity', subCategories: ['Art', 'Music'] }
+		const categoryNames = [
+			'Responsibility',
+			'Excellence',
+			'Service',
+			'Persistence',
+			'Enthusiasm',
+			'Collaboration',
+			'Timeliness'
 		];
-		for (const cat of categories) {
+		for (const name of categoryNames) {
 			await ctx.db.insert('point_categories', {
-				name: cat.name,
-				subCategories: cat.subCategories
+				name
 			});
 		}
 
@@ -133,7 +135,7 @@ export const resetDatabase = mutation({
 			message: 'Database reset complete',
 			deletedUsers,
 			deletedConvexUsers,
-			categoriesSeeded: categories.length,
+			categoriesSeeded: categoryNames.length,
 			studentsSeeded: defaultStudents.length
 		};
 	}

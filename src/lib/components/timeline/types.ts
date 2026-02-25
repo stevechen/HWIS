@@ -3,7 +3,6 @@ export interface EvaluationEntry {
 	value: number;
 	category?: string; // Category name (optional, may not be present in all queries)
 	categoryId?: string; // Category ID for updates
-	subCategory?: string;
 	details?: string;
 	timestamp: number;
 	teacherName?: string;

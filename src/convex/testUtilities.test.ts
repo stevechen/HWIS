@@ -28,12 +28,20 @@ function createMockAdapter(initialUsers: BetterAuthUser[] = []) {
 			if (model === 'user') return users;
 			return [];
 		}),
-		findOne: vi.fn(async ({ model, where }: { model: string; where: Array<{ field: string; value: string }> }) => {
-			if (model !== 'user') return null;
-			const id = where.find((w) => w.field === 'id')?.value;
-			if (!id) return null;
-			return users.find((u) => u.id === id) ?? null;
-		}),
+		findOne: vi.fn(
+			async ({
+				model,
+				where
+			}: {
+				model: string;
+				where: Array<{ field: string; value: string }>;
+			}) => {
+				if (model !== 'user') return null;
+				const id = where.find((w) => w.field === 'id')?.value;
+				if (!id) return null;
+				return users.find((u) => u.id === id) ?? null;
+			}
+		),
 		create: vi.fn(async ({ model, data }: { model: string; data: Record<string, unknown> }) => {
 			if (model === 'user') {
 				const id = (data.id as string | undefined) ?? `u_${users.length + 1}`;
@@ -51,24 +59,32 @@ function createMockAdapter(initialUsers: BetterAuthUser[] = []) {
 			}
 			return data;
 		}),
-		deleteMany: vi.fn(async ({ model, where }: { model: string; where: Array<{ field: string; value: string }> }) => {
-			const first = where[0];
-			if (!first) return;
-			if (model === 'user' && first.field === 'id') {
-				const idx = users.findIndex((u) => u.id === first.value);
-				if (idx >= 0) users.splice(idx, 1);
-			}
-			if (model === 'session' && first.field === 'userId') {
-				for (let i = sessions.length - 1; i >= 0; i--) {
-					if (sessions[i].userId === first.value) sessions.splice(i, 1);
+		deleteMany: vi.fn(
+			async ({
+				model,
+				where
+			}: {
+				model: string;
+				where: Array<{ field: string; value: string }>;
+			}) => {
+				const first = where[0];
+				if (!first) return;
+				if (model === 'user' && first.field === 'id') {
+					const idx = users.findIndex((u) => u.id === first.value);
+					if (idx >= 0) users.splice(idx, 1);
+				}
+				if (model === 'session' && first.field === 'userId') {
+					for (let i = sessions.length - 1; i >= 0; i--) {
+						if (sessions[i].userId === first.value) sessions.splice(i, 1);
+					}
+				}
+				if (model === 'account' && first.field === 'userId') {
+					for (let i = accounts.length - 1; i >= 0; i--) {
+						if (accounts[i].userId === first.value) accounts.splice(i, 1);
+					}
 				}
 			}
-			if (model === 'account' && first.field === 'userId') {
-				for (let i = accounts.length - 1; i >= 0; i--) {
-					if (accounts[i].userId === first.value) accounts.splice(i, 1);
-				}
-			}
-		})
+		)
 	};
 
 	return { adapter, state: { users, sessions, accounts } };
@@ -119,7 +135,12 @@ describe('test utilities', () => {
 
 		const t = rawConvexTest(schema, modules);
 		await t.run(async (ctx) => {
-			await ctx.db.insert('users', { authId: 'temp-id', name: 'Temp', role: 'teacher', status: 'active' });
+			await ctx.db.insert('users', {
+				authId: 'temp-id',
+				name: 'Temp',
+				role: 'teacher',
+				status: 'active'
+			});
 			await ctx.db.insert('users', {
 				authId: 'teacher-id',
 				name: 'Protected',
@@ -178,7 +199,6 @@ describe('test utilities', () => {
 			});
 			const category = await ctx.db.insert('point_categories', {
 				name: 'Tagged Category',
-				subCategories: ['Sub'],
 				e2eTag: 'e2e-test_x'
 			});
 			await ctx.db.insert('evaluations', {
@@ -186,7 +206,6 @@ describe('test utilities', () => {
 				teacherId: protectedUser,
 				value: 1,
 				categoryId: category,
-				subCategory: 'Sub',
 				details: 'details',
 				timestamp: Date.now(),
 				semesterId: '2026-S1',
@@ -241,9 +260,24 @@ describe('test utilities', () => {
 
 		const t = rawConvexTest(schema, modules);
 		await t.run(async (ctx) => {
-			await ctx.db.insert('users', { authId: 'same-auth', name: 'Older', role: 'teacher', status: 'active' });
-			await ctx.db.insert('users', { authId: 'same-auth', name: 'Newer', role: 'teacher', status: 'active' });
-			await ctx.db.insert('users', { authId: 'unique-auth', name: 'Unique', role: 'teacher', status: 'active' });
+			await ctx.db.insert('users', {
+				authId: 'same-auth',
+				name: 'Older',
+				role: 'teacher',
+				status: 'active'
+			});
+			await ctx.db.insert('users', {
+				authId: 'same-auth',
+				name: 'Newer',
+				role: 'teacher',
+				status: 'active'
+			});
+			await ctx.db.insert('users', {
+				authId: 'unique-auth',
+				name: 'Unique',
+				role: 'teacher',
+				status: 'active'
+			});
 		});
 
 		const first = await t.mutation(api.dedupeUsers.dedupeUsers, {});
@@ -283,15 +317,13 @@ describe('test utilities', () => {
 				status: 'Enrolled'
 			});
 			const category = await ctx.db.insert('point_categories', {
-				name: 'Old Category',
-				subCategories: []
+				name: 'Old Category'
 			});
 			await ctx.db.insert('evaluations', {
 				studentId: student,
 				teacherId: teacher,
 				value: 1,
 				categoryId: category,
-				subCategory: '',
 				details: '',
 				timestamp: Date.now(),
 				semesterId: '2026-S1'

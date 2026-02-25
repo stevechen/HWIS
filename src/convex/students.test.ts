@@ -181,8 +181,7 @@ describe('students.remove', () => {
 		});
 
 		const categoryId = await t.mutation(api.categories.create, {
-			name: 'Academic',
-			subCategories: ['Homework']
+			name: 'Academic'
 		});
 
 		await t.run(async (ctx) => {
@@ -191,7 +190,6 @@ describe('students.remove', () => {
 				teacherId: teacherId,
 				value: 5,
 				categoryId,
-				subCategory: 'Homework',
 				details: 'Test evaluation',
 				timestamp: Date.now(),
 				semesterId: '2024-1'
@@ -433,12 +431,10 @@ describe('students.removeWithCascade', () => {
 		});
 
 		const academicCategoryId = await t.mutation(api.categories.create, {
-			name: 'Academic',
-			subCategories: ['Homework']
+			name: 'Academic'
 		});
 		const activityCategoryId = await t.mutation(api.categories.create, {
-			name: 'Activity',
-			subCategories: ['Sports']
+			name: 'Activity'
 		});
 
 		await t.run(async (ctx) => {
@@ -447,7 +443,6 @@ describe('students.removeWithCascade', () => {
 				teacherId: teacherId,
 				value: 5,
 				categoryId: academicCategoryId,
-				subCategory: 'Homework',
 				details: 'Evaluation 1',
 				timestamp: Date.now(),
 				semesterId: '2024-1'
@@ -457,7 +452,6 @@ describe('students.removeWithCascade', () => {
 				teacherId: teacherId,
 				value: 10,
 				categoryId: activityCategoryId,
-				subCategory: 'Sports',
 				details: 'Evaluation 2',
 				timestamp: Date.now(),
 				semesterId: '2024-1'

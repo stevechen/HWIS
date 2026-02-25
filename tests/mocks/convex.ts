@@ -15,7 +15,6 @@ export interface MockCategory {
 	_id: string;
 	_creationTime: number;
 	name: string;
-	subCategories: string[];
 }
 
 export interface MockQueryState<T> {
@@ -77,20 +76,17 @@ export const mockCategories: MockCategory[] = [
 	{
 		_id: 'c001',
 		_creationTime: Date.now(),
-		name: 'Behavior',
-		subCategories: ['Positive Behavior', 'Needs Improvement', 'Special Mention']
+		name: 'Behavior'
 	},
 	{
 		_id: 'c002',
 		_creationTime: Date.now(),
-		name: 'Academic',
-		subCategories: []
+		name: 'Academic'
 	},
 	{
 		_id: 'c003',
 		_creationTime: Date.now(),
-		name: 'Participation',
-		subCategories: ['Class Discussion', 'Group Work', 'Team Activity']
+		name: 'Participation'
 	}
 ];
 

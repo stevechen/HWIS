@@ -21,6 +21,10 @@
 		ArrowDown,
 		Eye,
 		EyeOff,
+		MessageSquareX,
+		MessageSquareText,
+		EyeClosed,
+		Drama,
 		ListChevronsUpDown,
 		ListChevronsDownUp
 	} from '@lucide/svelte';
@@ -35,6 +39,13 @@
 
 	function toggleShowUnenrolled(): void {
 		showUnenrolled = !showUnenrolled;
+	}
+
+	// Show teacher name toggle - default to OFF, no persistence
+	let showTeacherName = $state(false);
+
+	function toggleShowTeacherName(): void {
+		showTeacherName = !showTeacherName;
 	}
 
 	// Use shared state management
@@ -202,12 +213,12 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl p-8 pt-0">
+<div class="mx-auto p-8 pt-0 max-w-6xl">
 	<!-- Filters Section - Sticky for easy access while scrolling -->
 	<div
-		class="from-background to-background/85 sticky top-14 z-10 -mx-8 flex flex-col gap-4 border-b bg-linear-to-b px-8 py-2 sm:flex-row sm:items-center sm:justify-between"
+		class="top-14 z-10 sticky flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4 bg-linear-to-b from-background to-background/85 -mx-8 px-8 py-2 border-b"
 	>
-		<div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+		<div class="flex sm:flex-row flex-col sm:items-center gap-4">
 			<FilterInput
 				bind:value={studentFilter}
 				placeholder="Filter by student name..."
@@ -262,6 +273,19 @@
 					<ListChevronsDownUp class="size-4" />
 				{/if}
 			</Button>
+			<Button
+				aria-label={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
+				variant="outline"
+				size="sm"
+				onclick={toggleShowTeacherName}
+				title={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
+			>
+				{#if showTeacherName}
+					<Drama class="size-4" />
+				{:else}
+					<EyeClosed class="size-4" />
+				{/if}
+			</Button>
 		</div>
 	</div>
 
@@ -283,7 +307,7 @@
 			evaluations={accumulatedEvaluations}
 			showStudentName={true}
 			showTeacherFilter={false}
-			showTeacherName={true}
+			{showTeacherName}
 			enableCardClick={true}
 			cardHref={(entry) => `/evaluations/student/${entry.studentIdCode}`}
 			onCardClick={handleCardClick}
@@ -299,13 +323,13 @@
 		<!-- Loading indicator -->
 		{#if isLoadingMore}
 			<div class="flex justify-center py-4">
-				<Loader class="text-muted-foreground size-6 animate-spin" />
+				<Loader class="size-6 text-muted-foreground animate-spin" />
 			</div>
 		{/if}
 
 		<!-- End of list indicator -->
 		{#if isDone && accumulatedEvaluations.length > 0}
-			<div class="text-muted-foreground py-4 text-center text-sm">No more evaluations</div>
+			<div class="py-4 text-muted-foreground text-sm text-center">No more evaluations</div>
 		{/if}
 	{/if}
 

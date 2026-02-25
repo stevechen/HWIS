@@ -5,7 +5,7 @@ import {
 	createStudentWithEvaluations,
 	cleanupByTag,
 	setE2eTag,
-	createCategoryWithSubs,
+	createCategory,
 	useRole
 } from '../convex-client';
 
@@ -62,7 +62,6 @@ test.describe('Add Student - UI Data Tests', () => {
 		await setE2eTag('students', studentId, e2eTag);
 		testStudent = true;
 	});
-
 });
 
 test.describe('Student ID Validation - Duplicate Data Tests', () => {
@@ -211,9 +210,8 @@ test.describe('Delete Student - Without Evaluations', () => {
 	test.beforeEach(async ({ page }) => {
 		useRole('admin');
 		// Create category first (needed for students)
-		await createCategoryWithSubs({
+		await createCategory({
 			name: `Cat_${suffix}`,
-			subCategories: ['Homework'],
 			e2eTag: e2eTag
 		});
 		testCategory = true;
@@ -294,9 +292,8 @@ test.describe('Delete Student - With Cascade @sequential', () => {
 		englishName = `DelCascade_${suffix}`;
 		e2eTag = `e2e-test_${suffix}`;
 		// Create category
-		await createCategoryWithSubs({
+		await createCategory({
 			name: `Cat_${suffix}`,
-			subCategories: ['Homework'],
 			e2eTag: e2eTag
 		});
 		testCategory = true;
@@ -372,9 +369,8 @@ test.describe('Delete - Set Not Enrolled @sequential', () => {
 
 	test.beforeEach(async ({ page }) => {
 		// Create category
-		await createCategoryWithSubs({
+		await createCategory({
 			name: `Cat_${suffix}`,
-			subCategories: ['Homework'],
 			e2eTag: e2eTag
 		});
 		testCategory = true;

@@ -56,22 +56,19 @@ export const createWeeklyReportTestData = mutation({
 				authId: generateWeeklyTestIdentifier('teacher-academic'),
 				name: 'Test Teacher Academic',
 				focus: ['Academic', 'Creativity'],
-				typicalPoints: [2, 3], // Higher points for academic work
-				subCategories: ['Homework', 'Participation', 'Leadership', 'Designing & Creating']
+				typicalPoints: [2, 3] // Higher points for academic work
 			},
 			{
 				authId: generateWeeklyTestIdentifier('teacher-activity'),
 				name: 'Test Teacher Activity',
 				focus: ['Activity', 'Service'],
-				typicalPoints: [1, 2], // Moderate points for activities
-				subCategories: ['Sports', 'Club Participation', 'Volunteering', 'School Service']
+				typicalPoints: [1, 2] // Moderate points for activities
 			},
 			{
 				authId: generateWeeklyTestIdentifier('teacher-service'),
 				name: 'Test Teacher Service',
 				focus: ['Service', 'Other Issues'],
-				typicalPoints: [1, 2, -1], // Mix of positive and corrective points
-				subCategories: ['Volunteering', 'School Service', 'Behavior', 'Other']
+				typicalPoints: [1, 2, -1] // Mix of positive and corrective points
 			}
 		];
 
@@ -144,12 +141,12 @@ export const createWeeklyReportTestData = mutation({
 		}
 
 		const categories = [
-			{ name: 'Creativity', subCategories: ['Leadership', 'Designing & Creating'] },
-			{ name: 'Activity', subCategories: ['Sports', 'Club Participation'] },
-			{ name: 'Service', subCategories: ['Volunteering', 'School Service'] },
-			{ name: 'Academic', subCategories: ['Homework', 'Participation'] },
-			{ name: "Parents' Day", subCategories: [] },
-			{ name: 'Other Issues', subCategories: ['Behavior', 'Other'] }
+			{ name: 'Creativity' },
+			{ name: 'Activity' },
+			{ name: 'Service' },
+			{ name: 'Academic' },
+			{ name: "Parents' Day" },
+			{ name: 'Other Issues' }
 		];
 
 		const categoryIds: string[] = [];
@@ -158,7 +155,6 @@ export const createWeeklyReportTestData = mutation({
 				categoryMap.get(category.name) ||
 				(await ctx.db.insert('point_categories', {
 					name: category.name,
-					subCategories: category.subCategories,
 					e2eTag: tag
 				}));
 			categoryIds.push(categoryId);
@@ -200,7 +196,7 @@ export const createWeeklyReportTestData = mutation({
 				const categoryIndex = teacherIndex % teacher.focus.length;
 				const categoryName = teacher.focus[categoryIndex];
 
-				// Get category ID and subcategory
+				// Get category ID
 				const categoryId =
 					categoryMap.get(categoryName) ||
 					categoryIds[categories.findIndex((c) => c.name === categoryName)];
@@ -208,11 +204,6 @@ export const createWeeklyReportTestData = mutation({
 
 				const category = categories.find((c) => c.name === categoryName);
 				if (!category) continue; // Skip if category not found
-				const subCategories = category.subCategories || [];
-				const subCategory =
-					subCategories.length > 0
-						? subCategories[Math.floor(Math.random() * subCategories.length)]
-						: '';
 
 				// Generate point value (realistic distribution)
 				let pointValue: number;
@@ -240,8 +231,7 @@ export const createWeeklyReportTestData = mutation({
 					teacherId,
 					value: pointValue,
 					categoryId: categoryId as Id<'point_categories'>,
-					subCategory,
-					details: `${teacher.name} evaluation for ${category.name}${subCategory ? ' - ' + subCategory : ''}`,
+					details: `${teacher.name} evaluation for ${category.name}`,
 					timestamp,
 					semesterId,
 					e2eTag: tag

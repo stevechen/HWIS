@@ -3,7 +3,7 @@ import { getTestSuffix } from './helpers';
 import {
 	createStudent,
 	createStudentWithEvaluations,
-	createCategoryWithSubs,
+	createCategory,
 	cleanupByTag,
 	useRole
 } from './convex-client';
@@ -133,84 +133,6 @@ test.describe('Evaluations - No Category Error', () => {
 	});
 });
 
-test.describe('Evaluations - No Sub-Category Error', () => {
-	test.use({ storageState: 'e2e/.auth/teacher.json' });
-
-	// CONSTANTS - Define at top of describe
-	let suffix: string;
-	let e2eTag: string;
-	let studentId: string;
-	let categoryName: string;
-	let studentName: string;
-	let testData = false;
-
-	test.beforeEach(async ({ page }) => {
-		useRole('teacher');
-		testData = false; // Reset at start of each test
-		suffix = getTestSuffix('noSub');
-		e2eTag = `e2e-test_${suffix}`;
-		studentId = `SE_${suffix}`;
-		categoryName = `TestCategory_${suffix}`;
-		studentName = `NoSub_${suffix}`;
-
-		// Create a category with sub-categories first
-		await createCategoryWithSubs({
-			name: categoryName,
-			subCategories: ['SubCategory1', 'SubCategory2'],
-			e2eTag
-		});
-
-		// Create student via API
-		await createStudent({
-			studentId,
-			englishName: studentName,
-			chineseName: ' altkategori',
-			grade: 10,
-			status: 'Enrolled',
-			e2eTag
-		});
-		testData = true;
-
-		// Navigate to the evaluations page
-		await page.goto('/evaluations/new');
-		await page.waitForSelector('body.hydrated');
-		await waitForStudentsReady(page);
-
-		// Search for the student to make them visible in the list
-		const filterInput = page.getByRole('textbox', { name: 'Search students' });
-		await filterInput.fill(studentName.toLowerCase());
-	});
-
-	test.afterEach(async () => {
-		if (testData) await cleanupByTag('all', e2eTag);
-	});
-
-	test('shows error without sub-category', async ({ page }) => {
-		const studentRow = page.getByRole('button', { name: new RegExp(studentName, 'i') });
-		await studentRow.click();
-
-		// Click on the category trigger to open the dropdown
-		await page.getByRole('button', { name: 'Select category' }).click();
-
-		// Wait for categories to load (Convex sync) - look for any option first
-		await expect(page.getByRole('option').first()).toBeVisible({ timeout: 10000 });
-
-		// Now wait for our specific category and select it
-		await expect(page.getByRole('option', { name: categoryName })).toBeVisible();
-		await page.getByRole('option', { name: categoryName }).click();
-
-		// Verify sub-category section appears
-		await expect(page.getByText(/Sub-Category/i)).toBeVisible();
-
-		// Try to submit without selecting sub-category
-		const submitButton = page.getByRole('button', { name: /Submit Evaluation/i });
-		await submitButton.click();
-
-		// Should show error about sub-category
-		await expect(page.getByText(/Please select a sub-category/i)).toBeVisible();
-	});
-});
-
 test.describe('Evaluations - Submit Success', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
 
@@ -231,10 +153,9 @@ test.describe('Evaluations - Submit Success', () => {
 		categoryName = `TestCategory_${suffix}`;
 		studentName = `Submit_${suffix}`;
 
-		// Create a category with sub-categories first
-		await createCategoryWithSubs({
+		// Create a category first
+		await createCategory({
 			name: categoryName,
-			subCategories: ['SubCategory1', 'SubCategory2'],
 			e2eTag
 		});
 
@@ -277,13 +198,6 @@ test.describe('Evaluations - Submit Success', () => {
 		// Now wait for our specific category and select it
 		await expect(page.getByRole('option', { name: categoryName })).toBeVisible();
 		await page.getByRole('option', { name: categoryName }).click();
-		// Verify sub-category section appears
-		await expect(page.getByText(/Sub-Category/i)).toBeVisible();
-
-		// Select a sub-category
-		await page.getByRole('button', { name: 'Select sub-category' }).click();
-		await expect(page.getByRole('option', { name: 'SubCategory1' })).toBeVisible();
-		await page.getByRole('option', { name: 'SubCategory1' }).click();
 
 		// Submit the evaluation
 		const submitButton = page.getByRole('button', { name: /Submit Evaluation/i });
@@ -312,9 +226,8 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress @sequential', 
 		studentId = `STU_${suffix}`;
 
 		// Create category and student via API
-		await createCategoryWithSubs({
+		await createCategory({
 			name: `Cat_${suffix}`,
-			subCategories: ['Sub1', 'Sub2'],
 			e2eTag
 		});
 
@@ -377,7 +290,6 @@ test.describe('Evaluations Long-Press Edit @evaluations-longpress @sequential', 
 		// Dialog should close
 		await expect(page.getByRole('dialog')).not.toBeVisible();
 	});
-
 });
 
 test.describe('Evaluations Long-Press Delete @evaluations-longpress @sequential', () => {
@@ -400,9 +312,8 @@ test.describe('Evaluations Long-Press Delete @evaluations-longpress @sequential'
 		studentId = `STU_${suffix}`;
 
 		// Create category and student via API
-		await createCategoryWithSubs({
+		await createCategory({
 			name: `Cat_${suffix}`,
-			subCategories: ['Sub1', 'Sub2'],
 			e2eTag
 		});
 
@@ -459,7 +370,6 @@ test.describe('Evaluations Long-Press Delete @evaluations-longpress @sequential'
 		// Evaluation card should be removed
 		await expect(card).not.toBeVisible();
 	});
-
 });
 
 test.describe('Evaluations - UI Controls @sequential', () => {

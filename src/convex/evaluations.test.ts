@@ -29,8 +29,7 @@ test('evaluations table operations work correctly', async () => {
 
 	const categoryId = await t.run(async (ctx) => {
 		return ctx.db.insert('point_categories', {
-			name: 'Creativity',
-			subCategories: ['Leadership']
+			name: 'Creativity'
 		});
 	});
 
@@ -40,7 +39,6 @@ test('evaluations table operations work correctly', async () => {
 			teacherId,
 			categoryId,
 			value: 1,
-			subCategory: 'Leadership',
 			details: 'Great work!',
 			timestamp: Date.now(),
 			semesterId: '2025-H1'
@@ -84,8 +82,7 @@ test('evaluations query by teacherId works correctly', async () => {
 
 	const categoryId = await t.run(async (ctx) => {
 		return await ctx.db.insert('point_categories', {
-			name: 'Responsibility',
-			subCategories: ['Punctuality']
+			name: 'Responsibility'
 		});
 	});
 
@@ -95,7 +92,6 @@ test('evaluations query by teacherId works correctly', async () => {
 			teacherId,
 			value: 2,
 			categoryId,
-			subCategory: 'Punctuality',
 			details: 'Always on time',
 			timestamp: Date.now(),
 			semesterId: '2025-H1'
@@ -146,15 +142,13 @@ test('evaluations query by studentId works correctly', async () => {
 
 	const categoryId1 = await t.run(async (ctx) => {
 		return await ctx.db.insert('point_categories', {
-			name: 'Creativity',
-			subCategories: ['Innovation']
+			name: 'Creativity'
 		});
 	});
 
 	const categoryId2 = await t.run(async (ctx) => {
 		return await ctx.db.insert('point_categories', {
-			name: 'Responsibility',
-			subCategories: ['Teamwork']
+			name: 'Responsibility'
 		});
 	});
 
@@ -164,7 +158,6 @@ test('evaluations query by studentId works correctly', async () => {
 			teacherId: teacherId1,
 			value: 3,
 			categoryId: categoryId1,
-			subCategory: 'Innovation',
 			details: 'Creative solutions',
 			timestamp: Date.now(),
 			semesterId: '2025-H1'
@@ -177,7 +170,6 @@ test('evaluations query by studentId works correctly', async () => {
 			teacherId: teacherId2,
 			value: 1,
 			categoryId: categoryId2,
-			subCategory: 'Teamwork',
 			details: 'Good teamwork',
 			timestamp: Date.now() + 1000,
 			semesterId: '2025-H1'
@@ -232,8 +224,7 @@ test('listAllEvaluationsPaginated returns paginated results', async () => {
 	for (let i = 0; i < 5; i++) {
 		const catId = await t.run(async (ctx) => {
 			return await ctx.db.insert('point_categories', {
-				name: `Category ${i}`,
-				subCategories: ['SubCategory']
+				name: `Category ${i}`
 			});
 		});
 		categoryIds.push(catId);
@@ -248,7 +239,6 @@ test('listAllEvaluationsPaginated returns paginated results', async () => {
 				teacherId,
 				value: i + 1,
 				categoryId: categoryIds[i],
-				subCategory: 'SubCategory',
 				details: `Details ${i}`,
 				timestamp: now + i * 1000,
 				semesterId: '2025-H1'
@@ -308,8 +298,7 @@ test('listAllEvaluationsPaginated respects sortAscending', async () => {
 	for (let i = 0; i < 3; i++) {
 		const catId = await t.run(async (ctx) => {
 			return await ctx.db.insert('point_categories', {
-				name: `SortCat ${i}`,
-				subCategories: ['SubCategory']
+				name: `SortCat ${i}`
 			});
 		});
 		categoryIds.push(catId);
@@ -324,7 +313,6 @@ test('listAllEvaluationsPaginated respects sortAscending', async () => {
 				teacherId,
 				value: i + 1,
 				categoryId: categoryIds[i],
-				subCategory: 'SubCategory',
 				details: `Details ${i}`,
 				timestamp: now + i * 1000,
 				semesterId: '2025-H1'
@@ -392,15 +380,13 @@ test('listAllEvaluationsPaginated filters by showUnenrolled', async () => {
 	// Create categories
 	const enrolledCategoryId = await t.run(async (ctx) => {
 		return await ctx.db.insert('point_categories', {
-			name: 'Enrolled Cat',
-			subCategories: ['SubCategory']
+			name: 'Enrolled Cat'
 		});
 	});
 
 	const unenrolledCategoryId = await t.run(async (ctx) => {
 		return await ctx.db.insert('point_categories', {
-			name: 'Unenrolled Cat',
-			subCategories: ['SubCategory']
+			name: 'Unenrolled Cat'
 		});
 	});
 
@@ -411,7 +397,6 @@ test('listAllEvaluationsPaginated filters by showUnenrolled', async () => {
 			teacherId,
 			value: 1,
 			categoryId: enrolledCategoryId,
-			subCategory: 'SubCategory',
 			details: 'Enrolled student evaluation',
 			timestamp: Date.now(),
 			semesterId: '2025-H1'
@@ -421,7 +406,6 @@ test('listAllEvaluationsPaginated filters by showUnenrolled', async () => {
 			teacherId,
 			value: 2,
 			categoryId: unenrolledCategoryId,
-			subCategory: 'SubCategory',
 			details: 'Unenrolled student evaluation',
 			timestamp: Date.now() + 1000,
 			semesterId: '2025-H1'
@@ -493,15 +477,13 @@ test('listAllEvaluationsPaginated filters by student name', async () => {
 	// Create categories
 	const aliceCategoryId = await t.run(async (ctx) => {
 		return await ctx.db.insert('point_categories', {
-			name: 'Alice Category',
-			subCategories: ['SubCategory']
+			name: 'Alice Category'
 		});
 	});
 
 	const bobCategoryId = await t.run(async (ctx) => {
 		return await ctx.db.insert('point_categories', {
-			name: 'Bob Category',
-			subCategories: ['SubCategory']
+			name: 'Bob Category'
 		});
 	});
 
@@ -512,7 +494,6 @@ test('listAllEvaluationsPaginated filters by student name', async () => {
 			teacherId,
 			value: 1,
 			categoryId: aliceCategoryId,
-			subCategory: 'SubCategory',
 			details: 'Alice evaluation',
 			timestamp: Date.now(),
 			semesterId: '2025-H1'
@@ -522,7 +503,6 @@ test('listAllEvaluationsPaginated filters by student name', async () => {
 			teacherId,
 			value: 2,
 			categoryId: bobCategoryId,
-			subCategory: 'SubCategory',
 			details: 'Bob evaluation',
 			timestamp: Date.now() + 1000,
 			semesterId: '2025-H1'
@@ -586,15 +566,13 @@ test('listAllEvaluationsPaginated filters by teacher name', async () => {
 	// Create categories
 	const andersonCategoryId = await t.run(async (ctx) => {
 		return await ctx.db.insert('point_categories', {
-			name: 'Anderson Category',
-			subCategories: ['SubCategory']
+			name: 'Anderson Category'
 		});
 	});
 
 	const brownCategoryId = await t.run(async (ctx) => {
 		return await ctx.db.insert('point_categories', {
-			name: 'Brown Category',
-			subCategories: ['SubCategory']
+			name: 'Brown Category'
 		});
 	});
 
@@ -605,7 +583,6 @@ test('listAllEvaluationsPaginated filters by teacher name', async () => {
 			teacherId: teacher1Id,
 			value: 1,
 			categoryId: andersonCategoryId,
-			subCategory: 'SubCategory',
 			details: 'Anderson evaluation',
 			timestamp: Date.now(),
 			semesterId: '2025-H1'
@@ -615,7 +592,6 @@ test('listAllEvaluationsPaginated filters by teacher name', async () => {
 			teacherId: teacher2Id,
 			value: 2,
 			categoryId: brownCategoryId,
-			subCategory: 'SubCategory',
 			details: 'Brown evaluation',
 			timestamp: Date.now() + 1000,
 			semesterId: '2025-H1'
@@ -671,8 +647,7 @@ test('listAllEvaluationsPaginated continues with cursor', async () => {
 	const categoryIds: Id<'point_categories'>[] = [];
 	for (let i = 0; i < 5; i++) {
 		const categoryId = await t.mutation(api.categories.create, {
-			name: `CursorCat ${i}`,
-			subCategories: ['SubCategory']
+			name: `CursorCat ${i}`
 		});
 		categoryIds.push(categoryId);
 	}
@@ -686,7 +661,6 @@ test('listAllEvaluationsPaginated continues with cursor', async () => {
 				teacherId,
 				value: i + 1,
 				categoryId: categoryIds[i],
-				subCategory: 'SubCategory',
 				details: `Details ${i}`,
 				timestamp: now + i * 1000,
 				semesterId: '2025-H1'
@@ -775,8 +749,7 @@ test('evaluation queries resolve category name from categoryId', async () => {
 	// Create category
 	const categoryId = await t.run(async (ctx) => {
 		return await ctx.db.insert('point_categories', {
-			name: 'Original Category Name',
-			subCategories: ['SubCategory']
+			name: 'Original Category Name'
 		});
 	});
 
@@ -787,7 +760,6 @@ test('evaluation queries resolve category name from categoryId', async () => {
 			teacherId,
 			value: 5,
 			categoryId,
-			subCategory: 'SubCategory',
 			details: 'Test evaluation',
 			timestamp: Date.now(),
 			semesterId: '2025-H1'
@@ -840,8 +812,7 @@ test('changing category name reflects in evaluation queries', async () => {
 
 	// Create category
 	const categoryId = await t.mutation(api.categories.create, {
-		name: 'Old Category Name',
-		subCategories: ['SubCategory']
+		name: 'Old Category Name'
 	});
 
 	// Create evaluation with categoryId reference
@@ -851,7 +822,6 @@ test('changing category name reflects in evaluation queries', async () => {
 			teacherId,
 			value: 5,
 			categoryId,
-			subCategory: 'SubCategory',
 			details: 'Test evaluation',
 			timestamp: Date.now(),
 			semesterId: '2025-H1'
@@ -869,8 +839,7 @@ test('changing category name reflects in evaluation queries', async () => {
 	// Update category name
 	await t.mutation(api.categories.update, {
 		id: categoryId,
-		name: 'New Category Name',
-		subCategories: ['SubCategory']
+		name: 'New Category Name'
 	});
 
 	// Query should now return the new category name (no orphaning!)
@@ -928,8 +897,7 @@ describe('Authorization boundaries', () => {
 		// Create a category
 		const categoryId = await t.run(async (ctx) => {
 			return await ctx.db.insert('point_categories', {
-				name: 'Auth Test Category',
-				subCategories: ['SubCategory']
+				name: 'Auth Test Category'
 			});
 		});
 
@@ -940,7 +908,6 @@ describe('Authorization boundaries', () => {
 				teacherId,
 				value: 1,
 				categoryId,
-				subCategory: 'SubCategory',
 				details: 'Original details by teacher',
 				timestamp: Date.now(),
 				semesterId: '2025-H1'
@@ -990,8 +957,7 @@ describe('Authorization boundaries', () => {
 		// Create a category
 		const categoryId = await t.run(async (ctx) => {
 			return await ctx.db.insert('point_categories', {
-				name: 'Admin Edit Category',
-				subCategories: ['SubCategory']
+				name: 'Admin Edit Category'
 			});
 		});
 
@@ -1002,7 +968,6 @@ describe('Authorization boundaries', () => {
 				teacherId,
 				value: 1,
 				categoryId,
-				subCategory: 'SubCategory',
 				details: 'Original details by teacher',
 				timestamp: Date.now(),
 				semesterId: '2025-H1'
@@ -1071,8 +1036,7 @@ describe('Authorization boundaries', () => {
 
 			const categoryId = await t.run(async (ctx) => {
 				return ctx.db.insert('point_categories', {
-					name: 'Academics',
-					subCategories: ['Homework']
+					name: 'Academics'
 				});
 			});
 
@@ -1085,7 +1049,6 @@ describe('Authorization boundaries', () => {
 						teacherId,
 						value: 5,
 						categoryId,
-						subCategory: 'Homework',
 						details: 'Great homework!',
 						timestamp,
 						semesterId: '2025-H1'
@@ -1139,8 +1102,7 @@ describe('Authorization boundaries', () => {
 			});
 			const categoryId = await t.run(async (ctx) => {
 				return ctx.db.insert('point_categories', {
-					name: 'Behavior',
-					subCategories: ['Participation']
+					name: 'Behavior'
 				});
 			});
 
@@ -1151,7 +1113,6 @@ describe('Authorization boundaries', () => {
 					teacherId,
 					value: 3,
 					categoryId,
-					subCategory: 'Participation',
 					details: 'Good',
 					timestamp: Date.now(),
 					semesterId: '2025-H1'
@@ -1164,7 +1125,6 @@ describe('Authorization boundaries', () => {
 					teacherId,
 					value: 5,
 					categoryId,
-					subCategory: 'Participation',
 					details: 'Excellent',
 					timestamp: Date.now(),
 					semesterId: '2025-H1'

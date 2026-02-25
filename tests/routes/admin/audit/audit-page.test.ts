@@ -16,7 +16,6 @@ const mockAuditLogs = [
 		actionLabel: 'Created',
 		details: 'Created by admin',
 		category: 'Academic',
-		subCategory: 'Homework',
 		points: 5
 	}
 ];
@@ -58,6 +57,8 @@ describe('Audit Admin Page', () => {
 		const studentFilter = page.getByRole('textbox', { name: 'Filter by student name' });
 		await studentFilter.fill('does-not-exist');
 		await expect.element(page.getByText('No matching audit logs found.')).toBeInTheDocument();
-		await expect.element(page.getByRole('button', { name: 'Clear all filters' })).toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Clear all filters' }))
+			.toBeInTheDocument();
 	});
 });

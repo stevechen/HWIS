@@ -27,25 +27,6 @@ export const getEvaluationCount = query({
 	}
 });
 
-export const getSubCategoryEvaluationCount = query({
-	args: {
-		categoryId: v.id('point_categories'),
-		subCategory: v.string(),
-		testToken: v.optional(v.string())
-	},
-	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return 0;
-		const matches = await ctx.db
-			.query('evaluations')
-			.withIndex('by_categoryId_subCategory', (q) =>
-				q.eq('categoryId', args.categoryId).eq('subCategory', args.subCategory)
-			)
-			.collect();
-		return matches.length;
-	}
-});
-
 export const seed = mutation({
 	args: { testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
@@ -57,12 +38,13 @@ export const seed = mutation({
 		}
 
 		const categories = [
-			{ name: 'Creativity', subCategories: ['Leadership', 'Designing & Creating'] },
-			{ name: 'Activity', subCategories: ['Sports', 'Club Participation'] },
-			{ name: 'Service', subCategories: ['Volunteering', 'School Service'] },
-			{ name: 'Academic', subCategories: ['Homework', 'Participation'] },
-			{ name: "Parents' Day", subCategories: [] },
-			{ name: 'Other Issues', subCategories: [] }
+			{ name: 'Responsibility' },
+			{ name: 'Excellence' },
+			{ name: 'Service' },
+			{ name: 'Persistence' },
+			{ name: 'Enthusiasm' },
+			{ name: 'Collaboration' },
+			{ name: 'Timeliness' }
 		];
 
 		for (const cat of categories) {
@@ -74,7 +56,6 @@ export const seed = mutation({
 export const create = mutation({
 	args: {
 		name: v.string(),
-		subCategories: v.array(v.string()),
 		testToken: v.optional(v.string()),
 		e2eTag: v.optional(v.string())
 	},
@@ -83,11 +64,9 @@ export const create = mutation({
 
 		const data: {
 			name: string;
-			subCategories: string[];
 			e2eTag?: string;
 		} = {
-			name: args.name,
-			subCategories: args.subCategories
+			name: args.name
 		};
 
 		if (args.e2eTag) {
@@ -103,14 +82,12 @@ export const update = mutation({
 	args: {
 		id: v.id('point_categories'),
 		name: v.string(),
-		subCategories: v.array(v.string()),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
 		await ctx.db.patch(args.id, {
-			name: args.name,
-			subCategories: args.subCategories
+			name: args.name
 		});
 	}
 });
@@ -136,39 +113,6 @@ export const remove = mutation({
 		}
 
 		await ctx.db.delete(args.id);
-
-		return { deletedEvaluationCount: relatedEvaluations.length };
-	}
-});
-
-export const removeSubCategory = mutation({
-	args: {
-		categoryId: v.id('point_categories'),
-		subCategory: v.string(),
-		testToken: v.optional(v.string())
-	},
-	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
-		const category = await ctx.db.get(args.categoryId);
-		if (!category) throw new Error('Category not found');
-
-		// Cascade delete all evaluations with this categoryId and subCategory
-		const relatedEvaluations = await ctx.db
-			.query('evaluations')
-			.withIndex('by_categoryId_subCategory', (q) =>
-				q.eq('categoryId', args.categoryId).eq('subCategory', args.subCategory)
-			)
-			.collect();
-
-		for (const eval_ of relatedEvaluations) {
-			await ctx.db.delete(eval_._id);
-		}
-
-		// Remove subCategory from the category
-		const updatedSubCategories = category.subCategories.filter((s) => s !== args.subCategory);
-		await ctx.db.patch(args.categoryId, {
-			subCategories: updatedSubCategories
-		});
 
 		return { deletedEvaluationCount: relatedEvaluations.length };
 	}

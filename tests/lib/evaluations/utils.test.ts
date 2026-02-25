@@ -9,7 +9,6 @@ describe('transformEvaluation', () => {
 			value: 5,
 			category: 'Academic',
 			categoryId: 'cat-1',
-			subCategory: 'Homework',
 			details: 'Good work',
 			timestamp: 1234567890,
 			englishName: 'John Smith',
@@ -40,7 +39,6 @@ describe('transformEvaluation', () => {
 		expect(result.category).toBe('Academic');
 		expect(result.timestamp).toBe(1234567890);
 		expect(result.categoryId).toBeUndefined();
-		expect(result.subCategory).toBeUndefined();
 		expect(result.details).toBeUndefined();
 		expect(result.englishName).toBeUndefined();
 		expect(result.teacherName).toBeUndefined();

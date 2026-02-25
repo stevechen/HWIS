@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { getTestSuffix } from './helpers';
 import {
 	createStudentWithEvaluations,
-	createCategoryWithSubs,
+	createCategory,
 	cleanupByTag,
 	useRole
 } from './convex-client';
@@ -33,9 +33,8 @@ test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permission
 			useRole('teacher');
 
 			// Create category and student via API (as teacher)
-			await createCategoryWithSubs({
+			await createCategory({
 				name: `Cat_${suffix}`,
-				subCategories: ['Sub1'],
 				e2eTag
 			});
 
@@ -112,9 +111,8 @@ test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permission
 			useRole('admin');
 
 			// Create category and student via API (as admin)
-			await createCategoryWithSubs({
+			await createCategory({
 				name: `Cat_${suffix}`,
-				subCategories: ['Sub1'],
 				e2eTag
 			});
 
