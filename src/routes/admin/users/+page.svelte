@@ -64,21 +64,21 @@
 	}
 </script>
 
-<div class="container mx-auto max-w-6xl py-8">
-	<div class="bg-card rounded-lg border shadow-sm">
+<div class="flex justify-center py-8">
+	<div class="bg-card shadow-sm border rounded-lg">
 		{#if usersQuery.isLoading}
-			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
-				<div class="border-muted border-t-primary h-8 w-8 animate-spin rounded-full border-3"></div>
+			<div class="flex flex-col justify-center items-center gap-4 p-16 text-muted-foreground">
+				<div class="border-3 border-muted border-t-primary rounded-full w-8 h-8 animate-spin"></div>
 				<p>Loading user records...</p>
 			</div>
 		{:else if usersQuery.data}
 			<Table.Root aria-label="users">
 				<Table.Header>
 					<Table.Row>
-						<Table.Head class="w-50">Name</Table.Head>
+						<Table.Head class="w-auto">Name</Table.Head>
 						<Table.Head>Role</Table.Head>
 						<Table.Head>Status</Table.Head>
-						<Table.Head class="text-right">Actions</Table.Head>
+						<Table.Head class="text-center">Approve</Table.Head>
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
@@ -98,7 +98,7 @@
 										user.role === 'super'}
 								>
 									<Select.Trigger
-										class="h-8 w-33 text-sm"
+										class="w-auto h-8 text-sm"
 										placeholder="Select role"
 										aria-label="Select role for {user.name || 'user'}"
 									>
@@ -107,7 +107,9 @@
 									</Select.Trigger>
 									<Select.Content>
 										{#each roles as role (role.value)}
-											<Select.Item value={role.value}>{role.label}</Select.Item>
+											{#if role.value !== 'super' || currentUser.data?.role === 'super'}
+												<Select.Item value={role.value}>{role.label}</Select.Item>
+											{/if}
 										{/each}
 									</Select.Content>
 								</Select.Root>
@@ -117,8 +119,8 @@
 									{user.status || 'pending'}
 								</Badge>
 							</Table.Cell>
-							<Table.Cell class="text-right">
-								<div class="flex justify-end gap-2">
+							<Table.Cell>
+								<div class="flex justify-center gap-2">
 									{#if user.status !== 'active'}
 										<Button
 											variant="ghost"
@@ -127,7 +129,7 @@
 											disabled={updatingId === user._id}
 											title="Approve User"
 										>
-											<CheckCircle2 class="h-4 w-4 text-emerald-600" />
+											<CheckCircle2 class="w-4 h-4 text-emerald-600" />
 										</Button>
 									{/if}
 									{#if user.status === 'active'}
@@ -139,7 +141,7 @@
 												user._id === (currentUser.data?._id as Id<'users'> | undefined)}
 											title="Remove Access"
 										>
-											<XCircle class="h-4 w-4 text-red-600" />
+											<XCircle class="w-4 h-4 text-red-600" />
 										</Button>
 									{/if}
 								</div>
