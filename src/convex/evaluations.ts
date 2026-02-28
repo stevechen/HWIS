@@ -153,9 +153,10 @@ export const listRecent = query({
 		const studentIds = [...new Set(allEvaluations.map((e) => e.studentId))];
 		const categoryIds = [...new Set(allEvaluations.map((e) => e.categoryId))];
 
-		const [students, categories] = await Promise.all([
+		const [students, categories, classes] = await Promise.all([
 			Promise.all(studentIds.map((id) => ctx.db.get(id))),
-			Promise.all(categoryIds.map((id) => ctx.db.get(id)))
+			Promise.all(categoryIds.map((id) => ctx.db.get(id))),
+			ctx.db.query('classes').collect()
 		]);
 
 		const studentMap = new Map(
@@ -164,16 +165,19 @@ export const listRecent = query({
 		const categoryMap = new Map(
 			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
 		);
+		const classMap = new Map(classes.map((c) => [c._id, c]));
 
 		let results = allEvaluations.map((eval_) => {
 			const student = studentMap.get(eval_.studentId);
 			const category = categoryMap.get(eval_.categoryId);
+			const classRecord = student?.classId ? classMap.get(student.classId) : null;
 			return {
 				_id: eval_._id,
 				studentId: eval_.studentId,
 				teacherId: eval_.teacherId,
 				englishName: student?.englishName || 'Unknown Student',
-				grade: student?.grade || 0,
+				grade: classRecord?.grade ?? 0,
+				class: classRecord?.class,
 				studentIdCode: student?.studentId || 'N/A',
 				status: student?.status || 'Not Enrolled',
 				value: eval_.value,
@@ -300,9 +304,10 @@ export const getWeeklyReportDetail = query({
 		const studentIds = [...new Set(evaluations.map((e) => e.studentId))];
 		const categoryIds = [...new Set(evaluations.map((e) => e.categoryId))];
 
-		const [students, categories] = await Promise.all([
+		const [students, categories, classes] = await Promise.all([
 			Promise.all(studentIds.map((id) => ctx.db.get(id))),
-			Promise.all(categoryIds.map((id) => ctx.db.get(id)))
+			Promise.all(categoryIds.map((id) => ctx.db.get(id))),
+			ctx.db.query('classes').collect()
 		]);
 
 		const studentMap = new Map(
@@ -311,6 +316,7 @@ export const getWeeklyReportDetail = query({
 		const categoryMap = new Map(
 			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
 		);
+		const classMap = new Map(classes.map((c) => [c._id, c]));
 
 		const studentPointsMap = new Map<
 			string,
@@ -318,7 +324,8 @@ export const getWeeklyReportDetail = query({
 				studentId: string;
 				englishName: string;
 				chineseName: string;
-				grade: number;
+				grade: number | undefined;
+				class?: string;
 				pointsByCategory: Record<string, number>;
 				totalPoints: number;
 			}
@@ -333,11 +340,13 @@ export const getWeeklyReportDetail = query({
 
 			let studentData = studentPointsMap.get(eval_.studentId.toString());
 			if (!studentData) {
+				const classRecord = student.classId ? classMap.get(student.classId) : null;
 				studentData = {
 					studentId: student.studentId,
 					englishName: student.englishName,
 					chineseName: student.chineseName,
-					grade: student.grade,
+					grade: classRecord?.grade ?? 0,
+					class: classRecord?.class,
 					pointsByCategory: {},
 					totalPoints: 0
 				};
@@ -388,6 +397,7 @@ export const getStudentEvaluationsByTeacher = query({
 	},
 	handler: async (ctx, args) => {
 		const user = await requireUserProfile(ctx, args.testToken);
+		const student = await ctx.db.get(args.studentId);
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_studentId_teacherId', (q) =>
@@ -406,12 +416,20 @@ export const getStudentEvaluationsByTeacher = query({
 			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
 		);
 
+		// Fetch class for grade/class info
+		let classRecord = null;
+		if (student?.classId) {
+			classRecord = await ctx.db.get(student.classId);
+		}
+
 		const enriched = evaluations.map((e) => {
 			const category = categoryMap.get(e.categoryId);
 			return {
 				...e,
 				categoryId: e.categoryId.toString(),
 				category: category?.name || 'Unknown Category',
+				class: classRecord?.class,
+				grade: classRecord?.grade ?? 0,
 				teacherName,
 				isAdmin: false
 			};
@@ -459,12 +477,20 @@ export const getStudentEvaluationsByTeacherByStudentIdCode = query({
 			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
 		);
 
+		// Fetch class for grade/class info
+		let classRecord = null;
+		if (student.classId) {
+			classRecord = await ctx.db.get(student.classId);
+		}
+
 		const enriched = evaluations.map((e) => {
 			const category = categoryMap.get(e.categoryId);
 			return {
 				...e,
 				categoryId: e.categoryId.toString(),
 				category: category?.name || 'Unknown Category',
+				class: classRecord?.class,
+				grade: classRecord?.grade ?? 0,
 				teacherName,
 				isAdmin: false
 			};
@@ -482,6 +508,7 @@ export const getStudentEvaluationsAll = query({
 	},
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
+		const student = await ctx.db.get(args.studentId);
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
@@ -503,6 +530,12 @@ export const getStudentEvaluationsAll = query({
 			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
 		);
 
+		// Fetch class for grade/class info
+		let classRecord = null;
+		if (student?.classId) {
+			classRecord = await ctx.db.get(student.classId);
+		}
+
 		// Enrich evaluations with teacher and category data
 		const enriched = evaluations.map((e) => {
 			const teacher = teacherMap.get(e.teacherId);
@@ -512,6 +545,8 @@ export const getStudentEvaluationsAll = query({
 				...e,
 				categoryId: e.categoryId.toString(),
 				category: category?.name || 'Unknown Category',
+				class: classRecord?.class,
+				grade: classRecord?.grade ?? 0,
 				teacherName: teacher?.name || 'Unknown Teacher',
 				isAdmin: isAdminUser
 			};
@@ -562,6 +597,12 @@ export const getStudentEvaluationsAllByStudentIdCode = query({
 			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
 		);
 
+		// Fetch class for grade/class info
+		let classRecord = null;
+		if (student.classId) {
+			classRecord = await ctx.db.get(student.classId);
+		}
+
 		// Enrich evaluations with teacher and category data
 		const enriched = evaluations.map((e) => {
 			const teacher = teacherMap.get(e.teacherId);
@@ -571,6 +612,8 @@ export const getStudentEvaluationsAllByStudentIdCode = query({
 				...e,
 				categoryId: e.categoryId.toString(),
 				category: category?.name || 'Unknown Category',
+				class: classRecord?.class,
+				grade: classRecord?.grade ?? 0,
 				teacherName: teacher?.name || 'Unknown Teacher',
 				isAdmin: isAdminUser
 			};
@@ -621,15 +664,21 @@ export const listAllEvaluations = query({
 			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
 		);
 
+		// Fetch classes for grade/class lookup
+		const allClasses = await ctx.db.query('classes').collect();
+		const classMap = new Map(allClasses.map((c) => [c._id, c]));
+
 		let enriched = allEvaluations.map((eval_) => {
 			const student = studentMap.get(eval_.studentId);
 			const teacher = teacherMap.get(eval_.teacherId);
 			const category = categoryMap.get(eval_.categoryId);
+			const classRecord = student?.classId ? classMap.get(student.classId) : null;
 			return {
 				_id: eval_._id.toString(),
 				studentId: eval_.studentId.toString(),
 				englishName: student?.englishName || 'Unknown Student',
-				grade: student?.grade || 0,
+				grade: classRecord?.grade ?? 0,
+				class: classRecord?.class,
 				studentIdCode: student?.studentId || 'N/A',
 				status: student?.status || 'Not Enrolled',
 				value: eval_.value,
@@ -711,15 +760,21 @@ export const listAllEvaluationsPaginated = query({
 			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
 		);
 
+		// Fetch classes for grade/class lookup
+		const allClasses = await ctx.db.query('classes').collect();
+		const classMap = new Map(allClasses.map((c) => [c._id, c]));
+
 		let enriched = result.page.map((eval_) => {
 			const student = studentMap.get(eval_.studentId);
 			const teacher = teacherMap.get(eval_.teacherId);
 			const category = categoryMap.get(eval_.categoryId);
+			const classRecord = student?.classId ? classMap.get(student.classId) : null;
 			return {
 				_id: eval_._id.toString(),
 				studentId: eval_.studentId.toString(),
 				englishName: student?.englishName || 'Unknown Student',
-				grade: student?.grade || 0,
+				grade: classRecord?.grade ?? 0,
+				class: classRecord?.class,
 				studentIdCode: student?.studentId || 'N/A',
 				status: student?.status || 'Not Enrolled',
 				value: eval_.value,

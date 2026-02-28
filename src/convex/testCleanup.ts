@@ -210,8 +210,7 @@ export const cleanupAllTestData = mutation({
 
 				if (
 					TEST_USERS_REQUIRING_AUTHENTICATION.includes(user.authId || '') ||
-					(user.authId &&
-						TEST_AUTH_ID_PREFIXES.some((prefix) => user.authId?.startsWith(prefix)))
+					(user.authId && TEST_AUTH_ID_PREFIXES.some((prefix) => user.authId?.startsWith(prefix)))
 				) {
 					await ctx.db.delete(user._id);
 					usersDeleted++;
@@ -219,6 +218,23 @@ export const cleanupAllTestData = mutation({
 			}
 		} catch (e) {
 			console.log('users table error:', e);
+		}
+
+		// Clean up orphaned classes (classes with no students)
+		try {
+			const classes = await ctx.db.query('classes').collect();
+			for (const cls of classes) {
+				const studentsInClass = await ctx.db
+					.query('students')
+					.withIndex('by_classId', (q) => q.eq('classId', cls._id))
+					.take(1);
+				if (studentsInClass.length === 0) {
+					await ctx.db.delete(cls._id);
+					totalDeleted++;
+				}
+			}
+		} catch (e) {
+			console.log('classes table error:', e);
 		}
 
 		return { deletedData: totalDeleted, deletedUsers: usersDeleted };
@@ -299,11 +315,23 @@ export const cleanupAll = mutation({
 				user.authId === 'default_user' ||
 				user.authId === 'e2e_teacher1' ||
 				user.authId === 'e2e_teacher2' ||
-				(user.authId &&
-					TEST_AUTH_ID_PREFIXES.some((prefix) => user.authId?.startsWith(prefix))) ||
+				(user.authId && TEST_AUTH_ID_PREFIXES.some((prefix) => user.authId?.startsWith(prefix))) ||
 				(user.authId && !validAuthIds.has(user.authId))
 			) {
 				await ctx.db.delete(user._id);
+				totalDeleted++;
+			}
+		}
+
+		// Clean up orphaned classes (classes with no students)
+		const classes = await ctx.db.query('classes').collect();
+		for (const cls of classes) {
+			const studentsInClass = await ctx.db
+				.query('students')
+				.withIndex('by_classId', (q) => q.eq('classId', cls._id))
+				.take(1);
+			if (studentsInClass.length === 0) {
+				await ctx.db.delete(cls._id);
 				totalDeleted++;
 			}
 		}
@@ -482,6 +510,19 @@ export const cleanupAllE2eTaggedData = mutation({
 				evaluationIdsToDelete.has(log.targetId as Id<'evaluations'>);
 			if (log.e2eTag || isDeletedEvalLog) {
 				await ctx.db.delete(log._id);
+				totalDeleted++;
+			}
+		}
+
+		// Clean up orphaned classes (classes with no students)
+		const classes = await ctx.db.query('classes').collect();
+		for (const cls of classes) {
+			const studentsInClass = await ctx.db
+				.query('students')
+				.withIndex('by_classId', (q) => q.eq('classId', cls._id))
+				.take(1);
+			if (studentsInClass.length === 0) {
+				await ctx.db.delete(cls._id);
 				totalDeleted++;
 			}
 		}

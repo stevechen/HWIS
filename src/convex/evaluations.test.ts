@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { convexTest, modules } from './test.setup';
+import { convexTest, modules, createStudentWithClass } from './test.setup';
 import schema from './schema';
 import { api } from './_generated/api';
 import type { Id } from './_generated/dataModel';
@@ -8,14 +8,13 @@ import { generateUniqueStudentId } from '../../tests/fixtures/server-test-helper
 test('evaluations table operations work correctly', async () => {
 	const t = convexTest(schema, modules);
 
-	const studentId = await t.run(async (ctx) => {
-		return ctx.db.insert('students', {
-			englishName: 'John Doe',
-			chineseName: '張三',
-			studentId: generateUniqueStudentId(),
-			grade: 10,
-			status: 'Enrolled' as const
-		});
+	const { studentId } = await createStudentWithClass(t, {
+		englishName: 'John Doe',
+		chineseName: '張三',
+		studentId: generateUniqueStudentId(),
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
 	});
 
 	const teacherId = await t.run(async (ctx) => {
@@ -61,14 +60,13 @@ test('evaluations table operations work correctly', async () => {
 test('evaluations query by teacherId works correctly', async () => {
 	const t = convexTest(schema, modules);
 
-	const studentId = await t.run(async (ctx) => {
-		return await ctx.db.insert('students', {
-			englishName: 'Jane Doe',
-			chineseName: '李四',
-			studentId: 'STU002',
-			grade: 11,
-			status: 'Enrolled'
-		});
+	const { studentId } = await createStudentWithClass(t, {
+		englishName: 'Jane Doe',
+		chineseName: '李四',
+		studentId: 'STU002',
+		grade: 11,
+		classNum: '1',
+		status: 'Enrolled'
 	});
 
 	const teacherId = await t.run(async (ctx) => {
@@ -112,14 +110,13 @@ test('evaluations query by teacherId works correctly', async () => {
 test('evaluations query by studentId works correctly', async () => {
 	const t = convexTest(schema, modules);
 
-	const studentId = await t.run(async (ctx) => {
-		return await ctx.db.insert('students', {
-			englishName: 'Test Student',
-			chineseName: '測試學生',
-			studentId: 'STU003',
-			grade: 12,
-			status: 'Enrolled'
-		});
+	const { studentId } = await createStudentWithClass(t, {
+		englishName: 'Test Student',
+		chineseName: '測試學生',
+		studentId: 'STU003',
+		grade: 12,
+		classNum: '1',
+		status: 'Enrolled'
 	});
 
 	const teacherId1 = await t.run(async (ctx) => {
@@ -200,14 +197,13 @@ test('listAllEvaluationsPaginated returns paginated results', async () => {
 		});
 	});
 
-	const studentId = await t.run(async (ctx) => {
-		return await ctx.db.insert('students', {
-			englishName: 'Paginated Student',
-			chineseName: '分頁學生',
-			studentId: 'STU-PAG-001',
-			grade: 10,
-			status: 'Enrolled'
-		});
+	const { studentId } = await createStudentWithClass(t, {
+		englishName: 'Paginated Student',
+		chineseName: '分頁學生',
+		studentId: 'STU-PAG-001',
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
 	});
 
 	const teacherId = await t.run(async (ctx) => {
@@ -274,14 +270,13 @@ test('listAllEvaluationsPaginated respects sortAscending', async () => {
 		});
 	});
 
-	const studentId = await t.run(async (ctx) => {
-		return await ctx.db.insert('students', {
-			englishName: 'Sort Student',
-			chineseName: '排序學生',
-			studentId: 'STU-SORT-001',
-			grade: 10,
-			status: 'Enrolled'
-		});
+	const { studentId } = await createStudentWithClass(t, {
+		englishName: 'Sort Student',
+		chineseName: '排序學生',
+		studentId: 'STU-SORT-001',
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
 	});
 
 	const teacherId = await t.run(async (ctx) => {
@@ -347,25 +342,23 @@ test('listAllEvaluationsPaginated filters by showUnenrolled', async () => {
 	});
 
 	// Create enrolled student
-	const enrolledStudentId = await t.run(async (ctx) => {
-		return await ctx.db.insert('students', {
-			englishName: 'Enrolled Student',
-			chineseName: '在學學生',
-			studentId: 'STU-ENR-001',
-			grade: 10,
-			status: 'Enrolled'
-		});
+	const { studentId: enrolledStudentId } = await createStudentWithClass(t, {
+		englishName: 'Enrolled Student',
+		chineseName: '在學學生',
+		studentId: 'STU-ENR-001',
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
 	});
 
 	// Create unenrolled student
-	const unenrolledStudentId = await t.run(async (ctx) => {
-		return await ctx.db.insert('students', {
-			englishName: 'Unenrolled Student',
-			chineseName: '離校學生',
-			studentId: 'STU-UNENR-001',
-			grade: 10,
-			status: 'Not Enrolled'
-		});
+	const { studentId: unenrolledStudentId } = await createStudentWithClass(t, {
+		englishName: 'Unenrolled Student',
+		chineseName: '離校學生',
+		studentId: 'STU-UNENR-001',
+		grade: 10,
+		classNum: '1',
+		status: 'Not Enrolled'
 	});
 
 	const teacherId = await t.run(async (ctx) => {
@@ -445,24 +438,22 @@ test('listAllEvaluationsPaginated filters by student name', async () => {
 		});
 	});
 
-	const student1Id = await t.run(async (ctx) => {
-		return await ctx.db.insert('students', {
-			englishName: 'Alice Smith',
-			chineseName: '愛麗絲',
-			studentId: 'STU-ALICE',
-			grade: 10,
-			status: 'Enrolled'
-		});
+	const { studentId: student1Id } = await createStudentWithClass(t, {
+		englishName: 'Alice Smith',
+		chineseName: '愛麗絲',
+		studentId: 'STU-ALICE',
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
 	});
 
-	const student2Id = await t.run(async (ctx) => {
-		return await ctx.db.insert('students', {
-			englishName: 'Bob Jones',
-			chineseName: '鮑伯',
-			studentId: 'STU-BOB',
-			grade: 11,
-			status: 'Enrolled'
-		});
+	const { studentId: student2Id } = await createStudentWithClass(t, {
+		englishName: 'Bob Jones',
+		chineseName: '鮑伯',
+		studentId: 'STU-BOB',
+		grade: 11,
+		classNum: '1',
+		status: 'Enrolled'
 	});
 
 	const teacherId = await t.run(async (ctx) => {
@@ -535,14 +526,13 @@ test('listAllEvaluationsPaginated filters by teacher name', async () => {
 		});
 	});
 
-	const studentId = await t.run(async (ctx) => {
-		return await ctx.db.insert('students', {
-			englishName: 'Filter Student',
-			chineseName: '過濾學生',
-			studentId: 'STU-FILTER',
-			grade: 10,
-			status: 'Enrolled'
-		});
+	const { studentId } = await createStudentWithClass(t, {
+		englishName: 'Filter Student',
+		chineseName: '過濾學生',
+		studentId: 'STU-FILTER',
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
 	});
 
 	const teacher1Id = await t.run(async (ctx) => {
@@ -624,14 +614,13 @@ test('listAllEvaluationsPaginated continues with cursor', async () => {
 		});
 	});
 
-	const studentId = await t.run(async (ctx) => {
-		return await ctx.db.insert('students', {
-			englishName: 'Cursor Student',
-			chineseName: '游標學生',
-			studentId: 'STU-CURSOR',
-			grade: 10,
-			status: 'Enrolled'
-		});
+	const { studentId } = await createStudentWithClass(t, {
+		englishName: 'Cursor Student',
+		chineseName: '游標學生',
+		studentId: 'STU-CURSOR',
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
 	});
 
 	const teacherId = await t.run(async (ctx) => {
@@ -727,14 +716,13 @@ test('evaluation queries resolve category name from categoryId', async () => {
 		});
 	});
 
-	const studentId = await t.run(async (ctx) => {
-		return await ctx.db.insert('students', {
-			englishName: 'Category Test Student',
-			chineseName: '類別測試學生',
-			studentId: 'STU-CAT-RESOLVE',
-			grade: 10,
-			status: 'Enrolled'
-		});
+	const { studentId } = await createStudentWithClass(t, {
+		englishName: 'Category Test Student',
+		chineseName: '類別測試學生',
+		studentId: 'STU-CAT-RESOLVE',
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
 	});
 
 	const teacherId = await t.run(async (ctx) => {
@@ -791,14 +779,13 @@ test('changing category name reflects in evaluation queries', async () => {
 		});
 	});
 
-	const studentId = await t.run(async (ctx) => {
-		return await ctx.db.insert('students', {
-			englishName: 'Name Change Student',
-			chineseName: '改名測試學生',
-			studentId: 'STU-NAME-CHANGE',
-			grade: 10,
-			status: 'Enrolled'
-		});
+	const { studentId } = await createStudentWithClass(t, {
+		englishName: 'Name Change Student',
+		chineseName: '改名測試學生',
+		studentId: 'STU-NAME-CHANGE',
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
 	});
 
 	const teacherId = await t.run(async (ctx) => {
@@ -884,15 +871,14 @@ describe('Authorization boundaries', () => {
 		});
 
 		// Create a student
-		const studentId = await t.run(async (ctx) => {
-			return await ctx.db.insert('students', {
-				englishName: 'Auth Test Student',
-				chineseName: 'Auth Test Student',
-				studentId: 'STU-AUTH-001',
-				grade: 10,
-				status: 'Enrolled'
-			});
-		});
+		const { studentId } = await createStudentWithClass(t, {
+		englishName: 'Auth Test Student',
+		chineseName: 'Auth Test Student',
+		studentId: 'STU-AUTH-001',
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
+	});
 
 		// Create a category
 		const categoryId = await t.run(async (ctx) => {
@@ -944,15 +930,14 @@ describe('Authorization boundaries', () => {
 		});
 
 		// Create a student
-		const studentId = await t.run(async (ctx) => {
-			return await ctx.db.insert('students', {
-				englishName: 'Admin Edit Test Student',
-				chineseName: 'Admin Edit Test Student',
-				studentId: 'STU-ADMIN-EDIT-001',
-				grade: 10,
-				status: 'Enrolled'
-			});
-		});
+		const { studentId } = await createStudentWithClass(t, {
+		englishName: 'Admin Edit Test Student',
+		chineseName: 'Admin Edit Test Student',
+		studentId: 'STU-ADMIN-EDIT-001',
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
+	});
 
 		// Create a category
 		const categoryId = await t.run(async (ctx) => {
@@ -995,35 +980,32 @@ describe('Authorization boundaries', () => {
 			const t = convexTest(schema, modules);
 
 			// Create multiple students
-			const studentId1 = await t.run(async (ctx) => {
-				return ctx.db.insert('students', {
-					englishName: 'Student One',
-					chineseName: '學生一',
-					studentId: generateUniqueStudentId(),
-					grade: 10,
-					status: 'Enrolled' as const
-				});
-			});
+			const { studentId: studentId1 } = await createStudentWithClass(t, {
+		englishName: 'Student One',
+		chineseName: '學生一',
+		studentId: generateUniqueStudentId(),
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
+	});
 
-			const studentId2 = await t.run(async (ctx) => {
-				return ctx.db.insert('students', {
-					englishName: 'Student Two',
-					chineseName: '學生二',
-					studentId: generateUniqueStudentId(),
-					grade: 10,
-					status: 'Enrolled' as const
-				});
-			});
+			const { studentId: studentId2 } = await createStudentWithClass(t, {
+		englishName: 'Student Two',
+		chineseName: '學生二',
+		studentId: generateUniqueStudentId(),
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
+	});
 
-			const studentId3 = await t.run(async (ctx) => {
-				return ctx.db.insert('students', {
-					englishName: 'Student Three',
-					chineseName: '學生三',
-					studentId: generateUniqueStudentId(),
-					grade: 10,
-					status: 'Enrolled' as const
-				});
-			});
+			const { studentId: studentId3 } = await createStudentWithClass(t, {
+		englishName: 'Student Three',
+		chineseName: '學生三',
+		studentId: generateUniqueStudentId(),
+		grade: 10,
+		classNum: '1',
+		status: 'Enrolled'
+	});
 
 			const teacherId = await t.run(async (ctx) => {
 				return ctx.db.insert('users', {
@@ -1080,14 +1062,13 @@ describe('Authorization boundaries', () => {
 			// Create students
 			const studentIds: string[] = [];
 			for (let i = 1; i <= 3; i++) {
-				const id = await t.run(async (ctx) => {
-					return ctx.db.insert('students', {
-						englishName: `Student ${i}`,
-						chineseName: `學生${i}`,
-						studentId: generateUniqueStudentId(),
-						grade: 10,
-						status: 'Enrolled' as const
-					});
+				const { studentId: id } = await createStudentWithClass(t, {
+					englishName: `Student ${i}`,
+					chineseName: `學生${i}`,
+					studentId: generateUniqueStudentId(),
+					grade: 10,
+					classNum: '1',
+					status: 'Enrolled'
 				});
 				studentIds.push(id);
 			}

@@ -15,7 +15,7 @@ describe('students.create', () => {
 		await t.mutation(api.students.create, {
 			englishName: 'Test Student',
 			chineseName: '測試學生',
-			studentId: 'S9999',
+			studentId: '7009999',
 			grade: 10,
 			status: 'Enrolled'
 		});
@@ -23,8 +23,8 @@ describe('students.create', () => {
 		const students = await t.query(api.students.list, {});
 		expect(students).toHaveLength(1);
 		expect(students[0].englishName).toBe('Test Student');
-		expect(students[0].studentId).toBe('S9999');
-		expect(students[0].grade).toBe(10);
+		expect(students[0].studentId).toBe('7009999');
+		expect(students[0].classInfo?.grade).toBe(10);
 		expect(students[0].status).toBe('Enrolled');
 	});
 
@@ -34,7 +34,7 @@ describe('students.create', () => {
 		await t.mutation(api.students.create, {
 			englishName: 'First Student',
 			chineseName: '第一學生',
-			studentId: 'S1000',
+			studentId: '7001000',
 			grade: 9,
 			status: 'Enrolled'
 		});
@@ -43,7 +43,7 @@ describe('students.create', () => {
 			await t.mutation(api.students.create, {
 				englishName: 'Second Student',
 				chineseName: '第二學生',
-				studentId: 'S1000',
+				studentId: '7001000',
 				grade: 10,
 				status: 'Enrolled'
 			});
@@ -104,7 +104,7 @@ describe('students.update', () => {
 
 		const updatedStudent = (await t.query(api.students.list, {}))[0];
 		expect(updatedStudent.englishName).toBe('Updated Name');
-		expect(updatedStudent.grade).toBe(11);
+		expect(updatedStudent.classInfo?.grade).toBe(11);
 		expect(updatedStudent.status).toBe('Not Enrolled');
 	});
 
@@ -322,7 +322,11 @@ describe('students.list', () => {
 			status: 'Enrolled'
 		});
 
-		const grade9 = await t.query(api.students.list, { grade: 9 });
+		// Filter by grade client-side since grade is now on classes table
+		const allStudents = await t.query(api.students.list, {});
+		const grade9 = allStudents.filter(
+			(s: { classInfo?: { grade?: number } | null }) => s.classInfo?.grade === 9
+		);
 		expect(grade9).toHaveLength(1);
 		expect(grade9[0].englishName).toBe('Grade 9');
 	});
@@ -393,19 +397,19 @@ describe('Bulk Student Import', () => {
 		const byId1 = students.find((s: Doc<'students'>) => s.studentId === 'IMP001');
 		expect(byId1).toBeDefined();
 		expect(byId1?.englishName).toBe('Import Student 1');
-		expect(byId1?.grade).toBe(9);
+		expect(byId1?.classInfo?.grade).toBe(9);
 		expect(byId1?.status).toBe('Enrolled');
 
 		const byId2 = students.find((s: Doc<'students'>) => s.studentId === 'IMP002');
 		expect(byId2).toBeDefined();
 		expect(byId2?.englishName).toBe('Import Student 2');
-		expect(byId2?.grade).toBe(10);
+		expect(byId2?.classInfo?.grade).toBe(10);
 		expect(byId2?.status).toBe('Enrolled');
 
 		const byId3 = students.find((s: Doc<'students'>) => s.studentId === 'IMP003');
 		expect(byId3).toBeDefined();
 		expect(byId3?.englishName).toBe('Import Student 3');
-		expect(byId3?.grade).toBe(11);
+		expect(byId3?.classInfo?.grade).toBe(11);
 		expect(byId3?.status).toBe('Not Enrolled');
 	});
 });
@@ -495,7 +499,9 @@ describe('students edge cases', () => {
 		const students = await t.query(api.students.list, {});
 		expect(students).toHaveLength(6);
 
-		const grades = students.map((s: { grade: number }) => s.grade);
+		const grades = students.map(
+			(s: { classInfo?: { grade?: number } | null }) => s.classInfo?.grade
+		);
 		expect(grades).toContain(7);
 		expect(grades).toContain(8);
 		expect(grades).toContain(9);
@@ -661,7 +667,11 @@ describe('students edge cases', () => {
 			status: 'Enrolled'
 		});
 
-		const grade10Enrolled = await t.query(api.students.list, { grade: 10, status: 'Enrolled' });
+		// Filter by grade and status client-side
+		const allStudents = await t.query(api.students.list, { status: 'Enrolled' });
+		const grade10Enrolled = allStudents.filter(
+			(s: { classInfo?: { grade?: number } | null }) => s.classInfo?.grade === 10
+		);
 		expect(grade10Enrolled).toHaveLength(1);
 		expect(grade10Enrolled[0].englishName).toBe('Grade 10 Enrolled');
 	});
@@ -760,7 +770,7 @@ describe('students.importFromExcel (bulk create/update)', () => {
 		// Verify the update happened
 		const updatedStudent = students.find((s: { studentId: string }) => s.studentId === 'UPDATE01');
 		expect(updatedStudent?.englishName).toBe('Updated Name');
-		expect(updatedStudent?.grade).toBe(10);
+		expect(updatedStudent?.classInfo?.grade).toBe(10);
 		expect(updatedStudent?.status).toBe('Not Enrolled');
 	});
 
@@ -852,7 +862,7 @@ describe('students.importFromExcel (bulk create/update)', () => {
 		expect(students).toHaveLength(1);
 
 		// The student should have the last update's grade
-		expect(students[0].grade).toBe(10);
+		expect(students[0].classInfo?.grade).toBe(10);
 		expect(students[0].englishName).toBe('Second');
 	});
 });

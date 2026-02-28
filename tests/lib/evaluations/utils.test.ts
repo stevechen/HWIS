@@ -13,6 +13,8 @@ describe('transformEvaluation', () => {
 			timestamp: 1234567890,
 			englishName: 'John Smith',
 			grade: 10,
+			class: '2',
+			isIB: true,
 			studentId: 'student-1',
 			studentIdCode: 'SE2024001',
 			teacherName: 'Ms. Johnson',
@@ -42,6 +44,8 @@ describe('transformEvaluation', () => {
 		expect(result.details).toBeUndefined();
 		expect(result.englishName).toBeUndefined();
 		expect(result.teacherName).toBeUndefined();
+		expect(result.class).toBeUndefined();
+		expect(result.isIB).toBeUndefined();
 	});
 
 	it('preserves status field', () => {
@@ -68,6 +72,21 @@ describe('transformEvaluation', () => {
 
 		const result = transformEvaluation(input);
 		expect(result.isAdmin).toBe(true);
+	});
+
+	it('preserves class and isIB fields', () => {
+		const input = {
+			_id: 'eval-1',
+			value: 5,
+			category: 'Academic',
+			timestamp: 1234567890,
+			class: '1',
+			isIB: true
+		};
+
+		const result = transformEvaluation(input);
+		expect(result.class).toBe('1');
+		expect(result.isIB).toBe(true);
 	});
 });
 

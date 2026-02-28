@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { query, mutation } from './_generated/server';
-import { requireAdminRole, getAuthenticatedUser } from './auth';
+import { requireAdminRole, requireSuperRole, getAuthenticatedUser } from './auth';
 
 export const viewer = query({
 	args: { testToken: v.optional(v.string()) },
@@ -76,6 +76,36 @@ export const list = query({
 	}
 });
 
+// Optimized query to fetch only teachers and admins (for class assignment)
+export const getTeachers = query({
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		const typedUser = user as { role?: string; email?: string } | null;
+		if (
+			!typedUser ||
+			(typedUser.role !== 'admin' &&
+				typedUser.role !== 'super' &&
+				typedUser.email !== 'super@hwis.test')
+		) {
+			return [];
+		}
+
+		const allUsers = await ctx.db.query('users').collect();
+		// Filter to only teachers, admins, and super users
+		const teachers = allUsers
+			.filter((u) => u.role === 'teacher' || u.role === 'admin' || u.role === 'super')
+			.map((u) => ({
+				...u,
+				role: u.role ?? 'teacher',
+				status: u.status ?? 'active'
+			}))
+			.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+		return teachers;
+	}
+});
+
 export const update = mutation({
 	args: {
 		id: v.id('users'),
@@ -84,12 +114,20 @@ export const update = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const currentUser = await requireAdminRole(ctx, args.testToken);
+		// First fetch the target user to check their current role
+		const targetUser = await ctx.db.get(args.id);
+		if (!targetUser) throw new Error('User not found');
+
+		// If promoting to super role, require super role
+		let currentUser;
+		if (args.role === 'super' && targetUser.role !== 'super') {
+			currentUser = await requireSuperRole(ctx, args.testToken);
+		} else {
+			currentUser = await requireAdminRole(ctx, args.testToken);
+		}
 
 		const { id, ...updates } = args;
 		delete (updates as Record<string, unknown>).testToken;
-		const targetUser = await ctx.db.get(id);
-		if (!targetUser) throw new Error('User not found');
 
 		const shouldInvalidateSessions = args.status === 'pending' || args.role !== undefined;
 
@@ -106,7 +144,9 @@ export const update = mutation({
 		}
 
 		const performerId = currentUser?._id;
-		if (performerId && performerId !== 'test-user-id') {
+		// Skip audit logs for test users (both admin and super test tokens)
+		const isTestUser = performerId === 'test-user-id' || performerId === 'test-super-user-id';
+		if (performerId && !isTestUser) {
 			if (args.role !== undefined && args.role !== targetUser.role) {
 				await ctx.db.insert('audit_logs', {
 					action: 'update_user_role',
@@ -164,7 +204,17 @@ export const setUserRole = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		// First fetch the target user to check their current role
+		const targetUser = await ctx.db.get(args.userId);
+		if (!targetUser) throw new Error('User not found');
+
+		// If promoting to super role, require super role
+		if (args.role === 'super' && targetUser.role !== 'super') {
+			await requireSuperRole(ctx, args.testToken);
+		} else {
+			await requireAdminRole(ctx, args.testToken);
+		}
+
 		await ctx.db.patch(args.userId, {
 			role: args.role,
 			status: args.status
@@ -191,12 +241,20 @@ export const setRoleByEmail = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		// First find the user to check their current role
 		const allUsers = await ctx.db.query('users').collect();
 		const user = allUsers.find((u) => u.authId === args.email);
 		if (!user) {
 			throw new Error(`User not found for email: ${args.email}`);
 		}
+
+		// If promoting to super role, require super role
+		if (args.role === 'super' && user.role !== 'super') {
+			await requireSuperRole(ctx, args.testToken);
+		} else {
+			await requireAdminRole(ctx, args.testToken);
+		}
+
 		await ctx.db.patch(user._id, {
 			role: args.role,
 			status: args.status
@@ -225,7 +283,6 @@ export const setRoleByToken = mutation({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
 		try {
 			const decodedToken = decodeURIComponent(args.token);
 			const parts = decodedToken.split('.');
@@ -245,6 +302,13 @@ export const setRoleByToken = mutation({
 
 			if (!user) {
 				throw new Error(`User not found for authId: ${authId}`);
+			}
+
+			// If promoting to super role, require super role
+			if (args.role === 'super' && user.role !== 'super') {
+				await requireSuperRole(ctx, args.testToken);
+			} else {
+				await requireAdminRole(ctx, args.testToken);
 			}
 
 			await ctx.db.patch(user._id, {

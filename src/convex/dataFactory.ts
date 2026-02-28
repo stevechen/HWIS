@@ -3,6 +3,34 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { authComponent, getAuthenticatedUser, requireAdminForSensitiveOperation } from './auth';
 
+// Helper to get or create a class for e2e tests
+// className: "default", "IB", "1", "2", etc.
+async function getOrCreateClass(
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	ctx: any,
+	grade: number,
+	className: string
+): Promise<Id<'classes'>> {
+	const existing = await ctx.db
+		.query('classes')
+		.withIndex(
+			'by_grade_class',
+			(q: {
+				eq: (field: string, value: unknown) => { eq: (field: string, value: unknown) => unknown };
+			}) => q.eq('grade', grade).eq('class', className)
+		)
+		.first();
+
+	if (existing) {
+		return existing._id;
+	}
+
+	return await ctx.db.insert('classes', {
+		grade,
+		class: className
+	});
+}
+
 // Type for authenticated user objects from auth (has authId or _id)
 type AuthUserInfo = { authId?: string; _id?: string };
 
@@ -181,7 +209,33 @@ export const seedBaseline = mutation({
 			}
 		}
 
-		// Step 4: Insert baseline students only if missing (avoid full scans)
+		// Step 4: Insert baseline classes
+		const existingClass7 = await ctx.db
+			.query('classes')
+			.withIndex('by_grade_class', (q) => q.eq('grade', 7).eq('class', '1'))
+			.first();
+		if (!existingClass7) {
+			// Create classes for grades 7-12
+			for (const grade of [7, 8, 9, 10, 11, 12]) {
+				for (const classNum of ['1', '2', '3']) {
+					await ctx.db.insert('classes', {
+						grade,
+						class: classNum
+					});
+				}
+			}
+		}
+
+		// Get class IDs for student creation
+		const classes = await ctx.db.query('classes').collect();
+		const classByGrade = new Map<number, Id<'classes'>>();
+		for (const c of classes) {
+			if (!classByGrade.has(c.grade)) {
+				classByGrade.set(c.grade, c._id);
+			}
+		}
+
+		// Step 5: Insert baseline students only if missing (avoid full scans)
 		const existingStudent = await ctx.db
 			.query('students')
 			.withIndex('by_studentId', (q) => q.eq('studentId', 'S1001'))
@@ -192,21 +246,21 @@ export const seedBaseline = mutation({
 					englishName: 'Alice Smith',
 					chineseName: '史艾莉',
 					studentId: 'S1001',
-					grade: 9,
+					classId: classByGrade.get(9)!,
 					status: 'Enrolled' as const
 				},
 				{
 					englishName: 'Bob Jones',
 					chineseName: '瓊斯·鮑勃',
 					studentId: 'S1002',
-					grade: 10,
+					classId: classByGrade.get(10)!,
 					status: 'Enrolled' as const
 				},
 				{
 					englishName: 'Charlie Brown',
 					chineseName: '查理·布朗',
 					studentId: 'S1003',
-					grade: 11,
+					classId: classByGrade.get(11)!,
 					status: 'Not Enrolled' as const
 				}
 			];
@@ -363,6 +417,8 @@ export const createStudent = mutation({
 		chineseName: v.optional(v.string()),
 		studentId: v.optional(v.string()),
 		grade: v.optional(v.number()),
+		class: v.optional(v.string()),
+		classId: v.optional(v.id('classes')),
 		status: v.optional(v.string()),
 		e2eTag: v.optional(v.string()),
 		testToken: v.optional(v.string())
@@ -374,7 +430,7 @@ export const createStudent = mutation({
 			englishName: args.englishName ?? generateStudentName(),
 			chineseName: args.chineseName ?? generateChineseName(),
 			studentId: args.studentId ?? generateUniqueId(''),
-			grade: args.grade ?? 9,
+			classId: args.classId!,
 			status: (args.status as 'Enrolled' | 'Not Enrolled') ?? 'Enrolled',
 			e2eTag: tag
 		});
@@ -386,7 +442,8 @@ export const createStudentWithId = mutation({
 		studentId: v.string(),
 		englishName: v.optional(v.string()),
 		chineseName: v.optional(v.string()),
-		grade: v.optional(v.number()),
+		grade: v.number(),
+		class: v.optional(v.string()),
 		status: v.optional(v.string()),
 		e2eTag: v.optional(v.string()),
 		testToken: v.optional(v.string())
@@ -394,6 +451,12 @@ export const createStudentWithId = mutation({
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const tag = args.e2eTag || getE2ETag();
+
+		// Get or create class
+		// "default", "IB", "1", "2", etc. - defaults to "default" class
+		const className = args.class || 'default';
+		const classId = await getOrCreateClass(ctx, args.grade, className);
+
 		const existing = await ctx.db
 			.query('students')
 			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
@@ -403,7 +466,7 @@ export const createStudentWithId = mutation({
 			await ctx.db.patch(existing._id, {
 				englishName: args.englishName ?? existing.englishName,
 				chineseName: args.chineseName ?? existing.chineseName,
-				grade: args.grade ?? existing.grade,
+				classId,
 				status: (args.status as 'Enrolled' | 'Not Enrolled') ?? existing.status,
 				e2eTag: tag
 			});
@@ -414,7 +477,7 @@ export const createStudentWithId = mutation({
 			englishName: args.englishName ?? `Student_${args.studentId}`,
 			chineseName: args.chineseName ?? '',
 			studentId: args.studentId,
-			grade: args.grade ?? 9,
+			classId,
 			status: (args.status as 'Enrolled' | 'Not Enrolled') ?? 'Enrolled',
 			e2eTag: tag
 		});

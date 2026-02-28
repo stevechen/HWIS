@@ -6,13 +6,13 @@ import {
 	cleanupTestData,
 	useRole
 } from './convex-client';
-import { getTestSuffix } from './helpers';
+import { getTestSuffix, getTestStudentId } from './helpers';
 
 test.describe('Student CRUD Cycle @integration', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	const suffix = getTestSuffix('crud');
-	const studentId = `S_${suffix}`;
+	const studentId = getTestStudentId('crud');
 	const englishName = `CrudTest_${suffix}`;
 	let testE2eTag: string | null = null;
 
@@ -57,6 +57,14 @@ test.describe('Student CRUD Cycle @integration', () => {
 
 		// Click Update button - scope to dialog to avoid matching other buttons
 		await dialog.getByRole('button', { name: 'Update student' }).click();
+
+		// Debug: check for form errors
+		await page.waitForTimeout(500);
+		const errorAlert = dialog.locator('[role="alert"]');
+		if (await errorAlert.isVisible().catch(() => false)) {
+			const errorText = await errorAlert.textContent();
+			console.log('Form errors:', errorText);
+		}
 
 		// Wait for dialog to close
 		await expect(dialog).not.toBeVisible();

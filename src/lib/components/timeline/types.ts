@@ -9,6 +9,8 @@ export interface EvaluationEntry {
 	isAdmin?: boolean;
 	englishName?: string;
 	grade?: number;
+	class?: string; // NEW - class identifier (e.g., "1", "2", "3")
+	isIB?: boolean; // NEW - IB student flag
 	studentId?: string;
 	studentIdCode?: string; // The actual student ID code (e.g., SE2024001)
 	teacherId?: string; // for ownership check

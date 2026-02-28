@@ -52,6 +52,13 @@ describe('EvaluationsTimeline Component', () => {
 			render(EvaluationsTimeline, { evaluations: [negativeEval] });
 			await expect.element(page.getByText('-3')).toBeInTheDocument();
 		});
+
+		it('shows grade-class label and IB badge when available', async () => {
+			const entry = createMockEvaluation({ grade: 10, class: '2', isIB: true });
+			render(EvaluationsTimeline, { evaluations: [entry], showStudentName: true });
+			await expect.element(page.getByText('G10-2')).toBeInTheDocument();
+			await expect.element(page.getByText('IB')).toBeInTheDocument();
+		});
 	});
 
 	describe('Controls', () => {

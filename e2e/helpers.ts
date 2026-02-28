@@ -29,9 +29,11 @@ function getWorkerId(): string {
 export function getBrowserShortName(): string {
 	// Try multiple sources for project name
 	const project = getProjectName().toLowerCase();
-	if (project.includes('webkit') || project.includes('safari') || project.includes('wk')) return 'WK';
+	if (project.includes('webkit') || project.includes('safari') || project.includes('wk'))
+		return 'WK';
 	if (project.includes('firefox') || project.includes('ff')) return 'FF';
-	if (project.includes('chromium') || project.includes('chrome') || project.includes('cr')) return 'CR';
+	if (project.includes('chromium') || project.includes('chrome') || project.includes('cr'))
+		return 'CR';
 	return 'CR'; // Default to Chromium
 }
 
@@ -66,4 +68,17 @@ export function getUniqueTag(prefix: string = 'test'): string {
 	const timestamp = Date.now().toString().slice(-6);
 	const random = randomUUID().slice(0, 6);
 	return `${prefix}_${browserId}_${workerId}_${timestamp}_${random}`;
+}
+
+/**
+ * Generate a valid 7-digit student ID for e2e tests.
+ * Student IDs must be exactly 7 digits to pass validation.
+ */
+export function getTestStudentId(prefix: string = ''): string {
+	const suffix = getTestSuffix(prefix);
+	// Generate a 7-digit number based on the suffix hash
+	const hash = suffix.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+	const randomPart = Math.floor(Math.random() * 10000);
+	const id = String(1000000 + (hash % 1000000) + randomPart).slice(-7);
+	return id;
 }

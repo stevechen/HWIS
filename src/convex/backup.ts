@@ -78,7 +78,10 @@ interface BackupRecord {
 
 type BackupPayload = {
 	students: Array<
-		Pick<Doc<'students'>, 'englishName' | 'chineseName' | 'studentId' | 'grade' | 'status' | 'note'>
+		Pick<
+			Doc<'students'>,
+			'_id' | 'englishName' | 'chineseName' | 'studentId' | 'classId' | 'status' | 'note'
+		>
 	>;
 	evaluations: Array<
 		Pick<
@@ -106,7 +109,7 @@ export const restoreFromBackup = mutation({
 				englishName: student.englishName,
 				chineseName: student.chineseName,
 				studentId: student.studentId,
-				grade: student.grade,
+				classId: student.classId,
 				status: student.status,
 				note: student.note ?? ''
 			});
@@ -146,14 +149,20 @@ export const clearAllData = mutation({
 		const students = await ctx.db.query('students').collect();
 		const evaluations = await ctx.db.query('evaluations').collect();
 		const categories = await ctx.db.query('point_categories').collect();
+		const classes = await ctx.db.query('classes').collect();
 
 		for (const student of students) await ctx.db.delete(student._id);
 		for (const evaluation of evaluations) await ctx.db.delete(evaluation._id);
 		for (const category of categories) await ctx.db.delete(category._id);
+		for (const cls of classes) await ctx.db.delete(cls._id);
 
 		const auditLogs = await ctx.db.query('audit_logs').collect();
 		for (const log of auditLogs) {
-			if (log.targetTable === 'students' || log.targetTable === 'evaluations') {
+			if (
+				log.targetTable === 'students' ||
+				log.targetTable === 'evaluations' ||
+				log.targetTable === 'classes'
+			) {
 				await ctx.db.delete(log._id);
 			}
 		}
@@ -248,10 +257,18 @@ export const advanceGradesAndClearEvaluations = mutation({
 			}
 		}
 
-		const grade12Students = await ctx.db
-			.query('students')
-			.filter((q) => q.eq(q.field('grade'), 12))
-			.collect();
+		// Get classes to determine grade 12 students
+		const allClasses = await ctx.db.query('classes').collect();
+		const classMap = new Map(allClasses.map((c) => [c._id, c]));
+
+		const allStudents = await ctx.db.query('students').collect();
+		const grade12Students = allStudents.filter((s) => {
+			if (s.classId) {
+				const cls = classMap.get(s.classId);
+				return cls && cls.grade === 12;
+			}
+			return false;
+		});
 		for (const student of grade12Students) {
 			await ctx.db.delete(student._id);
 		}
@@ -271,9 +288,16 @@ export const advanceGradesAndClearEvaluations = mutation({
 
 		let gradesAdvanced = 0;
 		for (const student of enrolledStudents) {
-			if (student.grade >= 7 && student.grade <= 11) {
-				await ctx.db.patch(student._id, { grade: student.grade + 1 });
-				gradesAdvanced++;
+			if (student.classId) {
+				const cls = classMap.get(student.classId);
+				if (cls && cls.grade >= 7 && cls.grade <= 11) {
+					// Find next grade's class
+					const nextGradeClasses = allClasses.filter((c) => c.grade === cls.grade + 1);
+					if (nextGradeClasses.length > 0) {
+						await ctx.db.patch(student._id, { classId: nextGradeClasses[0]._id });
+						gradesAdvanced++;
+					}
+				}
 			}
 		}
 

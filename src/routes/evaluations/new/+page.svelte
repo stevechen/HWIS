@@ -252,7 +252,7 @@
 									<div class="flex flex-col">
 										<span class="font-medium">{student.englishName} ({student.chineseName})</span>
 										<span class="text-muted-foreground text-xs"
-											>Grade {student.grade} • {student.studentId}</span
+											>Grade {student.classInfo?.grade}{student.classInfo?.class ? `-${student.classInfo?.class}` : ''} • {student.studentId}{student.isIB ? ' • IB' : ''}</span
 										>
 									</div>
 								</div>

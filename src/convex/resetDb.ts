@@ -90,41 +90,51 @@ export const resetDatabase = mutation({
 		}
 
 		// Re-seed default students
+		// First create classes for each grade
+		const classMap: Record<number, import('./_generated/dataModel').Id<'classes'>> = {};
+		for (const grade of [9, 10, 11, 12]) {
+			const classId = await ctx.db.insert('classes', {
+				grade,
+				class: '1'
+			});
+			classMap[grade] = classId;
+		}
+
 		const defaultStudents = [
 			{
 				englishName: 'Alice Smith',
 				chineseName: '史艾莉',
 				studentId: 'S1001',
-				grade: 9,
-				status: 'Enrolled' as const
+				status: 'Enrolled' as const,
+				classId: classMap[9]
 			},
 			{
 				englishName: 'Bob Jones',
 				chineseName: '張博博',
 				studentId: 'S1002',
-				grade: 10,
-				status: 'Enrolled' as const
+				status: 'Enrolled' as const,
+				classId: classMap[10]
 			},
 			{
 				englishName: 'Charlie Brown',
 				chineseName: '布查理',
 				studentId: 'S1003',
-				grade: 11,
-				status: 'Enrolled' as const
+				status: 'Enrolled' as const,
+				classId: classMap[11]
 			},
 			{
 				englishName: 'David Wilson',
 				chineseName: '魏大維',
 				studentId: 'S1004',
-				grade: 12,
-				status: 'Not Enrolled' as const
+				status: 'Not Enrolled' as const,
+				classId: classMap[12]
 			},
 			{
 				englishName: 'Eve Davis',
 				chineseName: '戴伊芙',
 				studentId: 'S1005',
-				grade: 9,
-				status: 'Not Enrolled' as const
+				status: 'Not Enrolled' as const,
+				classId: classMap[9]
 			}
 		];
 		for (const student of defaultStudents) {

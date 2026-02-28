@@ -1,5 +1,5 @@
 import { expect, test, describe } from 'vitest';
-import { convexTest, modules } from './test.setup';
+import { convexTest, modules, createStudentWithClass } from './test.setup';
 import schema from './schema';
 
 describe('audit logs (database operations)', () => {
@@ -16,14 +16,13 @@ describe('audit logs (database operations)', () => {
 	test('audit.list returns audit logs for admin user', async () => {
 		const t = convexTest(schema, modules);
 
-		const studentId = await t.run(async (ctx) => {
-			return await ctx.db.insert('students', {
-				englishName: 'John Doe',
-				chineseName: '張三',
-				studentId: 'STU001',
-				grade: 10,
-				status: 'Enrolled'
-			});
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'John Doe',
+			chineseName: '張三',
+			studentId: 'STU001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
 		});
 
 		const teacherId = await t.run(async (ctx) => {

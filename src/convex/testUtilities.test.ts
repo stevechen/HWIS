@@ -189,11 +189,17 @@ describe('test utilities', () => {
 				status: 'active'
 			});
 
+			// Create a class for the student
+			const testClass = await ctx.db.insert('classes', {
+				grade: 7,
+				class: '1'
+			});
+
 			const taggedStudent = await ctx.db.insert('students', {
 				englishName: 'Tagged Student',
 				chineseName: '測試',
 				studentId: 'TS1',
-				grade: 10,
+				classId: testClass,
 				status: 'Enrolled',
 				e2eTag: 'e2e-test_x'
 			});
@@ -223,7 +229,7 @@ describe('test utilities', () => {
 				englishName: 'Real Student',
 				chineseName: '真實',
 				studentId: 'RS1',
-				grade: 10,
+				classId: testClass,
 				status: 'Enrolled'
 			});
 		});
@@ -309,11 +315,16 @@ describe('test utilities', () => {
 				role: 'teacher',
 				status: 'active'
 			});
+			const cls = await ctx.db.insert('classes', {
+				grade: 7,
+				class: '1',
+				homeroomTeacherId: teacher
+			});
 			const student = await ctx.db.insert('students', {
 				englishName: 'To Delete',
 				chineseName: '刪',
 				studentId: 'DEL1',
-				grade: 10,
+				classId: cls,
 				status: 'Enrolled'
 			});
 			const category = await ctx.db.insert('point_categories', {
@@ -348,7 +359,7 @@ describe('test utilities', () => {
 			return { categories, students, evaluations, audits };
 		});
 
-		expect(snapshot.categories).toHaveLength(4);
+		expect(snapshot.categories).toHaveLength(7);
 		expect(snapshot.students).toHaveLength(5);
 		expect(snapshot.evaluations).toHaveLength(0);
 		expect(snapshot.audits).toHaveLength(0);

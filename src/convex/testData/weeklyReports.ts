@@ -118,6 +118,16 @@ export const createWeeklyReportTestData = mutation({
 			}
 		];
 
+		// Create classes for test students
+		const classIds: Record<number, Id<'classes'>> = {};
+		for (const grade of [9, 10, 11]) {
+			const classId = await ctx.db.insert('classes', {
+				grade,
+				class: '1'
+			});
+			classIds[grade] = classId;
+		}
+
 		// Create student records
 		const studentIds: string[] = [];
 		for (const student of students) {
@@ -125,7 +135,7 @@ export const createWeeklyReportTestData = mutation({
 				englishName: student.englishName,
 				chineseName: student.chineseName,
 				studentId: student.studentId,
-				grade: student.grade,
+				classId: classIds[student.grade],
 				status: 'Enrolled',
 				e2eTag: tag
 			});

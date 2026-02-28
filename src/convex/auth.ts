@@ -185,8 +185,18 @@ export const getAuthenticatedUser = async (
 		(configuredTestToken && testToken === configuredTestToken) ||
 		(isTestRuntime && testToken === 'unit-test-token') ||
 		(allowDefaultTestToken && testToken === 'unit-test-token');
+	const isSuperTestToken = isTestRuntime && testToken === 'super-unit-test-token';
 
 	// For unit tests/e2e helpers, allow explicit test token bypass.
+	if (isSuperTestToken) {
+		return {
+			_id: 'test-super-user-id' as Id<'users'>,
+			authId: 'test_super',
+			name: 'Test Super',
+			role: 'super',
+			status: 'active'
+		};
+	}
 	if (isValidTestToken) {
 		return {
 			_id: 'test-user-id' as Id<'users'>,
@@ -255,6 +265,15 @@ export const requireAdminRole = async (ctx: AuthCtx, _testToken?: string) => {
 		throw new Error('Forbidden: Admin or super role required');
 	}
 
+	return user;
+};
+
+// Super role requirement (for promoting users to super)
+export const requireSuperRole = async (ctx: AuthCtx, _testToken?: string) => {
+	const user = await requireUserProfile(ctx, _testToken);
+	if (user.role !== 'super') {
+		throw new Error('Forbidden: Super role required');
+	}
 	return user;
 };
 

@@ -89,6 +89,7 @@
 		if (path === '/admin/categories') return 'Back to Admin';
 		if (path === '/admin/users') return 'Back to Admin';
 		if (path === '/admin/students') return 'Back to Admin';
+		if (path === '/admin/classes') return 'Back to Admin';
 		if (path === '/admin/weekly-reports') return 'Back to Admin';
 		if (path.startsWith('/admin') && path !== '/admin') return 'Back to Admin';
 		if (path.startsWith('/evaluations/student')) return 'Back to Evaluations';
@@ -112,6 +113,7 @@
 		if (path === '/') return 'HWIS';
 		if (path === '/admin') return 'Admin Dashboard';
 		if (path === '/admin/students') return 'Student Management';
+		if (path === '/admin/classes') return 'Class Management';
 		if (path === '/admin/audit') return 'Audit Log';
 		if (path === '/admin/categories') return 'Categories';
 		if (path === '/admin/users') return 'Manage Users';

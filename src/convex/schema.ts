@@ -37,21 +37,28 @@ export default defineSchema({
 		identifier: v.string(),
 		value: v.string(),
 		expiresAt: v.number(),
-		createdAt: v.number(),
-		updatedAt: v.number()
+		createdAt: v.number()
 	}),
+
+	classes: defineTable({
+		grade: v.number(),
+		class: v.string(),
+		homeroomTeacherId: v.optional(v.id('users'))
+	})
+		.index('by_grade_class', ['grade', 'class'])
+		.index('by_teacher', ['homeroomTeacherId']),
 
 	students: defineTable({
 		englishName: v.string(),
 		chineseName: v.string(),
 		studentId: v.string(),
-		grade: v.number(),
+		classId: v.id('classes'),
 		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
 		note: v.optional(v.string()),
 		e2eTag: v.optional(v.string())
 	})
 		.index('by_studentId', ['studentId'])
-		.index('by_grade', ['grade'])
+		.index('by_classId', ['classId'])
 		.index('by_status', ['status'])
 		.index('by_e2eTag', ['e2eTag']),
 

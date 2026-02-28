@@ -12,22 +12,11 @@
 		FilterSummaryToast,
 		EvaluationsLoadingState,
 		EvaluationsErrorState,
-		EvaluationsEmptyState
+		EvaluationsEmptyState,
+		EvaluationsControls
 	} from '$lib/evaluations/components';
 	import { Button } from '$lib/components/ui/button';
-	import {
-		Loader,
-		ArrowUp,
-		ArrowDown,
-		Eye,
-		EyeOff,
-		MessageSquareX,
-		MessageSquareText,
-		EyeClosed,
-		Drama,
-		ListChevronsUpDown,
-		ListChevronsDownUp
-	} from '@lucide/svelte';
+	import { Loader, EyeClosed, Drama } from '@lucide/svelte';
 	import { onDestroy, onMount, untrack } from 'svelte';
 
 	// Filter states
@@ -46,6 +35,18 @@
 
 	function toggleShowTeacherName(): void {
 		showTeacherName = !showTeacherName;
+	}
+
+	function handleToggleSort(): void {
+		displayState.sortAscending = !displayState.sortAscending;
+	}
+
+	function handleToggleShowUnenrolled(): void {
+		showUnenrolled = !showUnenrolled;
+	}
+
+	function handleToggleShowDetails(): void {
+		displayState.showDetails = !displayState.showDetails;
 	}
 
 	// Use shared state management
@@ -213,12 +214,17 @@
 	}
 </script>
 
-<div class="mx-auto p-8 pt-0 max-w-6xl">
+<div class="mx-auto max-w-6xl p-8 pt-0">
 	<!-- Filters Section - Sticky for easy access while scrolling -->
-	<div
-		class="top-14 z-10 sticky flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4 bg-linear-to-b from-background to-background/85 -mx-8 px-8 py-2 border-b"
+	<EvaluationsControls
+		sortAscending={displayState.sortAscending}
+		{showUnenrolled}
+		showDetails={displayState.showDetails}
+		onToggleSort={handleToggleSort}
+		onToggleShowUnenrolled={handleToggleShowUnenrolled}
+		onToggleShowDetails={handleToggleShowDetails}
 	>
-		<div class="flex sm:flex-row flex-col sm:items-center gap-4">
+		{#snippet children()}
 			<FilterInput
 				bind:value={studentFilter}
 				placeholder="Filter by student name..."
@@ -231,48 +237,8 @@
 				ariaLabel="Filter by teacher"
 				class="w-full sm:w-64"
 			/>
-		</div>
-		<!-- Toggle controls aligned with filters -->
-		<div class="flex items-center gap-2">
-			<Button
-				aria-label={displayState.sortAscending ? 'Oldest First' : 'Newest First'}
-				variant="outline"
-				size="sm"
-				onclick={() => (displayState.sortAscending = !displayState.sortAscending)}
-				title={displayState.sortAscending ? 'Oldest First' : 'Newest First'}
-			>
-				{#if displayState.sortAscending}
-					<ArrowUp class="size-4" />
-				{:else}
-					<ArrowDown class="size-4" />
-				{/if}
-			</Button>
-			<Button
-				aria-label={showUnenrolled ? 'Hide unenrolled students' : 'Show unenrolled students'}
-				variant="outline"
-				size="sm"
-				onclick={toggleShowUnenrolled}
-				title={showUnenrolled ? 'Hide unenrolled students' : 'Show unenrolled students'}
-			>
-				{#if showUnenrolled}
-					<Eye class="size-4" />
-				{:else}
-					<EyeOff class="size-4" />
-				{/if}
-			</Button>
-			<Button
-				aria-label={displayState.showDetails ? 'Hide Details' : 'Show Details'}
-				variant="outline"
-				size="sm"
-				onclick={() => (displayState.showDetails = !displayState.showDetails)}
-				title={displayState.showDetails ? 'Hide Details' : 'Show Details'}
-			>
-				{#if displayState.showDetails}
-					<ListChevronsUpDown class="size-4" />
-				{:else}
-					<ListChevronsDownUp class="size-4" />
-				{/if}
-			</Button>
+		{/snippet}
+		{#snippet extraToggles()}
 			<Button
 				aria-label={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
 				variant="outline"
@@ -286,8 +252,8 @@
 					<EyeClosed class="size-4" />
 				{/if}
 			</Button>
-		</div>
-	</div>
+		{/snippet}
+	</EvaluationsControls>
 
 	{#if (hasActiveFilters ? nonPaginatedQuery.isLoading : paginatedQuery.isLoading) && cursor === null}
 		<EvaluationsLoadingState />
@@ -323,13 +289,13 @@
 		<!-- Loading indicator -->
 		{#if isLoadingMore}
 			<div class="flex justify-center py-4">
-				<Loader class="size-6 text-muted-foreground animate-spin" />
+				<Loader class="text-muted-foreground size-6 animate-spin" />
 			</div>
 		{/if}
 
 		<!-- End of list indicator -->
 		{#if isDone && accumulatedEvaluations.length > 0}
-			<div class="py-4 text-muted-foreground text-sm text-center">No more evaluations</div>
+			<div class="text-muted-foreground py-4 text-center text-sm">No more evaluations</div>
 		{/if}
 	{/if}
 

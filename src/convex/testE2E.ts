@@ -97,83 +97,93 @@ export const e2eSeedAll = mutation({
 			categoryIds[name] = id;
 		}
 
+		// Create classes for test students
+		const classIds: Record<number, Id<'classes'>> = {};
+		for (const grade of [9, 10, 11, 12, 18, 22]) {
+			const classId = await ctx.db.insert('classes', {
+				grade,
+				class: '1'
+			});
+			classIds[grade] = classId;
+		}
+
 		// Students
 		const students = [
 			{
 				englishName: 'Alice Smith',
 				chineseName: '史艾莉',
 				studentId: 'S1001',
-				grade: 9,
+				classId: classIds[9],
 				status: 'Enrolled' as const
 			},
 			{
 				englishName: 'Bob Jones',
 				chineseName: '張博博',
 				studentId: 'S1002',
-				grade: 10,
+				classId: classIds[10],
 				status: 'Enrolled' as const
 			},
 			{
 				englishName: 'Charlie Brown',
 				chineseName: '布查理',
 				studentId: 'S1003',
-				grade: 11,
+				classId: classIds[11],
 				status: 'Enrolled' as const
 			},
 			{
 				englishName: 'David Wilson',
 				chineseName: '魏大維',
 				studentId: 'S1004',
-				grade: 12,
+				classId: classIds[12],
 				status: 'Not Enrolled' as const
 			},
 			{
 				englishName: 'Eve Davis',
 				chineseName: '戴伊芙',
 				studentId: 'S1005',
-				grade: 9,
+				classId: classIds[9],
 				status: 'Not Enrolled' as const
 			},
 			{
 				englishName: 'Test Delete No Evals',
 				chineseName: '',
 				studentId: 'S9998',
-				grade: 22,
+				classId: classIds[22],
 				status: 'Enrolled' as const
 			},
 			{
 				englishName: 'Test No Evals',
 				chineseName: '',
 				studentId: 'S9997',
-				grade: 22,
+				classId: classIds[22],
 				status: 'Enrolled' as const
 			},
 			{
 				englishName: 'Test Student',
 				chineseName: '測試學生',
 				studentId: 'S9999',
-				grade: 18,
+				classId: classIds[18],
 				status: 'Enrolled' as const
 			},
 			{
 				englishName: 'Audit Student',
 				chineseName: '',
 				studentId: 'S2001',
-				grade: 10,
+				classId: classIds[10],
 				status: 'Enrolled' as const
 			},
 			{
 				englishName: 'Audit Student 2',
 				chineseName: '',
 				studentId: 'S2002',
-				grade: 11,
+				classId: classIds[11],
 				status: 'Enrolled' as const
 			},
 			{
 				englishName: 'Audit Student 3',
 				chineseName: '',
 				studentId: 'S2003',
-				grade: 12,
+				classId: classIds[12],
 				status: 'Not Enrolled' as const
 			}
 		];
@@ -360,6 +370,16 @@ export const e2eSeedStudentsForDisable = mutation({
 			await ctx.db.delete(e._id);
 		}
 
+		// Create classes for test students
+		const classIds: Record<number, Id<'classes'>> = {};
+		for (const grade of [10, 11, 12]) {
+			const classId = await ctx.db.insert('classes', {
+				grade,
+				class: '1'
+			});
+			classIds[grade] = classId;
+		}
+
 		const teacherUserId = await ctx.db.insert('users', {
 			authId: 'e2e_disable_teacher',
 			name: 'Disable Test Teacher',
@@ -371,7 +391,7 @@ export const e2eSeedStudentsForDisable = mutation({
 			englishName: 'Enrolled Student 1',
 			chineseName: '',
 			studentId: 'S9001',
-			grade: 10,
+			classId: classIds[10],
 			status: 'Enrolled',
 			note: ''
 		});
@@ -380,7 +400,7 @@ export const e2eSeedStudentsForDisable = mutation({
 			englishName: 'Enrolled Student 2',
 			chineseName: '',
 			studentId: 'S9002',
-			grade: 11,
+			classId: classIds[11],
 			status: 'Enrolled',
 			note: ''
 		});
@@ -389,7 +409,7 @@ export const e2eSeedStudentsForDisable = mutation({
 			englishName: 'Not Enrolled Student',
 			chineseName: '',
 			studentId: 'S9003',
-			grade: 12,
+			classId: classIds[12],
 			status: 'Not Enrolled',
 			note: ''
 		});
@@ -398,7 +418,7 @@ export const e2eSeedStudentsForDisable = mutation({
 			englishName: 'Student With Evals',
 			chineseName: '',
 			studentId: 'S9010',
-			grade: 10,
+			classId: classIds[10],
 			status: 'Enrolled',
 			note: ''
 		});
@@ -431,7 +451,7 @@ export const e2eSeedStudentsForDisable = mutation({
 			englishName: 'Student No Evals',
 			chineseName: '',
 			studentId: 'S9011',
-			grade: 11,
+			classId: classIds[11],
 			status: 'Enrolled',
 			note: ''
 		});

@@ -18,6 +18,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import Label from '$lib/components/ui/label/label.svelte';
+	import { onMount } from 'svelte';
 
 	type Student = {
 		_id: Id<'students'>;
@@ -26,18 +27,37 @@
 		englishName: string;
 		chineseName: string;
 		studentId: string;
-		grade: number;
+		classId: Id<'classes'>;
+		classInfo?: {
+			_id: Id<'classes'>;
+			grade: number;
+			class: string;
+			homeroomTeacherId?: Id<'users'>;
+			homeroomTeacherName?: string;
+		} | null;
 		status: 'Enrolled' | 'Not Enrolled';
 		note?: string;
 	};
 
 	const studentsApi = api.students;
 	const studentsQuery = useQuery(studentsApi.list, () => ({}));
+	const classesApi = api.classes;
+	const classesQuery = useQuery(classesApi.list, () => ({}));
 	const client = useConvexClient();
+
+	// Automatically seed default classes (G#-1 and G#-IB) when page loads
+	onMount(async () => {
+		try {
+			await client.mutation(api.classes.seedDefaultClasses, {});
+		} catch {
+			// Ignore errors - classes may already exist
+		}
+	});
 
 	let searchQuery = $state('');
 	let selectedGrade = $state<string>('');
 	let selectedStatus = $state<string>('');
+	let selectedClass = $state<string>('');
 
 	// Dialog visibility
 	let showForm = $state(false);
@@ -53,10 +73,19 @@
 	let formChineseName = $state('');
 	let formGrade = $state(7);
 	let formGradeStr = $state('7');
+	let formClass = $state<string>('');
+	let formClassId = $state<Id<'classes'> | null>(null);
+	let formGradeClass = $state<string>(''); // Combined grade-class selection
 	let formStatus = $state<'Enrolled' | 'Not Enrolled'>('Enrolled');
 	let formNote = $state('');
 	let isSubmitting = $state(false);
 	let formErrors = $state<string[]>([]);
+
+	// Get classes for the selected grade
+	let classesForGrade = $derived.by(() => {
+		if (!classesQuery.data) return [];
+		return classesQuery.data.filter((c) => c.grade === formGrade);
+	});
 
 	// Delete dialog state
 	let studentToDelete = $state<Student | null>(null);
@@ -71,11 +100,10 @@
 	let importFile = $state<File | null>(null);
 	let importPreview = $state<Record<string, string>[]>([]);
 	let importResult = $state<{
-		success: boolean;
-		summary?: string;
-		message?: string;
-		batchDuplicates?: { studentId: string; rowNumber: number }[];
-		duplicates?: { studentId: string; existingStudent: string; newStudent: string }[];
+		created: string[];
+		updated: string[];
+		skipped: string[];
+		errors: { studentId: string; reason: string }[];
 	} | null>(null);
 	let isImporting = $state(false);
 	let importError = $state('');
@@ -89,12 +117,64 @@
 	const grades = [7, 8, 9, 10, 11, 12];
 	const statuses = ['Enrolled', 'Not Enrolled'] as const;
 
+	// Type for class records from the API
+	type ClassRecord = {
+		_id: Id<'classes'>;
+		grade: number;
+		class: string;
+		homeroomTeacherId?: Id<'users'>;
+		homeroomTeacherName?: string | null;
+	};
+
+	// Group classes by grade for display name logic
+	const classesByGrade = $derived.by(() => {
+		const classes = classesQuery.data || [];
+		const grouped: Record<number, ClassRecord[]> = {};
+		for (const grade of grades) {
+			grouped[grade] = classes.filter((c) => c.grade === grade);
+		}
+		return grouped;
+	});
+
+	// Helper function to get display name for a class
+	// default -> "7", "1" -> "7-1" (or "7" if only "1" and "IB" exist), "IB" -> "7-IB"
+	function getDisplayName(grade: number, className: string, gradeClasses?: ClassRecord[]): string {
+		if (className === 'default') return `${grade}`;
+		if (className === 'IB') return `${grade}-IB`;
+		// Check if grade has only "1" and "IB" classes - if so, display "1" as just the grade number
+		if (gradeClasses && className === '1') {
+			const classNames = gradeClasses.map((c) => c.class);
+			if (classNames.length === 2 && classNames.includes('1') && classNames.includes('IB')) {
+				return `${grade}`;
+			}
+		}
+		return `${grade}-${className}`;
+	}
+
+	// Combined grade-class options for the form dropdown
+	let gradeClassOptions = $derived.by(() => {
+		if (!classesQuery.data || classesQuery.data.length === 0) {
+			// No classes available - return empty array
+			return [];
+		}
+		return classesQuery.data.map((c) => ({
+			value: `${c.grade}-${c.class}`,
+			label: getDisplayName(c.grade, c.class, classesByGrade[c.grade]),
+			grade: c.grade,
+			classNum: c.class,
+			classId: c._id
+		}));
+	});
+
 	function startAdd() {
 		formStudentId = '';
 		formEnglishName = '';
 		formChineseName = '';
 		formGrade = 7;
 		formGradeStr = '7';
+		formClass = '';
+		formClassId = null;
+		formGradeClass = '7-default'; // Default to grade 7 default class
 		formStatus = 'Enrolled';
 		formNote = '';
 		editingId = null;
@@ -108,8 +188,21 @@
 		formStudentId = student.studentId;
 		formEnglishName = student.englishName;
 		formChineseName = student.chineseName || '';
-		formGrade = student.grade;
-		formGradeStr = student.grade.toString();
+		formClassId = student.classId;
+		// Set combined grade-class value from classInfo
+		if (student.classInfo) {
+			formGradeClass = `${student.classInfo.grade}-${student.classInfo.class}`;
+		} else if (student.classId && classesQuery.data) {
+			// Fallback: look up class from classes list
+			const cls = classesQuery.data.find((c) => c._id === student.classId);
+			if (cls) {
+				formGradeClass = `${cls.grade}-${cls.class}`;
+			} else {
+				formGradeClass = '';
+			}
+		} else {
+			formGradeClass = '';
+		}
 		formStatus = student.status || 'Enrolled';
 		formNote = student.note || '';
 		originalStatus = student.status;
@@ -118,6 +211,20 @@
 		idAvailability = 'unknown';
 		lastCheckedId = '';
 		showAvailabilityMsg = false;
+	}
+
+	// Handle combined grade-class selection change
+	function handleGradeClassChange(value: string) {
+		formGradeClass = value;
+		const parts = value.split('-');
+		if (parts.length === 2) {
+			formGrade = parseInt(parts[0]);
+			formGradeStr = parts[0];
+			formClass = parts[1];
+			// Find the classId from the options
+			const option = gradeClassOptions.find((opt) => opt.value === value);
+			formClassId = option?.classId || null;
+		}
 	}
 
 	async function checkIdAvailability() {
@@ -175,6 +282,7 @@
 					chineseName: formChineseName.trim(),
 					studentId: formStudentId.trim(),
 					grade: formGrade,
+					class: formClass || 'default',
 					status: formStatus,
 					note: formNote.trim()
 				});
@@ -184,6 +292,7 @@
 					chineseName: formChineseName.trim(),
 					studentId: formStudentId.trim(),
 					grade: formGrade,
+					class: formClass || 'default',
 					status: formStatus,
 					note: formNote.trim()
 				});
@@ -288,11 +397,17 @@
 				const values = lines[i].split(',').map((v) => v.trim());
 				const row: Record<string, string> = {};
 				headers.forEach((h, idx) => (row[h] = values[idx]));
+
+				// Parse grade and class - API will handle class lookup/creation
+				const grade = parseInt(row.grade) || 7;
+				const classNum = row.class || '1';
+
 				students.push({
 					englishName: row.englishname || row.name || '',
 					chineseName: row.chinesename || row.chinese || '',
 					studentId: row.studentid || row.id || '',
-					grade: parseInt(row.grade) || 7,
+					grade,
+					class: classNum,
 					status: (row.status as 'Enrolled' | 'Not Enrolled') || 'Enrolled',
 					note: row.note || ''
 				});
@@ -304,7 +419,7 @@
 			});
 
 			importResult = result;
-			if (result.success) {
+			if (result.errors.length === 0) {
 				showImport = false;
 				importFile = null;
 				importPreview = [];
@@ -320,7 +435,8 @@
 	const filteredStudents = $derived(
 		studentsQuery.data?.filter((s: Student) => {
 			if (selectedStatus && s.status !== selectedStatus) return false;
-			if (selectedGrade && s.grade !== parseInt(selectedGrade)) return false;
+			if (selectedGrade && s.classInfo?.grade !== parseInt(selectedGrade)) return false;
+			if (selectedClass && s.classInfo?.class !== selectedClass) return false;
 			if (searchQuery) {
 				const search = searchQuery.toLowerCase();
 				return (
@@ -389,6 +505,9 @@
 						<NativeSelect.Option value={status}>{status}</NativeSelect.Option>
 					{/each}
 				</NativeSelect.Root>
+				<NativeSelect.Root bind:value={selectedClass} aria-label="Filter by class">
+					<NativeSelect.Option value="">All Classes</NativeSelect.Option>
+				</NativeSelect.Root>
 			</div>
 		</div>
 
@@ -412,6 +531,8 @@
 						<Table.Head>English Name</Table.Head>
 						<Table.Head>Chinese Name</Table.Head>
 						<Table.Head class="text-center">Grade</Table.Head>
+
+						<Table.Head class="text-center">IB</Table.Head>
 						<Table.Head class="text-center">Status</Table.Head>
 						<Table.Head>Note</Table.Head>
 						<Table.Head class="text-center">Actions</Table.Head>
@@ -425,7 +546,20 @@
 							<Table.Cell class="text-center">{student.studentId}</Table.Cell>
 							<Table.Cell>{student.englishName}</Table.Cell>
 							<Table.Cell>{student.chineseName}</Table.Cell>
-							<Table.Cell class="text-center">{student.grade}</Table.Cell>
+							<Table.Cell class="text-center"
+								>{student.classInfo
+									? getDisplayName(
+											student.classInfo.grade,
+											student.classInfo.class,
+											classesByGrade[student.classInfo.grade]
+										)
+									: '-'}</Table.Cell
+							>
+							<Table.Cell class="text-center">
+								{#if student.classInfo?.class === 'IB'}
+									<Badge variant="secondary">IB</Badge>
+								{/if}
+							</Table.Cell>
 							<Table.Cell class="text-center">
 								<Button
 									variant="ghost"
@@ -527,7 +661,7 @@
 									<Input
 										id="studentId"
 										bind:value={formStudentId}
-										placeholder="e.g., S1001"
+										placeholder="e.g., 7001001 (7 digits)"
 										onblur={checkIdAvailability}
 										class={`
 										${idAvailability === 'available' && 'text-green-600 dark:text-green-400'}
@@ -560,23 +694,22 @@
 								</Button>
 							</div>
 						</div>
-						<div class="space-y-2">
-							<Label for="grade">Grade *</Label>
-							<NativeSelect.Root
-								bind:value={formGradeStr}
-								aria-label="Grade"
-								onchange={(e) => {
-									const target = e.target as HTMLSelectElement;
-									formGrade = Number(target.value);
-									formGradeStr = target.value;
-								}}
-							>
-								<NativeSelect.Option value="" disabled>Select grade</NativeSelect.Option>
-								{#each grades as grade (grade)}
-									<NativeSelect.Option value={grade.toString()}>{grade}</NativeSelect.Option>
-								{/each}
-							</NativeSelect.Root>
-						</div>
+					</div>
+					<div class="space-y-2">
+						<Label for="gradeClass">Grade *</Label>
+						<NativeSelect.Root
+							bind:value={formGradeClass}
+							aria-label="Grade and Class"
+							onchange={(e) => {
+								const target = e.target as HTMLSelectElement;
+								handleGradeClassChange(target.value);
+							}}
+						>
+							<NativeSelect.Option value="" disabled>Select grade and class</NativeSelect.Option>
+							{#each gradeClassOptions as option (option.value)}<NativeSelect.Option
+									value={option.value}>{option.label}</NativeSelect.Option
+								>{/each}
+						</NativeSelect.Root>
 					</div>
 					<div class="space-y-2">
 						<Label for="englishName">English Name *</Label>
@@ -771,39 +904,32 @@
 					{#if importResult}
 						<div
 							class="p-3 rounded text-sm"
-							class:bg-green-50={importResult.success}
-							class:bg-red-50={!importResult.success}
-							class:dark:bg-green-950={importResult.success}
-							class:dark:bg-red-950={!importResult.success}
+							class:bg-green-50={importResult.errors.length === 0}
+							class:bg-red-50={importResult.errors.length > 0}
+							class:dark:bg-green-950={importResult.errors.length === 0}
+							class:dark:bg-red-950={importResult.errors.length > 0}
 						>
-							{#if importResult.success}
-								<p class="font-medium text-green-700 dark:text-green-300">{importResult.summary}</p>
+							{#if importResult.errors.length === 0}
+								<p class="font-medium text-green-700 dark:text-green-300">
+									Imported {importResult.created.length} students
+									{importResult.updated.length > 0
+										? `, updated ${importResult.updated.length}`
+										: ''}
+									{importResult.skipped.length > 0
+										? `, skipped ${importResult.skipped.length}`
+										: ''}
+								</p>
 							{:else}
-								<p class="font-medium text-red-700 dark:text-red-300">{importResult.message}</p>
-								{#if importResult.batchDuplicates && importResult.batchDuplicates.length > 0}
+								<p class="font-medium text-red-700 dark:text-red-300">
+									Import completed with {importResult.errors.length} error(s)
+								</p>
+								{#if importResult.errors.length > 0}
 									<div class="mt-2">
-										<p class="font-medium text-red-600 dark:text-red-300">
-											Duplicates within import file:
-										</p>
+										<p class="font-medium text-red-600 dark:text-red-300">Errors:</p>
 										<ul class="pl-4 list-disc">
-											{#each importResult.batchDuplicates as d (d.studentId)}
+											{#each importResult.errors as e (e.studentId)}
 												<li>
-													Row {d.rowNumber}: studentId "{d.studentId}"
-												</li>
-											{/each}
-										</ul>
-									</div>
-								{/if}
-								{#if importResult.duplicates && importResult.duplicates.length > 0}
-									<div class="mt-2">
-										<p class="font-medium text-red-600 dark:text-red-300">
-											Duplicates with existing students:
-										</p>
-										<ul class="pl-4 list-disc">
-											{#each importResult.duplicates as d (d.studentId)}
-												<li>
-													"{d.studentId}": existing="{d.existingStudent}", new="
-													{d.newStudent}"
+													Student ID "{e.studentId}": {e.reason}
 												</li>
 											{/each}
 										</ul>

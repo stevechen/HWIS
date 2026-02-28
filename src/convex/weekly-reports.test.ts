@@ -1,5 +1,5 @@
 import { expect, test, describe } from 'vitest';
-import { convexTest, modules } from './test.setup';
+import { convexTest, modules, createStudentWithClass } from './test.setup';
 import schema from './schema';
 import { api } from './_generated/api';
 
@@ -39,24 +39,22 @@ describe('Weekly Reports', () => {
 	test('getWeeklyReportsList groups evaluations by Friday', async () => {
 		const t = convexTest(schema, modules);
 
-		const student1Id = await t.run(async (ctx) => {
-			return await ctx.db.insert('students', {
-				englishName: 'John Doe',
-				chineseName: '張三',
-				studentId: 'STU001',
-				grade: 10,
-				status: 'Enrolled'
-			});
+		const { studentId: student1Id } = await createStudentWithClass(t, {
+			englishName: 'John Doe',
+			chineseName: '張三',
+			studentId: 'STU001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
 		});
 
-		const student2Id = await t.run(async (ctx) => {
-			return await ctx.db.insert('students', {
-				englishName: 'Jane Doe',
-				chineseName: '李四',
-				studentId: 'STU002',
-				grade: 11,
-				status: 'Enrolled'
-			});
+		const { studentId: student2Id } = await createStudentWithClass(t, {
+			englishName: 'Jane Doe',
+			chineseName: '李四',
+			studentId: 'STU002',
+			grade: 11,
+			classNum: '1',
+			status: 'Enrolled'
 		});
 
 		const teacherId = await t.run(async (ctx) => {
@@ -116,14 +114,13 @@ describe('Weekly Reports', () => {
 	test('getWeeklyReportsList returns reports in reverse chronological order', async () => {
 		const t = convexTest(schema, modules);
 
-		const studentId = await t.run(async (ctx) => {
-			return await ctx.db.insert('students', {
-				englishName: 'John Doe',
-				chineseName: '張三',
-				studentId: 'STU001',
-				grade: 10,
-				status: 'Enrolled'
-			});
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'John Doe',
+			chineseName: '張三',
+			studentId: 'STU001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
 		});
 
 		const teacherId = await t.run(async (ctx) => {
@@ -189,24 +186,22 @@ describe('Weekly Reports', () => {
 	test('getWeeklyReportDetail returns students sorted by name', async () => {
 		const t = convexTest(schema, modules);
 
-		const student1Id = await t.run(async (ctx) => {
-			return await ctx.db.insert('students', {
-				englishName: 'John Doe',
-				chineseName: '張三',
-				studentId: 'STU001',
-				grade: 10,
-				status: 'Enrolled'
-			});
+		const { studentId: student1Id } = await createStudentWithClass(t, {
+			englishName: 'John Doe',
+			chineseName: '張三',
+			studentId: 'STU001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
 		});
 
-		const student2Id = await t.run(async (ctx) => {
-			return await ctx.db.insert('students', {
-				englishName: 'Jane Doe',
-				chineseName: '李四',
-				studentId: 'STU002',
-				grade: 11,
-				status: 'Enrolled'
-			});
+		const { studentId: student2Id } = await createStudentWithClass(t, {
+			englishName: 'Jane Doe',
+			chineseName: '李四',
+			studentId: 'STU002',
+			grade: 11,
+			classNum: '1',
+			status: 'Enrolled'
 		});
 
 		const teacherId = await t.run(async (ctx) => {
@@ -279,14 +274,13 @@ describe('Weekly Reports', () => {
 	test('getWeeklyReportDetail aggregates points by category', async () => {
 		const t = convexTest(schema, modules);
 
-		const studentId = await t.run(async (ctx) => {
-			return await ctx.db.insert('students', {
-				englishName: 'John Doe',
-				chineseName: '張三',
-				studentId: 'STU001',
-				grade: 10,
-				status: 'Enrolled'
-			});
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'John Doe',
+			chineseName: '張三',
+			studentId: 'STU001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
 		});
 
 		const teacherId = await t.run(async (ctx) => {
@@ -343,14 +337,13 @@ describe('Weekly Reports', () => {
 	test('getWeeklyReportDetail only includes students with points in the week', async () => {
 		const t = convexTest(schema, modules);
 
-		const studentId = await t.run(async (ctx) => {
-			return await ctx.db.insert('students', {
-				englishName: 'John Doe',
-				chineseName: '張三',
-				studentId: 'STU001',
-				grade: 10,
-				status: 'Enrolled'
-			});
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'John Doe',
+			chineseName: '張三',
+			studentId: 'STU001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
 		});
 
 		const teacherId = await t.run(async (ctx) => {

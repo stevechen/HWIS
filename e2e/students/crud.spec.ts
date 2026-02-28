@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { getTestSuffix } from '../helpers';
+import { getTestSuffix, getTestStudentId } from '../helpers';
 import {
 	createStudent,
 	createStudentWithEvaluations,
@@ -17,7 +17,7 @@ test.describe('Add Student - UI Data Tests', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	const suffix = getTestSuffix('addStud');
-	const studentId = `S_${suffix}`;
+	const studentId = getTestStudentId('addStud');
 	const englishName = `AddTest_${suffix}`;
 	const e2eTag = `e2e-test_${suffix}`;
 	let testStudent = false;
@@ -48,8 +48,13 @@ test.describe('Add Student - UI Data Tests', () => {
 		await dialog.getByRole('textbox', { name: 'English Name *' }).fill(englishName);
 		await dialog.getByRole('textbox', { name: 'Chinese Name' }).fill(chineseName);
 
+		// Wait for form to be ready and select grade/class
+		await page.waitForTimeout(100);
+		await page.selectOption('select[aria-label="Grade and Class"]', '7-1');
+		await page.waitForTimeout(100);
+
 		// Submit form using aria-label
-		await page.getByRole('button', { name: 'Create student' }).click();
+		await page.getByRole('button', { name: 'Create student' }).click({ force: true });
 
 		// Wait for the dialog to close
 		await expect(dialog).not.toBeVisible();
@@ -68,7 +73,7 @@ test.describe('Student ID Validation - Duplicate Data Tests', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	const suffix = getTestSuffix('dupIdForm');
-	const studentId = `S_${suffix}`;
+	const studentId = getTestStudentId('dupIdForm');
 	const englishName = `First_${suffix}`;
 	let testStudent = false;
 
@@ -102,6 +107,12 @@ test.describe('Student ID Validation - Duplicate Data Tests', () => {
 		await expect(dialog).toBeVisible();
 		await dialog.getByRole('textbox', { name: 'Student ID' }).fill(studentId);
 		await dialog.getByLabel('English Name').fill('Duplicate Test');
+
+		// Wait for form to be ready and select grade/class
+		await page.waitForTimeout(100);
+		await page.selectOption('select[aria-label="Grade and Class"]', '7-1');
+		await page.waitForTimeout(100);
+
 		await dialog.getByRole('button', { name: 'Create student' }).click();
 
 		await dialog.getByRole('alert', { name: 'Form errors' }).isVisible();
@@ -117,7 +128,7 @@ test.describe('Edit Student - Data Tests', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	const suffix = getTestSuffix('editStatus');
-	const studentId = `S_${suffix}`;
+	const studentId = getTestStudentId('editStatus');
 	const englishName = `Status_${suffix}`;
 	let testStudent = false;
 
@@ -201,7 +212,7 @@ test.describe('Delete Student - Without Evaluations', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	const suffix = getTestSuffix('delNoEval');
-	const studentId = `S_${suffix}`;
+	const studentId = getTestStudentId('delNoEval');
 	const englishName = `DelNoEval_${suffix}`;
 	const e2eTag = `e2e-test_${suffix}`;
 	let testStudent = false;
@@ -288,7 +299,7 @@ test.describe('Delete Student - With Cascade @sequential', () => {
 	test.beforeEach(async ({ page }) => {
 		useRole('admin');
 		suffix = getTestSuffix('delCascade');
-		studentId = `S_${suffix}`;
+		studentId = getTestStudentId('delCascade');
 		englishName = `DelCascade_${suffix}`;
 		e2eTag = `e2e-test_${suffix}`;
 		// Create category
@@ -360,7 +371,7 @@ test.describe('Delete - Set Not Enrolled @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	const suffix = getTestSuffix('setNotEnrolled');
-	const studentId = `S_${suffix}`;
+	const studentId = getTestStudentId('setNotEnrolled');
 	const englishName = `SetNotEnrolled_${suffix}`;
 	const e2eTag = `e2e-test_${suffix}`;
 	let testStudent = false;

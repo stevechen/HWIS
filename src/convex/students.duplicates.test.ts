@@ -1,5 +1,5 @@
 import { expect, test, describe } from 'vitest';
-import { convexTest, modules } from './test.setup';
+import { convexTest, modules, createStudentWithClass } from './test.setup';
 import schema from './schema';
 
 describe('checkStudentIdExists query', () => {
@@ -7,14 +7,15 @@ describe('checkStudentIdExists query', () => {
 		const t = convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
-			await ctx.db.insert('students', {
-				englishName: 'Test Student',
-				chineseName: '測試學生',
-				studentId: 'EXIST001',
-				grade: 9,
-				status: 'Enrolled',
-				note: ''
-			});
+			const classId = await ctx.db.insert('classes', { grade: 9, class: '1' });
+		await ctx.db.insert('students', {
+			englishName: 'Test Student',
+			chineseName: '測試學生',
+			studentId: 'EXIST001',
+			classId,
+			status: 'Enrolled',
+		note: ''
+		});
 		});
 
 		const result = await t.run(async (ctx) => {
@@ -45,14 +46,15 @@ describe('checkStudentIdExists query', () => {
 		const t = convexTest(schema, modules);
 
 		await t.run(async (_ctx) => {
-			await _ctx.db.insert('students', {
-				englishName: 'Edit Test',
-				chineseName: '編輯測試',
-				studentId: 'EDIT001',
-				grade: 10,
-				status: 'Enrolled',
-				note: ''
-			});
+			const classId = await _ctx.db.insert('classes', { grade: 10, class: '1' });
+		await _ctx.db.insert('students', {
+			englishName: 'Edit Test',
+			chineseName: '編輯測試',
+			studentId: 'EDIT001',
+			classId,
+			status: 'Enrolled',
+		note: ''
+		});
 		});
 
 		const existing = await t.run(async (ctx) => {
@@ -83,14 +85,15 @@ describe('bulkImportWithDuplicateCheck mutation - batch duplicates', () => {
 		const t = convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
-			await ctx.db.insert('students', {
-				englishName: 'Existing Student',
-				chineseName: '現有學生',
-				studentId: 'DBDUP001',
-				grade: 11,
-				status: 'Enrolled',
-				note: ''
-			});
+			const classId = await ctx.db.insert('classes', { grade: 11, class: '1' });
+		await ctx.db.insert('students', {
+			englishName: 'Existing Student',
+			chineseName: '現有學生',
+			studentId: 'DBDUP001',
+			classId,
+			status: 'Enrolled',
+		note: ''
+		});
 		});
 
 		const existing = await t.run(async (ctx) => {
@@ -143,14 +146,15 @@ describe('bulkImportWithDuplicateCheck mutation - integration', () => {
 		const t = convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
-			await ctx.db.insert('students', {
-				englishName: 'Already Exists',
-				chineseName: '已經存在',
-				studentId: 'MIX001',
-				grade: 9,
-				status: 'Enrolled',
-				note: ''
-			});
+			const classId = await ctx.db.insert('classes', { grade: 9, class: '1' });
+		await ctx.db.insert('students', {
+			englishName: 'Already Exists',
+			chineseName: '已經存在',
+			studentId: 'MIX001',
+			classId,
+			status: 'Enrolled',
+		note: ''
+		});
 		});
 
 		const existing = await t.run(async (ctx) => {

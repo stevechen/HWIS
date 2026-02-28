@@ -55,13 +55,22 @@ export interface CreateStudentOptions {
 	studentId: string;
 	englishName?: string;
 	chineseName?: string;
-	grade?: number;
+	grade: number; // Required - grade level (7-12)
+	class?: string; // Optional - class number (defaults to '1')
+	isIB?: boolean;
 	status?: string;
 	e2eTag?: string;
 }
 
 export interface CreateCategoryOptions {
 	name?: string;
+	e2eTag?: string;
+}
+
+export interface CreateClassOptions {
+	grade: number;
+	class: string;
+	homeroomTeacherId?: string;
 	e2eTag?: string;
 }
 
@@ -111,8 +120,9 @@ export interface E2EUtils {
 	cleanupTestUsers: () => Promise<CleanupResult>;
 	cleanupAuditLogs: (authIdString?: string) => Promise<CleanupResult>;
 	setupTestUsers: () => Promise<SetupTestUsersResult>;
-	createStudent: (opts?: CreateStudentOptions) => Promise<unknown>;
+	createStudent: (opts: CreateStudentOptions) => Promise<unknown>;
 	createStudentWithId: (opts: CreateStudentOptions) => Promise<unknown>;
+	createClass: (opts: CreateClassOptions) => Promise<unknown>;
 	setE2eTag: (
 		dataType: 'students' | 'categories' | 'evaluations',
 		dataId: string,
@@ -308,10 +318,10 @@ export function getE2EUtils(): E2EUtils {
 			}
 		},
 
-		async createStudent(opts?: CreateStudentOptions) {
+		async createStudent(opts: CreateStudentOptions) {
 			try {
 				return await c.mutation(api.dataFactory.createStudent, {
-					...(opts || {}),
+					...opts,
 					testToken: TEST_TOKEN
 				});
 			} catch {
@@ -320,10 +330,32 @@ export function getE2EUtils(): E2EUtils {
 			}
 		},
 
+		async createClass(opts: CreateClassOptions) {
+			try {
+				return await c.mutation(api.classes.create, {
+					grade: opts.grade,
+					class: opts.class,
+					homeroomTeacherId: opts.homeroomTeacherId
+						? (opts.homeroomTeacherId as Id<'users'>)
+						: undefined,
+					testToken: TEST_TOKEN
+				});
+			} catch (e) {
+				console.log('Create class error:', e);
+				return { error: e instanceof Error ? e.message : String(e) };
+			}
+		},
+
 		async createStudentWithId(opts: CreateStudentOptions) {
 			try {
 				return await c.mutation(api.dataFactory.createStudentWithId, {
-					...opts,
+					englishName: opts.englishName,
+					chineseName: opts.chineseName,
+					studentId: opts.studentId,
+					grade: opts.grade,
+					class: opts.class,
+					status: opts.status,
+					e2eTag: opts.e2eTag,
 					testToken: TEST_TOKEN
 				});
 			} catch (e) {
