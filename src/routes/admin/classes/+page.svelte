@@ -2,7 +2,7 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
-	import { Plus, Trash2, Eye, EyeOff, Users } from '@lucide/svelte';
+	import { Plus, Trash2, Eye, EyeOff, Users, GripVertical } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
@@ -143,6 +143,19 @@
 	let warningDialogRef = $state<HTMLDialogElement | null>(null);
 	let warningClass = $state<ClassRecord | null>(null);
 
+	// Grade error dialog state
+	let gradeErrorDialogRef = $state<HTMLDialogElement | null>(null);
+	let gradeErrorMessage = $state('');
+
+	// Drag and drop state
+	let draggedStudent = $state<{
+		id: string;
+		name: string;
+		sourceClassId: string;
+		grade: number;
+	} | null>(null);
+	let dragOverClassId = $state<string | null>(null);
+
 	const grades = [7, 8, 9, 10, 11, 12];
 
 	// Group classes by grade with IB-first gradient sorting
@@ -279,6 +292,73 @@
 			window.alert(e instanceof Error ? e.message : 'Failed to delete class');
 		}
 	}
+
+	// Drag and drop handlers
+	function handleDragStart(
+		e: DragEvent,
+		student: { _id: string; name: string },
+		sourceClassId: string,
+		grade: number
+	) {
+		draggedStudent = { id: student._id, name: student.name, sourceClassId, grade };
+		if (e.dataTransfer) {
+			e.dataTransfer.effectAllowed = 'move';
+			e.dataTransfer.setData('text/plain', student._id);
+		}
+	}
+
+	function handleDragEnd() {
+		draggedStudent = null;
+		dragOverClassId = null;
+	}
+
+	function handleDragOver(e: DragEvent, targetClassId: string, targetGrade: number) {
+		e.preventDefault();
+		if (!draggedStudent) return;
+
+		// Only allow dropping on classes in the same grade
+		if (draggedStudent.grade === targetGrade && draggedStudent.sourceClassId !== targetClassId) {
+			dragOverClassId = targetClassId;
+			if (e.dataTransfer) {
+				e.dataTransfer.dropEffect = 'move';
+			}
+		}
+	}
+
+	function handleDragLeave() {
+		dragOverClassId = null;
+	}
+
+	async function handleDrop(e: DragEvent, targetClassId: string, targetGrade: number) {
+		e.preventDefault();
+		dragOverClassId = null;
+
+		if (!draggedStudent) return;
+
+		// Verify same grade
+		if (draggedStudent.grade !== targetGrade) {
+			gradeErrorMessage = `Cannot move student from Grade ${draggedStudent.grade} to Grade ${targetGrade}. Students can only be moved between classes in the same grade.`;
+			gradeErrorDialogRef?.showModal();
+			return;
+		}
+
+		// Don't drop on same class
+		if (draggedStudent.sourceClassId === targetClassId) {
+			return;
+		}
+
+		try {
+			await client.mutation(api.classes.moveStudent, {
+				studentId: draggedStudent.id as Id<'students'>,
+				targetClassId: targetClassId as Id<'classes'>
+			});
+			// Convex reactivity will automatically update the UI
+		} catch (e) {
+			window.alert(e instanceof Error ? e.message : 'Failed to move student');
+		}
+
+		draggedStudent = null;
+	}
 </script>
 
 <div class="space-y-2">
@@ -380,6 +460,7 @@
 							{#each gradeClasses as cls, classIndex (cls._id)}
 								{@const isIBClass = cls.class === 'IB'}
 								{@const shouldRenderClass = !isIBClass || shouldShowIB}
+								{@const isDragOver = dragOverClassId === cls._id}
 								{#if shouldRenderClass}
 									{@const cardBg = getClassBackgroundStyle(
 										cls.grade,
@@ -392,8 +473,15 @@
 										gradeClasses.length
 									)}
 									<div
-										class="flex flex-col flex-1 gap-0 p-0 border-r border-b min-w-25"
+										class="flex min-w-25 flex-1 flex-col gap-0 border-r border-b p-0 transition-all {isDragOver
+											? 'scale-[1.02] ring-2 ring-blue-500 ring-inset'
+											: ''}"
 										style="background-color: {cardBg};"
+										role="region"
+										aria-label="Class {getDisplayName(cls.grade, cls.class, gradeClasses)}"
+										ondragover={(e) => handleDragOver(e, cls._id, cls.grade)}
+										ondragleave={handleDragLeave}
+										ondrop={(e) => handleDrop(e, cls._id, cls.grade)}
 									>
 										<!-- Class Header -->
 										<div class="flex justify-between items-center px-1 py-0.5">
@@ -467,10 +555,17 @@
 															<div
 																class={[
 																	!enrolled && 'text-muted-foreground bg-black/10',
-																	'truncate px-1 py-1 text-xs leading-tight'
+																	'flex cursor-grab items-center gap-1 truncate px-1 py-1 text-xs leading-tight hover:bg-black/5 active:cursor-grabbing'
 																]}
+																draggable="true"
+																ondragstart={(e) => handleDragStart(e, student, cls._id, cls.grade)}
+																ondragend={handleDragEnd}
+																role="button"
+																aria-label="Drag {student.name} to move to another class"
+																tabindex="0"
 															>
-																{student.name}
+																<GripVertical class="opacity-40 size-2.5 shrink-0" />
+																<span class="truncate">{student.name}</span>
 															</div>
 														{/each}
 													</div>
@@ -568,4 +663,23 @@
 			<Button variant="destructive" onclick={confirmDelete}>Delete</Button>
 		</div>
 	{/if}
+</dialog>
+
+<!-- Grade Error Dialog -->
+<dialog
+	bind:this={gradeErrorDialogRef}
+	class="fixed inset-0 shadow-lg m-auto p-4 border rounded-none w-full max-w-sm"
+	onclick={(e) => {
+		if (e.currentTarget === e.target) {
+			gradeErrorDialogRef?.close();
+		}
+	}}
+>
+	<h3 class="mb-2 font-semibold text-red-600 text-lg">Cannot Move Student</h3>
+	<p class="mb-4 text-muted-foreground text-sm">
+		{gradeErrorMessage}
+	</p>
+	<div class="flex justify-end">
+		<Button onclick={() => gradeErrorDialogRef?.close()}>OK</Button>
+	</div>
 </dialog>

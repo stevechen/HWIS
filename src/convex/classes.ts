@@ -448,3 +448,50 @@ export const getStudents = query({
 		return students;
 	}
 });
+
+// Move a student to a different class (same grade only)
+export const moveStudent = mutation({
+	args: {
+		studentId: v.id('students'),
+		targetClassId: v.id('classes'),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
+
+		// Get student
+		const student = await ctx.db.get(args.studentId);
+		if (!student) {
+			throw new Error('Student not found');
+		}
+
+		// Get target class
+		const targetClass = await ctx.db.get(args.targetClassId);
+		if (!targetClass) {
+			throw new Error('Class not found');
+		}
+
+		// Get current class to check grade
+		const currentClass = await ctx.db.get(student.classId);
+		if (!currentClass) {
+			throw new Error('Current class not found');
+		}
+
+		// Only allow moving within same grade
+		if (currentClass.grade !== targetClass.grade) {
+			throw new Error('Cannot move student to different grade');
+		}
+
+		// Update student's classId
+		await ctx.db.patch(args.studentId, {
+			classId: args.targetClassId
+		});
+
+		return {
+			success: true,
+			studentId: args.studentId,
+			fromClassId: student.classId,
+			toClassId: args.targetClassId
+		};
+	}
+});

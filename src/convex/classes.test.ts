@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { convexTest, modules } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
+import type { Id } from './_generated/dataModel';
 
 describe('classes', () => {
 	describe('create', () => {
@@ -359,6 +360,468 @@ describe('classes', () => {
 			const classes = await t.query(api.classes.list, {});
 
 			expect(classes).toHaveLength(13); // 12 defaults + 1 manually created
+		});
+	});
+
+	describe('getById', () => {
+		it('should return class by ID', async () => {
+			const t = convexTest(schema, modules);
+
+			const classId = await t.mutation(api.classes.create, {
+				grade: 8,
+				class: '2'
+			});
+
+			const found = await t.query(api.classes.getById, {
+				id: classId
+			});
+
+			expect(found).toMatchObject({
+				_id: classId,
+				grade: 8,
+				class: '2'
+			});
+		});
+
+		it('should include teacher name if assigned', async () => {
+			const t = convexTest(schema, modules);
+
+			const teacherId = await t.run(async (ctx) => {
+				return await ctx.db.insert('users', {
+					authId: 'teacher-1',
+					name: 'Test Teacher',
+					role: 'teacher',
+					status: 'active'
+				});
+			});
+
+			const classId = await t.mutation(api.classes.create, {
+				grade: 9,
+				class: '1',
+				homeroomTeacherId: teacherId
+			});
+
+			const found = await t.query(api.classes.getById, {
+				id: classId
+			});
+
+			expect(found).toMatchObject({
+				grade: 9,
+				class: '1',
+				homeroomTeacherId: teacherId,
+				homeroomTeacherName: 'Test Teacher'
+			});
+		});
+
+		it('should return null for non-existent ID', async () => {
+			const t = convexTest(schema, modules);
+
+			// Create and then delete a class to get a valid but non-existent ID
+			const classId = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'A'
+			});
+
+			// Delete the class
+			await t.mutation(api.classes.remove, { id: classId });
+
+			// Now query the deleted class
+			const found = await t.query(api.classes.getById, {
+				id: classId as Id<'classes'>
+			});
+
+			expect(found).toBeNull();
+		});
+	});
+
+	describe('getByTeacher', () => {
+		it('should return class for teacher', async () => {
+			const t = convexTest(schema, modules);
+
+			const teacherId = await t.run(async (ctx) => {
+				return await ctx.db.insert('users', {
+					authId: 'teacher-1',
+					name: 'Test Teacher',
+					role: 'teacher',
+					status: 'active'
+				});
+			});
+
+			const classId = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: '1',
+				homeroomTeacherId: teacherId
+			});
+
+			const found = await t.query(api.classes.getByTeacher, {
+				teacherId
+			});
+
+			expect(found).toMatchObject({
+				_id: classId,
+				grade: 7,
+				class: '1',
+				homeroomTeacherId: teacherId,
+				homeroomTeacherName: 'Test Teacher'
+			});
+		});
+
+		it('should return null when teacher has no class', async () => {
+			const t = convexTest(schema, modules);
+
+			const teacherId = await t.run(async (ctx) => {
+				return await ctx.db.insert('users', {
+					authId: 'teacher-1',
+					name: 'Test Teacher',
+					role: 'teacher',
+					status: 'active'
+				});
+			});
+
+			const found = await t.query(api.classes.getByTeacher, {
+				teacherId
+			});
+
+			expect(found).toBeNull();
+		});
+	});
+
+	describe('getStudentCount', () => {
+		it('should return correct count for class with students', async () => {
+			const t = convexTest(schema, modules);
+
+			const classId = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: '1'
+			});
+
+			// Add 3 students to the class
+			await t.run(async (ctx) => {
+				for (let i = 1; i <= 3; i++) {
+					await ctx.db.insert('students', {
+						englishName: `Student ${i}`,
+						chineseName: `學生${i}`,
+						studentId: `700100${i}`,
+						classId,
+						status: 'Enrolled'
+					});
+				}
+			});
+
+			const result = await t.query(api.classes.getStudentCount, {
+				classId
+			});
+
+			expect(result).toMatchObject({
+				count: 3,
+				classInfo: {
+					grade: 7,
+					class: '1'
+				}
+			});
+		});
+
+		it('should return zero for empty class', async () => {
+			const t = convexTest(schema, modules);
+
+			const classId = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: '1'
+			});
+
+			const result = await t.query(api.classes.getStudentCount, {
+				classId
+			});
+
+			expect(result).toMatchObject({
+				count: 0,
+				classInfo: {
+					grade: 7,
+					class: '1'
+				}
+			});
+		});
+	});
+
+	describe('update', () => {
+		it('should update homeroom teacher successfully', async () => {
+			const t = convexTest(schema, modules);
+
+			const teacherId = await t.run(async (ctx) => {
+				return await ctx.db.insert('users', {
+					authId: 'teacher-1',
+					name: 'Test Teacher',
+					role: 'teacher',
+					status: 'active'
+				});
+			});
+
+			const classId = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: '1'
+			});
+
+			await t.mutation(api.classes.update, {
+				id: classId,
+				homeroomTeacherId: teacherId
+			});
+
+			const updated = await t.query(api.classes.getById, {
+				id: classId
+			});
+
+			expect(updated?.homeroomTeacherId).toBe(teacherId);
+			expect(updated?.homeroomTeacherName).toBe('Test Teacher');
+		});
+
+		it('should remove homeroom teacher when null is passed', async () => {
+			const t = convexTest(schema, modules);
+
+			const teacherId = await t.run(async (ctx) => {
+				return await ctx.db.insert('users', {
+					authId: 'teacher-1',
+					name: 'Test Teacher',
+					role: 'teacher',
+					status: 'active'
+				});
+			});
+
+			const classId = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: '1',
+				homeroomTeacherId: teacherId
+			});
+
+			await t.mutation(api.classes.update, {
+				id: classId,
+				homeroomTeacherId: undefined
+			});
+
+			const updated = await t.query(api.classes.getById, {
+				id: classId
+			});
+
+			expect(updated?.homeroomTeacherId).toBeUndefined();
+		});
+
+		it('should throw error for non-existent class', async () => {
+			const t = convexTest(schema, modules);
+
+			const teacherId = await t.run(async (ctx) => {
+				return await ctx.db.insert('users', {
+					authId: 'teacher-1',
+					name: 'Test Teacher',
+					role: 'teacher',
+					status: 'active'
+				});
+			});
+
+			// Create and delete a class to get a valid but non-existent ID
+			const classId = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'A'
+			});
+			await t.mutation(api.classes.remove, { id: classId });
+
+			await expect(
+				t.mutation(api.classes.update, {
+					id: classId as Id<'classes'>,
+					homeroomTeacherId: teacherId
+				})
+			).rejects.toThrow('Class not found');
+		});
+	});
+
+	describe('remove - protected classes', () => {
+		it('should prevent deleting protected class "1"', async () => {
+			const t = convexTest(schema, modules);
+
+			const classId = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: '1'
+			});
+
+			await expect(
+				t.mutation(api.classes.remove, {
+					id: classId
+				})
+			).rejects.toThrow(/Cannot delete protected class.*1.*classes are required/);
+		});
+
+		it('should prevent deleting protected class "IB"', async () => {
+			const t = convexTest(schema, modules);
+
+			const classId = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'IB'
+			});
+
+			await expect(
+				t.mutation(api.classes.remove, {
+					id: classId
+				})
+			).rejects.toThrow(/Cannot delete protected class.*IB.*classes are required/);
+		});
+
+		it('should allow deleting non-protected class with "1" in name', async () => {
+			const t = convexTest(schema, modules);
+
+			const classId = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'A1'
+			});
+
+			await t.mutation(api.classes.remove, {
+				id: classId
+			});
+
+			const deleted = await t.query(api.classes.getById, {
+				id: classId
+			});
+
+			expect(deleted).toBeNull();
+		});
+	});
+
+	describe('moveStudent', () => {
+		it('should move student between classes of same grade', async () => {
+			const t = convexTest(schema, modules);
+
+			// Create two classes in grade 7
+			const classA = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'A'
+			});
+			const classB = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'B'
+			});
+
+			// Create student in class A
+			const studentId = await t.run(async (ctx) => {
+				return await ctx.db.insert('students', {
+					englishName: 'Test Student',
+					chineseName: '測試學生',
+					studentId: '7001001',
+					classId: classA,
+					status: 'Enrolled'
+				});
+			});
+
+			// Move student to class B
+			const result = await t.mutation(api.classes.moveStudent, {
+				studentId,
+				targetClassId: classB
+			});
+
+			expect(result.success).toBe(true);
+			expect(result.fromClassId).toBe(classA);
+			expect(result.toClassId).toBe(classB);
+
+			// Verify student is now in class B
+			const studentsInB = await t.query(api.classes.getStudents, {
+				id: classB
+			});
+			expect(studentsInB).toHaveLength(1);
+			expect(studentsInB[0]._id).toBe(studentId);
+		});
+
+		it('should prevent moving student to different grade', async () => {
+			const t = convexTest(schema, modules);
+
+			// Create class in grade 7 and grade 8
+			const class7 = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'A'
+			});
+			const class8 = await t.mutation(api.classes.create, {
+				grade: 8,
+				class: 'A'
+			});
+
+			// Create student in grade 7 class
+			const studentId = await t.run(async (ctx) => {
+				return await ctx.db.insert('students', {
+					englishName: 'Test Student',
+					chineseName: '測試學生',
+					studentId: '7001001',
+					classId: class7,
+					status: 'Enrolled'
+				});
+			});
+
+			// Try to move to grade 8 - should fail
+			await expect(
+				t.mutation(api.classes.moveStudent, {
+					studentId,
+					targetClassId: class8
+				})
+			).rejects.toThrow('Cannot move student to different grade');
+		});
+
+		it('should throw error for non-existent student', async () => {
+			const t = convexTest(schema, modules);
+
+			// Create a class and student, then delete the student to get a valid but non-existent ID
+			const classA = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'A'
+			});
+
+			const studentId = await t.run(async (ctx) => {
+				return await ctx.db.insert('students', {
+					englishName: 'Test Student',
+					chineseName: '測試學生',
+					studentId: '7001001',
+					classId: classA,
+					status: 'Enrolled'
+				});
+			});
+
+			// Delete the student
+			await t.run(async (ctx) => {
+				await ctx.db.delete(studentId);
+			});
+
+			await expect(
+				t.mutation(api.classes.moveStudent, {
+					studentId: studentId as Id<'students'>,
+					targetClassId: classA
+				})
+			).rejects.toThrow('Student not found');
+		});
+
+		it('should throw error for non-existent target class', async () => {
+			const t = convexTest(schema, modules);
+
+			const classA = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'A'
+			});
+
+			// Create and delete class B to get a valid but non-existent ID
+			const classB = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'B'
+			});
+			await t.mutation(api.classes.remove, { id: classB });
+
+			const studentId = await t.run(async (ctx) => {
+				return await ctx.db.insert('students', {
+					englishName: 'Test Student',
+					chineseName: '測試學生',
+					studentId: '7001001',
+					classId: classA,
+					status: 'Enrolled'
+				});
+			});
+
+			await expect(
+				t.mutation(api.classes.moveStudent, {
+					studentId,
+					targetClassId: classB as Id<'classes'>
+				})
+			).rejects.toThrow('Class not found');
 		});
 	});
 });
