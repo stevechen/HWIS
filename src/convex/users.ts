@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import { query, mutation } from './_generated/server';
 import { requireAdminRole, requireSuperRole, getAuthenticatedUser } from './auth';
+import { extractStudentIdFromEmail, isStudentEmail } from './auth';
 
 export const viewer = query({
 	args: { testToken: v.optional(v.string()) },
@@ -43,12 +44,21 @@ export const viewer = query({
 			};
 		}
 
+		// Fetch student record if this is a student user
+		let studentRecord = null;
+		if (dbUser.role === 'student' && dbUser.studentRecordId) {
+			studentRecord = await ctx.db.get(dbUser.studentRecordId);
+		}
+
 		return {
 			...authUser,
 			authId: dbUser.authId,
 			role: dbUser.role ?? 'teacher',
 			status: dbUser.status ?? 'pending',
-			profileExists: true
+			profileExists: true,
+			studentRecordId: dbUser.studentRecordId,
+			studentId: studentRecord?.studentId,
+			enrollmentStatus: studentRecord?.status
 		};
 	}
 });
@@ -68,11 +78,14 @@ export const list = query({
 		}
 
 		const allUsers = await ctx.db.query('users').collect();
-		return allUsers.map((u) => ({
-			...u,
-			role: u.role ?? 'teacher',
-			status: u.status ?? 'active'
-		}));
+		// Filter out students - only show staff (teachers, admins, super)
+		return allUsers
+			.filter((u) => u.role !== 'student')
+			.map((u) => ({
+				...u,
+				role: u.role ?? 'teacher',
+				status: u.status ?? 'active'
+			}));
 	}
 });
 
@@ -332,5 +345,88 @@ export const setRoleByToken = mutation({
 			const errorMessage = e instanceof Error ? e.message : 'Unknown error';
 			throw new Error(`Failed to set role: ${errorMessage}`);
 		}
+	}
+});
+
+// Set up a student user by linking to their student record
+// This is called after a student logs in for the first time
+export const setupStudentUser = mutation({
+	args: {
+		authId: v.string(),
+		email: v.string(),
+		name: v.optional(v.string()),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		// Verify this is a student email
+		if (!isStudentEmail(args.email)) {
+			return {
+				success: false,
+				error: 'Not a student email'
+			};
+		}
+
+		// Extract studentId from email
+		const studentId = extractStudentIdFromEmail(args.email);
+		if (!studentId) {
+			return {
+				success: false,
+				error: 'Invalid student email format'
+			};
+		}
+
+		// Check if student record exists
+		const studentRecord = await ctx.db
+			.query('students')
+			.withIndex('by_studentId', (q) => q.eq('studentId', studentId))
+			.first();
+
+		if (!studentRecord) {
+			return {
+				success: false,
+				error: 'STUDENT_NOT_FOUND',
+				message: 'This email is not registered in the system. Please contact administration.'
+			};
+		}
+
+		// Check if user already exists
+		const existingUser = await ctx.db
+			.query('users')
+			.withIndex('by_authId', (q) => q.eq('authId', args.authId))
+			.first();
+
+		if (existingUser) {
+			// Update existing user with student link if needed
+			if (!existingUser.studentRecordId) {
+				await ctx.db.patch(existingUser._id, {
+					role: 'student',
+					status: 'active',
+					studentRecordId: studentRecord._id,
+					name: args.name || existingUser.name
+				});
+			}
+			return {
+				success: true,
+				userId: existingUser._id,
+				studentRecordId: studentRecord._id,
+				enrollmentStatus: studentRecord.status
+			};
+		}
+
+		// Create new student user
+		const userId = await ctx.db.insert('users', {
+			authId: args.authId,
+			role: 'student',
+			status: 'active',
+			studentRecordId: studentRecord._id,
+			name: args.name
+		});
+
+		return {
+			success: true,
+			userId,
+			studentRecordId: studentRecord._id,
+			enrollmentStatus: studentRecord.status
+		};
 	}
 });

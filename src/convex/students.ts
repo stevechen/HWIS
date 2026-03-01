@@ -437,6 +437,22 @@ export const getById = query({
 	}
 });
 
+// Get student by studentId code (used for student authentication)
+export const getByStudentId = query({
+	args: {
+		studentId: v.string(),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		const student = await ctx.db
+			.query('students')
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
+			.first();
+
+		return student;
+	}
+});
+
 export const checkStudentIdExists = query({
 	args: {
 		studentId: v.string(),

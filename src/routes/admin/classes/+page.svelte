@@ -87,7 +87,7 @@
 
 		// Student list is lighter than class card
 		const chroma = Math.max(0.03, 0.12 - position * 0.015);
-		const lightness = Math.min(98, 82 + position * 3);
+		const lightness = Math.min(98, 82 + position * 6);
 
 		return `oklch(${lightness}% ${chroma} ${baseHue})`;
 	}

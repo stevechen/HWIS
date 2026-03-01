@@ -54,6 +54,32 @@
 		return false;
 	});
 
+	// Determine if user is a student
+	const isStudent = $derived.by(() => {
+		if (isDemo) {
+			return demoRole === 'student';
+		}
+		if (userQuery && !userQuery.isLoading && userQuery.data?.role) {
+			return userQuery.data.role === 'student';
+		}
+		return false;
+	});
+
+	// Get student's enrollment status
+	const enrollmentStatus = $derived.by(() => {
+		if (isDemo) return 'Enrolled';
+		const data = userQuery?.data as { enrollmentStatus?: string } | undefined;
+		if (data?.enrollmentStatus) {
+			return data.enrollmentStatus;
+		}
+		return null;
+	});
+
+	// Check if student is enrolled
+	const isEnrolled = $derived.by(() => {
+		return enrollmentStatus === 'Enrolled';
+	});
+
 	// Demo user ID for demo mode (used for ownership check)
 	const demoUserId = 'demo-user-id';
 
@@ -168,6 +194,13 @@
 		}));
 	});
 
+	// Student-specific anonymous evaluation query (no teacher names)
+	const studentAnonymousEvalsQuery = $derived.by(() => {
+		if (isDemo) return undefined;
+		if (!isStudent) return undefined;
+		return useQuery(api.evaluations.getStudentEvaluationsAnonymous, () => ({}));
+	});
+
 	const student = $derived.by(() => {
 		if (isDemo) return demoStudent;
 		if (studentQuery?.data) return studentQuery.data;
@@ -178,6 +211,12 @@
 	const evaluations = $derived.by(() => {
 		if (isDemo) {
 			return isAdmin ? demoEvaluations : demoEvaluations.filter((e) => !e.isAdmin);
+		}
+		// Student view: anonymous evaluations (no teacher names)
+		if (isStudent) {
+			if (studentAnonymousEvalsQuery?.isLoading) return [];
+			if (studentAnonymousEvalsQuery?.error) return [];
+			return studentAnonymousEvalsQuery?.data ?? [];
 		}
 		if (isAdmin) {
 			if (allEvalsQuery?.isLoading) return [];
@@ -215,8 +254,11 @@
 	// Combined and filtered evaluations
 	const filteredEvaluations = $derived.by(() => {
 		let all = [...evaluations];
-		if (teacherFilter && teacherFilter.trim()) {
-			all = all.filter((e) => matchesMultiSearch(teacherFilter, e.teacherName ?? ''));
+		// Only apply teacher filter for non-students (students don't see teacher names)
+		if (!isStudent && teacherFilter && teacherFilter.trim()) {
+			all = all.filter((e) =>
+				matchesMultiSearch(teacherFilter, (e as { teacherName?: string }).teacherName ?? '')
+			);
 		}
 		return sortEvaluations(all, displayState.sortAscending);
 	});
@@ -241,8 +283,9 @@
 	// Set header title override
 	$effect(() => {
 		if (!browser) return;
-		if (student?.englishName && student?.grade !== undefined) {
-			$headerTitleOverride = `G${student.grade} - ${student.englishName} Evaluations`;
+		const s = student as { englishName?: string; grade?: number };
+		if (s?.englishName && s?.grade !== undefined) {
+			$headerTitleOverride = `G${s.grade} - ${s.englishName} Evaluations`;
 		}
 	});
 
@@ -251,8 +294,9 @@
 		if (isDemo) return false;
 		if (userQuery?.isLoading) return true;
 		if (studentQuery?.isLoading) return true;
+		if (isStudent && studentAnonymousEvalsQuery?.isLoading) return true;
 		if (isAdmin && allEvalsQuery?.isLoading) return true;
-		if (!isAdmin && teacherEvalsQuery?.isLoading) return true;
+		if (!isAdmin && !isStudent && teacherEvalsQuery?.isLoading) return true;
 		return false;
 	});
 
@@ -279,17 +323,43 @@
 	<!-- Loading State -->
 	{#if isLoading}
 		<EvaluationsLoadingState message={loadingMessage} />
+	{:else if isStudent && !isEnrolled}
+		<!-- Access Denied for Not Enrolled Students -->
+		<div class="flex flex-col justify-center items-center px-4 py-16 text-center">
+			<div
+				class="bg-red-50 dark:bg-red-900/20 p-8 border border-red-200 dark:border-red-800 rounded-lg max-w-md"
+			>
+				<svg
+					class="mx-auto mb-4 w-12 h-12 text-red-400"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					aria-hidden="true"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+					/>
+				</svg>
+				<h2 class="mb-2 font-semibold text-red-800 dark:text-red-200 text-xl">Access Denied</h2>
+				<p class="text-red-600 dark:text-red-300">
+					You are currently not enrolled. Please contact administration for assistance.
+				</p>
+			</div>
+		</div>
 	{:else}
 		<EvaluationsTimeline
 			evaluations={filteredEvaluations}
 			showStudentName={false}
-			studentGrade={student.grade}
-			showTeacherName={!isTeacher}
+			studentGrade={(student as { grade?: number }).grade}
+			showTeacherName={!isTeacher && !isStudent}
 			bind:sortAscending={displayState.sortAscending}
 			bind:showDetails={displayState.showDetails}
-			enableLongPress={true}
+			enableLongPress={!isStudent}
 			onLongPress={handleLongPress}
-			{canEditEntry}
+			canEditEntry={isStudent ? () => false : canEditEntry}
 		>
 			{#snippet children()}
 				<!-- Filters Section -->

@@ -2,6 +2,7 @@ import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import { requireUserProfile, getAuthenticatedUser, requireAdminRole } from './auth';
+import type { Id } from './_generated/dataModel';
 
 export const getUserByAuthId = query({
 	args: { authId: v.string() },
@@ -874,5 +875,56 @@ export const getEvaluation = query({
 		if (!evaluation) return null;
 
 		return evaluation;
+	}
+});
+
+// Get evaluations for a student (anonymous view - no teacher names)
+// Used by students to view their own evaluations
+export const getStudentEvaluationsAnonymous = query({
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user) {
+			throw new Error('Not authenticated');
+		}
+
+		// Verify user is a student
+		const typedUser = user as { role?: string; studentRecordId?: string };
+		if (typedUser.role !== 'student') {
+			throw new Error('Only students can access this endpoint');
+		}
+
+		if (!typedUser.studentRecordId) {
+			throw new Error('Student record not linked');
+		}
+
+		// Get all evaluations for this student
+		const evaluations = await ctx.db
+			.query('evaluations')
+			.withIndex('by_studentId', (q) =>
+				q.eq('studentId', typedUser.studentRecordId as Id<'students'>)
+			)
+			.collect();
+
+		// Fetch categories for name lookup
+		const categoryIds = [...new Set(evaluations.map((e) => e.categoryId))];
+		const categories = await Promise.all(categoryIds.map((id) => ctx.db.get(id)));
+		const categoryMap = new Map(
+			categories.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
+		);
+
+		// Return anonymous evaluations (no teacher names/IDs)
+		const anonymousEvaluations = evaluations.map((e) => {
+			const category = categoryMap.get(e.categoryId);
+			return {
+				_id: e._id,
+				value: e.value,
+				category: category?.name || 'Unknown Category',
+				details: e.details,
+				timestamp: e.timestamp
+			};
+		});
+
+		return anonymousEvaluations.sort((a, b) => b.timestamp - a.timestamp);
 	}
 });

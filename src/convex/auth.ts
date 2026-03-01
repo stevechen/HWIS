@@ -85,6 +85,7 @@ const trustedOrigins = [
 
 // Domain restriction configuration
 const ALLOWED_DOMAIN = 'hwhs.tc.edu.tw';
+const STUDENT_DOMAIN = 'std.hwhs.tc.edu.tw';
 const ALLOWLISTED_EMAIL_ROLE_MAP: Record<string, 'super' | 'admin' | 'teacher'> = {
 	'steve.stevechen@gmail.com': 'super',
 	'steve@hwhs.tc.edu.tw': 'admin',
@@ -92,6 +93,20 @@ const ALLOWLISTED_EMAIL_ROLE_MAP: Record<string, 'super' | 'admin' | 'teacher'> 
 };
 export const EXCEPTION_EMAILS = Object.keys(ALLOWLISTED_EMAIL_ROLE_MAP);
 const REJECTION_MESSAGE = 'For Hong Wen International School (HWIS) staffs only.';
+
+// Student email validation helpers
+export function isStudentEmail(email: string): boolean {
+	return email.endsWith(`@${STUDENT_DOMAIN}`);
+}
+
+export function extractStudentIdFromEmail(email: string): string | null {
+	if (!isStudentEmail(email)) return null;
+
+	const localPart = email.split('@')[0];
+	// Match pattern: s followed by one or more digits
+	const match = localPart.match(/^s(\d+)$/);
+	return match ? match[1] : null;
+}
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
@@ -103,7 +118,7 @@ type AuthenticatedUserLike = {
 	authId?: string;
 	email?: string;
 	name?: string;
-	role?: 'super' | 'admin' | 'teacher';
+	role?: 'super' | 'admin' | 'teacher' | 'student';
 	status?: 'pending' | 'active';
 };
 
@@ -148,8 +163,10 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 
 				const isException = EXCEPTION_EMAILS.includes(email);
 				const isAllowedDomain = email.endsWith(`@${ALLOWED_DOMAIN}`);
+				const isStudentDomain = isStudentEmail(email);
 
-				if (!isException && !isAllowedDomain) {
+				// Allow student domain emails - student record verification happens post-login
+				if (!isException && !isAllowedDomain && !isStudentDomain) {
 					throw new APIError('FORBIDDEN', {
 						message: REJECTION_MESSAGE
 					});

@@ -5,10 +5,15 @@ export default defineSchema({
 	users: defineTable({
 		authId: v.optional(v.string()),
 		name: v.optional(v.string()),
-		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
+		role: v.optional(
+			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
+		),
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
+		studentRecordId: v.optional(v.id('students')),
 		e2eTag: v.optional(v.string())
-	}).index('by_authId', ['authId']),
+	})
+		.index('by_authId', ['authId'])
+		.index('by_studentRecordId', ['studentRecordId']),
 
 	sessions: defineTable({
 		userId: v.id('users'),
