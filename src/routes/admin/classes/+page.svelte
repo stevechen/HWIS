@@ -87,7 +87,7 @@
 
 		// Student list is lighter than class card
 		const chroma = Math.max(0.03, 0.12 - position * 0.015);
-		const lightness = Math.min(98, 82 + position * 6);
+		const lightness = Math.min(98, 88 + position * 6);
 
 		return `oklch(${lightness}% ${chroma} ${baseHue})`;
 	}
@@ -405,7 +405,7 @@
 	{:else if classesQuery.error}
 		<div class="py-4 text-red-500 text-sm text-center">Error loading classes</div>
 	{:else}
-		<div class="flex flex-wrap gap-0">
+		<div class="flex flex-wrap gap-x-0 gap-y-2">
 			{#each grades as grade (grade)}
 				{@const gradeClasses = classesByGrade[grade] || []}
 				{@const totalStudents = gradeClasses.reduce((sum, c) => sum + c.studentCount, 0)}
