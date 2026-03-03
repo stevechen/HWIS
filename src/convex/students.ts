@@ -4,14 +4,14 @@ import type { Id } from './_generated/dataModel';
 import { requireAdminRole, getAuthenticatedUser } from './auth';
 import type { MutationCtx } from './_generated/server';
 
-// Validate studentId is a 7-digit number (skip for testToken)
+// Validate studentId is a 6- or 7-digit number (skip for testToken)
 function validateStudentId(studentId: string, testToken?: string): void {
 	// Skip validation for test environment
 	if (testToken) {
 		return;
 	}
-	if (!/^\d{7}$/.test(studentId)) {
-		throw new Error('Student ID must be a 7-digit number');
+	if (!/^\d{6,7}$/.test(studentId)) {
+		throw new Error('Student ID must be a 6- or 7-digit number');
 	}
 }
 
@@ -94,10 +94,30 @@ export const list = query({
 		const classRecords = await Promise.all(classIds.map((id) => ctx.db.get(id)));
 		const classMap = new Map(classRecords.filter(Boolean).map((c) => [c!._id, c!]));
 
-		const result = filtered.map((s) => ({
-			...s,
-			classInfo: s.classId ? classMap.get(s.classId) || null : null
-		}));
+		// Enrich with teacher names
+		const teacherIds = [
+			...new Set(
+				classRecords
+					.filter(Boolean)
+					.map((c) => c!.homeroomTeacherId)
+					.filter((id): id is Id<'users'> => id !== undefined)
+			)
+		];
+		const teachers = await Promise.all(teacherIds.map((id) => ctx.db.get(id)));
+		const teacherMap = new Map(
+			teachers.filter(Boolean).map((t) => [t!._id, t!.name || 'Unknown Teacher'])
+		);
+
+		const result = filtered.map((s) => {
+			const classInfo = s.classId ? classMap.get(s.classId) || null : null;
+			const homeroomTeacherName = classInfo?.homeroomTeacherId
+				? teacherMap.get(classInfo.homeroomTeacherId) || null
+				: null;
+			return {
+				...s,
+				classInfo: classInfo ? { ...classInfo, homeroomTeacherName } : null
+			};
+		});
 
 		return result.sort((a, b) => a.englishName.localeCompare(b.englishName));
 	}
@@ -107,7 +127,7 @@ export const create = mutation({
 	args: {
 		englishName: v.string(),
 		chineseName: v.string(),
-		studentId: v.string(), // Must be 7-digit number
+		studentId: v.string(), // Must be 6- or 7-digit number
 		grade: v.number(), // Grade (7-12) - will get or create class
 		class: v.optional(v.string()), // Class number (e.g., "1", "2"), defaults to "1"
 		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
@@ -118,7 +138,7 @@ export const create = mutation({
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
 
-		// Validate studentId is a 7-digit number
+		// Validate studentId is a 6- or 7-digit number
 		validateStudentId(args.studentId, args.testToken);
 
 		// Get or create class based on grade and class name
@@ -162,7 +182,7 @@ export const update = mutation({
 		id: v.id('students'),
 		englishName: v.string(),
 		chineseName: v.string(),
-		studentId: v.string(), // Must be 7-digit number
+		studentId: v.string(), // Must be 6- or 7-digit number
 		grade: v.number(), // Grade (7-12) - will get or create class
 		class: v.optional(v.string()), // Class name: "default", "IB", "1", "2", etc. - defaults to "default"
 		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
@@ -172,7 +192,7 @@ export const update = mutation({
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
 
-		// Validate studentId is a 7-digit number
+		// Validate studentId is a 6- or 7-digit number
 		validateStudentId(args.studentId, args.testToken);
 
 		// Get or create class based on grade and class name
@@ -274,7 +294,7 @@ export const importFromExcel = mutation({
 			v.object({
 				englishName: v.string(),
 				chineseName: v.string(),
-				studentId: v.string(), // Must be 7-digit number
+				studentId: v.string(), // Must be 6- or 7-digit number
 				grade: v.number(), // Grade (7-12) - will get or create class
 				class: v.optional(v.string()), // Class number (e.g., "1", "2"), defaults to "1"
 				status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
@@ -289,7 +309,7 @@ export const importFromExcel = mutation({
 
 		for (const student of args.students) {
 			try {
-				// Validate studentId is a 7-digit number
+				// Validate studentId is a 6- or 7-digit number
 				validateStudentId(student.studentId, args.testToken);
 
 				// Get or create class based on grade and class name
@@ -463,7 +483,7 @@ export const checkStudentIdExists = query({
 		const user = await getAuthenticatedUser(ctx, args.testToken);
 		if (!user) return { exists: false };
 
-		// Validate studentId is a 7-digit number
+		// Validate studentId is a 6- or 7-digit number
 		try {
 			validateStudentId(args.studentId, args.testToken);
 		} catch {
@@ -526,10 +546,10 @@ export const bulkImportWithDuplicateCheck = mutation({
 			v.object({
 				englishName: v.string(),
 				chineseName: v.string(),
-				studentId: v.string(), // Must be 7-digit number
+				studentId: v.string(), // Must be 6- or 7-digit number
 				grade: v.number(),
 				class: v.optional(v.string()),
-				status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
+				status: v.optional(v.union(v.literal('Enrolled'), v.literal('Not Enrolled'))),
 				note: v.optional(v.string())
 			})
 		),
@@ -549,7 +569,7 @@ export const bulkImportWithDuplicateCheck = mutation({
 		const batchDuplicates: { studentId: string; rowNumber: number }[] = [];
 
 		args.students.forEach((student, index) => {
-			// Validate 7-digit format
+			// Validate 6- or 7-digit format
 			try {
 				validateStudentId(student.studentId, args.testToken);
 			} catch (e) {
@@ -614,9 +634,12 @@ export const bulkImportWithDuplicateCheck = mutation({
 			}
 
 			// Get or create class
-			// "default", "IB", "1", "2", etc. - defaults to "default" class
-			const className = student.class || 'default';
+			// If no explicit class provided, default to class "1" for the grade
+			const className = student.class || '1';
 			const classId = await getOrCreateClass(ctx, student.grade, className);
+
+			// Default status to 'Enrolled' if not provided
+			const status = student.status ?? 'Enrolled';
 
 			// Skip duplicates in update mode (only update existing)
 			if (args.mode === 'update') {
@@ -632,7 +655,7 @@ export const bulkImportWithDuplicateCheck = mutation({
 						chineseName: student.chineseName,
 						studentId: student.studentId,
 						classId,
-						status: student.status,
+						status,
 						note: student.note ?? ''
 					});
 					results.created.push(student.studentId);
@@ -641,7 +664,7 @@ export const bulkImportWithDuplicateCheck = mutation({
 						englishName: student.englishName,
 						chineseName: student.chineseName,
 						classId,
-						status: student.status,
+						status,
 						note: student.note ?? ''
 					});
 					results.updated.push(student.studentId);
@@ -662,7 +685,7 @@ export const bulkImportWithDuplicateCheck = mutation({
 					chineseName: student.chineseName,
 					studentId: student.studentId,
 					classId,
-					status: student.status,
+					status,
 					note: student.note ?? ''
 				});
 				results.created.push(student.studentId);

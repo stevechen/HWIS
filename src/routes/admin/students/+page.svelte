@@ -28,12 +28,13 @@
 		chineseName: string;
 		studentId: string;
 		classId: Id<'classes'>;
-		classInfo?: {
+		classInfo: {
 			_id: Id<'classes'>;
+			_creationTime: number;
 			grade: number;
 			class: string;
 			homeroomTeacherId?: Id<'users'>;
-			homeroomTeacherName?: string;
+			homeroomTeacherName: string | null;
 		} | null;
 		status: 'Enrolled' | 'Not Enrolled';
 		note?: string;
@@ -107,6 +108,8 @@
 	} | null>(null);
 	let isImporting = $state(false);
 	let importError = $state('');
+
+	type ParsedCsvRow = Record<string, string>;
 
 	// Duplicate check state
 	let isCheckingId = $state(false);
@@ -202,6 +205,13 @@
 			}
 		} else {
 			formGradeClass = '';
+		}
+		// Parse formGradeClass to set formGrade and formClass
+		const parts = formGradeClass.split('-');
+		if (parts.length === 2) {
+			formGrade = parseInt(parts[0]);
+			formGradeStr = parts[0];
+			formClass = parts[1];
 		}
 		formStatus = student.status || 'Enrolled';
 		formNote = student.note || '';
@@ -365,19 +375,15 @@
 	async function handleImportPreview() {
 		if (!importFile) return;
 
-		// Simple CSV parsing
-		const text = await importFile.text();
-		const lines = text.trim().split('\n');
-		const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
-
-		const preview = [];
-		for (let i = 1; i < lines.length && i <= 10; i++) {
-			const values = lines[i].split(',').map((v) => v.trim());
-			const row: Record<string, string> = {};
-			headers.forEach((h, idx) => (row[h] = values[idx]));
-			preview.push(row);
+		try {
+			const text = await importFile.text();
+			const rows = parseCsv(text);
+			importPreview = rows.slice(0, 10);
+			importError = '';
+		} catch (e) {
+			importPreview = [];
+			importError = e instanceof Error ? e.message : 'Failed to parse CSV file';
 		}
-		importPreview = preview;
 	}
 
 	async function handleImport() {
@@ -389,29 +395,11 @@
 
 		try {
 			const text = await importFile.text();
-			const lines = text.trim().split('\n');
-			const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
-
-			const students = [];
-			for (let i = 1; i < lines.length; i++) {
-				const values = lines[i].split(',').map((v) => v.trim());
-				const row: Record<string, string> = {};
-				headers.forEach((h, idx) => (row[h] = values[idx]));
-
-				// Parse grade and class - API will handle class lookup/creation
-				const grade = parseInt(row.grade) || 7;
-				const classNum = row.class || '1';
-
-				students.push({
-					englishName: row.englishname || row.name || '',
-					chineseName: row.chinesename || row.chinese || '',
-					studentId: row.studentid || row.id || '',
-					grade,
-					class: classNum,
-					status: (row.status as 'Enrolled' | 'Not Enrolled') || 'Enrolled',
-					note: row.note || ''
-				});
+			const rows = parseCsv(text);
+			if (rows.length === 0) {
+				throw new Error('CSV file has no data rows');
 			}
+			const students = rows.map((row) => mapCsvRowToStudent(row));
 
 			const result = await client.mutation(studentsApi.bulkImportWithDuplicateCheck, {
 				students,
@@ -430,6 +418,126 @@
 		} finally {
 			isImporting = false;
 		}
+	}
+
+	function normalizeHeader(header: string): string {
+		return header
+			.trim()
+			.toLowerCase()
+			.replace(/^\ufeff/, '')
+			.replace(/[^a-z0-9]/g, '');
+	}
+
+	function parseCsv(text: string): ParsedCsvRow[] {
+		const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+		const rows: string[][] = [];
+		let currentRow: string[] = [];
+		let currentCell = '';
+		let inQuotes = false;
+
+		for (let i = 0; i < normalized.length; i++) {
+			const char = normalized[i];
+			const nextChar = normalized[i + 1];
+
+			if (char === '"') {
+				if (inQuotes && nextChar === '"') {
+					currentCell += '"';
+					i++;
+				} else {
+					inQuotes = !inQuotes;
+				}
+				continue;
+			}
+
+			if (char === ',' && !inQuotes) {
+				currentRow.push(currentCell);
+				currentCell = '';
+				continue;
+			}
+
+			if (char === '\n' && !inQuotes) {
+				currentRow.push(currentCell);
+				rows.push(currentRow);
+				currentRow = [];
+				currentCell = '';
+				continue;
+			}
+
+			currentCell += char;
+		}
+
+		// Flush final row
+		if (currentCell.length > 0 || currentRow.length > 0) {
+			currentRow.push(currentCell);
+			rows.push(currentRow);
+		}
+
+		if (rows.length === 0) {
+			return [];
+		}
+
+		const headers = rows[0].map((h) => normalizeHeader(h));
+		const dataRows: ParsedCsvRow[] = [];
+		for (let i = 1; i < rows.length; i++) {
+			const rowValues = rows[i];
+			if (rowValues.every((v) => v.trim() === '')) {
+				continue;
+			}
+			const row: ParsedCsvRow = {};
+			for (let j = 0; j < headers.length; j++) {
+				row[headers[j]] = (rowValues[j] ?? '').trim();
+			}
+			dataRows.push(row);
+		}
+		return dataRows;
+	}
+
+	function mapCsvRowToStudent(row: ParsedCsvRow): {
+		englishName: string;
+		chineseName: string;
+		studentId: string;
+		grade: number;
+		class?: string;
+		note?: string;
+		status?: 'Enrolled' | 'Not Enrolled';
+	} {
+		const englishName = row.englishname || row.name || '';
+		const chineseName = row.chinesename || row.chinese || '';
+		const studentId = row.studentid || row.id || '';
+		const gradeValue = row.grade || '';
+		const gradeClass = parseGradeAndClass(gradeValue);
+		const rawStatus = (row.status || '').trim();
+		let parsedStatus: 'Enrolled' | 'Not Enrolled' | undefined = undefined;
+		if (rawStatus.toLowerCase() === 'enrolled') parsedStatus = 'Enrolled';
+		if (rawStatus.toLowerCase() === 'not enrolled') parsedStatus = 'Not Enrolled';
+
+		return {
+			englishName,
+			chineseName,
+			studentId,
+			grade: gradeClass.grade,
+			class: gradeClass.class,
+			status: parsedStatus,
+			note: row.note || ''
+		};
+	}
+
+	function parseGradeAndClass(value: string): { grade: number; class?: string } {
+		const cleaned = value.trim();
+		if (!cleaned) return { grade: 7, class: '1' };
+
+		const dashMatch = cleaned.match(/^(\d{1,2})\s*-\s*([A-Za-z0-9]+)$/);
+		if (dashMatch) {
+			const grade = parseInt(dashMatch[1], 10);
+			const className = dashMatch[2].toUpperCase() === 'IB' ? 'IB' : dashMatch[2];
+			return { grade: Number.isNaN(grade) ? 7 : grade, class: className };
+		}
+
+		const gradeOnly = parseInt(cleaned, 10);
+		return {
+			grade: Number.isNaN(gradeOnly) ? 7 : gradeOnly,
+			class: '1'
+		};
 	}
 
 	const filteredStudents = $derived(
@@ -505,9 +613,6 @@
 						<NativeSelect.Option value={status}>{status}</NativeSelect.Option>
 					{/each}
 				</NativeSelect.Root>
-				<NativeSelect.Root bind:value={selectedClass} aria-label="Filter by class">
-					<NativeSelect.Option value="">All Classes</NativeSelect.Option>
-				</NativeSelect.Root>
 			</div>
 		</div>
 
@@ -532,7 +637,6 @@
 						<Table.Head>Chinese Name</Table.Head>
 						<Table.Head class="text-center">Grade</Table.Head>
 
-						<Table.Head class="text-center">IB</Table.Head>
 						<Table.Head class="text-center">Status</Table.Head>
 						<Table.Head>Note</Table.Head>
 						<Table.Head class="text-center">Actions</Table.Head>
@@ -555,11 +659,6 @@
 										)
 									: '-'}</Table.Cell
 							>
-							<Table.Cell class="text-center">
-								{#if student.classInfo?.class === 'IB'}
-									<Badge variant="secondary">IB</Badge>
-								{/if}
-							</Table.Cell>
 							<Table.Cell class="text-center">
 								<Button
 									variant="ghost"
@@ -647,7 +746,7 @@
 							aria-label="Form errors"
 						>
 							<ul class="pl-4 list-disc">
-								{#each formErrors as error}
+								{#each formErrors as error, idx (`${error}-${idx}`)}
 									<li>{error}</li>
 								{/each}
 							</ul>
@@ -661,7 +760,7 @@
 									<Input
 										id="studentId"
 										bind:value={formStudentId}
-										placeholder="e.g., 7001001 (7 digits)"
+										placeholder="e.g., 7001001 (6-7 digits)"
 										onblur={checkIdAvailability}
 										class={`
 										${idAvailability === 'available' && 'text-green-600 dark:text-green-400'}
@@ -927,7 +1026,7 @@
 									<div class="mt-2">
 										<p class="font-medium text-red-600 dark:text-red-300">Errors:</p>
 										<ul class="pl-4 list-disc">
-											{#each importResult.errors as e (e.studentId)}
+											{#each importResult.errors as e, idx (`${e.studentId}-${idx}`)}
 												<li>
 													Student ID "{e.studentId}": {e.reason}
 												</li>

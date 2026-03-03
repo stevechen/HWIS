@@ -250,10 +250,14 @@
 										}}
 									/>
 									<div class="flex flex-col">
-										<span class="font-medium">{student.englishName} ({student.chineseName})</span>
-										<span class="text-muted-foreground text-xs"
-											>Grade {student.classInfo?.grade}{student.classInfo?.class ? `-${student.classInfo?.class}` : ''} • {student.studentId}{student.isIB ? ' • IB' : ''}</span
-										>
+										<span class="font-medium">{student.englishName}</span>
+										<span class="text-muted-foreground text-xs">
+											Grade {student.classInfo?.grade}{student.classInfo?.class
+												? `-${student.classInfo.class}`
+												: ''}{student.classInfo?.homeroomTeacherName
+												? ` (${student.classInfo.homeroomTeacherName})`
+												: ''}
+										</span>
 									</div>
 								</div>
 							</div>

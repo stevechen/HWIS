@@ -473,10 +473,10 @@
 										gradeClasses.length
 									)}
 									<div
-										class="flex min-w-25 flex-1 flex-col gap-0 border-r border-b p-0 transition-all {isDragOver
-											? 'scale-[1.02] ring-2 ring-blue-500 ring-inset'
-											: ''}"
-										style="background-color: {cardBg};"
+										class={[
+											'border-b-none flex min-w-25 flex-1 flex-col gap-0 border-r p-0 transition-all',
+											isDragOver && 'scale-[1.02] ring-2 ring-blue-500 ring-inset'
+										]}
 										role="region"
 										aria-label="Class {getDisplayName(cls.grade, cls.class, gradeClasses)}"
 										ondragover={(e) => handleDragOver(e, cls._id, cls.grade)}
@@ -484,7 +484,10 @@
 										ondrop={(e) => handleDrop(e, cls._id, cls.grade)}
 									>
 										<!-- Class Header -->
-										<div class="flex justify-between items-center px-1 py-0.5">
+										<div
+											class="flex justify-between items-center px-1 py-0.5"
+											style="background-color: {cardBg};"
+										>
 											<div class="flex items-center gap-1">
 												<!-- IB Logo for IB classes -->
 												{#if isIBClass}
@@ -549,8 +552,8 @@
 										{#if globalStudentListsVisible}
 											<div class="border-t text-center" style="background-color:{studentListBg}">
 												{#if cls.students && cls.students.length > 0}
-													<div class="flex flex-col gap-0 max-h-20 overflow-y-auto">
-														{#each cls.students as student (student._id)}
+													<div class="flex flex-col gap-0 overflow-y-auto">
+														{#each [...cls.students].sort( (a, b) => a.name.localeCompare(b.name) ) as student (student._id)}
 															{@const enrolled = student.status !== 'Not Enrolled'}
 															<div
 																class={[
