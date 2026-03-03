@@ -10,9 +10,10 @@
 		open: boolean;
 		evaluation: EvaluationEntry | null;
 		isDemo?: boolean;
+		onDelete?: () => void;
 	}
 
-	let { open = $bindable(), evaluation, isDemo = false }: Props = $props();
+	let { open = $bindable(), evaluation, isDemo = false, onDelete }: Props = $props();
 
 	const client = useConvexClient();
 
@@ -27,6 +28,7 @@
 			});
 			open = false;
 		}
+		onDelete?.();
 	}
 </script>
 

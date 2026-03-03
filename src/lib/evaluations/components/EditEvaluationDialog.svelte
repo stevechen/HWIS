@@ -160,7 +160,13 @@
 
 		<Dialog.Footer>
 			<Button variant="outline" onclick={onClose}>Cancel</Button>
-			<Button variant="destructive" onclick={onDelete}>Delete</Button>
+			<Button
+				variant="destructive"
+				onclick={() => {
+					open = false;
+					onDelete();
+				}}>Delete</Button
+			>
 			<Button onclick={handleSave} disabled={editLoading}>
 				{editLoading ? 'Saving...' : 'Save Changes'}
 			</Button>

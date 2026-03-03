@@ -88,7 +88,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl p-8 pt-0">
+<div class="mx-auto p-8 pt-0 max-w-6xl">
 	{#if evaluationsQuery.isLoading}
 		<EvaluationsLoadingState message="Loading history..." />
 	{:else if evaluationsQuery.error}
@@ -113,7 +113,7 @@
 		>
 			{#snippet children()}
 				<!-- Filters Section -->
-				<div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+				<div class="flex sm:flex-row flex-col sm:items-center gap-4">
 					<Button onclick={() => void goto('/evaluations/new')}>
 						<Plus class="size-4" />
 						New
@@ -148,4 +148,10 @@
 	onDelete={handleDeleteRequest}
 />
 
-<DeleteEvaluationDialog bind:open={deleteDialogOpen} evaluation={selectedEvaluation} />
+<DeleteEvaluationDialog
+	bind:open={deleteDialogOpen}
+	evaluation={selectedEvaluation}
+	onDelete={() => {
+		selectedEvaluation = null;
+	}}
+/>
