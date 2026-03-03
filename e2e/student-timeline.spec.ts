@@ -47,6 +47,15 @@ test.describe('Student Timeline Long-Press @timeline-longpress @sequential', () 
 		if (testData) await cleanupByTag('all', e2eTag);
 	});
 
+	test('page header displays student name', async ({ page }) => {
+		// Verify the header contains the student name, not the generic "My Evaluation"
+		const header = page.locator('h1');
+		await expect(header).toContainText(englishName);
+		await expect(header).toContainText('Evaluations');
+		// Ensure it doesn't show the fallback "My Evaluation" text
+		await expect(header).not.toContainText('My Evaluation');
+	});
+
 	test('long-press on evaluation card opens edit dialog', async ({ page }) => {
 		const evalCard = page.getByRole('button', { name: /Evaluation by/ });
 		await expect(evalCard).toBeVisible();

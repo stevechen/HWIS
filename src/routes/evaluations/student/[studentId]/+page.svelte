@@ -26,18 +26,15 @@
 	const isDemo = $derived(!!data.demo);
 	const demoRole = $derived(data.demo || 'teacher');
 
-	// Fetch user to check role
-	const userQuery = $derived.by(() => {
-		if (isDemo) return undefined;
-		return useQuery(api.users.viewer, () => ({}));
-	});
+	// Fetch user to check role (always call useQuery at top level)
+	const userQuery = useQuery(api.users.viewer, () => (isDemo ? 'skip' : {}));
 
 	// Determine if user is admin
 	const isAdmin = $derived.by(() => {
 		if (isDemo) {
 			return demoRole === 'admin' || demoRole === 'super';
 		}
-		if (userQuery && !userQuery.isLoading && userQuery.data?.role) {
+		if (!userQuery.isLoading && userQuery.data?.role) {
 			return userQuery.data.role === 'admin' || userQuery.data.role === 'super';
 		}
 		return false;
@@ -48,7 +45,7 @@
 		if (isDemo) {
 			return demoRole === 'teacher';
 		}
-		if (userQuery && !userQuery.isLoading && userQuery.data?.role) {
+		if (!userQuery.isLoading && userQuery.data?.role) {
 			return userQuery.data.role === 'teacher';
 		}
 		return false;
@@ -59,7 +56,7 @@
 		if (isDemo) {
 			return demoRole === 'student';
 		}
-		if (userQuery && !userQuery.isLoading && userQuery.data?.role) {
+		if (!userQuery.isLoading && userQuery.data?.role) {
 			return userQuery.data.role === 'student';
 		}
 		return false;
@@ -68,7 +65,7 @@
 	// Get student's enrollment status
 	const enrollmentStatus = $derived.by(() => {
 		if (isDemo) return 'Enrolled';
-		const data = userQuery?.data as { enrollmentStatus?: string } | undefined;
+		const data = userQuery.data as { enrollmentStatus?: string } | undefined;
 		if (data?.enrollmentStatus) {
 			return data.enrollmentStatus;
 		}
@@ -84,7 +81,7 @@
 	const demoUserId = 'demo-user-id';
 
 	// Current user ID for ownership check
-	const currentUserId = $derived(isDemo ? demoUserId : userQuery?.data?._id);
+	const currentUserId = $derived(isDemo ? demoUserId : userQuery.data?._id);
 
 	// Demo student data
 	const demoStudent = {
@@ -150,61 +147,45 @@
 	const useConvexIdQuery = $derived(isConvexId(urlStudentId));
 
 	// Real Convex queries - support both Convex ID and custom studentId code
-	const studentQuery = $derived.by(() => {
-		if (isDemo) return undefined;
-		if (useConvexIdQuery) {
-			const studentId = urlStudentId as Id<'students'>;
-			return useQuery(api.evaluations.getStudent, () => ({
-				studentId
-			}));
-		}
-		// Use custom studentId code
-		return useQuery(api.evaluations.getStudentByStudentIdCode, () => ({
-			studentIdCode: urlStudentId
-		}));
-	});
+	// Use 'skip' pattern for conditional queries - always call useQuery at top level
+	const studentQueryById = useQuery(api.evaluations.getStudent, () =>
+		isDemo || !useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
+	);
+	const studentQueryByCode = useQuery(api.evaluations.getStudentByStudentIdCode, () =>
+		isDemo || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId }
+	);
 
-	const teacherEvalsQuery = $derived.by(() => {
-		if (isDemo) return undefined;
-		if (isAdmin) return undefined;
-		if (useConvexIdQuery) {
-			const studentId = urlStudentId as Id<'students'>;
-			return useQuery(api.evaluations.getStudentEvaluationsByTeacher, () => ({
-				studentId
-			}));
-		}
-		// Use custom studentId code
-		return useQuery(api.evaluations.getStudentEvaluationsByTeacherByStudentIdCode, () => ({
-			studentIdCode: urlStudentId
-		}));
-	});
+	const teacherEvalsQueryById = useQuery(api.evaluations.getStudentEvaluationsByTeacher, () =>
+		isDemo || isAdmin || !useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
+	);
+	const teacherEvalsQueryByCode = useQuery(
+		api.evaluations.getStudentEvaluationsByTeacherByStudentIdCode,
+		() => (isDemo || isAdmin || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId })
+	);
 
-	const allEvalsQuery = $derived.by(() => {
-		if (isDemo) return undefined;
-		if (!isAdmin) return undefined;
-		if (useConvexIdQuery) {
-			const studentId = urlStudentId as Id<'students'>;
-			return useQuery(api.evaluations.getStudentEvaluationsAll, () => ({
-				studentId
-			}));
-		}
-		// Use custom studentId code
-		return useQuery(api.evaluations.getStudentEvaluationsAllByStudentIdCode, () => ({
-			studentIdCode: urlStudentId
-		}));
-	});
+	const allEvalsQueryById = useQuery(api.evaluations.getStudentEvaluationsAll, () =>
+		isDemo || !isAdmin || !useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
+	);
+	const allEvalsQueryByCode = useQuery(
+		api.evaluations.getStudentEvaluationsAllByStudentIdCode,
+		() => (isDemo || !isAdmin || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId })
+	);
 
 	// Student-specific anonymous evaluation query (no teacher names)
-	const studentAnonymousEvalsQuery = $derived.by(() => {
-		if (isDemo) return undefined;
-		if (!isStudent) return undefined;
-		return useQuery(api.evaluations.getStudentEvaluationsAnonymous, () => ({}));
-	});
+	const studentAnonymousEvalsQuery = useQuery(api.evaluations.getStudentEvaluationsAnonymous, () =>
+		isDemo || !isStudent ? 'skip' : {}
+	);
+
+	// Derived values to get the active query data
+	const studentQuery = $derived(useConvexIdQuery ? studentQueryById : studentQueryByCode);
+	const teacherEvalsQuery = $derived(
+		useConvexIdQuery ? teacherEvalsQueryById : teacherEvalsQueryByCode
+	);
+	const allEvalsQuery = $derived(useConvexIdQuery ? allEvalsQueryById : allEvalsQueryByCode);
 
 	const student = $derived.by(() => {
 		if (isDemo) return demoStudent;
-		if (studentQuery?.data) return studentQuery.data;
-		return demoStudent;
+		return studentQuery.data;
 	});
 
 	// Get evaluations data
@@ -214,18 +195,18 @@
 		}
 		// Student view: anonymous evaluations (no teacher names)
 		if (isStudent) {
-			if (studentAnonymousEvalsQuery?.isLoading) return [];
-			if (studentAnonymousEvalsQuery?.error) return [];
-			return studentAnonymousEvalsQuery?.data ?? [];
+			if (studentAnonymousEvalsQuery.isLoading) return [];
+			if (studentAnonymousEvalsQuery.error) return [];
+			return studentAnonymousEvalsQuery.data ?? [];
 		}
 		if (isAdmin) {
-			if (allEvalsQuery?.isLoading) return [];
-			if (allEvalsQuery?.error) return [];
-			return allEvalsQuery?.data ?? [];
+			if (allEvalsQuery.isLoading) return [];
+			if (allEvalsQuery.error) return [];
+			return allEvalsQuery.data ?? [];
 		}
-		if (teacherEvalsQuery?.isLoading) return [];
-		if (teacherEvalsQuery?.error) return [];
-		return teacherEvalsQuery?.data ?? [];
+		if (teacherEvalsQuery.isLoading) return [];
+		if (teacherEvalsQuery.error) return [];
+		return teacherEvalsQuery.data ?? [];
 	});
 
 	// Filter state
@@ -283,27 +264,30 @@
 	// Set header title override
 	$effect(() => {
 		if (!browser) return;
-		const s = student as { englishName?: string; grade?: number };
-		if (s?.englishName && s?.grade !== undefined) {
-			$headerTitleOverride = `G${s.grade} - ${s.englishName} Evaluations`;
+		// Access student to track dependency
+		const s = student;
+		// Student data has englishName but grade is in class data
+		// For now, just show the student name without grade
+		if (s && 'englishName' in s && s.englishName) {
+			$headerTitleOverride = `${s.englishName} Evaluations`;
 		}
 	});
 
 	// Determine loading state
 	const isLoading = $derived.by(() => {
 		if (isDemo) return false;
-		if (userQuery?.isLoading) return true;
-		if (studentQuery?.isLoading) return true;
-		if (isStudent && studentAnonymousEvalsQuery?.isLoading) return true;
-		if (isAdmin && allEvalsQuery?.isLoading) return true;
-		if (!isAdmin && !isStudent && teacherEvalsQuery?.isLoading) return true;
+		if (userQuery.isLoading) return true;
+		if (studentQuery.isLoading) return true;
+		if (isStudent && studentAnonymousEvalsQuery.isLoading) return true;
+		if (isAdmin && allEvalsQuery.isLoading) return true;
+		if (!isAdmin && !isStudent && teacherEvalsQuery.isLoading) return true;
 		return false;
 	});
 
 	// Determine loading message
 	const loadingMessage = $derived.by(() => {
-		if (userQuery?.isLoading) return 'Loading user data...';
-		if (studentQuery?.isLoading) return 'Loading student data...';
+		if (userQuery.isLoading) return 'Loading user data...';
+		if (studentQuery.isLoading) return 'Loading student data...';
 		if (isAdmin) return 'Loading evaluations...';
 		return 'Loading your evaluations...';
 	});
