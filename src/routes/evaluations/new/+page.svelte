@@ -24,11 +24,24 @@
 
 	let searchQuery = $state('');
 	let selectedStudentIds = new SvelteSet<Id<'students'>>();
-	let categoryId = $state('');
+	let categoryId = $state<string | undefined>(undefined);
 	let points = $state(1);
 	let details = $state('');
 	let loading = $state(false);
-	let error = $state('');
+	let submitted = $state(false);
+
+	// Reactive validation errors that update as user makes selections
+	let validationErrors = $derived(() => {
+		if (!submitted) return [];
+		const errors: string[] = [];
+		if (selectedStudentIds.size === 0) {
+			errors.push('Please select at least one student');
+		}
+		if (!categoryId) {
+			errors.push('Please select a category');
+		}
+		return errors;
+	});
 
 	const client = useConvexClient();
 	const categoriesQuery = useQuery(api.categories.list, () => ({}));
@@ -55,30 +68,27 @@
 	let selectedCategory = $derived(categoriesQuery.data?.find((c) => c._id === categoryId));
 
 	async function handleSubmit() {
-		if (selectedStudentIds.size === 0) {
-			error = 'Please select at least one student';
-			return;
-		}
-		if (!categoryId) {
-			error = 'Please select a category';
+		submitted = true;
+
+		if (selectedStudentIds.size === 0 || !categoryId) {
 			return;
 		}
 
 		loading = true;
-		error = '';
 
 		try {
 			await client.mutation(api.evaluations.create, {
 				studentIds: Array.from(selectedStudentIds) as Id<'students'>[],
 				value: points,
-				categoryId: categoryId as Id<'point_categories'>,
+				categoryId: categoryId as unknown as Id<'point_categories'>,
 				details,
 				semesterId: getCurrentSemesterId()
 			});
 
 			void goto('/evaluations');
 		} catch (err) {
-			error = (err as Error).message || 'Failed to save evaluations';
+			// Show submission error
+			console.error('Failed to save evaluation:', err);
 		} finally {
 			loading = false;
 		}
@@ -282,7 +292,7 @@
 						Category
 						<Select.Root type="single" bind:value={categoryId}>
 							<Select.Trigger class="mt-1" aria-label="Select category">
-								{selectedCategory?.name || 'Select Category'}
+								{selectedCategory?.name ?? 'Select Category'}
 							</Select.Trigger>
 							<Select.Content>
 								{#each categoriesQuery.data || [] as cat (cat._id)}
@@ -373,9 +383,11 @@
 					</label>
 				</div>
 
-				{#if error}
+				{#if validationErrors().length > 0}
 					<div role="alert" class="bg-destructive/10 mb-4 p-3 rounded-md text-destructive text-sm">
-						{error}
+						{#each validationErrors() as errorMsg}
+							<div>{errorMsg}</div>
+						{/each}
 					</div>
 				{/if}
 
