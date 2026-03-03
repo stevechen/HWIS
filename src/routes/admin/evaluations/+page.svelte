@@ -16,7 +16,7 @@
 		EvaluationsControls
 	} from '$lib/evaluations/components';
 	import { Button } from '$lib/components/ui/button';
-	import { Loader, EyeClosed, Drama } from '@lucide/svelte';
+	import { Loader, EyeClosed, Users } from '@lucide/svelte';
 	import { onDestroy, onMount, untrack } from 'svelte';
 
 	// Filter states
@@ -214,7 +214,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl p-8 pt-0">
+<div class="mx-auto p-8 pt-0 max-w-6xl">
 	<!-- Filters Section - Sticky for easy access while scrolling -->
 	<EvaluationsControls
 		sortAscending={displayState.sortAscending}
@@ -247,7 +247,7 @@
 				title={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
 			>
 				{#if showTeacherName}
-					<Drama class="size-4" />
+					<Users class="size-4" />
 				{:else}
 					<EyeClosed class="size-4" />
 				{/if}
@@ -289,13 +289,13 @@
 		<!-- Loading indicator -->
 		{#if isLoadingMore}
 			<div class="flex justify-center py-4">
-				<Loader class="text-muted-foreground size-6 animate-spin" />
+				<Loader class="size-6 text-muted-foreground animate-spin" />
 			</div>
 		{/if}
 
 		<!-- End of list indicator -->
 		{#if isDone && accumulatedEvaluations.length > 0}
-			<div class="text-muted-foreground py-4 text-center text-sm">No more evaluations</div>
+			<div class="py-4 text-muted-foreground text-sm text-center">No more evaluations</div>
 		{/if}
 	{/if}
 

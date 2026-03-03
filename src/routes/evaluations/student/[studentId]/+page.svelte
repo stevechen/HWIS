@@ -19,6 +19,8 @@
 		EditEvaluationDialog,
 		DeleteEvaluationDialog
 	} from '$lib/evaluations/components';
+	import { Button } from '$lib/components/ui/button';
+	import { Users, EyeClosed } from '@lucide/svelte';
 
 	let { data }: { data: { demo?: string; studentId?: string } } = $props();
 
@@ -212,6 +214,13 @@
 	// Filter state
 	let teacherFilter = $state('');
 
+	// Show teacher name toggle - default to OFF for privacy (admin only)
+	let showTeacherName = $state(false);
+
+	function toggleShowTeacherName(): void {
+		showTeacherName = !showTeacherName;
+	}
+
 	// Use shared state management
 	const filterSummary = createFilterSummaryState();
 	const displayState = createEvaluationDisplayState();
@@ -338,7 +347,7 @@
 			evaluations={filteredEvaluations}
 			showStudentName={false}
 			studentGrade={(student as { grade?: number }).grade}
-			showTeacherName={!isTeacher && !isStudent}
+			{showTeacherName}
 			bind:sortAscending={displayState.sortAscending}
 			bind:showDetails={displayState.showDetails}
 			enableLongPress={!isStudent}
@@ -356,6 +365,22 @@
 							ariaLabel="Filter by teacher"
 							class="w-full sm:w-48"
 						/>
+					{/if}
+					<!-- Show Teacher Name toggle (admin only) -->
+					{#if isAdmin}
+						<Button
+							aria-label={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
+							variant="outline"
+							size="sm"
+							onclick={toggleShowTeacherName}
+							title={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
+						>
+							{#if showTeacherName}
+								<Users class="size-4" />
+							{:else}
+								<EyeClosed class="size-4" />
+							{/if}
+						</Button>
 					{/if}
 				</div>
 			{/snippet}
