@@ -488,14 +488,22 @@ export const createCategory = mutation({
 	args: {
 		name: v.optional(v.string()),
 		e2eTag: v.optional(v.string()),
-		testToken: v.optional(v.string())
+		testToken: v.optional(v.string()),
+		casAlignment: v.optional(
+			v.array(v.union(v.literal('Creativity'), v.literal('Activity'), v.literal('Service')))
+		),
+		meritCriteria: v.optional(v.array(v.string())),
+		demeritCriteria: v.optional(v.array(v.string()))
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const tag = args.e2eTag || getE2ETag();
 		return await ctx.db.insert('point_categories', {
 			name: args.name ?? `Category_${Date.now().toString().slice(-6)}`,
-			e2eTag: tag
+			e2eTag: tag,
+			casAlignment: args.casAlignment || [],
+			meritCriteria: args.meritCriteria || [],
+			demeritCriteria: args.demeritCriteria || []
 		});
 	}
 });

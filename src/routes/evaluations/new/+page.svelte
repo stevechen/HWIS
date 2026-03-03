@@ -11,6 +11,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as Card from '$lib/components/ui/card';
 	import * as Select from '$lib/components/ui/select';
+	import CategoryInfoCard from '$lib/components/CategoryInfoCard.svelte';
 
 	function getCurrentSemesterId(): string {
 		const now = new Date();
@@ -290,6 +291,11 @@
 							</Select.Content>
 						</Select.Root>
 					</label>
+
+					<!-- Show criteria when category selected -->
+					{#if selectedCategory?.meritCriteria || selectedCategory?.demeritCriteria}
+						<CategoryInfoCard category={selectedCategory} />
+					{/if}
 				</div>
 
 				<fieldset class="mb-5">

@@ -65,6 +65,9 @@ export interface CreateStudentOptions {
 export interface CreateCategoryOptions {
 	name?: string;
 	e2eTag?: string;
+	casAlignment?: ('Creativity' | 'Activity' | 'Service')[];
+	meritCriteria?: string[];
+	demeritCriteria?: string[];
 }
 
 export interface CreateClassOptions {

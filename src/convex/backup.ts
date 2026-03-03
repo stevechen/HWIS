@@ -90,7 +90,9 @@ type BackupPayload = {
 		>
 	>;
 	users: Array<Pick<Doc<'users'>, 'authId' | 'name' | 'role' | 'status'>>;
-	categories: Array<Pick<Doc<'point_categories'>, 'name'>>;
+	categories: Array<
+		Pick<Doc<'point_categories'>, 'name' | 'meritCriteria' | 'demeritCriteria' | 'casAlignment'>
+	>;
 };
 
 export const restoreFromBackup = mutation({
@@ -135,7 +137,10 @@ export const restoreFromBackup = mutation({
 		}
 		for (const category of data.categories) {
 			await ctx.db.insert('point_categories', {
-				name: category.name
+				name: category.name,
+				meritCriteria: category.meritCriteria,
+				demeritCriteria: category.demeritCriteria,
+				casAlignment: category.casAlignment
 			});
 		}
 		return { message: `Restored data` };

@@ -84,6 +84,11 @@ export default defineSchema({
 
 	point_categories: defineTable({
 		name: v.string(),
+		meritCriteria: v.optional(v.array(v.string())),
+		demeritCriteria: v.optional(v.array(v.string())),
+		casAlignment: v.optional(
+			v.array(v.union(v.literal('Creativity'), v.literal('Activity'), v.literal('Service')))
+		),
 		e2eTag: v.optional(v.string())
 	}).index('by_e2eTag', ['e2eTag']),
 

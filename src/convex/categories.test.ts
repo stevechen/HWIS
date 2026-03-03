@@ -262,3 +262,85 @@ describe('categories edge cases', () => {
 		expect(updated.name).toBe('New Name');
 	});
 });
+
+describe('categories with new fields', () => {
+	it('creates a category with CAS alignment, merit and demerit criteria', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.categories.create, {
+			name: 'Test Category',
+			casAlignment: ['Creativity', 'Activity'],
+			meritCriteria: ['Shows initiative', 'Helps others'],
+			demeritCriteria: ['Late to class', 'Disruptive behavior']
+		});
+
+		const categories = await t.query(api.categories.list, {});
+		expect(categories).toHaveLength(1);
+		expect(categories[0].name).toBe('Test Category');
+		expect(categories[0].casAlignment).toEqual(['Creativity', 'Activity']);
+		expect(categories[0].meritCriteria).toEqual(['Shows initiative', 'Helps others']);
+		expect(categories[0].demeritCriteria).toEqual(['Late to class', 'Disruptive behavior']);
+	});
+
+	it('creates a category with single CAS alignment', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.categories.create, {
+			name: 'Service Category',
+			casAlignment: ['Service']
+		});
+
+		const categories = await t.query(api.categories.list, {});
+		expect(categories[0].casAlignment).toEqual(['Service']);
+	});
+
+	it('updates category with all new fields', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.categories.create, {
+			name: 'Original Category'
+		});
+
+		const category = (await t.query(api.categories.list, {}))[0];
+
+		await t.mutation(api.categories.update, {
+			id: category._id,
+			name: 'Updated Category',
+			casAlignment: ['Creativity', 'Service'],
+			meritCriteria: ['Excellent work', 'Team player'],
+			demeritCriteria: ['Missed deadline']
+		});
+
+		const updated = (await t.query(api.categories.list, {}))[0];
+		expect(updated.name).toBe('Updated Category');
+		expect(updated.casAlignment).toEqual(['Creativity', 'Service']);
+		expect(updated.meritCriteria).toEqual(['Excellent work', 'Team player']);
+		expect(updated.demeritCriteria).toEqual(['Missed deadline']);
+	});
+
+	it('creates category with only merit criteria', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.categories.create, {
+			name: 'Positive Only',
+			meritCriteria: ['Always on time', 'Participates actively']
+		});
+
+		const categories = await t.query(api.categories.list, {});
+		expect(categories[0].meritCriteria).toEqual(['Always on time', 'Participates actively']);
+		expect(categories[0].demeritCriteria).toBeUndefined();
+	});
+
+	it('creates category with only demerit criteria', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.categories.create, {
+			name: 'Negative Only',
+			demeritCriteria: ['Cheating', 'Bullying']
+		});
+
+		const categories = await t.query(api.categories.list, {});
+		expect(categories[0].demeritCriteria).toEqual(['Cheating', 'Bullying']);
+		expect(categories[0].meritCriteria).toBeUndefined();
+	});
+});

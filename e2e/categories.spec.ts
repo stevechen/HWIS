@@ -45,6 +45,10 @@ test.describe('Categories - Update Name', () => {
 		await row.getByRole('button', { name: 'Edit' }).click();
 		await expect(page.getByRole('dialog', { name: 'Edit category' })).toBeVisible();
 		await page.getByRole('textbox', { name: 'Category Name' }).fill(updatedName);
+
+		// Select at least one CAS alignment checkbox (required field)
+		await page.getByRole('checkbox', { name: 'Service' }).check();
+
 		await page.getByRole('button', { name: 'Update' }).click();
 
 		await expect(page.getByRole('cell', { name: updatedName })).toBeVisible();
@@ -107,6 +111,10 @@ test.describe('Categories - Name Change Reflects in Evaluations @sequential', ()
 		const row = page.getByRole('row', { name: categoryName });
 		await row.getByRole('button', { name: 'Edit' }).click();
 		await page.getByRole('textbox', { name: 'Category Name' }).fill(updatedName);
+
+		// Select at least one CAS alignment checkbox (required field)
+		await page.getByRole('checkbox', { name: 'Service' }).check();
+
 		await page.getByRole('button', { name: 'Update' }).click();
 		await expect(page.getByRole('cell', { name: updatedName })).toBeVisible();
 
