@@ -172,7 +172,7 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress @sequential', ()
 	});
 
 	test('can edit evaluation details', async ({ page }) => {
-		const evalCard = page.getByRole('button', { name: /Evaluation by/ });
+		const evalCard = page.getByRole('button', { name: /Evaluation by/ }).first();
 		await expect(evalCard).toBeVisible();
 
 		await evalCard.dispatchEvent('mousedown');
@@ -186,7 +186,7 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress @sequential', ()
 	});
 
 	test('can delete evaluation via long-press', async ({ page }) => {
-		const evalCard = page.getByRole('button', { name: /Evaluation by/i });
+		const evalCard = page.getByRole('button', { name: /Evaluation by/i }).first();
 		await expect(evalCard).toBeVisible();
 
 		await evalCard.dispatchEvent('mousedown');
@@ -202,5 +202,94 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress @sequential', ()
 
 		await expect(page.getByRole('dialog', { name: /Delete Evaluation/i })).not.toBeVisible();
 		await expect(evalCard).not.toBeVisible();
+	});
+});
+
+test.describe('Score Tally Bar @score-tally @sequential', () => {
+	// Use admin auth to see all evaluations (not just teacher's own)
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	let suffix: string;
+	let studentId: string;
+	let englishName: string;
+	let e2eTag: string;
+	let testData = false;
+
+	test.beforeEach(async ({ page }) => {
+		useRole('admin');
+		suffix = getTestSuffix('scoreTally');
+		studentId = `STU_${suffix}`;
+		englishName = `Student_${suffix}`;
+		e2eTag = `e2e-test_${suffix}`;
+
+		await createCategory({
+			name: `Cat_${suffix}`,
+			e2eTag
+		});
+
+		// Create 4 evaluations to get expected tally: +5, -3, +10, +15 = +27/-3
+		await createStudentWithEvaluations({
+			studentId,
+			englishName,
+			chineseName: '學生',
+			grade: 10,
+			status: 'Enrolled',
+			evaluationCount: 4, // Create 4 evaluations for the tally
+			e2eTag
+		});
+		testData = true;
+
+		await page.goto(`/evaluations/student/${studentId}`);
+		await page.waitForSelector('body.hydrated');
+		await expect(page.getByText('Loading user data...')).not.toBeVisible();
+		await expect(page.getByRole('region', { name: 'Evaluation' })).toBeVisible();
+
+		// Wait for evaluations to load - admin can see all evaluations
+		await expect(page.getByRole('button', { name: /Evaluation / }).first()).toBeVisible({
+			timeout: 10000
+		});
+	});
+
+	test.afterEach(async () => {
+		if (testData) await cleanupByTag('all', e2eTag);
+	});
+
+	test('displays score tally bar with correct totals', async ({ page }) => {
+		// Wait for evaluations to be fully loaded and stable
+		// Use waitForFunction to ensure evaluations stay visible (not flash and disappear)
+		// await page.waitForFunction(
+		// 	() => {
+		// 		const buttons = document.querySelectorAll('button');
+		// 		return Array.from(buttons).some((b) => b.textContent?.includes('Evaluation by'));
+		// 	},
+		// 	{ timeout: 10000 }
+		// );
+
+		// Wait for the score tally bar to be visible with evaluations count
+		// Note: Each evaluation has value=1, so 4 evaluations = +4 positive tally
+		// ScoreTallyBar only shows non-zero tallies, so we only check for +4
+		await expect(page.getByText('+4').first()).toBeVisible();
+	});
+
+	test('score tally updates when filter is applied', async ({ page }) => {
+		// Wait for evaluations to be fully loaded and stable
+		// await page.waitForFunction(
+		// 	() => {
+		// 		const buttons = document.querySelectorAll('button');
+		// 		return Array.from(buttons).some((b) => b.textContent?.includes('Evaluation by'));
+		// 	},
+		// 	{ timeout: 10000 }
+		// );
+
+		// Initial totals should show +4 (4 evaluations with value=1 each)
+		await expect(page.getByText('+4').first()).toBeVisible();
+
+		// Apply a filter that excludes all evaluations
+		const filterInput = page.getByPlaceholder('Filter by teacher(s)…');
+		await filterInput.fill('NonExistentTeacher');
+
+		// When filter excludes all evaluations, the tally bar shows nothing
+		// because both positive and negative totals are 0 (hasScores = false)
+		await expect(page.getByText('+4')).not.toBeVisible();
 	});
 });

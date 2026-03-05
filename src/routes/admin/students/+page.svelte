@@ -805,7 +805,7 @@
 							}}
 						>
 							<NativeSelect.Option value="" disabled>Select grade and class</NativeSelect.Option>
-							{#each gradeClassOptions as option (option.value)}<NativeSelect.Option
+							{#each gradeClassOptions as option (option.classId)}<NativeSelect.Option
 									value={option.value}>{option.label}</NativeSelect.Option
 								>{/each}
 						</NativeSelect.Root>

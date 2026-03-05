@@ -4,6 +4,7 @@
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
+	import ScoreTallyBar from '$lib/components/timeline/ScoreTallyBar.svelte';
 	import { headerTitleOverride } from '$lib/stores/header';
 	import { onDestroy } from 'svelte';
 	import {
@@ -300,7 +301,20 @@
 		if (isAdmin) return 'Loading evaluations...';
 		return 'Loading your evaluations...';
 	});
+
+	// Sticky tally bar state
+	let tallyBarRef = $state<HTMLDivElement | null>(null);
+	let isTallyBarSticky = $state(false);
+
+	function handleScroll() {
+		if (!tallyBarRef) return;
+		const rect = tallyBarRef.getBoundingClientRect();
+		const isBelowViewport = rect.top > window.innerHeight;
+		isTallyBarSticky = isBelowViewport;
+	}
 </script>
+
+<svelte:window onscroll={handleScroll} />
 
 <div class="mx-auto p-8 max-w-6xl">
 	{#if isDemo}
@@ -355,36 +369,62 @@
 			canEditEntry={isStudent ? () => false : canEditEntry}
 		>
 			{#snippet children()}
-				<!-- Filters Section -->
-				<div class="flex sm:flex-row flex-col sm:items-center gap-4">
-					<!-- Teacher Name Filter (hidden for teachers) -->
-					{#if !isTeacher}
-						<FilterInput
-							bind:value={teacherFilter}
-							placeholder="Filter by teacher(s)…"
-							ariaLabel="Filter by teacher"
-							class="w-full sm:w-48"
-						/>
-					{/if}
-					<!-- Show Teacher Name toggle (admin only) -->
-					{#if isAdmin}
-						<Button
-							aria-label={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
-							variant="outline"
-							size="sm"
-							onclick={toggleShowTeacherName}
-							title={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
-						>
-							{#if showTeacherName}
-								<Users class="size-4" />
-							{:else}
-								<EyeClosed class="size-4" />
-							{/if}
-						</Button>
-					{/if}
-				</div>
+				<!-- Filter input only -->
+				{#if !isTeacher}
+					<FilterInput
+						bind:value={teacherFilter}
+						placeholder="Filter by teacher(s)…"
+						ariaLabel="Filter by teacher"
+						class="w-full sm:w-48"
+					/>
+				{/if}
+			{/snippet}
+			{#snippet extraToggles()}
+				{#if isAdmin}
+					<Button
+						aria-label={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
+						variant="outline"
+						size="sm"
+						onclick={toggleShowTeacherName}
+						title={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
+					>
+						{#if showTeacherName}
+							<Users class="size-4" />
+						{:else}
+							<EyeClosed class="size-4" />
+						{/if}
+					</Button>
+				{/if}
 			{/snippet}
 		</EvaluationsTimeline>
+
+		<!-- Score Tally Bar - sticky at bottom of timeline, then floats when scrolled past -->
+		<div
+			bind:this={tallyBarRef}
+			class="flex justify-center mt-4"
+			class:opacity-0={isTallyBarSticky}
+			class:pointer-events-none={isTallyBarSticky}
+		>
+			<div
+				class="bg-background/60 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full transition-all duration-300"
+			>
+				<ScoreTallyBar evaluations={filteredEvaluations} />
+			</div>
+		</div>
+
+		<!-- Floating Tally Bar (appears when scrolled past) -->
+		<div
+			class="right-0 bottom-4 left-0 z-20 fixed flex justify-center transition-all duration-300 pointer-events-none"
+			class:opacity-0={!isTallyBarSticky}
+			class:translate-y-4={!isTallyBarSticky}
+			class:translate-y-0={isTallyBarSticky}
+		>
+			<div
+				class="bg-background/60 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full pointer-events-auto"
+			>
+				<ScoreTallyBar evaluations={filteredEvaluations} />
+			</div>
+		</div>
 
 		<!-- Filter Summary -->
 		<FilterSummaryToast

@@ -8,13 +8,15 @@ async function collectBackupData(ctx: QueryCtx) {
 	const evaluations = await ctx.db.query('evaluations').collect();
 	const users = await ctx.db.query('users').collect();
 	const categories = await ctx.db.query('point_categories').collect();
+	const classes = await ctx.db.query('classes').collect();
 
 	return {
 		exportedAt: new Date().toISOString(),
 		students,
 		evaluations,
 		users,
-		categories
+		categories,
+		classes
 	};
 }
 
@@ -45,6 +47,7 @@ export const createBackup = mutation({
 		const evaluations = await ctx.db.query('evaluations').collect();
 		const users = await ctx.db.query('users').collect();
 		const categories = await ctx.db.query('point_categories').collect();
+		const classes = await ctx.db.query('classes').collect();
 
 		const backup = {
 			exportedAt: new Date().toISOString(),
@@ -52,7 +55,8 @@ export const createBackup = mutation({
 			students,
 			evaluations,
 			users,
-			categories
+			categories,
+			classes
 		};
 
 		const backupId = await ctx.db.insert('backups', {
@@ -63,7 +67,7 @@ export const createBackup = mutation({
 
 		return {
 			backupId,
-			message: `Created backup with ${students.length} students, ${evaluations.length} evaluations`
+			message: `Created backup with ${students.length} students, ${evaluations.length} evaluations, ${classes.length} classes`
 		};
 	}
 });
@@ -93,6 +97,7 @@ type BackupPayload = {
 	categories: Array<
 		Pick<Doc<'point_categories'>, 'name' | 'meritCriteria' | 'demeritCriteria' | 'casAlignment'>
 	>;
+	classes: Array<Pick<Doc<'classes'>, '_id' | 'grade' | 'class' | 'homeroomTeacherId'>>;
 };
 
 export const restoreFromBackup = mutation({
@@ -106,12 +111,46 @@ export const restoreFromBackup = mutation({
 		if (!backup) throw new Error('Backup not found');
 
 		const data = backup.data as BackupPayload;
+
+		// Create a mapping from old class IDs to new/existing class IDs
+		const classIdMapping = new Map<string, Id<'classes'>>();
+
+		// Restore classes first (before students that reference them)
+		// Use get-or-create pattern to avoid duplicates
+		for (const cls of data.classes) {
+			// Check if a class with the same grade and class name already exists
+			const existingClass = await ctx.db
+				.query('classes')
+				.withIndex('by_grade_class', (q) => q.eq('grade', cls.grade).eq('class', cls.class))
+				.first();
+
+			if (existingClass) {
+				// Use existing class
+				classIdMapping.set(cls._id, existingClass._id);
+			} else {
+				// Create new class
+				const newClassId = await ctx.db.insert('classes', {
+					grade: cls.grade,
+					class: cls.class,
+					homeroomTeacherId: cls.homeroomTeacherId
+				});
+				classIdMapping.set(cls._id, newClassId);
+			}
+		}
+
+		// Restore students with updated classId references
 		for (const student of data.students) {
+			// Map the old classId to the new/existing classId
+			const newClassId = classIdMapping.get(student.classId);
+			if (!newClassId) {
+				throw new Error(`Class not found for student ${student.studentId}: ${student.classId}`);
+			}
+
 			await ctx.db.insert('students', {
 				englishName: student.englishName,
 				chineseName: student.chineseName,
 				studentId: student.studentId,
-				classId: student.classId,
+				classId: newClassId,
 				status: student.status,
 				note: student.note ?? ''
 			});
@@ -232,6 +271,7 @@ export const advanceGradesAndClearEvaluations = mutation({
 		const evaluations = await ctx.db.query('evaluations').collect();
 		const users = await ctx.db.query('users').collect();
 		const categories = await ctx.db.query('point_categories').collect();
+		const classes = await ctx.db.query('classes').collect();
 
 		const backup = {
 			exportedAt: new Date().toISOString(),
@@ -239,7 +279,8 @@ export const advanceGradesAndClearEvaluations = mutation({
 			students,
 			evaluations,
 			users,
-			categories
+			categories,
+			classes
 		};
 
 		await ctx.db.insert('backups', {

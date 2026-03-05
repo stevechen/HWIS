@@ -48,10 +48,15 @@ test.describe('Add Student - UI Data Tests', () => {
 		await dialog.getByRole('textbox', { name: 'English Name *' }).fill(englishName);
 		await dialog.getByRole('textbox', { name: 'Chinese Name' }).fill(chineseName);
 
-		// Wait for form to be ready and select grade/class
-		await page.waitForTimeout(100);
-		await page.selectOption('select[aria-label="Grade and Class"]', '7-1');
-		await page.waitForTimeout(100);
+		// Wait for grade/class select options to load (dynamic async data)
+		const gradeSelect = page.locator('select[aria-label="Grade and Class"]');
+		await gradeSelect.waitFor({ state: 'visible' });
+		// Wait for actual options to be populated (not just placeholder)
+		await page.waitForFunction(() => {
+			const select = document.querySelector('select[aria-label="Grade and Class"]');
+			return select && select.querySelectorAll('option:not([disabled])').length > 1;
+		});
+		await gradeSelect.selectOption('7-1');
 
 		// Submit form using aria-label
 		await page.getByRole('button', { name: 'Create student' }).click({ force: true });
@@ -108,10 +113,15 @@ test.describe('Student ID Validation - Duplicate Data Tests', () => {
 		await dialog.getByRole('textbox', { name: 'Student ID' }).fill(studentId);
 		await dialog.getByLabel('English Name').fill('Duplicate Test');
 
-		// Wait for form to be ready and select grade/class
-		await page.waitForTimeout(100);
-		await page.selectOption('select[aria-label="Grade and Class"]', '7-1');
-		await page.waitForTimeout(100);
+		// Wait for grade/class select options to load (dynamic async data)
+		const gradeSelect = page.locator('select[aria-label="Grade and Class"]');
+		await gradeSelect.waitFor({ state: 'visible' });
+		// Wait for actual options to be populated (not just placeholder)
+		await page.waitForFunction(() => {
+			const select = document.querySelector('select[aria-label="Grade and Class"]');
+			return select && select.querySelectorAll('option:not([disabled])').length > 1;
+		});
+		await gradeSelect.selectOption('7-1');
 
 		await dialog.getByRole('button', { name: 'Create student' }).click();
 
@@ -152,6 +162,8 @@ test.describe('Edit Student - Data Tests', () => {
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
 		await expect(page.getByText('Loading students...')).not.toBeVisible();
+		// Wait for the created student to appear in the list
+		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 	});
 
 	test('can update student status', async ({ page }) => {
@@ -173,7 +185,7 @@ test.describe('Edit Student - Data Tests', () => {
 		await editButton.click();
 
 		// Wait for dialog and change status
-		const dialog = page.getByRole('dialog', { name: 'Student Form' });
+		const dialog = page.getByRole('dialog', { name: 'student form' });
 		await expect(dialog).toBeVisible();
 
 		// Select the status dropdown and change it
@@ -241,13 +253,16 @@ test.describe('Delete Student - Without Evaluations', () => {
 		await page.waitForSelector('body.hydrated');
 		await expect(page.getByText('Loading students...')).not.toBeVisible();
 
-		// Clear filters
+		// Clear filters and wait for student to appear
 		const statusFilter = page.getByLabel('Filter by status');
 		if (await statusFilter.isVisible()) {
 			await statusFilter.selectOption('');
 		}
 		const searchInput = page.getByRole('textbox', { name: 'Search students' });
 		await searchInput.fill('');
+
+		// Wait for the created student to appear in the list
+		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 	});
 
 	test.afterEach(async () => {

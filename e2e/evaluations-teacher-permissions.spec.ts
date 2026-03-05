@@ -44,6 +44,7 @@ test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permission
 				chineseName: '學生',
 				grade: 10,
 				status: 'Enrolled',
+				evaluationCount: 2,
 				e2eTag
 			});
 			testData = true;
@@ -71,7 +72,7 @@ test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permission
 			await expect(evalCard).toBeVisible();
 
 			// Also verify the aria-label shows "Evaluation by" but the actual teacher name text is hidden
-			const cardWithAriaLabel = page.getByRole('button', { name: /Evaluation by/ });
+			const cardWithAriaLabel = page.getByRole('button', { name: /Evaluation by/ }).first();
 			await expect(cardWithAriaLabel).toBeVisible();
 		});
 
@@ -122,6 +123,7 @@ test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permission
 				chineseName: '學生',
 				grade: 10,
 				status: 'Enrolled',
+				evaluationCount: 2,
 				e2eTag
 			});
 			testData = true;
@@ -143,6 +145,11 @@ test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permission
 
 			// Wait for timeline to load
 			await expect(page.getByRole('separator', { name: 'Timeline divider' })).toBeVisible();
+
+			// Click "Show teacher name" toggle to reveal teacher names/icons
+			const showTeacherToggle = page.getByRole('button', { name: 'Show teacher name' });
+			await expect(showTeacherToggle).toBeVisible();
+			await showTeacherToggle.click();
 
 			// Find evaluation cards
 			const evalCard = page.locator('.bg-card').first();
