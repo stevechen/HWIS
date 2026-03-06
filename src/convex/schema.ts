@@ -60,12 +60,16 @@ export default defineSchema({
 		classId: v.id('classes'),
 		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
 		note: v.optional(v.string()),
-		e2eTag: v.optional(v.string())
+		e2eTag: v.optional(v.string()),
+		house: v.optional(
+			v.union(v.literal('Heracles'), v.literal('Wukong'), v.literal('Ixbalam'), v.literal('Setna'))
+		)
 	})
 		.index('by_studentId', ['studentId'])
 		.index('by_classId', ['classId'])
 		.index('by_status', ['status'])
-		.index('by_e2eTag', ['e2eTag']),
+		.index('by_e2eTag', ['e2eTag'])
+		.index('by_house', ['house']),
 
 	audit_logs: defineTable({
 		action: v.string(),

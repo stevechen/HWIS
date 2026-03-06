@@ -15,6 +15,7 @@ const config = {
 		alias: {
 			$convex: './src/convex',
 			$src: './src',
+			$static: './static',
 			'@/*': './src/lib/*'
 		}
 	}

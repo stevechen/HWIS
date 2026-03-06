@@ -6,14 +6,17 @@
 		"Casc",
 		"Evals",
 		"hwis",
+		"Ixbalam",
 		"longpress",
 		"Lookback",
 		"mmailaender",
 		"mytest",
+		"Setna",
 		"SOID",
 		"STID",
 		"studentid",
-		"teardowns"
+		"teardowns",
+		"Wukong"
 	],
 	"cSpell.diagnosticLevel": "hint"
 }

@@ -695,3 +695,97 @@ export const bulkImportWithDuplicateCheck = mutation({
 		return results;
 	}
 });
+
+// House management exports
+export const listByHouse = query({
+	args: {
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user)
+			return {
+				houses: {} as Record<string, typeof studentsWithClass>,
+				orphaned: [] as typeof studentsWithClass
+			};
+
+		// Fetch all students with their class info
+		const students = await ctx.db.query('students').collect();
+
+		// Enrich with class info
+		const classIds = [
+			...new Set(
+				students.map((s) => s.classId).filter((id): id is Id<'classes'> => id !== undefined)
+			)
+		];
+		const classRecords = await Promise.all(classIds.map((id) => ctx.db.get(id)));
+		const classMap = new Map(classRecords.filter(Boolean).map((c) => [c!._id, c!]));
+
+		const studentsWithClass = students.map((s) => {
+			const classInfo = s.classId ? classMap.get(s.classId) || null : null;
+			let classDisplay = '';
+			if (classInfo) {
+				// Handle special class names like the classes page does
+				if (classInfo.class === 'default') {
+					classDisplay = `${classInfo.grade}`;
+				} else if (classInfo.class === 'IB') {
+					classDisplay = `${classInfo.grade}-IB`;
+				} else {
+					classDisplay = `${classInfo.grade}-${classInfo.class}`;
+				}
+			}
+			return {
+				_id: s._id,
+				englishName: s.englishName,
+				chineseName: s.chineseName,
+				studentId: s.studentId,
+				status: s.status,
+				house: s.house,
+				classDisplay
+			};
+		});
+
+		// Group by house
+		const houses: Record<string, typeof studentsWithClass> = {
+			Heracles: [],
+			Wukong: [],
+			Ixbalam: [],
+			Setna: []
+		};
+		const orphaned: typeof studentsWithClass = [];
+
+		for (const student of studentsWithClass) {
+			if (student.house && houses[student.house]) {
+				houses[student.house].push(student);
+			} else {
+				orphaned.push(student);
+			}
+		}
+
+		// Sort each house's students by name
+		for (const house of Object.keys(houses)) {
+			houses[house].sort((a, b) => a.englishName.localeCompare(b.englishName));
+		}
+		orphaned.sort((a, b) => a.englishName.localeCompare(b.englishName));
+
+		return { houses, orphaned };
+	}
+});
+
+export const assignHouse = mutation({
+	args: {
+		studentId: v.id('students'),
+		house: v.optional(
+			v.union(v.literal('Heracles'), v.literal('Wukong'), v.literal('Ixbalam'), v.literal('Setna'))
+		),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
+
+		const student = await ctx.db.get(args.studentId);
+		if (!student) throw new Error('Student not found');
+
+		await ctx.db.patch(args.studentId, { house: args.house });
+	}
+});

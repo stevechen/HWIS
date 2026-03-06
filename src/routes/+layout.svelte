@@ -119,6 +119,7 @@
 		if (path === '/admin') return 'Admin Dashboard';
 		if (path === '/admin/students') return 'Student Management';
 		if (path === '/admin/classes') return 'Class Management';
+		if (path === '/admin/houses') return 'House Management';
 		if (path === '/admin/audit') return 'Audit Log';
 		if (path === '/admin/categories') return 'Categories';
 		if (path === '/admin/users') return 'Manage Users';
