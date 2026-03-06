@@ -3,7 +3,6 @@
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { GripVertical, Users } from '@lucide/svelte';
-	import { Button } from '$lib/components/ui/button';
 
 	// Import house logos
 	import LogoHeracles from '$lib/components/LogoHeracles.svelte';
@@ -15,29 +14,25 @@
 	type House = (typeof HOUSES)[number];
 
 	// House colors for theming
-	const houseColors: Record<House, { bg: string; border: string; text: string; lightBg: string }> =
+	const houseColors: Record<House, { bg: string; text: string; lightBg: string }> =
 		{
 			Heracles: {
 				bg: 'bg-red-600',
-				border: 'border-red-600',
 				text: 'text-red-700',
 				lightBg: 'bg-red-50'
 			},
 			Wukong: {
 				bg: 'bg-amber-600',
-				border: 'border-amber-600',
 				text: 'text-amber-700',
 				lightBg: 'bg-amber-50'
 			},
 			Ixbalam: {
 				bg: 'bg-emerald-600',
-				border: 'border-emerald-600',
 				text: 'text-emerald-700',
 				lightBg: 'bg-emerald-50'
 			},
 			Setna: {
 				bg: 'bg-blue-600',
-				border: 'border-blue-600',
 				text: 'text-blue-700',
 				lightBg: 'bg-blue-50'
 			}
@@ -72,7 +67,7 @@
 	} | null>(null);
 	let dragOverHouse = $state<House | null>(null);
 
-	// Get students data
+	// Get students data - sorted by class then name
 	const housesData = $derived.by(() => {
 		const data = housesQuery.data;
 		if (!data) {
@@ -89,6 +84,51 @@
 			orphaned: data.orphaned
 		} as Record<House | 'orphaned', Student[]>;
 	});
+
+	// Get sorted and grouped students for each house
+	function getGroupedStudents(students: Student[]): { className: string; students: Student[] }[] {
+		// Sort by classDisplay (numeric-aware), then by englishName
+		const sorted = [...students].sort((a, b) => {
+			// Extract numeric grade from classDisplay (e.g., "7-IB" -> 7, "10-A" -> 10)
+			const getGrade = (classDisplay: string): number => {
+				const match = classDisplay.match(/^(\d+)/);
+				return match ? parseInt(match[1], 10) : Infinity;
+			};
+
+			const gradeA = getGrade(a.classDisplay);
+			const gradeB = getGrade(b.classDisplay);
+
+			// First compare by numeric grade
+			let classCompare = gradeA - gradeB;
+			if (classCompare !== 0) return classCompare;
+
+			// If grades are equal, sort alphabetically
+			classCompare = a.classDisplay.localeCompare(b.classDisplay);
+			if (classCompare !== 0) return classCompare;
+
+			// Then by name
+			return a.englishName.localeCompare(b.englishName);
+		});
+
+		// Group by class
+		const groups: Record<string, Student[]> = {};
+		for (const student of sorted) {
+			const classKey = student.classDisplay || 'Unassigned';
+			if (!groups[classKey]) {
+				groups[classKey] = [];
+			}
+			groups[classKey].push(student);
+		}
+
+		// Convert to array
+		return Object.entries(groups).map(([className, students]) => ({
+			className,
+			students
+		}));
+	}
+
+	// Get orphaned students separately for use in template
+	const orphanedStudents = $derived(housesData.orphaned || []);
 
 	// Drag and drop handlers
 	function handleDragStart(
@@ -177,29 +217,24 @@
 	}
 </script>
 
-<div class="space-y-4">
-	<!-- Instructions -->
-	<p class="text-muted-foreground text-sm">
-		Drag and drop students between houses. Students without a house are shown in the "Unassigned"
-		section.
-	</p>
-
+<div class="space-y-4 p-4">
 	{#if housesQuery.isLoading}
-		<div class="py-8 text-muted-foreground text-center">Loading houses...</div>
+		<div class="text-muted-foreground py-8 text-center">Loading houses...</div>
 	{:else if housesQuery.error}
-		<div class="py-8 text-red-500 text-center">Error loading houses</div>
+		<div class="py-8 text-center text-red-500">Error loading houses</div>
 	{:else}
-		<div class="gap-4 grid grid-cols-1 md:grid-cols-4">
+		<!-- Five columns: 4 houses + unassigned -->
+		<div class="houses-board grid grid-cols-1 items-start gap-3 md:grid-cols-5">
 			<!-- Four Houses Grid -->
 			{#each HOUSES as house (house)}
 				{@const students = housesData[house] || []}
 				{@const colors = houseColors[house]}
 				{@const isDragOver = dragOverHouse === house}
 				{@const Logo = houseLogos[house]}
+				{@const groupedStudents = getGroupedStudents(students)}
 				<div
 					class={[
-						'flex flex-col rounded-lg border-2 transition-all',
-						colors.border,
+						'house-column flex min-h-0 flex-col rounded-lg transition-all',
 						isDragOver && 'scale-[1.02] ring-2 ring-blue-500 ring-offset-2'
 					]}
 					role="region"
@@ -209,53 +244,73 @@
 					ondrop={(e) => handleDrop(e, house)}
 				>
 					<!-- House Header -->
-					<div class={['flex items-center justify-between rounded-t-md px-4 py-3', colors.bg]}>
-						<div class="flex items-center gap-3">
-							<div class="size-10 text-white">
+					<div
+						class={[
+							'house-column__header flex items-center justify-between rounded-t-md px-3 py-2',
+							colors.bg
+						]}
+					>
+						<div class="flex items-center gap-2">
+							<div class="size-8 text-white">
 								<Logo />
 							</div>
-							<h2 class="font-bold text-white text-xl">{house}</h2>
+							<h2 class="text-lg font-bold text-white">{house}</h2>
 						</div>
-						<div class="flex items-center gap-2 text-white">
+						<div class="flex items-center gap-1 text-white">
 							<Users class="size-4" />
-							<span class="font-semibold">{students.length}</span>
+							<span class="text-sm font-semibold">{students.length}</span>
 						</div>
 					</div>
 
 					<!-- Student List -->
-					<div class={['flex-1 rounded-b-md p-2', colors.lightBg]}>
+					<div class={['house-column__body min-h-0 flex-1 rounded-b-md p-2', colors.lightBg]}>
 						{#if students.length > 0}
-							<div class="flex flex-col gap-1 max-h-100 overflow-y-auto">
-								{#each students as student (student._id)}
-									{@const enrolled = student.status !== 'Not Enrolled'}
-									<div
-										class={[
-											'flex cursor-grab items-center gap-2 rounded border bg-white px-2 py-1.5 text-sm shadow-sm transition-colors hover:bg-gray-50 active:cursor-grabbing',
-											!enrolled && 'text-muted-foreground bg-gray-100'
-										]}
-										draggable="true"
-										ondragstart={(e) => handleDragStart(e, student, house)}
-										ondragend={handleDragEnd}
-										role="button"
-										aria-label="Drag {student.englishName} to move to another house"
-										tabindex="0"
-									>
-										<GripVertical class="size-3 text-gray-400 shrink-0" />
-										<div class="flex flex-col flex-1 min-w-0">
-											<span class="font-medium truncate">{student.englishName}</span>
-											<span class="text-muted-foreground text-xs">
-												{student.classDisplay}
-												{#if !enrolled}
-													• Not Enrolled
-												{/if}
+							<div class="house-column__groups flex flex-col gap-1">
+								{#each groupedStudents as group (group.className)}
+									<div class="flex flex-col gap-1">
+										<!-- Class Header -->
+										<div class="house-group__header flex items-center gap-2 px-2 py-1">
+											<span
+												class={[
+													'rounded-full bg-white px-2 py-0.5 text-[10px] font-bold tracking-[0.14em] uppercase',
+													colors.text
+												]}
+											>
+												{group.className}
+											</span>
+											<span class={['text-xs font-medium', colors.text]}>
+												{group.students.length}
 											</span>
 										</div>
+										{#each group.students as student (student._id)}
+											{@const enrolled = student.status !== 'Not Enrolled'}
+											<div
+												class={[
+													'flex cursor-grab items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 active:cursor-grabbing',
+													!enrolled && 'text-muted-foreground bg-gray-100'
+												]}
+												draggable="true"
+												ondragstart={(e) => handleDragStart(e, student, house)}
+												ondragend={handleDragEnd}
+												role="button"
+												aria-label="Drag {student.englishName} to move to another house"
+												tabindex="0"
+												>
+													<GripVertical class="size-3 shrink-0 text-gray-400" />
+													<div class="flex min-w-0 flex-1 flex-col">
+														<span class="truncate font-medium">{student.englishName}</span>
+														{#if !enrolled}
+															<span class="text-muted-foreground text-xs">Not Enrolled</span>
+														{/if}
+													</div>
+												</div>
+										{/each}
 									</div>
 								{/each}
 							</div>
 						{:else}
 							<div
-								class="flex justify-center items-center h-32 text-muted-foreground text-sm italic"
+								class="text-muted-foreground flex h-24 items-center justify-center text-sm italic"
 							>
 								No students assigned
 							</div>
@@ -263,58 +318,136 @@
 					</div>
 				</div>
 			{/each}
-		</div>
 
-		<!-- Orphaned Students Section -->
-		{@const orphanedStudents = housesData.orphaned || []}
-		<div
-			class="bg-gray-50 mt-6 p-4 border-2 border-gray-300 border-dashed rounded-lg"
-			role="region"
-			aria-label="Unassigned Students"
-			ondragover={handleDragOverOrphaned}
-			ondrop={handleRemoveFromHouse}
-		>
-			<div class="flex justify-between items-center mb-3">
-				<h3 class="font-semibold text-gray-700">Unassigned Students</h3>
-				<span class="text-muted-foreground text-sm">{orphanedStudents.length} students</span>
-			</div>
-
-			{#if orphanedStudents.length > 0}
-				<div class="gap-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-					{#each orphanedStudents as student (student._id)}
-						{@const enrolled = student.status !== 'Not Enrolled'}
-						<div
-							class={[
-								'flex cursor-grab items-center gap-2 rounded border bg-white px-2 py-1.5 text-sm shadow-sm transition-colors hover:bg-gray-50 active:cursor-grabbing',
-								!enrolled && 'text-muted-foreground bg-gray-100'
-							]}
-							draggable="true"
-							ondragstart={(e) => handleDragStart(e, student, 'orphaned')}
-							ondragend={handleDragEnd}
-							role="button"
-							aria-label="Drag {student.englishName} to assign to a house"
-							tabindex="0"
-						>
-							<GripVertical class="size-3 text-gray-400 shrink-0" />
-							<div class="flex flex-col flex-1 min-w-0">
-								<span class="font-medium truncate">{student.englishName}</span>
-								<span class="text-muted-foreground text-xs">
-									{student.classDisplay}
-									{#if !enrolled}
-										• Not Enrolled
-									{/if}
-								</span>
-							</div>
-						</div>
-					{/each}
+			<!-- Unassigned Students Column -->
+			<div
+				class={[
+					'house-column house-column--orphaned flex min-h-0 flex-col rounded-lg transition-all',
+					dragOverHouse === null && 'bg-gray-50'
+				]}
+				role="region"
+				aria-label="Unassigned Students"
+				ondragover={handleDragOverOrphaned}
+				ondrop={handleRemoveFromHouse}
+			>
+				<!-- Unassigned Header -->
+				<div class="house-column__header flex items-center justify-between rounded-t-md bg-gray-400 px-3 py-2">
+					<div class="flex items-center gap-2">
+						<h2 class="text-lg font-bold text-white">Unassigned</h2>
+					</div>
+					<div class="flex items-center gap-1 text-white">
+						<Users class="size-4" />
+						<span class="text-sm font-semibold">{orphanedStudents.length}</span>
+					</div>
 				</div>
-			{:else}
-				<div class="py-8 text-gray-500 text-center italic">All students are assigned to houses</div>
-			{/if}
 
-			<p class="mt-3 text-muted-foreground text-xs text-center">
-				Drag students from houses here to unassign them
-			</p>
+				<!-- Unassigned Student List -->
+				<div class="house-column__body min-h-0 flex-1 rounded-b-md bg-gray-50 p-2">
+					{#if orphanedStudents.length > 0}
+						{@const groupedOrphaned = getGroupedStudents(orphanedStudents)}
+						<div class="house-column__groups flex flex-col gap-1">
+							{#each groupedOrphaned as group (group.className)}
+								<div class="flex flex-col gap-1">
+									<!-- Class Header -->
+									<div class="house-group__header flex items-center gap-2 px-2 py-1">
+										<span
+											class="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold tracking-[0.14em] text-gray-600 uppercase"
+										>
+											{group.className}
+										</span>
+										<span class="text-xs font-medium text-gray-500">{group.students.length}</span>
+									</div>
+									{#each group.students as student (student._id)}
+										{@const enrolled = student.status !== 'Not Enrolled'}
+										<div
+											class={[
+												'flex cursor-grab items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 active:cursor-grabbing',
+												!enrolled && 'text-muted-foreground bg-gray-100'
+											]}
+											draggable="true"
+											ondragstart={(e) => handleDragStart(e, student, 'orphaned')}
+											ondragend={handleDragEnd}
+											role="button"
+											aria-label="Drag {student.englishName} to assign to a house"
+											tabindex="0"
+										>
+											<GripVertical class="size-3 shrink-0 text-gray-400" />
+											<div class="flex min-w-0 flex-1 flex-col">
+												<span class="truncate font-medium">{student.englishName}</span>
+												{#if !enrolled}
+													<span class="text-muted-foreground text-xs">Not Enrolled</span>
+												{/if}
+											</div>
+										</div>
+									{/each}
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="text-muted-foreground flex h-24 items-center justify-center text-sm italic">
+							All students assigned
+						</div>
+					{/if}
+				</div>
+			</div>
 		</div>
 	{/if}
 </div>
+
+<style>
+	.houses-board {
+		--app-header-height: 3.5rem;
+		--sticky-gap: 0.75rem;
+		--sticky-offset: calc(var(--app-header-height) + var(--sticky-gap));
+	}
+
+	.house-column__header {
+		transition:
+			box-shadow 180ms ease,
+			background-color 180ms ease,
+			border-color 180ms ease;
+	}
+
+	@media (min-width: 768px) {
+		.house-column__header {
+			position: sticky;
+			top: var(--sticky-offset);
+			z-index: 20;
+			isolation: isolate;
+		}
+
+		.house-column__header::before {
+			content: '';
+			position: absolute;
+			right: 0;
+			bottom: 100%;
+			left: 0;
+			height: var(--sticky-gap);
+			background: var(--background);
+			pointer-events: none;
+		}
+
+		.house-column--orphaned {
+			position: sticky;
+			top: var(--sticky-offset);
+			align-self: start;
+			z-index: 30;
+			isolation: isolate;
+		}
+
+		.house-column--orphaned::before {
+			content: '';
+			position: absolute;
+			right: 0;
+			bottom: 100%;
+			left: 0;
+			height: var(--sticky-gap);
+			background: var(--background);
+			pointer-events: none;
+		}
+
+		.house-column--orphaned .house-column__header {
+			top: 0;
+		}
+	}
+</style>

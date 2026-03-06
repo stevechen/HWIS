@@ -789,3 +789,184 @@ export const assignHouse = mutation({
 		await ctx.db.patch(args.studentId, { house: args.house });
 	}
 });
+
+// Houses competition page - get statistics for all houses
+export const getHouseStats = query({
+	args: {
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user) return null;
+
+		const HOUSES = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
+
+		// Fetch all students with houses
+		const students = await ctx.db.query('students').collect();
+		const studentsWithHouses = students.filter((s) => s.house && HOUSES.includes(s.house));
+		const studentIds = studentsWithHouses.map((s) => s._id);
+
+		// Get all evaluations for these students
+		const allEvaluations = await ctx.db.query('evaluations').collect();
+		const evaluations = allEvaluations.filter((e) => studentIds.includes(e.studentId));
+
+		// Get all categories
+		const categories = await ctx.db.query('point_categories').collect();
+		const categoryMap = new Map(categories.map((c) => [c._id, c]));
+
+		// Type for student points data
+		type StudentPointsData = {
+			studentId: string;
+			house: string;
+			englishName: string;
+			chineseName: string;
+			totalPoints: number;
+			positivePoints: number;
+			negativePoints: number;
+			pointsByCategory: Record<string, number>;
+		};
+
+		// Build student points map
+		const studentPointsMap = new Map<string, StudentPointsData>();
+
+		// Initialize students with houses
+		for (const student of studentsWithHouses) {
+			studentPointsMap.set(student._id, {
+				studentId: student.studentId,
+				house: student.house!,
+				englishName: student.englishName,
+				chineseName: student.chineseName,
+				totalPoints: 0,
+				positivePoints: 0,
+				negativePoints: 0,
+				pointsByCategory: {}
+			});
+		}
+
+		// Process evaluations
+		for (const eval_ of evaluations) {
+			const studentData = studentPointsMap.get(eval_.studentId);
+			if (!studentData) continue;
+
+			const category = categoryMap.get(eval_.categoryId);
+			const categoryName = category?.name || 'Unknown';
+
+			if (!studentData.pointsByCategory[categoryName]) {
+				studentData.pointsByCategory[categoryName] = 0;
+			}
+
+			studentData.pointsByCategory[categoryName] += eval_.value;
+			studentData.totalPoints += eval_.value;
+
+			if (eval_.value > 0) {
+				studentData.positivePoints += eval_.value;
+			} else if (eval_.value < 0) {
+				studentData.negativePoints += eval_.value; // This is negative
+			}
+		}
+
+		// Build house stats
+		const houseStats: Record<
+			string,
+			{
+				totalPoints: number;
+				studentCount: number;
+				pointsByCategory: Record<string, number>;
+				topContributors: { studentId: string; englishName: string; totalPoints: number }[];
+				growthOpportunities: { studentId: string; englishName: string; pointsLost: number }[];
+			}
+		> = {};
+
+		// Initialize houses
+		for (const house of HOUSES) {
+			houseStats[house] = {
+				totalPoints: 0,
+				studentCount: 0,
+				pointsByCategory: {},
+				topContributors: [],
+				growthOpportunities: []
+			};
+		}
+
+		// Aggregate by house
+		for (const [, studentData] of studentPointsMap) {
+			const stats = houseStats[studentData.house];
+			if (!stats) continue;
+
+			stats.totalPoints += studentData.totalPoints;
+			stats.studentCount++;
+
+			// Aggregate points by category
+			for (const [cat, points] of Object.entries(studentData.pointsByCategory)) {
+				if (!stats.pointsByCategory[cat]) {
+					stats.pointsByCategory[cat] = 0;
+				}
+				stats.pointsByCategory[cat] += points;
+			}
+		}
+
+		// Get top contributors and growth opportunities per house
+		const studentsByHouse: Record<string, StudentPointsData[]> = {
+			Heracles: [],
+			Wukong: [],
+			Ixbalam: [],
+			Setna: []
+		};
+
+		for (const [, studentData] of studentPointsMap) {
+			if (studentsByHouse[studentData.house]) {
+				studentsByHouse[studentData.house].push(studentData);
+			}
+		}
+
+		for (const house of HOUSES) {
+			const houseStudents = studentsByHouse[house];
+
+			// Top contributors (by positive points)
+			houseStats[house].topContributors = houseStudents
+				.sort((a, b) => b.positivePoints - a.positivePoints)
+				.slice(0, 5)
+				.map((s) => ({
+					studentId: s.studentId,
+					englishName: s.englishName,
+					totalPoints: s.positivePoints
+				}));
+
+			// Growth opportunities (students with negative points, show absolute value)
+			houseStats[house].growthOpportunities = houseStudents
+				.filter((s) => s.negativePoints < 0)
+				.sort((a, b) => a.negativePoints - b.negativePoints)
+				.slice(0, 5)
+				.map((s) => ({
+					studentId: s.studentId,
+					englishName: s.englishName,
+					pointsLost: Math.abs(s.negativePoints)
+				}));
+		}
+
+		// Get all unique categories
+		const allCategories = [...new Set(categories.map((c) => c.name))];
+
+		// Calculate ranking
+		const ranking = [...HOUSES].sort(
+			(a, b) => houseStats[b].totalPoints - houseStats[a].totalPoints
+		);
+
+		// Build final result
+		const result = HOUSES.map((house) => ({
+			house,
+			totalPoints: houseStats[house].totalPoints,
+			studentCount: houseStats[house].studentCount,
+			pointsByCategory: houseStats[house].pointsByCategory,
+			topContributors: houseStats[house].topContributors,
+			growthOpportunities: houseStats[house].growthOpportunities,
+			rank: ranking.indexOf(house) + 1
+		}));
+
+		return {
+			houses: result,
+			ranking,
+			categories: allCategories
+		};
+	}
+});

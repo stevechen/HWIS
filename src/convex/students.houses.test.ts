@@ -6,6 +6,17 @@ import type { Id } from './_generated/dataModel';
 
 const invalidId = 'non-existent-id' as unknown as Id<'students'>;
 
+// Type for getHouseStats query result
+type HouseStatsData = {
+	house: string;
+	totalPoints: number;
+	studentCount: number;
+	pointsByCategory: Record<string, number>;
+	topContributors: { studentId: string; englishName: string; totalPoints: number }[];
+	growthOpportunities: { studentId: string; englishName: string; pointsLost: number }[];
+	rank: number;
+};
+
 describe('House Management - listByHouse', () => {
 	it('returns empty houses and orphaned when no students exist', async () => {
 		const t = convexTest(schema, modules);
@@ -262,5 +273,92 @@ describe('House Management - assignHouse', () => {
 				house: 'Heracles'
 			});
 		}).rejects.toThrow();
+	});
+});
+
+describe('House Competition - getHouseStats', () => {
+	it('returns house stats with all four houses', async () => {
+		const t = convexTest(schema, modules);
+
+		// Create students with houses
+		const student1 = await t.mutation(api.students.create, {
+			englishName: 'Alice',
+			chineseName: '艾莉',
+			studentId: '9001001',
+			grade: 9,
+			status: 'Enrolled'
+		});
+
+		const student2 = await t.mutation(api.students.create, {
+			englishName: 'Bob',
+			chineseName: '博',
+			studentId: '9001002',
+			grade: 9,
+			status: 'Enrolled'
+		});
+
+		// Assign houses
+		await t.mutation(api.students.assignHouse, {
+			studentId: student1,
+			house: 'Heracles'
+		});
+
+		await t.mutation(api.students.assignHouse, {
+			studentId: student2,
+			house: 'Wukong'
+		});
+
+		const result = await t.query(api.students.getHouseStats, {});
+
+		// Should return data (even without auth in test context)
+		expect(result).not.toBeNull();
+		expect(result!.houses).toHaveLength(4);
+
+		// Check Heracles has 1 student
+		const heracles = result!.houses.find((h: HouseStatsData) => h.house === 'Heracles');
+		expect(heracles).toBeDefined();
+		expect(heracles!.studentCount).toBe(1);
+
+		// Check Wukong has 1 student
+		const wukong = result!.houses.find((h: HouseStatsData) => h.house === 'Wukong');
+		expect(wukong).toBeDefined();
+		expect(wukong!.studentCount).toBe(1);
+
+		// Check ranking includes both houses
+		expect(result!.ranking).toContain('Heracles');
+		expect(result!.ranking).toContain('Wukong');
+	});
+
+	it('shows correct rank ordering', async () => {
+		const t = convexTest(schema, modules);
+
+		// Create a student and assign to a house
+		const student = await t.mutation(api.students.create, {
+			englishName: 'Test',
+			chineseName: '測試',
+			studentId: '9003001',
+			grade: 9,
+			status: 'Enrolled'
+		});
+
+		await t.mutation(api.students.assignHouse, {
+			studentId: student,
+			house: 'Ixbalam'
+		});
+
+		const result = await t.query(api.students.getHouseStats, {});
+
+		expect(result).not.toBeNull();
+		expect(result!.houses).toHaveLength(4);
+
+		// Each house should have a rank
+		for (const house of result!.houses) {
+			expect(house.rank).toBeGreaterThanOrEqual(1);
+			expect(house.rank).toBeLessThanOrEqual(4);
+		}
+
+		// All ranks should be unique
+		const ranks = result!.houses.map((h: HouseStatsData) => h.rank);
+		expect(new Set(ranks).size).toBe(4);
 	});
 });
