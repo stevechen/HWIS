@@ -221,7 +221,7 @@
 								<Star class="w-4 h-4 text-yellow-500" />
 								Top Contributors
 							</h3>
-							{#if houseData.topContributors.length > 0}
+							{#if houseData.topContributorsRecent && houseData.topContributorsRecent.length > 0}
 								<ul class="space-y-2">
 									{#each houseData.topContributors as contributor, index (contributor.studentId)}
 										<li class="flex justify-between items-center">

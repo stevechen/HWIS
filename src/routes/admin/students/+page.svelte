@@ -500,6 +500,7 @@
 		class?: string;
 		note?: string;
 		status?: 'Enrolled' | 'Not Enrolled';
+		house?: 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna';
 	} {
 		const englishName = row.englishname || row.name || '';
 		const chineseName = row.chinesename || row.chinese || '';
@@ -511,6 +512,13 @@
 		if (rawStatus.toLowerCase() === 'enrolled') parsedStatus = 'Enrolled';
 		if (rawStatus.toLowerCase() === 'not enrolled') parsedStatus = 'Not Enrolled';
 
+		const rawHouse = (row.house || '').trim();
+		let parsedHouse: 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna' | undefined = undefined;
+		if (rawHouse.toLowerCase() === 'heracles') parsedHouse = 'Heracles';
+		if (rawHouse.toLowerCase() === 'wukong') parsedHouse = 'Wukong';
+		if (rawHouse.toLowerCase() === 'ixbalam') parsedHouse = 'Ixbalam';
+		if (rawHouse.toLowerCase() === 'setna') parsedHouse = 'Setna';
+
 		return {
 			englishName,
 			chineseName,
@@ -518,7 +526,8 @@
 			grade: gradeClass.grade,
 			class: gradeClass.class,
 			status: parsedStatus,
-			note: row.note || ''
+			note: row.note || '',
+			house: parsedHouse
 		};
 	}
 

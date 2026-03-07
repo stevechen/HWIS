@@ -298,7 +298,10 @@ export const importFromExcel = mutation({
 				grade: v.number(), // Grade (7-12) - will get or create class
 				class: v.optional(v.string()), // Class number (e.g., "1", "2"), defaults to "1"
 				status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
-				note: v.optional(v.string())
+				note: v.optional(v.string()),
+				house: v.optional(
+					v.union(v.literal('Heracles'), v.literal('Wukong'), v.literal('Ixbalam'), v.literal('Setna'))
+				)
 			})
 		),
 		testToken: v.optional(v.string())
@@ -328,7 +331,8 @@ export const importFromExcel = mutation({
 						chineseName: student.chineseName,
 						classId,
 						status: student.status,
-						note: student.note ?? ''
+						note: student.note ?? '',
+							house: student.house
 					});
 					results.push({ studentId: student.studentId, success: true, action: 'updated' });
 				} else {
@@ -338,7 +342,8 @@ export const importFromExcel = mutation({
 						studentId: student.studentId,
 						classId,
 						status: student.status,
-						note: student.note ?? ''
+						note: student.note ?? '',
+							house: student.house
 					});
 					results.push({ studentId: student.studentId, success: true, action: 'created' });
 				}
@@ -550,7 +555,15 @@ export const bulkImportWithDuplicateCheck = mutation({
 				grade: v.number(),
 				class: v.optional(v.string()),
 				status: v.optional(v.union(v.literal('Enrolled'), v.literal('Not Enrolled'))),
-				note: v.optional(v.string())
+				note: v.optional(v.string()),
+				house: v.optional(
+					v.union(
+						v.literal('Heracles'),
+						v.literal('Wukong'),
+						v.literal('Ixbalam'),
+						v.literal('Setna')
+					)
+				)
 			})
 		),
 		mode: v.union(v.literal('halt'), v.literal('skip'), v.literal('update')),
@@ -656,7 +669,8 @@ export const bulkImportWithDuplicateCheck = mutation({
 						studentId: student.studentId,
 						classId,
 						status,
-						note: student.note ?? ''
+						note: student.note ?? '',
+						house: student.house
 					});
 					results.created.push(student.studentId);
 				} else {
@@ -665,7 +679,8 @@ export const bulkImportWithDuplicateCheck = mutation({
 						chineseName: student.chineseName,
 						classId,
 						status,
-						note: student.note ?? ''
+						note: student.note ?? '',
+						house: student.house
 					});
 					results.updated.push(student.studentId);
 				}
@@ -686,7 +701,8 @@ export const bulkImportWithDuplicateCheck = mutation({
 					studentId: student.studentId,
 					classId,
 					status,
-					note: student.note ?? ''
+					note: student.note ?? '',
+						house: student.house
 				});
 				results.created.push(student.studentId);
 			}
@@ -824,10 +840,17 @@ export const getHouseStats = query({
 			positivePoints: number;
 			negativePoints: number;
 			pointsByCategory: Record<string, number>;
+			recentTotalPoints: number;
+			recentPositivePoints: number;
+			recentNegativePoints: number;
+			recentPointsByCategory: Record<string, number>;
 		};
 
 		// Build student points map
 		const studentPointsMap = new Map<string, StudentPointsData>();
+
+		// Get timestamp for 30 days ago
+		const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
 		// Initialize students with houses
 		for (const student of studentsWithHouses) {
@@ -839,7 +862,11 @@ export const getHouseStats = query({
 				totalPoints: 0,
 				positivePoints: 0,
 				negativePoints: 0,
-				pointsByCategory: {}
+				pointsByCategory: {},
+				recentTotalPoints: 0,
+				recentPositivePoints: 0,
+				recentNegativePoints: 0,
+				recentPointsByCategory: {}
 			});
 		}
 
@@ -851,10 +878,10 @@ export const getHouseStats = query({
 			const category = categoryMap.get(eval_.categoryId);
 			const categoryName = category?.name || 'Unknown';
 
+			// All-time stats
 			if (!studentData.pointsByCategory[categoryName]) {
 				studentData.pointsByCategory[categoryName] = 0;
 			}
-
 			studentData.pointsByCategory[categoryName] += eval_.value;
 			studentData.totalPoints += eval_.value;
 
@@ -863,6 +890,22 @@ export const getHouseStats = query({
 			} else if (eval_.value < 0) {
 				studentData.negativePoints += eval_.value; // This is negative
 			}
+
+			// Recent stats (last 30 days)
+			const isRecent = eval_.timestamp && eval_.timestamp >= thirtyDaysAgo;
+			if (isRecent) {
+				if (!studentData.recentPointsByCategory[categoryName]) {
+					studentData.recentPointsByCategory[categoryName] = 0;
+				}
+				studentData.recentPointsByCategory[categoryName] += eval_.value;
+				studentData.recentTotalPoints += eval_.value;
+
+				if (eval_.value > 0) {
+					studentData.recentPositivePoints += eval_.value;
+				} else if (eval_.value < 0) {
+					studentData.recentNegativePoints += eval_.value;
+				}
+			}
 		}
 
 		// Build house stats
@@ -870,10 +913,14 @@ export const getHouseStats = query({
 			string,
 			{
 				totalPoints: number;
+				recentTotalPoints: number;
 				studentCount: number;
 				pointsByCategory: Record<string, number>;
+				recentPointsByCategory: Record<string, number>;
 				topContributors: { studentId: string; englishName: string; totalPoints: number }[];
+				topContributorsRecent: { studentId: string; englishName: string; totalPoints: number }[];
 				growthOpportunities: { studentId: string; englishName: string; pointsLost: number }[];
+				growthOpportunitiesRecent: { studentId: string; englishName: string; pointsLost: number }[];
 			}
 		> = {};
 
@@ -881,10 +928,14 @@ export const getHouseStats = query({
 		for (const house of HOUSES) {
 			houseStats[house] = {
 				totalPoints: 0,
+				recentTotalPoints: 0,
 				studentCount: 0,
 				pointsByCategory: {},
+				recentPointsByCategory: {},
 				topContributors: [],
-				growthOpportunities: []
+				topContributorsRecent: [],
+				growthOpportunities: [],
+				growthOpportunitiesRecent: []
 			};
 		}
 
@@ -894,6 +945,7 @@ export const getHouseStats = query({
 			if (!stats) continue;
 
 			stats.totalPoints += studentData.totalPoints;
+			stats.recentTotalPoints += studentData.recentTotalPoints;
 			stats.studentCount++;
 
 			// Aggregate points by category
@@ -902,6 +954,14 @@ export const getHouseStats = query({
 					stats.pointsByCategory[cat] = 0;
 				}
 				stats.pointsByCategory[cat] += points;
+			}
+
+			// Aggregate recent points by category
+			for (const [cat, points] of Object.entries(studentData.recentPointsByCategory)) {
+				if (!stats.recentPointsByCategory[cat]) {
+					stats.recentPointsByCategory[cat] = 0;
+				}
+				stats.recentPointsByCategory[cat] += points;
 			}
 		}
 
@@ -922,17 +982,27 @@ export const getHouseStats = query({
 		for (const house of HOUSES) {
 			const houseStudents = studentsByHouse[house];
 
-			// Top contributors (by positive points)
+			// Top contributors - All Time (by net points: positive - negative)
 			houseStats[house].topContributors = houseStudents
-				.sort((a, b) => b.positivePoints - a.positivePoints)
+				.sort((a, b) => b.totalPoints - a.totalPoints)
 				.slice(0, 5)
 				.map((s) => ({
 					studentId: s.studentId,
 					englishName: s.englishName,
-					totalPoints: s.positivePoints
+					totalPoints: s.totalPoints
 				}));
 
-			// Growth opportunities (students with negative points, show absolute value)
+			// Top contributors - Most Recent (last 30 days)
+			houseStats[house].topContributorsRecent = houseStudents
+				.sort((a, b) => b.recentTotalPoints - a.recentTotalPoints)
+				.slice(0, 5)
+				.map((s) => ({
+					studentId: s.studentId,
+					englishName: s.englishName,
+					totalPoints: s.recentTotalPoints
+				}));
+
+			// Growth opportunities - All Time (students with negative points)
 			houseStats[house].growthOpportunities = houseStudents
 				.filter((s) => s.negativePoints < 0)
 				.sort((a, b) => a.negativePoints - b.negativePoints)
@@ -941,6 +1011,17 @@ export const getHouseStats = query({
 					studentId: s.studentId,
 					englishName: s.englishName,
 					pointsLost: Math.abs(s.negativePoints)
+				}));
+
+			// Growth opportunities - Most Recent (last 30 days)
+			houseStats[house].growthOpportunitiesRecent = houseStudents
+				.filter((s) => s.recentNegativePoints < 0)
+				.sort((a, b) => a.recentNegativePoints - b.recentNegativePoints)
+				.slice(0, 5)
+				.map((s) => ({
+					studentId: s.studentId,
+					englishName: s.englishName,
+					pointsLost: Math.abs(s.recentNegativePoints)
 				}));
 		}
 
@@ -952,20 +1033,31 @@ export const getHouseStats = query({
 			(a, b) => houseStats[b].totalPoints - houseStats[a].totalPoints
 		);
 
+		// Calculate recent ranking (last 30 days)
+		const recentRanking = [...HOUSES].sort(
+			(a, b) => houseStats[b].recentTotalPoints - houseStats[a].recentTotalPoints
+		);
+
 		// Build final result
 		const result = HOUSES.map((house) => ({
 			house,
 			totalPoints: houseStats[house].totalPoints,
+			recentTotalPoints: houseStats[house].recentTotalPoints,
 			studentCount: houseStats[house].studentCount,
 			pointsByCategory: houseStats[house].pointsByCategory,
+			recentPointsByCategory: houseStats[house].recentPointsByCategory,
 			topContributors: houseStats[house].topContributors,
+			topContributorsRecent: houseStats[house].topContributorsRecent,
 			growthOpportunities: houseStats[house].growthOpportunities,
-			rank: ranking.indexOf(house) + 1
+			growthOpportunitiesRecent: houseStats[house].growthOpportunitiesRecent,
+			rank: ranking.indexOf(house) + 1,
+			recentRank: recentRanking.indexOf(house) + 1
 		}));
 
 		return {
 			houses: result,
 			ranking,
+			recentRanking,
 			categories: allCategories
 		};
 	}

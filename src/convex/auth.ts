@@ -8,15 +8,33 @@ import { APIError, createAuthMiddleware } from 'better-auth/api';
 import authConfig from './auth.config';
 import { devGoogleCredentials } from './auth.local';
 
-const isDev =
-	!process.env.NODE_ENV ||
-	process.env.NODE_ENV === 'development' ||
-	process.env.SITE_URL?.includes('localhost') ||
-	process.env.CONVEX_DEPLOYMENT?.includes('local');
-const isTestRuntime = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
-const isProdDeployment = process.env.CONVEX_DEPLOYMENT?.startsWith('prod:') ?? false;
+function normalizeEnvValue(value?: string | null): string | undefined {
+	if (!value) return undefined;
 
-const siteUrl = isDev ? 'http://localhost:5173' : process.env.SITE_URL || 'https://hwis.vercel.app';
+	const trimmed = value.trim();
+	if (
+		(trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+		(trimmed.startsWith("'") && trimmed.endsWith("'"))
+	) {
+		return trimmed.slice(1, -1);
+	}
+
+	return trimmed;
+}
+
+function getEnvValue(key: string): string | undefined {
+	return normalizeEnvValue(process.env[key]);
+}
+
+const isDev =
+	!getEnvValue('NODE_ENV') ||
+	getEnvValue('NODE_ENV') === 'development' ||
+	getEnvValue('SITE_URL')?.includes('localhost') ||
+	getEnvValue('CONVEX_DEPLOYMENT')?.includes('local');
+const isTestRuntime = getEnvValue('NODE_ENV') === 'test' || getEnvValue('VITEST') === 'true';
+const isProdDeployment = getEnvValue('CONVEX_DEPLOYMENT')?.startsWith('prod:') ?? false;
+
+const siteUrl = isDev ? 'http://localhost:5173' : getEnvValue('SITE_URL') || 'https://hwis.vercel.app';
 
 function generateEphemeralSecret(): string {
 	const parts = [
@@ -31,9 +49,9 @@ function generateEphemeralSecret(): string {
 if (typeof window === 'undefined') {
 	// Set environment variables for auth component if not already set
 	const convexUrl =
-		process.env.CONVEX_URL || process.env.PUBLIC_CONVEX_URL || 'http://127.0.0.1:3210';
+		getEnvValue('CONVEX_URL') || getEnvValue('PUBLIC_CONVEX_URL') || 'http://127.0.0.1:3210';
 	const stripSlash = (value: string) => value.replace(/\/$/, '');
-	const appOrigins = [process.env.SITE_URL, 'http://localhost:5173', 'http://127.0.0.1:5173']
+	const appOrigins = [getEnvValue('SITE_URL'), 'http://localhost:5173', 'http://127.0.0.1:5173']
 		.filter(Boolean)
 		.map((value) => stripSlash(value as string));
 	const normalizeConvexSiteUrl = (value?: string) => {
@@ -51,10 +69,10 @@ if (typeof window === 'undefined') {
 		return normalized;
 	};
 	const convexSiteUrl =
-		normalizeConvexSiteUrl(process.env.CONVEX_SITE_URL || process.env.PUBLIC_CONVEX_SITE_URL) ||
+		normalizeConvexSiteUrl(getEnvValue('CONVEX_SITE_URL') || getEnvValue('PUBLIC_CONVEX_SITE_URL')) ||
 		normalizeConvexSiteUrl(convexUrl) ||
 		'http://127.0.0.1:3211';
-	let betterAuthSecret = process.env.BETTER_AUTH_SECRET;
+	let betterAuthSecret = getEnvValue('BETTER_AUTH_SECRET');
 	if (!betterAuthSecret) {
 		betterAuthSecret = generateEphemeralSecret();
 		if (isDev || isTestRuntime) {
@@ -71,10 +89,16 @@ if (typeof window === 'undefined') {
 	process.env.CONVEX_URL = convexUrl;
 	process.env.PUBLIC_CONVEX_SITE_URL = convexSiteUrl;
 	process.env.BETTER_AUTH_SECRET = betterAuthSecret;
+	const googleClientId = getEnvValue('GOOGLE_CLIENT_ID');
+	const googleClientSecret = getEnvValue('GOOGLE_CLIENT_SECRET');
+	if (googleClientId) process.env.GOOGLE_CLIENT_ID = googleClientId;
+	if (googleClientSecret) process.env.GOOGLE_CLIENT_SECRET = googleClientSecret;
+	const trustedOriginsValue = getEnvValue('BETTER_AUTH_TRUSTED_ORIGINS');
+	if (trustedOriginsValue) process.env.BETTER_AUTH_TRUSTED_ORIGINS = trustedOriginsValue;
 }
 
 const trustedOriginsEnv =
-	process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(',').map((o) => o.trim()) || [];
+	getEnvValue('BETTER_AUTH_TRUSTED_ORIGINS')?.split(',').map((o) => o.trim()) || [];
 
 const trustedOrigins = [
 	...(isDev ? ['http://localhost:5173'] : []),
@@ -141,8 +165,12 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 		},
 		socialProviders: {
 			google: {
-				clientId: isDev ? devGoogleCredentials.clientId : process.env.GOOGLE_CLIENT_ID!,
-				clientSecret: isDev ? devGoogleCredentials.clientSecret : process.env.GOOGLE_CLIENT_SECRET!,
+				clientId: isDev
+					? normalizeEnvValue(devGoogleCredentials.clientId) || ''
+					: getEnvValue('GOOGLE_CLIENT_ID')!,
+				clientSecret: isDev
+					? normalizeEnvValue(devGoogleCredentials.clientSecret) || ''
+					: getEnvValue('GOOGLE_CLIENT_SECRET')!,
 				prompt: 'select_account',
 				redirectURI: `${siteUrl}/api/auth/callback/google`
 			}
@@ -196,7 +224,7 @@ export const getAuthenticatedUser = async (
 	ctx: AuthCtx,
 	testToken?: string
 ): Promise<Doc<'users'> | AuthenticatedUserLike | null> => {
-	const configuredTestToken = process.env.E2E_TEST_TOKEN;
+	const configuredTestToken = getEnvValue('E2E_TEST_TOKEN');
 	const allowDefaultTestToken = !isProdDeployment;
 	const isValidTestToken =
 		(configuredTestToken && testToken === configuredTestToken) ||
