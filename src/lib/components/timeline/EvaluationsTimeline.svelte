@@ -17,7 +17,6 @@
 		evaluations: EvaluationEntry[];
 		title?: string;
 		showStudentName?: boolean;
-		showTeacherFilter?: boolean;
 		studentGrade?: number;
 		showTeacherName?: boolean;
 		enableCardClick?: boolean;
