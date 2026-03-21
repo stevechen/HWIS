@@ -1,3 +1,14 @@
+Project guidelines:
+- use bun for the package manager
+- use `bun add` instead of manually editing the pagckage.json when instlaling new packages
+- use modern svelte and sveltekit patterns and primitives
+- avoid `as any` at all costs, try to infer types from functions as much as possible
+- every svelte component should have `lang="ts"`
+= after making changes t convex, run `bun run convex:gen` to generate the new api
+- use the convex service for calling convex queries, actions, and mutations from the backend
+- use tailwindcss for styling whenever possible
+- run `bun run lint` to check for linting errors, `bun run format`, and `bun run heck` to check for errors after making changes.
+
 You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
 
 ## Available MCP Tools:
