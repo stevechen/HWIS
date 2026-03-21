@@ -212,7 +212,14 @@ export const update = mutation({
 			if (duplicate && duplicate._id !== args.id) throw new Error('Student ID already exists');
 		}
 
-		const updateData: Record<string, unknown> = {
+		const updateData: {
+			englishName: string;
+			chineseName: string;
+			studentId: string;
+			classId: Id<'classes'>;
+			status: 'Enrolled' | 'Not Enrolled';
+			note?: string;
+		} = {
 			englishName: args.englishName,
 			chineseName: args.chineseName,
 			studentId: args.studentId,
@@ -300,7 +307,12 @@ export const importFromExcel = mutation({
 				status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
 				note: v.optional(v.string()),
 				house: v.optional(
-					v.union(v.literal('Heracles'), v.literal('Wukong'), v.literal('Ixbalam'), v.literal('Setna'))
+					v.union(
+						v.literal('Heracles'),
+						v.literal('Wukong'),
+						v.literal('Ixbalam'),
+						v.literal('Setna')
+					)
 				)
 			})
 		),
@@ -332,7 +344,7 @@ export const importFromExcel = mutation({
 						classId,
 						status: student.status,
 						note: student.note ?? '',
-							house: student.house
+						house: student.house
 					});
 					results.push({ studentId: student.studentId, success: true, action: 'updated' });
 				} else {
@@ -343,7 +355,7 @@ export const importFromExcel = mutation({
 						classId,
 						status: student.status,
 						note: student.note ?? '',
-							house: student.house
+						house: student.house
 					});
 					results.push({ studentId: student.studentId, success: true, action: 'created' });
 				}
@@ -702,7 +714,7 @@ export const bulkImportWithDuplicateCheck = mutation({
 					classId,
 					status,
 					note: student.note ?? '',
-						house: student.house
+					house: student.house
 				});
 				results.created.push(student.studentId);
 			}
