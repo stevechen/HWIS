@@ -22,10 +22,10 @@
 
 	let {
 		children,
-		data
+		data = {}
 	}: {
 		children: Snippet;
-		data: { authState?: { isAuthenticated: boolean }; demo?: string };
+		data?: { authState?: { isAuthenticated: boolean }; demo?: string };
 	} = $props();
 
 	// Check if we're in demo mode
@@ -155,23 +155,23 @@
 
 <div class="relative min-h-screen">
 	<!-- Background Logo -->
-	<div class="-z-10 fixed inset-0 flex justify-center items-center pointer-events-none">
+	<div class="pointer-events-none fixed inset-0 -z-10 flex items-center justify-center">
 		<img
 			src={logo}
 			alt=""
 			aria-hidden="true"
-			class="opacity-3 w-auto max-w-[70vw] h-auto max-h-[70vh]"
+			class="h-auto max-h-[70vh] w-auto max-w-[70vw] opacity-3"
 			loading="eager"
 			decoding="async"
 		/>
 	</div>
 
-	<div class="flex flex-col min-h-screen">
+	<div class="flex min-h-screen flex-col">
 		{#if shouldShowModal}
-			<div class="z-9999 fixed inset-0 flex justify-center items-center bg-black/80">
-				<div class="bg-background shadow-lg m-4 p-6 border rounded-lg max-w-md text-foreground">
-					<h2 class="mb-4 font-semibold text-lg">Access Restricted</h2>
-					<p class="mb-6 text-muted-foreground">
+			<div class="fixed inset-0 z-9999 flex items-center justify-center bg-black/80">
+				<div class="bg-background text-foreground m-4 max-w-md rounded-lg border p-6 shadow-lg">
+					<h2 class="mb-4 text-lg font-semibold">Access Restricted</h2>
+					<p class="text-muted-foreground mb-6">
 						Your account access has been changed. Please sign in again.
 					</p>
 					<Button variant="default" class="w-full cursor-pointer" onclick={handleReload}
@@ -181,26 +181,26 @@
 			</div>
 		{/if}
 		{#if $page.url.pathname !== '/login' && !shouldShowModal}
-			<div class="top-0 z-1000 sticky bg-primary border-b text-primary-foreground">
-				<div class="flex justify-between items-center gap-3 px-4 h-14">
+			<div class="bg-primary text-primary-foreground sticky top-0 z-1000 border-b">
+				<div class="flex h-14 items-center justify-between gap-3 px-4">
 					<div class="flex items-center gap-3">
 						{#if backLabel}
 							<Button
 								variant="default"
-								class="bg-white hover:bg-gray-100 border text-blue-950"
+								class="border bg-white text-blue-950 hover:bg-gray-100"
 								onclick={handleBack}
 							>
 								<ArrowLeft class="size-4" />
 								<span class="hidden sm:inline">{backLabel}</span>
 							</Button>
 						{/if}
-						<h1 class="font-semibold text-primary-foreground">{headerTitle}</h1>
+						<h1 class="text-primary-foreground font-semibold">{headerTitle}</h1>
 					</div>
 					<div class="flex items-center gap-3">
 						<ThemeToggle />
 						<Button
 							variant="default"
-							class="bg-white hover:bg-gray-100 border text-blue-950"
+							class="border bg-white text-blue-950 hover:bg-gray-100"
 							onclick={signOut}
 							aria-label="Sign out"
 						>

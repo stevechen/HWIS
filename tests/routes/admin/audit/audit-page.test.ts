@@ -54,11 +54,9 @@ describe('Audit Admin Page', () => {
 
 	it('shows empty filtered state and clear filters action', async () => {
 		render(AuditPage);
-		const studentFilter = page.getByRole('textbox', { name: 'Filter by student name' });
+		const studentFilter = page.getByPlaceholder('Student');
 		await studentFilter.fill('does-not-exist');
 		await expect.element(page.getByText('No matching audit logs found.')).toBeInTheDocument();
-		await expect
-			.element(page.getByRole('button', { name: 'Clear all filters' }))
-			.toBeInTheDocument();
+		await expect.element(page.getByText('Clear Filters')).toBeInTheDocument();
 	});
 });

@@ -6,11 +6,13 @@ import { render } from 'vitest-browser-svelte';
 const mockCategories = [
 	{
 		_id: 'cat-001',
-		name: 'Leadership'
+		name: 'Leadership',
+		casAlignment: ['Service']
 	},
 	{
 		_id: 'cat-002',
-		name: 'Academic'
+		name: 'Academic',
+		casAlignment: ['Creativity']
 	}
 ];
 
@@ -50,7 +52,7 @@ describe('Categories Page - Delete Dialogs', () => {
 		it('opens delete confirmation dialog', async () => {
 			render(CategoriesPage);
 			await expect.element(page.getByText('Leadership')).toBeInTheDocument();
-			await page.getByRole('button', { name: 'Delete' }).first().click();
+			await page.getByRole('button', { name: 'Delete' }).nth(0).click();
 			await expect
 				.element(page.getByRole('heading', { name: 'Delete Category' }))
 				.toBeInTheDocument();
@@ -59,7 +61,7 @@ describe('Categories Page - Delete Dialogs', () => {
 		it('shows warning when category has evaluations', async () => {
 			render(CategoriesPage);
 			await expect.element(page.getByText('Leadership')).toBeInTheDocument();
-			await page.getByRole('button', { name: 'Delete' }).first().click();
+			await page.getByRole('button', { name: 'Delete' }).nth(0).click();
 
 			// Should show evaluation count warning
 			await expect.element(page.getByText(/This category has evaluations/)).toBeInTheDocument();
@@ -69,14 +71,14 @@ describe('Categories Page - Delete Dialogs', () => {
 		it('has cancel button in delete dialog', async () => {
 			render(CategoriesPage);
 			await expect.element(page.getByText('Leadership')).toBeInTheDocument();
-			await page.getByRole('button', { name: 'Delete' }).first().click();
+			await page.getByRole('button', { name: 'Delete' }).nth(0).click();
 			await expect.element(page.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
 		});
 
 		it('has confirm delete button in dialog', async () => {
 			render(CategoriesPage);
 			await expect.element(page.getByText('Leadership')).toBeInTheDocument();
-			await page.getByRole('button', { name: 'Delete' }).first().click();
+			await page.getByRole('button', { name: 'Delete' }).nth(0).click();
 			// The confirm button should have "Delete" text (exact match to distinguish from the row button)
 			await expect
 				.element(page.getByRole('dialog').getByRole('button', { name: 'Delete' }))
@@ -88,7 +90,7 @@ describe('Categories Page - Delete Dialogs', () => {
 		it('opens edit category dialog', async () => {
 			render(CategoriesPage);
 			await expect.element(page.getByText('Leadership')).toBeInTheDocument();
-			await page.getByRole('button', { name: 'Edit' }).first().click();
+			await page.getByRole('button', { name: 'Edit' }).nth(0).click();
 			await expect
 				.element(page.getByRole('heading', { name: 'Edit Category' }))
 				.toBeInTheDocument();
@@ -97,7 +99,7 @@ describe('Categories Page - Delete Dialogs', () => {
 		it('pre-fills form with category data', async () => {
 			render(CategoriesPage);
 			await expect.element(page.getByText('Leadership')).toBeInTheDocument();
-			await page.getByRole('button', { name: 'Edit' }).first().click();
+			await page.getByRole('button', { name: 'Edit' }).nth(0).click();
 
 			await expect
 				.element(page.getByRole('textbox', { name: 'Category Name' }))
@@ -144,7 +146,7 @@ describe('Categories Page - Rename Toast', () => {
 		await expect.element(page.getByText('Leadership')).toBeInTheDocument();
 
 		// Open edit dialog
-		await page.getByRole('button', { name: 'Edit' }).first().click();
+		await page.getByRole('button', { name: 'Edit' }).nth(0).click();
 
 		// Change the category name
 		const nameInput = page.getByRole('textbox', { name: 'Category Name' });
@@ -162,7 +164,7 @@ describe('Categories Page - Rename Toast', () => {
 		await expect.element(page.getByText('Leadership')).toBeInTheDocument();
 
 		// Open edit dialog
-		await page.getByRole('button', { name: 'Edit' }).first().click();
+		await page.getByRole('button', { name: 'Edit' }).nth(0).click();
 
 		// Change the category name
 		const nameInput = page.getByRole('textbox', { name: 'Category Name' });
@@ -184,7 +186,7 @@ describe('Categories Page - Rename Toast', () => {
 		await expect.element(page.getByText('Leadership')).toBeInTheDocument();
 
 		// Open edit dialog
-		await page.getByRole('button', { name: 'Edit' }).first().click();
+		await page.getByRole('button', { name: 'Edit' }).nth(0).click();
 
 		// Change the category name
 		const nameInput = page.getByRole('textbox', { name: 'Category Name' });

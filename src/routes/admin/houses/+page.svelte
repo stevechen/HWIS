@@ -14,29 +14,28 @@
 	type House = (typeof HOUSES)[number];
 
 	// House colors for theming
-	const houseColors: Record<House, { bg: string; text: string; lightBg: string }> =
-		{
-			Heracles: {
-				bg: 'bg-red-600',
-				text: 'text-red-700',
-				lightBg: 'bg-red-50'
-			},
-			Wukong: {
-				bg: 'bg-amber-600',
-				text: 'text-amber-700',
-				lightBg: 'bg-amber-50'
-			},
-			Ixbalam: {
-				bg: 'bg-emerald-600',
-				text: 'text-emerald-700',
-				lightBg: 'bg-emerald-50'
-			},
-			Setna: {
-				bg: 'bg-blue-600',
-				text: 'text-blue-700',
-				lightBg: 'bg-blue-50'
-			}
-		};
+	const houseColors: Record<House, { bg: string; text: string; lightBg: string }> = {
+		Heracles: {
+			bg: 'bg-red-600',
+			text: 'text-red-700',
+			lightBg: 'bg-red-50'
+		},
+		Wukong: {
+			bg: 'bg-amber-600',
+			text: 'text-amber-700',
+			lightBg: 'bg-amber-50'
+		},
+		Ixbalam: {
+			bg: 'bg-emerald-600',
+			text: 'text-emerald-700',
+			lightBg: 'bg-emerald-50'
+		},
+		Setna: {
+			bg: 'bg-blue-600',
+			text: 'text-blue-700',
+			lightBg: 'bg-blue-50'
+		}
+	};
 
 	// House logos mapping
 	const houseLogos: Record<House, typeof LogoHeracles> = {
@@ -223,6 +222,9 @@
 	{:else if housesQuery.error}
 		<div class="py-8 text-center text-red-500">Error loading houses</div>
 	{:else}
+		<p class="text-muted-foreground text-sm">
+			Drag and drop students between houses to manage assignments.
+		</p>
 		<!-- Five columns: 4 houses + unassigned -->
 		<div class="houses-board grid grid-cols-1 items-start gap-3 md:grid-cols-5">
 			<!-- Four Houses Grid -->
@@ -295,15 +297,15 @@
 												role="button"
 												aria-label="Drag {student.englishName} to move to another house"
 												tabindex="0"
-												>
-													<GripVertical class="size-3 shrink-0 text-gray-400" />
-													<div class="flex min-w-0 flex-1 flex-col">
-														<span class="truncate font-medium">{student.englishName}</span>
-														{#if !enrolled}
-															<span class="text-muted-foreground text-xs">Not Enrolled</span>
-														{/if}
-													</div>
+											>
+												<GripVertical class="size-3 shrink-0 text-gray-400" />
+												<div class="flex min-w-0 flex-1 flex-col">
+													<span class="truncate font-medium">{student.englishName}</span>
+													{#if !enrolled}
+														<span class="text-muted-foreground text-xs">Not Enrolled</span>
+													{/if}
 												</div>
+											</div>
 										{/each}
 									</div>
 								{/each}
@@ -331,7 +333,9 @@
 				ondrop={handleRemoveFromHouse}
 			>
 				<!-- Unassigned Header -->
-				<div class="house-column__header flex items-center justify-between rounded-t-md bg-gray-400 px-3 py-2">
+				<div
+					class="house-column__header flex items-center justify-between rounded-t-md bg-gray-400 px-3 py-2"
+				>
 					<div class="flex items-center gap-2">
 						<h2 class="text-lg font-bold text-white">Unassigned</h2>
 					</div>

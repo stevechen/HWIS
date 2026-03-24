@@ -66,14 +66,14 @@ describe('Students Page - Edit and Delete Dialogs', () => {
 		it('opens edit student dialog', async () => {
 			render(StudentsPage);
 			await expect.element(page.getByText('John Doe')).toBeInTheDocument();
-			await page.getByRole('button', { name: 'Edit' }).first().click();
+			await page.getByRole('button', { name: 'Edit S12345' }).click();
 			await expect.element(page.getByRole('heading', { name: 'Edit Student' })).toBeInTheDocument();
 		});
 
 		it('pre-fills form with student data', async () => {
 			render(StudentsPage);
 			await expect.element(page.getByText('John Doe')).toBeInTheDocument();
-			await page.getByRole('button', { name: 'Edit' }).first().click();
+			await page.getByRole('button', { name: 'Edit S12345' }).click();
 			await expect
 				.element(page.getByRole('textbox', { name: 'Student ID' }))
 				.toHaveValue(mockStudent.studentId);
@@ -90,7 +90,7 @@ describe('Students Page - Edit and Delete Dialogs', () => {
 		it('opens delete confirmation dialog', async () => {
 			render(StudentsPage);
 			await expect.element(page.getByText('John Doe')).toBeInTheDocument();
-			await page.getByRole('button', { name: 'Delete' }).first().click();
+			await page.getByRole('button', { name: 'Delete S12345' }).click();
 			await expect
 				.element(page.getByRole('heading', { name: 'Delete Student' }))
 				.toBeInTheDocument();
@@ -99,7 +99,7 @@ describe('Students Page - Edit and Delete Dialogs', () => {
 		it('shows delete button for student without evaluations', async () => {
 			render(StudentsPage);
 			await expect.element(page.getByText('John Doe')).toBeInTheDocument();
-			await page.getByRole('button', { name: 'Delete' }).first().click();
+			await page.getByRole('button', { name: 'Delete S12345' }).click();
 			await expect
 				.element(page.getByRole('button', { name: 'Delete', exact: true }))
 				.toBeInTheDocument();
