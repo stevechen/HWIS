@@ -44,6 +44,7 @@
 		performerName: string;
 		studentName: string | null;
 		studentGrade: number | null;
+		studentGradeDisplay: string | null;
 		studentId: string | null;
 		targetId: string | null;
 		actionLabel: string;
@@ -59,7 +60,7 @@
 		{ key: 'timestamp', label: 'Time', sortable: true, defaultVisible: true, optional: true },
 		{ key: 'studentId', label: 'ID', sortable: true, defaultVisible: false, optional: true },
 		{ key: 'studentName', label: 'Student', sortable: true, defaultVisible: true, optional: false },
-		{ key: 'studentGrade', label: 'Grade', sortable: true, defaultVisible: true, optional: true },
+		{ key: 'studentGrade', label: 'Grade', sortable: true, defaultVisible: false, optional: true },
 		{ key: 'action', label: 'Type', sortable: true, defaultVisible: true, optional: false },
 		{ key: 'performerId', label: 'Teacher', sortable: true, defaultVisible: true, optional: false },
 		{ key: 'category', label: 'Category', sortable: false, defaultVisible: true, optional: true },
@@ -90,9 +91,6 @@
 	// Default to true during SSR to prevent hydration mismatch
 	const isStudentIdVisible = $derived(
 		!columnsLoaded || columns.some((col) => col.key === 'studentId')
-	);
-	const isStudentGradeVisible = $derived(
-		!columnsLoaded || columns.some((col) => col.key === 'studentGrade')
 	);
 
 	// Load saved columns only on client - runs once after hydration
@@ -204,6 +202,11 @@
 		if (action.includes('delete') || action.includes('deactivate')) return 'destructive';
 		if (action.includes('create') || action.includes('update')) return 'default';
 		return 'secondary';
+	}
+
+	function displayStudentName(studentName: string | null) {
+		if (!studentName) return '-';
+		return studentName.replace(/\s*\([^)]*\)\s*$/, '');
 	}
 
 	function clearFilters() {
@@ -354,8 +357,8 @@
 	}
 </script>
 
-<div class="mx-auto py-8 max-w-[1400px] container">
-	<div class="flex justify-end items-center gap-2 mb-6">
+<div class="container mx-auto max-w-[1400px] py-8">
+	<div class="mb-6 flex items-center justify-end gap-2">
 		{#if !isDefaultOrder()}
 			<Button variant="outline" onclick={resetColumnOrder} class="mr-2" aria-label="Reset Columns">
 				<GripVertical class="mr-2 size-4" />
@@ -369,20 +372,20 @@
 					Columns
 				</Button>
 			</Popover.Trigger>
-			<Popover.Content class="p-0 w-56" align="end">
-				<div class="flex items-center px-3 py-2 border-b">
-					<span class="font-medium text-sm">Show Columns</span>
+			<Popover.Content class="w-56 p-0" align="end">
+				<div class="flex items-center border-b px-3 py-2">
+					<span class="text-sm font-medium">Show Columns</span>
 				</div>
-				<div class="py-1 max-h-72 overflow-y-auto" role="menu" aria-label="Available columns">
+				<div class="max-h-72 overflow-y-auto py-1" role="menu" aria-label="Available columns">
 					{#each allAvailableColumns.filter((c) => c.optional) as column (column.key)}
 						<label
-							class="flex items-center gap-2 hover:bg-accent px-3 py-1.5 text-sm cursor-pointer"
+							class="hover:bg-accent flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm"
 						>
 							<input
 								type="checkbox"
 								checked={isColumnVisible(column.key)}
 								onchange={() => toggleColumn(column.key)}
-								class="border-gray-300 rounded size-4"
+								class="size-4 rounded border-gray-300"
 							/>
 							<span>{column.label}</span>
 						</label>
@@ -395,42 +398,41 @@
 	<div class="mb-6">
 		<div class="flex flex-wrap items-center gap-2">
 			{#if isStudentIdVisible}
-				<div class="relative md:flex items-center h-9">
-					<Search class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
+				<div class="relative h-9 items-center md:flex">
+					<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 					<Input.Root
-						class="pl-10 w-28"
+						class="w-28 pl-10"
 						placeholder="ID"
 						bind:value={filterId}
 						aria-label="Filter by ID"
 					/>
 				</div>
 			{/if}
-			<div class="relative flex items-center h-9">
-				<Search class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
+			<div class="relative flex h-9 items-center">
+				<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 				<Input.Root
-					class="pl-10 w-48"
+					class="w-48 pl-10"
 					placeholder="Student"
 					bind:value={filterName}
 					aria-label="Filter by student name"
 				/>
 			</div>
-			{#if isStudentGradeVisible}
-				<Select.Root type="single" value={filterGrade} onValueChange={(val) => (filterGrade = val)}>
-					<Select.Trigger class="w-24">
-						{filterGrade ? `G${filterGrade}` : 'Grade'}
-					</Select.Trigger>
-					<Select.Content>
-						<Select.Item value="9">G9</Select.Item>
-						<Select.Item value="10">G10</Select.Item>
-						<Select.Item value="11">G11</Select.Item>
-						<Select.Item value="12">G12</Select.Item>
-					</Select.Content>
-				</Select.Root>
-			{/if}
-			<div class="relative flex items-center h-9">
-				<Search class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
+			<Select.Root type="single" value={filterGrade} onValueChange={(val) => (filterGrade = val)}>
+				<Select.Trigger class="w-24">
+					{filterGrade ? `G${filterGrade}` : 'Grade'}
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="">All</Select.Item>
+					<Select.Item value="9">G9</Select.Item>
+					<Select.Item value="10">G10</Select.Item>
+					<Select.Item value="11">G11</Select.Item>
+					<Select.Item value="12">G12</Select.Item>
+				</Select.Content>
+			</Select.Root>
+			<div class="relative flex h-9 items-center">
+				<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 				<Input.Root
-					class="pl-10 w-48"
+					class="w-48 pl-10"
 					placeholder="Teacher"
 					bind:value={filterTeacher}
 					aria-label="Filter by teacher name"
@@ -445,16 +447,16 @@
 		</div>
 	</div>
 
-	<div class="bg-card shadow-sm border rounded-lg">
+	<div class="bg-card rounded-lg border shadow-sm">
 		{#if auditLogs.isLoading}
-			<div class="flex flex-col justify-center items-center gap-4 p-16 text-muted-foreground">
-				<div class="border-3 border-muted border-t-primary rounded-full w-8 h-8 animate-spin"></div>
+			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
+				<div class="border-muted border-t-primary h-8 w-8 animate-spin rounded-full border-3"></div>
 				<p>Loading audit logs...</p>
 			</div>
 		{:else if auditLogs.data && auditLogs.data.length > 0}
 			{#if getSortedLogs().length === 0}
-				<div class="flex flex-col justify-center items-center gap-4 p-16 text-muted-foreground">
-					<FileText class="opacity-50 w-8 h-8" />
+				<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
+					<FileText class="h-8 w-8 opacity-50" />
 					<p>No matching audit logs found.</p>
 				</div>
 			{:else}
@@ -462,91 +464,88 @@
 					<Table.Root aria-label="Audit log table">
 						<Table.Header>
 							<Table.Row>
-								{#each allAvailableColumns as column (column.key)}
-									{@const isVisible = columns.some((c) => c.key === column.key)}
-									{#if isVisible}
-										<Table.Head
-											class="hover:bg-muted/50 cursor-pointer select-none {column.key ===
-											'studentGrade'
-												? 'text-center'
-												: ''} {getColumnWidthClass(column.key)} {getHiddenClass(
-												column.key
-											)} bg-muted/30 border-b-2 font-semibold"
-											draggable="true"
-											ondragstart={(e) => handleDragStart(column.key, e)}
-											ondragend={handleDragEnd}
-											ondragover={handleDragOver}
-											ondragenter={(e) => handleDragEnter(column.key, e)}
-											ondrop={(e) => handleDrop(column.key, e)}
-											onclick={() => column.sortable && handleSort(column.key)}
+								{#each columns as column (column.key)}
+									<Table.Head
+										class="hover:bg-muted/50 cursor-pointer select-none {column.key ===
+										'studentGrade'
+											? 'text-center'
+											: ''} {getColumnWidthClass(column.key)} {getHiddenClass(
+											column.key
+										)} bg-muted/30 border-b-2 font-semibold"
+										draggable="true"
+										ondragstart={(e) => handleDragStart(column.key, e)}
+										ondragend={handleDragEnd}
+										ondragover={handleDragOver}
+										ondragenter={(e) => handleDragEnter(column.key, e)}
+										ondrop={(e) => handleDrop(column.key, e)}
+										onclick={() => column.sortable && handleSort(column.key)}
+									>
+										<div
+											class="flex items-center gap-2 {column.key === 'studentGrade'
+												? 'justify-center'
+												: ''}"
 										>
-											<div
-												class="flex items-center gap-2 {column.key === 'studentGrade'
-													? 'justify-center'
-													: ''}"
-											>
-												<GripVertical class="size-4 text-muted-foreground cursor-move" />
-												<span>{column.label}</span>
-												{#if column.sortable}
-													{#if sortBy === column.key}
-														<ChevronsUpDown class="size-4" />
-													{:else}
-														<ChevronsUpDown class="invisible size-4" />
-													{/if}
+											<GripVertical class="text-muted-foreground size-4 cursor-move" />
+											<span>{column.label}</span>
+											{#if column.sortable}
+												{#if sortBy === column.key}
+													<ChevronsUpDown class="size-4" />
+												{:else}
+													<ChevronsUpDown class="invisible size-4" />
 												{/if}
-											</div>
-										</Table.Head>
-									{/if}
+											{/if}
+										</div>
+									</Table.Head>
 								{/each}
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
 							{#each getSortedLogs() as log (log._id)}
 								<Table.Row class="hover:bg-muted/50">
-									{#each allAvailableColumns as column (column.key)}
-										{@const isVisible = columns.some((c) => c.key === column.key)}
-										{#if isVisible}
-											<Table.Cell
-												class="{column.key === 'studentGrade'
-													? 'text-center'
-													: ''} {getColumnWidthClass(column.key)} {getCellHiddenClass(column.key)}"
-											>
-												{#if column.key === 'timestamp'}
-													{formatTimestamp(log.timestamp)}
-												{:else if column.key === 'studentId'}
-													{log.studentId || '-'}
-												{:else if column.key === 'studentName'}
-													<div class="flex items-center gap-2">
-														{#if log.studentGrade !== null}
-															<Badge variant="outline" class="text-muted-foreground">
-																G{log.studentGrade}
-															</Badge>
-														{/if}
-														<span class="font-medium">{log.studentName || '-'}</span>
-													</div>
-												{:else if column.key === 'studentGrade'}
-													{log.studentGrade !== null ? `G${log.studentGrade}` : '-'}
-												{:else if column.key === 'action'}
-													<Badge variant={getActionVariant(log.action)}>
-														{log.actionLabel || log.action}
-													</Badge>
-												{:else if column.key === 'performerId'}
-													<div class="flex items-center gap-2">
-														<span>{log.performerName || '-'}</span>
-													</div>
-												{:else if column.key === 'category'}
-													{log.category || '-'}
-												{:else if column.key === 'points'}
-													{log.points !== null ? log.points : '-'}
-												{:else if column.key === 'details'}
-													<span class="line-clamp-1" title={log.details || ''}>
-														{log.details || '-'}
-													</span>
-												{:else}
-													-
-												{/if}
-											</Table.Cell>
-										{/if}
+									{#each columns as column (column.key)}
+										<Table.Cell
+											class="{column.key === 'studentGrade'
+												? 'text-center'
+												: ''} {getColumnWidthClass(column.key)} {getCellHiddenClass(column.key)}"
+										>
+											{#if column.key === 'timestamp'}
+												{formatTimestamp(log.timestamp)}
+											{:else if column.key === 'studentId'}
+												{log.studentId || '-'}
+											{:else if column.key === 'studentName'}
+												<div class="flex items-center gap-2">
+													{#if log.studentGradeDisplay}
+														<Badge
+															variant="outline"
+															class="text-muted-foreground inline-flex w-14 justify-center"
+														>
+															{log.studentGradeDisplay}
+														</Badge>
+													{/if}
+													<span class="font-medium">{displayStudentName(log.studentName)}</span>
+												</div>
+											{:else if column.key === 'studentGrade'}
+												{log.studentGradeDisplay ?? '-'}
+											{:else if column.key === 'action'}
+												<Badge variant={getActionVariant(log.action)}>
+													{log.actionLabel || log.action}
+												</Badge>
+											{:else if column.key === 'performerId'}
+												<div class="flex items-center gap-2">
+													<span>{log.performerName || '-'}</span>
+												</div>
+											{:else if column.key === 'category'}
+												{log.category || '-'}
+											{:else if column.key === 'points'}
+												{log.points !== null ? log.points : '-'}
+											{:else if column.key === 'details'}
+												<span class="line-clamp-1" title={log.details || ''}>
+													{log.details || '-'}
+												</span>
+											{:else}
+												-
+											{/if}
+										</Table.Cell>
 									{/each}
 								</Table.Row>
 							{/each}
@@ -555,8 +554,8 @@
 				</div>
 			{/if}
 		{:else}
-			<div class="flex flex-col justify-center items-center gap-4 p-16 text-muted-foreground">
-				<FileText class="opacity-50 w-8 h-8" />
+			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
+				<FileText class="h-8 w-8 opacity-50" />
 				<p>No audit logs found.</p>
 			</div>
 		{/if}

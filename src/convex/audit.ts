@@ -1,4 +1,4 @@
-import { query, mutation } from './_generated/server';
+import { query, mutation, type QueryCtx } from './_generated/server';
 import { v } from 'convex/values';
 import { requireAdminRole, getAuthenticatedUser } from './auth';
 import type { Id } from './_generated/dataModel';
@@ -23,7 +23,7 @@ interface Student {
 	englishName: string;
 	chineseName: string;
 	studentId: string;
-	grade: number;
+	classId: Id<'classes'> | null;
 }
 
 interface Evaluation {
@@ -38,6 +38,85 @@ type AuthUserForAudit = {
 	email?: string;
 	authId?: string;
 };
+
+type StudentDisplayInfo = {
+	studentName: string | null;
+	studentGrade: number | null;
+	studentGradeDisplay: string | null;
+	studentId: string | null;
+};
+
+function formatStudentName(student: Pick<Student, 'englishName' | 'chineseName'>) {
+	return student.englishName || null;
+}
+
+async function getStudentDisplayInfo(ctx: QueryCtx, student: Student): Promise<StudentDisplayInfo> {
+	let studentGrade: number | null = null;
+	let studentGradeDisplay: string | null = null;
+
+	if (student.classId) {
+		try {
+			const classRecord = await ctx.db.get(student.classId);
+			if (classRecord) {
+				const className = classRecord.class;
+				studentGrade = classRecord.grade;
+				if (studentGrade !== null && studentGrade !== undefined) {
+					studentGradeDisplay =
+						className === 'IB' ? `${studentGrade}-IB` : `${studentGrade}-${className}`;
+				}
+			}
+		} catch (error) {
+			console.warn('Failed to fetch class info for student:', student._id, error);
+		}
+
+		if (studentGradeDisplay === null) {
+			studentGradeDisplay = 'unknown';
+		}
+	} else {
+		studentGradeDisplay = 'no class';
+	}
+
+	return {
+		studentName: formatStudentName(student),
+		studentGrade,
+		studentGradeDisplay,
+		studentId: student.studentId
+	};
+}
+
+async function findStudentByReference(
+	ctx: QueryCtx,
+	studentRef: string | null | undefined
+): Promise<Student | null> {
+	if (!studentRef) {
+		return null;
+	}
+
+	try {
+		return (await ctx.db.get(studentRef as Id<'students'>)) as Student | null;
+	} catch {
+		return (await ctx.db
+			.query('students')
+			.filter((q) => q.eq(q.field('studentId'), studentRef))
+			.first()) as Student | null;
+	}
+}
+
+function getAuditActionDetails(log: {
+	action: string;
+	oldValue?: { role?: string; status?: string } | null;
+	newValue?: { role?: string; status?: string } | null;
+}) {
+	if (log.action === 'update_user_role') {
+		return `${log.oldValue?.role} → ${log.newValue?.role}`;
+	}
+
+	if (log.action === 'update_user_status') {
+		return `${log.oldValue?.status} → ${log.newValue?.status}`;
+	}
+
+	return null;
+}
 
 export const list = query({
 	args: {
@@ -76,6 +155,7 @@ export const list = query({
 				actionLabel: string;
 				studentName: string | null;
 				studentGrade: number | null;
+				studentGradeDisplay: string | null;
 				studentId: string | null;
 				details: string | null;
 				category: string | null;
@@ -86,6 +166,7 @@ export const list = query({
 			const performer = await ctx.db.get(log.performerId);
 			let studentName: string | null = null;
 			let studentGrade: number | null = null;
+			let studentGradeDisplay: string | null = null;
 			let studentId: string | null = null;
 			let details: string | null = null;
 			let category: string | null = null;
@@ -95,24 +176,13 @@ export const list = query({
 				const evalStudentId = log.newValue?.studentId || log.oldValue?.studentId;
 				if (evalStudentId) {
 					studentId = evalStudentId.toString();
-					// Try to look up by Convex ID first, then by studentId string
-					let student = null;
-					try {
-						student = (await ctx.db.get(evalStudentId as Id<'students'>)) as Student | null;
-					} catch {
-						// If not a valid Convex ID, look up by studentId string
-						student = (await ctx.db
-							.query('students')
-							.filter((q) => q.eq(q.field('studentId'), evalStudentId))
-							.first()) as Student | null;
-					}
+					const student = await findStudentByReference(ctx, evalStudentId.toString());
 					if (student) {
-						studentName = `${student.englishName} (${student.chineseName})`;
-						studentGrade = student.grade;
-						studentId = student.studentId;
+						({ studentName, studentGrade, studentGradeDisplay, studentId } =
+							await getStudentDisplayInfo(ctx, student));
 					}
 				}
-				if (log.targetId && !log.targetId.startsWith && log.targetId.length > 5) {
+				if (log.targetId && log.targetId.length > 5) {
 					// Only try to get evaluation if it's a valid-looking Convex ID
 					const evaluation = (await ctx.db.get(
 						log.targetId as Id<'evaluations'>
@@ -129,12 +199,26 @@ export const list = query({
 				}
 			}
 
-			if (log.action === 'update_user_role') {
-				details = `${log.oldValue?.role} → ${log.newValue?.role}`;
+			// Handle student information from direct student-related audit logs
+			if (log.targetTable === 'students') {
+				// For student create/update/delete actions, student info is in newValue/oldValue
+				const studentData = log.newValue || log.oldValue;
+				if (studentData && typeof studentData === 'object') {
+					const studentIdFromData = studentData.studentId?.toString();
+					const completeStudent = await findStudentByReference(ctx, studentIdFromData);
+
+					// Use complete student record if we got it, otherwise fall back to raw data
+					const student = completeStudent || (studentData as Student);
+
+					// Extract student information
+					if (student) {
+						({ studentName, studentGrade, studentGradeDisplay, studentId } =
+							await getStudentDisplayInfo(ctx, student));
+					}
+				}
 			}
-			if (log.action === 'update_user_status') {
-				details = `${log.oldValue?.status} → ${log.newValue?.status}`;
-			}
+
+			details = getAuditActionDetails(log) ?? details;
 
 			// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const { performerId: _performerId, ...logWithoutPerformer } = log;
@@ -145,6 +229,7 @@ export const list = query({
 				actionLabel: getAuditActionLabel(log.action),
 				studentName,
 				studentGrade,
+				studentGradeDisplay,
 				studentId,
 				details,
 				category,
