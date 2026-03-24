@@ -162,26 +162,22 @@ test.describe('Edit Student - Data Tests', () => {
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
 		await expect(page.getByText('Loading students...')).not.toBeVisible();
-		// Wait for the created student to appear in the list
-		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
+		const searchInput = page.getByRole('textbox', { name: 'Search students' });
+		await searchInput.fill(studentId);
+		await expect(page.getByText('Loading students...')).not.toBeVisible();
+		await expect(studentRow(page, studentId)).toBeVisible({ timeout: 15000 });
 	});
 
 	test('can update student status', async ({ page }) => {
-		// Search for the student to filter the list
-		await page.getByRole('textbox', { name: 'Search students' }).fill(englishName);
+		const row = studentRow(page, studentId);
+		const statusToggle = row.getByRole('button', { name: `Toggle ${studentId} status` });
 
 		// Edit status through the toggle
-		await page.getByRole('button', { name: `Toggle ${studentId} status` }).click();
-		await expect(page.getByRole('button', { name: `Toggle ${studentId} status` })).toHaveText(
-			'Not Enrolled'
-		);
+		await statusToggle.click();
+		await expect(statusToggle).toContainText('Not Enrolled');
 
-		// Find and click edit button for this student - look for Pencil icon button
-		const studentRow = page.getByRole('row', { name: englishName });
-		const editButton = studentRow
-			.getByRole('button')
-			.filter({ has: page.locator('svg') })
-			.first();
+		// Find and click edit button for this student
+		const editButton = row.getByRole('button', { name: `Edit ${studentId}` });
 		await editButton.click();
 
 		// Wait for dialog and change status
@@ -198,23 +194,16 @@ test.describe('Edit Student - Data Tests', () => {
 
 		// Wait for dialog to close and Convex to update
 		await expect(dialog).not.toBeVisible();
-
-		// Clear search filter to see all students
-		await page.getByRole('textbox', { name: 'Search students' }).fill('');
-
-		// Clear status filter to ensure all students are visible
-		const statusFilter = page.getByLabel('Filter by status');
-		if (await statusFilter.isVisible()) {
-			await statusFilter.selectOption('');
-		}
-
-		// Verify the specific student's status was updated to "Enrolled"
-		// The test is specific because we created a unique student and verify their status
-		const updatedStudentRow = page.getByRole('row', { name: englishName });
-		await expect(updatedStudentRow).toBeVisible();
-		await expect(updatedStudentRow.getByText('Enrolled')).toBeVisible();
+		await expect(row).toBeVisible();
+		await expect(row.getByText('Enrolled')).toBeVisible();
 	});
 });
+
+function studentRow(page: import('@playwright/test').Page, studentId: string) {
+	return page.getByRole('row').filter({
+		has: page.getByRole('cell', { name: studentId, exact: true })
+	});
+}
 
 // ============================================================================
 // DELETE STUDENT TESTS

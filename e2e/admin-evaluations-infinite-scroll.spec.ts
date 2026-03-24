@@ -155,8 +155,15 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 		// Wait for initial load
 		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
 
-		// Get the evaluation buttons
+		// Scope the list to this test's own records so seeded data cannot dominate the view.
+		const studentFilterInput = page.getByPlaceholder('Filter by student name...');
+		await studentFilterInput.fill(suffix);
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await expect(page.getByText(/Error loading evaluations/)).toBeHidden();
+
+		// Get the evaluation buttons for this test dataset only
 		const evaluationButtons = page.getByRole('button', { name: /Evaluation for ScrollStudent_/ });
+		await expect(evaluationButtons.first()).toBeVisible();
 
 		// Verify sort button shows "newest first" initially (default sort)
 		const sortButton = page.getByRole('button', { name: /newest first/i });
@@ -166,7 +173,8 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 		await sortButton.click();
 
 		// Wait for the sort to apply
-		await page.waitForTimeout(500);
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await expect(page.getByText(/Error loading evaluations/)).toBeHidden();
 
 		// Verify the sort button text changed to "oldest first"
 		await expect(page.getByRole('button', { name: /oldest first/i })).toBeVisible();
@@ -179,10 +187,12 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 		await oldestButton.click();
 
 		// Wait for the sort to apply
-		await page.waitForTimeout(500);
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await expect(page.getByText(/Error loading evaluations/)).toBeHidden();
 
 		// Verify we're back to "newest first"
 		await expect(page.getByRole('button', { name: /newest first/i })).toBeVisible();
+		await expect(evaluationButtons.first()).toBeVisible();
 	});
 
 	test('teacher filter works correctly', async ({ page }) => {
@@ -266,6 +276,12 @@ test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small @sequent
 
 	test('shows "No more evaluations" immediately for small datasets', async ({ page }) => {
 		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+
+		// Filter to this test's single record so the assertion is independent of seeded data.
+		const studentFilterInput = page.getByPlaceholder('Filter by student name...');
+		await studentFilterInput.fill(suffix);
+		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await expect(page.getByText(/Error loading evaluations/)).toBeHidden();
 
 		// Scroll to bottom
 		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));

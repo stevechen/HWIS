@@ -104,16 +104,31 @@ export const setupTestUsers = mutation({
 		const teacherSessionToken = `test_teacher_session_${Date.now()}`;
 		const adminSessionToken = `test_admin_session_${Date.now()}`;
 		const superSessionToken = `test_super_session_${Date.now()}`;
-		const expiresAt = now + 24 * 60 * 60 * 1000;
+		const expiresAt = new Date(now + 24 * 60 * 60 * 1000);
+
+		await adapter.deleteMany({
+			model: 'session',
+			where: [{ field: 'userId', value: teacherUser.id }]
+		});
+		await adapter.deleteMany({
+			model: 'session',
+			where: [{ field: 'userId', value: adminUser.id }]
+		});
+		await adapter.deleteMany({
+			model: 'session',
+			where: [{ field: 'userId', value: superUser.id }]
+		});
 
 		await adapter.create({
 			model: 'session',
 			data: {
 				userId: teacherUser.id,
 				token: teacherSessionToken,
+				ipAddress: '127.0.0.1',
+				userAgent: 'Playwright E2E',
 				expiresAt,
-				createdAt: now,
-				updatedAt: now
+				createdAt: new Date(now),
+				updatedAt: new Date(now)
 			}
 		});
 
@@ -122,9 +137,11 @@ export const setupTestUsers = mutation({
 			data: {
 				userId: adminUser.id,
 				token: adminSessionToken,
+				ipAddress: '127.0.0.1',
+				userAgent: 'Playwright E2E',
 				expiresAt,
-				createdAt: now,
-				updatedAt: now
+				createdAt: new Date(now),
+				updatedAt: new Date(now)
 			}
 		});
 
@@ -133,9 +150,11 @@ export const setupTestUsers = mutation({
 			data: {
 				userId: superUser.id,
 				token: superSessionToken,
+				ipAddress: '127.0.0.1',
+				userAgent: 'Playwright E2E',
 				expiresAt,
-				createdAt: now,
-				updatedAt: now
+				createdAt: new Date(now),
+				updatedAt: new Date(now)
 			}
 		});
 
@@ -146,7 +165,7 @@ export const setupTestUsers = mutation({
 			teacherSessionToken,
 			adminSessionToken,
 			superSessionToken,
-			expiresAt
+			expiresAt: expiresAt.getTime()
 		};
 	}
 });

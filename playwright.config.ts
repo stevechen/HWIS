@@ -4,6 +4,7 @@ import path from 'path';
 
 const hasSuperAuth = fs.existsSync(path.join(process.cwd(), 'e2e/.auth/super.json'));
 const runCrossBrowser = process.env.E2E_CROSS_BROWSER === '1';
+const isCI = !!process.env.CI;
 
 const projects: PlaywrightTestConfig['projects'] = [];
 
@@ -131,15 +132,17 @@ projects.push({
 const config: PlaywrightTestConfig = {
 	testDir: 'e2e',
 	fullyParallel: true,
-	forbidOnly: !!process.env.CI,
-	retries: process.env.CI ? 2 : 1,
+	forbidOnly: isCI,
+	retries: isCI ? 2 : 1,
 	reporter: 'html',
-	webServer: {
-		command: 'bash scripts/start-dev-servers.sh',
-		url: 'http://localhost:5173',
-		reuseExistingServer: !process.env.CI,
-		timeout: 120000
-	},
+	webServer: isCI
+		? {
+				command: 'bash scripts/start-dev-servers.sh',
+				url: 'http://localhost:5173',
+				reuseExistingServer: false,
+				timeout: 120000
+			}
+		: undefined,
 	use: {
 		baseURL: 'http://localhost:5173',
 		trace: 'on-first-retry'

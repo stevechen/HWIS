@@ -17,8 +17,8 @@ VITE_PID=""
 # Force local Convex for Playwright runs (avoid cloud + offline issues)
 LOCAL_CONVEX_URL="${CONVEX_URL:-http://127.0.0.1:3210}"
 export CONVEX_URL="$LOCAL_CONVEX_URL"
-export PUBLIC_CONVEX_URL="$LOCAL_CONVEX_URL"
-unset CONVEX_DEPLOYMENT
+export PUBLIC_CONVEX_URL="${PUBLIC_CONVEX_URL:-$LOCAL_CONVEX_URL}"
+export CONVEX_DEPLOYMENT="${CONVEX_DEPLOYMENT:-local:local-steve_stevechen-hwis_31a3d-3}"
 unset CONVEX_AUTH_TOKEN
 
 # Cleanup function to kill background processes
@@ -44,8 +44,8 @@ if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:321
 else
     echo -e "${GREEN}Starting Convex dev server...${NC}"
 
-    # Start Convex in background and capture output
-    CI=1 bunx convex dev --tail-logs --local &
+    # Start the configured local Convex deployment in background.
+    CI=1 bunx convex dev --tail-logs --typecheck=disable &
     CONvex_PID=$!
 fi
 

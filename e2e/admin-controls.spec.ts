@@ -40,7 +40,11 @@ test.describe('Admin Controls Visibility @admin', () => {
 
 	test('admin can access student management controls for a student row', async ({ page }) => {
 		await page.getByPlaceholder('Search by name or student ID...').fill(studentId);
-		await expect(page.getByRole('row', { name: studentId })).toBeVisible();
+		await expect(page.getByText(studentId, { exact: true })).toBeVisible({ timeout: 15000 });
+		const studentRow = page.getByRole('row').filter({
+			has: page.getByText(studentId, { exact: true })
+		});
+		await expect(studentRow).toBeVisible();
 		await expect(page.getByRole('button', { name: `Edit ${studentId}` })).toBeVisible();
 		await expect(page.getByRole('button', { name: `Delete ${studentId}` })).toBeVisible();
 		await expect(page.getByRole('button', { name: `Toggle ${studentId} status` })).toBeVisible();

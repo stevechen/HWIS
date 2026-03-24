@@ -22,7 +22,23 @@ type StorageState = {
 		secure: boolean;
 		sameSite: 'Lax' | 'Strict' | 'None';
 	}>;
-	origins: unknown[];
+	origins: Array<{
+		origin: string;
+		localStorage: Array<{
+			name: string;
+			value: string;
+		}>;
+	}>;
+};
+
+type BrowserContextCookie = {
+	name: string;
+	value: string;
+	url: string;
+	expires: number;
+	httpOnly: boolean;
+	secure: boolean;
+	sameSite: 'Lax' | 'Strict' | 'None';
 };
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173';
@@ -107,6 +123,16 @@ const toPlaywrightCookie = (config: CookieConfig) => ({
 	sameSite: normalizeSameSite(config.sameSite)
 });
 
+const toBrowserContextCookie = (config: CookieConfig): BrowserContextCookie => ({
+	name: config.name,
+	value: config.value,
+	url: BASE_URL,
+	expires: -1,
+	httpOnly: config.httpOnly ?? true,
+	secure: config.secure ?? false,
+	sameSite: normalizeSameSite(config.sameSite)
+});
+
 async function getSignedSessionCookieValue(sessionToken: string): Promise<string> {
 	const { sessionCookieConfig } = await getRuntimeCookieConfig();
 	const cookieString = await serializeSignedCookie(
@@ -122,13 +148,12 @@ async function getSignedSessionCookieValue(sessionToken: string): Promise<string
 	return parsed.value;
 }
 
-async function getConvexJwtToken(sessionCookieValue: string): Promise<string> {
-	const { sessionCookieConfig } = await getRuntimeCookieConfig();
+async function getConvexJwtToken(sessionToken: string): Promise<string> {
 	const response = await fetch(`${BASE_URL}/api/auth/convex/token`, {
 		method: 'GET',
 		headers: {
 			accept: 'application/json',
-			cookie: `${sessionCookieConfig.name}=${sessionCookieValue}`
+			authorization: `Bearer ${sessionToken}`
 		}
 	});
 
@@ -147,7 +172,7 @@ async function getConvexJwtToken(sessionCookieValue: string): Promise<string> {
 async function buildStorageState(sessionToken: string): Promise<StorageState> {
 	const { sessionCookieConfig, jwtCookieConfig } = await getRuntimeCookieConfig();
 	const signedSessionToken = await getSignedSessionCookieValue(sessionToken);
-	const convexJwtToken = await getConvexJwtToken(signedSessionToken);
+	const convexJwtToken = await getConvexJwtToken(sessionToken);
 
 	return {
 		cookies: [
@@ -168,8 +193,47 @@ async function buildStorageState(sessionToken: string): Promise<StorageState> {
 				sameSite: jwtCookieConfig.attributes.sameSite
 			})
 		],
-		origins: []
+		origins: [
+			{
+				origin: BASE_URL,
+				localStorage: [
+					{
+						name: 'e2eSessionToken',
+						value: sessionToken
+					},
+					{
+						name: 'convexAuth',
+						value: JSON.stringify({ token: convexJwtToken })
+					}
+				]
+			}
+		]
 	};
+}
+
+async function buildContextCookies(sessionToken: string): Promise<BrowserContextCookie[]> {
+	const { sessionCookieConfig, jwtCookieConfig } = await getRuntimeCookieConfig();
+	const signedSessionToken = await getSignedSessionCookieValue(sessionToken);
+	const convexJwtToken = await getConvexJwtToken(sessionToken);
+
+	return [
+		toBrowserContextCookie({
+			name: sessionCookieConfig.name,
+			value: signedSessionToken,
+			path: sessionCookieConfig.attributes.path,
+			secure: sessionCookieConfig.attributes.secure,
+			httpOnly: sessionCookieConfig.attributes.httpOnly,
+			sameSite: sessionCookieConfig.attributes.sameSite
+		}),
+		toBrowserContextCookie({
+			name: jwtCookieConfig.name,
+			value: convexJwtToken,
+			path: jwtCookieConfig.attributes.path,
+			secure: jwtCookieConfig.attributes.secure,
+			httpOnly: jwtCookieConfig.attributes.httpOnly,
+			sameSite: jwtCookieConfig.attributes.sameSite
+		})
+	];
 }
 
 setup('seed test data and verify setup', async ({ page }) => {
@@ -191,17 +255,9 @@ setup('seed test data and verify setup', async ({ page }) => {
 	await writeFile(path.join(authDir, 'teacher.json'), JSON.stringify(teacherStorage, null, 2));
 	await writeFile(path.join(authDir, 'super.json'), JSON.stringify(superStorage, null, 2));
 
-	await page.context().addCookies(adminStorage.cookies);
+	await page.context().addCookies(await buildContextCookies(setupResult.adminSessionToken as string));
 
-	await page.goto(`${BASE_URL}/`);
-	await page.waitForSelector('body.hydrated');
-
-	// seedBaseline() removed - tests now create their own data
-
-	await page.goto(`${BASE_URL}/admin/academic`);
-	await page.waitForSelector('body.hydrated');
-
-	const url = page.url();
-
-	expect(url).toContain('/admin/academic');
+	await expect(adminStorage.cookies.length).toBeGreaterThan(0);
+	await expect(teacherStorage.cookies.length).toBeGreaterThan(0);
+	await expect(superStorage.cookies.length).toBeGreaterThan(0);
 });

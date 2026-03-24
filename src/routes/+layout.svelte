@@ -32,9 +32,23 @@
 	const isDemo = $derived(!!data.demo);
 
 	if (browser) {
+		const externalSession = (() => {
+			try {
+				const sessionToken = localStorage.getItem('e2eSessionToken');
+				if (!sessionToken) return undefined;
+
+				return {
+					getAccessToken: () => sessionToken
+				};
+			} catch {
+				return undefined;
+			}
+		})();
+
 		createSvelteAuthClient({
 			authClient,
-			getServerState: () => data.authState
+			getServerState: () => data.authState,
+			externalSession
 		});
 	}
 

@@ -142,6 +142,11 @@ export async function createStudent(opts: CreateStudentOptions) {
 	return await utils.createStudentWithId(opts);
 }
 
+export async function createClass(opts: { grade: number; class: string; e2eTag?: string }) {
+	const utils = getUtils();
+	return await utils.createClass(opts);
+}
+
 export async function setE2eTag(
 	dataType: 'students' | 'categories' | 'evaluations',
 	dataId: string,

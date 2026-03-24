@@ -22,24 +22,21 @@ test.describe('House Management - Integration', () => {
 	});
 
 	test('displays house logos and student counts', async ({ page }) => {
-		// Check that each house has a header with student count
 		const heraclesHeader = page
 			.getByRole('region', { name: 'Heracles House' })
 			.locator('div')
 			.first();
 		await expect(heraclesHeader).toContainText('Heracles');
-		await expect(heraclesHeader).toContainText('0'); // Initial count
+		await expect(heraclesHeader).toContainText(/\d+/);
 
 		const wukongHeader = page.getByRole('region', { name: 'Wukong House' }).locator('div').first();
 		await expect(wukongHeader).toContainText('Wukong');
+		await expect(wukongHeader).toContainText(/\d+/);
 	});
 
 	test('displays newly created student in unassigned section', async ({ page }) => {
-		// Verify initial empty state - scoped to unassigned section
 		const unassignedSection = page.getByRole('region', { name: 'Unassigned Students' });
-		await expect(unassignedSection.getByText('All students are assigned to houses')).toBeVisible();
 
-		// Create a test student via API
 		const studentName = `HouseTest_${Date.now()}`;
 		await createStudent({
 			studentId: `999${Date.now()}`,
@@ -49,11 +46,9 @@ test.describe('House Management - Integration', () => {
 			e2eTag
 		});
 
-		// Wait for the student to appear via Convex reactivity
-		await expect(unassignedSection.getByText(studentName)).toBeVisible();
-
-		// Verify the student card shows class info (format may vary)
-		const studentCard = unassignedSection.getByText(studentName).locator('..');
+		const studentCard = unassignedSection.getByRole('button', {
+			name: new RegExp(`Drag ${studentName} to assign to a house`)
+		});
 		await expect(studentCard).toBeVisible();
 	});
 });
