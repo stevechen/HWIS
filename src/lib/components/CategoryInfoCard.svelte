@@ -16,7 +16,7 @@
 
 <Card.Root class="mt-4">
 	<Card.Header class="pb-2">
-		<div class="flex justify-between items-center">
+		<div class="flex items-center justify-between">
 			<Card.Title class="text-base">{category.name}</Card.Title>
 			{#if category.casAlignment && category.casAlignment.length > 0}
 				<div class="flex gap-1">
@@ -28,15 +28,15 @@
 		</div>
 	</Card.Header>
 	<Card.Content>
-		<div class="gap-4 grid grid-cols-1 md:grid-cols-2">
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			<!-- Demerit Column -->
 			{#if category.demeritCriteria && category.demeritCriteria.length > 0}
 				<div class="space-y-2">
-					<h4 class="flex items-center gap-1 font-semibold text-red-600 text-sm">
+					<h4 class="flex items-center gap-1 text-sm font-semibold text-red-600">
 						<Minus class="size-4" />
 						Demerit (-)
 					</h4>
-					<ul class="space-y-1 pl-4 text-muted-foreground text-sm list-disc">
+					<ul class="text-muted-foreground list-disc space-y-1 pl-4 text-sm">
 						{#each category.demeritCriteria as criterion}
 							<li class="break-words">{criterion}</li>
 						{/each}
@@ -47,11 +47,11 @@
 			<!-- Merit Column -->
 			{#if category.meritCriteria && category.meritCriteria.length > 0}
 				<div class="space-y-2">
-					<h4 class="flex items-center gap-1 font-semibold text-emerald-600 text-sm">
+					<h4 class="flex items-center gap-1 text-sm font-semibold text-emerald-600">
 						<Plus class="size-4" />
 						Merit (+)
 					</h4>
-					<ul class="space-y-1 pl-4 text-muted-foreground text-sm list-disc">
+					<ul class="text-muted-foreground list-disc space-y-1 pl-4 text-sm">
 						{#each category.meritCriteria as criterion}
 							<li class="break-words">{criterion}</li>
 						{/each}

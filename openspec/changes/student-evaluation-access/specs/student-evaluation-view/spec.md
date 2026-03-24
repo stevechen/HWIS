@@ -7,32 +7,38 @@ Allow authenticated students to view their own evaluation records in a read-only
 ## Requirements
 
 ### REQ-1: Enrollment Status Check
+
 - The system SHALL check the student's enrollment status before displaying evaluations
 - If `students.status === 'Not Enrolled'`, the system SHALL display an "Access Denied" message
 - If `students.status === 'Enrolled'`, the system SHALL display the evaluation timeline
 
 ### REQ-2: Anonymous Evaluation Data
+
 - The system SHALL NOT expose teacher names to students
 - The system SHALL NOT expose teacher IDs to students
 - Evaluation responses SHALL include: `_id`, `value`, `category`, `details`, `timestamp`
 
 ### REQ-3: Read-Only Access
+
 - Students SHALL NOT be able to create evaluations
 - Students SHALL NOT be able to edit evaluations
 - Students SHALL NOT be able to delete evaluations
 - The UI SHALL NOT show edit buttons, delete buttons, or creation forms
 
 ### REQ-4: Complete Evaluation History
+
 - The system SHALL display ALL evaluations for the student, regardless of which teacher or admin created them
 - The source of the evaluation (teacher vs admin) SHALL NOT be distinguishable by students
 - No filtering by source SHALL be available to students
 
 ### REQ-5: Student-Only Access
+
 - Students SHALL only be able to view their OWN evaluations
 - The system SHALL use the linked `studentRecordId` from the user record to fetch evaluations
 - Attempts to access other students' evaluations SHALL be blocked
 
 ### REQ-6: Student Record Link Assumption
+
 - Student users ALWAYS have a linked `studentRecordId` (enforced at login)
 - The system assumes the link exists and does not need to handle missing links
 - If somehow a student user has no link, it's an error state that should be logged
@@ -44,28 +50,31 @@ Allow authenticated students to view their own evaluation records in a read-only
 **Purpose**: Fetch all evaluations for a student without teacher-identifying information
 
 **Arguments**:
+
 ```typescript
 {
-  // No arguments needed - uses authenticated user's studentRecordId
+	// No arguments needed - uses authenticated user's studentRecordId
 }
 ```
 
 **Authentication**: Requires authenticated user with `role === 'student'`
 
 **Response**:
+
 ```typescript
 Array<{
-  _id: Id<'evaluations'>,
-  value: number,
-  category: string,
-  details: string,
-  timestamp: number,
-  // Note: teacherName, teacherId, and isAdmin are intentionally omitted
-  // Students see anonymous evaluations without source identification
-}>
+	_id: Id<'evaluations'>;
+	value: number;
+	category: string;
+	details: string;
+	timestamp: number;
+	// Note: teacherName, teacherId, and isAdmin are intentionally omitted
+	// Students see anonymous evaluations without source identification
+}>;
 ```
 
 **Algorithm**:
+
 1. Get authenticated user
 2. Verify user.role === 'student'
 3. Get user.studentRecordId
@@ -76,6 +85,7 @@ Array<{
 8. Sort by timestamp descending
 
 **Error Cases**:
+
 - User not authenticated: Return authentication error
 - User role !== 'student': Return permission denied
 - Student record not found: Return empty array
@@ -85,32 +95,35 @@ Array<{
 ### Page: `/evaluations/student/[studentId]/+page.svelte`
 
 **Student Role Detection**:
+
 ```typescript
 const isStudent = $derived.by(() => {
-  if (userQuery && !userQuery.isLoading && userQuery.data?.role) {
-    return userQuery.data.role === 'student';
-  }
-  return false;
+	if (userQuery && !userQuery.isLoading && userQuery.data?.role) {
+		return userQuery.data.role === 'student';
+	}
+	return false;
 });
 ```
 
 **Student-Specific Query**:
+
 ```typescript
 const studentEvalsQuery = $derived.by(() => {
-  if (isDemo) return undefined;
-  if (!isStudent) return undefined;
-  return useQuery(api.evaluations.getStudentEvaluationsAnonymous, () => ({}));
+	if (isDemo) return undefined;
+	if (!isStudent) return undefined;
+	return useQuery(api.evaluations.getStudentEvaluationsAnonymous, () => ({}));
 });
 ```
 
 **Enrollment Status Check**:
+
 ```typescript
 // Fetch student record to check enrollment status
 const studentRecordQuery = $derived.by(() => {
-  if (!isStudent || !userQuery?.data?.studentRecordId) return undefined;
-  return useQuery(api.students.getById, () => ({
-    id: userQuery.data.studentRecordId
-  }));
+	if (!isStudent || !userQuery?.data?.studentRecordId) return undefined;
+	return useQuery(api.students.getById, () => ({
+		id: userQuery.data.studentRecordId
+	}));
 });
 
 const enrollmentStatus = $derived(studentRecordQuery?.data?.status);
@@ -118,6 +131,7 @@ const isEnrolled = $derived(enrollmentStatus === 'Enrolled');
 ```
 
 **Component Props for Student View**:
+
 ```svelte
 <EvaluationsTimeline
   evaluations={studentEvaluations}
@@ -134,19 +148,21 @@ const isEnrolled = $derived(enrollmentStatus === 'Enrolled');
 ### Access Denied State
 
 When `!isEnrolled`:
+
 ```svelte
 <div class="access-denied">
-  <h2>Access Denied</h2>
-  <p>You are currently not enrolled. Please contact administration for assistance.</p>
+	<h2>Access Denied</h2>
+	<p>You are currently not enrolled. Please contact administration for assistance.</p>
 </div>
 ```
 
 ### Empty State
 
 When no evaluations exist:
+
 ```svelte
 <div class="empty-state">
-  <p>No evaluations found yet.</p>
+	<p>No evaluations found yet.</p>
 </div>
 ```
 

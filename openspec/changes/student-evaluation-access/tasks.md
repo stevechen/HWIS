@@ -129,6 +129,7 @@
 ## Verification Steps
 
 Before marking complete:
+
 1. [ ] Admin can import students via existing student management UI
 2. [ ] Student with `s123@std.hwhs.tc.edu.tw` can log in (if studentId "123" exists)
 3. [ ] Student with non-existent studentId gets "Email not in system" error

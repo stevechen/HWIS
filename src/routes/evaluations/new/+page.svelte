@@ -182,15 +182,15 @@
 	});
 </script>
 
-<div class="mx-auto p-8 max-w-5xl">
-	<div class="gap-8 grid grid-cols-1 lg:grid-cols-2">
+<div class="mx-auto max-w-5xl p-8">
+	<div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>1. Select Students</Card.Title>
 			</Card.Header>
 			<Card.Content>
 				<div class="relative mb-4">
-					<Search class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
+					<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 					<Input
 						type="text"
 						placeholder="Filter by name or ID..."
@@ -201,18 +201,18 @@
 				</div>
 
 				<div
-					class="bg-muted border rounded-md max-h-72 overflow-y-auto"
+					class="bg-muted max-h-72 overflow-y-auto rounded-md border"
 					role="list"
 					aria-label="Students"
 				>
 					{#if studentsQuery.isLoading}
-						<div class="p-8 text-muted-foreground text-center">Loading students...</div>
+						<div class="text-muted-foreground p-8 text-center">Loading students...</div>
 					{:else if filteredStudents.length === 0}
-						<div class="p-8 text-muted-foreground text-center">No students found</div>
+						<div class="text-muted-foreground p-8 text-center">No students found</div>
 					{:else}
 						{#if filteredStudents.length > 1}
 							<div
-								class="bg-background hover:bg-accent border-b transition-colors cursor-pointer"
+								class="bg-background hover:bg-accent cursor-pointer border-b transition-colors"
 								onclick={toggleAllFiltered}
 								onkeydown={(e) => e.key === 'Enter' && toggleAllFiltered()}
 								role="button"
@@ -225,7 +225,7 @@
 										checked={allFilteredSelected}
 										indeterminate={someFilteredSelected}
 										tabindex="-1"
-										class="border-input rounded focus:ring-primary size-4 text-primary cursor-pointer"
+										class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
 										aria-label="Select all students"
 										onclick={(e) => e.stopPropagation()}
 										onchange={(e) => {
@@ -233,13 +233,13 @@
 											toggleAllFiltered();
 										}}
 									/>
-									<span class="font-medium text-sm">Select all ({filteredStudents.length})</span>
+									<span class="text-sm font-medium">Select all ({filteredStudents.length})</span>
 								</div>
 							</div>
 						{/if}
 						{#each filteredStudents as student (student._id)}
 							<div
-								class="bg-background hover:bg-accent border-b last:border-b-0 transition-colors cursor-pointer"
+								class="bg-background hover:bg-accent cursor-pointer border-b transition-colors last:border-b-0"
 								class:bg-accent={selectedStudentIds.has(student._id)}
 								onclick={() => toggleStudent(student._id)}
 								onkeydown={(e) => e.key === 'Enter' && toggleStudent(student._id)}
@@ -253,7 +253,7 @@
 										type="checkbox"
 										checked={selectedStudentIds.has(student._id)}
 										tabindex="-1"
-										class="border-input rounded focus:ring-primary size-4 text-primary cursor-pointer"
+										class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
 										onclick={(e) => e.stopPropagation()}
 										onchange={(e) => {
 											e.stopPropagation();
@@ -276,7 +276,7 @@
 					{/if}
 				</div>
 
-				<p class="mt-4 font-medium text-primary text-sm">
+				<p class="text-primary mt-4 text-sm font-medium">
 					{selectedStudentIds.size} student(s) selected
 				</p>
 			</Card.Content>
@@ -288,7 +288,7 @@
 			</Card.Header>
 			<Card.Content>
 				<div class="mb-5">
-					<label class="block mb-2 font-medium text-sm">
+					<label class="mb-2 block text-sm font-medium">
 						Category
 						<Select.Root type="single" bind:value={categoryId}>
 							<Select.Trigger class="mt-1" aria-label="Select category">
@@ -309,8 +309,8 @@
 				</div>
 
 				<fieldset class="mb-5">
-					<legend class="block mb-2 font-medium text-sm">Points</legend>
-					<div class="gap-2 grid grid-cols-4">
+					<legend class="mb-2 block text-sm font-medium">Points</legend>
+					<div class="grid grid-cols-4 gap-2">
 						<Button
 							type="button"
 							variant="outline"
@@ -371,20 +371,20 @@
 				</fieldset>
 
 				<div class="mb-5">
-					<label class="block mb-2 font-medium text-sm">
+					<label class="mb-2 block text-sm font-medium">
 						Details / Comments
 						<textarea
 							id="evaluation-details"
 							bind:value={details}
 							placeholder="Enter specific details about the behavior..."
-							class="flex bg-background disabled:opacity-50 mt-1 px-3 py-2 border border-input rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ring-offset-background focus-visible:ring-offset-2 w-full min-h-20 placeholder:text-muted-foreground text-sm resize-none disabled:cursor-not-allowed"
+							class="bg-background border-input focus-visible:ring-ring ring-offset-background placeholder:text-muted-foreground mt-1 flex min-h-20 w-full resize-none rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
 							rows="4"
 						></textarea>
 					</label>
 				</div>
 
 				{#if validationErrors().length > 0}
-					<div role="alert" class="bg-destructive/10 mb-4 p-3 rounded-md text-destructive text-sm">
+					<div role="alert" class="bg-destructive/10 text-destructive mb-4 rounded-md p-3 text-sm">
 						{#each validationErrors() as errorMsg}
 							<div>{errorMsg}</div>
 						{/each}

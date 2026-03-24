@@ -80,6 +80,10 @@ test.describe('Classes CRUD', () => {
 		const deleteButton = classCard.getByRole('button').first();
 		await deleteButton.click();
 		await expect(page.getByRole('heading', { name: 'Cannot Delete Class' })).toBeVisible();
-		await expect(page.getByText('To delete this class, please first remove or reassign these students to another class.')).toBeVisible();
+		await expect(
+			page.getByText(
+				'To delete this class, please first remove or reassign these students to another class.'
+			)
+		).toBeVisible();
 	});
 });

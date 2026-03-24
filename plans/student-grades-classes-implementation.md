@@ -9,6 +9,7 @@ This plan implements the ability for student grades to have classes (e.g., 7-1, 
 ### Option: Keep grade as number + add class field
 
 **Rationale:**
+
 - Backward compatibility with existing grade queries
 - Proper normalization (grade and class are separate attributes)
 - Simplified grade advancement logic
@@ -24,16 +25,17 @@ Create a new table to manage classes with homeroom teachers.
 
 ```typescript
 classes: defineTable({
-  grade: v.number(),           // 7-12
-  class: v.string(),            // "1", "2", "3" (class identifier)
-  homeroomTeacherId: v.optional(v.id('users')),
-  e2eTag: v.optional(v.string())
+	grade: v.number(), // 7-12
+	class: v.string(), // "1", "2", "3" (class identifier)
+	homeroomTeacherId: v.optional(v.id('users')),
+	e2eTag: v.optional(v.string())
 })
-  .index('by_grade_class', ['grade', 'class'])
-  .index('by_teacher', ['homeroomTeacherId'])
+	.index('by_grade_class', ['grade', 'class'])
+	.index('by_teacher', ['homeroomTeacherId']);
 ```
 
 **Constraints:**
+
 - Unique constraint on (grade, class) combination
 - `homeroomTeacherId` references a teacher user
 
@@ -43,11 +45,10 @@ Add new fields to existing students table.
 
 ```typescript
 students: defineTable({
-  // ... existing fields ...
-  class: v.optional(v.string()),  // "1", "2", "3" - links to classes table
-  isIB: v.optional(v.boolean()),  // IB student flag
-})
-  .index('by_grade_class', ['grade', 'class'])  // New compound index
+	// ... existing fields ...
+	class: v.optional(v.string()), // "1", "2", "3" - links to classes table
+	isIB: v.optional(v.boolean()) // IB student flag
+}).index('by_grade_class', ['grade', 'class']); // New compound index
 ```
 
 ---
@@ -100,11 +101,11 @@ Create a mutation to seed default classes for grades 7-12:
 
 ```typescript
 export const seedDefaultClasses = mutation({
-  args: { testToken: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    // Create 7-1, 7-2, 7-3 for each grade 7-12
-    // 3 classes per grade = 18 classes total
-  }
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		// Create 7-1, 7-2, 7-3 for each grade 7-12
+		// 3 classes per grade = 18 classes total
+	}
 });
 ```
 
@@ -117,25 +118,30 @@ export const seedDefaultClasses = mutation({
 Update `src/convex/students.ts`:
 
 #### Create Student
+
 - Add `class` (optional string) parameter
 - Add `isIB` (optional boolean) parameter
 - Validate class belongs to the grade (if provided)
 - Auto-assign default class if not provided (class "1")
 
-#### Update Student  
+#### Update Student
+
 - Add `class` and `isIB` to updatable fields
 - Validate class belongs to the grade
 
 #### List Students
+
 - Add filtering by `class` parameter
 - Add filtering by `isIB` parameter
 - Add `by_grade_class` compound index support
 
 #### Import from Excel
+
 - Add `class` column parsing
 - Add `isIB` column parsing (true/false or yes/no)
 
 #### Advance Grades
+
 - Preserve class when advancing (7-1 → 8-1)
 
 ### 3.2 Update Student Queries
@@ -162,6 +168,7 @@ export const list = query({
 File: `src/routes/admin/students/+page.svelte`
 
 **Updates:**
+
 1. Add "Class" column to table
 2. Add "IB" badge column
 3. Add class filter dropdown (grouped by grade)
@@ -169,12 +176,14 @@ File: `src/routes/admin/students/+page.svelte`
 5. Update grade filter to show "7-1", "7-2" format option
 
 **Display Format:**
+
 - Grade + Class: "7-1" (when class exists), "7" (when no class)
 - IB Badge: Show "IB" badge for IB students
 
 ### 4.2 Add/Edit Student Form
 
 **Updates:**
+
 1. Add class dropdown (populated from classes table, filtered by selected grade)
 2. Add IB checkbox/toggle
 3. When grade changes, refresh class dropdown options
@@ -182,6 +191,7 @@ File: `src/routes/admin/students/+page.svelte`
 ### 4.3 Import Students
 
 **Updates:**
+
 1. Add "class" column to CSV template
 2. Add "isIB" column to CSV template
 3. Preview and import these new fields
@@ -195,6 +205,7 @@ File: `src/routes/admin/students/+page.svelte`
 File: `src/routes/admin/classes/+page.svelte` (new)
 
 **Features:**
+
 1. List all classes with grade, class number, homeroom teacher
 2. Create new class form
 3. Edit class (assign/change homeroom teacher)
@@ -213,22 +224,22 @@ Add "Classes" link to admin navigation (update `src/routes/+layout.svelte` or ad
 
 ```typescript
 export const seed = mutation({
-  handler: async (ctx, args) => {
-    // Update seed data to include class
-    const students = [
-      {
-        englishName: 'Alice Smith',
-        chineseName: '史艾莉',
-        studentId: 'S1001',
-        grade: 7,
-        class: '1',           // NEW
-        isIB: true,           // NEW
-        status: 'Enrolled',
-        note: 'Top performer'
-      },
-      // ... more students with class and isIB
-    ];
-  }
+	handler: async (ctx, args) => {
+		// Update seed data to include class
+		const students = [
+			{
+				englishName: 'Alice Smith',
+				chineseName: '史艾莉',
+				studentId: 'S1001',
+				grade: 7,
+				class: '1', // NEW
+				isIB: true, // NEW
+				status: 'Enrolled',
+				note: 'Top performer'
+			}
+			// ... more students with class and isIB
+		];
+	}
 });
 ```
 
@@ -237,16 +248,17 @@ export const seed = mutation({
 File: `src/lib/e2e-utils.ts`
 
 Update `CreateStudentOptions` interface:
+
 ```typescript
 export interface CreateStudentOptions {
-  studentId: string;
-  englishName: string;
-  chineseName: string;
-  grade: number;
-  class?: string;      // NEW
-  isIB?: boolean;      // NEW
-  status: string;
-  e2eTag?: string;
+	studentId: string;
+	englishName: string;
+	chineseName: string;
+	grade: number;
+	class?: string; // NEW
+	isIB?: boolean; // NEW
+	status: string;
+	e2eTag?: string;
 }
 ```
 
@@ -321,17 +333,17 @@ Phase 8: Timeline Component
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/convex/schema.ts` | Add classes table, update students |
-| `src/convex/classes.ts` | NEW - Class CRUD operations |
-| `src/convex/students.ts` | Add class/isIB to all operations |
-| `src/routes/admin/classes/+page.svelte` | NEW - Class management UI |
-| `src/routes/admin/students/+page.svelte` | Add class/IB columns and filters |
-| `src/lib/e2e-utils.ts` | Update CreateStudentOptions |
-| `src/convex/dataFactory.ts` | Update student creation |
-| `src/lib/components/timeline/types.ts` | Add class and isIB to EvaluationEntry |
-| `src/lib/components/timeline/EvaluationsTimeline.svelte` | Display class and IB badge in cards |
+| File                                                     | Changes                               |
+| -------------------------------------------------------- | ------------------------------------- |
+| `src/convex/schema.ts`                                   | Add classes table, update students    |
+| `src/convex/classes.ts`                                  | NEW - Class CRUD operations           |
+| `src/convex/students.ts`                                 | Add class/isIB to all operations      |
+| `src/routes/admin/classes/+page.svelte`                  | NEW - Class management UI             |
+| `src/routes/admin/students/+page.svelte`                 | Add class/IB columns and filters      |
+| `src/lib/e2e-utils.ts`                                   | Update CreateStudentOptions           |
+| `src/convex/dataFactory.ts`                              | Update student creation               |
+| `src/lib/components/timeline/types.ts`                   | Add class and isIB to EvaluationEntry |
+| `src/lib/components/timeline/EvaluationsTimeline.svelte` | Display class and IB badge in cards   |
 
 ---
 
@@ -343,9 +355,9 @@ File: `src/lib/components/timeline/types.ts`
 
 ```typescript
 export interface EvaluationEntry {
-  // ... existing fields ...
-  class?: string;      // NEW - class identifier (e.g., "1", "2", "3")
-  isIB?: boolean;      // NEW - IB student flag
+	// ... existing fields ...
+	class?: string; // NEW - class identifier (e.g., "1", "2", "3")
+	isIB?: boolean; // NEW - IB student flag
 }
 ```
 
@@ -356,20 +368,24 @@ File: `src/lib/components/timeline/EvaluationsTimeline.svelte`
 **Updates to card snippet:**
 
 1. **Grade Display** - Change from "G7" to "G7-1" format:
+
 ```svelte
 {#if studentGrade || entry.grade}
-  <span class="bg-muted px-2 py-0.5 rounded-full text-xs shrink-0">
-    G{studentGrade || entry.grade}{entry.class ? `-${entry.class}` : ''}
-  </span>
+	<span class="bg-muted shrink-0 rounded-full px-2 py-0.5 text-xs">
+		G{studentGrade || entry.grade}{entry.class ? `-${entry.class}` : ''}
+	</span>
 {/if}
 ```
 
 2. **IB Badge** - Add IB indicator:
+
 ```svelte
 {#if entry.isIB}
-  <span class="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-1.5 py-0.5 rounded text-xs shrink-0">
-    IB
-  </span>
+	<span
+		class="shrink-0 rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+	>
+		IB
+	</span>
 {/if}
 ```
 
@@ -393,7 +409,7 @@ isIB: student?.isIB,
 ## Testing Strategy
 
 1. **Unit Tests**: Test class CRUD, student CRUD with new fields
-2. **E2E Tests**: 
+2. **E2E Tests**:
    - Create/view/edit classes
    - Assign homeroom teachers
    - Student with class and IB fields

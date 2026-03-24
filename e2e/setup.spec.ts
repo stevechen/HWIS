@@ -255,7 +255,9 @@ setup('seed test data and verify setup', async ({ page }) => {
 	await writeFile(path.join(authDir, 'teacher.json'), JSON.stringify(teacherStorage, null, 2));
 	await writeFile(path.join(authDir, 'super.json'), JSON.stringify(superStorage, null, 2));
 
-	await page.context().addCookies(await buildContextCookies(setupResult.adminSessionToken as string));
+	await page
+		.context()
+		.addCookies(await buildContextCookies(setupResult.adminSessionToken as string));
 
 	await expect(adminStorage.cookies.length).toBeGreaterThan(0);
 	await expect(teacherStorage.cookies.length).toBeGreaterThan(0);

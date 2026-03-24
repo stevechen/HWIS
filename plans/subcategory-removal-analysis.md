@@ -31,11 +31,12 @@ flowchart TD
 
 ### 1. Schema/Data Model Files
 
-| File | Changes Needed | Risk Level |
-|------|----------------|------------|
+| File                                           | Changes Needed                                                                                                                                | Risk Level                 |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
 | [`src/convex/schema.ts`](src/convex/schema.ts) | Remove `subCategories` field from `point_categories`, remove `subCategory` field from `evaluations`, remove `by_categoryId_subCategory` index | **HIGH** - Breaking change |
 
 **Specific Changes:**
+
 - Line 75: Remove `subCategories: v.array(v.string())`
 - Line 84: Remove `subCategory: v.string()`
 - Line 95: Remove `.index('by_categoryId_subCategory', ['categoryId', 'subCategory'])`
@@ -46,33 +47,33 @@ flowchart TD
 
 #### [`src/convex/categories.ts`](src/convex/categories.ts)
 
-| Function | Changes Needed |
-|----------|----------------|
-| `getSubCategoryEvaluationCount` | **REMOVE ENTIRE FUNCTION** (lines 30-47) |
-| `seed` | Remove `subCategories` from seed data (lines 59-66) |
-| `create` | Remove `subCategories` argument and field (lines 74-100) |
-| `update` | Remove `subCategories` argument and field (lines 102-116) |
-| `removeSubCategory` | **REMOVE ENTIRE FUNCTION** (lines 144-175) |
+| Function                        | Changes Needed                                            |
+| ------------------------------- | --------------------------------------------------------- |
+| `getSubCategoryEvaluationCount` | **REMOVE ENTIRE FUNCTION** (lines 30-47)                  |
+| `seed`                          | Remove `subCategories` from seed data (lines 59-66)       |
+| `create`                        | Remove `subCategories` argument and field (lines 74-100)  |
+| `update`                        | Remove `subCategories` argument and field (lines 102-116) |
+| `removeSubCategory`             | **REMOVE ENTIRE FUNCTION** (lines 144-175)                |
 
 #### [`src/convex/evaluations.ts`](src/convex/evaluations.ts)
 
-| Function | Changes Needed |
-|----------|----------------|
-| `create` | Remove `subCategory` argument (line 26) and field assignment (line 51) |
-| `listByStudent` | Remove `subCategory` from return object (line 187) |
-| `listAllEvaluations` | Remove `subCategory` from return object (line 644) |
-| `listAllEvaluationsPaginated` | Remove `subCategory` from return object |
-| `update` | Remove `subCategory` argument (line 774) and update logic (line 803) |
+| Function                      | Changes Needed                                                         |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| `create`                      | Remove `subCategory` argument (line 26) and field assignment (line 51) |
+| `listByStudent`               | Remove `subCategory` from return object (line 187)                     |
+| `listAllEvaluations`          | Remove `subCategory` from return object (line 644)                     |
+| `listAllEvaluationsPaginated` | Remove `subCategory` from return object                                |
+| `update`                      | Remove `subCategory` argument (line 774) and update logic (line 803)   |
 
 #### [`src/convex/audit.ts`](src/convex/audit.ts)
 
-| Location | Changes Needed |
-|----------|----------------|
-| Line 33 | Remove `subCategory` from `Evaluation` interface |
-| Line 83 | Remove `subCategory` from return type |
-| Line 94 | Remove `subCategory` variable declaration |
-| Line 126 | Remove `subCategory` assignment |
-| Line 150 | Remove `subCategory` from return object |
+| Location | Changes Needed                                   |
+| -------- | ------------------------------------------------ |
+| Line 33  | Remove `subCategory` from `Evaluation` interface |
+| Line 83  | Remove `subCategory` from return type            |
+| Line 94  | Remove `subCategory` variable declaration        |
+| Line 126 | Remove `subCategory` assignment                  |
+| Line 150 | Remove `subCategory` from return object          |
 
 ---
 
@@ -82,72 +83,72 @@ flowchart TD
 
 **Major Refactoring Required:**
 
-| Lines | Changes Needed |
-|-------|----------------|
-| 19 | Remove `subCategories` state |
-| 20 | Remove `newSubCategory` state |
-| 26-27 | Remove `subCategories` from category type |
-| 28-32 | Remove `subCategoryWarning` and `subCategoryToDelete` state |
-| 46-47 | Remove `subCategories` reset in `startAdd()` |
-| 54-58 | Remove `subCategories` handling in `startEdit()` |
-| 66-68 | Remove `subCategories` and `subCategoryToDelete` reset |
-| 86, 96 | Remove `subCategories` from mutation calls |
-| 107-136 | **REMOVE** `addSubCategory()` and `removeSubCategory()` functions |
+| Lines   | Changes Needed                                                                    |
+| ------- | --------------------------------------------------------------------------------- |
+| 19      | Remove `subCategories` state                                                      |
+| 20      | Remove `newSubCategory` state                                                     |
+| 26-27   | Remove `subCategories` from category type                                         |
+| 28-32   | Remove `subCategoryWarning` and `subCategoryToDelete` state                       |
+| 46-47   | Remove `subCategories` reset in `startAdd()`                                      |
+| 54-58   | Remove `subCategories` handling in `startEdit()`                                  |
+| 66-68   | Remove `subCategories` and `subCategoryToDelete` reset                            |
+| 86, 96  | Remove `subCategories` from mutation calls                                        |
+| 107-136 | **REMOVE** `addSubCategory()` and `removeSubCategory()` functions                 |
 | 139-163 | **REMOVE** `cancelSubCategoryDelete()` and `confirmSubCategoryDelete()` functions |
-| 171-172 | Remove `subCategories` from `confirmDelete()` |
-| 180-183 | Remove `subCategoryWarning` assignment |
-| 228 | Remove Sub-Categories table header |
-| 239-246 | **REMOVE** Sub-Categories display cell |
-| 328-361 | **REMOVE** Sub-Categories form section |
-| 388-393 | Update warning message (remove subCategory reference) |
-| 404-432 | **REMOVE** SubCategory delete confirmation dialog |
+| 171-172 | Remove `subCategories` from `confirmDelete()`                                     |
+| 180-183 | Remove `subCategoryWarning` assignment                                            |
+| 228     | Remove Sub-Categories table header                                                |
+| 239-246 | **REMOVE** Sub-Categories display cell                                            |
+| 328-361 | **REMOVE** Sub-Categories form section                                            |
+| 388-393 | Update warning message (remove subCategory reference)                             |
+| 404-432 | **REMOVE** SubCategory delete confirmation dialog                                 |
 
 #### [`src/routes/evaluations/new/+page.svelte`](src/routes/evaluations/new/+page.svelte)
 
-| Lines | Changes Needed |
-|-------|----------------|
-| 27 | Remove `subCategory` state |
-| 56-58 | Remove `resolvedSubCategory` derived state |
-| 69-72 | Remove subcategory validation check |
-| 82 | Remove `subCategory` from mutation call |
+| Lines   | Changes Needed                             |
+| ------- | ------------------------------------------ |
+| 27      | Remove `subCategory` state                 |
+| 56-58   | Remove `resolvedSubCategory` derived state |
+| 69-72   | Remove subcategory validation check        |
+| 82      | Remove `subCategory` from mutation call    |
 | 300-320 | **REMOVE** Sub-Category selection UI block |
 
 #### [`src/lib/evaluations/components/EditEvaluationDialog.svelte`](src/lib/evaluations/components/EditEvaluationDialog.svelte)
 
-| Lines | Changes Needed |
-|-------|----------------|
-| 26 | Remove `editSubCategory` state |
-| 35 | Remove `editSubCategory` assignment |
-| 52 | Remove `subCategory` from mutation call |
+| Lines   | Changes Needed                            |
+| ------- | ----------------------------------------- |
+| 26      | Remove `editSubCategory` state            |
+| 35      | Remove `editSubCategory` assignment       |
+| 52      | Remove `subCategory` from mutation call   |
 | 116-131 | **REMOVE** SubCategory selection UI block |
 
 #### [`src/routes/admin/audit/+page.svelte`](src/routes/admin/audit/+page.svelte)
 
-| Lines | Changes Needed |
-|-------|----------------|
-| 28 | Remove `subCategory` from column type |
-| 53 | Remove `subCategory` from log type |
-| 69-70 | **REMOVE** Subcategory column definition |
-| 330-331 | **REMOVE** Column width case |
-| 344, 358 | **REMOVE** Column cases |
-| 552-553 | **REMOVE** Subcategory display logic |
+| Lines    | Changes Needed                           |
+| -------- | ---------------------------------------- |
+| 28       | Remove `subCategory` from column type    |
+| 53       | Remove `subCategory` from log type       |
+| 69-70    | **REMOVE** Subcategory column definition |
+| 330-331  | **REMOVE** Column width case             |
+| 344, 358 | **REMOVE** Column cases                  |
+| 552-553  | **REMOVE** Subcategory display logic     |
 
 #### [`src/lib/components/timeline/EvaluationsTimeline.svelte`](src/lib/components/timeline/EvaluationsTimeline.svelte)
 
-| Lines | Changes Needed |
-|-------|----------------|
+| Lines   | Changes Needed                                   |
+| ------- | ------------------------------------------------ |
 | 300-302 | **REMOVE** SubCategory display in timeline entry |
 
 #### [`src/lib/components/timeline/types.ts`](src/lib/components/timeline/types.ts)
 
-| Lines | Changes Needed |
-|-------|----------------|
-| 6 | Remove `subCategory?: string` field |
+| Lines | Changes Needed                      |
+| ----- | ----------------------------------- |
+| 6     | Remove `subCategory?: string` field |
 
 #### [`src/routes/evaluations/student/[studentId]/+page.svelte`](src/routes/evaluations/student/[studentId]/+page.svelte)
 
-| Lines | Changes Needed |
-|-------|----------------|
+| Lines  | Changes Needed                                  |
+| ------ | ----------------------------------------------- |
 | 78-113 | Update mock data to remove `subCategory` fields |
 
 ---
@@ -156,17 +157,17 @@ flowchart TD
 
 #### [`src/lib/e2e-utils.ts`](src/lib/e2e-utils.ts)
 
-| Lines | Changes Needed |
-|-------|----------------|
-| 65 | Remove `subCategories` from `CreateCategoryOptions` interface |
-| 71 | Remove `subCategories` from return type |
+| Lines | Changes Needed                                                |
+| ----- | ------------------------------------------------------------- |
+| 65    | Remove `subCategories` from `CreateCategoryOptions` interface |
+| 71    | Remove `subCategories` from return type                       |
 
 #### [`src/lib/evaluations/utils.ts`](src/lib/evaluations/utils.ts)
 
-| Lines | Changes Needed |
-|-------|----------------|
-| 9 | Remove `subCategory` from interface |
-| 26 | Remove `subCategory` from return object |
+| Lines | Changes Needed                          |
+| ----- | --------------------------------------- |
+| 9     | Remove `subCategory` from interface     |
+| 26    | Remove `subCategory` from return object |
 
 ---
 
@@ -175,6 +176,7 @@ flowchart TD
 #### Unit Tests: [`src/convex/categories.test.ts`](src/convex/categories.test.ts)
 
 **Major Changes Required:**
+
 - Remove tests for `subCategories` in create/update tests
 - **REMOVE** entire `describe('categories.removeSubCategory')` block (lines 406-604)
 - **REMOVE** `describe('categories.getSubCategoryEvaluationCount')` block (lines 261-320)
@@ -253,49 +255,49 @@ flowchart TD
 
 #### [`src/convex/dataFactory.ts`](src/convex/dataFactory.ts)
 
-| Lines | Changes Needed |
-|-------|----------------|
-| 167-178 | Remove `subCategories` from default categories |
-| 314-323 | Remove `subCategories` from `createCategory` helper |
-| 333 | Remove `subCategory` assignment |
+| Lines   | Changes Needed                                         |
+| ------- | ------------------------------------------------------ |
+| 167-178 | Remove `subCategories` from default categories         |
+| 314-323 | Remove `subCategories` from `createCategory` helper    |
+| 333     | Remove `subCategory` assignment                        |
 | 427-438 | Remove `subCategories` from `createCategoryWithE2eTag` |
-| 445-456 | Remove `subCategories` from `createCategoryWithSubs` |
+| 445-456 | Remove `subCategories` from `createCategoryWithSubs`   |
 
 #### [`src/convex/resetDb.ts`](src/convex/resetDb.ts)
 
-| Lines | Changes Needed |
-|-------|----------------|
+| Lines | Changes Needed                              |
+| ----- | ------------------------------------------- |
 | 77-87 | Remove `subCategories` from seed categories |
-| 86 | Remove `subCategories` from insert |
+| 86    | Remove `subCategories` from insert          |
 
 #### [`src/convex/testE2E.ts`](src/convex/testE2E.ts)
 
-| Lines | Changes Needed |
-|-------|----------------|
-| 83-94 | Remove `subCategories` from seed categories |
-| 191-204 | Remove `subCategory` from evaluation creation |
-| 266-273 | Remove `subCategories` from category creation |
-| 290-323 | Update category/evaluation creation logic |
-| 425-443 | Remove `subCategories` from category creation |
+| Lines   | Changes Needed                                             |
+| ------- | ---------------------------------------------------------- |
+| 83-94   | Remove `subCategories` from seed categories                |
+| 191-204 | Remove `subCategory` from evaluation creation              |
+| 266-273 | Remove `subCategories` from category creation              |
+| 290-323 | Update category/evaluation creation logic                  |
+| 425-443 | Remove `subCategories` from category creation              |
 | 525-558 | Remove `subCategories` and `subCategory` from test helpers |
 
 #### [`src/convex/testData/weeklyReports.ts`](src/convex/testData/weeklyReports.ts)
 
-| Lines | Changes Needed |
-|-------|----------------|
-| 60-75 | Remove `subCategories` from category configs |
+| Lines   | Changes Needed                                |
+| ------- | --------------------------------------------- |
+| 60-75   | Remove `subCategories` from category configs  |
 | 146-162 | Remove `subCategories` from category creation |
-| 211-215 | Remove `subCategory` selection logic |
+| 211-215 | Remove `subCategory` selection logic          |
 | 242-244 | Remove `subCategory` from evaluation creation |
 
 #### [`src/convex/backup.ts`](src/convex/backup.ts)
 
-| Lines | Changes Needed |
-|-------|----------------|
-| 89 | Remove `subCategory` from backup type |
-| 93 | Remove `subCategories` from backup type |
-| 123 | Remove `subCategory` from backup data |
-| 140 | Remove `subCategories` from backup data |
+| Lines | Changes Needed                          |
+| ----- | --------------------------------------- |
+| 89    | Remove `subCategory` from backup type   |
+| 93    | Remove `subCategories` from backup type |
+| 123   | Remove `subCategory` from backup data   |
+| 140   | Remove `subCategories` from backup data |
 
 ---
 
@@ -303,11 +305,11 @@ flowchart TD
 
 #### [`e2e/convex-client.ts`](e2e/convex-client.ts)
 
-| Lines | Changes Needed |
-|-------|----------------|
+| Lines   | Changes Needed                                      |
+| ------- | --------------------------------------------------- |
 | 155-157 | Remove `subCategories` from `CreateCategoryOptions` |
-| 164-166 | Remove `subCategories` from return type |
-| 193-195 | Remove `subCategories` from default |
+| 164-166 | Remove `subCategories` from return type             |
+| 193-195 | Remove `subCategories` from default                 |
 
 ---
 
@@ -319,16 +321,17 @@ This file documents the subcategory integrity patterns. It should be reviewed an
 
 #### [`TESTING.md`](TESTING.md)
 
-| Lines | Changes Needed |
-|-------|----------------|
-| 507 | Update `createCategoryWithSubs` reference |
-| 1071 | Update categories test description |
+| Lines | Changes Needed                            |
+| ----- | ----------------------------------------- |
+| 507   | Update `createCategoryWithSubs` reference |
+| 1071  | Update categories test description        |
 
 ---
 
 ### 9. Generated/Build Files (Auto-regenerated)
 
 These files will be automatically regenerated after schema changes:
+
 - `.svelte-kit/output/server/chunks/*.js`
 - `.svelte-kit/output/client/_app/immutable/chunks/*.js`
 - `src/convex/_generated/api.d.ts`
@@ -403,15 +406,15 @@ These files will be automatically regenerated after schema changes:
 
 ## Estimated File Count
 
-| Category | File Count |
-|----------|------------|
-| Schema/Data Model | 1 |
-| Convex Functions | 8 |
-| UI Components | 7 |
-| Test Files | 12 |
-| Utility Files | 3 |
-| Documentation | 2 |
-| **Total** | **33 files** |
+| Category          | File Count   |
+| ----------------- | ------------ |
+| Schema/Data Model | 1            |
+| Convex Functions  | 8            |
+| UI Components     | 7            |
+| Test Files        | 12           |
+| Utility Files     | 3            |
+| Documentation     | 2            |
+| **Total**         | **33 files** |
 
 ---
 

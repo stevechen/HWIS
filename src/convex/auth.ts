@@ -34,7 +34,9 @@ const isDev =
 const isTestRuntime = getEnvValue('NODE_ENV') === 'test' || getEnvValue('VITEST') === 'true';
 const isProdDeployment = getEnvValue('CONVEX_DEPLOYMENT')?.startsWith('prod:') ?? false;
 
-const siteUrl = isDev ? 'http://localhost:5173' : getEnvValue('SITE_URL') || 'https://hwis.vercel.app';
+const siteUrl = isDev
+	? 'http://localhost:5173'
+	: getEnvValue('SITE_URL') || 'https://hwis.vercel.app';
 
 function generateEphemeralSecret(): string {
 	const parts = [
@@ -69,7 +71,9 @@ if (typeof window === 'undefined') {
 		return normalized;
 	};
 	const convexSiteUrl =
-		normalizeConvexSiteUrl(getEnvValue('CONVEX_SITE_URL') || getEnvValue('PUBLIC_CONVEX_SITE_URL')) ||
+		normalizeConvexSiteUrl(
+			getEnvValue('CONVEX_SITE_URL') || getEnvValue('PUBLIC_CONVEX_SITE_URL')
+		) ||
 		normalizeConvexSiteUrl(convexUrl) ||
 		'http://127.0.0.1:3211';
 	let betterAuthSecret = getEnvValue('BETTER_AUTH_SECRET');
@@ -98,7 +102,9 @@ if (typeof window === 'undefined') {
 }
 
 const trustedOriginsEnv =
-	getEnvValue('BETTER_AUTH_TRUSTED_ORIGINS')?.split(',').map((o) => o.trim()) || [];
+	getEnvValue('BETTER_AUTH_TRUSTED_ORIGINS')
+		?.split(',')
+		.map((o) => o.trim()) || [];
 
 const trustedOrigins = [
 	...(isDev ? ['http://localhost:5173'] : []),

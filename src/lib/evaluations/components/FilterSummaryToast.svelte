@@ -17,8 +17,8 @@
 </script>
 
 {#if show}
-	<div class="bottom-6 left-1/2 z-50 fixed -translate-x-1/2">
-		<p class="bg-card/90 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full text-sm">
+	<div class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+		<p class="bg-card/90 rounded-full px-4 py-2 text-sm shadow-lg backdrop-blur-sm">
 			{displayText}
 		</p>
 	</div>

@@ -214,7 +214,7 @@
 	}
 </script>
 
-<div class="mx-auto p-8 pt-0 max-w-6xl">
+<div class="mx-auto max-w-6xl p-8 pt-0">
 	<!-- Filters Section - Sticky for easy access while scrolling -->
 	<EvaluationsControls
 		sortAscending={displayState.sortAscending}
@@ -289,13 +289,13 @@
 		<!-- Loading indicator -->
 		{#if isLoadingMore}
 			<div class="flex justify-center py-4">
-				<Loader class="size-6 text-muted-foreground animate-spin" />
+				<Loader class="text-muted-foreground size-6 animate-spin" />
 			</div>
 		{/if}
 
 		<!-- End of list indicator -->
 		{#if isDone && accumulatedEvaluations.length > 0}
-			<div class="py-4 text-muted-foreground text-sm text-center">No more evaluations</div>
+			<div class="text-muted-foreground py-4 text-center text-sm">No more evaluations</div>
 		{/if}
 	{/if}
 

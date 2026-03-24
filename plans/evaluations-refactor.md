@@ -8,11 +8,11 @@ This document outlines a refactoring approach to eliminate code duplication acro
 
 ### Files Analyzed
 
-| Page | Path | Lines of Code |
-|------|------|---------------|
-| Admin | [`src/routes/admin/evaluations/+page.svelte`](src/routes/admin/evaluations/+page.svelte) | 167 |
-| Teacher | [`src/routes/evaluations/+page.svelte`](src/routes/evaluations/+page.svelte) | 326 |
-| Student | [`src/routes/evaluations/student/[studentId]/+page.svelte`](src/routes/evaluations/student/[studentId]/+page.svelte) | 471 |
+| Page    | Path                                                                                                                 | Lines of Code |
+| ------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
+| Admin   | [`src/routes/admin/evaluations/+page.svelte`](src/routes/admin/evaluations/+page.svelte)                             | 167           |
+| Teacher | [`src/routes/evaluations/+page.svelte`](src/routes/evaluations/+page.svelte)                                         | 326           |
+| Student | [`src/routes/evaluations/student/[studentId]/+page.svelte`](src/routes/evaluations/student/[studentId]/+page.svelte) | 471           |
 
 ### Duplication Analysis
 
@@ -30,25 +30,25 @@ let showSummary = $state(false);
 let summaryTimeout: ReturnType<typeof setTimeout>;
 
 $effect(() => {
-  if (filterValue) {
-    showSummary = true;
-    clearTimeout(summaryTimeout);
-    summaryTimeout = setTimeout(() => {
-      showSummary = false;
-    }, 3000);
-  } else {
-    showSummary = false;
-  }
+	if (filterValue) {
+		showSummary = true;
+		clearTimeout(summaryTimeout);
+		summaryTimeout = setTimeout(() => {
+			showSummary = false;
+		}, 3000);
+	} else {
+		showSummary = false;
+	}
 });
 ```
 
 **Filter states vary by page:**
 
-| Page | Filter State |
-|------|-------------|
-| Admin | `studentFilter`, `teacherFilter` |
-| Teacher | `studentFilter` |
-| Student | `teacherFilter` |
+| Page    | Filter State                     |
+| ------- | -------------------------------- |
+| Admin   | `studentFilter`, `teacherFilter` |
+| Teacher | `studentFilter`                  |
+| Student | `teacherFilter`                  |
 
 #### 2. Function Duplication
 
@@ -81,11 +81,11 @@ function transformEvaluation(e: {...}): EvaluationEntry {
 
 ```typescript
 const sortedEvaluations = $derived.by(() => {
-  if (!evaluationsQuery.data) return [];
-  const evals = evaluationsQuery.data.map(transformEvaluation);
-  return sortAscending
-    ? [...evals].sort((a, b) => a.timestamp - b.timestamp)
-    : [...evals].sort((a, b) => b.timestamp - a.timestamp);
+	if (!evaluationsQuery.data) return [];
+	const evals = evaluationsQuery.data.map(transformEvaluation);
+	return sortAscending
+		? [...evals].sort((a, b) => a.timestamp - b.timestamp)
+		: [...evals].sort((a, b) => b.timestamp - a.timestamp);
 });
 ```
 
@@ -93,17 +93,23 @@ const sortedEvaluations = $derived.by(() => {
 
 ```typescript
 function handleLongPress(entry: EvaluationEntry): void {
-  selectedEvaluation = entry;
-  editValue = entry.value;
-  editCategory = entry.category;
-  editSubCategory = entry.subCategory || '';
-  editDetails = entry.details || '';
-  editDialogOpen = true;
+	selectedEvaluation = entry;
+	editValue = entry.value;
+	editCategory = entry.category;
+	editSubCategory = entry.subCategory || '';
+	editDetails = entry.details || '';
+	editDialogOpen = true;
 }
 
-async function handleEditConfirm(): Promise<void> { /* ... */ }
-async function handleDeleteConfirm(): Promise<void> { /* ... */ }
-function canEditEntry(entry: EvaluationEntry): boolean { /* ... */ }
+async function handleEditConfirm(): Promise<void> {
+	/* ... */
+}
+async function handleDeleteConfirm(): Promise<void> {
+	/* ... */
+}
+function canEditEntry(entry: EvaluationEntry): boolean {
+	/* ... */
+}
 ```
 
 #### 3. UI Component Duplication
@@ -111,26 +117,26 @@ function canEditEntry(entry: EvaluationEntry): boolean { /* ... */ }
 **Loading State - Identical markup:**
 
 ```svelte
-<div class="flex justify-center items-center gap-2 py-16 text-muted-foreground text-center">
-  <Loader class="size-5 animate-spin" />
-  Loading evaluations...
+<div class="text-muted-foreground flex items-center justify-center gap-2 py-16 text-center">
+	<Loader class="size-5 animate-spin" />
+	Loading evaluations...
 </div>
 ```
 
 **Error State - Identical markup:**
 
 ```svelte
-<div class="bg-card p-8 border border-destructive rounded-lg text-center">
-  <p class="text-destructive">Error loading evaluations: {error.message}</p>
+<div class="bg-card border-destructive rounded-lg border p-8 text-center">
+	<p class="text-destructive">Error loading evaluations: {error.message}</p>
 </div>
 ```
 
 **Empty State - Similar with variations:**
 
 ```svelte
-<div class="bg-card p-8 border border-input rounded-lg text-center">
-  <p class="mb-6 text-muted-foreground">No evaluations found.</p>
-  <!-- Optional button -->
+<div class="bg-card border-input rounded-lg border p-8 text-center">
+	<p class="text-muted-foreground mb-6">No evaluations found.</p>
+	<!-- Optional button -->
 </div>
 ```
 
@@ -138,13 +144,8 @@ function canEditEntry(entry: EvaluationEntry): boolean { /* ... */ }
 
 ```svelte
 <div class="relative">
-  <Funnel class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
-  <Input
-    type="text"
-    placeholder="Filter by..."
-    bind:value={filter}
-    class="pl-9 w-full sm:w-64"
-  />
+	<Funnel class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+	<Input type="text" placeholder="Filter by..." bind:value={filter} class="w-full pl-9 sm:w-64" />
 </div>
 ```
 
@@ -152,11 +153,11 @@ function canEditEntry(entry: EvaluationEntry): boolean { /* ... */ }
 
 ```svelte
 {#if showSummary}
-  <div class="bottom-6 left-1/2 z-50 fixed -translate-x-1/2">
-    <p class="bg-card/90 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full text-sm">
-      Showing {count} evaluations...
-    </p>
-  </div>
+	<div class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+		<p class="bg-card/90 rounded-full px-4 py-2 text-sm shadow-lg backdrop-blur-sm">
+			Showing {count} evaluations...
+		</p>
+	</div>
 {/if}
 ```
 
@@ -175,15 +176,15 @@ function canEditEntry(entry: EvaluationEntry): boolean { /* ... */ }
 
 ### Page Differences Summary
 
-| Feature | Admin | Teacher | Student |
-|---------|-------|---------|---------|
-| Edit/Delete | ❌ | ✅ | ✅ |
-| Student Filter | ✅ | ✅ | ❌ |
-| Teacher Filter | ✅ | ❌ | ✅ |
-| Show Unenrolled | ✅ | ❌ | ❌ |
-| Demo Mode | ❌ | ❌ | ✅ |
-| New Button | ❌ | ✅ | ❌ |
-| Card Navigation | To student page | To student page | None |
+| Feature         | Admin           | Teacher         | Student |
+| --------------- | --------------- | --------------- | ------- |
+| Edit/Delete     | ❌              | ✅              | ✅      |
+| Student Filter  | ✅              | ✅              | ❌      |
+| Teacher Filter  | ✅              | ❌              | ✅      |
+| Show Unenrolled | ✅              | ❌              | ❌      |
+| Demo Mode       | ❌              | ❌              | ✅      |
+| New Button      | ❌              | ✅              | ❌      |
+| Card Navigation | To student page | To student page | None    |
 
 ---
 
@@ -261,38 +262,38 @@ src/lib/stores/
 
 ```typescript
 interface Props {
-  // Query state
-  isLoading: boolean;
-  error: Error | null;
-  evaluations: EvaluationEntry[];
-  
-  // Timeline props
-  showStudentName?: boolean;
-  showTeacherName?: boolean;
-  studentGrade?: number;
-  enableCardClick?: boolean;
-  cardHref?: (entry: EvaluationEntry) => string;
-  
-  // Bindable state
-  sortAscending?: boolean;
-  showDetails?: boolean;
-  
-  // Admin-specific
-  showUnenrolled?: boolean;
-  onToggleShowUnenrolled?: () => void;
-  
-  // Edit/Delete (optional)
-  enableLongPress?: boolean;
-  onLongPress?: (entry: EvaluationEntry) => void;
-  canEditEntry?: (entry: EvaluationEntry) => boolean;
-  
-  // Customization
-  loadingText?: string;
-  emptyText?: string;
-  emptyAction?: Snippet;
-  
-  // Slot for filters
-  children?: Snippet;
+	// Query state
+	isLoading: boolean;
+	error: Error | null;
+	evaluations: EvaluationEntry[];
+
+	// Timeline props
+	showStudentName?: boolean;
+	showTeacherName?: boolean;
+	studentGrade?: number;
+	enableCardClick?: boolean;
+	cardHref?: (entry: EvaluationEntry) => string;
+
+	// Bindable state
+	sortAscending?: boolean;
+	showDetails?: boolean;
+
+	// Admin-specific
+	showUnenrolled?: boolean;
+	onToggleShowUnenrolled?: () => void;
+
+	// Edit/Delete (optional)
+	enableLongPress?: boolean;
+	onLongPress?: (entry: EvaluationEntry) => void;
+	canEditEntry?: (entry: EvaluationEntry) => boolean;
+
+	// Customization
+	loadingText?: string;
+	emptyText?: string;
+	emptyAction?: Snippet;
+
+	// Slot for filters
+	children?: Snippet;
 }
 ```
 
@@ -300,19 +301,19 @@ interface Props {
 
 ```svelte
 <EvaluationsPageShell
-  isLoading={evaluationsQuery.isLoading}
-  error={evaluationsQuery.error}
-  evaluations={sortedEvaluations}
-  showStudentName={true}
-  showTeacherName={true}
-  bind:sortAscending
-  bind:showDetails
-  loadingText="Loading evaluations..."
-  emptyText="No evaluations found."
+	isLoading={evaluationsQuery.isLoading}
+	error={evaluationsQuery.error}
+	evaluations={sortedEvaluations}
+	showStudentName={true}
+	showTeacherName={true}
+	bind:sortAscending
+	bind:showDetails
+	loadingText="Loading evaluations..."
+	emptyText="No evaluations found."
 >
-  {#snippet children()}
-    <!-- Filter controls here -->
-  {/snippet}
+	{#snippet children()}
+		<!-- Filter controls here -->
+	{/snippet}
 </EvaluationsPageShell>
 ```
 
@@ -324,20 +325,20 @@ interface Props {
 
 ```typescript
 interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  evaluation: EvaluationEntry | null;
-  categories: Category[];
-  onSave: (data: EditData) => Promise<void>;
-  onDelete: () => void;
-  isDemo?: boolean;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	evaluation: EvaluationEntry | null;
+	categories: Category[];
+	onSave: (data: EditData) => Promise<void>;
+	onDelete: () => void;
+	isDemo?: boolean;
 }
 
 interface EditData {
-  value: number;
-  category: string;
-  subCategory: string;
-  details: string;
+	value: number;
+	category: string;
+	subCategory: string;
+	details: string;
 }
 ```
 
@@ -345,11 +346,14 @@ interface EditData {
 
 ```svelte
 <EditEvaluationDialog
-  bind:open={editDialogOpen}
-  evaluation={selectedEvaluation}
-  categories={categoriesQuery.data || []}
-  onSave={handleEditConfirm}
-  onDelete={() => { editDialogOpen = false; deleteDialogOpen = true; }}
+	bind:open={editDialogOpen}
+	evaluation={selectedEvaluation}
+	categories={categoriesQuery.data || []}
+	onSave={handleEditConfirm}
+	onDelete={() => {
+		editDialogOpen = false;
+		deleteDialogOpen = true;
+	}}
 />
 ```
 
@@ -361,10 +365,10 @@ interface EditData {
 
 ```typescript
 interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: () => Promise<void>;
-  isDemo?: boolean;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	onConfirm: () => Promise<void>;
+	isDemo?: boolean;
 }
 ```
 
@@ -376,11 +380,11 @@ interface Props {
 
 ```typescript
 interface Props {
-  value: string;
-  onchange: (value: string) => void;
-  placeholder: string;
-  ariaLabel?: string;
-  class?: string;
+	value: string;
+	onchange: (value: string) => void;
+	placeholder: string;
+	ariaLabel?: string;
+	class?: string;
 }
 ```
 
@@ -392,11 +396,11 @@ interface Props {
 
 ```typescript
 interface Props {
-  show: boolean;
-  count: number;
-  total?: number;
-  filterValue: string;
-  filterLabel?: string;
+	show: boolean;
+	count: number;
+	total?: number;
+	filterValue: string;
+	filterLabel?: string;
 }
 ```
 
@@ -407,58 +411,58 @@ interface Props {
 ```typescript
 // Transform API response to EvaluationEntry
 export function transformEvaluation(e: {
-  _id: string;
-  value: number;
-  category: string;
-  subCategory?: string;
-  details?: string;
-  timestamp: number;
-  englishName?: string;
-  grade?: number;
-  studentId?: string;
-  studentIdCode?: string;
-  teacherName?: string;
-  teacherId?: string;
-  status?: 'Enrolled' | 'Not Enrolled';
-  isAdmin?: boolean;
+	_id: string;
+	value: number;
+	category: string;
+	subCategory?: string;
+	details?: string;
+	timestamp: number;
+	englishName?: string;
+	grade?: number;
+	studentId?: string;
+	studentIdCode?: string;
+	teacherName?: string;
+	teacherId?: string;
+	status?: 'Enrolled' | 'Not Enrolled';
+	isAdmin?: boolean;
 }): EvaluationEntry {
-  return {
-    _id: e._id,
-    value: e.value,
-    category: e.category,
-    subCategory: e.subCategory,
-    details: e.details,
-    timestamp: e.timestamp,
-    englishName: e.englishName,
-    grade: e.grade,
-    studentId: e.studentId,
-    studentIdCode: e.studentIdCode,
-    teacherName: e.teacherName,
-    teacherId: e.teacherId,
-    status: e.status,
-    isAdmin: e.isAdmin
-  };
+	return {
+		_id: e._id,
+		value: e.value,
+		category: e.category,
+		subCategory: e.subCategory,
+		details: e.details,
+		timestamp: e.timestamp,
+		englishName: e.englishName,
+		grade: e.grade,
+		studentId: e.studentId,
+		studentIdCode: e.studentIdCode,
+		teacherName: e.teacherName,
+		teacherId: e.teacherId,
+		status: e.status,
+		isAdmin: e.isAdmin
+	};
 }
 
 // Sort evaluations by timestamp
 export function sortEvaluations(
-  evaluations: EvaluationEntry[],
-  ascending: boolean
+	evaluations: EvaluationEntry[],
+	ascending: boolean
 ): EvaluationEntry[] {
-  return [...evaluations].sort((a, b) =>
-    ascending ? a.timestamp - b.timestamp : b.timestamp - a.timestamp
-  );
+	return [...evaluations].sort((a, b) =>
+		ascending ? a.timestamp - b.timestamp : b.timestamp - a.timestamp
+	);
 }
 
 // Multi-search filter helper
 export function matchesMultiSearch(filter: string, value: string): boolean {
-  if (!filter.trim()) return true;
-  const searchTerms = filter
-    .split(',')
-    .map(s => s.trim().toLowerCase())
-    .filter(Boolean);
-  if (searchTerms.length === 0) return true;
-  return searchTerms.some(term => value.toLowerCase().includes(term));
+	if (!filter.trim()) return true;
+	const searchTerms = filter
+		.split(',')
+		.map((s) => s.trim().toLowerCase())
+		.filter(Boolean);
+	if (searchTerms.length === 0) return true;
+	return searchTerms.some((term) => value.toLowerCase().includes(term));
 }
 ```
 
@@ -471,29 +475,31 @@ export function matchesMultiSearch(filter: string, value: string): boolean {
 ```typescript
 // src/lib/stores/useFilterSummary.ts
 export function createFilterSummaryState() {
-  let showSummary = $state(false);
-  let summaryTimeout = $state<ReturnType<typeof setTimeout> | null>(null);
+	let showSummary = $state(false);
+	let summaryTimeout = $state<ReturnType<typeof setTimeout> | null>(null);
 
-  function updateSummary(hasFilter: boolean): void {
-    if (hasFilter) {
-      showSummary = true;
-      if (summaryTimeout) clearTimeout(summaryTimeout);
-      summaryTimeout = setTimeout(() => {
-        showSummary = false;
-      }, 3000);
-    } else {
-      showSummary = false;
-      if (summaryTimeout) {
-        clearTimeout(summaryTimeout);
-        summaryTimeout = null;
-      }
-    }
-  }
+	function updateSummary(hasFilter: boolean): void {
+		if (hasFilter) {
+			showSummary = true;
+			if (summaryTimeout) clearTimeout(summaryTimeout);
+			summaryTimeout = setTimeout(() => {
+				showSummary = false;
+			}, 3000);
+		} else {
+			showSummary = false;
+			if (summaryTimeout) {
+				clearTimeout(summaryTimeout);
+				summaryTimeout = null;
+			}
+		}
+	}
 
-  return {
-    get showSummary() { return showSummary; },
-    updateSummary
-  };
+	return {
+		get showSummary() {
+			return showSummary;
+		},
+		updateSummary
+	};
 }
 ```
 
@@ -583,6 +589,7 @@ export function createFilterSummaryState() {
 ### Rollback Plan
 
 Each page refactor is independent. If issues arise:
+
 1. Revert the specific page file
 2. Shared components remain for other pages
 3. No database or API changes required
@@ -590,6 +597,7 @@ Each page refactor is independent. If issues arise:
 ### Breaking Changes
 
 **None expected.** This is purely a frontend refactoring:
+
 - No API changes
 - No route changes
 - No user-facing behavior changes
@@ -598,12 +606,12 @@ Each page refactor is independent. If issues arise:
 
 ## Code Reduction Estimates
 
-| File | Before | After | Reduction |
-|------|--------|-------|-----------|
-| Admin Page | 167 lines | ~80 lines | ~52% |
-| Teacher Page | 326 lines | ~100 lines | ~69% |
-| Student Page | 471 lines | ~200 lines | ~57% |
-| **Total** | **964 lines** | **~380 lines** | **~61%** |
+| File         | Before        | After          | Reduction |
+| ------------ | ------------- | -------------- | --------- |
+| Admin Page   | 167 lines     | ~80 lines      | ~52%      |
+| Teacher Page | 326 lines     | ~100 lines     | ~69%      |
+| Student Page | 471 lines     | ~200 lines     | ~57%      |
+| **Total**    | **964 lines** | **~380 lines** | **~61%**  |
 
 New shared code: ~250 lines (components + utilities)
 
@@ -613,12 +621,12 @@ New shared code: ~250 lines (components + utilities)
 
 ## Risks and Mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Behavior changes during refactor | Comprehensive E2E test coverage exists |
-| Demo mode breaks | Test demo mode explicitly in Student page tests |
-| Dialog state management issues | Use consistent patterns from existing code |
-| Performance regression | No new reactive dependencies introduced |
+| Risk                             | Mitigation                                      |
+| -------------------------------- | ----------------------------------------------- |
+| Behavior changes during refactor | Comprehensive E2E test coverage exists          |
+| Demo mode breaks                 | Test demo mode explicitly in Student page tests |
+| Dialog state management issues   | Use consistent patterns from existing code      |
+| Performance regression           | No new reactive dependencies introduced         |
 
 ---
 

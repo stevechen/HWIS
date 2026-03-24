@@ -99,12 +99,7 @@ export const backupToDrive = action({
 			users: Doc<'users'>[];
 			categories: Doc<'point_categories'>[];
 		};
-		const {
-			students: studentData,
-			evaluations,
-			users,
-			categories
-		} = exportData;
+		const { students: studentData, evaluations, users, categories } = exportData;
 
 		const backup = {
 			exportedAt: new Date().toISOString(),

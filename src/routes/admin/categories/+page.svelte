@@ -217,7 +217,7 @@
 
 {#if toastMessage}
 	<div
-		class="right-4 bottom-4 z-50 fixed flex items-center gap-2 bg-green-600 shadow-lg px-4 py-3 rounded-lg text-white"
+		class="fixed right-4 bottom-4 z-50 flex items-center gap-2 rounded-lg bg-green-600 px-4 py-3 text-white shadow-lg"
 		role="alert"
 	>
 		<Check class="size-5" />
@@ -225,8 +225,8 @@
 	</div>
 {/if}
 
-<div class="mx-auto py-8 w-fit container">
-	<div class="bg-card shadow-sm border rounded-lg">
+<div class="container mx-auto w-fit py-8">
+	<div class="bg-card rounded-lg border shadow-sm">
 		<Table.Root aria-label="Categories">
 			<Table.Header class="bg-muted/50">
 				<Table.Row>
@@ -301,7 +301,7 @@
 		</Table.Root>
 	</div>
 
-	<div class="flex justify-end mt-6">
+	<div class="mt-6 flex justify-end">
 		<Button onclick={startAdd}>
 			<Plus class="mr-2 size-4" />
 			Add new category
@@ -311,7 +311,7 @@
 
 {#if showForm}
 	<div
-		class="z-50 fixed inset-0 flex justify-center items-center bg-black/50 overflow-y-auto"
+		class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50"
 		role="dialog"
 		aria-label={editingId ? 'Edit category' : 'Add new category'}
 		aria-modal="true"
@@ -323,9 +323,9 @@
 			if (e.key === 'Escape') handleCancel();
 		}}
 	>
-		<div class="bg-background shadow-lg my-8 p-6 rounded-lg w-full max-w-3xl">
-			<div class="flex justify-between items-center mb-4">
-				<h2 class="font-semibold text-xl">{editingId ? 'Edit Category' : 'Add New Category'}</h2>
+		<div class="bg-background my-8 w-full max-w-3xl rounded-lg p-6 shadow-lg">
+			<div class="mb-4 flex items-center justify-between">
+				<h2 class="text-xl font-semibold">{editingId ? 'Edit Category' : 'Add New Category'}</h2>
 				<Button variant="ghost" size="icon" onclick={handleCancel} aria-label="Close">
 					<X class="size-4" />
 				</Button>
@@ -341,7 +341,7 @@
 				<div class="space-y-4">
 					{#if formError}
 						<div
-							class="bg-red-50 dark:bg-red-950 p-3 rounded text-red-600 dark:text-red-400 text-sm"
+							class="rounded bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400"
 						>
 							{formError}
 						</div>
@@ -350,7 +350,7 @@
 					<Card.Root>
 						<Card.Content class="space-y-4">
 							<div>
-								<label class="font-medium text-sm" for="categoryName">Category Name *</label>
+								<label class="text-sm font-medium" for="categoryName">Category Name *</label>
 								<Input
 									id="categoryName"
 									bind:value={categoryName}
@@ -358,30 +358,30 @@
 								/>
 							</div>
 							<fieldset>
-								<legend class="font-medium text-sm">CAS Alignment *</legend>
-								<p class="mb-2 text-muted-foreground text-xs">Select at least one</p>
+								<legend class="text-sm font-medium">CAS Alignment *</legend>
+								<p class="text-muted-foreground mb-2 text-xs">Select at least one</p>
 								<div class="flex gap-4">
-									<label class="flex items-center gap-2 cursor-pointer">
+									<label class="flex cursor-pointer items-center gap-2">
 										<input
 											type="checkbox"
 											bind:checked={casCreativity}
-											class="border-input rounded focus:ring-primary size-4 text-primary cursor-pointer"
+											class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
 										/>
 										<span class="text-sm">Creativity</span>
 									</label>
-									<label class="flex items-center gap-2 cursor-pointer">
+									<label class="flex cursor-pointer items-center gap-2">
 										<input
 											type="checkbox"
 											bind:checked={casActivity}
-											class="border-input rounded focus:ring-primary size-4 text-primary cursor-pointer"
+											class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
 										/>
 										<span class="text-sm">Activity</span>
 									</label>
-									<label class="flex items-center gap-2 cursor-pointer">
+									<label class="flex cursor-pointer items-center gap-2">
 										<input
 											type="checkbox"
 											bind:checked={casService}
-											class="border-input rounded focus:ring-primary size-4 text-primary cursor-pointer"
+											class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
 										/>
 										<span class="text-sm">Service</span>
 									</label>
@@ -392,11 +392,11 @@
 
 					<Card.Root>
 						<Card.Content>
-							<div class="gap-2 grid grid-cols-2">
+							<div class="grid grid-cols-2 gap-2">
 								<!-- Merit Criteria -->
 								<fieldset>
-									<div class="flex justify-between items-center mb-2">
-										<legend class="font-medium text-emerald-600 text-sm">
+									<div class="mb-2 flex items-center justify-between">
+										<legend class="text-sm font-medium text-emerald-600">
 											Merit Criteria (+)
 										</legend>
 										<Button
@@ -404,7 +404,7 @@
 											variant="ghost"
 											size="sm"
 											onclick={addMeritCriterion}
-											class="px-2 h-7"
+											class="h-7 px-2"
 										>
 											<Plus class="mr-1 size-3" />
 											Add
@@ -432,21 +432,21 @@
 											</div>
 										{/each}
 									</div>
-									<p class="mt-2 text-muted-foreground text-xs">
+									<p class="text-muted-foreground mt-2 text-xs">
 										These appear when awarding positive points.
 									</p>
 								</fieldset>
 
 								<!-- Demerit Criteria -->
 								<fieldset>
-									<div class="flex justify-between items-center mb-2">
-										<legend class="font-medium text-red-600 text-sm"> Demerit Criteria (-) </legend>
+									<div class="mb-2 flex items-center justify-between">
+										<legend class="text-sm font-medium text-red-600"> Demerit Criteria (-) </legend>
 										<Button
 											type="button"
 											variant="ghost"
 											size="sm"
 											onclick={addDemeritCriterion}
-											class="px-2 h-7"
+											class="h-7 px-2"
 										>
 											<Plus class="mr-1 size-3" />
 											Add
@@ -474,7 +474,7 @@
 											</div>
 										{/each}
 									</div>
-									<p class="mt-2 text-muted-foreground text-xs">
+									<p class="text-muted-foreground mt-2 text-xs">
 										These appear when awarding negative points.
 									</p>
 								</fieldset>
@@ -496,7 +496,7 @@
 
 {#if categoryToDelete}
 	<div
-		class="z-50 fixed inset-0 flex justify-center items-center bg-black/50"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
 		role="dialog"
 		aria-modal="true"
 		tabindex="-1"
@@ -507,14 +507,14 @@
 			if (e.key === 'Escape') cancelDelete();
 		}}
 	>
-		<div class="bg-background shadow-lg p-6 rounded-lg w-full max-w-md">
-			<h2 class="mb-2 font-semibold text-xl">Delete Category</h2>
-			<p class="mb-4 text-muted-foreground">
+		<div class="bg-background w-full max-w-md rounded-lg p-6 shadow-lg">
+			<h2 class="mb-2 text-xl font-semibold">Delete Category</h2>
+			<p class="text-muted-foreground mb-4">
 				Are you sure you want to delete "{categoryToDelete.name}"?
 			</p>
 
 			{#if evaluationWarning}
-				<div class="bg-destructive/10 mb-4 p-3 rounded-md text-destructive text-sm">
+				<div class="bg-destructive/10 text-destructive mb-4 rounded-md p-3 text-sm">
 					<strong>Warning:</strong>
 					This category has evaluations. {evaluationWarning} evaluation(s) will be permanently deleted.
 				</div>

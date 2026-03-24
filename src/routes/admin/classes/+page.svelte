@@ -363,12 +363,12 @@
 
 <div class="space-y-2">
 	<!-- Top Control Bar -->
-	<div class="flex flex-wrap items-center gap-3 bg-muted/50 px-3 py-2 border rounded-sm">
+	<div class="bg-muted/50 flex flex-wrap items-center gap-3 rounded-sm border px-3 py-2">
 		<!-- Grade Checkboxes -->
 		<div class="flex items-center gap-2">
-			<span class="mr-1 text-muted-foreground text-xs">Grades:</span>
+			<span class="text-muted-foreground mr-1 text-xs">Grades:</span>
 			{#each grades as grade}
-				<label class="flex items-center gap-1 cursor-pointer">
+				<label class="flex cursor-pointer items-center gap-1">
 					<input
 						type="checkbox"
 						checked={visibleGrades.has(grade)}
@@ -380,13 +380,13 @@
 			{/each}
 		</div>
 
-		<div class="mx-1 bg-border w-px h-4"></div>
+		<div class="bg-border mx-1 h-4 w-px"></div>
 
 		<!-- Global Student Lists Toggle -->
 		<Button
 			variant="ghost"
 			size="sm"
-			class="gap-1 px-2 h-6 text-xs"
+			class="h-6 gap-1 px-2 text-xs"
 			onclick={toggleGlobalStudentLists}
 			aria-label={globalStudentListsVisible ? 'Hide all student lists' : 'Show all student lists'}
 		>
@@ -401,9 +401,9 @@
 	</div>
 
 	{#if classesQuery.isLoading}
-		<div class="py-4 text-muted-foreground text-sm text-center">Loading classes...</div>
+		<div class="text-muted-foreground py-4 text-center text-sm">Loading classes...</div>
 	{:else if classesQuery.error}
-		<div class="py-4 text-red-500 text-sm text-center">Error loading classes</div>
+		<div class="py-4 text-center text-sm text-red-500">Error loading classes</div>
 	{:else}
 		<div class="flex flex-wrap gap-x-0 gap-y-2">
 			{#each grades as grade (grade)}
@@ -416,10 +416,10 @@
 					<div class="border-0 border-gray-200">
 						<!-- Grade Header -->
 						<div
-							class="flex justify-between items-center bg-muted/30 px-1 py-0.5 border-r border-r-gray-300 last-border-r-none border-b"
+							class="bg-muted/30 last-border-r-none flex items-center justify-between border-r border-b border-r-gray-300 px-1 py-0.5"
 						>
 							<div class="flex items-center gap-1">
-								<span class="font-semibold text-sm">G{grade}</span>
+								<span class="text-sm font-semibold">G{grade}</span>
 								<Users class="ml-2 size-3" /><span class="text-muted-foreground text-xs"
 									>{totalStudents}</span
 								>
@@ -430,7 +430,7 @@
 									<Button
 										variant="ghost"
 										size="icon"
-										class="rounded-none size-5 shrink-0"
+										class="size-5 shrink-0 rounded-none"
 										onclick={() => toggleIBVisibility(grade)}
 										aria-label={shouldShowIB ? 'Hide IB classes' : 'Show IB classes'}
 										title={shouldShowIB ? 'Hide IB classes' : 'Show IB classes'}
@@ -446,7 +446,7 @@
 								<Button
 									variant="ghost"
 									size="icon"
-									class="rounded-none size-5 shrink-0"
+									class="size-5 shrink-0 rounded-none"
 									onclick={() => openAddDialog(grade)}
 									aria-label="Add class to grade {grade}"
 								>
@@ -485,7 +485,7 @@
 									>
 										<!-- Class Header -->
 										<div
-											class="flex justify-between items-center px-1 py-0.5"
+											class="flex items-center justify-between px-1 py-0.5"
 											style="background-color: {cardBg};"
 										>
 											<div class="flex items-center gap-1">
@@ -499,7 +499,7 @@
 												{/if}
 
 												<!-- Class Name -->
-												<span class="font-semibold text-sm">
+												<span class="text-sm font-semibold">
 													{getDisplayName(cls.grade, cls.class, gradeClasses)}
 												</span>
 
@@ -514,7 +514,7 @@
 												<Button
 													variant="ghost"
 													size="icon"
-													class="p-0 rounded-none size-4 text-red-500 hover:text-red-600 shrink-0"
+													class="size-4 shrink-0 rounded-none p-0 text-red-500 hover:text-red-600"
 													onclick={() => deleteClass(cls)}
 												>
 													<Trash2 class="size-2.5" />
@@ -530,7 +530,7 @@
 													const target = e.target as HTMLSelectElement;
 													updateTeacher(cls, target.value || undefined);
 												}}
-												class="px-0 py-0 rounded-none w-full h-5 min-h-0 text-xs"
+												class="h-5 min-h-0 w-full rounded-none px-0 py-0 text-xs"
 												aria-label="Teacher for {getDisplayName(
 													cls.grade,
 													cls.class,
@@ -567,13 +567,13 @@
 																aria-label="Drag {student.name} to move to another class"
 																tabindex="0"
 															>
-																<GripVertical class="opacity-40 size-2.5 shrink-0" />
+																<GripVertical class="size-2.5 shrink-0 opacity-40" />
 																<span class="truncate">{student.name}</span>
 															</div>
 														{/each}
 													</div>
 												{:else}
-													<p class="px-1 py-0 text-muted-foreground text-xs italic">--</p>
+													<p class="text-muted-foreground px-1 py-0 text-xs italic">--</p>
 												{/if}
 											</div>
 										{/if}
@@ -591,7 +591,7 @@
 <!-- Add Dialog -->
 <dialog
 	bind:this={addDialogRef}
-	class="fixed inset-0 shadow-lg m-auto p-4 border rounded-none w-full max-w-sm"
+	class="fixed inset-0 m-auto w-full max-w-sm rounded-none border p-4 shadow-lg"
 	onclose={closeAddDialog}
 	onclick={(e) => {
 		if (e.currentTarget === e.target) {
@@ -599,15 +599,15 @@
 		}
 	}}
 >
-	<h3 class="mb-4 font-semibold text-lg">Add Class - Grade {addGrade}</h3>
+	<h3 class="mb-4 text-lg font-semibold">Add Class - Grade {addGrade}</h3>
 
 	{#if addError}
-		<div class="bg-red-50 mb-4 p-3 border border-red-200 rounded-md text-red-600 text-sm">
+		<div class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600">
 			{addError}
 		</div>
 	{/if}
 
-	<p class="mb-4 text-muted-foreground text-sm">
+	<p class="text-muted-foreground mb-4 text-sm">
 		A new class will be created with the next available number (auto-increment).
 	</p>
 
@@ -629,7 +629,7 @@
 <!-- Delete Confirmation / Warning Dialog -->
 <dialog
 	bind:this={warningDialogRef}
-	class="fixed inset-0 shadow-lg m-auto p-4 border rounded-none w-full max-w-sm"
+	class="fixed inset-0 m-auto w-full max-w-sm rounded-none border p-4 shadow-lg"
 	onclick={(e) => {
 		if (e.currentTarget === e.target) {
 			warningDialogRef?.close();
@@ -638,8 +638,8 @@
 >
 	{#if warningClass && warningClass.studentCount > 0}
 		<!-- Warning: students assigned -->
-		<h3 class="mb-2 font-semibold text-red-600 text-lg">Cannot Delete Class</h3>
-		<p class="mb-4 text-muted-foreground text-sm">
+		<h3 class="mb-2 text-lg font-semibold text-red-600">Cannot Delete Class</h3>
+		<p class="text-muted-foreground mb-4 text-sm">
 			Class {getDisplayName(
 				warningClass.grade,
 				warningClass.class,
@@ -655,8 +655,8 @@
 		</div>
 	{:else}
 		<!-- Confirmation: no students -->
-		<h3 class="mb-2 font-semibold text-lg">Delete Class</h3>
-		<p class="mb-4 text-muted-foreground text-sm">
+		<h3 class="mb-2 text-lg font-semibold">Delete Class</h3>
+		<p class="text-muted-foreground mb-4 text-sm">
 			Are you sure you want to delete class {warningClass
 				? getDisplayName(warningClass.grade, warningClass.class, classesByGrade[warningClass.grade])
 				: ''}? This cannot be undone.
@@ -671,15 +671,15 @@
 <!-- Grade Error Dialog -->
 <dialog
 	bind:this={gradeErrorDialogRef}
-	class="fixed inset-0 shadow-lg m-auto p-4 border rounded-none w-full max-w-sm"
+	class="fixed inset-0 m-auto w-full max-w-sm rounded-none border p-4 shadow-lg"
 	onclick={(e) => {
 		if (e.currentTarget === e.target) {
 			gradeErrorDialogRef?.close();
 		}
 	}}
 >
-	<h3 class="mb-2 font-semibold text-red-600 text-lg">Cannot Move Student</h3>
-	<p class="mb-4 text-muted-foreground text-sm">
+	<h3 class="mb-2 text-lg font-semibold text-red-600">Cannot Move Student</h3>
+	<p class="text-muted-foreground mb-4 text-sm">
 		{gradeErrorMessage}
 	</p>
 	<div class="flex justify-end">

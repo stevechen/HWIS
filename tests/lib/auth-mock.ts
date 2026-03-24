@@ -30,4 +30,3 @@ export function mockConvexUser(user: unknown): void {
 export function mockAuthSession(user: unknown): void {
 	// Placeholder - mock auth session
 }
-

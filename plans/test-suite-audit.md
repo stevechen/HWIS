@@ -10,15 +10,16 @@ This audit provides a comprehensive analysis of the HWIS test suite across three
 
 ### Current Test Distribution
 
-| Layer | Location | Test Files | Estimated Tests |
-|-------|----------|------------|-----------------|
-| Server Unit | `src/convex/*.test.ts` | 9 files | ~80 tests |
-| Browser Unit | `tests/**/*.test.ts` | 20 files | ~60 tests |
-| E2E | `e2e/*.spec.ts` | 19 files | ~100 tests |
+| Layer        | Location               | Test Files | Estimated Tests |
+| ------------ | ---------------------- | ---------- | --------------- |
+| Server Unit  | `src/convex/*.test.ts` | 9 files    | ~80 tests       |
+| Browser Unit | `tests/**/*.test.ts`   | 20 files   | ~60 tests       |
+| E2E          | `e2e/*.spec.ts`        | 19 files   | ~100 tests      |
 
 ### Test File Inventory
 
 #### Server Unit Tests (`src/convex/`)
+
 - [`evaluations.test.ts`](src/convex/evaluations.test.ts) - Pagination, filtering, sorting, category integrity
 - [`students.test.ts`](src/convex/students.test.ts) - CRUD, validation, duplicate detection
 - [`students.duplicates.test.ts`](src/convex/students.duplicates.test.ts) - Deduping logic
@@ -30,6 +31,7 @@ This audit provides a comprehensive analysis of the HWIS test suite across three
 - [`weekly-reports.test.ts`](src/convex/weekly-reports.test.ts) - Weekly report generation
 
 #### Browser Unit Tests (`tests/`)
+
 - [`tests/lib/evaluations/stores.test.ts`](tests/lib/evaluations/stores.test.ts) - Svelte stores
 - [`tests/lib/evaluations/utils.test.ts`](tests/lib/evaluations/utils.test.ts) - Utility functions
 - [`tests/lib/evaluations/components/*.test.ts`](tests/lib/evaluations/components/) - Component tests (7 files)
@@ -39,6 +41,7 @@ This audit provides a comprehensive analysis of the HWIS test suite across three
 - [`tests/routes/evaluations/**/*.test.ts`](tests/routes/evaluations/) - Evaluation page tests
 
 #### E2E Tests (`e2e/`)
+
 - [`evaluations.spec.ts`](e2e/evaluations.spec.ts) - Evaluation CRUD flows
 - [`categories.spec.ts`](e2e/categories.spec.ts) - Category management
 - [`students.*.spec.ts`](e2e/) - Student CRUD (5 files)
@@ -59,45 +62,45 @@ This audit provides a comprehensive analysis of the HWIS test suite across three
 
 #### Server Unit Tests
 
-| Area | Missing Coverage | Priority |
-|------|------------------|----------|
-| **Evaluations** | Negative point values edge cases (min/max bounds) | Medium |
-| **Evaluations** | Empty details field validation | Low |
-| **Evaluations** | Semester ID validation/transitions | Medium |
-| **Students** | Chinese name character validation | Low |
-| **Students** | Grade transition (enrollment year calculation) | Medium |
-| **Categories** | Empty subCategory array behavior | Low |
-| **Categories** | Duplicate category name prevention | High |
-| **Users** | Concurrent role change conflicts | Medium |
-| **Auth** | Token expiration handling | High |
-| **Backup** | Partial backup failure recovery | Medium |
+| Area            | Missing Coverage                                  | Priority |
+| --------------- | ------------------------------------------------- | -------- |
+| **Evaluations** | Negative point values edge cases (min/max bounds) | Medium   |
+| **Evaluations** | Empty details field validation                    | Low      |
+| **Evaluations** | Semester ID validation/transitions                | Medium   |
+| **Students**    | Chinese name character validation                 | Low      |
+| **Students**    | Grade transition (enrollment year calculation)    | Medium   |
+| **Categories**  | Empty subCategory array behavior                  | Low      |
+| **Categories**  | Duplicate category name prevention                | High     |
+| **Users**       | Concurrent role change conflicts                  | Medium   |
+| **Auth**        | Token expiration handling                         | High     |
+| **Backup**      | Partial backup failure recovery                   | Medium   |
 
 #### Browser Unit Tests
 
-| Area | Missing Coverage | Priority |
-|------|------------------|----------|
-| **FilterInput** | Rapid input debouncing | Medium |
-| **FilterInput** | Special character handling | Low |
-| **Dialogs** | Escape key cancellation | Medium |
-| **Dialogs** | Click-outside dismissal | Medium |
-| **Timeline** | Virtual scrolling with large datasets | High |
-| **Timeline** | Keyboard navigation (arrow keys) | Medium |
-| **Stores** | Concurrent state updates | Low |
-| **Utils** | Unicode string handling in search | Low |
+| Area            | Missing Coverage                      | Priority |
+| --------------- | ------------------------------------- | -------- |
+| **FilterInput** | Rapid input debouncing                | Medium   |
+| **FilterInput** | Special character handling            | Low      |
+| **Dialogs**     | Escape key cancellation               | Medium   |
+| **Dialogs**     | Click-outside dismissal               | Medium   |
+| **Timeline**    | Virtual scrolling with large datasets | High     |
+| **Timeline**    | Keyboard navigation (arrow keys)      | Medium   |
+| **Stores**      | Concurrent state updates              | Low      |
+| **Utils**       | Unicode string handling in search     | Low      |
 
 #### E2E Tests
 
-| Area | Missing Coverage | Priority |
-|------|------------------|----------|
-| **Evaluations** | Bulk evaluation creation | Medium |
-| **Evaluations** | Evaluation value limits (very high/low) | Low |
-| **Students** | Bulk import scenarios | Medium |
-| **Students** | Student merge after duplicate detection | High |
-| **Categories** | Reorder categories | Low |
-| **Weekly Reports** | Empty week handling | Medium |
-| **Weekly Reports** | Cross-semester reports | Low |
-| **Auth** | Session timeout recovery | High |
-| **Auth** | Multi-device login | Medium |
+| Area               | Missing Coverage                        | Priority |
+| ------------------ | --------------------------------------- | -------- |
+| **Evaluations**    | Bulk evaluation creation                | Medium   |
+| **Evaluations**    | Evaluation value limits (very high/low) | Low      |
+| **Students**       | Bulk import scenarios                   | Medium   |
+| **Students**       | Student merge after duplicate detection | High     |
+| **Categories**     | Reorder categories                      | Low      |
+| **Weekly Reports** | Empty week handling                     | Medium   |
+| **Weekly Reports** | Cross-semester reports                  | Low      |
+| **Auth**           | Session timeout recovery                | High     |
+| **Auth**           | Multi-device login                      | Medium   |
 
 ### 2. Error Handling Gaps
 
@@ -126,18 +129,18 @@ Missing Tests:
 
 ### 3. Critical Business Logic Gaps
 
-| Business Rule | Current Coverage | Gap |
-|---------------|------------------|-----|
-| Student cannot be deleted with evaluations | Covered | None |
-| Category deletion cascades to evaluations | Covered | None |
-| Only admin can access /admin routes | Covered | None |
-| Teachers can only edit own evaluations | Partial | Need more authorization tests |
-| Points accumulate per semester | Not covered | Need calculation tests |
-| Weekly reports aggregate by Friday | Covered | None |
-| Student status affects evaluation visibility | Covered | None |
-| Duplicate student ID detection | Covered | None |
-| Audit log creation on all mutations | Partial | Missing some mutation types |
-| Session invalidation on role change | Covered | None |
+| Business Rule                                | Current Coverage | Gap                           |
+| -------------------------------------------- | ---------------- | ----------------------------- |
+| Student cannot be deleted with evaluations   | Covered          | None                          |
+| Category deletion cascades to evaluations    | Covered          | None                          |
+| Only admin can access /admin routes          | Covered          | None                          |
+| Teachers can only edit own evaluations       | Partial          | Need more authorization tests |
+| Points accumulate per semester               | Not covered      | Need calculation tests        |
+| Weekly reports aggregate by Friday           | Covered          | None                          |
+| Student status affects evaluation visibility | Covered          | None                          |
+| Duplicate student ID detection               | Covered          | None                          |
+| Audit log creation on all mutations          | Partial          | Missing some mutation types   |
+| Session invalidation on role change          | Covered          | None                          |
 
 ---
 
@@ -147,41 +150,41 @@ Missing Tests:
 
 #### Server Unit Tests
 
-| Redundancy | Files Involved | Recommendation |
-|------------|----------------|----------------|
+| Redundancy                                  | Files Involved                                                  | Recommendation                         |
+| ------------------------------------------- | --------------------------------------------------------------- | -------------------------------------- |
 | Basic CRUD operations tested multiple times | `students.test.ts`, `categories.test.ts`, `evaluations.test.ts` | Consolidate into shared test utilities |
-| Pagination testing pattern repeated | `evaluations.test.ts` (3 tests) | Extract to single parameterized test |
-| User creation boilerplate | All test files | Use shared fixture factory |
+| Pagination testing pattern repeated         | `evaluations.test.ts` (3 tests)                                 | Extract to single parameterized test   |
+| User creation boilerplate                   | All test files                                                  | Use shared fixture factory             |
 
 #### Browser Unit Tests
 
-| Redundancy | Files Involved | Recommendation |
-|------------|----------------|----------------|
-| Mock setup duplicated | All component tests | Extract to shared mock setup |
-| Dialog visibility tests | `DeleteEvaluationDialog.test.ts`, `EditEvaluationDialog.test.ts` | Create dialog test mixin |
-| Empty state testing | Multiple component tests | Consolidate pattern |
+| Redundancy              | Files Involved                                                   | Recommendation               |
+| ----------------------- | ---------------------------------------------------------------- | ---------------------------- |
+| Mock setup duplicated   | All component tests                                              | Extract to shared mock setup |
+| Dialog visibility tests | `DeleteEvaluationDialog.test.ts`, `EditEvaluationDialog.test.ts` | Create dialog test mixin     |
+| Empty state testing     | Multiple component tests                                         | Consolidate pattern          |
 
 #### E2E Tests
 
-| Redundancy | Files Involved | Recommendation |
-|------------|----------------|----------------|
-| Student creation before each test | `students.*.spec.ts` (5 files) | Use shared test context |
-| Auth setup pattern | All spec files | Already using `test.use()` - good |
-| Navigation to admin pages | Multiple specs | Extract to helper function |
-| Cleanup pattern | All specs | Already standardized - good |
+| Redundancy                        | Files Involved                 | Recommendation                    |
+| --------------------------------- | ------------------------------ | --------------------------------- |
+| Student creation before each test | `students.*.spec.ts` (5 files) | Use shared test context           |
+| Auth setup pattern                | All spec files                 | Already using `test.use()` - good |
+| Navigation to admin pages         | Multiple specs                 | Extract to helper function        |
+| Cleanup pattern                   | All specs                      | Already standardized - good       |
 
 ### Cross-Layer Redundancy
 
-| Test Scenario | Server Unit | Browser Unit | E2E | Recommendation |
-|---------------|-------------|--------------|-----|----------------|
-| Student CRUD | Yes | Partial | Yes | Keep all - different purposes |
-| Category CRUD | Yes | Partial | Yes | Keep all - different purposes |
-| Evaluation CRUD | Yes | No | Yes | Add browser component tests |
-| Access control | No | Yes | Yes | Remove from E2E, keep browser |
-| Form validation | No | Partial | Yes | Move validation to browser tests |
-| Dialog interactions | No | Yes | Yes | Keep both - different scopes |
-| Pagination | Yes | No | Yes | Keep both - different scopes |
-| Filtering | Yes | Partial | Yes | Consolidate filtering logic tests |
+| Test Scenario       | Server Unit | Browser Unit | E2E | Recommendation                    |
+| ------------------- | ----------- | ------------ | --- | --------------------------------- |
+| Student CRUD        | Yes         | Partial      | Yes | Keep all - different purposes     |
+| Category CRUD       | Yes         | Partial      | Yes | Keep all - different purposes     |
+| Evaluation CRUD     | Yes         | No           | Yes | Add browser component tests       |
+| Access control      | No          | Yes          | Yes | Remove from E2E, keep browser     |
+| Form validation     | No          | Partial      | Yes | Move validation to browser tests  |
+| Dialog interactions | No          | Yes          | Yes | Keep both - different scopes      |
+| Pagination          | Yes         | No           | Yes | Keep both - different scopes      |
+| Filtering           | Yes         | Partial      | Yes | Consolidate filtering logic tests |
 
 ### Recommended Consolidation
 
@@ -258,13 +261,13 @@ e2e/
 
 ### File Consolidation Recommendations
 
-| Current Files | Proposed File | Tests Affected |
-|---------------|---------------|----------------|
-| `DeleteEvaluationDialog.test.ts` + `EditEvaluationDialog.test.ts` | `dialogs.test.ts` | 2 files |
-| `EvaluationsEmptyState.test.ts` + `EvaluationsErrorState.test.ts` + `EvaluationsLoadingState.test.ts` | `states.test.ts` | 3 files |
-| `students-dialogs.test.ts` + `students.test.ts` | `students.test.ts` | 2 files |
-| `categories-dialogs.test.ts` | Merge into `categories.test.ts` | 1 file |
-| `students.create.spec.ts` + `students.edit.spec.ts` + `students.archive.spec.ts` | `students/crud.spec.ts` | 3 files |
+| Current Files                                                                                         | Proposed File                   | Tests Affected |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------- | -------------- |
+| `DeleteEvaluationDialog.test.ts` + `EditEvaluationDialog.test.ts`                                     | `dialogs.test.ts`               | 2 files        |
+| `EvaluationsEmptyState.test.ts` + `EvaluationsErrorState.test.ts` + `EvaluationsLoadingState.test.ts` | `states.test.ts`                | 3 files        |
+| `students-dialogs.test.ts` + `students.test.ts`                                                       | `students.test.ts`              | 2 files        |
+| `categories-dialogs.test.ts`                                                                          | Merge into `categories.test.ts` | 1 file         |
+| `students.create.spec.ts` + `students.edit.spec.ts` + `students.archive.spec.ts`                      | `students/crud.spec.ts`         | 3 files        |
 
 ---
 
@@ -272,11 +275,11 @@ e2e/
 
 ### Current Estimated Times
 
-| Layer | Estimated Time | Bottleneck |
-|-------|----------------|------------|
-| Server Unit | ~30 seconds | Database setup per test |
-| Browser Unit | ~45 seconds | Browser launch per file |
-| E2E | ~5 minutes | Full page loads, network calls |
+| Layer        | Estimated Time | Bottleneck                     |
+| ------------ | -------------- | ------------------------------ |
+| Server Unit  | ~30 seconds    | Database setup per test        |
+| Browser Unit | ~45 seconds    | Browser launch per file        |
+| E2E          | ~5 minutes     | Full page loads, network calls |
 
 ### Optimization Recommendations
 
@@ -330,20 +333,20 @@ e2e/
 
 ### Feature Coverage by Layer
 
-| Feature | Server Unit | Browser Unit | E2E | Overall |
-|---------|-------------|--------------|-----|---------|
-| Student CRUD | Full | Partial | Full | Good |
-| Category CRUD | Full | Partial | Full | Good |
-| Evaluation CRUD | Full | Partial | Full | Good |
-| Access Control | None | Full | Partial | Good |
-| Pagination | Full | None | Partial | Good |
-| Filtering | Full | Partial | Full | Good |
-| Weekly Reports | Full | None | Full | Good |
-| Audit Logs | Full | None | Full | Good |
-| User Management | Partial | None | Partial | Fair |
-| Authentication | None | Partial | Partial | Fair |
-| Error Handling | Partial | Partial | None | Poor |
-| Offline Mode | None | None | None | None |
+| Feature         | Server Unit | Browser Unit | E2E     | Overall |
+| --------------- | ----------- | ------------ | ------- | ------- |
+| Student CRUD    | Full        | Partial      | Full    | Good    |
+| Category CRUD   | Full        | Partial      | Full    | Good    |
+| Evaluation CRUD | Full        | Partial      | Full    | Good    |
+| Access Control  | None        | Full         | Partial | Good    |
+| Pagination      | Full        | None         | Partial | Good    |
+| Filtering       | Full        | Partial      | Full    | Good    |
+| Weekly Reports  | Full        | None         | Full    | Good    |
+| Audit Logs      | Full        | None         | Full    | Good    |
+| User Management | Partial     | None         | Partial | Fair    |
+| Authentication  | None        | Partial      | Partial | Fair    |
+| Error Handling  | Partial     | Partial      | None    | Poor    |
+| Offline Mode    | None        | None         | None    | None    |
 
 ---
 

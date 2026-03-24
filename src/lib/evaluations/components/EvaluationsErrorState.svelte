@@ -6,6 +6,6 @@
 	let { message }: Props = $props();
 </script>
 
-<div class="bg-card p-8 border border-destructive rounded-lg text-center">
+<div class="bg-card border-destructive rounded-lg border p-8 text-center">
 	<p class="text-destructive">Error loading evaluations: {message}</p>
 </div>

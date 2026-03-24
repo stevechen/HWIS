@@ -36,26 +36,26 @@
 
 {#if hasScores}
 	<!-- Single centered container -->
-	<div class="flex justify-center items-center">
+	<div class="flex items-center justify-center">
 		<!-- Left side: Number + Bar extending from center -->
-		<div class="flex justify-end items-center" style="width: {MAX_BAR_WIDTH + 24}px">
+		<div class="flex items-center justify-end" style="width: {MAX_BAR_WIDTH + 24}px">
 			{#if negativeTotal > 0}
-				<span class="mr-1 text-red-600 dark:text-red-400 text-xs">-{negativeTotal}</span>
+				<span class="mr-1 text-xs text-red-600 dark:text-red-400">-{negativeTotal}</span>
 			{/if}
 			<div
-				class="bg-red-500 rounded-l-full h-2 transition-all duration-300"
+				class="h-2 rounded-l-full bg-red-500 transition-all duration-300"
 				style="width: {negativeWidth}px"
 			></div>
 		</div>
 
 		<!-- Right side: Bar extending from center + Number -->
-		<div class="flex justify-start items-center" style="width: {MAX_BAR_WIDTH + 24}px">
+		<div class="flex items-center justify-start" style="width: {MAX_BAR_WIDTH + 24}px">
 			<div
-				class="bg-green-500 rounded-r-full h-2 transition-all duration-300"
+				class="h-2 rounded-r-full bg-green-500 transition-all duration-300"
 				style="width: {positiveWidth}px"
 			></div>
 			{#if positiveTotal > 0}
-				<span class="ml-1 text-green-600 dark:text-green-400 text-xs">+{positiveTotal}</span>
+				<span class="ml-1 text-xs text-green-600 dark:text-green-400">+{positiveTotal}</span>
 			{/if}
 		</div>
 	</div>

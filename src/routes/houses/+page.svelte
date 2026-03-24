@@ -125,30 +125,30 @@
 	<title>Houses Competition - HWIS Point System</title>
 </svelte:head>
 
-<div class="mx-auto px-4 py-8 container">
+<div class="container mx-auto px-4 py-8">
 	<!-- Header -->
 	<header class="mb-8 text-center">
-		<h1 class="mb-2 font-bold text-gray-900 text-4xl">Houses Competition</h1>
+		<h1 class="mb-2 text-4xl font-bold text-gray-900">Houses Competition</h1>
 		<p class="text-gray-600">Track our houses' progress and celebrate achievements!</p>
 	</header>
 
 	{#if housesQuery.isLoading}
-		<div class="flex justify-center items-center py-20">
-			<div class="border-gray-900 border-b-2 rounded-full w-12 h-12 animate-spin"></div>
+		<div class="flex items-center justify-center py-20">
+			<div class="h-12 w-12 animate-spin rounded-full border-b-2 border-gray-900"></div>
 		</div>
 	{:else if housesQuery.error}
 		<div class="py-20 text-center">
-			<CircleAlert class="mx-auto mb-4 w-12 h-12 text-red-500" />
+			<CircleAlert class="mx-auto mb-4 h-12 w-12 text-red-500" />
 			<p class="text-red-600">Failed to load house statistics</p>
 		</div>
 	{:else if housesQuery.data}
 		<!-- Overall Ranking Bar -->
-		<div class="bg-white shadow-md mb-8 p-6 rounded-lg">
-			<h2 class="flex items-center gap-2 mb-4 font-semibold text-xl">
-				<Trophy class="w-5 h-5 text-yellow-500" />
+		<div class="mb-8 rounded-lg bg-white p-6 shadow-md">
+			<h2 class="mb-4 flex items-center gap-2 text-xl font-semibold">
+				<Trophy class="h-5 w-5 text-yellow-500" />
 				Overall Ranking
 			</h2>
-			<div class="flex flex-wrap justify-center items-center gap-4">
+			<div class="flex flex-wrap items-center justify-center gap-4">
 				{#each housesQuery.data.ranking as house, index (house)}
 					{@const stats = housesQuery.data.houses.find((h) => h.house === house)}
 					{@const rank = index + 1}
@@ -165,7 +165,7 @@
 		</div>
 
 		<!-- Houses Grid -->
-		<div class="gap-6 grid grid-cols-1 md:grid-cols-2">
+		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 			{#each sortedHouses as houseData (houseData.house)}
 				{@const house = houseData.house as House}
 				{@const Logo = houseLogos[house]}
@@ -186,15 +186,15 @@
 										<span class="text-2xl">{rankBadges[rank]}</span>
 									{/if}
 								</h2>
-								<p class="flex items-center gap-1 text-gray-600 text-sm">
-									<Users class="w-4 h-4" />
+								<p class="flex items-center gap-1 text-sm text-gray-600">
+									<Users class="h-4 w-4" />
 									{houseData.studentCount} students
 								</p>
 							</div>
 						</div>
 						<div class="text-right">
 							<p class="text-3xl font-bold {colors.text}">{houseData.totalPoints}</p>
-							<p class="text-gray-500 text-xs">total points</p>
+							<p class="text-xs text-gray-500">total points</p>
 						</div>
 					</div>
 
@@ -203,28 +203,28 @@
 						<!-- Spider/Radar Chart -->
 						{#if categories.length > 0}
 							<div class="flex justify-center">
-									<RadarChart
-										data={getRadarData(houseData)}
-										features={categories}
-										ticks={radarTicks}
-										minValue={radarMinValue}
-										maxValue={radarMaxValue}
-										colors={[houseRadarColors[house]]}
-										size={400}
-									/>
+								<RadarChart
+									data={getRadarData(houseData)}
+									features={categories}
+									ticks={radarTicks}
+									minValue={radarMinValue}
+									maxValue={radarMaxValue}
+									colors={[houseRadarColors[house]]}
+									size={400}
+								/>
 							</div>
 						{/if}
 
 						<!-- Top Contributors -->
 						<div>
-							<h3 class="flex items-center gap-2 mb-3 font-semibold text-gray-700">
-								<Star class="w-4 h-4 text-yellow-500" />
+							<h3 class="mb-3 flex items-center gap-2 font-semibold text-gray-700">
+								<Star class="h-4 w-4 text-yellow-500" />
 								Top Contributors
 							</h3>
 							{#if houseData.topContributorsRecent && houseData.topContributorsRecent.length > 0}
 								<ul class="space-y-2">
 									{#each houseData.topContributors as contributor, index (contributor.studentId)}
-										<li class="flex justify-between items-center">
+										<li class="flex items-center justify-between">
 											<span class="flex items-center gap-2">
 												<span class="text-lg">{index + 1}.</span>
 												<span class="font-medium">{contributor.englishName}</span>
@@ -236,29 +236,29 @@
 									{/each}
 								</ul>
 							{:else}
-								<p class="text-gray-500 text-sm">No contributions yet</p>
+								<p class="text-sm text-gray-500">No contributions yet</p>
 							{/if}
 						</div>
 
 						<!-- Growth Opportunities -->
 						<div>
-							<h3 class="flex items-center gap-2 mb-3 font-semibold text-gray-700">
-								<TrendingUp class="w-4 h-4 text-green-500" />
+							<h3 class="mb-3 flex items-center gap-2 font-semibold text-gray-700">
+								<TrendingUp class="h-4 w-4 text-green-500" />
 								Growth Opportunities
 							</h3>
 							{#if houseData.growthOpportunities.length > 0}
 								<ul class="space-y-2">
 									{#each houseData.growthOpportunities as student (student.studentId)}
-										<li class="flex justify-between items-center">
+										<li class="flex items-center justify-between">
 											<span class="font-medium">{student.englishName}</span>
-											<span class="text-gray-500 text-sm">
+											<span class="text-sm text-gray-500">
 												Can recover {student.pointsLost} pts
 											</span>
 										</li>
 									{/each}
 								</ul>
 							{:else}
-								<p class="text-gray-500 text-sm">Great job! No points to recover</p>
+								<p class="text-sm text-gray-500">Great job! No points to recover</p>
 							{/if}
 						</div>
 					</div>

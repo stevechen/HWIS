@@ -872,13 +872,13 @@ describe('Authorization boundaries', () => {
 
 		// Create a student
 		const { studentId } = await createStudentWithClass(t, {
-		englishName: 'Auth Test Student',
-		chineseName: 'Auth Test Student',
-		studentId: 'STU-AUTH-001',
-		grade: 10,
-		classNum: '1',
-		status: 'Enrolled'
-	});
+			englishName: 'Auth Test Student',
+			chineseName: 'Auth Test Student',
+			studentId: 'STU-AUTH-001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
 
 		// Create a category
 		const categoryId = await t.run(async (ctx) => {
@@ -931,13 +931,13 @@ describe('Authorization boundaries', () => {
 
 		// Create a student
 		const { studentId } = await createStudentWithClass(t, {
-		englishName: 'Admin Edit Test Student',
-		chineseName: 'Admin Edit Test Student',
-		studentId: 'STU-ADMIN-EDIT-001',
-		grade: 10,
-		classNum: '1',
-		status: 'Enrolled'
-	});
+			englishName: 'Admin Edit Test Student',
+			chineseName: 'Admin Edit Test Student',
+			studentId: 'STU-ADMIN-EDIT-001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
 
 		// Create a category
 		const categoryId = await t.run(async (ctx) => {
@@ -981,31 +981,31 @@ describe('Authorization boundaries', () => {
 
 			// Create multiple students
 			const { studentId: studentId1 } = await createStudentWithClass(t, {
-		englishName: 'Student One',
-		chineseName: '學生一',
-		studentId: generateUniqueStudentId(),
-		grade: 10,
-		classNum: '1',
-		status: 'Enrolled'
-	});
+				englishName: 'Student One',
+				chineseName: '學生一',
+				studentId: generateUniqueStudentId(),
+				grade: 10,
+				classNum: '1',
+				status: 'Enrolled'
+			});
 
 			const { studentId: studentId2 } = await createStudentWithClass(t, {
-		englishName: 'Student Two',
-		chineseName: '學生二',
-		studentId: generateUniqueStudentId(),
-		grade: 10,
-		classNum: '1',
-		status: 'Enrolled'
-	});
+				englishName: 'Student Two',
+				chineseName: '學生二',
+				studentId: generateUniqueStudentId(),
+				grade: 10,
+				classNum: '1',
+				status: 'Enrolled'
+			});
 
 			const { studentId: studentId3 } = await createStudentWithClass(t, {
-		englishName: 'Student Three',
-		chineseName: '學生三',
-		studentId: generateUniqueStudentId(),
-		grade: 10,
-		classNum: '1',
-		status: 'Enrolled'
-	});
+				englishName: 'Student Three',
+				chineseName: '學生三',
+				studentId: generateUniqueStudentId(),
+				grade: 10,
+				classNum: '1',
+				status: 'Enrolled'
+			});
 
 			const teacherId = await t.run(async (ctx) => {
 				return ctx.db.insert('users', {

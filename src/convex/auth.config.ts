@@ -3,11 +3,7 @@ import type { AuthConfig } from 'convex/server';
 
 const resolveConvexSiteUrl = (): string | undefined => {
 	const stripSlash = (value: string) => value.replace(/\/$/, '');
-	const appOrigins = [
-		process.env.SITE_URL,
-		'http://localhost:5173',
-		'http://127.0.0.1:5173'
-	]
+	const appOrigins = [process.env.SITE_URL, 'http://localhost:5173', 'http://127.0.0.1:5173']
 		.filter(Boolean)
 		.map((value) => stripSlash(value as string));
 
@@ -26,7 +22,8 @@ const resolveConvexSiteUrl = (): string | undefined => {
 		return normalized;
 	};
 
-	const envSiteUrl = normalize(process.env.CONVEX_SITE_URL) ?? normalize(process.env.PUBLIC_CONVEX_SITE_URL);
+	const envSiteUrl =
+		normalize(process.env.CONVEX_SITE_URL) ?? normalize(process.env.PUBLIC_CONVEX_SITE_URL);
 	if (envSiteUrl) return envSiteUrl;
 
 	const convexUrl = process.env.CONVEX_URL || process.env.PUBLIC_CONVEX_URL;

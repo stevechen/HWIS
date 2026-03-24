@@ -19,16 +19,19 @@ Currently, only teachers and administrators can view student evaluation records 
 ## Capabilities
 
 ### New Capabilities
+
 - `student-auth`: Handle student authentication with @std.hwhs.tc.edu.tw domain, map student emails to student records
 - `student-evaluation-view`: Allow students to view their own evaluations anonymously (without teacher names), read-only access
 
 ### Modified Capabilities
+
 - `evaluations`: Add query to fetch evaluations for a student without teacher name information
 - `users`: Extend user role type to include 'student', add student-to-user linking logic
 
 ## Impact
 
 **Affected Code:**
+
 - `src/convex/auth.ts` - Add student domain support, modify email validation
 - `src/convex/schema.ts` - Update user role enum to include 'student'
 - `src/convex/users.ts` - Add student user handling and student record linking
@@ -37,14 +40,17 @@ Currently, only teachers and administrators can view student evaluation records 
 - `src/lib/components/timeline/EvaluationsTimeline.svelte` - Already supports `showTeacherName` prop
 
 **APIs:**
+
 - New query: `evaluations.getStudentEvaluationsForStudent` - Returns evaluations without teacher names
 
 **Dependencies:**
+
 - Better Auth for authentication flow
 - Convex for data queries
 
 **Systems:**
+
 - Authentication system needs to recognize and handle student domain emails
 - User management shouldn't show students at all
 - Student access is controlled by the 'enrolled/not enrolled' status in the student management UI (link to users database targeting the student)
-- 
+-

@@ -76,7 +76,9 @@ projects.push({
 	use: { ...devices['Desktop Chrome'] },
 	testMatch: '**/*.spec.ts',
 	grep: /@auth-sequential/,
-	dependencies: runCrossBrowser ? ['chromium-sequential', 'webkit-sequential'] : ['chromium-sequential'],
+	dependencies: runCrossBrowser
+		? ['chromium-sequential', 'webkit-sequential']
+		: ['chromium-sequential'],
 	workers: 1
 });
 
@@ -93,7 +95,13 @@ if (hasSuperAuth || process.env.CI) {
 		},
 		testMatch: 'e2e/audit.spec.ts',
 		dependencies: runCrossBrowser
-			? ['setup', 'chromium-parallel', 'webkit-parallel', 'chromium-sequential', 'webkit-sequential']
+			? [
+					'setup',
+					'chromium-parallel',
+					'webkit-parallel',
+					'chromium-sequential',
+					'webkit-sequential'
+				]
 			: ['setup', 'chromium-parallel', 'chromium-sequential'],
 		workers: 1
 	});

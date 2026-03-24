@@ -56,10 +56,7 @@
 
 	// Create scales
 	const radialScale = $derived(
-		d3
-			.scaleLinear()
-			.domain([minValue, maxValue])
-			.range([0, chartRadius])
+		d3.scaleLinear().domain([minValue, maxValue]).range([0, chartRadius])
 	);
 
 	// Calculate feature angles and coordinates
@@ -97,7 +94,11 @@
 		return angleToCoordinate(angle, tick, scale);
 	}
 
-	function getTickLabelCoordinate(angle: number, tick: number, scale: d3.ScaleLinear<number, number>) {
+	function getTickLabelCoordinate(
+		angle: number,
+		tick: number,
+		scale: d3.ScaleLinear<number, number>
+	) {
 		const coord = getTickCoordinate(angle, tick, scale);
 		return {
 			x: coord.x + tickLabelOffset * Math.cos(angle),
@@ -128,19 +129,13 @@
 		if (sin < -0.25) return 'hanging';
 		return 'middle';
 	}
-
 </script>
 
 <div class="radar-chart-container" style="width: {size}px; height: {size}px;">
 	<svg width={size} height={size}>
 		<!-- Draw circles for ticks -->
 		{#each ticks as tick (tick)}
-			<path
-				d={getGridPath(tick)}
-				fill="none"
-				stroke="#e5e7eb"
-				stroke-width="1"
-			/>
+			<path d={getGridPath(tick)} fill="none" stroke="#e5e7eb" stroke-width="1" />
 		{/each}
 
 		<!-- Draw axes -->
@@ -188,7 +183,13 @@
 				{@const angle = Math.PI / 2 + (2 * Math.PI * fIdx) / features.length}
 				{@const value = Number(d[feature]) || 0}
 				{@const coord = angleToCoordinate(angle, value, radialScale)}
-				<circle cx={coord.x} cy={coord.y} r="4" fill={colors[dIdx % colors.length]} fill-opacity="0.6" />
+				<circle
+					cx={coord.x}
+					cy={coord.y}
+					r="4"
+					fill={colors[dIdx % colors.length]}
+					fill-opacity="0.6"
+				/>
 			{/each}
 		{/each}
 

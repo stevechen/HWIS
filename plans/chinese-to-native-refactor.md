@@ -9,9 +9,11 @@ This document outlines a comprehensive plan to rename the `chineseName` field to
 ### Files Affected (by category)
 
 #### 1. Database Schema (1 file)
+
 - [`src/convex/schema.ts`](src/convex/schema.ts:46) - Core schema definition
 
 #### 2. Backend Logic - Convex Functions (12 files)
+
 - [`src/convex/students.ts`](src/convex/students.ts) - Student CRUD operations
 - [`src/convex/evaluations.ts`](src/convex/evaluations.ts:316-337) - Evaluation student data
 - [`src/convex/audit.ts`](src/convex/audit.ts:23-25) - Audit log student info
@@ -22,19 +24,23 @@ This document outlines a comprehensive plan to rename the `chineseName` field to
 - [`src/convex/testData/weeklyReports.ts`](src/convex/testData/weeklyReports.ts:93-129) - Weekly report test data
 
 #### 3. Frontend Components (4 files)
+
 - [`src/routes/admin/students/+page.svelte`](src/routes/admin/students/+page.svelte) - Student management page
 - [`src/routes/admin/weekly-reports/+page.svelte`](src/routes/admin/weekly-reports/+page.svelte) - Weekly reports page
 - [`src/routes/evaluations/new/+page.svelte`](src/routes/evaluations/new/+page.svelte:48-255) - New evaluation form
 - [`src/routes/evaluations/student/[studentId]/+page.svelte`](src/routes/evaluations/student/[studentId]/+page.svelte:55-57) - Student evaluation page
 
 #### 4. Utility Files (2 files)
+
 - [`src/lib/e2e-utils.ts`](src/lib/e2e-utils.ts:61-63) - E2E test utilities
 - [`tests/mocks/convex.ts`](tests/mocks/convex.ts:6-69) - Convex mocks for testing
 
 #### 5. Test Fixtures (1 file)
+
 - [`tests/fixtures/evaluations.ts`](tests/fixtures/evaluations.ts:113-115) - Evaluation test fixtures
 
 #### 6. Unit Tests - Convex (10 files)
+
 - [`src/convex/students.test.ts`](src/convex/students.test.ts) - Student function tests
 - [`src/convex/evaluations.test.ts`](src/convex/evaluations.test.ts) - Evaluation tests
 - [`src/convex/backup.test.ts`](src/convex/backup.test.ts) - Backup tests
@@ -45,6 +51,7 @@ This document outlines a comprehensive plan to rename the `chineseName` field to
 - [`tests/routes/admin/students/students-dialogs.test.ts`](tests/routes/admin/students/students-dialogs.test.ts) - Dialog tests
 
 #### 7. E2E Tests (14 files)
+
 - [`e2e/convex-client.ts`](e2e/convex-client.ts:174-198) - E2E Convex client
 - [`e2e/students.list.spec.ts`](e2e/students.list.spec.ts) - Student list tests
 - [`e2e/students.create.spec.ts`](e2e/students.create.spec.ts:25-39) - Student creation tests
@@ -60,13 +67,16 @@ This document outlines a comprehensive plan to rename the `chineseName` field to
 - [`e2e/weekly-reports.spec.ts`](e2e/weekly-reports.spec.ts) - Weekly report E2E tests
 
 #### 8. Documentation (1 file)
+
 - [`README.md`](README.md:107-108) - Project documentation
 
 #### 9. Generated Files (DO NOT EDIT - will regenerate)
+
 - `src/convex/_generated/` - Auto-generated Convex types
 - `.svelte-kit/output/` - Build output
 
 #### 10. History Files (DO NOT EDIT - VCS history)
+
 - `.history/` - Local history files
 
 ---
@@ -75,19 +85,19 @@ This document outlines a comprehensive plan to rename the `chineseName` field to
 
 ### Pattern Mapping
 
-| Original Pattern | Replacement Pattern | Context |
-|-----------------|---------------------|---------|
-| `chineseName` | `nativeName` | camelCase field names |
-| `ChineseName` | `NativeName` | PascalCase (rare) |
-| `chineseName:` | `nativeName:` | Object property |
-| `chineseName:` | `nativeName:` | TypeScript type definition |
-| `formChineseName` | `formNativeName` | Form state variable |
-| `generateChineseName` | `generateNativeName` | Function name |
-| `Chinese Name` | `Native Name` | UI labels, table headers |
-| `Chinese name` | `Native name` | Lowercase labels |
-| `chineseName` | `nativeName` | Object property access |
-| `chinesename` | `nativename` | CSV column mapping (lowercase) |
-| `chinese` | `native` | CSV column fallback mapping |
+| Original Pattern      | Replacement Pattern  | Context                        |
+| --------------------- | -------------------- | ------------------------------ |
+| `chineseName`         | `nativeName`         | camelCase field names          |
+| `ChineseName`         | `NativeName`         | PascalCase (rare)              |
+| `chineseName:`        | `nativeName:`        | Object property                |
+| `chineseName:`        | `nativeName:`        | TypeScript type definition     |
+| `formChineseName`     | `formNativeName`     | Form state variable            |
+| `generateChineseName` | `generateNativeName` | Function name                  |
+| `Chinese Name`        | `Native Name`        | UI labels, table headers       |
+| `Chinese name`        | `Native name`        | Lowercase labels               |
+| `chineseName`         | `nativeName`         | Object property access         |
+| `chinesename`         | `nativename`         | CSV column mapping (lowercase) |
+| `chinese`             | `native`             | CSV column fallback mapping    |
 
 ### Recommended Regex Patterns
 
@@ -126,12 +136,12 @@ u\.chinese\b -> u.native
 
 ### Potential False Positives
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| "Chinese" in comments/documentation | Low | Low | Manual review of README.md |
-| "Chinese" in unrelated contexts | Very Low | Low | Grep for standalone "Chinese" word |
-| Partial matches in strings | Very Low | Medium | Use word boundaries `\b` |
-| Generated files modified | Low | High | Exclude from replacement, regenerate after |
+| Risk                                | Likelihood | Impact | Mitigation                                 |
+| ----------------------------------- | ---------- | ------ | ------------------------------------------ |
+| "Chinese" in comments/documentation | Low        | Low    | Manual review of README.md                 |
+| "Chinese" in unrelated contexts     | Very Low   | Low    | Grep for standalone "Chinese" word         |
+| Partial matches in strings          | Very Low   | Medium | Use word boundaries `\b`                   |
+| Generated files modified            | Low        | High   | Exclude from replacement, regenerate after |
 
 ### High-Risk Areas
 
@@ -167,6 +177,7 @@ flowchart TD
 ```
 
 **Step 1.1:** Update [`src/convex/schema.ts`](src/convex/schema.ts:46)
+
 ```typescript
 // Before
 chineseName: v.string(),
@@ -176,6 +187,7 @@ nativeName: v.string(),
 ```
 
 **Step 1.2:** Update all Convex function files:
+
 - [`src/convex/students.ts`](src/convex/students.ts) - Update field references in create/update/search
 - [`src/convex/evaluations.ts`](src/convex/evaluations.ts:316-337) - Update student data structure
 - [`src/convex/audit.ts`](src/convex/audit.ts:23-25) - Update audit student info type
@@ -190,6 +202,7 @@ nativeName: v.string(),
 ### Phase 2: Frontend Components
 
 **Step 2.1:** Update [`src/routes/admin/students/+page.svelte`](src/routes/admin/students/+page.svelte)
+
 - Update type definitions (line 26-28)
 - Update form state variables (line 53: `formChineseName` -> `formNativeName`)
 - Update form reset logic (line 95)
@@ -205,6 +218,7 @@ nativeName: v.string(),
 - Update CSV help text (line 723)
 
 **Step 2.2:** Update [`src/routes/admin/weekly-reports/+page.svelte`](src/routes/admin/weekly-reports/+page.svelte)
+
 - Update demo data (lines 63-236)
 - Update filter logic (lines 294-300)
 - Update CSV headers (line 389)
@@ -212,21 +226,26 @@ nativeName: v.string(),
 - Update CSV export (lines 411-413)
 
 **Step 2.3:** Update [`src/routes/evaluations/new/+page.svelte`](src/routes/evaluations/new/+page.svelte)
+
 - Update search filter (lines 48-50)
 - Update student display (line 254)
 
 **Step 2.4:** Update [`src/routes/evaluations/student/[studentId]/+page.svelte`](src/routes/evaluations/student/[studentId]/+page.svelte)
+
 - Update demo student data (lines 55-57)
 
 ### Phase 3: Utility and Mock Files
 
 **Step 3.1:** Update [`src/lib/e2e-utils.ts`](src/lib/e2e-utils.ts:61-63)
+
 - Update type definition
 
 **Step 3.2:** Update [`tests/mocks/convex.ts`](tests/mocks/convex.ts:6-69)
+
 - Update mock student data
 
 **Step 3.3:** Update [`tests/fixtures/evaluations.ts`](tests/fixtures/evaluations.ts:113-115)
+
 - Update test fixture data
 
 ### Phase 4: Unit Tests
@@ -252,6 +271,7 @@ Update all E2E test files:
 ### Phase 6: Documentation
 
 **Step 6.1:** Update [`README.md`](README.md:107-108)
+
 - Update field listing in documentation
 
 ### Phase 7: Verification
@@ -344,12 +364,12 @@ bunx convex dev
 
 ## Estimated Impact
 
-| Metric | Count |
-|--------|-------|
-| Files to modify | ~40 files |
-| Occurrences to replace | ~300+ |
-| Test files affected | ~25 |
-| Risk level | Medium (data field rename) |
+| Metric                 | Count                      |
+| ---------------------- | -------------------------- |
+| Files to modify        | ~40 files                  |
+| Occurrences to replace | ~300+                      |
+| Test files affected    | ~25                        |
+| Risk level             | Medium (data field rename) |
 
 ## Rollback Plan
 
@@ -364,11 +384,12 @@ Note: Existing production data will retain the old field name. A data migration 
 ```typescript
 // Migration script for production data
 // Run in Convex dashboard or as a migration function
-db.table('students').forEach(doc => {
-  if (doc.chineseName !== undefined) {
-    db.patch(doc._id, {
-      nativeName: doc.chineseName,
-      chineseName: undefined
-    });
-  }
+db.table('students').forEach((doc) => {
+	if (doc.chineseName !== undefined) {
+		db.patch(doc._id, {
+			nativeName: doc.chineseName,
+			chineseName: undefined
+		});
+	}
 });
+```

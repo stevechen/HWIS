@@ -109,6 +109,7 @@ This feature enables enrolled students to log in and view their evaluation recor
 ### 3. User Record Structure
 
 Student users in the `users` table will have:
+
 ```typescript
 {
   authId: string,           // From Better Auth
@@ -122,6 +123,7 @@ Student users in the `users` table will have:
 ### 3. Student Record Linking
 
 The `users` table needs a new optional field `studentRecordId` (Id<'students'>) to link to the student record:
+
 - On first login, extract studentId from email (e.g., `s123` → `123`)
 - Query `students` table by `studentId` field
 - Store the `_id` of the matching student record in `users.studentRecordId`
@@ -129,6 +131,7 @@ The `users` table needs a new optional field `studentRecordId` (Id<'students'>) 
 ### 4. Enrollment Status Check
 
 Enrollment status is stored in the `students` table (`status: 'Enrolled' | 'Not Enrolled'`):
+
 - This check happens AFTER login (not during authentication)
 - On the evaluation page, fetch the linked student record
 - If `status !== 'Enrolled'`, show "access denied" UI instead of evaluations
@@ -136,6 +139,7 @@ Enrollment status is stored in the `students` table (`status: 'Enrolled' | 'Not 
 ### 5. Anonymous Evaluation View
 
 A new Convex query `getStudentEvaluationsAnonymous` will:
+
 - Accept the student's user ID
 - Look up linked student record
 - Return all evaluations for that student
@@ -145,6 +149,7 @@ A new Convex query `getStudentEvaluationsAnonymous` will:
 ### 6. Page Behavior for Students
 
 The existing `src/routes/evaluations/student/[studentId]/+page.svelte` will be modified:
+
 - Detect `role === 'student'` from user query
 - When student role detected:
   - Ignore URL `studentId` parameter (always use linked student)
@@ -156,16 +161,20 @@ The existing `src/routes/evaluations/student/[studentId]/+page.svelte` will be m
 ## Files to Modify
 
 ### Schema Changes
+
 - `src/convex/schema.ts`: Add 'student' to role union type, add `studentRecordId` field to users table
 
 ### Authentication Changes
+
 - `src/convex/auth.ts`: Add `@std.hwhs.tc.edu.tw` to allowed domains, add student auto-creation logic in auth hook
 
 ### API Changes
+
 - `src/convex/users.ts`: Add student linking logic, update viewer query to include student link
 - `src/convex/evaluations.ts`: Add `getStudentEvaluationsAnonymous` query
 
 ### UI Changes
+
 - `src/routes/evaluations/student/[studentId]/+page.svelte`: Add student role detection, use anonymous query, read-only mode
 
 ## Security Considerations
@@ -178,12 +187,12 @@ The existing `src/routes/evaluations/student/[studentId]/+page.svelte` will be m
 
 ## Error Handling
 
-| Scenario | Behavior |
-|----------|----------|
-| Student email with no matching student record | **Login rejected** - Show "This email is not registered in the system. Please contact administration." |
-| Enrolled status = 'Not Enrolled' | Show "Access Denied - Please contact administration" message |
-| No evaluations found | Show empty state "No evaluations yet" |
-| Student record exists but marked 'Not Enrolled' | Can login but sees "Access Denied" on evaluation page |
+| Scenario                                        | Behavior                                                                                               |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Student email with no matching student record   | **Login rejected** - Show "This email is not registered in the system. Please contact administration." |
+| Enrolled status = 'Not Enrolled'                | Show "Access Denied - Please contact administration" message                                           |
+| No evaluations found                            | Show empty state "No evaluations yet"                                                                  |
+| Student record exists but marked 'Not Enrolled' | Can login but sees "Access Denied" on evaluation page                                                  |
 
 ## Testing Strategy
 

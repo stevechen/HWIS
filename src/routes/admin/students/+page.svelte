@@ -568,9 +568,9 @@
 </script>
 
 <div class="bg-background min-h-screen">
-	<header class="bg-card shadow-sm border-b">
-		<div class="mx-auto px-4 sm:px-6 lg:px-8 py-4 max-w-7xl">
-			<div class="flex justify-end items-center">
+	<header class="bg-card border-b shadow-sm">
+		<div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+			<div class="flex items-center justify-end">
 				<div class="flex items-center gap-2">
 					<Button
 						variant="outline"
@@ -598,10 +598,10 @@
 		</div>
 	</header>
 
-	<main class="mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
-		<div class="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4 mb-4">
-			<div class="relative flex-1 max-w-md">
-				<Search class="top-1/2 left-3 absolute size-4 text-muted-foreground -translate-y-1/2" />
+	<main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+		<div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+			<div class="relative max-w-md flex-1">
+				<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 				<Input
 					placeholder="Search by name or student ID..."
 					class="pl-9"
@@ -626,13 +626,13 @@
 		</div>
 
 		{#if studentsQuery.isLoading}
-			<div class="py-8 text-muted-foreground text-center">Loading students...</div>
+			<div class="text-muted-foreground py-8 text-center">Loading students...</div>
 		{:else if studentsQuery.error}
-			<div class="py-8 text-red-500 text-center">
+			<div class="py-8 text-center text-red-500">
 				Error loading students: {studentsQuery.error.message}
 			</div>
 		{:else if filteredStudents.length === 0}
-			<div class="py-8 text-muted-foreground text-center">
+			<div class="text-muted-foreground py-8 text-center">
 				{searchQuery || selectedGrade || selectedStatus
 					? 'No students match your filters'
 					: 'No students yet. Add one or import from Excel!'}
@@ -682,13 +682,13 @@
 								>
 									<Badge
 										variant={student.status === 'Enrolled' ? 'default' : 'outline'}
-										class="hover:ring-2 hover:ring-primary/50 hover:ring-offset-1 w-22"
+										class="hover:ring-primary/50 w-22 hover:ring-2 hover:ring-offset-1"
 									>
 										{student.status}
 									</Badge>
 								</Button>
 							</Table.Cell>
-							<Table.Cell class="max-w-xs text-muted-foreground text-sm truncate"
+							<Table.Cell class="text-muted-foreground max-w-xs truncate text-sm"
 								>{student.note || '-'}</Table.Cell
 							>
 							<Table.Cell class="text-center">
@@ -701,7 +701,7 @@
 											showForm = true;
 										}}
 										aria-label="Edit {student.studentId}"
-										class="hover:ring-2 hover:ring-primary/50 hover:ring-offset-1 cursor-pointer"
+										class="hover:ring-primary/50 cursor-pointer hover:ring-2 hover:ring-offset-1"
 									>
 										<Pencil class="size-4" />
 									</Button>
@@ -713,7 +713,7 @@
 											showDelete = true;
 										}}
 										aria-label="Delete {student.studentId}"
-										class="hover:ring-2 hover:ring-destructive/50 hover:ring-offset-1 cursor-pointer"
+										class="hover:ring-destructive/50 cursor-pointer hover:ring-2 hover:ring-offset-1"
 									>
 										<Trash2 class="size-4 text-red-500" />
 									</Button>
@@ -730,7 +730,7 @@
 <!-- Add/Edit Dialog -->
 {#if showForm}
 	<div
-		class="z-50 fixed inset-0 flex justify-center items-center p-4"
+		class="fixed inset-0 z-50 flex items-center justify-center p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-label="student form"
@@ -742,26 +742,26 @@
 			tabindex="0"
 			onkeydown={(e) => e.key === 'Escape' && (showForm = false)}
 		></div>
-		<div class="relative bg-background shadow-lg p-6 border rounded-lg w-full max-w-lg">
+		<div class="bg-background relative w-full max-w-lg rounded-lg border p-6 shadow-lg">
 			<div class="p-6">
-				<h2 id="Student form-title" class="font-semibold text-lg">
+				<h2 id="Student form-title" class="text-lg font-semibold">
 					{editingId ? 'Edit Student' : 'Add New Student'}
 				</h2>
-				<div class="gap-4 grid py-4">
+				<div class="grid gap-4 py-4">
 					{#if formErrors.length > 0}
 						<div
 							role="alert"
-							class="bg-red-50 dark:bg-red-950 p-3 rounded text-red-600 dark:text-red-400 text-sm"
+							class="rounded bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400"
 							aria-label="Form errors"
 						>
-							<ul class="pl-4 list-disc">
+							<ul class="list-disc pl-4">
 								{#each formErrors as error, idx (`${error}-${idx}`)}
 									<li>{error}</li>
 								{/each}
 							</ul>
 						</div>
 					{/if}
-					<div class="gap-4 grid grid-cols-2">
+					<div class="grid grid-cols-2 gap-4">
 						<div class="space-y-2">
 							<Label for="studentId">Student ID *</Label>
 							<div class="flex gap-2">
@@ -790,7 +790,7 @@
 								>
 									{#if isCheckingId}
 										<span
-											class="border-2 border-current border-t-transparent rounded-full size-4 animate-spin"
+											class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
 										></span>
 									{:else if idAvailability === 'available'}
 										<Check class="size-4" />
@@ -836,7 +836,7 @@
 							{/each}
 						</NativeSelect.Root>
 						{#if editingId && originalStatus === 'Enrolled' && formStatus === 'Not Enrolled'}
-							<p class="text-orange-600 dark:text-orange-400 text-sm">
+							<p class="text-sm text-orange-600 dark:text-orange-400">
 								Teachers will no longer be able to create evaluations for this student.
 							</p>
 						{/if}
@@ -866,7 +866,7 @@
 <!-- Delete Confirmation Dialog -->
 {#if showDelete}
 	<div
-		class="z-50 fixed inset-0 flex justify-center items-center p-4"
+		class="fixed inset-0 z-50 flex items-center justify-center p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="delete-student-title"
@@ -878,14 +878,14 @@
 			tabindex="0"
 			onkeydown={(e) => e.key === 'Escape' && (showDelete = false)}
 		></div>
-		<div class="relative bg-background shadow-lg p-6 border rounded-lg w-full max-w-md">
+		<div class="bg-background relative w-full max-w-md rounded-lg border p-6 shadow-lg">
 			<div class="p-6">
-				<h2 id="delete-student-title" class="font-semibold text-lg">Delete Student</h2>
+				<h2 id="delete-student-title" class="text-lg font-semibold">Delete Student</h2>
 				<div class="py-4">
 					{#if deleteHasRelated}
 						<div
 							role="alert"
-							class="bg-yellow-50 dark:bg-yellow-950 mb-4 p-4 rounded text-yellow-700 dark:text-yellow-200 text-sm"
+							class="mb-4 rounded bg-yellow-50 p-4 text-sm text-yellow-700 dark:bg-yellow-950 dark:text-yellow-200"
 						>
 							<p class="font-medium">
 								This student has {relatedCount} evaluation record{relatedCount !== 1 ? 's' : ''}.
@@ -937,7 +937,7 @@
 <!-- Import Dialog -->
 {#if showImport}
 	<div
-		class="z-50 fixed inset-0 flex justify-center items-center p-4"
+		class="fixed inset-0 z-50 flex items-center justify-center p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="import-students-title"
@@ -956,10 +956,10 @@
 				e.key === 'Escape' &&
 				((showImport = false), (importFile = null), (importPreview = []), (importResult = null))}
 		></div>
-		<div class="relative bg-background shadow-lg p-6 border rounded-lg w-full max-w-lg">
+		<div class="bg-background relative w-full max-w-lg rounded-lg border p-6 shadow-lg">
 			<div class="p-6">
-				<h2 id="import-students-title" class="font-semibold text-lg">Import Students from Excel</h2>
-				<div class="gap-4 grid py-4">
+				<h2 id="import-students-title" class="text-lg font-semibold">Import Students from Excel</h2>
+				<div class="grid gap-4 py-4">
 					<p class="text-muted-foreground text-sm">
 						Upload a CSV file with columns: englishName, chineseName, studentId, grade, status, note
 					</p>
@@ -985,7 +985,7 @@
 						/>
 					</div>
 					{#if importPreview.length > 0}
-						<div class="bg-muted p-3 rounded text-sm">
+						<div class="bg-muted rounded p-3 text-sm">
 							<p class="mb-2 font-medium">Preview (first 10 rows):</p>
 							<div class="max-h-40 overflow-auto">
 								<table class="w-full text-xs">
@@ -1011,7 +1011,7 @@
 					{/if}
 					{#if importResult}
 						<div
-							class="p-3 rounded text-sm"
+							class="rounded p-3 text-sm"
 							class:bg-green-50={importResult.errors.length === 0}
 							class:bg-red-50={importResult.errors.length > 0}
 							class:dark:bg-green-950={importResult.errors.length === 0}
@@ -1034,7 +1034,7 @@
 								{#if importResult.errors.length > 0}
 									<div class="mt-2">
 										<p class="font-medium text-red-600 dark:text-red-300">Errors:</p>
-										<ul class="pl-4 list-disc">
+										<ul class="list-disc pl-4">
 											{#each importResult.errors as e, idx (`${e.studentId}-${idx}`)}
 												<li>
 													Student ID "{e.studentId}": {e.reason}
@@ -1048,7 +1048,7 @@
 					{/if}
 					{#if importError}
 						<div
-							class="bg-red-50 dark:bg-red-950 p-3 rounded text-red-600 dark:text-red-400 text-sm"
+							class="rounded bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400"
 						>
 							{importError}
 						</div>
@@ -1076,7 +1076,7 @@
 <!-- Disable Student Confirmation Dialog -->
 {#if showDisable}
 	<div
-		class="z-50 fixed inset-0 flex justify-center items-center p-4"
+		class="fixed inset-0 z-50 flex items-center justify-center p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="disable-student-title"
@@ -1088,15 +1088,15 @@
 			tabindex="0"
 			onkeydown={(e) => e.key === 'Escape' && (showDisable = false)}
 		></div>
-		<div class="relative bg-background shadow-lg p-6 border rounded-lg w-full max-w-md">
+		<div class="bg-background relative w-full max-w-md rounded-lg border p-6 shadow-lg">
 			<div class="p-6">
-				<h2 id="disable-student-title" class="font-semibold text-lg">Disable Student?</h2>
+				<h2 id="disable-student-title" class="text-lg font-semibold">Disable Student?</h2>
 				<div class="py-4">
 					<p class="text-muted-foreground">
 						Mark <strong>{studentToDisable?.englishName}</strong> ({studentToDisable?.studentId}) as
 						"Not Enrolled"?
 					</p>
-					<p class="mt-2 text-orange-600 dark:text-orange-400 text-sm">
+					<p class="mt-2 text-sm text-orange-600 dark:text-orange-400">
 						Teachers will no longer be able to see or create evaluations for this student.
 					</p>
 				</div>

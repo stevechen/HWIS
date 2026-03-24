@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { useQuery, useConvexClient } from 'convex-svelte';
+	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
+	import RadarChart from '$lib/components/RadarChart.svelte';
 	import ScoreTallyBar from '$lib/components/timeline/ScoreTallyBar.svelte';
 	import { headerTitleOverride } from '$lib/stores/header';
 	import { onDestroy } from 'svelte';
 	import {
 		matchesMultiSearch,
 		sortEvaluations,
-		createFilterSummaryState,
 		createEvaluationDisplayState
 	} from '$lib/evaluations';
 	import {
@@ -31,6 +31,10 @@
 
 	// Fetch user to check role (always call useQuery at top level)
 	const userQuery = useQuery(api.users.viewer, () => (isDemo ? 'skip' : {}));
+
+	// Fetch all categories for radar chart
+	// Note: In demo mode, we use demoCategories instead (see radarCategories derived below)
+	const categoriesQuery = useQuery(api.categories.list, () => (isDemo ? 'skip' : {}));
 
 	// Determine if user is admin
 	const isAdmin = $derived.by(() => {
@@ -97,11 +101,13 @@
 	};
 
 	// Demo evaluation data with teacherId for ownership check
+	// Note: Categories are intentionally hardcoded to show variety across different categories for demo purposes.
+	// This differs from real mode which pulls categories from the database.
 	const demoEvaluations: EvaluationEntry[] = [
 		{
 			_id: 'eval-1',
 			value: 5,
-			category: 'Academic',
+			category: 'Responsibility',
 			details: 'Excellent homework submission - all problems solved correctly',
 			timestamp: Date.now() - 1000 * 60 * 60 * 24,
 			teacherName: 'Ms. Johnson',
@@ -111,7 +117,7 @@
 		{
 			_id: 'eval-2',
 			value: -3,
-			category: 'Behavior',
+			category: 'Responsibility',
 			details: 'Arrived 15 minutes late to class without permission',
 			timestamp: Date.now() - 1000 * 60 * 60 * 48,
 			teacherName: 'Mr. Smith',
@@ -121,7 +127,7 @@
 		{
 			_id: 'eval-3',
 			value: 10,
-			category: 'Academic',
+			category: 'Excellence',
 			details: 'Outstanding performance on midterm exam - scored 95%',
 			timestamp: Date.now() - 1000 * 60 * 60 * 72,
 			teacherName: 'Ms. Johnson',
@@ -131,7 +137,7 @@
 		{
 			_id: 'admin-eval-1',
 			value: 15,
-			category: 'Special',
+			category: 'Excellence',
 			details: 'Student of the Month Award',
 			timestamp: Date.now() - 1000 * 60 * 60 * 6,
 			teacherName: 'Admin',
@@ -140,9 +146,23 @@
 		}
 	];
 
-	// Helper to check if studentId is a Convex ID (starts with lowercase letter followed by numbers)
+	// Demo categories - ordered to match the standard category order
+	const demoCategories = [
+		{ _id: 'cat-1', name: 'Responsibility' },
+		{ _id: 'cat-2', name: 'Excellence' },
+		{ _id: 'cat-3', name: 'Service' },
+		{ _id: 'cat-4', name: 'Persistence' },
+		{ _id: 'cat-5', name: 'Enthusiasm' },
+		{ _id: 'cat-6', name: 'Collaboration' },
+		{ _id: 'cat-7', name: 'Timeliness' }
+	];
+
+	// Check if studentId is a Convex ID (format: tableName:hexString)
+	// Convex IDs look like "students:abc123def456" or similar
 	function isConvexId(id: string): boolean {
-		return /^[a-z][\w-]*$/.test(id);
+		// Convex IDs have format: tableName:id (e.g., "students:abc123")
+		// The ID part is typically a hex-like string
+		return /^[a-z][a-z0-9_-]*:[a-z0-9]+$/i.test(id);
 	}
 
 	// Determine if URL studentId is a Convex ID or custom studentId code (reactive)
@@ -222,18 +242,11 @@
 		showTeacherName = !showTeacherName;
 	}
 
-	// Use shared state management
-	const filterSummary = createFilterSummaryState();
 	const displayState = createEvaluationDisplayState();
-
-	// Update filter summary when filter changes
-	$effect(() => {
-		filterSummary.updateSummary(!!teacherFilter);
-	});
+	const showFilterSummary = $derived(!!teacherFilter);
 
 	// Cleanup on destroy
 	onDestroy(() => {
-		filterSummary.cleanup();
 		$headerTitleOverride = '';
 	});
 
@@ -252,6 +265,121 @@
 			);
 		}
 		return sortEvaluations(all, displayState.sortAscending);
+	});
+
+	// Radar categories - combine evaluation categories with all available categories
+	// Category order for radar chart - matches houses page order
+	const CATEGORY_ORDER = [
+		'Responsibility',
+		'Excellence',
+		'Service',
+		'Persistence',
+		'Enthusiasm',
+		'Collaboration',
+		'Timeliness'
+	];
+
+	const radarCategories = $derived.by(() => {
+		const categories: string[] = [];
+
+		// Get categories from all available sources
+		if (isDemo) {
+			// Demo mode: use demo categories
+			for (const cat of demoCategories) {
+				if (cat.name && !categories.includes(cat.name)) {
+					categories.push(cat.name);
+				}
+			}
+		} else if (categoriesQuery.data) {
+			// Real mode: use all categories from the database
+			for (const cat of categoriesQuery.data) {
+				if (cat.name && !categories.includes(cat.name)) {
+					categories.push(cat.name);
+				}
+			}
+		}
+
+		// Also add any categories from evaluations that might not be in the category list
+		for (const evaluation of evaluations) {
+			const category = evaluation.category?.trim();
+			if (category && !categories.includes(category)) {
+				categories.push(category);
+			}
+		}
+
+		// Sort categories according to CATEGORY_ORDER, then alphabetically for unknown categories
+		return categories.sort((a, b) => {
+			const orderA = CATEGORY_ORDER.indexOf(a);
+			const orderB = CATEGORY_ORDER.indexOf(b);
+			if (orderA !== -1 && orderB !== -1) {
+				return orderA - orderB;
+			}
+			if (orderA !== -1) return -1;
+			if (orderB !== -1) return 1;
+			return a.localeCompare(b);
+		});
+	});
+
+	const radarCategoryTotals = $derived.by(() => {
+		return radarCategories.map((category) => ({
+			category,
+			total: evaluations
+				.filter((evaluation) => evaluation.category === category)
+				.reduce((sum, evaluation) => sum + evaluation.value, 0)
+		}));
+	});
+
+	const radarData = $derived.by(() => {
+		if (radarCategoryTotals.length === 0) {
+			return [];
+		}
+
+		return [
+			{
+				label:
+					student && 'englishName' in student && student.englishName
+						? student.englishName
+						: 'Student',
+				...Object.fromEntries(radarCategoryTotals.map(({ category, total }) => [category, total]))
+			}
+		];
+	});
+
+	const radarMinValue = $derived.by(() => {
+		if (radarCategoryTotals.length === 0) return 0;
+		return Math.min(0, ...radarCategoryTotals.map(({ total }) => total));
+	});
+
+	const radarMaxValue = $derived.by(() => {
+		if (radarCategoryTotals.length === 0) return 10;
+		return Math.max(0, ...radarCategoryTotals.map(({ total }) => total));
+	});
+
+	const radarTicks = $derived.by(() => {
+		if (radarCategoryTotals.length === 0) {
+			return [0, 2, 4, 6, 8];
+		}
+
+		if (radarMaxValue === radarMinValue) {
+			return [radarMinValue];
+		}
+
+		// Generate unique tick values
+		const allValues: number[] = [];
+		const step = (radarMaxValue - radarMinValue) / 4;
+		for (let i = 0; i <= 4; i++) {
+			const val = Math.round(radarMinValue + step * i);
+			if (!allValues.includes(val)) {
+				allValues.push(val);
+			}
+		}
+		// Ensure we have at least 2 values for the scale
+		if (allValues.length < 2) {
+			allValues.length = 0;
+			allValues.push(radarMinValue);
+			allValues.push(radarMaxValue);
+		}
+		return allValues;
 	});
 
 	function canEditEntry(entry: EvaluationEntry): boolean {
@@ -316,7 +444,7 @@
 
 <svelte:window onscroll={handleScroll} />
 
-<div class="mx-auto p-8 max-w-6xl">
+<div class="flex flex-col mx-auto p-8 max-w-6xl min-h-screen">
 	{#if isDemo}
 		<div class="mb-6">
 			<span
@@ -357,60 +485,101 @@
 			</div>
 		</div>
 	{:else}
-		<EvaluationsTimeline
-			evaluations={filteredEvaluations}
-			showStudentName={false}
-			studentGrade={(student as { grade?: number }).grade}
-			{showTeacherName}
-			bind:sortAscending={displayState.sortAscending}
-			bind:showDetails={displayState.showDetails}
-			enableLongPress={!isStudent}
-			onLongPress={handleLongPress}
-			canEditEntry={isStudent ? () => false : canEditEntry}
-		>
-			{#snippet children()}
-				<!-- Filter input only -->
-				{#if !isTeacher}
-					<FilterInput
-						bind:value={teacherFilter}
-						placeholder="Filter by teacher(s)…"
-						ariaLabel="Filter by teacher"
-						class="w-full sm:w-48"
-					/>
-				{/if}
-			{/snippet}
-			{#snippet extraToggles()}
-				{#if isAdmin}
-					<Button
-						aria-label={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
-						variant="outline"
-						size="sm"
-						onclick={toggleShowTeacherName}
-						title={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
-					>
-						{#if showTeacherName}
-							<Users class="size-4" />
-						{:else}
-							<EyeClosed class="size-4" />
-						{/if}
-					</Button>
-				{/if}
-			{/snippet}
-		</EvaluationsTimeline>
+		{#if (isAdmin || isStudent) && radarCategories.length > 0}
+			<!-- Two-column layout: radar on left, timeline on right (wide screens) or stacked (narrow) -->
+			<div class="flex lg:flex-row flex-col lg:gap-12">
+				<!-- Left column: Radar chart and category totals -->
+				<div class="bg-card/80 shadow-sm p-5 border rounded-2xl lg:w-80 shrink-0">
+					<div class="space-y-3">
+						<div class="space-y-1">
+							<!-- <h2 class="font-semibold text-xl">Personal Radar</h2> -->
+							<!-- <p class="text-muted-foreground text-sm">
+								All evaluations grouped by category for this student.
+							</p> -->
+						</div>
+						<div class="flex justify-center mt-4">
+							<RadarChart
+								data={radarData}
+								features={radarCategories}
+								ticks={radarTicks}
+								minValue={radarMinValue}
+								maxValue={radarMaxValue}
+								colors={['#2563eb']}
+								size={280}
+							/>
+						</div>
 
-		<!-- Score Tally Bar - sticky at bottom of timeline, then floats when scrolled past -->
-		<div
-			bind:this={tallyBarRef}
-			class="flex justify-center mt-4"
-			class:opacity-0={isTallyBarSticky}
-			class:pointer-events-none={isTallyBarSticky}
-		>
-			<div
-				class="bg-background/60 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full transition-all duration-300"
-			>
-				<ScoreTallyBar evaluations={filteredEvaluations} />
+						<div class="gap-2 grid sm:grid-cols-2 lg:grid-cols-1">
+							{#each radarCategoryTotals as { category, total } (category)}
+								<div class="bg-background/70 px-3 py-2 border rounded-xl">
+									<p class="flex justify-between font-medium text-sm">
+										{category}
+										<span class={[total < 0 && 'text-red-600', 'text-sm text-green-600']}>
+											{total >= 0 ? '+' : ''}{total} pts</span
+										>
+									</p>
+								</div>
+							{/each}
+						</div>
+					</div>
+				</div>
+
+				<!-- Right column: Timeline -->
+				<div class="flex flex-col flex-1 min-w-0">
+					<EvaluationsTimeline
+						evaluations={filteredEvaluations}
+						showStudentName={false}
+						studentGrade={(student as { grade?: number }).grade}
+						{showTeacherName}
+						bind:sortAscending={displayState.sortAscending}
+						bind:showDetails={displayState.showDetails}
+						enableLongPress={!isStudent}
+						onLongPress={handleLongPress}
+						canEditEntry={isStudent ? () => false : canEditEntry}
+					>
+						{#if !isTeacher}
+							<FilterInput
+								bind:value={teacherFilter}
+								placeholder="Filter by teacher(s)…"
+								ariaLabel="Filter by teacher"
+								class="w-full sm:w-48"
+							/>
+						{/if}
+						{#snippet extraToggles()}
+							{#if isAdmin}
+								<Button
+									aria-label={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
+									variant="outline"
+									size="sm"
+									onclick={toggleShowTeacherName}
+									title={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
+								>
+									{#if showTeacherName}
+										<Users class="size-4" />
+									{:else}
+										<EyeClosed class="size-4" />
+									{/if}
+								</Button>
+							{/if}
+						{/snippet}
+					</EvaluationsTimeline>
+
+					<!-- Score Tally Bar - sticky at bottom of timeline, then floats when scrolled past -->
+					<div
+						bind:this={tallyBarRef}
+						class="bottom-0 sticky flex justify-center mt-auto pt-4"
+						class:opacity-0={isTallyBarSticky}
+						class:pointer-events-none={isTallyBarSticky}
+					>
+						<div
+							class="bg-background/60 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full transition-all duration-300"
+						>
+							<ScoreTallyBar evaluations={filteredEvaluations} />
+						</div>
+					</div>
+				</div>
 			</div>
-		</div>
+		{/if}
 
 		<!-- Floating Tally Bar (appears when scrolled past) -->
 		<div
@@ -428,7 +597,7 @@
 
 		<!-- Filter Summary -->
 		<FilterSummaryToast
-			show={filterSummary.showSummary}
+			show={showFilterSummary}
 			count={filteredEvaluations.length}
 			total={evaluations.length}
 			filterLabel="teacher"

@@ -167,8 +167,8 @@ When mocking `useQuery` return values, the type must match `UseQueryReturn` exac
 // Define a properly typed mock result
 interface MockQueryResult<T> {
 	data: T;
-	isLoading: false;  // Must be literal false, not boolean
-	error: undefined;  // Must be undefined, not null
+	isLoading: false; // Must be literal false, not boolean
+	error: undefined; // Must be undefined, not null
 	isStale: boolean;
 }
 
@@ -189,6 +189,7 @@ vi.mocked(useQuery).mockReturnValue(mockResult);
 ```
 
 **Common Mistakes:**
+
 - Using `error: null` instead of `error: undefined`
 - Using `isLoading: boolean` instead of literal `false`
 - Using `as any` which hides type errors
@@ -481,22 +482,22 @@ function createTestEntity(suffix: string) {
 
 ### Key Differences from Old Pattern
 
-| Old Pattern | New Pattern |
-|-------------|--------------|
+| Old Pattern                            | New Pattern                                   |
+| -------------------------------------- | --------------------------------------------- |
 | Shared `beforeEach` in parent describe | Each test in own describe with isolated hooks |
-| Relied on `seedBaseline` | Each test seeds its own data |
-| Manual cleanup calls | Automatic cleanup via `afterEach()` |
-| No tagging | `e2eTag` for reliable cleanup |
+| Relied on `seedBaseline`               | Each test seeds its own data                  |
+| Manual cleanup calls                   | Automatic cleanup via `afterEach()`           |
+| No tagging                             | `e2eTag` for reliable cleanup                 |
 
 ### Refactor Status
 
-| Status | Test Files |
-| ------ | ---------- |
+| Status       | Test Files                                       |
+| ------------ | ------------------------------------------------ |
 | ✅ Completed | `e2e/students/crud.spec.ts` - student CRUD tests |
 | ✅ Completed | `e2e/students/list.spec.ts` - student list tests |
-| ✅ Completed | `e2e/categories.spec.ts` - 34 tests |
-| ✅ Completed | `e2e/evaluations.spec.ts` - 18 tests |
-| ⏳ Pending | Other test files |
+| ✅ Completed | `e2e/categories.spec.ts` - 34 tests              |
+| ✅ Completed | `e2e/evaluations.spec.ts` - 18 tests             |
+| ⏳ Pending   | Other test files                                 |
 
 ### Available E2E Imports
 
@@ -576,36 +577,38 @@ When testing mutations that create data:
 To ensure tests can run in parallel (`fullyParallel: true`) without data collisions, follow these rules:
 
 #### 1. Gold Standard: Generate IDs in `beforeEach`
+
 **Never** generate test IDs or suffixes at the top level of the file. If multiple workers run tests from the same file, they will share the ID and collide.
 
 ```typescript
 // ✅ CORRECT: Unique ID per test execution
 test.describe('Feature', () => {
-    let suffix: string;
-    let studentId: string;
+	let suffix: string;
+	let studentId: string;
 
-    test.beforeEach(() => {
-        suffix = getTestSuffix('myFeature'); // Generates unique suffix
-        studentId = `S_${suffix}`;
-    });
+	test.beforeEach(() => {
+		suffix = getTestSuffix('myFeature'); // Generates unique suffix
+		studentId = `S_${suffix}`;
+	});
 });
 ```
 
 ```typescript
 // ❌ WRONG: Shared ID across all workers/retries
-const suffix = getTestSuffix('myFeature'); 
+const suffix = getTestSuffix('myFeature');
 const studentId = `S_${suffix}`;
 
 test.describe('Feature', () => { ... });
 ```
 
 #### 2. Robustness Pattern: Search over Wait
+
 When waiting for an item to appear in a list (e.g., Student Table), **do not** just wait for it to appear. If the list is long or loading is delayed, the item might be off-screen.
 **Always filter** the list to the specific ID you created.
 
 ```typescript
 // ✅ CORRECT: Force UI to show ONLY your item
-await page.getByPlaceholder('Search...').fill(studentId); 
+await page.getByPlaceholder('Search...').fill(studentId);
 await expect(page.getByRole('row', { name: studentId })).toBeVisible();
 ```
 
@@ -629,8 +632,8 @@ await expect(page.getByRole('row', { name: studentId })).toBeVisible();
 ```typescript
 // ❌ WRONG - Fails when other tests create data
 test('shows empty state when no evaluations exist', async ({ page }) => {
-    await page.goto('/admin/evaluations');
-    await expect(page.getByText('No evaluations found.')).toBeVisible();
+	await page.goto('/admin/evaluations');
+	await expect(page.getByText('No evaluations found.')).toBeVisible();
 });
 ```
 
@@ -641,10 +644,10 @@ Empty states are **UI concerns** that don't need real backend data. Test them wi
 ```typescript
 // tests/lib/components/timeline/EvaluationsTimeline.test.ts
 describe('Empty State', () => {
-    it('shows empty message when no evaluations', async () => {
-        render(EvaluationsTimeline, { evaluations: [] });
-        await expect.element(page.getByText('No evaluations found.')).toBeInTheDocument();
-    });
+	it('shows empty message when no evaluations', async () => {
+		render(EvaluationsTimeline, { evaluations: [] });
+		await expect.element(page.getByText('No evaluations found.')).toBeInTheDocument();
+	});
 });
 ```
 
@@ -655,20 +658,20 @@ Tests that create data first, then filter to show nothing, are fine:
 ```typescript
 // ✅ OK - Creates data, then filters to empty
 test('filter with no matches shows empty state', async ({ page }) => {
-    await createStudent({ studentId, englishName, e2eTag });
-    await page.goto('/admin/students');
-    await page.getByPlaceholder('Search...').fill('NonExistentXYZ123');
-    await expect(page.getByText('No students match your filters')).toBeVisible();
+	await createStudent({ studentId, englishName, e2eTag });
+	await page.goto('/admin/students');
+	await page.getByPlaceholder('Search...').fill('NonExistentXYZ123');
+	await expect(page.getByText('No students match your filters')).toBeVisible();
 });
 ```
 
 #### Summary
 
-| Test Type | Use For |
-|-----------|---------|
-| **Component Tests** | Empty states, loading states, error states |
-| **E2E Tests** | Happy paths, CRUD operations, user flows with data |
-| **E2E Filter Empty** | OK - creates data first, then filters to empty |
+| Test Type            | Use For                                            |
+| -------------------- | -------------------------------------------------- |
+| **Component Tests**  | Empty states, loading states, error states         |
+| **E2E Tests**        | Happy paths, CRUD operations, user flows with data |
+| **E2E Filter Empty** | OK - creates data first, then filters to empty     |
 
 ## Multi-Browser Parallel Testing
 
@@ -676,11 +679,11 @@ test('filter with no matches shows empty state', async ({ page }) => {
 
 All test data includes a browser identifier to prevent cross-project collisions when multiple browser projects run in parallel:
 
-| Browser | Short ID | Example Suffix |
-|---------|----------|----------------|
-| Chromium | CR | `addCat_CR_0_123456_abc` |
-| WebKit | WK | `addCat_WK_0_123456_abc` |
-| Firefox | FF | `addCat_FF_0_123456_abc` |
+| Browser  | Short ID | Example Suffix           |
+| -------- | -------- | ------------------------ |
+| Chromium | CR       | `addCat_CR_0_123456_abc` |
+| WebKit   | WK       | `addCat_WK_0_123456_abc` |
+| Firefox  | FF       | `addCat_FF_0_123456_abc` |
 
 The `getTestSuffix()` function automatically includes the browser ID - no manual action required.
 
@@ -691,6 +694,7 @@ Tests are categorized by their parallel-safety using annotations:
 #### Parallel-Safe Tests (Default - No Annotation)
 
 Tests that:
+
 - Create unique data and assert on that specific data
 - Do NOT assert on counts, totals, or "only" conditions
 - Do NOT test empty states that depend on no data existing
@@ -698,17 +702,18 @@ Tests that:
 ```typescript
 // No annotation needed - parallel by default
 test.describe('CRUD Tests', () => {
-    test('creates category', async ({ page }) => {
-        const suffix = getTestSuffix('create'); // Auto-includes browser ID
-        await createCategory({ name: `Category_${suffix}` });
-        await expect(page.getByText(`Category_${suffix}`)).toBeVisible();
-    });
+	test('creates category', async ({ page }) => {
+		const suffix = getTestSuffix('create'); // Auto-includes browser ID
+		await createCategory({ name: `Category_${suffix}` });
+		await expect(page.getByText(`Category_${suffix}`)).toBeVisible();
+	});
 });
 ```
 
 #### Sequential-Required Tests (@sequential)
 
 Tests that MUST run with `workers: 1`:
+
 - Assert on exact counts (`toHaveCount(3)`)
 - Test empty states that depend on no data existing
 - Assert "only" conditions
@@ -716,11 +721,11 @@ Tests that MUST run with `workers: 1`:
 ```typescript
 // Tag with @sequential for single-worker execution
 test.describe('Empty State Tests @sequential', () => {
-    test('shows no categories when filtered', async ({ page }) => {
-        await page.goto('/admin/categories');
-        await page.getByPlaceholder('Search').fill('NonExistentXYZ');
-        await expect(page.getByText('No categories match')).toBeVisible();
-    });
+	test('shows no categories when filtered', async ({ page }) => {
+		await page.goto('/admin/categories');
+		await page.getByPlaceholder('Search').fill('NonExistentXYZ');
+		await expect(page.getByText('No categories match')).toBeVisible();
+	});
 });
 ```
 
@@ -740,18 +745,21 @@ test.describe('Session Management @session @auth-sequential', () => {
 Use this quick decision guide before writing a new test:
 
 **Parallel-safe (default, no tag)** if all are true:
+
 - Test creates **unique data** (via `getTestSuffix`) and only asserts on that data.
 - Assertions are **existence/visibility** of the unique entity (not counts or totals).
 - Test does **not** require a clean database or “only my data” guarantees.
 - Test does **not** change shared auth/session state.
 
 **Sequential (@sequential)** if any are true:
+
 - Asserts **counts/totals** (`toHaveCount`, “shows 3 rows”, “only X exists”).
 - Asserts **empty state** that depends on no other data existing.
 - Relies on **global ordering** (e.g., newest/oldest across all users).
 - Mutates shared resources in a way that affects other tests (global settings, shared lists).
 
 **Auth/Session Sequential (@auth-sequential)** if any are true:
+
 - Logs out or invalidates sessions.
 - Changes user roles/permissions for shared storageState users.
 
@@ -762,6 +770,7 @@ Use this quick decision guide before writing a new test:
 When creating a new E2E test, follow this checklist:
 
 1. **Use `getTestSuffix()` for all unique identifiers**
+
    ```typescript
    const suffix = getTestSuffix('myTest'); // Auto-includes browser ID
    const studentId = `STU_${suffix}`;
@@ -773,38 +782,40 @@ When creating a new E2E test, follow this checklist:
    - Does it assert on counts or empty states? **Add @sequential**
 
 3. **Use isolated describe blocks**
+
    ```typescript
    test.describe('Feature Name - Test Name', () => {
-       test.use({ storageState: 'e2e/.auth/admin.json' });
-       
-       let suffix: string;
-       let e2eTag: string;
-       let hasData = false;
-       
-       test.beforeEach(async ({ page }) => {
-           suffix = getTestSuffix('testId');
-           e2eTag = `e2e-test_${suffix}`;
-           // Create data, set hasData = true
-       });
-       
-       test.afterEach(async () => {
-           if (hasData) await cleanupByTag('all', e2eTag);
-       });
-       
-       test('does something', async ({ page }) => {
-           // Test assertions
-       });
+   	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+   	let suffix: string;
+   	let e2eTag: string;
+   	let hasData = false;
+
+   	test.beforeEach(async ({ page }) => {
+   		suffix = getTestSuffix('testId');
+   		e2eTag = `e2e-test_${suffix}`;
+   		// Create data, set hasData = true
+   	});
+
+   	test.afterEach(async () => {
+   		if (hasData) await cleanupByTag('all', e2eTag);
+   	});
+
+   	test('does something', async ({ page }) => {
+   		// Test assertions
+   	});
    });
    ```
 
 4. **Never generate IDs at module level**
+
    ```typescript
    // WRONG - shared across workers
    const suffix = getTestSuffix('test');
-   
+
    // RIGHT - unique per test execution
    test.beforeEach(() => {
-       suffix = getTestSuffix('test');
+   	suffix = getTestSuffix('test');
    });
    ```
 
@@ -828,10 +839,10 @@ Does your test assert on...
 
 ### Expected Speed Improvement
 
-| Configuration | Estimated Time (10 min baseline) |
-|---------------|----------------------------------|
-| All sequential (current) | 10 min |
-| Hybrid (75% parallel) | ~5-6 min |
+| Configuration            | Estimated Time (10 min baseline) |
+| ------------------------ | -------------------------------- |
+| All sequential (current) | 10 min                           |
+| Hybrid (75% parallel)    | ~5-6 min                         |
 
 The exact improvement depends on the ratio of parallel-safe tests.
 
@@ -876,7 +887,7 @@ To support robust parallel testing, we distinguish between two types of test use
     - **Parallel Safety**: Preventing their deletion ensures that a teardown in one parallel worker doesn't log out a test running in another worker (averting "Pending Approval" or "Unauthorized" errors).
     - **Reusability**: They are updated/synchronized at the start of each suite by `setup.spec.ts`.
 
-2.  **Ephemeral Test Users**: Any users created dynamically *during* a test (e.g., via a signup flow or generic `e2e_` prefixes).
+2.  **Ephemeral Test Users**: Any users created dynamically _during_ a test (e.g., via a signup flow or generic `e2e_` prefixes).
     - **Cleanup**: These are automatically deleted by `cleanupTestUsers` or `cleanupAll` at the end of runs.
 
 ### Cleanup
@@ -898,7 +909,7 @@ When using Tailwind CSS for sizing, prefer the `size-*` utility classes over sep
 <div class="size-4">Icon</div>
 
 <!-- Avoid -->
-<div class="w-4 h-4">Icon</div>
+<div class="h-4 w-4">Icon</div>
 ```
 
 This applies to icons, buttons, avatars, and any other elements where width equals height.
@@ -937,22 +948,22 @@ const TEST_TOKEN = 'unit-test-token'; // Must match the bypass check in Convex
 ```typescript
 // dataFactory.ts
 if (args.testToken === 'unit-test-token') {
-  // Look for existing test teacher or create one
-  const existingUser = await ctx.db
-    .query('users')
-    .withIndex('by_authId', (q) => q.eq('authId', 'e2e_test_teacher'))
-    .first();
+	// Look for existing test teacher or create one
+	const existingUser = await ctx.db
+		.query('users')
+		.withIndex('by_authId', (q) => q.eq('authId', 'e2e_test_teacher'))
+		.first();
 
-  if (existingUser) {
-    teacherId = existingUser._id;
-  } else {
-    teacherId = await ctx.db.insert('users', {
-      authId: 'e2e_test_teacher',
-      name: 'E2E Test Teacher',
-      role: 'teacher',
-      status: 'active'
-    });
-  }
+	if (existingUser) {
+		teacherId = existingUser._id;
+	} else {
+		teacherId = await ctx.db.insert('users', {
+			authId: 'e2e_test_teacher',
+			name: 'E2E Test Teacher',
+			role: 'teacher',
+			status: 'active'
+		});
+	}
 }
 ```
 
@@ -983,7 +994,7 @@ export const getAuthenticatedUser = async (ctx: any, testToken?: string) => {
 	// CRITICAL: Check test token FIRST to avoid hanging on auth component calls
 	if (testToken === 'unit-test-token') {
 		return {
-			_id: 'test-user-id',  // Must match audit log skip check
+			_id: 'test-user-id', // Must match audit log skip check
 			authId: 'test_admin',
 			name: 'Test Admin',
 			role: 'admin',
@@ -995,6 +1006,7 @@ export const getAuthenticatedUser = async (ctx: any, testToken?: string) => {
 ```
 
 **Why this order matters:**
+
 - In convex-test environment, auth component calls hang indefinitely
 - The test token check must come before any auth-related operations
 - The mock user `_id` must be `'test-user-id'` to match the audit log skip check in `users.ts`
@@ -1042,37 +1054,37 @@ Tests run on every PR:
 
 ### Current Coverage (as of Feb 2026)
 
-| Category           | Test Files | Tests           |
-| ------------------ | ---------- | --------------- |
-| Browser unit tests | 10         | varies          |
-| Server unit tests  | 7          | varies          |
-| E2E tests          | 19         | varies          |
+| Category           | Test Files | Tests  |
+| ------------------ | ---------- | ------ |
+| Browser unit tests | 10         | varies |
+| Server unit tests  | 7          | varies |
+| E2E tests          | 19         | varies |
 
 ### Pages with Browser Tests
 
-| Route               | Tests | Coverage         |
-| ------------------- | ----- | ---------------- |
-| `/login`            | 1     | Structure        |
-| `/admin`            | 1     | Structure        |
-| `/admin/academic`   | 1     | Structure        |
-| `/admin/students`   | 2     | Dialogs, fields  |
-| `/admin/weekly-reports` | 1 | Structure        |
-| `/evaluations`      | 1     | Structure        |
-| `/evaluations/new`  | 1     | Structure        |
-| `/rejected`         | 1     | Static page      |
-| `$lib/utils.ts`     | 1     | cn() utility     |
+| Route                   | Tests | Coverage        |
+| ----------------------- | ----- | --------------- |
+| `/login`                | 1     | Structure       |
+| `/admin`                | 1     | Structure       |
+| `/admin/academic`       | 1     | Structure       |
+| `/admin/students`       | 2     | Dialogs, fields |
+| `/admin/weekly-reports` | 1     | Structure       |
+| `/evaluations`          | 1     | Structure       |
+| `/evaluations/new`      | 1     | Structure       |
+| `/rejected`             | 1     | Static page     |
+| `$lib/utils.ts`         | 1     | cn() utility    |
 
 ### Convex Functions with Tests
 
-| Function            | Edge Cases                   |
-| ------------------- | ---------------------------- |
-| `audit.*`           | Access, filtering            |
-| `backup.*`          | Basic flows                  |
-| `categories.*`      | CRUD, subCategories          |
-| `evaluations.*`     | CRUD, sorting, filters       |
-| `students.*`        | Validation, duplicates       |
-| `students.duplicates.*` | Deduping paths          |
-| `weekly-reports.*`  | CRUD, filters                |
+| Function                | Edge Cases             |
+| ----------------------- | ---------------------- |
+| `audit.*`               | Access, filtering      |
+| `backup.*`              | Basic flows            |
+| `categories.*`          | CRUD, subCategories    |
+| `evaluations.*`         | CRUD, sorting, filters |
+| `students.*`            | Validation, duplicates |
+| `students.duplicates.*` | Deduping paths         |
+| `weekly-reports.*`      | CRUD, filters          |
 
 ### Test Strategy
 

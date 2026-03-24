@@ -1,18 +1,22 @@
 # Layout Reorganization Plan
 
 ## Overview
+
 Reorganize the application layout based on usage frequency to improve user experience and efficiency.
 
 ## Current State Analysis
 
 ### Teachers Landing Page (`/`)
+
 - Currently shows a welcome page with buttons to:
   - View Evaluations (`/evaluations`)
   - New Evaluation (`/evaluations/new`)
   - Admin Dashboard (only for admins)
 
 ### Admin Dashboard (`/admin`)
+
 Current card order:
+
 1. System Data
 2. Student Management
 3. User Accounts
@@ -31,6 +35,7 @@ Current card order:
 **Rationale**: Evaluation review is used "a few times a week" - it's the most frequent task for teachers.
 
 **Implementation**:
+
 - Modify [`src/routes/+page.svelte`](src/routes/+page.svelte) to redirect teachers to `/evaluations`
 - Keep the welcome page for:
   - Non-logged-in users (sign-in prompt)
@@ -44,21 +49,25 @@ Current card order:
 **New Order** (from most to least frequent):
 
 #### Top Section - Prominent (High Frequency)
+
 1. **Weekly Reports** - Every week
 2. **Evaluation Review** - A few times a week (link to `/evaluations`)
 
 #### Middle Section - Occasional (Medium Frequency)
+
 3. **Student Management** - Beginning of year, sporadic use
 4. **User Accounts** - Beginning of year, very limited use
 5. **Categories** - Beginning of year
 
 #### Bottom Section - Rare (Low Frequency)
+
 6. **Audit Log** - A few times a year (when problems occur)
 7. **Backup** - A few times a year (auto-backup runs weekly)
 8. **Archive & Reset** - Once or twice a year
 9. **System Data** - Testing only (will be removed in production)
 
 **Visual Organization**:
+
 - No section headers (keep simple card layout)
 - Maintain consistent spacing between all cards
 
