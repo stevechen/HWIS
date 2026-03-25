@@ -6,7 +6,12 @@
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
 	import RadarChart from '$lib/components/RadarChart.svelte';
 	import ScoreTallyBar from '$lib/components/timeline/ScoreTallyBar.svelte';
-	import { headerTitleOverride } from '$lib/stores/header';
+	import {
+		headerTitleOverride,
+		setHeaderHouseBadge,
+		clearHeaderHouseBadge,
+		type HouseLogoComponent
+	} from '$lib/stores/header';
 	import { onDestroy } from 'svelte';
 	import {
 		matchesMultiSearch,
@@ -22,6 +27,10 @@
 	} from '$lib/evaluations/components';
 	import { Button } from '$lib/components/ui/button';
 	import { Users, EyeClosed } from '@lucide/svelte';
+	import LogoHeracles from '$lib/components/LogoHeracles.svelte';
+	import LogoWukong from '$lib/components/LogoWukong.svelte';
+	import LogoIxbalam from '$lib/components/LogoIxbalam.svelte';
+	import LogoSetna from '$lib/components/LogoSetna.svelte';
 
 	let { data }: { data: { demo?: string; studentId?: string } } = $props();
 
@@ -97,8 +106,24 @@
 		chineseName: '張約翰',
 		studentId: 'SE2024001',
 		grade: 10,
-		classSection: 'A'
+		classSection: 'A',
+		house: 'Wukong'
 	};
+
+	// House logos mapping
+	const houseLogos: Record<string, HouseLogoComponent> = {
+		Heracles: LogoHeracles,
+		Wukong: LogoWukong,
+		Ixbalam: LogoIxbalam,
+		Setna: LogoSetna
+	};
+
+	// Get student's house
+	const studentHouse = $derived.by(() => {
+		if (isDemo) return demoStudent.house;
+		const s = student as { house?: string } | undefined;
+		return s?.house || null;
+	});
 
 	// Demo evaluation data with teacherId for ownership check
 	// Note: Categories are intentionally hardcoded to show variety across different categories for demo purposes.
@@ -248,6 +273,7 @@
 	// Cleanup on destroy
 	onDestroy(() => {
 		$headerTitleOverride = '';
+		clearHeaderHouseBadge();
 	});
 
 	// Dialog states
@@ -399,16 +425,31 @@
 		deleteDialogOpen = true;
 	}
 
-	// Set header title override
+	// Set header title override and house badge
 	$effect(() => {
 		if (!browser) return;
-		// Access student to track dependency
+		// Access student and house to track dependency
 		const s = student;
+		const h = studentHouse;
 		// Student data has englishName but grade is in class data
 		// For now, just show the student name without grade
 		if (s && 'englishName' in s && s.englishName) {
 			$headerTitleOverride = `${s.englishName} Evaluations`;
+			// Set house badge in header
+			if (h && houseLogos[h as keyof typeof houseLogos]) {
+				setHeaderHouseBadge(h, houseLogos[h as keyof typeof houseLogos]);
+			} else {
+				clearHeaderHouseBadge();
+			}
+		} else {
+			clearHeaderHouseBadge();
 		}
+	});
+
+	// Cleanup on destroy
+	onDestroy(() => {
+		$headerTitleOverride = '';
+		clearHeaderHouseBadge();
 	});
 
 	// Determine loading state
@@ -491,12 +532,6 @@
 				<!-- Left column: Radar chart and category totals -->
 				<div class="bg-card/80 shadow-sm p-5 border rounded-2xl lg:w-80 shrink-0">
 					<div class="space-y-3">
-						<div class="space-y-1">
-							<!-- <h2 class="font-semibold text-xl">Personal Radar</h2> -->
-							<!-- <p class="text-muted-foreground text-sm">
-								All evaluations grouped by category for this student.
-							</p> -->
-						</div>
 						<div class="flex justify-center mt-4">
 							<RadarChart
 								data={radarData}

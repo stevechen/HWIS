@@ -13,9 +13,17 @@
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import { api } from '$convex/_generated/api';
-	import { headerTitleOverride } from '$lib/stores/header';
+	import { headerTitleOverride, headerHouseBadge } from '$lib/stores/header';
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
+
+	// House colors for theming - matching the houses page
+	const houseColors: Record<string, { text: string }> = {
+		Heracles: { text: 'bg-red-400' },
+		Wukong: { text: 'bg-amber-400' },
+		Ixbalam: { text: 'bg-teal-400' },
+		Setna: { text: 'bg-purple-400' }
+	};
 
 	// Initialize Convex client - must be called before any useQuery() calls
 	setupConvex(PUBLIC_CONVEX_URL);
@@ -169,23 +177,23 @@
 
 <div class="relative min-h-screen">
 	<!-- Background Logo -->
-	<div class="pointer-events-none fixed inset-0 -z-10 flex items-center justify-center">
+	<div class="-z-10 fixed inset-0 flex justify-center items-center pointer-events-none">
 		<img
 			src={logo}
 			alt=""
 			aria-hidden="true"
-			class="h-auto max-h-[70vh] w-auto max-w-[70vw] opacity-3"
+			class="opacity-3 w-auto max-w-[70vw] h-auto max-h-[70vh]"
 			loading="eager"
 			decoding="async"
 		/>
 	</div>
 
-	<div class="flex min-h-screen flex-col">
+	<div class="flex flex-col min-h-screen">
 		{#if shouldShowModal}
-			<div class="fixed inset-0 z-9999 flex items-center justify-center bg-black/80">
-				<div class="bg-background text-foreground m-4 max-w-md rounded-lg border p-6 shadow-lg">
-					<h2 class="mb-4 text-lg font-semibold">Access Restricted</h2>
-					<p class="text-muted-foreground mb-6">
+			<div class="z-9999 fixed inset-0 flex justify-center items-center bg-black/80">
+				<div class="bg-background shadow-lg m-4 p-6 border rounded-lg max-w-md text-foreground">
+					<h2 class="mb-4 font-semibold text-lg">Access Restricted</h2>
+					<p class="mb-6 text-muted-foreground">
 						Your account access has been changed. Please sign in again.
 					</p>
 					<Button variant="default" class="w-full cursor-pointer" onclick={handleReload}
@@ -195,26 +203,45 @@
 			</div>
 		{/if}
 		{#if $page.url.pathname !== '/login' && !shouldShowModal}
-			<div class="bg-primary text-primary-foreground sticky top-0 z-1000 border-b">
-				<div class="flex h-14 items-center justify-between gap-3 px-4">
+			{@const houseColor = $headerHouseBadge
+				? houseColors[$headerHouseBadge.house]?.text || ''
+				: ''}
+			<div
+				class="sticky top-0 z-1000 {$headerHouseBadge
+					? houseColor
+					: 'bg-primary'} text-primary-foreground border-b"
+			>
+				<div class="flex justify-between items-center gap-3 px-4 h-14">
 					<div class="flex items-center gap-3">
 						{#if backLabel}
 							<Button
 								variant="default"
-								class="border bg-white text-blue-950 hover:bg-gray-100"
+								class="bg-white hover:bg-gray-100 border text-blue-950"
 								onclick={handleBack}
 							>
 								<ArrowLeft class="size-4" />
 								<span class="hidden sm:inline">{backLabel}</span>
 							</Button>
 						{/if}
-						<h1 class="text-primary-foreground font-semibold">{headerTitle}</h1>
+						<h1 class="flex items-center gap-2 font-semibold text-primary-foreground">
+							{#if $headerHouseBadge}
+								{@const LogoComponent = $headerHouseBadge.logo}
+								<div
+									class="size-12 {$headerHouseBadge
+										? houseColors[$headerHouseBadge.house]?.text || ''
+										: ''}"
+								>
+									<LogoComponent />
+								</div>
+							{/if}
+							{headerTitle}
+						</h1>
 					</div>
 					<div class="flex items-center gap-3">
 						<ThemeToggle />
 						<Button
 							variant="default"
-							class="border bg-white text-blue-950 hover:bg-gray-100"
+							class="bg-white hover:bg-gray-100 border text-blue-950"
 							onclick={signOut}
 							aria-label="Sign out"
 						>
