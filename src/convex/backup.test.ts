@@ -397,18 +397,14 @@ describe('backup clearing logic', () => {
 			});
 
 			// Verify pre-restore state has the extra data
-			expect(
-				await t.run(async (ctx) => (await ctx.db.query('students').collect()).length)
-			).toBe(2);
+			expect(await t.run(async (ctx) => (await ctx.db.query('students').collect()).length)).toBe(2);
 			expect(
 				await t.run(async (ctx) => (await ctx.db.query('point_categories').collect()).length)
 			).toBe(2);
-			expect(
-				await t.run(async (ctx) => (await ctx.db.query('evaluations').collect()).length)
-			).toBe(1);
-			expect(
-				await t.run(async (ctx) => (await ctx.db.query('classes').collect()).length)
-			).toBe(3);
+			expect(await t.run(async (ctx) => (await ctx.db.query('evaluations').collect()).length)).toBe(
+				1
+			);
+			expect(await t.run(async (ctx) => (await ctx.db.query('classes').collect()).length)).toBe(3);
 			expect(
 				await t.run(async (ctx) => (await ctx.db.query('house_events').collect()).length)
 			).toBe(1);
@@ -416,7 +412,9 @@ describe('backup clearing logic', () => {
 			await t.mutation(api.backup.restoreFromBackup, { backupId });
 
 			const students = await t.run(async (ctx) => await ctx.db.query('students').collect());
-			const categories = await t.run(async (ctx) => await ctx.db.query('point_categories').collect());
+			const categories = await t.run(
+				async (ctx) => await ctx.db.query('point_categories').collect()
+			);
 			const evaluations = await t.run(async (ctx) => await ctx.db.query('evaluations').collect());
 			const classes = await t.run(async (ctx) => await ctx.db.query('classes').collect());
 			const houseEvents = await t.run(async (ctx) => await ctx.db.query('house_events').collect());
@@ -438,7 +436,7 @@ describe('backup clearing logic', () => {
 		test('clears audit logs for cleared tables, preserves users and user audit logs', async () => {
 			const t = convexTest(schema, modules);
 
-			const { studentId } = await createStudentWithClass(t, {
+			await createStudentWithClass(t, {
 				englishName: 'Audit Student',
 				chineseName: '審計學生',
 				studentId: 'STU010',
@@ -456,7 +454,7 @@ describe('backup clearing logic', () => {
 				});
 			});
 
-			const categoryId = await t.mutation(api.categories.create, {
+			await t.mutation(api.categories.create, {
 				name: 'Audit Category'
 			});
 
@@ -853,7 +851,7 @@ describe('backup clearing logic', () => {
 	test('clearAllData clears house_events and related audit logs', async () => {
 		const t = convexTest(schema, modules);
 
-		const { studentId } = await createStudentWithClass(t, {
+		await createStudentWithClass(t, {
 			englishName: 'Test Student',
 			chineseName: '測試學生',
 			studentId: 'STU011',

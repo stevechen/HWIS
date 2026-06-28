@@ -1,5 +1,5 @@
 import { expect, test, describe } from 'vitest';
-import { convexTest, modules, createStudentWithClass } from './test.setup';
+import { convexTest, modules } from './test.setup';
 import schema from './schema';
 
 describe('checkStudentIdExists query', () => {

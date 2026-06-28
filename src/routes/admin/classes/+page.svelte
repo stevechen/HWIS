@@ -4,8 +4,8 @@
 	import type { Id } from '$convex/_generated/dataModel';
 	import { Plus, Trash2, Eye, EyeOff, Users, GripVertical } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { onMount } from 'svelte';
 
 	// Client-side helper functions (duplicated from classes.ts for client use)
@@ -125,13 +125,13 @@
 	});
 
 	// State for visible grades (default all grades visible)
-	let visibleGrades = $state<Set<number>>(new Set([7, 8, 9, 10, 11, 12]));
+	let visibleGrades = new SvelteSet([7, 8, 9, 10, 11, 12]);
 
 	// State for global student list visibility toggle
 	let globalStudentListsVisible = $state(false);
 
 	// State for IB visibility per grade (grades where IB classes should be shown)
-	let ibVisibleGrades = $state<Set<number>>(new Set());
+	let ibVisibleGrades = new SvelteSet();
 
 	// Add dialog state
 	let addDialogRef = $state<HTMLDialogElement | null>(null);
@@ -198,7 +198,6 @@
 		} else {
 			visibleGrades.add(grade);
 		}
-		visibleGrades = new Set(visibleGrades);
 	}
 
 	// Toggle global student list visibility
@@ -213,7 +212,6 @@
 		} else {
 			ibVisibleGrades.add(grade);
 		}
-		ibVisibleGrades = new Set(ibVisibleGrades);
 	}
 
 	function openAddDialog(grade: number) {
@@ -258,7 +256,7 @@
 				id: cls._id,
 				homeroomTeacherId: teacherId ? (teacherId as Id<'users'>) : undefined
 			});
-		} catch (e) {
+		} catch {
 			// Handle error
 		}
 	}
@@ -367,7 +365,7 @@
 		<!-- Grade Checkboxes -->
 		<div class="flex items-center gap-2">
 			<span class="text-muted-foreground mr-1 text-xs">Grades:</span>
-			{#each grades as grade}
+			{#each grades as grade (grade)}
 				<label class="flex cursor-pointer items-center gap-1">
 					<input
 						type="checkbox"
@@ -457,7 +455,7 @@
 
 						<!-- Classes List -->
 						<div class="flex flex-row flex-wrap gap-0">
-							{#each gradeClasses as cls, classIndex (cls._id)}
+							{#each gradeClasses as cls (cls._id)}
 								{@const isIBClass = cls.class === 'IB'}
 								{@const shouldRenderClass = !isIBClass || shouldShowIB}
 								{@const isDragOver = dragOverClassId === cls._id}

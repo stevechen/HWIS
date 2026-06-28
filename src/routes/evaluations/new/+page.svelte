@@ -385,7 +385,7 @@
 
 				{#if validationErrors().length > 0}
 					<div role="alert" class="bg-destructive/10 text-destructive mb-4 rounded-md p-3 text-sm">
-						{#each validationErrors() as errorMsg}
+						{#each validationErrors() as errorMsg (errorMsg)}
 							<div>{errorMsg}</div>
 						{/each}
 					</div>

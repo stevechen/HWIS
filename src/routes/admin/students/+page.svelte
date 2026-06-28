@@ -73,20 +73,12 @@
 	let formEnglishName = $state('');
 	let formChineseName = $state('');
 	let formGrade = $state(7);
-	let formGradeStr = $state('7');
 	let formClass = $state<string>('');
-	let formClassId = $state<Id<'classes'> | null>(null);
 	let formGradeClass = $state<string>(''); // Combined grade-class selection
 	let formStatus = $state<'Enrolled' | 'Not Enrolled'>('Enrolled');
 	let formNote = $state('');
 	let isSubmitting = $state(false);
 	let formErrors = $state<string[]>([]);
-
-	// Get classes for the selected grade
-	let classesForGrade = $derived.by(() => {
-		if (!classesQuery.data) return [];
-		return classesQuery.data.filter((c) => c.grade === formGrade);
-	});
 
 	// Delete dialog state
 	let studentToDelete = $state<Student | null>(null);
@@ -114,8 +106,6 @@
 	// Duplicate check state
 	let isCheckingId = $state(false);
 	let idAvailability = $state<'available' | 'taken' | 'unknown'>('unknown');
-	let lastCheckedId = $state('');
-	let showAvailabilityMsg = $state(false);
 
 	const grades = [7, 8, 9, 10, 11, 12];
 	const statuses = ['Enrolled', 'Not Enrolled'] as const;
@@ -174,24 +164,19 @@
 		formEnglishName = '';
 		formChineseName = '';
 		formGrade = 7;
-		formGradeStr = '7';
 		formClass = '';
-		formClassId = null;
 		formGradeClass = '7-default'; // Default to grade 7 default class
 		formStatus = 'Enrolled';
 		formNote = '';
 		editingId = null;
 		formErrors = [];
 		idAvailability = 'unknown';
-		lastCheckedId = '';
-		showAvailabilityMsg = false;
 	}
 
 	function startEdit(student: Student) {
 		formStudentId = student.studentId;
 		formEnglishName = student.englishName;
 		formChineseName = student.chineseName || '';
-		formClassId = student.classId;
 		// Set combined grade-class value from classInfo
 		if (student.classInfo) {
 			formGradeClass = `${student.classInfo.grade}-${student.classInfo.class}`;
@@ -210,7 +195,6 @@
 		const parts = formGradeClass.split('-');
 		if (parts.length === 2) {
 			formGrade = parseInt(parts[0]);
-			formGradeStr = parts[0];
 			formClass = parts[1];
 		}
 		formStatus = student.status || 'Enrolled';
@@ -219,8 +203,6 @@
 		editingId = student._id;
 		formErrors = [];
 		idAvailability = 'unknown';
-		lastCheckedId = '';
-		showAvailabilityMsg = false;
 	}
 
 	// Handle combined grade-class selection change
@@ -229,25 +211,19 @@
 		const parts = value.split('-');
 		if (parts.length === 2) {
 			formGrade = parseInt(parts[0]);
-			formGradeStr = parts[0];
 			formClass = parts[1];
-			// Find the classId from the options
-			const option = gradeClassOptions.find((opt) => opt.value === value);
-			formClassId = option?.classId || null;
 		}
 	}
 
 	async function checkIdAvailability() {
 		if (!formStudentId.trim()) return;
 		isCheckingId = true;
-		showAvailabilityMsg = true;
 		try {
 			const result = await client.query(studentsApi.checkStudentIdExists, {
 				studentId: formStudentId.trim(),
 				excludeId: editingId || undefined
 			});
 			idAvailability = result.exists ? 'taken' : 'available';
-			lastCheckedId = formStudentId.trim();
 		} catch {
 			idAvailability = 'unknown';
 		} finally {
@@ -357,10 +333,6 @@
 		} catch (e) {
 			alert('Failed to delete: ' + (e instanceof Error ? e.message : String(e)));
 		}
-	}
-
-	function confirmDisable(student: Student) {
-		studentToDisable = student;
 	}
 
 	async function handleDisable() {

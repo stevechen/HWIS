@@ -8,7 +8,7 @@ describe('House Events CRUD', () => {
 	it('list returns events with date ranges', async () => {
 		const t = convexTest(schema, modules);
 
-		const event1 = await t.mutation(api.houseEvents.create, {
+		await t.mutation(api.houseEvents.create, {
 			title: 'Sports Day',
 			startDate: Date.UTC(2024, 0, 1),
 			endDate: Date.UTC(2024, 0, 15),

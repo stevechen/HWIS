@@ -26,10 +26,6 @@
 	// Show unenrolled toggle - default to OFF, no persistence
 	let showUnenrolled = $state(false);
 
-	function toggleShowUnenrolled(): void {
-		showUnenrolled = !showUnenrolled;
-	}
-
 	// Show teacher name toggle - default to OFF, no persistence
 	let showTeacherName = $state(false);
 
@@ -224,20 +220,18 @@
 		onToggleShowUnenrolled={handleToggleShowUnenrolled}
 		onToggleShowDetails={handleToggleShowDetails}
 	>
-		{#snippet children()}
-			<FilterInput
-				bind:value={studentFilter}
-				placeholder="Filter by student name..."
-				ariaLabel="Filter by student name"
-				class="w-full sm:w-64"
-			/>
-			<FilterInput
-				bind:value={teacherFilter}
-				placeholder="Filter by teacher..."
-				ariaLabel="Filter by teacher"
-				class="w-full sm:w-64"
-			/>
-		{/snippet}
+		<FilterInput
+			bind:value={studentFilter}
+			placeholder="Filter by student name..."
+			ariaLabel="Filter by student name"
+			class="w-full sm:w-64"
+		/>
+		<FilterInput
+			bind:value={teacherFilter}
+			placeholder="Filter by teacher..."
+			ariaLabel="Filter by teacher"
+			class="w-full sm:w-64"
+		/>
 		{#snippet extraToggles()}
 			<Button
 				aria-label={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}

@@ -1,11 +1,6 @@
 import { page } from 'vitest/browser';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { Plus, Pencil, Trash2, Calendar, Trophy } from '@lucide/svelte';
-import { Button } from '$lib/components/ui/button';
-import { Input } from '$lib/components/ui/input';
-import * as Dialog from '$lib/components/ui/dialog/index.js';
-import * as Card from '$lib/components/ui/card/index.js';
 
 const mockEventsData = [
 	{
@@ -115,6 +110,7 @@ describe('House Events Page', () => {
 				isLoading: false,
 				isStale: false,
 				error: undefined
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			} as any);
 
 			render(EventsPage);

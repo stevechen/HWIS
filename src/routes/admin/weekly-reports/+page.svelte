@@ -250,11 +250,6 @@
 		sinceTimestamp
 	}));
 
-	const detailQuery = $derived.by(() => {
-		if (isDemoMode || !selectedReport) return undefined;
-		return { fridayDate: selectedReport!.fridayDate };
-	});
-
 	const detailData = useQuery(api.evaluations.getWeeklyReportDetail, () =>
 		isDemoMode || !selectedReport ? 'skip' : { fridayDate: selectedReport.fridayDate }
 	);

@@ -38,12 +38,6 @@ vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
 }));
 
-const activeTeacherUser = {
-	role: 'teacher',
-	status: 'active',
-	name: 'Test Teacher'
-};
-
 const pendingUser = {
 	role: 'teacher',
 	status: 'pending',
@@ -63,6 +57,7 @@ describe('home page', () => {
 			data: pendingUser,
 			isLoading: false,
 			error: null
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		} as any);
 
 		render(HomePage);

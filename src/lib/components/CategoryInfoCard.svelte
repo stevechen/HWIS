@@ -4,7 +4,6 @@
 	import { Plus, Minus } from '@lucide/svelte';
 
 	interface Category {
-		_id: string;
 		name: string;
 		casAlignment?: ('Creativity' | 'Activity' | 'Service')[];
 		meritCriteria?: string[];
@@ -20,7 +19,7 @@
 			<Card.Title class="text-base">{category.name}</Card.Title>
 			{#if category.casAlignment && category.casAlignment.length > 0}
 				<div class="flex gap-1">
-					{#each category.casAlignment as alignment}
+					{#each category.casAlignment as alignment (alignment)}
 						<Badge variant="outline">{alignment}</Badge>
 					{/each}
 				</div>
@@ -37,7 +36,7 @@
 						Demerit (-)
 					</h4>
 					<ul class="text-muted-foreground list-disc space-y-1 pl-4 text-sm">
-						{#each category.demeritCriteria as criterion}
+						{#each category.demeritCriteria as criterion (criterion)}
 							<li class="break-words">{criterion}</li>
 						{/each}
 					</ul>
@@ -52,7 +51,7 @@
 						Merit (+)
 					</h4>
 					<ul class="text-muted-foreground list-disc space-y-1 pl-4 text-sm">
-						{#each category.meritCriteria as criterion}
+						{#each category.meritCriteria as criterion (criterion)}
 							<li class="break-words">{criterion}</li>
 						{/each}
 					</ul>

@@ -4,8 +4,6 @@ import { api } from '../src/convex/_generated/api.js';
 
 const convex = new ConvexHttpClient(process.env.CONVEX_URL!);
 
-const houses = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
-
 const raw = `Heracles	Wukong	Ixbalam	Setna
 G10-1 Adeline Huang	G10-2 Vivian Chang	G9 Cyrus Shi	G9 Leroy Chang
 G10-1 Angus Yang	G10-1 Marcus Tse	G10-1 Katrina Hong	G10-2 Jamie Liu
@@ -87,7 +85,6 @@ function parseData(input: string) {
 			const entry = cells[j]?.trim();
 			if (!entry) continue;
 			const parts = entry.split(' ');
-			const gradeClass = parts[0];
 			const englishName = parts.slice(1).join(' ');
 			assignments.push({ englishName, house: headers[j] });
 		}
