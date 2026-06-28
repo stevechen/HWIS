@@ -118,6 +118,32 @@ export const restoreFromBackup = mutation({
 
 		const data = backup.data as BackupPayload;
 
+		// Clear all existing data before restoring
+		const existingStudents = await ctx.db.query('students').collect();
+		const existingEvaluations = await ctx.db.query('evaluations').collect();
+		const existingCategories = await ctx.db.query('point_categories').collect();
+		const existingClasses = await ctx.db.query('classes').collect();
+		const existingHouseEvents = await ctx.db.query('house_events').collect();
+
+		for (const s of existingStudents) await ctx.db.delete(s._id);
+		for (const e of existingEvaluations) await ctx.db.delete(e._id);
+		for (const c of existingCategories) await ctx.db.delete(c._id);
+		for (const c of existingClasses) await ctx.db.delete(c._id);
+		for (const e of existingHouseEvents) await ctx.db.delete(e._id);
+
+		const auditLogs = await ctx.db.query('audit_logs').collect();
+		for (const log of auditLogs) {
+			if (
+				log.targetTable === 'students' ||
+				log.targetTable === 'evaluations' ||
+				log.targetTable === 'classes' ||
+				log.targetTable === 'house_events' ||
+				log.targetTable === 'point_categories'
+			) {
+				await ctx.db.delete(log._id);
+			}
+		}
+
 		// Create a mapping from old class IDs to new/existing class IDs
 		const classIdMapping = new Map<string, Id<'classes'>>();
 

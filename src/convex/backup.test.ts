@@ -308,6 +308,299 @@ describe('backup clearing logic', () => {
 		expect(categories[0].name).toBe('Restored Category');
 	});
 
+	describe('restoreFromBackup', () => {
+		test('clears existing data before restoring backup data', async () => {
+			const t = convexTest(schema, modules);
+
+			const { studentId } = await createStudentWithClass(t, {
+				englishName: 'Original Student',
+				chineseName: '原始學生',
+				studentId: 'STU001',
+				grade: 10,
+				classNum: '1',
+				status: 'Enrolled',
+				note: 'Original'
+			});
+
+			const teacherId = await t.run(async (ctx) => {
+				return await ctx.db.insert('users', {
+					authId: 'teacher-auth-id',
+					name: 'Original Teacher',
+					role: 'teacher',
+					status: 'active'
+				});
+			});
+
+			const categoryId = await t.mutation(api.categories.create, {
+				name: 'Original Category'
+			});
+
+			const backupId = await t.run(async (ctx) => {
+				const students = await ctx.db.query('students').collect();
+				const classes = await ctx.db.query('classes').collect();
+				const users = await ctx.db.query('users').collect();
+				const categories = await ctx.db.query('point_categories').collect();
+				return await ctx.db.insert('backups', {
+					filename: `backup-${Date.now()}.json`,
+					data: {
+						exportedAt: new Date().toISOString(),
+						version: '1.0',
+						students,
+						evaluations: [],
+						users,
+						categories,
+						classes,
+						houseEvents: []
+					},
+					createdAt: Date.now()
+				});
+			});
+
+			// Add extra data after backup (should be erased by restore)
+			await createStudentWithClass(t, {
+				englishName: 'Extra Student',
+				chineseName: '額外學生',
+				studentId: 'STU002',
+				grade: 11,
+				classNum: '2',
+				status: 'Enrolled'
+			});
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('point_categories', {
+					name: 'Extra Category'
+				});
+			});
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('evaluations', {
+					studentId,
+					teacherId,
+					value: 5,
+					categoryId,
+					details: 'Extra evaluation',
+					timestamp: Date.now(),
+					semesterId: '2025-H1'
+				});
+			});
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('classes', { grade: 12, class: '3' });
+			});
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('house_events', {
+					title: 'Extra Event',
+					startDate: Date.now(),
+					endDate: Date.now() + 86400000
+				});
+			});
+
+			// Verify pre-restore state has the extra data
+			expect(
+				await t.run(async (ctx) => (await ctx.db.query('students').collect()).length)
+			).toBe(2);
+			expect(
+				await t.run(async (ctx) => (await ctx.db.query('point_categories').collect()).length)
+			).toBe(2);
+			expect(
+				await t.run(async (ctx) => (await ctx.db.query('evaluations').collect()).length)
+			).toBe(1);
+			expect(
+				await t.run(async (ctx) => (await ctx.db.query('classes').collect()).length)
+			).toBe(3);
+			expect(
+				await t.run(async (ctx) => (await ctx.db.query('house_events').collect()).length)
+			).toBe(1);
+
+			await t.mutation(api.backup.restoreFromBackup, { backupId });
+
+			const students = await t.run(async (ctx) => await ctx.db.query('students').collect());
+			const categories = await t.run(async (ctx) => await ctx.db.query('point_categories').collect());
+			const evaluations = await t.run(async (ctx) => await ctx.db.query('evaluations').collect());
+			const classes = await t.run(async (ctx) => await ctx.db.query('classes').collect());
+			const houseEvents = await t.run(async (ctx) => await ctx.db.query('house_events').collect());
+
+			expect(students).toHaveLength(1);
+			expect(students[0].englishName).toBe('Original Student');
+			expect(students[0].studentId).toBe('STU001');
+
+			expect(categories).toHaveLength(1);
+			expect(categories[0].name).toBe('Original Category');
+
+			expect(evaluations).toHaveLength(0);
+			expect(houseEvents).toHaveLength(0);
+
+			// Only the 2 original classes should remain
+			expect(classes).toHaveLength(1);
+		});
+
+		test('clears audit logs for cleared tables, preserves users and user audit logs', async () => {
+			const t = convexTest(schema, modules);
+
+			const { studentId } = await createStudentWithClass(t, {
+				englishName: 'Audit Student',
+				chineseName: '審計學生',
+				studentId: 'STU010',
+				grade: 10,
+				classNum: '1',
+				status: 'Enrolled'
+			});
+
+			const teacherId = await t.run(async (ctx) => {
+				return await ctx.db.insert('users', {
+					authId: 'audit-teacher',
+					name: 'Audit Teacher',
+					role: 'teacher',
+					status: 'active'
+				});
+			});
+
+			const categoryId = await t.mutation(api.categories.create, {
+				name: 'Audit Category'
+			});
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('audit_logs', {
+					action: 'create_student',
+					performerId: teacherId,
+					targetTable: 'students',
+					targetId: 'stu-010',
+					oldValue: null,
+					newValue: { englishName: 'Audit Student' },
+					timestamp: Date.now()
+				});
+				await ctx.db.insert('audit_logs', {
+					action: 'create_evaluation',
+					performerId: teacherId,
+					targetTable: 'evaluations',
+					targetId: 'eval-010',
+					oldValue: null,
+					newValue: { value: 1 },
+					timestamp: Date.now()
+				});
+				await ctx.db.insert('audit_logs', {
+					action: 'update_user_role',
+					performerId: teacherId,
+					targetTable: 'users',
+					targetId: 'user-010',
+					oldValue: { role: 'teacher' },
+					newValue: { role: 'admin' },
+					timestamp: Date.now()
+				});
+			});
+
+			const backupId = await t.run(async (ctx) => {
+				const students = await ctx.db.query('students').collect();
+				const classes = await ctx.db.query('classes').collect();
+				const users = await ctx.db.query('users').collect();
+				const categories = await ctx.db.query('point_categories').collect();
+				return await ctx.db.insert('backups', {
+					filename: `backup-${Date.now()}.json`,
+					data: {
+						exportedAt: new Date().toISOString(),
+						version: '1.0',
+						students,
+						evaluations: [],
+						users,
+						categories,
+						classes,
+						houseEvents: []
+					},
+					createdAt: Date.now()
+				});
+			});
+
+			await t.mutation(api.backup.restoreFromBackup, { backupId });
+
+			const auditLogs = await t.run(async (ctx) => await ctx.db.query('audit_logs').collect());
+			const users = await t.run(async (ctx) => await ctx.db.query('users').collect());
+
+			// User audit logs should survive
+			const userAuditLogs = auditLogs.filter((l) => l.targetTable === 'users');
+			expect(userAuditLogs).toHaveLength(1);
+			expect(userAuditLogs[0].targetTable).toBe('users');
+
+			// Students/evaluations audit logs should be cleared
+			expect(auditLogs.filter((l) => l.targetTable === 'students')).toHaveLength(0);
+			expect(auditLogs.filter((l) => l.targetTable === 'evaluations')).toHaveLength(0);
+
+			// Users table should be preserved (not cleared)
+			expect(users.length).toBeGreaterThanOrEqual(1);
+		});
+
+		test('restores house_events from backup', async () => {
+			const t = convexTest(schema, modules);
+
+			await createStudentWithClass(t, {
+				englishName: 'HE Student',
+				chineseName: '活動學生',
+				studentId: 'STU020',
+				grade: 10,
+				classNum: '1',
+				status: 'Enrolled'
+			});
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('house_events', {
+					title: 'Sports Day',
+					startDate: Date.now(),
+					endDate: Date.now() + 86400000,
+					housePoints: { Heracles: 100, Wukong: 80, Ixbalam: 60, Setna: 40 }
+				});
+				await ctx.db.insert('house_events', {
+					title: 'No Points Event',
+					startDate: Date.now(),
+					endDate: Date.now() + 86400000
+				});
+			});
+
+			const backupId = await t.run(async (ctx) => {
+				const students = await ctx.db.query('students').collect();
+				const classes = await ctx.db.query('classes').collect();
+				const users = await ctx.db.query('users').collect();
+				const categories = await ctx.db.query('point_categories').collect();
+				const houseEvents = await ctx.db.query('house_events').collect();
+				return await ctx.db.insert('backups', {
+					filename: `backup-${Date.now()}.json`,
+					data: {
+						exportedAt: new Date().toISOString(),
+						version: '1.0',
+						students,
+						evaluations: [],
+						users,
+						categories,
+						classes,
+						houseEvents
+					},
+					createdAt: Date.now()
+				});
+			});
+
+			// Add an extra house event that should be erased
+			await t.run(async (ctx) => {
+				await ctx.db.insert('house_events', {
+					title: 'Intruder Event',
+					startDate: Date.now(),
+					endDate: Date.now() + 86400000
+				});
+			});
+
+			expect(
+				await t.run(async (ctx) => (await ctx.db.query('house_events').collect()).length)
+			).toBe(3);
+
+			await t.mutation(api.backup.restoreFromBackup, { backupId });
+
+			const houseEvents = await t.run(async (ctx) => await ctx.db.query('house_events').collect());
+
+			expect(houseEvents).toHaveLength(2);
+			expect(houseEvents.find((e) => e.title === 'Sports Day')?.housePoints?.Heracles).toBe(100);
+			expect(houseEvents.find((e) => e.title === 'No Points Event')).toBeDefined();
+			expect(houseEvents.find((e) => e.title === 'Intruder Event')).toBeUndefined();
+		});
+	});
+
 	test('advanceGradesAndClearEvaluations deletes grade 12 and not enrolled, advances remaining', async () => {
 		const t = convexTest(schema, modules);
 
