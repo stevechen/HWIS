@@ -35,13 +35,18 @@ let currentAuthOptions: AuthMockOptions = { ...defaultAuthOptions };
 
 const mockMutation = vi.fn().mockResolvedValue(undefined);
 const mockQuery = vi.fn().mockResolvedValue({});
-const mockUseQuery = vi.fn(() => ({
-	data: currentConvexOptions.data,
-	isLoading: currentConvexOptions.isLoading ?? false,
-	error: currentConvexOptions.error,
-	isStale: false
-}));
 const mockCreateSvelteAuthClient = vi.fn();
+
+const getMockUseQuery = () =>
+	vi.fn(() => ({
+		data: currentConvexOptions.data,
+		isLoading: currentConvexOptions.isLoading ?? false,
+		error: currentConvexOptions.error,
+		isStale: false
+	}));
+
+let mockUseQuery = getMockUseQuery();
+
 const mockUseAuth = vi.fn(() => ({
 	isLoading: currentAuthOptions.isLoading ?? false,
 	isAuthenticated: currentAuthOptions.isAuthenticated ?? true,
@@ -50,7 +55,7 @@ const mockUseAuth = vi.fn(() => ({
 
 vi.mock('convex-svelte', () => ({
 	setupConvex: vi.fn(),
-	useQuery: mockUseQuery,
+	useQuery: () => mockUseQuery(),
 	useConvexClient: vi.fn(() => ({
 		mutation: currentConvexOptions.customMutation ?? mockMutation,
 		query: currentConvexOptions.customQuery ?? mockQuery
@@ -64,6 +69,7 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 
 export function setupConvexMocks(options: ConvexMockOptions = {}) {
 	currentConvexOptions = { ...defaultConvexOptions, ...options };
+	mockUseQuery = getMockUseQuery();
 	return {
 		useQuery: mockUseQuery,
 		mutation: currentConvexOptions.customMutation ?? mockMutation,
@@ -105,7 +111,7 @@ export function resetMockOptions() {
 	mockMutation.mockResolvedValue(undefined);
 	mockQuery.mockReset();
 	mockQuery.mockResolvedValue({});
-	mockUseQuery.mockClear();
+	mockUseQuery = getMockUseQuery();
 	mockCreateSvelteAuthClient.mockClear();
 	mockUseAuth.mockClear();
 }

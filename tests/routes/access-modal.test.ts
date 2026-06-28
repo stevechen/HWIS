@@ -1,35 +1,31 @@
 import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { setupConvexMocks, setupAuthMocks } from '../mocks/convex-mocks';
+import { setupConvexMocks, setupAuthMocks, resetMockOptions } from '../mocks/convex-mocks';
 
 const mockPagePath = { pathname: '/evaluations' };
-
-// Setup mocks using shared utilities
-setupConvexMocks();
-setupAuthMocks();
 
 vi.mock('$app/stores', async () => {
 	const actual = await vi.importActual('$app/stores');
 	return {
 		...actual,
 		page: {
-			subscribe: vi.fn((callback) => {
+			subscribe: (callback: (value: unknown) => void) => {
 				callback({ url: mockPagePath });
 				return () => {};
-			})
+			}
 		}
 	};
 });
 
 vi.mock('$lib/auth-client', () => ({
 	authClient: {
-		signOut: vi.fn().mockResolvedValue({ error: null })
+		signOut: (async () => ({ error: null })) as unknown as () => Promise<{ error: null }>
 	}
 }));
 
 vi.mock('$app/navigation', () => ({
-	goto: vi.fn()
+	goto: () => {}
 }));
 
 const pendingUser = {
@@ -38,45 +34,25 @@ const pendingUser = {
 	name: 'Test Pending'
 } as const;
 
-interface MockQueryResult<T> {
-	data: T;
-	isLoading: false;
-	error: undefined;
-	isStale: boolean;
-}
-
 import Layout from '$src/routes/+layout.svelte';
 
 describe('access modal', () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
+		resetMockOptions();
 		mockPagePath.pathname = '/evaluations';
+		setupConvexMocks({ data: pendingUser });
+		setupAuthMocks({
+			isAuthenticated: true,
+			user: { name: 'Test Pending', role: 'teacher', status: 'pending' }
+		});
 	});
 
 	it('modal appears for pending users', async () => {
-		const { useQuery } = await import('convex-svelte');
-		const mockResult: MockQueryResult<typeof pendingUser> = {
-			data: pendingUser,
-			isLoading: false,
-			error: undefined,
-			isStale: false
-		};
-		vi.mocked(useQuery).mockReturnValue(mockResult);
-
 		render(Layout);
 		await expect.element(page.getByText('Access Restricted')).toBeVisible();
 	});
 
 	it('modal has correct message', async () => {
-		const { useQuery } = await import('convex-svelte');
-		const mockResult: MockQueryResult<typeof pendingUser> = {
-			data: pendingUser,
-			isLoading: false,
-			error: undefined,
-			isStale: false
-		};
-		vi.mocked(useQuery).mockReturnValue(mockResult);
-
 		render(Layout);
 		await expect
 			.element(page.getByRole('heading', { name: 'Access Restricted' }))
@@ -87,15 +63,6 @@ describe('access modal', () => {
 	});
 
 	it('modal sign in again button is visible', async () => {
-		const { useQuery } = await import('convex-svelte');
-		const mockResult: MockQueryResult<typeof pendingUser> = {
-			data: pendingUser,
-			isLoading: false,
-			error: undefined,
-			isStale: false
-		};
-		vi.mocked(useQuery).mockReturnValue(mockResult);
-
 		render(Layout);
 		await expect.element(page.getByRole('button', { name: 'Sign In Again' })).toBeVisible();
 	});

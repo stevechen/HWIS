@@ -349,7 +349,7 @@
 	const radarCategoryTotals = $derived.by(() => {
 		return radarCategories.map((category) => ({
 			category,
-			total: evaluations
+			total: filteredEvaluations
 				.filter((evaluation) => evaluation.category === category)
 				.reduce((sum, evaluation) => sum + evaluation.value, 0)
 		}));
@@ -485,11 +485,11 @@
 
 <svelte:window onscroll={handleScroll} />
 
-<div class="flex flex-col mx-auto p-8 max-w-6xl min-h-screen">
+<div class="mx-auto flex min-h-screen max-w-6xl flex-col p-8">
 	{#if isDemo}
 		<div class="mb-6">
 			<span
-				class="bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded-full text-yellow-800 dark:text-yellow-100 text-xs"
+				class="rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
 			>
 				DEMO MODE ({demoRole.toUpperCase()})
 			</span>
@@ -501,12 +501,12 @@
 		<EvaluationsLoadingState message={loadingMessage} />
 	{:else if isStudent && !isEnrolled}
 		<!-- Access Denied for Not Enrolled Students -->
-		<div class="flex flex-col justify-center items-center px-4 py-16 text-center">
+		<div class="flex flex-col items-center justify-center px-4 py-16 text-center">
 			<div
-				class="bg-red-50 dark:bg-red-900/20 p-8 border border-red-200 dark:border-red-800 rounded-lg max-w-md"
+				class="max-w-md rounded-lg border border-red-200 bg-red-50 p-8 dark:border-red-800 dark:bg-red-900/20"
 			>
 				<svg
-					class="mx-auto mb-4 w-12 h-12 text-red-400"
+					class="mx-auto mb-4 h-12 w-12 text-red-400"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -519,48 +519,49 @@
 						d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
 					/>
 				</svg>
-				<h2 class="mb-2 font-semibold text-red-800 dark:text-red-200 text-xl">Access Denied</h2>
+				<h2 class="mb-2 text-xl font-semibold text-red-800 dark:text-red-200">Access Denied</h2>
 				<p class="text-red-600 dark:text-red-300">
 					You are currently not enrolled. Please contact administration for assistance.
 				</p>
 			</div>
 		</div>
 	{:else}
-		{#if (isAdmin || isStudent) && radarCategories.length > 0}
-			<!-- Two-column layout: radar on left, timeline on right (wide screens) or stacked (narrow) -->
-			<div class="flex lg:flex-row flex-col lg:gap-12">
-				<!-- Left column: Radar chart and category totals -->
-				<div class="bg-card/80 shadow-sm p-5 border rounded-2xl lg:w-80 shrink-0">
-					<div class="space-y-3">
-						<div class="flex justify-center mt-4">
-							<RadarChart
-								data={radarData}
-								features={radarCategories}
-								ticks={radarTicks}
-								minValue={radarMinValue}
-								maxValue={radarMaxValue}
-								colors={['#2563eb']}
-								size={280}
-							/>
-						</div>
+		{#if isAdmin || isTeacher || isStudent}
+			<div class="flex flex-col lg:flex-row lg:gap-12">
+				{#if radarCategories.length > 0}
+					<!-- Left column: Radar chart and category totals -->
+					<div class="bg-card/80 shrink-0 rounded-2xl border p-5 shadow-sm lg:w-80">
+						<div class="space-y-3">
+							<div class="mt-4 flex justify-center">
+								<RadarChart
+									data={radarData}
+									features={radarCategories}
+									ticks={radarTicks}
+									minValue={radarMinValue}
+									maxValue={radarMaxValue}
+									colors={['#2563eb']}
+									size={280}
+								/>
+							</div>
 
-						<div class="gap-2 grid sm:grid-cols-2 lg:grid-cols-1">
-							{#each radarCategoryTotals as { category, total } (category)}
-								<div class="bg-background/70 px-3 py-2 border rounded-xl">
-									<p class="flex justify-between font-medium text-sm">
-										{category}
-										<span class={[total < 0 && 'text-red-600', 'text-sm text-green-600']}>
-											{total >= 0 ? '+' : ''}{total} pts</span
-										>
-									</p>
-								</div>
-							{/each}
+							<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+								{#each radarCategoryTotals as { category, total } (category)}
+									<div class="bg-background/70 rounded-xl border px-3 py-2">
+										<p class="flex justify-between text-sm font-medium">
+											{category}
+											<span class={[total < 0 && 'text-red-600', 'text-sm text-green-600']}>
+												{total >= 0 ? '+' : ''}{total} pts</span
+											>
+										</p>
+									</div>
+								{/each}
+							</div>
 						</div>
 					</div>
-				</div>
+				{/if}
 
 				<!-- Right column: Timeline -->
-				<div class="flex flex-col flex-1 min-w-0">
+				<div class="flex min-w-0 flex-1 flex-col">
 					<EvaluationsTimeline
 						evaluations={filteredEvaluations}
 						showStudentName={false}
@@ -602,12 +603,12 @@
 					<!-- Score Tally Bar - sticky at bottom of timeline, then floats when scrolled past -->
 					<div
 						bind:this={tallyBarRef}
-						class="bottom-0 sticky flex justify-center mt-auto pt-4"
+						class="sticky bottom-0 mt-auto flex justify-center pt-4"
 						class:opacity-0={isTallyBarSticky}
 						class:pointer-events-none={isTallyBarSticky}
 					>
 						<div
-							class="bg-background/60 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full transition-all duration-300"
+							class="bg-background/60 rounded-full px-4 py-2 shadow-lg backdrop-blur-sm transition-all duration-300"
 						>
 							<ScoreTallyBar evaluations={filteredEvaluations} />
 						</div>
@@ -618,13 +619,13 @@
 
 		<!-- Floating Tally Bar (appears when scrolled past) -->
 		<div
-			class="right-0 bottom-4 left-0 z-20 fixed flex justify-center transition-all duration-300 pointer-events-none"
+			class="pointer-events-none fixed right-0 bottom-4 left-0 z-20 flex justify-center transition-all duration-300"
 			class:opacity-0={!isTallyBarSticky}
 			class:translate-y-4={!isTallyBarSticky}
 			class:translate-y-0={isTallyBarSticky}
 		>
 			<div
-				class="bg-background/60 shadow-lg backdrop-blur-sm px-4 py-2 rounded-full pointer-events-auto"
+				class="bg-background/60 pointer-events-auto rounded-full px-4 py-2 shadow-lg backdrop-blur-sm"
 			>
 				<ScoreTallyBar evaluations={filteredEvaluations} />
 			</div>
