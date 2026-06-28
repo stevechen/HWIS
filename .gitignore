@@ -31,3 +31,20 @@ vite.config.ts.timestamp-*
 # E2E artifacts
 E2E_TEST_STATUS.md
 e2e/.auth
+
+# Tooling config
+.agents/
+.claude/
+.kilo/
+.kilocode/
+CLAUDE.md
+skills-lock.json
+
+# Planning docs
+plans/
+
+# Convex local data
+/convex
+
+# Convex generated AI guidelines
+src/convex/_generated/ai/
