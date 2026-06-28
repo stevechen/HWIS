@@ -272,7 +272,6 @@
 		<EvaluationsTimeline
 			evaluations={accumulatedEvaluations}
 			showStudentName={true}
-			showTeacherFilter={false}
 			{showTeacherName}
 			enableCardClick={true}
 			cardHref={(entry) => `/evaluations/student/${entry.studentIdCode}`}

@@ -157,6 +157,7 @@
 	});
 
 	const headerTitle = $derived.by(() => $headerTitleOverride || titleFromPath);
+	const isDisplayPage = $derived($page.url.pathname === '/houses/display');
 
 	function handleBack() {
 		if (backTarget) {
@@ -177,23 +178,23 @@
 
 <div class="relative min-h-screen">
 	<!-- Background Logo -->
-	<div class="-z-10 fixed inset-0 flex justify-center items-center pointer-events-none">
+	<div class="pointer-events-none fixed inset-0 -z-10 flex items-center justify-center">
 		<img
 			src={logo}
 			alt=""
 			aria-hidden="true"
-			class="opacity-3 w-auto max-w-[70vw] h-auto max-h-[70vh]"
+			class="h-auto max-h-[70vh] w-auto max-w-[70vw] opacity-3"
 			loading="eager"
 			decoding="async"
 		/>
 	</div>
 
-	<div class="flex flex-col min-h-screen">
+	<div class="flex min-h-screen flex-col">
 		{#if shouldShowModal}
-			<div class="z-9999 fixed inset-0 flex justify-center items-center bg-black/80">
-				<div class="bg-background shadow-lg m-4 p-6 border rounded-lg max-w-md text-foreground">
-					<h2 class="mb-4 font-semibold text-lg">Access Restricted</h2>
-					<p class="mb-6 text-muted-foreground">
+			<div class="fixed inset-0 z-9999 flex items-center justify-center bg-black/80">
+				<div class="bg-background text-foreground m-4 max-w-md rounded-lg border p-6 shadow-lg">
+					<h2 class="mb-4 text-lg font-semibold">Access Restricted</h2>
+					<p class="text-muted-foreground mb-6">
 						Your account access has been changed. Please sign in again.
 					</p>
 					<Button variant="default" class="w-full cursor-pointer" onclick={handleReload}
@@ -202,7 +203,7 @@
 				</div>
 			</div>
 		{/if}
-		{#if $page.url.pathname !== '/login' && !shouldShowModal}
+		{#if $page.url.pathname !== '/login' && !shouldShowModal && !isDisplayPage}
 			{@const houseColor = $headerHouseBadge
 				? houseColors[$headerHouseBadge.house]?.text || ''
 				: ''}
@@ -211,19 +212,19 @@
 					? houseColor
 					: 'bg-primary'} text-primary-foreground border-b"
 			>
-				<div class="flex justify-between items-center gap-3 px-4 h-14">
+				<div class="flex h-14 items-center justify-between gap-3 px-4">
 					<div class="flex items-center gap-3">
 						{#if backLabel}
 							<Button
 								variant="default"
-								class="bg-white hover:bg-gray-100 border text-blue-950"
+								class="border bg-white text-blue-950 hover:bg-gray-100"
 								onclick={handleBack}
 							>
 								<ArrowLeft class="size-4" />
 								<span class="hidden sm:inline">{backLabel}</span>
 							</Button>
 						{/if}
-						<h1 class="flex items-center gap-2 font-semibold text-primary-foreground">
+						<h1 class="text-primary-foreground flex items-center gap-2 font-semibold">
 							{#if $headerHouseBadge}
 								{@const LogoComponent = $headerHouseBadge.logo}
 								<div
@@ -241,7 +242,7 @@
 						<ThemeToggle />
 						<Button
 							variant="default"
-							class="bg-white hover:bg-gray-100 border text-blue-950"
+							class="border bg-white text-blue-950 hover:bg-gray-100"
 							onclick={signOut}
 							aria-label="Sign out"
 						>

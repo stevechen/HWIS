@@ -124,5 +124,20 @@ export default defineSchema({
 		value: v.string(),
 		updatedAt: v.number(),
 		updatedBy: v.id('users')
-	}).index('by_key', ['key'])
+	}).index('by_key', ['key']),
+
+	house_events: defineTable({
+		title: v.string(),
+		startDate: v.number(),
+		endDate: v.number(),
+		housePoints: v.optional(
+			v.object({
+				Heracles: v.optional(v.number()),
+				Wukong: v.optional(v.number()),
+				Ixbalam: v.optional(v.number()),
+				Setna: v.optional(v.number())
+			})
+		),
+		e2eTag: v.optional(v.string())
+	}).index('by_startDate', ['startDate'])
 });

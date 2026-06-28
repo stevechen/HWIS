@@ -800,6 +800,49 @@ export const listByHouse = query({
 	}
 });
 
+export const bulkAssignHouses = mutation({
+	args: {
+		assignments: v.array(
+			v.object({
+				englishName: v.string(),
+				house: v.union(
+					v.literal('Heracles'),
+					v.literal('Wukong'),
+					v.literal('Ixbalam'),
+					v.literal('Setna')
+				)
+			})
+		),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
+
+		const allStudents = await ctx.db.query('students').collect();
+		const studentsByName = new Map<string, (typeof allStudents)[number]>();
+		for (const s of allStudents) {
+			const key = s.englishName.trim().toLowerCase();
+			if (studentsByName.has(key)) {
+				console.warn(`Duplicate name: ${s.englishName}`);
+			}
+			studentsByName.set(key, s);
+		}
+
+		let assigned = 0;
+		for (const { englishName, house } of args.assignments) {
+			const student = studentsByName.get(englishName.trim().toLowerCase());
+			if (!student) {
+				console.warn(`Student not found: ${englishName}`);
+				continue;
+			}
+			await ctx.db.patch(student._id, { house });
+			assigned++;
+		}
+
+		return { assigned, total: args.assignments.length };
+	}
+});
+
 export const assignHouse = mutation({
 	args: {
 		studentId: v.id('students'),
@@ -837,6 +880,9 @@ export const getHouseStats = query({
 		// Get all evaluations for these students
 		const allEvaluations = await ctx.db.query('evaluations').collect();
 		const evaluations = allEvaluations.filter((e) => studentIds.includes(e.studentId));
+
+		// Get all house events
+		const allEvents = await ctx.db.query('house_events').collect();
 
 		// Get all categories
 		const categories = await ctx.db.query('point_categories').collect();
@@ -977,6 +1023,32 @@ export const getHouseStats = query({
 			}
 		}
 
+		// Add house event points to house totals
+		const EVENTS_CATEGORY = 'Events';
+		for (const event of allEvents) {
+			if (!event.housePoints) continue;
+
+			for (const [houseName, points] of Object.entries(event.housePoints)) {
+				const stats = houseStats[houseName];
+				if (!stats) continue;
+
+				stats.totalPoints += points;
+				if (!stats.pointsByCategory[EVENTS_CATEGORY]) {
+					stats.pointsByCategory[EVENTS_CATEGORY] = 0;
+				}
+				stats.pointsByCategory[EVENTS_CATEGORY] += points;
+
+				// If the event overlaps the last 30 days, also count it as recent
+				if (event.endDate >= thirtyDaysAgo) {
+					stats.recentTotalPoints += points;
+					if (!stats.recentPointsByCategory[EVENTS_CATEGORY]) {
+						stats.recentPointsByCategory[EVENTS_CATEGORY] = 0;
+					}
+					stats.recentPointsByCategory[EVENTS_CATEGORY] += points;
+				}
+			}
+		}
+
 		// Get top contributors and growth opportunities per house
 		const studentsByHouse: Record<string, StudentPointsData[]> = {
 			Heracles: [],
@@ -997,7 +1069,7 @@ export const getHouseStats = query({
 			// Top contributors - All Time (by net points: positive - negative)
 			houseStats[house].topContributors = houseStudents
 				.sort((a, b) => b.totalPoints - a.totalPoints)
-				.slice(0, 5)
+				.slice(0, 6)
 				.map((s) => ({
 					studentId: s.studentId,
 					englishName: s.englishName,
@@ -1007,7 +1079,7 @@ export const getHouseStats = query({
 			// Top contributors - Most Recent (last 30 days)
 			houseStats[house].topContributorsRecent = houseStudents
 				.sort((a, b) => b.recentTotalPoints - a.recentTotalPoints)
-				.slice(0, 5)
+				.slice(0, 6)
 				.map((s) => ({
 					studentId: s.studentId,
 					englishName: s.englishName,
@@ -1018,7 +1090,7 @@ export const getHouseStats = query({
 			houseStats[house].growthOpportunities = houseStudents
 				.filter((s) => s.negativePoints < 0)
 				.sort((a, b) => a.negativePoints - b.negativePoints)
-				.slice(0, 5)
+				.slice(0, 6)
 				.map((s) => ({
 					studentId: s.studentId,
 					englishName: s.englishName,
@@ -1029,7 +1101,7 @@ export const getHouseStats = query({
 			houseStats[house].growthOpportunitiesRecent = houseStudents
 				.filter((s) => s.recentNegativePoints < 0)
 				.sort((a, b) => a.recentNegativePoints - b.recentNegativePoints)
-				.slice(0, 5)
+				.slice(0, 6)
 				.map((s) => ({
 					studentId: s.studentId,
 					englishName: s.englishName,

@@ -16,7 +16,8 @@ async function collectBackupData(ctx: QueryCtx) {
 		evaluations,
 		users,
 		categories,
-		classes
+		classes,
+		houseEvents: await ctx.db.query('house_events').collect()
 	};
 }
 
@@ -48,6 +49,7 @@ export const createBackup = mutation({
 		const users = await ctx.db.query('users').collect();
 		const categories = await ctx.db.query('point_categories').collect();
 		const classes = await ctx.db.query('classes').collect();
+		const houseEvents = await ctx.db.query('house_events').collect();
 
 		const backup = {
 			exportedAt: new Date().toISOString(),
@@ -56,7 +58,8 @@ export const createBackup = mutation({
 			evaluations,
 			users,
 			categories,
-			classes
+			classes,
+			houseEvents
 		};
 
 		const backupId = await ctx.db.insert('backups', {
@@ -84,7 +87,7 @@ type BackupPayload = {
 	students: Array<
 		Pick<
 			Doc<'students'>,
-			'_id' | 'englishName' | 'chineseName' | 'studentId' | 'classId' | 'status' | 'note'
+			'_id' | 'englishName' | 'chineseName' | 'studentId' | 'classId' | 'status' | 'note' | 'house'
 		>
 	>;
 	evaluations: Array<
@@ -98,6 +101,9 @@ type BackupPayload = {
 		Pick<Doc<'point_categories'>, 'name' | 'meritCriteria' | 'demeritCriteria' | 'casAlignment'>
 	>;
 	classes: Array<Pick<Doc<'classes'>, '_id' | 'grade' | 'class' | 'homeroomTeacherId'>>;
+	houseEvents: Array<
+		Pick<Doc<'house_events'>, 'title' | 'startDate' | 'endDate' | 'housePoints' | 'e2eTag'>
+	>;
 };
 
 export const restoreFromBackup = mutation({
@@ -152,7 +158,8 @@ export const restoreFromBackup = mutation({
 				studentId: student.studentId,
 				classId: newClassId,
 				status: student.status,
-				note: student.note ?? ''
+				note: student.note ?? '',
+				house: student.house
 			});
 		}
 		for (const evaluation of data.evaluations) {
@@ -182,6 +189,17 @@ export const restoreFromBackup = mutation({
 				casAlignment: category.casAlignment
 			});
 		}
+		if (data.houseEvents) {
+			for (const event of data.houseEvents) {
+				await ctx.db.insert('house_events', {
+					title: event.title,
+					startDate: event.startDate,
+					endDate: event.endDate,
+					housePoints: event.housePoints,
+					e2eTag: event.e2eTag
+				});
+			}
+		}
 		return { message: `Restored data` };
 	}
 });
@@ -194,18 +212,21 @@ export const clearAllData = mutation({
 		const evaluations = await ctx.db.query('evaluations').collect();
 		const categories = await ctx.db.query('point_categories').collect();
 		const classes = await ctx.db.query('classes').collect();
+		const houseEvents = await ctx.db.query('house_events').collect();
 
 		for (const student of students) await ctx.db.delete(student._id);
 		for (const evaluation of evaluations) await ctx.db.delete(evaluation._id);
 		for (const category of categories) await ctx.db.delete(category._id);
 		for (const cls of classes) await ctx.db.delete(cls._id);
+		for (const event of houseEvents) await ctx.db.delete(event._id);
 
 		const auditLogs = await ctx.db.query('audit_logs').collect();
 		for (const log of auditLogs) {
 			if (
 				log.targetTable === 'students' ||
 				log.targetTable === 'evaluations' ||
-				log.targetTable === 'classes'
+				log.targetTable === 'classes' ||
+				log.targetTable === 'house_events'
 			) {
 				await ctx.db.delete(log._id);
 			}
@@ -272,6 +293,7 @@ export const advanceGradesAndClearEvaluations = mutation({
 		const users = await ctx.db.query('users').collect();
 		const categories = await ctx.db.query('point_categories').collect();
 		const classes = await ctx.db.query('classes').collect();
+		const houseEvents = await ctx.db.query('house_events').collect();
 
 		const backup = {
 			exportedAt: new Date().toISOString(),
@@ -280,7 +302,8 @@ export const advanceGradesAndClearEvaluations = mutation({
 			evaluations,
 			users,
 			categories,
-			classes
+			classes,
+			houseEvents
 		};
 
 		await ctx.db.insert('backups', {

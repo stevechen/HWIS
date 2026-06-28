@@ -467,4 +467,199 @@ describe('backup clearing logic', () => {
 		expect(evaluations).toHaveLength(0);
 		expect(backups).toHaveLength(1);
 	});
+
+	test('backup data includes house field on students', async () => {
+		const t = convexTest(schema, modules);
+
+		const classId = await t.run(async (ctx) => {
+			return await ctx.db.insert('classes', { grade: 10, class: '1' });
+		});
+
+		const studentId = await t.run(async (ctx) => {
+			return await ctx.db.insert('students', {
+				englishName: 'Housed Student',
+				chineseName: '有學院學生',
+				studentId: 'STU010',
+				classId,
+				status: 'Enrolled',
+				house: 'Heracles'
+			});
+		});
+
+		// Verify student was created with house
+		const student = await t.run(async (ctx) => {
+			return await ctx.db.get(studentId);
+		});
+		expect(student?.house).toBe('Heracles');
+
+		// Simulate backup data collection
+		const students = await t.run(async (ctx) => {
+			return await ctx.db.query('students').collect();
+		});
+
+		expect(students).toHaveLength(1);
+		expect(students[0].house).toBe('Heracles');
+		expect(students[0].englishName).toBe('Housed Student');
+	});
+
+	test('backup data includes house_events', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('house_events', {
+				title: 'Sports Day',
+				startDate: Date.now(),
+				endDate: Date.now() + 86400000,
+				housePoints: {
+					Heracles: 100,
+					Wukong: 80,
+					Ixbalam: 60,
+					Setna: 40
+				}
+			});
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('house_events', {
+				title: 'No Points Event',
+				startDate: Date.now(),
+				endDate: Date.now() + 86400000
+			});
+		});
+
+		const events = await t.run(async (ctx) => {
+			return await ctx.db.query('house_events').collect();
+		});
+
+		expect(events).toHaveLength(2);
+		expect(events[0].title).toBe('Sports Day');
+		expect(events[0].housePoints?.Heracles).toBe(100);
+		expect(events[1].title).toBe('No Points Event');
+		expect(events[1].housePoints).toBeUndefined();
+	});
+
+	test('clearAllData clears house_events and related audit logs', async () => {
+		const t = convexTest(schema, modules);
+
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'Test Student',
+			chineseName: '測試學生',
+			studentId: 'STU011',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const teacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'teacher-auth-id',
+				name: 'Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('house_events', {
+				title: 'Cleanup Test Event',
+				startDate: Date.now(),
+				endDate: Date.now() + 86400000,
+				housePoints: { Heracles: 50 }
+			});
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('audit_logs', {
+				action: 'create_house_event',
+				performerId: teacherId,
+				targetTable: 'house_events',
+				targetId: 'event-1',
+				oldValue: null,
+				newValue: { title: 'Cleanup Test Event' },
+				timestamp: Date.now()
+			});
+		});
+
+		// Replicate clearAllData logic
+		await t.run(async (ctx) => {
+			const students = await ctx.db.query('students').collect();
+			const evaluations = await ctx.db.query('evaluations').collect();
+			const categories = await ctx.db.query('point_categories').collect();
+			const classes = await ctx.db.query('classes').collect();
+			const houseEvents = await ctx.db.query('house_events').collect();
+
+			for (const student of students) await ctx.db.delete(student._id);
+			for (const evaluation of evaluations) await ctx.db.delete(evaluation._id);
+			for (const category of categories) await ctx.db.delete(category._id);
+			for (const cls of classes) await ctx.db.delete(cls._id);
+			for (const event of houseEvents) await ctx.db.delete(event._id);
+
+			const auditLogs = await ctx.db.query('audit_logs').collect();
+			for (const log of auditLogs) {
+				if (
+					log.targetTable === 'students' ||
+					log.targetTable === 'evaluations' ||
+					log.targetTable === 'classes' ||
+					log.targetTable === 'house_events'
+				) {
+					await ctx.db.delete(log._id);
+				}
+			}
+		});
+
+		const students = await t.run(async (ctx) => {
+			return await ctx.db.query('students').collect();
+		});
+
+		const houseEvents = await t.run(async (ctx) => {
+			return await ctx.db.query('house_events').collect();
+		});
+
+		const auditLogs = await t.run(async (ctx) => {
+			return await ctx.db.query('audit_logs').collect();
+		});
+
+		expect(students).toHaveLength(0);
+		expect(houseEvents).toHaveLength(0);
+
+		// Only the user audit log should remain (not targetting house_events or students)
+		const userAuditLogs = auditLogs.filter((l) => l.targetTable === 'users');
+		expect(userAuditLogs).toHaveLength(0);
+		expect(auditLogs.filter((l) => l.targetTable === 'house_events')).toHaveLength(0);
+	});
+
+	test('advanceGradesAndClearEvaluations backup includes house_events', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('house_events', {
+				title: 'Advance Backup Test',
+				startDate: Date.now(),
+				endDate: Date.now() + 86400000,
+				housePoints: { Heracles: 75 }
+			});
+		});
+
+		// Simulate advanceGradesAndClearEvaluations backup (now includes houseEvents)
+		const houseEvents = await t.run(async (ctx) => {
+			return await ctx.db.query('house_events').collect();
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('backups', {
+				filename: `backup-${Date.now()}.json`,
+				data: { houseEvents },
+				createdAt: Date.now()
+			});
+		});
+
+		const backups = await t.run(async (ctx) => {
+			return await ctx.db.query('backups').collect();
+		});
+
+		expect(backups).toHaveLength(1);
+		const backupData = backups[0].data as { houseEvents: Array<{ title: string }> };
+		expect(backupData.houseEvents).toHaveLength(1);
+		expect(backupData.houseEvents[0].title).toBe('Advance Backup Test');
+	});
 });

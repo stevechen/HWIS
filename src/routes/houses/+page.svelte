@@ -1,269 +1,410 @@
 <script lang="ts">
-	import { useQuery } from 'convex-svelte';
+	import { browser } from '$app/environment';
+	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import { Trophy, TrendingUp, Users, Star, CircleAlert } from '@lucide/svelte';
-	import RadarChart from '$lib/components/RadarChart.svelte';
+	import type { Id } from '$convex/_generated/dataModel';
+	import { Plus, Pencil, Trash2, Calendar, Trophy, AlertTriangle, Monitor } from '@lucide/svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import * as Card from '$lib/components/ui/card/index.js';
 
-	// Import house logos
-	import LogoHeracles from '$lib/components/LogoHeracles.svelte';
-	import LogoWukong from '$lib/components/LogoWukong.svelte';
-	import LogoIxbalam from '$lib/components/LogoIxbalam.svelte';
-	import LogoSetna from '$lib/components/LogoSetna.svelte';
+	const HOUSES = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
+	type House = (typeof HOUSES)[number];
 
-	type House = 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna';
+	const houseColors: Record<House, { bg: string; text: string; lightBg: string; border: string }> =
+		{
+			Heracles: {
+				bg: 'bg-red-600',
+				text: 'text-red-700',
+				lightBg: 'bg-red-50',
+				border: 'border-red-500'
+			},
+			Wukong: {
+				bg: 'bg-amber-600',
+				text: 'text-amber-700',
+				lightBg: 'bg-amber-50',
+				border: 'border-amber-500'
+			},
+			Ixbalam: {
+				bg: 'bg-emerald-600',
+				text: 'text-emerald-700',
+				lightBg: 'bg-emerald-50',
+				border: 'border-emerald-500'
+			},
+			Setna: {
+				bg: 'bg-blue-600',
+				text: 'text-blue-700',
+				lightBg: 'bg-blue-50',
+				border: 'border-blue-500'
+			}
+		};
 
-	// House colors for theming
-	const houseColors: Record<
-		House,
-		{ bg: string; border: string; text: string; lightBg: string; accent: string }
-	> = {
-		Heracles: {
-			bg: 'bg-red-600',
-			border: 'border-red-600',
-			text: 'text-red-700',
-			lightBg: 'bg-red-50',
-			accent: 'text-red-500'
-		},
-		Wukong: {
-			bg: 'bg-amber-600',
-			border: 'border-amber-600',
-			text: 'text-amber-700',
-			lightBg: 'bg-amber-50',
-			accent: 'text-amber-500'
-		},
-		Ixbalam: {
-			bg: 'bg-emerald-600',
-			border: 'border-emerald-600',
-			text: 'text-emerald-700',
-			lightBg: 'bg-emerald-50',
-			accent: 'text-emerald-500'
-		},
-		Setna: {
-			bg: 'bg-blue-600',
-			border: 'border-blue-600',
-			text: 'text-blue-700',
-			lightBg: 'bg-blue-50',
-			accent: 'text-blue-500'
-		}
-	};
+	const eventsQuery = useQuery(api.houseEvents.list, () => ({}));
+	const client = useConvexClient();
 
-	// House logos mapping
-	const houseLogos: Record<House, typeof LogoHeracles> = {
-		Heracles: LogoHeracles,
-		Wukong: LogoWukong,
-		Ixbalam: LogoIxbalam,
-		Setna: LogoSetna
-	};
-
-	const houseRadarColors: Record<House, string> = {
-		Heracles: '#dc2626',
-		Wukong: '#d97706',
-		Ixbalam: '#059669',
-		Setna: '#2563eb'
-	};
-
-	// Rank badges
-	const rankBadges: Record<number, string> = {
-		1: '🥇',
-		2: '🥈',
-		3: '🥉'
-	};
-
-	const housesQuery = useQuery(api.students.getHouseStats, () => ({}));
-
-	// Get max points for spider chart normalization
-	const globalMax = $derived(
-		housesQuery.data?.houses
-			? Math.max(
-					...housesQuery.data.houses.flatMap((h) =>
-						Object.values(h.pointsByCategory).map((v) => Number(v))
-					)
-				)
-			: 100
+	// Dialog state
+	let eventDialogOpen = $state(false);
+	let deleteDialogOpen = $state(false);
+	let isEditing = $state(false);
+	let isSubmitting = $state(false);
+	let isDeleting = $state(false);
+	let editingId = $state<Id<'house_events'> | null>(null);
+	let deleteTarget = $state<{ _id: Id<'house_events'>; title: string; hasPoints: boolean } | null>(
+		null
 	);
+	let formError = $state('');
+	let deleteError = $state('');
 
-	// Get min points (could be negative) for spider chart
-	const globalMin = $derived(
-		housesQuery.data?.houses
-			? Math.min(
-					...housesQuery.data.houses.flatMap((h) =>
-						Object.values(h.pointsByCategory).map((v) => Number(v))
-					)
-				)
-			: 0
-	);
-
-	// Get categories from the data
-	const categories = $derived(housesQuery.data?.categories || []);
-
-	const radarMinValue = $derived(Math.min(globalMin, 0));
-	const radarMaxValue = $derived(Math.max(globalMax, 0));
-	const radarTicks = $derived.by(() => {
-		if (radarMaxValue === radarMinValue) return [radarMinValue];
-
-		const step = (radarMaxValue - radarMinValue) / 4;
-		return Array.from({ length: 5 }, (_, index) => Math.round(radarMinValue + step * index));
+	// Form fields
+	let title = $state('');
+	let startDate = $state('');
+	let endDate = $state('');
+	let housePoints = $state<Record<House, string>>({
+		Heracles: '',
+		Wukong: '',
+		Ixbalam: '',
+		Setna: ''
 	});
 
-	// Helper function to convert pointsByCategory to RadarChart format
-	function getRadarData(houseData: { house?: string; pointsByCategory?: Record<string, number> }) {
-		if (!houseData?.pointsByCategory) return [];
-		const data: Record<string, number> = {};
-		for (const [key, value] of Object.entries(houseData.pointsByCategory)) {
-			data[key] = Number(value); // Preserve original value (can be negative)
-		}
-		return [{ label: houseData.house || 'Unknown', ...data }];
+	// derived: pre-compute display date strings
+	const events = $derived.by(() => {
+		return (eventsQuery.data ?? []).map((e) => {
+			const s = new Date(e.startDate);
+			const en = new Date(e.endDate);
+			const fmt = (d: Date) =>
+				`${d.getDate()} ${s.toLocaleString('en-GB', { month: 'short' })} ${s.getFullYear()}`;
+			return { ...e, dateRange: `${fmt(s)} – ${fmt(en)}` };
+		});
+	});
+
+	function openEdit(event: (typeof events)[number]) {
+		isEditing = true;
+		editingId = event._id;
+		title = event.title;
+		startDate = tsToDateStr(event.startDate);
+		endDate = tsToDateStr(event.endDate);
+		const hp = event.housePoints;
+		housePoints = {
+			Heracles: hp?.Heracles?.toString() ?? '',
+			Wukong: hp?.Wukong?.toString() ?? '',
+			Ixbalam: hp?.Ixbalam?.toString() ?? '',
+			Setna: hp?.Setna?.toString() ?? ''
+		};
+		formError = '';
+		eventDialogOpen = true;
 	}
 
-	// Get houses sorted by rank
-	const sortedHouses = $derived(
-		housesQuery.data?.houses.slice().sort((a, b) => a.rank - b.rank) || []
-	);
+	function openDelete(event: (typeof events)[number]) {
+		const hp = event.housePoints;
+		const hasPoints = hp != null && Object.values(hp).some((v) => v !== undefined && v !== 0);
+		deleteTarget = { _id: event._id, title: event.title, hasPoints };
+		deleteError = '';
+		deleteDialogOpen = true;
+	}
+
+	function tsToDateStr(ts: number): string {
+		const d = new Date(ts);
+		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+	}
+
+	function toMidnightTimestamp(dateStr: string): number {
+		const parts = dateStr.split('-');
+		return Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+	}
+
+	async function handleEventSubmit() {
+		formError = '';
+
+		if (!title.trim()) {
+			formError = 'Event title is required';
+			return;
+		}
+		if (!startDate) {
+			formError = 'Start date is required';
+			return;
+		}
+		if (!endDate) {
+			formError = 'End date is required';
+			return;
+		}
+
+		const startTs = toMidnightTimestamp(startDate);
+		const endTs = toMidnightTimestamp(endDate);
+
+		if (endTs < startTs) {
+			formError = 'End date must be on or after the start date';
+			return;
+		}
+
+		// Build optional housePoints record (only include houses with a value set)
+		const hp: Record<House, number> | undefined = (() => {
+			const result: Record<string, number> = {};
+			for (const h of HOUSES) {
+				const raw = housePoints[h];
+				const val = typeof raw === 'number' ? String(raw) : raw;
+				if (val.trim() !== '') {
+					const num = Number(val);
+					if (Number.isNaN(num)) {
+						formError = `Invalid number for ${h} points`;
+						return undefined;
+					}
+					result[h] = num;
+				}
+			}
+			return Object.keys(result).length > 0 ? (result as Record<House, number>) : undefined;
+		})();
+
+		if (formError) return;
+
+		isSubmitting = true;
+		try {
+			if (isEditing && editingId) {
+				await client.mutation(api.houseEvents.update, {
+					id: editingId,
+					title: title.trim(),
+					startDate: startTs,
+					endDate: endTs,
+					housePoints: hp
+				});
+			} else {
+				await client.mutation(api.houseEvents.create, {
+					title: title.trim(),
+					startDate: startTs,
+					endDate: endTs,
+					housePoints: hp
+				});
+			}
+			eventDialogOpen = false;
+		} catch (e) {
+			formError = e instanceof Error ? e.message : 'An error occurred';
+		} finally {
+			isSubmitting = false;
+		}
+	}
+
+	async function handleDelete() {
+		if (!deleteTarget) return;
+		isDeleting = true;
+		deleteError = '';
+		try {
+			await client.mutation(api.houseEvents.remove, { id: deleteTarget._id });
+			deleteDialogOpen = false;
+		} catch (e) {
+			deleteError = e instanceof Error ? e.message : 'An error occurred';
+		} finally {
+			isDeleting = false;
+		}
+	}
+
+	function openDisplay() {
+		if (browser) {
+			window.open('/houses/display', '_blank', 'noopener,noreferrer');
+		}
+	}
 </script>
 
 <svelte:head>
-	<title>Houses Competition - HWIS Point System</title>
+	<title>House Events Management</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">
-	<!-- Header -->
-	<header class="mb-8 text-center">
-		<h1 class="mb-2 text-4xl font-bold text-gray-900">Houses Competition</h1>
-		<p class="text-gray-600">Track our houses' progress and celebrate achievements!</p>
-	</header>
+	<div class="mb-8 flex items-center justify-between">
+		<div>
+			<h1 class="text-3xl font-bold text-gray-900">House Events</h1>
+			<p class="mt-1 text-gray-600">Manage house competitions and award event points</p>
+		</div>
+		<Button onclick={() => (eventDialogOpen = true)}>
+			<Plus class="mr-2 h-4 w-4" />
+			New Event
+		</Button>
+		<Button variant="outline" onclick={openDisplay}>
+			<Monitor class="mr-2 h-4 w-4" />
+			Display House Scores
+		</Button>
+	</div>
 
-	{#if housesQuery.isLoading}
+	{#if eventsQuery.isLoading}
 		<div class="flex items-center justify-center py-20">
 			<div class="h-12 w-12 animate-spin rounded-full border-b-2 border-gray-900"></div>
 		</div>
-	{:else if housesQuery.error}
+	{:else if eventsQuery.error}
 		<div class="py-20 text-center">
-			<CircleAlert class="mx-auto mb-4 h-12 w-12 text-red-500" />
-			<p class="text-red-600">Failed to load house statistics</p>
+			<p class="text-red-600">Failed to load events</p>
 		</div>
-	{:else if housesQuery.data}
-		<!-- Overall Ranking Bar -->
-		<div class="mb-8 rounded-lg bg-white p-6 shadow-md">
-			<h2 class="mb-4 flex items-center gap-2 text-xl font-semibold">
-				<Trophy class="h-5 w-5 text-yellow-500" />
-				Overall Ranking
-			</h2>
-			<div class="flex flex-wrap items-center justify-center gap-4">
-				{#each housesQuery.data.ranking as house, index (house)}
-					{@const stats = housesQuery.data.houses.find((h) => h.house === house)}
-					{@const rank = index + 1}
-					<div
-						class="flex items-center gap-2 rounded-full px-4 py-2 {houseColors[house as House]
-							.lightBg} {houseColors[house as House].border} border-2"
-					>
-						<span class="text-2xl">{rankBadges[rank] || ''}</span>
-						<span class="font-semibold {houseColors[house as House].text}">{house}</span>
-						<span class="text-gray-600">- {stats?.totalPoints || 0} pts</span>
-					</div>
-				{/each}
-			</div>
-		</div>
-
-		<!-- Houses Grid -->
-		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-			{#each sortedHouses as houseData (houseData.house)}
-				{@const house = houseData.house as House}
-				{@const Logo = houseLogos[house]}
-				{@const colors = houseColors[house]}
-				{@const rank = houseData.rank}
-
-				<div class="overflow-hidden rounded-xl border-t-4 bg-white shadow-lg {colors.border}">
-					<!-- House Header -->
-					<div class="{colors.lightBg} flex items-center justify-between px-6 py-4">
-						<div class="flex items-center gap-3">
-							<div class="size-12">
-								<Logo />
-							</div>
+	{:else if events.length === 0}
+		<Card.Root class="text-center">
+			<Card.Content class="py-16">
+				<Calendar class="mx-auto mb-4 h-12 w-12 text-gray-300" />
+				<h3 class="text-lg font-semibold text-gray-700">No Events Yet</h3>
+				<p class="mt-2 text-gray-500">Create your first house event to get started.</p>
+			</Card.Content>
+		</Card.Root>
+	{:else}
+		<div class="grid gap-4">
+			{#each events as event (event._id)}
+				{@const hp = event.housePoints}
+				{@const hasPoints = hp != null && Object.values(hp).some((v) => v !== undefined && v !== 0)}
+				<Card.Root>
+					<Card.Header class="flex flex-col gap-1 pb-3">
+						<div class="flex items-start justify-between">
 							<div>
-								<h2 class="text-2xl font-bold {colors.text} flex items-center gap-2">
-									{house}
-									{#if rank <= 3}
-										<span class="text-2xl">{rankBadges[rank]}</span>
-									{/if}
-								</h2>
-								<p class="flex items-center gap-1 text-sm text-gray-600">
-									<Users class="h-4 w-4" />
-									{houseData.studentCount} students
+								<Card.Title class="flex items-center gap-2 text-lg">
+									<Trophy class="h-5 w-5 text-yellow-600" />
+									{event.title}
+								</Card.Title>
+								<p class="mt-1 flex items-center gap-1.5 text-sm text-gray-500">
+									<Calendar class="h-4 w-4" />
+									{event.dateRange}
 								</p>
 							</div>
-						</div>
-						<div class="text-right">
-							<p class="text-3xl font-bold {colors.text}">{houseData.totalPoints}</p>
-							<p class="text-xs text-gray-500">total points</p>
-						</div>
-					</div>
-
-					<!-- House Content -->
-					<div class="space-y-6 p-6">
-						<!-- Spider/Radar Chart -->
-						{#if categories.length > 0}
-							<div class="flex justify-center">
-								<RadarChart
-									data={getRadarData(houseData)}
-									features={categories}
-									ticks={radarTicks}
-									minValue={radarMinValue}
-									maxValue={radarMaxValue}
-									colors={[houseRadarColors[house]]}
-									size={400}
-								/>
+							<div class="flex gap-2">
+								<Button size="sm" variant="outline" onclick={() => openEdit(event)}>
+									<Pencil class="h-3.5 w-3.5" />
+									Edit
+								</Button>
+								<Button size="sm" variant="destructive" onclick={() => openDelete(event)}>
+									<Trash2 class="h-3.5 w-3.5" />
+									Delete
+								</Button>
 							</div>
-						{/if}
-
-						<!-- Top Contributors -->
-						<div>
-							<h3 class="mb-3 flex items-center gap-2 font-semibold text-gray-700">
-								<Star class="h-4 w-4 text-yellow-500" />
-								Top Contributors
-							</h3>
-							{#if houseData.topContributorsRecent && houseData.topContributorsRecent.length > 0}
-								<ul class="space-y-2">
-									{#each houseData.topContributors as contributor, index (contributor.studentId)}
-										<li class="flex items-center justify-between">
-											<span class="flex items-center gap-2">
-												<span class="text-lg">{index + 1}.</span>
-												<span class="font-medium">{contributor.englishName}</span>
-											</span>
-											<span class="{colors.accent} font-semibold"
-												>+{contributor.totalPoints} pts</span
-											>
-										</li>
-									{/each}
-								</ul>
-							{:else}
-								<p class="text-sm text-gray-500">No contributions yet</p>
-							{/if}
 						</div>
+					</Card.Header>
 
-						<!-- Growth Opportunities -->
-						<div>
-							<h3 class="mb-3 flex items-center gap-2 font-semibold text-gray-700">
-								<TrendingUp class="h-4 w-4 text-green-500" />
-								Growth Opportunities
-							</h3>
-							{#if houseData.growthOpportunities.length > 0}
-								<ul class="space-y-2">
-									{#each houseData.growthOpportunities as student (student.studentId)}
-										<li class="flex items-center justify-between">
-											<span class="font-medium">{student.englishName}</span>
-											<span class="text-sm text-gray-500">
-												Can recover {student.pointsLost} pts
-											</span>
-										</li>
-									{/each}
-								</ul>
-							{:else}
-								<p class="text-sm text-gray-500">Great job! No points to recover</p>
-							{/if}
-						</div>
-					</div>
-				</div>
+					{#if hasPoints}
+						<Card.Content class="pt-0">
+							<p class="mb-2 text-xs font-semibold tracking-wider text-gray-500 uppercase">
+								House Points Awarded
+							</p>
+							<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+								{#each HOUSES as h (h)}
+									{@const pts = hp?.[h]}
+									{@const colors = houseColors[h]}
+									<div
+										class="flex items-center justify-between rounded-lg px-3 py-2 {colors.lightBg} {colors.border} border"
+									>
+										<span class="text-sm font-semibold {colors.text}">{h}</span>
+										<span class="text-sm font-bold {colors.text}">{pts ?? 0}</span>
+									</div>
+								{/each}
+							</div>
+						</Card.Content>
+					{/if}
+				</Card.Root>
 			{/each}
 		</div>
 	{/if}
 </div>
+
+<!-- Create / Edit Event Dialog -->
+<Dialog.Root bind:open={eventDialogOpen}>
+	<Dialog.Content class="max-w-lg">
+		<Dialog.Header>
+			<Dialog.Title>{isEditing ? 'Edit Event' : 'New House Event'}</Dialog.Title>
+			<Dialog.Description>
+				{isEditing
+					? 'Update the event details below.'
+					: 'Create a new house competition event. Points can be added later via Edit.'}
+			</Dialog.Description>
+		</Dialog.Header>
+
+		{#if formError}
+			<div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+				{formError}
+			</div>
+		{/if}
+
+		<div class="space-y-4 py-4">
+			<div>
+				<label for="event-title" class="mb-1.5 block text-sm font-medium text-gray-700"
+					>Event Title</label
+				>
+				<Input id="event-title" bind:value={title} placeholder="e.g. Sports Day" />
+			</div>
+
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label for="event-start" class="mb-1.5 block text-sm font-medium text-gray-700"
+						>Start Date</label
+					>
+					<Input id="event-start" type="date" bind:value={startDate} />
+				</div>
+				<div>
+					<label for="event-end" class="mb-1.5 block text-sm font-medium text-gray-700"
+						>End Date</label
+					>
+					<Input id="event-end" type="date" bind:value={endDate} />
+				</div>
+			</div>
+
+			<fieldset>
+				<legend class="mb-1.5 text-sm font-medium text-gray-700">House Points (optional)</legend>
+				<p class="mb-2 text-xs text-gray-500">
+					Leave blank to create the event and add points later.
+				</p>
+				<div class="grid grid-cols-2 gap-3">
+					{#each HOUSES as h (h)}
+						{@const colors = houseColors[h]}
+						<div>
+							<label for={`points-${h}`} class="mb-1 block text-xs font-semibold {colors.text}">
+								{h}
+							</label>
+							<Input id={`points-${h}`} type="number" bind:value={housePoints[h]} placeholder="0" />
+						</div>
+					{/each}
+				</div>
+			</fieldset>
+		</div>
+
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (eventDialogOpen = false)}>Cancel</Button>
+			<Button disabled={isSubmitting} onclick={handleEventSubmit}>
+				{isSubmitting ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Event'}
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- Delete Confirmation Dialog -->
+<Dialog.Root bind:open={deleteDialogOpen}>
+	<Dialog.Content class="max-w-md">
+		<Dialog.Header>
+			<Dialog.Title>Delete Event</Dialog.Title>
+			<Dialog.Description>
+				Are you sure you want to delete "<strong>{deleteTarget?.title}</strong>"? This action cannot
+				be undone.
+			</Dialog.Description>
+		</Dialog.Header>
+
+		{#if deleteTarget?.hasPoints}
+			<div
+				class="mb-3 flex gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700"
+			>
+				<AlertTriangle class="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+				<div>
+					<p class="font-semibold">Warning</p>
+					<p>
+						This event has house points data that will be permanently removed from the house
+						rankings. Proceed with caution.
+					</p>
+				</div>
+			</div>
+			<p class="mb-3 text-xs text-gray-500">This action has been logged for audit purposes.</p>
+		{/if}
+
+		{#if deleteError}
+			<p class="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+				{deleteError}
+			</p>
+		{/if}
+
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (deleteDialogOpen = false)} disabled={isDeleting}>
+				Cancel
+			</Button>
+			<Button variant="destructive" disabled={isDeleting} onclick={handleDelete}>
+				{isDeleting ? 'Deleting…' : 'Delete Event'}
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
