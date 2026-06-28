@@ -1,10 +1,11 @@
 Project guidelines:
+
 - use bun for the package manager
 - use `bun add` instead of manually editing the pagckage.json when instlaling new packages
 - use modern svelte and sveltekit patterns and primitives
 - avoid `as any` at all costs, try to infer types from functions as much as possible
 - every svelte component should have `lang="ts"`
-= after making changes t convex, run `bun run convex:gen` to generate the new api
+  = after making changes t convex, run `bun run convex:gen` to generate the new api
 - use the convex service for calling convex queries, actions, and mutations from the backend
 - use tailwindcss for styling whenever possible
 - run `bun run lint` to check for linting errors, `bun run format`, and `bun run heck` to check for errors after making changes.
@@ -208,7 +209,7 @@ When using Tailwind CSS for sizing, prefer the `size-*` utility classes over sep
 <div class="size-4">Icon</div>
 
 <!-- Avoid -->
-<div class="w-4 h-4">Icon</div>
+<div class="h-4 w-4">Icon</div>
 ```
 
 This applies to icons, buttons, avatars, and any other elements where width equals height.
@@ -228,3 +229,17 @@ bun run test:e2e
 # Run unit tests then e2e tests
 bun run test:all
 ```
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read
+`src/convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running
+`npx convex ai-files install`.
+
+<!-- convex-ai-end -->
