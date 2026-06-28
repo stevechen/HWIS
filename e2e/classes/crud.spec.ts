@@ -31,13 +31,15 @@ test.describe('Classes CRUD', () => {
 		await expect(dialog).toBeVisible();
 		await dialog.getByRole('button', { name: /add class/i }).click();
 		await expect(dialog).not.toBeVisible({ timeout: 15000 });
-		await expect(page.getByRole('region', { name: 'Class 7-2' })).toBeVisible({ timeout: 15000 });
+		await expect(page.getByRole('region', { name: 'Class 7-2', exact: true })).toBeVisible({
+			timeout: 15000
+		});
 		const newClasses = await page.getByRole('region', { name: /Class 7/ }).count();
 		expect(newClasses).toBeGreaterThan(initialClasses);
 	});
 
 	test('protected class "1" does not show a delete control', async ({ page }) => {
-		const classCard = page.getByRole('region', { name: 'Class 7-1' });
+		const classCard = page.getByRole('region', { name: 'Class 7-1', exact: true });
 		await expect(classCard).toBeVisible();
 		await expect(classCard.getByRole('button')).toHaveCount(0);
 	});
@@ -47,7 +49,7 @@ test.describe('Classes CRUD', () => {
 		if (await ibToggle.isVisible()) {
 			await ibToggle.click();
 		}
-		const classCard = page.getByRole('region', { name: 'Class 7-IB' });
+		const classCard = page.getByRole('region', { name: 'Class 7-IB', exact: true });
 		await expect(classCard).toBeVisible();
 		await expect(classCard.getByRole('button')).toHaveCount(0);
 	});

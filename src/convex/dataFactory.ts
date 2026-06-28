@@ -35,7 +35,13 @@ async function getOrCreateClass(
 type AuthUserInfo = { authId?: string; _id?: string };
 
 // Data factory helper functions for E2E testing
-const TABLES = ['students', 'point_categories', 'evaluations', 'audit_logs'] as const;
+const TABLES = [
+	'students',
+	'point_categories',
+	'evaluations',
+	'audit_logs',
+	'house_events'
+] as const;
 
 function getE2ETag(): string {
 	return `e2e-test_${Date.now().toString().slice(-6)}`;
@@ -579,5 +585,36 @@ export const setE2eTag = mutation({
 		}
 
 		throw new Error(`Unknown data type: ${args.dataType}`);
+	}
+});
+
+export const cleanupHouseEventsByTag = mutation({
+	args: {
+		tag: v.string(),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		let totalDeleted = 0;
+		const events = await ctx.db.query('house_events').collect();
+		for (const event of events) {
+			if (event.e2eTag === args.tag) {
+				await ctx.db.delete(event._id);
+				totalDeleted++;
+			}
+		}
+		return { deleted: totalDeleted };
+	}
+});
+
+export const cleanupAllHouseEvents = mutation({
+	args: { testToken: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		const events = await ctx.db.query('house_events').collect();
+		for (const event of events) {
+			await ctx.db.delete(event._id);
+		}
+		return { deleted: events.length };
 	}
 });

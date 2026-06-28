@@ -31,7 +31,10 @@ const isDev =
 	getEnvValue('NODE_ENV') === 'development' ||
 	getEnvValue('SITE_URL')?.includes('localhost') ||
 	getEnvValue('CONVEX_DEPLOYMENT')?.includes('local');
-const isTestRuntime = getEnvValue('NODE_ENV') === 'test' || getEnvValue('VITEST') === 'true';
+const isTestRuntime =
+	getEnvValue('NODE_ENV') === 'test' ||
+	getEnvValue('VITEST') === 'true' ||
+	getEnvValue('PLAYWRIGHT_WORKER_ID') !== undefined;
 const isProdDeployment = getEnvValue('CONVEX_DEPLOYMENT')?.startsWith('prod:') ?? false;
 
 const siteUrl = isDev

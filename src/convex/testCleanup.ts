@@ -346,9 +346,10 @@ export const cleanupByTag = mutation({
 			v.literal('students'),
 			v.literal('categories'),
 			v.literal('evaluations'),
+			v.literal('houseEvents'),
 			v.literal('all')
 		),
-		e2eTag: v.string(),
+		e2eTag: v.optional(v.string()),
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -444,6 +445,16 @@ export const cleanupByTag = mutation({
 			}
 		}
 
+		if (args.dataType === 'houseEvents' || args.dataType === 'all') {
+			const events = await ctx.db.query('house_events').collect();
+			for (const event of events) {
+				if (event.e2eTag === args.e2eTag) {
+					await ctx.db.delete(event._id);
+					totalDeleted++;
+				}
+			}
+		}
+
 		return { deleted: totalDeleted };
 	}
 });
@@ -510,6 +521,15 @@ export const cleanupAllE2eTaggedData = mutation({
 				evaluationIdsToDelete.has(log.targetId as Id<'evaluations'>);
 			if (log.e2eTag || isDeletedEvalLog) {
 				await ctx.db.delete(log._id);
+				totalDeleted++;
+			}
+		}
+
+		// Remove house events with any e2eTag
+		const events = await ctx.db.query('house_events').collect();
+		for (const event of events) {
+			if (event.e2eTag) {
+				await ctx.db.delete(event._id);
 				totalDeleted++;
 			}
 		}

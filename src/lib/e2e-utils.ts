@@ -116,9 +116,10 @@ export interface E2EUtils {
 	cleanupTestData: (tag: string) => Promise<CleanupResult>;
 	cleanupAllE2eTaggedData: () => Promise<CleanupResult>;
 	cleanupByTag: (
-		dataType: 'students' | 'categories' | 'evaluations' | 'all',
+		dataType: 'students' | 'categories' | 'evaluations' | 'houseEvents' | 'all',
 		e2eTag: string
 	) => Promise<CleanupResult>;
+	cleanupAllHouseEvents: () => Promise<CleanupResult>;
 	seedBaseline: () => Promise<SeedBaselineResult>;
 	cleanupTestUsers: () => Promise<CleanupResult>;
 	cleanupAuditLogs: (authIdString?: string) => Promise<CleanupResult>;
@@ -250,7 +251,7 @@ export function getE2EUtils(): E2EUtils {
 		},
 
 		async cleanupByTag(
-			dataType: 'students' | 'categories' | 'evaluations' | 'all',
+			dataType: 'students' | 'categories' | 'evaluations' | 'houseEvents' | 'all',
 			e2eTag: string
 		): Promise<CleanupResult> {
 			try {
@@ -288,8 +289,8 @@ export function getE2EUtils(): E2EUtils {
 				});
 				console.log('Cleanup test users result:', result);
 				return result;
-			} catch {
-				console.log('Cleanup test users error');
+			} catch (e) {
+				console.error('Cleanup test users error:', e);
 				return { error: 'Error' };
 			}
 		},
@@ -308,6 +309,19 @@ export function getE2EUtils(): E2EUtils {
 			}
 		},
 
+		async cleanupAllHouseEvents(): Promise<CleanupResult> {
+			try {
+				const result = await c.mutation(api.dataFactory.cleanupAllHouseEvents, {
+					testToken: TEST_TOKEN
+				});
+				console.log('Cleanup all house events result:', result);
+				return result;
+			} catch {
+				console.log('Cleanup all house events error');
+				return { error: 'Error' };
+			}
+		},
+
 		async setupTestUsers(): Promise<SetupTestUsersResult> {
 			try {
 				const result = await c.mutation(api.testSetup.setupTestUsers, {
@@ -315,8 +329,8 @@ export function getE2EUtils(): E2EUtils {
 				});
 				console.log('Setup test users result:', result);
 				return result as SetupTestUsersResult;
-			} catch {
-				console.log('Setup test users error');
+			} catch (e) {
+				console.error('Setup test users error:', e);
 				return { error: 'Error' };
 			}
 		},
