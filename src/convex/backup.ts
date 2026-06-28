@@ -352,6 +352,12 @@ export const advanceGradesAndClearEvaluations = mutation({
 			}
 		}
 
+		// Delete all house events for the new academic year
+		const allHouseEvents = await ctx.db.query('house_events').collect();
+		for (const event of allHouseEvents) {
+			await ctx.db.delete(event._id);
+		}
+
 		// Get classes to determine grade 12 students
 		const allClasses = await ctx.db.query('classes').collect();
 		const classMap = new Map(allClasses.map((c) => [c._id, c]));
@@ -397,7 +403,7 @@ export const advanceGradesAndClearEvaluations = mutation({
 		}
 
 		return {
-			message: `Advanced grades for ${gradesAdvanced} students, deleted ${grade12Students.length} grade 12 students, deleted ${notEnrolledStudents.length} not enrolled students, cleared ${allEvaluations.length} evaluations and ${auditLogsCleared} audit logs`
+			message: `Advanced grades for ${gradesAdvanced} students, deleted ${grade12Students.length} grade 12 students, deleted ${notEnrolledStudents.length} not enrolled students, cleared ${allEvaluations.length} evaluations and ${auditLogsCleared} audit logs, deleted ${allHouseEvents.length} events`
 		};
 	}
 });

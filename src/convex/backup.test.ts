@@ -663,6 +663,14 @@ describe('backup clearing logic', () => {
 			name: 'Creativity'
 		});
 
+		await t.run(async (ctx) => {
+			await ctx.db.insert('house_events', {
+				title: 'Old Event',
+				startDate: Date.now(),
+				endDate: Date.now() + 86400000
+			});
+		});
+
 		const studentId = await t.run(async (ctx) => {
 			return (await ctx.db.query('students').collect())[0]._id;
 		});
@@ -684,10 +692,11 @@ describe('backup clearing logic', () => {
 			const evaluations = await ctx.db.query('evaluations').collect();
 			const users = await ctx.db.query('users').collect();
 			const categories = await ctx.db.query('point_categories').collect();
+			const houseEvents = await ctx.db.query('house_events').collect();
 
 			await ctx.db.insert('backups', {
 				filename: `backup-${Date.now()}.json`,
-				data: { students, evaluations, users, categories },
+				data: { students, evaluations, users, categories, houseEvents },
 				createdAt: Date.now()
 			});
 
@@ -700,6 +709,10 @@ describe('backup clearing logic', () => {
 				if (log.targetTable === 'evaluations') {
 					await ctx.db.delete(log._id);
 				}
+			}
+
+			for (const event of houseEvents) {
+				await ctx.db.delete(event._id);
 			}
 
 			const grade12Students = await ctx.db
@@ -738,6 +751,10 @@ describe('backup clearing logic', () => {
 			return await ctx.db.query('evaluations').collect();
 		});
 
+		const houseEvents = await t.run(async (ctx) => {
+			return await ctx.db.query('house_events').collect();
+		});
+
 		const backups = await t.run(async (ctx) => {
 			return await ctx.db.query('backups').collect();
 		});
@@ -746,6 +763,7 @@ describe('backup clearing logic', () => {
 		// - Deletes grade 12 students (both enrolled and not enrolled)
 		// - Deletes not enrolled students
 		// - Advances grades by moving students to next grade's class
+		// - Deletes all house events
 		// Note: Each createStudentWithClass creates a unique class, so grade advancement
 		// may or may not work depending on whether a class at the next grade exists.
 		// With our test data:
@@ -758,6 +776,7 @@ describe('backup clearing logic', () => {
 		expect(students).toHaveLength(3);
 
 		expect(evaluations).toHaveLength(0);
+		expect(houseEvents).toHaveLength(0);
 		expect(backups).toHaveLength(1);
 	});
 
