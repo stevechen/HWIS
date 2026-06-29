@@ -15,6 +15,7 @@ import type * as categories from "../categories.js";
 import type * as classes from "../classes.js";
 import type * as createUser from "../createUser.js";
 import type * as dataFactory from "../dataFactory.js";
+import type * as dedupeLocalUsers from "../dedupeLocalUsers.js";
 import type * as dedupeUsers from "../dedupeUsers.js";
 import type * as driveBackup from "../driveBackup.js";
 import type * as evaluations from "../evaluations.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   classes: typeof classes;
   createUser: typeof createUser;
   dataFactory: typeof dataFactory;
+  dedupeLocalUsers: typeof dedupeLocalUsers;
   dedupeUsers: typeof dedupeUsers;
   driveBackup: typeof driveBackup;
   evaluations: typeof evaluations;

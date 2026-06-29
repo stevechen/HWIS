@@ -3,6 +3,7 @@
 	import { api } from '$convex/_generated/api';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
+	import { setContext } from 'svelte';
 	import type { Snippet } from 'svelte';
 
 	let { children }: { children: Snippet } = $props();
@@ -11,6 +12,15 @@
 
 	const isAdmin = $derived(user.data?.role === 'admin' || user.data?.role === 'super');
 	const loaded = $derived(!user.isLoading);
+
+	setContext('adminAuth', {
+		get loaded() {
+			return loaded;
+		},
+		get isAdmin() {
+			return isAdmin;
+		}
+	});
 
 	$effect(() => {
 		if (loaded && !isAdmin && browser) {

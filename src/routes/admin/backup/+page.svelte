@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
+	import { getContext } from 'svelte';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { Cloud, RotateCcw, Trash2, Download, Play } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -8,10 +9,11 @@
 	import { Input } from '$lib/components/ui/input';
 
 	const client = useConvexClient();
+	const adminAuth = getContext<{ loaded: boolean; isAdmin: boolean }>('adminAuth');
 	let refreshTrigger = $state(0);
-	const backupsQuery = useQuery(api.backup.listBackups, () => ({
-		_trigger: refreshTrigger
-	}));
+	const backupsQuery = useQuery(api.backup.listBackups, () =>
+		adminAuth.loaded && adminAuth.isAdmin ? { _trigger: refreshTrigger } : 'skip'
+	);
 
 	let showForceBackupDialog = $state(false);
 	let showRestoreDialog = $state(false);
