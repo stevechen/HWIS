@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { browser } from '$app/environment';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { CircleAlert, Medal, Star, TrendingUp, Trophy } from '@lucide/svelte';
@@ -10,11 +11,13 @@
 	import LogoSetna from '$lib/components/LogoSetna.svelte';
 
 	onMount(() => {
+		if (!browser) return;
 		document.documentElement.style.overflow = 'hidden';
 		document.body.style.overflow = 'hidden';
 	});
 
 	onDestroy(() => {
+		if (!browser) return;
 		document.documentElement.style.overflow = '';
 		document.body.style.overflow = '';
 	});
