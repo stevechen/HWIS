@@ -6,7 +6,6 @@ import type { MutationCtx, QueryCtx } from './_generated/server';
 import { betterAuth } from 'better-auth/minimal';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import authConfig from './auth.config';
-import { devGoogleCredentials } from './auth.local';
 
 function normalizeEnvValue(value?: string | null): string | undefined {
 	if (!value) return undefined;
@@ -175,10 +174,10 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 		socialProviders: {
 			google: {
 				clientId: isDev
-					? normalizeEnvValue(devGoogleCredentials.clientId) || ''
+					? getEnvValue('GOOGLE_CLIENT_ID') || ''
 					: getEnvValue('GOOGLE_CLIENT_ID')!,
 				clientSecret: isDev
-					? normalizeEnvValue(devGoogleCredentials.clientSecret) || ''
+					? getEnvValue('GOOGLE_CLIENT_SECRET') || ''
 					: getEnvValue('GOOGLE_CLIENT_SECRET')!,
 				prompt: 'select_account',
 				redirectURI: `${siteUrl}/api/auth/callback/google`
