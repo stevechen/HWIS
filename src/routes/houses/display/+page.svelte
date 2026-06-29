@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount, onDestroy } from 'svelte';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { CircleAlert, Medal, Star, TrendingUp, Trophy } from '@lucide/svelte';
@@ -7,6 +8,16 @@
 	import LogoWukong from '$lib/components/LogoWukong.svelte';
 	import LogoIxbalam from '$lib/components/LogoIxbalam.svelte';
 	import LogoSetna from '$lib/components/LogoSetna.svelte';
+
+	onMount(() => {
+		document.documentElement.style.overflow = 'hidden';
+		document.body.style.overflow = 'hidden';
+	});
+
+	onDestroy(() => {
+		document.documentElement.style.overflow = '';
+		document.body.style.overflow = '';
+	});
 
 	type House = 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna';
 
