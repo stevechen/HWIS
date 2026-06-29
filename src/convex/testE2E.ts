@@ -27,6 +27,16 @@ export const e2eResetAll = mutation({
 			await ctx.db.delete(a._id);
 		}
 
+		const allClasses = await ctx.db.query('classes').collect();
+		for (const c of allClasses) {
+			await ctx.db.delete(c._id);
+		}
+
+		const allHouseEvents = await ctx.db.query('house_events').collect();
+		for (const h of allHouseEvents) {
+			await ctx.db.delete(h._id);
+		}
+
 		return { message: 'All test data cleaned' };
 	}
 });
