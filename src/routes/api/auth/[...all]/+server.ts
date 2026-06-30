@@ -1,12 +1,13 @@
 import { createSvelteKitHandler } from '@mmailaender/convex-better-auth-svelte/sveltekit';
-import { env } from '$env/dynamic/private';
+import { env as privateEnv } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
 import type { RequestEvent } from '@sveltejs/kit';
 
 const stripSlash = (value: string) => value.replace(/\/$/, '');
 const appOrigins = [
-	env.SITE_URL,
-	env.PUBLIC_SITE_URL,
-	env.VITE_SITE_URL,
+	privateEnv.SITE_URL,
+	privateEnv.PUBLIC_SITE_URL,
+	privateEnv.VITE_SITE_URL,
 	'http://localhost:5173',
 	'http://127.0.0.1:5173'
 ]
@@ -27,9 +28,9 @@ const normalizeConvexSiteUrl = (value?: string) => {
 	return normalized;
 };
 
-const convexUrl = env.CONVEX_URL || env.PUBLIC_CONVEX_URL || 'http://127.0.0.1:3210';
+const convexUrl = publicEnv.CONVEX_URL || publicEnv.PUBLIC_CONVEX_URL || 'http://127.0.0.1:3210';
 const convexSiteUrl =
-	normalizeConvexSiteUrl(env.CONVEX_SITE_URL || env.PUBLIC_CONVEX_SITE_URL) ||
+	normalizeConvexSiteUrl(publicEnv.CONVEX_SITE_URL || publicEnv.PUBLIC_CONVEX_SITE_URL) ||
 	normalizeConvexSiteUrl(convexUrl) ||
 	'http://127.0.0.1:3211';
 
