@@ -193,7 +193,7 @@
 					<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 					<Input
 						type="text"
-						placeholder="Filter by name or ID..."
+						placeholder="Filter by names (separated by commas) or ID..."
 						bind:value={searchQuery}
 						class="pl-10"
 						aria-label="Search students"

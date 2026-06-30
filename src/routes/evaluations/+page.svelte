@@ -121,7 +121,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl p-8 pt-0">
+<div class="mx-auto w-full max-w-6xl p-8 pt-0">
 	<!-- Filter Controls - Always at top, outside conditionals -->
 	<EvaluationsControls
 		sortAscending={displayState.sortAscending}
@@ -132,9 +132,9 @@
 		{#snippet children()}
 			<FilterInput
 				bind:value={studentFilter}
-				placeholder="Filter by student(s)…"
+				placeholder="Filter by names (separated by commas)…"
 				ariaLabel="Filter by student"
-				class="w-full sm:w-64"
+				class="w-full sm:w-80"
 			/>
 			<Button onclick={() => void goto('/evaluations/new')}>
 				<Plus class="size-4" />
