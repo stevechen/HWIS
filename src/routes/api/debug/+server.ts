@@ -2,23 +2,21 @@ import { env } from '$env/dynamic/private';
 import { json } from '@sveltejs/kit';
 
 export const GET = async () => {
-	const errs: string[] = [];
 	try {
-		const convexUrl = env.CONVEX_URL || env.PUBLIC_CONVEX_URL || 'http://127.0.0.1:3210';
-		const convexSiteUrl = env.CONVEX_SITE_URL || env.PUBLIC_CONVEX_SITE_URL || '';
+		const convexUrl = env.CONVEX_URL || env.PUBLIC_CONVEX_URL || 'not-set';
+		const convexSiteUrl = env.CONVEX_SITE_URL || env.PUBLIC_CONVEX_SITE_URL || 'not-set';
 
 		const info = {
 			convexUrl,
 			convexSiteUrl,
-			siteUrl: env.SITE_URL,
-			nodeEnv: env.NODE_ENV,
+			siteUrl: env.SITE_URL || 'not-set',
+			nodeEnv: env.NODE_ENV || 'not-set',
 			hasPubConvexUrl: !!env.PUBLIC_CONVEX_URL,
 			hasPubConvexSiteUrl: !!env.PUBLIC_CONVEX_SITE_URL,
 			hasConvexUrl: !!env.CONVEX_URL,
 			hasBetterAuth: !!env.BETTER_AUTH_SECRET
 		};
 
-		// Test connection to Convex site
 		let siteStatus = 'untested';
 		try {
 			const res = await fetch(`${convexSiteUrl}/api/auth/get-session`, {
@@ -30,8 +28,8 @@ export const GET = async () => {
 			siteStatus = `fetch failed: ${e instanceof Error ? e.message : String(e)}`;
 		}
 
-		return json({ info, siteStatus, errors: errs });
+		return json({ info, siteStatus });
 	} catch (e) {
-		return json({ error: e instanceof Error ? e.message : String(e), errors: errs }, { status: 500 });
+		return json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
 	}
 };
