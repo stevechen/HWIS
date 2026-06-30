@@ -124,8 +124,20 @@
 	const radarTicks = $derived.by(() => {
 		if (radarMaxValue === radarMinValue) return [radarMinValue];
 
+		const allValues: number[] = [];
 		const step = (radarMaxValue - radarMinValue) / 4;
-		return Array.from({ length: 5 }, (_, index) => Math.round(radarMinValue + step * index));
+		for (let i = 0; i <= 4; i++) {
+			const val = Math.round(radarMinValue + step * i);
+			if (!allValues.includes(val)) {
+				allValues.push(val);
+			}
+		}
+		if (allValues.length < 2) {
+			allValues.length = 0;
+			allValues.push(radarMinValue);
+			allValues.push(radarMaxValue);
+		}
+		return allValues;
 	});
 	function getRadarData(houseData: { house?: string; pointsByCategory?: Record<string, number> }) {
 		if (!houseData?.pointsByCategory) return [];

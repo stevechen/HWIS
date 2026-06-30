@@ -41,6 +41,8 @@
 
 	const chartRadius = $derived(Math.max(0, featureLabelRadius - labelGap));
 
+	const uniqueTicks = $derived([...new Set(ticks)]);
+
 	// Convert simple data object to array format for D3
 	const chartData = $derived.by((): DataItem[] => {
 		if (data.length > 0) return data;
@@ -134,7 +136,7 @@
 <div class="radar-chart-container" style="width: {size}px; height: {size}px;">
 	<svg width={size} height={size}>
 		<!-- Draw circles for ticks -->
-		{#each ticks as tick (tick)}
+		{#each uniqueTicks as tick (tick)}
 			<path d={getGridPath(tick)} fill="none" stroke="#e5e7eb" stroke-width="1" />
 		{/each}
 
@@ -151,7 +153,7 @@
 		{/each}
 
 		<!-- Draw tick labels -->
-		{#each ticks as tick (tick)}
+		{#each uniqueTicks as tick (tick)}
 			{#each featureData as feature (feature.name)}
 				{@const labelCoord = getTickLabelCoordinate(feature.angle, tick, radialScale)}
 				<text
