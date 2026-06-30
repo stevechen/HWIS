@@ -1068,6 +1068,7 @@ export const getHouseStats = query({
 
 			// Top contributors - All Time (by net points: positive - negative)
 			houseStats[house].topContributors = houseStudents
+				.filter((s) => s.totalPoints > 0)
 				.sort((a, b) => b.totalPoints - a.totalPoints)
 				.slice(0, 6)
 				.map((s) => ({
@@ -1078,6 +1079,7 @@ export const getHouseStats = query({
 
 			// Top contributors - Most Recent (last 30 days)
 			houseStats[house].topContributorsRecent = houseStudents
+				.filter((s) => s.recentTotalPoints > 0)
 				.sort((a, b) => b.recentTotalPoints - a.recentTotalPoints)
 				.slice(0, 6)
 				.map((s) => ({
