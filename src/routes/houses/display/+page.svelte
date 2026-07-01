@@ -10,10 +10,17 @@
 	import LogoIxbalam from '$lib/components/LogoIxbalam.svelte';
 	import LogoSetna from '$lib/components/LogoSetna.svelte';
 
+	let viewportWidth = $state(1920);
+
 	onMount(() => {
 		if (!browser) return;
 		document.documentElement.style.overflow = 'hidden';
 		document.body.style.overflow = 'hidden';
+		const updateWidth = () => {
+			viewportWidth = window.innerWidth;
+		};
+		updateWidth();
+		window.addEventListener('resize', updateWidth);
 	});
 
 	onDestroy(() => {
@@ -101,6 +108,8 @@
 	const categories = $derived(housesQuery.data?.categories || []);
 	const houses = $derived(housesQuery.data?.houses || []);
 
+	const radarSize = $derived(Math.round(Math.min(Math.max(viewportWidth * 0.24, 280), 920)));
+
 	const globalMax = $derived(
 		housesQuery.data?.houses
 			? Math.max(
@@ -156,7 +165,7 @@
 </svelte:head>
 
 <section
-	class="house-display-page min-h-screen overflow-hidden bg-slate-950 p-[clamp(0.75rem,1.5vw,2rem)] text-slate-950"
+	class="house-display-page h-screen overflow-hidden bg-slate-950 p-[clamp(0.75rem,1.5vw,100rem)] text-slate-950"
 >
 	{#if housesQuery.isLoading}
 		<div class="flex h-full items-center justify-center text-white">
@@ -169,47 +178,45 @@
 	{:else if housesQuery.error}
 		<div class="flex h-full flex-col items-center justify-center text-center text-white">
 			<CircleAlert class="mb-4 size-16 text-red-300" aria-label="Alert" />
-			<p class="text-[clamp(1.5rem,3vw,3rem)] font-bold">Failed to load house statistics</p>
+			<p class="text-[clamp(1.5rem,3vw,100rem)] font-bold">Failed to load house statistics</p>
 		</div>
 	{:else if housesQuery.data}
-		<div class="grid h-full min-h-0 grid-rows-[auto_1fr] gap-3 sm:gap-4">
-			<header class="flex min-h-0 items-center text-white">
-				<h1 class="text-[clamp(2.2rem,3.5vw,5.8rem)] leading-none font-black">HWIS House Points</h1>
-			</header>
-
-			<div class="grid min-h-0 grid-cols-4 gap-3 sm:gap-4">
+		<div class="flex h-full min-h-0 w-full max-w-full min-w-0 flex-col">
+			<div class="grid min-h-0 min-w-0 flex-1 grid-cols-4 grid-rows-1 gap-3 sm:gap-4">
 				{#each houses as houseData (houseData.house)}
 					{@const house = houseData.house as House}
 					{@const Logo = houseLogos[house]}
 					{@const colors = houseColors[house]}
 					<article
-						class="grid min-h-0 grid-rows-[auto_minmax(0,1fr)_clamp(6rem,10vw,9rem)_clamp(6rem,10vw,9rem)] overflow-hidden rounded-lg border-t-8 bg-white shadow-xl {colors.border} {colors.glow}"
+						class="house-{house} grid min-h-0 max-w-full min-w-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)_clamp(6rem,8vw,100rem)_clamp(6rem,10vw,100rem)] overflow-hidden rounded-lg border-t-8 bg-white shadow-xl {colors.border} {colors.glow}"
 					>
 						<div
-							class="{colors.lightBg} grid min-h-0 grid-cols-[auto_1fr] items-center gap-3 px-[clamp(0.65rem,1.1vw,1rem)] py-[clamp(0.55rem,0.85vw,0.8rem)]"
+							class="{colors.lightBg} grid min-h-0 min-w-0 grid-cols-[auto_1fr] items-center gap-3 px-[clamp(0.65rem,1.1vw,100rem)] py-[clamp(0.55rem,0.85vw,100rem)]"
 						>
 							<div class="flex shrink-0 flex-col items-center gap-1">
-								<div class="size-[clamp(4rem,6.5vw,8rem)]">
+								<div class="size-[clamp(4rem,6.5vw,100rem)]">
 									<Logo />
 								</div>
-								<h2 class="text-[clamp(1.5rem,2vw,2.5rem)] font-black {colors.text} text-center">
+								<h2 class="text-[clamp(1.5rem,2vw,100rem)] font-black {colors.text} text-center">
 									{house}
 								</h2>
 							</div>
-							<div class="flex h-full min-w-0 flex-col items-end justify-between pr-6">
+							<div class="flex h-full min-w-0 flex-col items-end justify-between">
 								<div
-									class="mx-3 flex items-center gap-2 rounded-full px-3 py-1.5 text-[clamp(1.1rem,1.4vw,1.5rem)] font-black ring-2 {rankColors[
+									class="mx-3 flex items-center gap-2 rounded-full px-3 py-1.5 text-[clamp(1.1rem,1.4vw,100rem)] font-black ring-2 {rankColors[
 										houseData.rank
 									] || rankColors[4]}"
 								>
 									{#if houseData.rank === 1}
-										<Trophy class="size-[clamp(1.2rem,1.6vw,1.8rem)]" aria-label="Trophy" />
+										<Trophy class="size-[clamp(1.2rem,1.6vw,100rem)]" aria-label="Trophy" />
 									{:else}
-										<Medal class="size-[clamp(1.2rem,1.6vw,1.8rem)]" aria-label="Medal" />
+										<Medal class="size-[clamp(1.2rem,1.6vw,100rem)]" aria-label="Medal" />
 									{/if}
 									{rankBadges[houseData.rank] || `${houseData.rank}th`}
 								</div>
-								<p class="text-[clamp(2.8rem,5vw,6rem)] leading-none font-black {colors.text} pr-4">
+								<p
+									class="text-[clamp(2.8rem,5vw,100rem)] leading-none font-black {colors.text} pr-4"
+								>
 									{#key houseData.totalPoints}
 										<span class="animate-scale-in">{houseData.totalPoints}</span>
 									{/key}
@@ -218,7 +225,7 @@
 						</div>
 
 						<div
-							class="flex min-h-0 items-center justify-center border-b border-slate-100 px-4 py-2"
+							class="flex min-h-0 min-w-0 items-center justify-center border-b border-slate-100 px-4 py-2"
 						>
 							{#if categories.length > 0}
 								<div class="origin-center scale-100">
@@ -229,24 +236,24 @@
 										minValue={radarMinValue}
 										maxValue={radarMaxValue}
 										colors={[houseRadarColors[house]]}
-										size={460}
+										size={radarSize}
 									/>
 								</div>
 							{/if}
 						</div>
 
 						<div
-							class="min-h-0 overflow-hidden border-b border-slate-100 px-[clamp(1.5rem,2vw,2rem)] py-[clamp(0.6rem,1vw,1rem)] pb-4"
+							class="min-h-0 overflow-hidden border-b border-slate-100 px-[clamp(1.5rem,2vw,100rem)] py-[clamp(0.6rem,1vw,100rem)] pb-4"
 						>
 							<h3
-								class="mb-1 flex items-center gap-2 text-[clamp(1rem,1.2vw,1.2rem)] font-black text-slate-700"
+								class="mb-1 flex items-center gap-2 text-[clamp(1rem,1.2vw,100rem)] font-black text-slate-700"
 							>
-								<Star class="size-[clamp(1.2rem,1.5vw,1.5rem)] text-yellow-500" aria-label="Star" />
+								<Star class="size-[clamp(1.2rem,1.5vw,100rem)] text-yellow-500" aria-label="Star" />
 								Top Contributors
 							</h3>
 							{#if houseData.topContributors && houseData.topContributors.length > 0}
 								<ul
-									class="grid grid-cols-2 gap-x-3 gap-y-1.5 pr-6 pl-2 text-[clamp(0.8rem,1vw,1.1rem)] leading-tight"
+									class="grid grid-cols-2 gap-x-3 gap-y-1.5 pr-6 pl-2 text-[clamp(0.6rem,1vw,100rem)] leading-tight"
 								>
 									{#each houseData.topContributors as contributor, index (contributor.studentId)}
 										<li class="animate-list-item flex min-w-0 items-center justify-between gap-2">
@@ -262,25 +269,25 @@
 									{/each}
 								</ul>
 							{:else}
-								<p class="text-[clamp(1rem,1.3vw,1.3rem)] font-medium text-slate-500">
+								<p class="text-[clamp(1rem,1.3vw,100rem)] font-medium text-slate-500">
 									No contributions yet
 								</p>
 							{/if}
 						</div>
 
-						<div class="min-h-0 overflow-hidden px-[clamp(1.5rem,2vw,2rem)] py-3 pb-5">
+						<div class="min-h-0 overflow-hidden px-[clamp(1.5rem,2vw,100rem)] py-3 pb-5">
 							<h3
-								class="mb-1 flex items-center gap-2 text-[clamp(1rem,1.2vw,1.2rem)] font-black text-slate-700"
+								class="mb-1 flex items-center gap-2 text-[clamp(1rem,1.2vw,100rem)] font-black text-slate-700"
 							>
 								<TrendingUp
-									class="size-[clamp(1.2rem,1.5vw,1.5rem)] text-green-600"
+									class="size-[clamp(1.2rem,1.5vw,100rem)] text-green-600"
 									aria-label="Trending"
 								/>
 								Growth Opportunities
 							</h3>
 							{#if houseData.growthOpportunities.length > 0}
 								<ul
-									class="grid grid-cols-2 gap-x-3 gap-y-1.5 pr-6 pl-2 text-[clamp(0.8rem,1vw,1.1rem)] leading-tight"
+									class="grid grid-cols-2 gap-x-3 gap-y-1.5 pr-6 pl-2 text-[clamp(0.6rem,1vw,100rem)] leading-tight"
 								>
 									{#each houseData.growthOpportunities as student (student.studentId)}
 										<li class="animate-list-item flex min-w-0 items-center justify-between gap-2">
@@ -294,7 +301,7 @@
 									{/each}
 								</ul>
 							{:else}
-								<p class="text-[clamp(1rem,1.3vw,1.3rem)] font-medium text-slate-500">
+								<p class="text-[clamp(1rem,1.2vw,100rem)] font-medium text-slate-500">
 									No points to recover
 								</p>
 							{/if}

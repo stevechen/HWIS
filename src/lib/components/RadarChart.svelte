@@ -29,7 +29,8 @@
 
 	const center = $derived(size / 2);
 	const edgePadding = $derived(Math.max(8, Math.round(size * 0.02)));
-	const featureFontSize = 12;
+	const featureFontSize = $derived(Math.max(10, Math.round((12 * size) / 460)));
+	const tickFontSize = $derived(Math.max(8, Math.round((10 * size) / 460)));
 	const tickLabelOffset = $derived(Math.max(8, Math.round(size * 0.02)));
 	const featureLabelRadius = $derived(Math.max(0, center - edgePadding - featureFontSize));
 	const labelGap = $derived(Math.max(30, Math.round(size * 0.075)));
@@ -155,17 +156,19 @@
 		<!-- Draw tick labels -->
 		{#each uniqueTicks as tick (tick)}
 			{#each featureData as feature (feature.name)}
-				{@const labelCoord = getTickLabelCoordinate(feature.angle, tick, radialScale)}
-				<text
-					x={labelCoord.x}
-					y={labelCoord.y}
-					text-anchor="middle"
-					dominant-baseline={getTickBaseline(feature.angle)}
-					font-size="10"
-					fill="#9ca3af"
-				>
-					{tick}
-				</text>
+				{#if tick !== 0}
+					{@const labelCoord = getTickLabelCoordinate(feature.angle, tick, radialScale)}
+					<text
+						x={labelCoord.x}
+						y={labelCoord.y}
+						text-anchor="middle"
+						dominant-baseline={getTickBaseline(feature.angle)}
+						font-size={tickFontSize}
+						fill="#9ca3af"
+					>
+						{tick}
+					</text>
+				{/if}
 			{/each}
 		{/each}
 
