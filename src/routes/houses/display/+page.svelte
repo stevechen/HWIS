@@ -197,9 +197,9 @@
 								<div class="size-[clamp(4rem,6.5vw,100rem)]">
 									<Logo />
 								</div>
-								<h2 class="text-[clamp(1.5rem,2vw,100rem)] font-black {colors.text} text-center">
+								<!-- <h2 class="text-[clamp(1.5rem,2vw,100rem)] font-black {colors.text} text-center">
 									{house}
-								</h2>
+								</h2> -->
 							</div>
 							<div class="flex h-full min-w-0 flex-col items-end justify-between">
 								<div
