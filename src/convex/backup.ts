@@ -200,12 +200,27 @@ export const restoreFromBackup = mutation({
 			});
 		}
 		for (const user of data.users) {
-			await ctx.db.insert('users', {
-				authId: user.authId ?? undefined,
-				name: user.name ?? undefined,
-				role: user.role ?? 'teacher',
-				status: user.status ?? 'active'
-			});
+			const existingUser = user.authId
+				? await ctx.db
+						.query('users')
+						.withIndex('by_authId', (q) => q.eq('authId', user.authId))
+						.first()
+				: null;
+
+			if (existingUser) {
+				await ctx.db.patch(existingUser._id, {
+					name: user.name ?? undefined,
+					role: user.role ?? existingUser.role,
+					status: user.status ?? existingUser.status
+				});
+			} else {
+				await ctx.db.insert('users', {
+					authId: user.authId ?? undefined,
+					name: user.name ?? undefined,
+					role: user.role ?? 'teacher',
+					status: user.status ?? 'active'
+				});
+			}
 		}
 		for (const category of data.categories) {
 			await ctx.db.insert('point_categories', {

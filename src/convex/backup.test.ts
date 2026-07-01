@@ -523,8 +523,8 @@ describe('backup clearing logic', () => {
 			expect(auditLogs.filter((l) => l.targetTable === 'students')).toHaveLength(0);
 			expect(auditLogs.filter((l) => l.targetTable === 'evaluations')).toHaveLength(0);
 
-			// Users table should be preserved (not cleared)
-			expect(users.length).toBeGreaterThanOrEqual(1);
+			// Users table should be preserved (not cleared) and not duplicated
+			expect(users).toHaveLength(1);
 		});
 
 		test('restores house_events from backup', async () => {
