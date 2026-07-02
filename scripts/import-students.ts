@@ -52,7 +52,7 @@ for (let i = 1; i < lines.length; i++) {
 		continue;
 	}
 
-	const house = HOUSES.includes(houseRaw as typeof HOUSES[number])
+	const house = HOUSES.includes(houseRaw as (typeof HOUSES)[number])
 		? (houseRaw as 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna')
 		: undefined;
 
@@ -79,7 +79,9 @@ let totalUpdated = 0;
 
 for (let i = 0; i < students.length; i += BATCH_SIZE) {
 	const batch = students.slice(i, i + BATCH_SIZE);
-	console.log(`Importing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(students.length / BATCH_SIZE)}...`);
+	console.log(
+		`Importing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(students.length / BATCH_SIZE)}...`
+	);
 	const results = await convex.mutation(api.students.importFromExcel, {
 		students: batch,
 		testToken: 'unit-test-token'

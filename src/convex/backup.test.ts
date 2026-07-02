@@ -599,53 +599,123 @@ describe('backup clearing logic', () => {
 		});
 	});
 
-	test('advanceGradesAndClearEvaluations deletes grade 12 and not enrolled, advances remaining', async () => {
+	test('advanceGradesAndClearEvaluations deletes grade 12 and not enrolled, advances remaining with section matching', async () => {
 		const t = convexTest(schema, modules);
 
-		// Create classes for different grades
-		await createStudentWithClass(t, {
-			englishName: 'Grade 7 Enrolled',
-			chineseName: '七年級在校',
+		// Create multiple sections per grade to verify section-name matching
+		const { classId: class7_1, studentId: stu1Id } = await createStudentWithClass(t, {
+			englishName: 'Grade 7 Enrolled A',
+			chineseName: '七年級在校A',
 			studentId: 'STU001',
 			grade: 7,
 			classNum: '1',
 			status: 'Enrolled'
 		});
 
+		// Second student in same grade 7 section 1 to test dedup class creation
 		await createStudentWithClass(t, {
-			englishName: 'Grade 11 Enrolled',
-			chineseName: '十一年級在校',
+			englishName: 'Grade 7 Enrolled B',
+			chineseName: '七年級在校B',
+			studentId: 'STU007',
+			grade: 7,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const { classId: class11_1, studentId: stu2Id } = await createStudentWithClass(t, {
+			englishName: 'Grade 11 Enrolled Section 1',
+			chineseName: '十一年級一班在校',
 			studentId: 'STU002',
 			grade: 11,
 			classNum: '1',
 			status: 'Enrolled'
 		});
 
-		await createStudentWithClass(t, {
+		const { classId: class11_IB, studentId: stu3Id } = await createStudentWithClass(t, {
+			englishName: 'Grade 11 Enrolled IB',
+			chineseName: '十一年級IB在校',
+			studentId: 'STU003',
+			grade: 11,
+			classNum: 'IB',
+			status: 'Enrolled'
+		});
+
+		const { classId: class12_1 } = await createStudentWithClass(t, {
 			englishName: 'Grade 12 Enrolled',
 			chineseName: '十二年級在校',
-			studentId: 'STU003',
+			studentId: 'STU004',
 			grade: 12,
 			classNum: '1',
 			status: 'Enrolled'
 		});
 
-		await createStudentWithClass(t, {
-			englishName: 'Grade 12 Not Enrolled',
-			chineseName: '十二年級非在校',
-			studentId: 'STU004',
+		const { classId: class12_IB } = await createStudentWithClass(t, {
+			englishName: 'Grade 12 Not Enrolled IB',
+			chineseName: '十二年級非在校IB',
+			studentId: 'STU005',
 			grade: 12,
+			classNum: 'IB',
+			status: 'Not Enrolled'
+		});
+
+		const { classId: class10_1, studentId: stu10Id } = await createStudentWithClass(t, {
+			englishName: 'Grade 10 Not Enrolled',
+			chineseName: '十年級非在校',
+			studentId: 'STU006',
+			grade: 10,
 			classNum: '1',
 			status: 'Not Enrolled'
 		});
 
-		await createStudentWithClass(t, {
-			englishName: 'Grade 10 Not Enrolled',
-			chineseName: '十年級非在校',
-			studentId: 'STU005',
-			grade: 10,
-			classNum: '1',
-			status: 'Not Enrolled'
+		// Student in a "no dash" class (className equals grade number) to test non-section advancement
+		const class7_plainId = await t.run(async (ctx) => {
+			return await ctx.db.insert('classes', { grade: 7, class: '9' });
+		});
+		const stu9Id = await t.run(async (ctx) => {
+			return await ctx.db.insert('students', {
+				englishName: 'Grade 7 Plain Class',
+				chineseName: '七年級一般班',
+				studentId: 'STU009',
+				classId: class7_plainId,
+				status: 'Enrolled'
+			});
+		});
+
+		// Student in grade 9 class "1" — grade 9 has only "1" and "IB" (2 classes),
+		// so class "1" displays as "9" (no dash). Should advance to "default" at grade 10.
+		const class9_1Id = await t.run(async (ctx) => {
+			return await ctx.db.insert('classes', { grade: 9, class: '1' });
+		});
+		await t.run(async (ctx) => {
+			return await ctx.db.insert('classes', { grade: 9, class: 'IB' });
+		});
+		await t.run(async (ctx) => {
+			return await ctx.db.insert('students', {
+				englishName: 'Grade 9 Section 1',
+				chineseName: '九年級一班',
+				studentId: 'STU010',
+				classId: class9_1Id,
+				status: 'Enrolled'
+			});
+		});
+
+		// Add class "2" at sectioned grades (7, 8, 10, 11, 12) so these grades
+		// have 3 classes ("1", "2", "IB"), matching real data so class "1" displays with dash.
+		// Grade 9 is plain — only "1" and "IB" — so class "1" advances to "default".
+		await t.run(async (ctx) => {
+			await ctx.db.insert('classes', { grade: 7, class: '2' });
+		});
+		await t.run(async (ctx) => {
+			await ctx.db.insert('classes', { grade: 8, class: '2' });
+		});
+		await t.run(async (ctx) => {
+			await ctx.db.insert('classes', { grade: 10, class: '2' });
+		});
+		await t.run(async (ctx) => {
+			await ctx.db.insert('classes', { grade: 11, class: '2' });
+		});
+		await t.run(async (ctx) => {
+			await ctx.db.insert('classes', { grade: 12, class: '2' });
 		});
 
 		const teacherId = await t.run(async (ctx) => {
@@ -669,13 +739,10 @@ describe('backup clearing logic', () => {
 			});
 		});
 
-		const studentId = await t.run(async (ctx) => {
-			return (await ctx.db.query('students').collect())[0]._id;
-		});
-
+		// Use STU003 (grade 11 IB enrolled, will survive) for evaluation
 		await t.run(async (ctx) => {
 			await ctx.db.insert('evaluations', {
-				studentId,
+				studentId: stu3Id,
 				teacherId,
 				value: 1,
 				categoryId,
@@ -685,61 +752,21 @@ describe('backup clearing logic', () => {
 			});
 		});
 
+		// Create an audit log for the evaluation
 		await t.run(async (ctx) => {
-			const students = await ctx.db.query('students').collect();
-			const evaluations = await ctx.db.query('evaluations').collect();
-			const users = await ctx.db.query('users').collect();
-			const categories = await ctx.db.query('point_categories').collect();
-			const houseEvents = await ctx.db.query('house_events').collect();
-
-			await ctx.db.insert('backups', {
-				filename: `backup-${Date.now()}.json`,
-				data: { students, evaluations, users, categories, houseEvents },
-				createdAt: Date.now()
+			await ctx.db.insert('audit_logs', {
+				action: 'create_evaluation',
+				performerId: teacherId,
+				targetTable: 'evaluations',
+				targetId: 'eval-1',
+				oldValue: null,
+				newValue: { value: 1 },
+				timestamp: Date.now()
 			});
-
-			for (const evaluation of evaluations) {
-				await ctx.db.delete(evaluation._id);
-			}
-
-			const auditLogs = await ctx.db.query('audit_logs').collect();
-			for (const log of auditLogs) {
-				if (log.targetTable === 'evaluations') {
-					await ctx.db.delete(log._id);
-				}
-			}
-
-			for (const event of houseEvents) {
-				await ctx.db.delete(event._id);
-			}
-
-			const grade12Students = await ctx.db
-				.query('students')
-				.filter((q) => q.eq(q.field('grade'), 12))
-				.collect();
-			for (const student of grade12Students) {
-				await ctx.db.delete(student._id);
-			}
-
-			const notEnrolledStudents = await ctx.db
-				.query('students')
-				.filter((q) => q.eq(q.field('status'), 'Not Enrolled'))
-				.collect();
-			for (const student of notEnrolledStudents) {
-				await ctx.db.delete(student._id);
-			}
-
-			const enrolledStudents = await ctx.db
-				.query('students')
-				.filter((q) => q.eq(q.field('status'), 'Enrolled'))
-				.collect();
-
-			for (const student of enrolledStudents) {
-				if (student.grade >= 7 && student.grade <= 11) {
-					await ctx.db.patch(student._id, { grade: student.grade + 1 });
-				}
-			}
 		});
+
+		// Call the actual mutation
+		await t.mutation(api.backup.advanceGradesAndClearEvaluations, {});
 
 		const students = await t.run(async (ctx) => {
 			return await ctx.db.query('students').collect();
@@ -757,25 +784,75 @@ describe('backup clearing logic', () => {
 			return await ctx.db.query('backups').collect();
 		});
 
+		const auditLogs = await t.run(async (ctx) => {
+			return await ctx.db.query('audit_logs').collect();
+		});
+
+		const allClasses = await t.run(async (ctx) => {
+			return await ctx.db.query('classes').collect();
+		});
+
 		// The function:
 		// - Deletes grade 12 students (both enrolled and not enrolled)
 		// - Deletes not enrolled students
-		// - Advances grades by moving students to next grade's class
-		// - Deletes all house events
-		// Note: Each createStudentWithClass creates a unique class, so grade advancement
-		// may or may not work depending on whether a class at the next grade exists.
+		// - Advances grades by moving students to next grade's class,
+		//   creating the class if it doesn't exist (e.g. '1' -> '1', 'IB' -> 'IB')
+		// - Deletes all evaluations and house events
 		// With our test data:
-		// - STU001 (grade 7 enrolled): no grade 8 class exists, stays at grade 7
-		// - STU002 (grade 11 enrolled): grade 12 class exists (from STU003), advances to grade 12
-		// - STU003 (grade 12 enrolled): deleted
-		// - STU004 (grade 12 not enrolled): deleted
-		// - STU005 (grade 10 not enrolled): deleted
-		// Result: 3 students remain (STU001 at grade 7, STU002 at grade 12, plus one more somehow)
-		expect(students).toHaveLength(3);
+		// - STU001 (grade 7 '1' enrolled): no grade 8 '1' exists -> creates it, advances
+		// - STU007 (grade 7 '1' enrolled): same section -> same created grade 8 '1' class
+		// - STU002 (grade 11 '1' enrolled): grade 12 '1' exists -> advances
+		// - STU003 (grade 11 'IB' enrolled): grade 12 'IB' exists -> advances
+		// - STU004 (grade 12 '1' enrolled): deleted
+		// - STU005 (grade 12 'IB' not enrolled): deleted
+		// - STU006 (grade 10 '1' not enrolled): deleted
+		// - STU009 (grade 7 class '9'): class name carries over as-is -> grade 8 '9'
+		// - STU010 (grade 9 class '1'): grade 9 has only '1' and 'IB' (2 classes) ->
+		//     class '1' displays without dash, so advances to 'default' at grade 10
+		// Result: 6 students remain (STU001, STU007, STU002, STU003, STU009, STU010)
+		expect(students).toHaveLength(6);
+
+		// Verify section-name matching on grade advancement
+		const stu2After = students.find((s) => s.studentId === 'STU002')!;
+		expect(stu2After.classId).toBe(class12_1);
+
+		const stu3After = students.find((s) => s.studentId === 'STU003')!;
+		expect(stu3After.classId).toBe(class12_IB);
+
+		// STU001 and STU007 had no matching grade 8 class — should have been created
+		// and both should be in the SAME class (dedup)
+		const stu1After = students.find((s) => s.studentId === 'STU001')!;
+		const stu7After = students.find((s) => s.studentId === 'STU007')!;
+		expect(stu7After.classId).toBe(stu1After.classId);
+		const stu1Class = allClasses.find((c) => c._id === stu1After.classId)!;
+		expect(stu1Class.grade).toBe(8);
+		expect(stu1Class.class).toBe('1');
+
+		// STU009 (grade 7, class '9') — non-standard class name carries over as-is
+		const stu9After = students.find((s) => s.studentId === 'STU009')!;
+		const stu9Class = allClasses.find((c) => c._id === stu9After.classId)!;
+		expect(stu9Class.grade).toBe(8);
+		expect(stu9Class.class).toBe('9');
+
+		// STU010 (grade 9, class '1') — carries over to grade 10 class '1' (simple section-name matching)
+		const stu10After = students.find((s) => s.studentId === 'STU010')!;
+		const stu10Class = allClasses.find((c) => c._id === stu10After.classId)!;
+		expect(stu10Class.grade).toBe(10);
+		expect(stu10Class.class).toBe('1');
+
+		// Verify empty classes were cleaned up (except protected IB at grades 11/12)
+		expect(allClasses).toHaveLength(6);
+		// Grade 11 IB is empty but protected — should still exist
+		const protected11IB = allClasses.find((c) => c.grade === 11 && c.class === 'IB');
+		expect(protected11IB).toBeDefined();
+		// Empty non-protected classes should be deleted
+		expect(allClasses.some((c) => c.grade === 7 && c.class === '1')).toBe(false);
+		expect(allClasses.some((c) => c.grade === 11 && c.class === '1')).toBe(false);
 
 		expect(evaluations).toHaveLength(0);
 		expect(houseEvents).toHaveLength(0);
 		expect(backups).toHaveLength(1);
+		expect(auditLogs.filter((l) => l.targetTable === 'evaluations')).toHaveLength(0);
 	});
 
 	test('backup data includes house field on students', async () => {

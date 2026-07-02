@@ -82,10 +82,11 @@
 		"@mmailaender/convex-better-auth-svelte": "^0.5.3",
 		"@types/d3": "^7.4.3",
 		"better-auth": "1.4.9",
-		"convex": "^1.42.0",
+		"convex": "^1.42.1",
 		"convex-svelte": "^0.0.12",
 		"d3": "^7.9.0",
 		"d3-scale-chromatic": "^3.1.0",
+		"dotenv": "^17.4.2",
 		"googleapis": "^171.4.0"
 	}
 }

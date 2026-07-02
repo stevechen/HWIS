@@ -173,9 +173,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 		},
 		socialProviders: {
 			google: {
-				clientId: isDev
-					? getEnvValue('GOOGLE_CLIENT_ID') || ''
-					: getEnvValue('GOOGLE_CLIENT_ID')!,
+				clientId: isDev ? getEnvValue('GOOGLE_CLIENT_ID') || '' : getEnvValue('GOOGLE_CLIENT_ID')!,
 				clientSecret: isDev
 					? getEnvValue('GOOGLE_CLIENT_SECRET') || ''
 					: getEnvValue('GOOGLE_CLIENT_SECRET')!,

@@ -397,28 +397,56 @@ export const advanceGradesAndClearEvaluations = mutation({
 			await ctx.db.delete(student._id);
 		}
 
-		const enrolledStudents = await ctx.db
+const enrolledStudents = await ctx.db
 			.query('students')
 			.filter((q) => q.eq(q.field('status'), 'Enrolled'))
 			.collect();
+
+		// Lookup of (grade:className) -> classId from INITIAL classes.
+		// We reuse existing classes; if a class doesn't exist at the next grade,
+		// we create it ONCE and reuse it for all students from that section.
+		const classLookup = new Map<string, Id<'classes'>>();
+		for (const c of allClasses) {
+			classLookup.set(`${c.grade}:${c.class}`, c._id);
+		}
 
 		let gradesAdvanced = 0;
 		for (const student of enrolledStudents) {
 			if (student.classId) {
 				const cls = classMap.get(student.classId);
 				if (cls && cls.grade >= 7 && cls.grade <= 11) {
-					// Find next grade's class
-					const nextGradeClasses = allClasses.filter((c) => c.grade === cls.grade + 1);
-					if (nextGradeClasses.length > 0) {
-						await ctx.db.patch(student._id, { classId: nextGradeClasses[0]._id });
-						gradesAdvanced++;
+					const nextGrade = cls.grade + 1;
+					const nextClassName = cls.class;
+					const key = `${nextGrade}:${nextClassName}`;
+					let nextClassId = classLookup.get(key);
+					if (!nextClassId) {
+						nextClassId = await ctx.db.insert('classes', {
+							grade: nextGrade,
+							class: nextClassName
+						});
+						classLookup.set(key, nextClassId);
 					}
+					await ctx.db.patch(student._id, { classId: nextClassId });
+					gradesAdvanced++;
 				}
 			}
 		}
 
+		// Remove empty classes (no student references them), but never remove
+		// IB classes at grades 11 and 12 — those are kept for future planning.
+		const remainingStudents = await ctx.db.query('students').collect();
+		const usedClassIds = new Set(remainingStudents.map((s) => s.classId));
+		const postAdvanceClasses = await ctx.db.query('classes').collect();
+		let emptyClassesDeleted = 0;
+		for (const cls of postAdvanceClasses) {
+			if (usedClassIds.has(cls._id)) continue;
+			if (cls.class === 'IB' && (cls.grade === 11 || cls.grade === 12)) continue;
+			await ctx.db.delete(cls._id);
+			emptyClassesDeleted++;
+		}
+
 		return {
-			message: `Advanced grades for ${gradesAdvanced} students, deleted ${grade12Students.length} grade 12 students, deleted ${notEnrolledStudents.length} not enrolled students, cleared ${allEvaluations.length} evaluations and ${auditLogsCleared} audit logs, deleted ${allHouseEvents.length} events`
+			message: `Advanced grades for ${gradesAdvanced} students, deleted ${grade12Students.length} grade 12 students, deleted ${notEnrolledStudents.length} not enrolled students, cleared ${allEvaluations.length} evaluations and ${auditLogsCleared} audit logs, deleted ${allHouseEvents.length} events, deleted ${emptyClassesDeleted} empty classes`
 		};
 	}
 });
