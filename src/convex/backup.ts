@@ -397,7 +397,7 @@ export const advanceGradesAndClearEvaluations = mutation({
 			await ctx.db.delete(student._id);
 		}
 
-const enrolledStudents = await ctx.db
+		const enrolledStudents = await ctx.db
 			.query('students')
 			.filter((q) => q.eq(q.field('status'), 'Enrolled'))
 			.collect();

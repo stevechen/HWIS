@@ -601,7 +601,9 @@
 			<div class="text-muted-foreground py-8 text-center">Loading students...</div>
 		{:else if studentsQuery.error}
 			<div class="py-8 text-center text-red-500">
-				Error loading students: {studentsQuery.error.message}
+				Error loading students: {import.meta.env.DEV
+					? studentsQuery.error.message
+					: 'An error occurred'}
 			</div>
 		{:else if filteredStudents.length === 0}
 			<div class="text-muted-foreground py-8 text-center">

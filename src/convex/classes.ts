@@ -53,6 +53,7 @@ export const list = query({
 			}[]
 		> = new Map();
 		if (args.includeStudents) {
+			await requireAdminRole(ctx, args.testToken);
 			const allStudents = await ctx.db.query('students').collect();
 			for (const student of allStudents) {
 				if (student.classId) {
@@ -91,8 +92,7 @@ export const getStudentCount = query({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return { count: 0, classInfo: null };
+		await requireAdminRole(ctx, args.testToken);
 
 		const classRecord = await ctx.db.get(args.classId);
 		if (!classRecord) return { count: 0, classInfo: null };
@@ -119,8 +119,7 @@ export const getByGrade = query({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return [];
+		await requireAdminRole(ctx, args.testToken);
 
 		return await ctx.db
 			.query('classes')
@@ -136,8 +135,7 @@ export const getByGradeAndClass = query({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return null;
+		await requireAdminRole(ctx, args.testToken);
 
 		return await ctx.db
 			.query('classes')
@@ -152,8 +150,7 @@ export const getByTeacher = query({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return null;
+		await requireAdminRole(ctx, args.testToken);
 
 		const classRecord = await ctx.db
 			.query('classes')
@@ -334,7 +331,10 @@ export const remove = mutation({
 export const seedDefaultClasses = mutation({
 	args: { testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		const user = await getAuthenticatedUser(ctx, args.testToken);
+		if (!user || (user.role !== 'admin' && user.role !== 'super')) {
+			return { message: 'Not authenticated, skipping seed', created: [] };
+		}
 
 		const grades = [7, 8, 9, 10, 11, 12];
 		const created = [];
@@ -384,8 +384,7 @@ export const getById = query({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return null;
+		await requireAdminRole(ctx, args.testToken);
 
 		const classRecord = await ctx.db.get(args.id);
 		if (!classRecord) return null;
@@ -433,8 +432,7 @@ export const getStudents = query({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return [];
+		await requireAdminRole(ctx, args.testToken);
 
 		const classRecord = await ctx.db.get(args.id);
 		if (!classRecord) return [];

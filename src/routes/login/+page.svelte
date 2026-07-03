@@ -31,8 +31,9 @@
 	// Redirect when user becomes authenticated
 	$effect(() => {
 		if (sessionData?.data && browser) {
-			// Use callbackUrl if present, otherwise go home
-			const callbackUrl = $page.url.searchParams.get('callbackUrl') || '/';
+			const raw = $page.url.searchParams.get('callbackUrl') || '/';
+			// Only allow relative paths (prevent open redirect)
+			const callbackUrl = raw.startsWith('/') && !raw.includes('://') ? raw : '/';
 			goto(callbackUrl);
 		}
 	});

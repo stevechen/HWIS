@@ -459,8 +459,7 @@ export const getById = query({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return null;
+		await requireAdminRole(ctx, args.testToken);
 
 		const student = await ctx.db.get(args.id);
 		if (!student) return null;
@@ -481,6 +480,8 @@ export const getByStudentId = query({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		await requireAdminRole(ctx, args.testToken);
+
 		const student = await ctx.db
 			.query('students')
 			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
@@ -531,8 +532,7 @@ export const checkStudentHasEvaluations = query({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return { hasEvaluations: false, count: 0 };
+		await requireAdminRole(ctx, args.testToken);
 
 		const evaluations = await ctx.db
 			.query('evaluations')

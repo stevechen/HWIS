@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
 import { query, mutation } from './_generated/server';
+import { verifyJWT } from 'better-auth/crypto';
 import { requireAdminRole, requireSuperRole, getAuthenticatedUser } from './auth';
 import { extractStudentIdFromEmail, isStudentEmail } from './auth';
 
@@ -297,15 +298,17 @@ export const setRoleByToken = mutation({
 	},
 	handler: async (ctx, args) => {
 		try {
-			const decodedToken = decodeURIComponent(args.token);
-			const parts = decodedToken.split('.');
-			if (parts.length !== 2) {
-				throw new Error('Invalid token format');
+			const secret = process.env.BETTER_AUTH_SECRET;
+			if (!secret) {
+				throw new Error('BETTER_AUTH_SECRET is not configured');
 			}
-			const payload = parts[1];
-			const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-			const decoded = JSON.parse(json);
-			const authId = decoded.sub || decoded.userId || decoded.email;
+
+			const decodedToken = decodeURIComponent(args.token);
+			const verified = await verifyJWT(decodedToken, secret);
+			if (!verified) {
+				throw new Error('Invalid or expired token');
+			}
+			const authId = verified.sub ?? verified.userId ?? verified.email;
 			if (!authId) {
 				throw new Error('Could not extract user ID from token');
 			}

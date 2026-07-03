@@ -5,8 +5,11 @@ import { requireUserProfile, getAuthenticatedUser, requireAdminRole } from './au
 import type { Id } from './_generated/dataModel';
 
 export const getUserByAuthId = query({
-	args: { authId: v.string() },
+	args: { authId: v.string(), testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
+		const currentUser = await getAuthenticatedUser(ctx, args.testToken);
+		if (!currentUser) return null;
+
 		const user = await ctx.db
 			.query('users')
 			.withIndex('by_authId', (q) => q.eq('authId', args.authId))
@@ -87,6 +90,10 @@ export const remove = mutation({
 		const evaluation = await ctx.db.get(args.id);
 		if (!evaluation) {
 			throw new Error('Evaluation not found');
+		}
+
+		if (evaluation.teacherId !== userDoc._id) {
+			throw new Error('Not authorized to delete this evaluation');
 		}
 
 		await ctx.db.delete(args.id);
@@ -246,8 +253,7 @@ export const getWeeklyReportsList = query({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const authUser = await getAuthenticatedUser(ctx, args.testToken);
-		if (!authUser) return [];
+		await requireAdminRole(ctx, args.testToken);
 
 		const defaultLookbackMs = 1000 * 60 * 60 * 24 * 365 * 2; // 2 years
 		const sinceTimestamp =
@@ -289,8 +295,7 @@ export const getWeeklyReportDetail = query({
 		testToken: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const authUser = await getAuthenticatedUser(ctx, args.testToken);
-		if (!authUser) return [];
+		await requireAdminRole(ctx, args.testToken);
 
 		// fridayDate is actually the Monday of the week (despite the name)
 		// Week runs from Monday to end of Friday (Monday + 6 days)
@@ -371,8 +376,10 @@ export const getWeeklyReportDetail = query({
 export const getStudent = query({
 	args: { studentId: v.id('students'), testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return null;
+		const user = await requireUserProfile(ctx, args.testToken);
+		if (user.role === 'student' && user.studentRecordId !== args.studentId) {
+			return null;
+		}
 		return await ctx.db.get(args.studentId);
 	}
 });
@@ -381,8 +388,8 @@ export const getStudent = query({
 export const getStudentByStudentIdCode = query({
 	args: { studentIdCode: v.string(), testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return null;
+		const user = await requireUserProfile(ctx, args.testToken);
+		if (user.role === 'student') return null;
 		return await ctx.db
 			.query('students')
 			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentIdCode))
@@ -868,11 +875,18 @@ export const update = mutation({
 export const getEvaluation = query({
 	args: { id: v.id('evaluations'), testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return null;
+		const user = await requireUserProfile(ctx, args.testToken);
 
 		const evaluation = await ctx.db.get(args.id);
 		if (!evaluation) return null;
+
+		if (user.role !== 'admin' && user.role !== 'super') {
+			if (user.role === 'student') {
+				if (evaluation.studentId !== user.studentRecordId) return null;
+			} else if (evaluation.teacherId !== user._id) {
+				return null;
+			}
+		}
 
 		return evaluation;
 	}

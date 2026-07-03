@@ -1,10 +1,24 @@
+import { verifyJWT } from 'better-auth/crypto';
+
 const DEFAULT_CONVEX_URL = 'http://127.0.0.1:3210';
 
 type JwtPayload = {
 	iss?: string;
 };
 
-const decodeJwtPayload = (token: string): JwtPayload | null => {
+const decodeJwtPayload = async (token: string): Promise<JwtPayload | null> => {
+	const secret = process.env.BETTER_AUTH_SECRET;
+	if (secret) {
+		try {
+			const verified = await verifyJWT(token, secret);
+			if (verified) {
+				return verified as JwtPayload;
+			}
+		} catch {
+			// Fall through to unverified decode if JWT verification fails
+		}
+	}
+	// Fallback: unverified decode (only reads the `iss` claim for URL routing)
 	const parts = token.split('.');
 	if (parts.length < 2) return null;
 	try {
@@ -15,10 +29,10 @@ const decodeJwtPayload = (token: string): JwtPayload | null => {
 	}
 };
 
-export const getConvexUrlFromToken = (token?: string, fallback?: string): string => {
+export const getConvexUrlFromToken = async (token?: string, fallback?: string): Promise<string> => {
 	if (!token) return fallback || DEFAULT_CONVEX_URL;
 
-	const payload = decodeJwtPayload(token);
+	const payload = await decodeJwtPayload(token);
 	if (!payload?.iss) return fallback || DEFAULT_CONVEX_URL;
 
 	let origin = payload.iss;

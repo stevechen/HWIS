@@ -446,7 +446,11 @@
 			</div>
 		{:else if !isDemoMode && reportsQuery.error}
 			<div class="flex items-center justify-center py-12" role="alert">
-				<p class="text-red-500">Error loading reports: {reportsQuery.error.message}</p>
+				<p class="text-red-500">
+					Error loading reports: {import.meta.env.DEV
+						? reportsQuery.error.message
+						: 'An error occurred'}
+				</p>
 			</div>
 		{:else if reports.length === 0}
 			<div class="flex items-center justify-center py-12" role="status">

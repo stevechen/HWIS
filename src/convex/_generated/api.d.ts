@@ -13,6 +13,7 @@ import type * as auth from "../auth.js";
 import type * as backup from "../backup.js";
 import type * as categories from "../categories.js";
 import type * as classes from "../classes.js";
+import type * as clearJwks from "../clearJwks.js";
 import type * as createUser from "../createUser.js";
 import type * as dataFactory from "../dataFactory.js";
 import type * as dedupeLocalUsers from "../dedupeLocalUsers.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   backup: typeof backup;
   categories: typeof categories;
   classes: typeof classes;
+  clearJwks: typeof clearJwks;
   createUser: typeof createUser;
   dataFactory: typeof dataFactory;
   dedupeLocalUsers: typeof dedupeLocalUsers;

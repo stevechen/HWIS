@@ -21,6 +21,8 @@ Thumbs.db
 !.env.example
 !.env.local.example
 !.env.test
+env.dev
+env.prod
 src/convex/auth.local.ts
 
 # Vite

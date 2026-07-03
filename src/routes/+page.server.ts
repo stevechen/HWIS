@@ -9,7 +9,7 @@ export const load = async ({ locals }: { locals: { token?: string } }) => {
 		return {};
 	}
 
-	const convexUrl = getConvexUrlFromToken(locals.token, env.CONVEX_URL || env.PUBLIC_CONVEX_URL);
+	const convexUrl = await getConvexUrlFromToken(locals.token, env.CONVEX_URL || env.PUBLIC_CONVEX_URL);
 	const client = createConvexHttpClient({
 		token: locals.token,
 		convexUrl

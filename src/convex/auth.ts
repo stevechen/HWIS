@@ -41,13 +41,9 @@ const siteUrl = isDev
 	: getEnvValue('SITE_URL') || 'https://hwis.vercel.app';
 
 function generateEphemeralSecret(): string {
-	const parts = [
-		Date.now().toString(16),
-		Math.random().toString(16).slice(2),
-		Math.random().toString(16).slice(2),
-		Math.random().toString(16).slice(2)
-	];
-	return parts.join('').slice(0, 64);
+	const array = new Uint8Array(32);
+	crypto.getRandomValues(array);
+	return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 if (typeof window === 'undefined') {

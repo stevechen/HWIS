@@ -18,7 +18,7 @@ async function isAdminRequest(event: RequestEvent): Promise<boolean> {
 	}
 
 	try {
-		const convexUrl = getConvexUrlFromToken(
+		const convexUrl = await getConvexUrlFromToken(
 			event.locals.token,
 			env.CONVEX_URL || env.PUBLIC_CONVEX_URL
 		);
@@ -49,7 +49,7 @@ async function fetchBackupDataForCron(): Promise<BackupExportPayload> {
 }
 
 async function fetchBackupDataForAdmin(token: string): Promise<BackupExportPayload> {
-	const convexUrl = getConvexUrlFromToken(token, env.CONVEX_URL || env.PUBLIC_CONVEX_URL);
+	const convexUrl = await getConvexUrlFromToken(token, env.CONVEX_URL || env.PUBLIC_CONVEX_URL);
 	const client = createConvexHttpClient({
 		token,
 		convexUrl
