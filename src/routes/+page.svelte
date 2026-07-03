@@ -25,9 +25,7 @@
 	const client = useConvexClient();
 
 	const serverAuthenticated = $derived(!!data.authState?.isAuthenticated);
-	const isLoggedIn = $derived(auth.isAuthenticated || serverAuthenticated);
-	// isLoading is derived but currently unused - keeping for potential future use
-	// const _isLoading = $derived(auth.isLoading || $session.isPending || dbUser.isLoading);
+	const isLoggedIn = $derived(!auth.isLoading && (auth.isAuthenticated || serverAuthenticated));
 	const userName = $derived($session.data?.user.name);
 	const hasProfile = $derived(Boolean(dbUser.data?.role && dbUser.data?.status));
 	const isApproved = $derived(hasProfile && dbUser.data?.status === 'active');
