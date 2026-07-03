@@ -31,7 +31,6 @@ import type * as students from "../students.js";
 import type * as testCleanup from "../testCleanup.js";
 import type * as testData_weeklyReports from "../testData/weeklyReports.js";
 import type * as testE2E from "../testE2E.js";
-import type * as testFunction from "../testFunction.js";
 import type * as testSetup from "../testSetup.js";
 import type * as users from "../users.js";
 
@@ -65,7 +64,6 @@ declare const fullApi: ApiFromModules<{
   testCleanup: typeof testCleanup;
   "testData/weeklyReports": typeof testData_weeklyReports;
   testE2E: typeof testE2E;
-  testFunction: typeof testFunction;
   testSetup: typeof testSetup;
   users: typeof users;
 }>;

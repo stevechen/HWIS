@@ -9,6 +9,9 @@ import type { MutationCtx } from '../_generated/server';
 export const createWeeklyReportTestData = mutation({
 	args: { tag: v.optional(v.string()) },
 	handler: async (ctx, args) => {
+		const isProd = process.env.CONVEX_DEPLOYMENT?.startsWith('prod:') ?? false;
+		if (isProd) throw new Error('Not available in production');
+
 		const tag = args.tag || 'weekly-reports-test';
 		const semesterId = '2024-H2';
 
@@ -318,6 +321,9 @@ async function verifyCompleteCleanup(
 export const cleanupWeeklyReportTestData = mutation({
 	args: { tag: v.optional(v.string()) },
 	handler: async (ctx, args) => {
+		const isProd = process.env.CONVEX_DEPLOYMENT?.startsWith('prod:') ?? false;
+		if (isProd) throw new Error('Not available in production');
+
 		const tag = args.tag || 'weekly-reports-test';
 
 		// First, find all students with this tag
