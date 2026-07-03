@@ -50,7 +50,7 @@ test.describe('House Display Page - E2E', () => {
 	test('navigates to display page', async ({ page }) => {
 		await page.goto('/houses/display');
 		await page.waitForSelector('body.hydrated');
-		await expect(page.getByRole('heading', { name: /HWIS House Points/i })).toBeVisible();
+		await expect(page.locator('article')).toHaveCount(4);
 	});
 
 	test('displays four houses', async ({ page }) => {

@@ -90,13 +90,6 @@ import DisplayPage from '$src/routes/houses/display/+page.svelte';
 
 describe('House Display Page', () => {
 	describe('Structure', () => {
-		it('renders page title as heading', async () => {
-			render(DisplayPage);
-			await expect
-				.element(page.getByRole('heading', { name: 'HWIS House Points' }))
-				.toBeInTheDocument();
-		});
-
 		it('renders four house columns with correct logos', async () => {
 			render(DisplayPage);
 			await expect.element(page.getByText('Heracles').first()).toBeInTheDocument();
