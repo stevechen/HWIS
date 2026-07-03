@@ -603,7 +603,7 @@ describe('backup clearing logic', () => {
 		const t = convexTest(schema, modules);
 
 		// Create multiple sections per grade to verify section-name matching
-		const { classId: class7_1, studentId: stu1Id } = await createStudentWithClass(t, {
+		await createStudentWithClass(t, {
 			englishName: 'Grade 7 Enrolled A',
 			chineseName: '七年級在校A',
 			studentId: 'STU001',
@@ -622,7 +622,7 @@ describe('backup clearing logic', () => {
 			status: 'Enrolled'
 		});
 
-		const { classId: class11_1, studentId: stu2Id } = await createStudentWithClass(t, {
+		await createStudentWithClass(t, {
 			englishName: 'Grade 11 Enrolled Section 1',
 			chineseName: '十一年級一班在校',
 			studentId: 'STU002',
@@ -631,7 +631,7 @@ describe('backup clearing logic', () => {
 			status: 'Enrolled'
 		});
 
-		const { classId: class11_IB, studentId: stu3Id } = await createStudentWithClass(t, {
+		const { studentId: stu3Id } = await createStudentWithClass(t, {
 			englishName: 'Grade 11 Enrolled IB',
 			chineseName: '十一年級IB在校',
 			studentId: 'STU003',
@@ -658,7 +658,7 @@ describe('backup clearing logic', () => {
 			status: 'Not Enrolled'
 		});
 
-		const { classId: class10_1, studentId: stu10Id } = await createStudentWithClass(t, {
+		await createStudentWithClass(t, {
 			englishName: 'Grade 10 Not Enrolled',
 			chineseName: '十年級非在校',
 			studentId: 'STU006',
@@ -671,7 +671,7 @@ describe('backup clearing logic', () => {
 		const class7_plainId = await t.run(async (ctx) => {
 			return await ctx.db.insert('classes', { grade: 7, class: '9' });
 		});
-		const stu9Id = await t.run(async (ctx) => {
+		await t.run(async (ctx) => {
 			return await ctx.db.insert('students', {
 				englishName: 'Grade 7 Plain Class',
 				chineseName: '七年級一般班',

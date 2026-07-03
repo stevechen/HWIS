@@ -26,7 +26,6 @@ export const dedupe = mutation({
 				continue;
 			}
 			users.sort((a, b) => a._creationTime - b._creationTime);
-			const toKeep = users[0];
 			kept++;
 			for (const user of users.slice(1)) {
 				await ctx.db.delete(user._id);
