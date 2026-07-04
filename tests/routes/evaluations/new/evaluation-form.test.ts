@@ -23,7 +23,7 @@ describe('Evaluation Form', () => {
 
 	it('shows search input for filtering students', async () => {
 		render(EvaluationFormPage);
-		await expect.element(page.getByPlaceholder('Filter by name or ID...')).toBeInTheDocument();
+		await expect.element(page.getByPlaceholder('Filter by names (separated by commas) or ID...')).toBeInTheDocument();
 	});
 
 	it('renders submit button', async () => {
