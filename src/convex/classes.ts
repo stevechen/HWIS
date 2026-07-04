@@ -32,7 +32,7 @@ export const list = query({
 				.withIndex('by_grade_class', (q) => q.eq('grade', args.grade as number))
 				.collect();
 		} else {
-			classes = await ctx.db.query('classes').collect();
+			classes = await ctx.db.query('classes').take(100);
 		}
 
 		// Enrich with teacher names and student counts
@@ -54,7 +54,7 @@ export const list = query({
 		> = new Map();
 		if (args.includeStudents) {
 			await requireAdminRole(ctx, args.testToken);
-			const allStudents = await ctx.db.query('students').collect();
+			const allStudents = await ctx.db.query('students').take(500);
 			for (const student of allStudents) {
 				if (student.classId) {
 					if (!studentsByClass.has(student.classId)) {
@@ -179,7 +179,6 @@ export const create = mutation({
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
 
-		// Validate grade range
 		if (args.grade < 7 || args.grade > 12) {
 			throw new Error('Grade must be between 7 and 12');
 		}

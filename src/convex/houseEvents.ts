@@ -20,7 +20,7 @@ export const list = query({
 		const events = await ctx.db
 			.query('house_events')
 			.withIndex('by_startDate', (q) => q)
-			.collect();
+			.take(50);
 
 		return events.sort((a, b) => a.startDate - b.startDate);
 	}

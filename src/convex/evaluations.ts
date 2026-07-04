@@ -2,7 +2,6 @@ import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import { requireUserProfile, getAuthenticatedUser, requireAdminRole } from './auth';
-import type { Id } from './_generated/dataModel';
 
 export const getUserByAuthId = query({
 	args: { authId: v.string(), testToken: v.optional(v.string()) },
@@ -35,7 +34,6 @@ export const create = mutation({
 		const userDoc = await requireUserProfile(ctx, args.testToken);
 		const teacherId = userDoc._id;
 
-		// Validate category exists
 		const category = await ctx.db.get(args.categoryId);
 		if (!category) {
 			throw new Error(`Category with ID ${args.categoryId} does not exist`);
@@ -146,16 +144,14 @@ export const listRecent = query({
 
 		if (!userDoc) return [];
 
-		// Check if user is admin
 		const userRole = userDoc?.role;
 		const isAdmin = userRole === 'admin' || userRole === 'super';
 
-		// Fetch all evaluations for this teacher (collect() for better reactivity)
 		const allEvaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_teacherId', (q) => q.eq('teacherId', userDoc._id))
 			.order('desc')
-			.collect();
+			.take(200);
 
 		// Fetch all students and categories for enrichment
 		const studentIds = [...new Set(allEvaluations.map((e) => e.studentId))];
@@ -206,7 +202,6 @@ export const listRecent = query({
 			results = results.filter((e) => e.status !== 'Not Enrolled');
 		}
 
-		// Sort by timestamp descending
 		return results.sort((a, b) => b.timestamp - a.timestamp);
 	}
 });
@@ -264,7 +259,7 @@ export const getWeeklyReportsList = query({
 			.withIndex('by_timestamp', (q) =>
 				sinceTimestamp !== undefined ? q.gte('timestamp', sinceTimestamp) : q
 			)
-			.collect();
+			.take(1000);
 
 		const fridayMap = new Map<number, Set<string>>();
 
@@ -305,7 +300,7 @@ export const getWeeklyReportDetail = query({
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_timestamp', (q) => q.gt('timestamp', startOfWeek).lt('timestamp', endOfWeek))
-			.collect();
+			.take(500);
 
 		const studentIds = [...new Set(evaluations.map((e) => e.studentId))];
 		const categoryIds = [...new Set(evaluations.map((e) => e.categoryId))];
@@ -411,7 +406,7 @@ export const getStudentEvaluationsByTeacher = query({
 			.withIndex('by_studentId_teacherId', (q) =>
 				q.eq('studentId', args.studentId).eq('teacherId', user._id)
 			)
-			.collect();
+			.take(200);
 
 		// Enrich evaluations with teacher and category data
 		const teacher = await ctx.db.get(user._id);
@@ -520,7 +515,7 @@ export const getStudentEvaluationsAll = query({
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
-			.collect();
+			.take(500);
 
 		// Optimization: Batch fetch all teacher and category data to avoid N+1 queries
 		const teacherIds = [...new Set(evaluations.map((e) => e.teacherId))];
@@ -583,11 +578,10 @@ export const getStudentEvaluationsAllByStudentIdCode = query({
 			return [];
 		}
 
-		// Fetch all evaluations for this student
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_studentId', (q) => q.eq('studentId', student._id))
-			.collect();
+			.take(500);
 
 		// Optimization: Batch fetch all teacher and category data to avoid N+1 queries
 		const teacherIds = [...new Set(evaluations.map((e) => e.teacherId))];
@@ -642,12 +636,11 @@ export const listAllEvaluations = query({
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
 
-		// Fetch all evaluations (collect() for better reactivity)
 		const allEvaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_timestamp')
 			.order('desc')
-			.collect();
+			.take(500);
 
 		// Fetch student, teacher, and category data for enrichment
 		const studentIds = [...new Set(allEvaluations.map((e) => e.studentId))];
@@ -843,7 +836,6 @@ export const update = mutation({
 			throw new Error('Not authorized to edit this evaluation');
 		}
 
-		// Validate category exists if provided
 		if (args.categoryId !== undefined) {
 			const category = await ctx.db.get(args.categoryId);
 			if (!category) {
@@ -897,28 +889,21 @@ export const getEvaluation = query({
 export const getStudentEvaluationsAnonymous = query({
 	args: { testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) {
-			throw new Error('Not authenticated');
-		}
+		const user = await requireUserProfile(ctx, args.testToken);
 
-		// Verify user is a student
-		const typedUser = user as { role?: string; studentRecordId?: string };
-		if (typedUser.role !== 'student') {
+		if (user.role !== 'student') {
 			throw new Error('Only students can access this endpoint');
 		}
 
-		if (!typedUser.studentRecordId) {
+		if (!user.studentRecordId) {
 			throw new Error('Student record not linked');
 		}
 
 		// Get all evaluations for this student
 		const evaluations = await ctx.db
 			.query('evaluations')
-			.withIndex('by_studentId', (q) =>
-				q.eq('studentId', typedUser.studentRecordId as Id<'students'>)
-			)
-			.collect();
+			.withIndex('by_studentId', (q) => q.eq('studentId', user.studentRecordId))
+			.take(200);
 
 		// Fetch categories for name lookup
 		const categoryIds = [...new Set(evaluations.map((e) => e.categoryId))];

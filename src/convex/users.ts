@@ -1,8 +1,20 @@
 import { v } from 'convex/values';
 import { query, mutation } from './_generated/server';
+import type { MutationCtx } from './_generated/server';
 import { verifyJWT } from 'better-auth/crypto';
 import { requireAdminRole, requireSuperRole, getAuthenticatedUser } from './auth';
 import { extractStudentIdFromEmail, isStudentEmail } from './auth';
+import type { Id } from './_generated/dataModel';
+
+async function invalidateUserSessions(ctx: MutationCtx, userId: Id<'users'>): Promise<void> {
+	const sessions = await ctx.db
+		.query('sessions')
+		.filter((q) => q.eq(q.field('userId'), userId))
+		.collect();
+	for (const session of sessions) {
+		await ctx.db.delete(session._id);
+	}
+}
 
 export const viewer = query({
 	args: { testToken: v.optional(v.string()) },
@@ -78,7 +90,7 @@ export const list = query({
 			return [];
 		}
 
-		const allUsers = await ctx.db.query('users').collect();
+		const allUsers = await ctx.db.query('users').take(200);
 		// Filter out students - only show staff (teachers, admins, super)
 		return allUsers
 			.filter((u) => u.role !== 'student')
@@ -105,7 +117,7 @@ export const getTeachers = query({
 			return [];
 		}
 
-		const allUsers = await ctx.db.query('users').collect();
+		const allUsers = await ctx.db.query('users').take(200);
 		// Filter to only teachers, admins, and super users
 		const teachers = allUsers
 			.filter((u) => u.role === 'teacher' || u.role === 'admin' || u.role === 'super')
@@ -143,18 +155,10 @@ export const update = mutation({
 		const { id, ...updates } = args;
 		delete (updates as Record<string, unknown>).testToken;
 
-		const shouldInvalidateSessions = args.status === 'pending' || args.role !== undefined;
-
 		await ctx.db.patch(id, updates);
 
-		if (shouldInvalidateSessions) {
-			const sessions = await ctx.db
-				.query('sessions')
-				.filter((q) => q.eq(q.field('userId'), id))
-				.collect();
-			for (const session of sessions) {
-				await ctx.db.delete(session._id);
-			}
+		if (args.status === 'pending' || args.role !== undefined) {
+			await invalidateUserSessions(ctx, id);
 		}
 
 		const performerId = currentUser?._id;
@@ -234,15 +238,8 @@ export const setUserRole = mutation({
 			status: args.status
 		});
 
-		const shouldInvalidateSessions = args.status === 'pending' || args.role !== undefined;
-		if (shouldInvalidateSessions) {
-			const sessions = await ctx.db
-				.query('sessions')
-				.filter((q) => q.eq(q.field('userId'), args.userId))
-				.collect();
-			for (const session of sessions) {
-				await ctx.db.delete(session._id);
-			}
+		if (args.status === 'pending' || args.role !== undefined) {
+			await invalidateUserSessions(ctx, args.userId);
 		}
 	}
 });
@@ -256,8 +253,10 @@ export const setRoleByEmail = mutation({
 	},
 	handler: async (ctx, args) => {
 		// First find the user to check their current role
-		const allUsers = await ctx.db.query('users').collect();
-		const user = allUsers.find((u) => u.authId === args.email);
+		const user = await ctx.db
+			.query('users')
+			.withIndex('by_authId', (q) => q.eq('authId', args.email))
+			.first();
 		if (!user) {
 			throw new Error(`User not found for email: ${args.email}`);
 		}
@@ -274,15 +273,8 @@ export const setRoleByEmail = mutation({
 			status: args.status
 		});
 
-		const shouldInvalidateSessions = args.status === 'pending' || args.role !== undefined;
-		if (shouldInvalidateSessions) {
-			const sessions = await ctx.db
-				.query('sessions')
-				.filter((q) => q.eq(q.field('userId'), user._id))
-				.collect();
-			for (const session of sessions) {
-				await ctx.db.delete(session._id);
-			}
+		if (args.status === 'pending' || args.role !== undefined) {
+			await invalidateUserSessions(ctx, user._id);
 		}
 
 		return { success: true, userId: user._id, role: args.role };
@@ -313,8 +305,10 @@ export const setRoleByToken = mutation({
 				throw new Error('Could not extract user ID from token');
 			}
 
-			const allUsers = await ctx.db.query('users').collect();
-			const user = allUsers.find((u) => u.authId === authId);
+			const user = await ctx.db
+				.query('users')
+				.withIndex('by_authId', (q) => q.eq('authId', authId))
+				.first();
 
 			if (!user) {
 				throw new Error(`User not found for authId: ${authId}`);
@@ -332,15 +326,8 @@ export const setRoleByToken = mutation({
 				status: args.status
 			});
 
-			const shouldInvalidateSessions = args.status === 'pending' || args.role !== undefined;
-			if (shouldInvalidateSessions) {
-				const sessions = await ctx.db
-					.query('sessions')
-					.filter((q) => q.eq(q.field('userId'), user._id))
-					.collect();
-				for (const session of sessions) {
-					await ctx.db.delete(session._id);
-				}
+			if (args.status === 'pending' || args.role !== undefined) {
+				await invalidateUserSessions(ctx, user._id);
 			}
 
 			return { success: true, userId: user._id, role: args.role, authId };
@@ -378,7 +365,6 @@ export const setupStudentUser = mutation({
 			};
 		}
 
-		// Check if student record exists
 		const studentRecord = await ctx.db
 			.query('students')
 			.withIndex('by_studentId', (q) => q.eq('studentId', studentId))
@@ -392,7 +378,6 @@ export const setupStudentUser = mutation({
 			};
 		}
 
-		// Check if user already exists
 		const existingUser = await ctx.db
 			.query('users')
 			.withIndex('by_authId', (q) => q.eq('authId', args.authId))
@@ -416,7 +401,6 @@ export const setupStudentUser = mutation({
 			};
 		}
 
-		// Create new student user
 		const userId = await ctx.db.insert('users', {
 			authId: args.authId,
 			role: 'student',

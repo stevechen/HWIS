@@ -6,7 +6,6 @@ import type { MutationCtx } from './_generated/server';
 
 // Validate studentId is a 6- or 7-digit number (skip for testToken)
 function validateStudentId(studentId: string, testToken?: string): void {
-	// Skip validation for test environment
 	if (testToken) {
 		return;
 	}
@@ -22,12 +21,10 @@ async function getOrCreateClass(
 	grade: number,
 	className: string
 ): Promise<Id<'classes'>> {
-	// Validate grade range
 	if (grade < 7 || grade > 12) {
 		throw new Error('Grade must be between 7 and 12');
 	}
 
-	// Check if class already exists
 	const existingClass = await ctx.db
 		.query('classes')
 		.withIndex('by_grade_class', (q) => q.eq('grade', grade).eq('class', className))
@@ -37,7 +34,6 @@ async function getOrCreateClass(
 		return existingClass._id;
 	}
 
-	// Create new class
 	return await ctx.db.insert('classes', {
 		grade,
 		class: className
@@ -57,23 +53,24 @@ export const list = query({
 		if (!user) return [];
 
 		let students;
+		let statusIndexUsed = false;
 		if (args.classId !== undefined) {
-			// Use index on classId
 			students = await ctx.db
 				.query('students')
 				.withIndex('by_classId', (q) => q.eq('classId', args.classId!))
-				.collect();
+				.take(200);
 		} else if (args.status !== undefined) {
 			students = await ctx.db
 				.query('students')
 				.withIndex('by_status', (q) => q.eq('status', args.status as 'Enrolled' | 'Not Enrolled'))
-				.collect();
+				.take(200);
+			statusIndexUsed = true;
 		} else {
-			students = await ctx.db.query('students').collect();
+			students = await ctx.db.query('students').take(200);
 		}
 
 		const filtered = students.filter((s) => {
-			if (args.status !== undefined && s.status !== args.status) return false;
+			if (!statusIndexUsed && args.status !== undefined && s.status !== args.status) return false;
 			if (args.search) {
 				const search = args.search.toLowerCase();
 				const matchesSearch =
@@ -138,11 +135,8 @@ export const create = mutation({
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
 
-		// Validate studentId is a 6- or 7-digit number
 		validateStudentId(args.studentId, args.testToken);
 
-		// Get or create class based on grade and class name
-		// "default", "IB", "1", "2", etc. - defaults to "default" class
 		const className = args.class || 'default';
 		const classId = await getOrCreateClass(ctx, args.grade, className);
 
@@ -192,11 +186,8 @@ export const update = mutation({
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
 
-		// Validate studentId is a 6- or 7-digit number
 		validateStudentId(args.studentId, args.testToken);
 
-		// Get or create class based on grade and class name
-		// "default", "IB", "1", "2", etc. - defaults to "default" class
 		const className = args.class || 'default';
 		const classId = await getOrCreateClass(ctx, args.grade, className);
 
@@ -324,11 +315,8 @@ export const importFromExcel = mutation({
 
 		for (const student of args.students) {
 			try {
-				// Validate studentId is a 6- or 7-digit number
 				validateStudentId(student.studentId, args.testToken);
 
-				// Get or create class based on grade and class name
-				// "default", "IB", "1", "2", etc. - defaults to "default" class
 				const className = student.class || 'default';
 				const classId = await getOrCreateClass(ctx, student.grade, className);
 
@@ -373,8 +361,8 @@ export const seed = mutation({
 	args: { testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
-		const existing = await ctx.db.query('students').collect();
-		if (existing.length > 0) return { message: 'Students already seeded', count: existing.length };
+		const existing = await ctx.db.query('students').first();
+		if (existing) return { message: 'Students already seeded', count: 0 };
 
 		// First, seed default classes
 		const grades = [7, 8, 9, 10, 11, 12];
@@ -383,7 +371,6 @@ export const seed = mutation({
 
 		for (const grade of grades) {
 			for (const classNum of classCounts) {
-				// Check if already exists
 				const existingClass = await ctx.db
 					.query('classes')
 					.withIndex('by_grade_class', (q) => q.eq('grade', grade).eq('class', classNum))
@@ -466,8 +453,8 @@ export const getById = query({
 
 		const evaluations = await ctx.db
 			.query('evaluations')
-			.filter((q) => q.eq(q.field('studentId'), args.id))
-			.collect();
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.id))
+			.take(200);
 
 		return { ...student, evaluationCount: evaluations.length };
 	}
@@ -501,28 +488,18 @@ export const checkStudentIdExists = query({
 		const user = await getAuthenticatedUser(ctx, args.testToken);
 		if (!user) return { exists: false };
 
-		// Validate studentId is a 6- or 7-digit number
 		try {
 			validateStudentId(args.studentId, args.testToken);
 		} catch {
 			return { exists: false };
 		}
 
-		let existing;
-		if (args.excludeId) {
-			existing = await ctx.db
-				.query('students')
-				.filter((q) =>
-					q.and(q.eq(q.field('studentId'), args.studentId), q.neq(q.field('_id'), args.excludeId))
-				)
-				.first();
-		} else {
-			existing = await ctx.db
-				.query('students')
-				.filter((q) => q.eq(q.field('studentId'), args.studentId))
-				.first();
-		}
-		return { exists: !!existing };
+		const match = await ctx.db
+			.query('students')
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
+			.first();
+		const exists = match !== null && (!args.excludeId || match._id !== args.excludeId);
+		return { exists };
 	}
 });
 
@@ -536,8 +513,8 @@ export const checkStudentHasEvaluations = query({
 
 		const evaluations = await ctx.db
 			.query('evaluations')
-			.filter((q) => q.eq(q.field('studentId'), args.id))
-			.collect();
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.id))
+			.take(200);
 
 		return {
 			hasEvaluations: evaluations.length > 0,
@@ -594,7 +571,6 @@ export const bulkImportWithDuplicateCheck = mutation({
 		const batchDuplicates: { studentId: string; rowNumber: number }[] = [];
 
 		args.students.forEach((student, index) => {
-			// Validate 6- or 7-digit format
 			try {
 				validateStudentId(student.studentId, args.testToken);
 			} catch (e) {
@@ -614,7 +590,7 @@ export const bulkImportWithDuplicateCheck = mutation({
 		for (const student of args.students) {
 			const existing = await ctx.db
 				.query('students')
-				.filter((q) => q.eq(q.field('studentId'), student.studentId))
+				.withIndex('by_studentId', (q) => q.eq('studentId', student.studentId))
 				.first();
 
 			if (existing) {
@@ -658,7 +634,6 @@ export const bulkImportWithDuplicateCheck = mutation({
 				continue;
 			}
 
-			// Get or create class
 			// If no explicit class provided, default to class "1" for the grade
 			const className = student.class || '1';
 			const classId = await getOrCreateClass(ctx, student.grade, className);
@@ -670,7 +645,7 @@ export const bulkImportWithDuplicateCheck = mutation({
 			if (args.mode === 'update') {
 				const existing = await ctx.db
 					.query('students')
-					.filter((q) => q.eq(q.field('studentId'), student.studentId))
+					.withIndex('by_studentId', (q) => q.eq('studentId', student.studentId))
 					.first();
 
 				if (!existing) {
@@ -737,8 +712,7 @@ export const listByHouse = query({
 				orphaned: [] as typeof studentsWithClass
 			};
 
-		// Fetch all students with their class info
-		const students = await ctx.db.query('students').collect();
+		const students = await ctx.db.query('students').take(500);
 
 		// Enrich with class info
 		const classIds = [
@@ -773,7 +747,6 @@ export const listByHouse = query({
 			};
 		});
 
-		// Group by house
 		const houses: Record<string, typeof studentsWithClass> = {
 			Heracles: [],
 			Wukong: [],
@@ -790,7 +763,6 @@ export const listByHouse = query({
 			}
 		}
 
-		// Sort each house's students by name
 		for (const house of Object.keys(houses)) {
 			houses[house].sort((a, b) => a.englishName.localeCompare(b.englishName));
 		}
@@ -818,7 +790,7 @@ export const bulkAssignHouses = mutation({
 	handler: async (ctx, args) => {
 		await requireAdminRole(ctx, args.testToken);
 
-		const allStudents = await ctx.db.query('students').collect();
+		const allStudents = await ctx.db.query('students').take(500);
 		const studentsByName = new Map<string, (typeof allStudents)[number]>();
 		for (const s of allStudents) {
 			const key = s.englishName.trim().toLowerCase();
@@ -872,20 +844,17 @@ export const getHouseStats = query({
 
 		const HOUSES = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
 
-		// Fetch all students with houses
 		const students = await ctx.db.query('students').collect();
 		const studentsWithHouses = students.filter((s) => s.house && HOUSES.includes(s.house));
 		const studentIds = studentsWithHouses.map((s) => s._id);
 
 		// Get all evaluations for these students
-		const allEvaluations = await ctx.db.query('evaluations').collect();
+		const allEvaluations = await ctx.db.query('evaluations').take(1000);
 		const evaluations = allEvaluations.filter((e) => studentIds.includes(e.studentId));
 
-		// Get all house events
-		const allEvents = await ctx.db.query('house_events').collect();
+		const allEvents = await ctx.db.query('house_events').take(200);
 
-		// Get all categories
-		const categories = await ctx.db.query('point_categories').collect();
+		const categories = await ctx.db.query('point_categories').take(100);
 		const categoryMap = new Map(categories.map((c) => [c._id, c]));
 
 		// Type for student points data
@@ -904,13 +873,11 @@ export const getHouseStats = query({
 			recentPointsByCategory: Record<string, number>;
 		};
 
-		// Build student points map
 		const studentPointsMap = new Map<string, StudentPointsData>();
 
 		// Get timestamp for 30 days ago
 		const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
-		// Initialize students with houses
 		for (const student of studentsWithHouses) {
 			studentPointsMap.set(student._id, {
 				studentId: student.studentId,
@@ -928,7 +895,6 @@ export const getHouseStats = query({
 			});
 		}
 
-		// Process evaluations
 		for (const eval_ of evaluations) {
 			const studentData = studentPointsMap.get(eval_.studentId);
 			if (!studentData) continue;
@@ -966,7 +932,6 @@ export const getHouseStats = query({
 			}
 		}
 
-		// Build house stats
 		const houseStats: Record<
 			string,
 			{
@@ -982,7 +947,6 @@ export const getHouseStats = query({
 			}
 		> = {};
 
-		// Initialize houses
 		for (const house of HOUSES) {
 			houseStats[house] = {
 				totalPoints: 0,
@@ -997,7 +961,6 @@ export const getHouseStats = query({
 			};
 		}
 
-		// Aggregate by house
 		for (const [, studentData] of studentPointsMap) {
 			const stats = houseStats[studentData.house];
 			if (!stats) continue;
@@ -1006,7 +969,6 @@ export const getHouseStats = query({
 			stats.recentTotalPoints += studentData.recentTotalPoints;
 			stats.studentCount++;
 
-			// Aggregate points by category
 			for (const [cat, points] of Object.entries(studentData.pointsByCategory)) {
 				if (!stats.pointsByCategory[cat]) {
 					stats.pointsByCategory[cat] = 0;
@@ -1014,7 +976,6 @@ export const getHouseStats = query({
 				stats.pointsByCategory[cat] += points;
 			}
 
-			// Aggregate recent points by category
 			for (const [cat, points] of Object.entries(studentData.recentPointsByCategory)) {
 				if (!stats.recentPointsByCategory[cat]) {
 					stats.recentPointsByCategory[cat] = 0;
@@ -1049,7 +1010,6 @@ export const getHouseStats = query({
 			}
 		}
 
-		// Get top contributors and growth opportunities per house
 		const studentsByHouse: Record<string, StudentPointsData[]> = {
 			Heracles: [],
 			Wukong: [],
@@ -1111,20 +1071,16 @@ export const getHouseStats = query({
 				}));
 		}
 
-		// Get all unique categories
 		const allCategories = [...new Set(categories.map((c) => c.name))];
 
-		// Calculate ranking
 		const ranking = [...HOUSES].sort(
 			(a, b) => houseStats[b].totalPoints - houseStats[a].totalPoints
 		);
 
-		// Calculate recent ranking (last 30 days)
 		const recentRanking = [...HOUSES].sort(
 			(a, b) => houseStats[b].recentTotalPoints - houseStats[a].recentTotalPoints
 		);
 
-		// Build final result
 		const result = HOUSES.map((house) => ({
 			house,
 			totalPoints: houseStats[house].totalPoints,

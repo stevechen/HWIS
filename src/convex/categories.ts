@@ -7,7 +7,7 @@ export const list = query({
 	handler: async (ctx, args) => {
 		const user = await getAuthenticatedUser(ctx, args.testToken);
 		if (!user) return [];
-		return await ctx.db.query('point_categories').collect();
+		return await ctx.db.query('point_categories').take(20);
 	}
 });
 
@@ -22,7 +22,7 @@ export const getEvaluationCount = query({
 		const matches = await ctx.db
 			.query('evaluations')
 			.withIndex('by_categoryId', (q) => q.eq('categoryId', args.categoryId))
-			.collect();
+			.take(500);
 		return matches.length;
 	}
 });
@@ -245,7 +245,7 @@ export const remove = mutation({
 		const relatedEvaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_categoryId', (q) => q.eq('categoryId', args.id))
-			.collect();
+			.take(500);
 
 		for (const eval_ of relatedEvaluations) {
 			await ctx.db.delete(eval_._id);
