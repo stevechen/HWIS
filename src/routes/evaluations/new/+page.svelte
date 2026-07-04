@@ -304,7 +304,12 @@
 
 					<!-- Show criteria when category selected -->
 					{#if selectedCategory?.meritCriteria || selectedCategory?.demeritCriteria}
-						<CategoryInfoCard category={selectedCategory} />
+						<CategoryInfoCard
+							category={selectedCategory}
+							oncriterionclick={(criterion) => {
+								details = details + (details ? '\n' : '') + criterion;
+							}}
+						/>
 					{/if}
 				</div>
 

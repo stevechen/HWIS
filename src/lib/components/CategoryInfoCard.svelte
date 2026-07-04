@@ -10,7 +10,13 @@
 		demeritCriteria?: string[];
 	}
 
-	let { category }: { category: Category } = $props();
+	let {
+		category,
+		oncriterionclick
+	}: {
+		category: Category;
+		oncriterionclick?: (criterion: string) => void;
+	} = $props();
 </script>
 
 <Card.Root class="mt-4">
@@ -37,7 +43,20 @@
 					</h4>
 					<ul class="text-muted-foreground list-disc space-y-1 pl-4 text-sm">
 						{#each category.demeritCriteria as criterion (criterion)}
-							<li class="break-words">{criterion}</li>
+							<li class="break-words">
+								{#if oncriterionclick}
+									<span
+										role="button"
+										tabindex="0"
+										class="cursor-pointer hover:underline"
+										onclick={() => oncriterionclick(criterion)}
+										onkeydown={(e) => e.key === 'Enter' && oncriterionclick(criterion)}
+										>{criterion}</span
+									>
+								{:else}
+									{criterion}
+								{/if}
+							</li>
 						{/each}
 					</ul>
 				</div>
@@ -52,7 +71,20 @@
 					</h4>
 					<ul class="text-muted-foreground list-disc space-y-1 pl-4 text-sm">
 						{#each category.meritCriteria as criterion (criterion)}
-							<li class="break-words">{criterion}</li>
+							<li class="break-words">
+								{#if oncriterionclick}
+									<span
+										role="button"
+										tabindex="0"
+										class="cursor-pointer hover:underline"
+										onclick={() => oncriterionclick(criterion)}
+										onkeydown={(e) => e.key === 'Enter' && oncriterionclick(criterion)}
+										>{criterion}</span
+									>
+								{:else}
+									{criterion}
+								{/if}
+							</li>
 						{/each}
 					</ul>
 				</div>
