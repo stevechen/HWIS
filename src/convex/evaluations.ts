@@ -895,14 +895,14 @@ export const getStudentEvaluationsAnonymous = query({
 			throw new Error('Only students can access this endpoint');
 		}
 
-		if (!user.studentRecordId) {
+		const studentRecordId = user.studentRecordId;
+		if (!studentRecordId) {
 			throw new Error('Student record not linked');
 		}
 
-		// Get all evaluations for this student
 		const evaluations = await ctx.db
 			.query('evaluations')
-			.withIndex('by_studentId', (q) => q.eq('studentId', user.studentRecordId))
+			.withIndex('by_studentId', (q) => q.eq('studentId', studentRecordId))
 			.take(200);
 
 		// Fetch categories for name lookup
