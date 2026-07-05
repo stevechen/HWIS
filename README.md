@@ -1,121 +1,127 @@
-# HWIS (Hong Wen International School) Point Management System
+# HWHS Point Management System
 
-A comprehensive point management system for Hong Wen International School teachers to manage student evaluations.
-
-## Purpose
-
-For HWIS teachers to give/take away evaluation points to students.
-
-## Roles & Authentication
-
-Authentication is handled via Google Single Sign-On (SSO).
-
-### Super User
-
-- Full system access
-
-### Admins (designated by super user)
-
-- **Teacher Management:** CRUD operations, approve/activate/deactivate teachers
-- **Student Management:**
-  - Import students from Excel (duplicate Student IDs halt import with detailed error info)
-  - Enable/disable students
-  - CRUD operations with warnings for students with existing points records (suggest disabling instead)
-  - Academic year migration:
-    - Advance all grade levels by one year
-    - Import new grade 7 students
-    - Archive grade 12 students for 1 year (record graduation year), then export and delete after a year
-- **Data Aggregation & Reports:**
-  - Report:
-    - All students' total points list:
-      - This school year
-      - Date range
-      - Export to Excel
-  - View:
-    - All students' total points list:
-      - This school year
-      - Date range
-      - Weekly trend
-      - Monthly trend
-    - Individual student's total point:
-      - All
-      - Date range
-      - Weekly trend
-      - Monthly trend
-    - Individual student's points breakdown:
-      - By teacher
-      - By date
-  - Separate viewing page for last-year archived students (view only, excluded from editing/searching)
-- **Category Management:** Add/modify/archive categories and sub-categories (cannot removed if there are already point records with this category or if it's created before this school year for historical record compatibility). All categories default to +1 point.
-- **Audit Trail:** Track all point changes with history of who changed what and when
-- **Database Management:** Archive whole grade, export and delete whole grade, backup to file, delete
-- **Note:** Admins can also be teachers
-
-### Teachers (approved by an admin)
-
-- **Student Search:** Fuzzy search by English name, filter by grade
-- **Point Management:** Give points (-2, -1, 1, 2) with details, adjust their own points given
-- **View Own Records:** Points given/taken, student's points trend (only their own records)
-
-### Students
-
-- No system access
-
-## Point System - Category Structure
-
-### Creativity
-
-- Leadership
-- Designing & Creating
-- Self learning
-- Self management
-
-### Activity
-
-- Dress code & shoes
-- Sports day
-- Game attendance
-- English speaking vs. Chinese speaking
-
-### Service
-
-- Campus maintenance cleaning duty
-- Respect manner (Language & Behaviors)
-- Teacher supporting
-
-### Admin Section
-
-- Student council
-- Others
-
-### Parents' Day
-
-### Other Issues
+A comprehensive evaluation point management system for **Hong Wen International School (HWIS)**. Teachers give/take evaluation points, admins manage categories/students/users, and house competitions track student engagement.
 
 ## Tech Stack
 
-- **Framework:** Svelte/SvelteKit
-- **Language:** TypeScript
-- **Styling:** Tailwind CSS
-- **UI Components:** Shadcn-svelte
-- **Backend:** Convex
-- **Version Control:** GitHub
-- **Deployment:** Vercel
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | SvelteKit 2 + Svelte 5 (runes) |
+| **Language** | TypeScript |
+| **Styling** | Tailwind CSS v4 |
+| **UI Library** | shadcn-svelte (bits-ui) |
+| **Icons** | Lucide Svelte |
+| **Charts** | D3.js |
+| **Backend** | Convex (reactive DB + functions) |
+| **Auth** | Better Auth (Google OAuth) |
+| **Deployment** | Vercel |
+| **Package Manager** | Bun |
 
-## Student Information
+## Roles & Permissions
 
-- English Name
-- Chinese Name
-- Student ID
-- Grade (7-12)
-- Graduation Year
+### Super User
+- Full system access, promote/demote admins
 
-## Design Considerations
+### Admin
+- **Students:** CRUD, import from Excel (duplicate handling), enable/disable, bulk assign houses
+- **Users:** Manage teachers/admins, approve pending accounts, set roles
+- **Categories:** Create/edit/archive point categories with merit/demerit criteria and CAS alignment
+- **Evaluations:** View all evaluations (paginated), full audit trail
+- **Classes:** Manage grade-class structure, assign homeroom teachers
+- **Houses:** Manage house assignments, house events with point awards
+- **Backup/Restore:** Export data, create/manage backups, Google Drive auto-backup (daily cron), restore from backup, clear data
+- **Academic Year:** Year-end rollover — advance grades, archive graduates, clear evaluations
+- **Weekly Reports:** Generate and view weekly evaluation summaries
+- **Audit Log:** Full historical record of all mutations with performer/target/value details
 
-- **Responsive Design:** Usable on both mobile and desktop (mobile-first approach with modern CSS media queries)
-- **Extensibility:** Student, Teacher, and Admin roles are designed as the base for future systems
-- **Point System:** This is the first module being developed for the platform
-- **No Point Thresholds:** Points are purely for record-keeping; no automatic rewards or penalties based on point totals
+### Teacher
+- **Evaluations:** Give/take points (-2, -1, +1, +2) via categories, edit/delete own evaluations, bulk evaluate multiple students
+- **Students:** Search by name/ID, filter by grade/class/status
+- **Timeline:** View individual student evaluation timeline (own records)
+
+### Student
+- **View-Only:** Log in via school email, view personal evaluation timeline (anonymous, no teacher names)
+- Auth is restricted to `@hwhs.tc.edu.tw` (staff) and `@std.hwhs.tc.edu.tw` (student) domains
+
+## Features
+
+### Authentication
+- Google OAuth via Better Auth
+- Domain-restricted login with allowlist exceptions for bootstrap users
+- Test token bypass for development/testing
+
+### Student Management
+- Full CRUD with duplicate student ID validation
+- Excel import with halt/skip/update on duplicate modes
+- Search by name or student ID, filter by status and class
+- House assignment (individual and bulk by name lookup)
+- Grade-class auto-resolution on create
+
+### Evaluation System
+- Points assigned via categories with merit/demerit criteria and CAS alignment
+- Create evaluations for single or multiple students at once
+- Edit/delete own evaluations
+- Cursor-based pagination for large result sets
+- Anonymous student view (teacher names hidden)
+
+### House System
+- Four houses: Heracles, Wukong, Ixbalam, Setna
+- House events with date ranges and point awards
+- Per-house competition statistics (total points, student counts, averages)
+- House display/scoreboard page
+
+### Class Management
+- Grade (7-12) + class letter structure
+- Auto-increment naming, homeroom teacher assignment
+- Student counts, move students within same grade
+- Protected class names ("1" for IB and "1" for general)
+
+### Backup & Restore
+- Full database export (JSON)
+- Create/restore/delete snapshots in the backups table
+- Google Drive auto-backup via daily Vercel cron (`0 4 * * *`)
+- Full data clear or selective evaluation clear
+
+### Audit Trail
+- Every mutation logs: action, performer, target table/ID, old/new values
+- Filterable by action type and performer
+- Enriched with human-readable names (student, teacher, category)
+
+### Category Management
+- Dynamic categories
+- Each category has: name, merit criteria, demerit criteria, CAS alignment
+- Protected from deletion if evaluations reference them
+
+## Project Structure
+
+```
+src/
+├── convex/              # Convex backend functions
+│   ├── schema.ts        # Database schema (11 tables)
+│   ├── auth.ts          # Better Auth integration
+│   ├── students.ts      # Student CRUD + import
+│   ├── evaluations.ts   # Evaluation system
+│   ├── categories.ts    # Point categories
+│   ├── classes.ts       # Grade/class management
+│   ├── users.ts         # User management
+│   ├── houses.ts        # House assignments/stats
+│   ├── houseEvents.ts   # House event management
+│   ├── audit.ts         # Audit log
+│   ├── backup.ts        # Backup/restore
+│   ├── driveBackup.ts   # Google Drive backup action
+│   ├── onboarding.ts    # User profile creation
+│   ├── dataFactory.ts   # E2E test data helpers
+│   └── ...
+├── routes/
+│   ├── /                # Landing page
+│   ├── /login           # Login
+│   ├── /admin/*         # Admin dashboard & sub-pages
+│   ├── /evaluations/*   # Evaluation pages (teacher)
+│   ├── /houses/*        # House overview & scoreboard
+│   └── /api/auth/*      # Better Auth API routes
+└── lib/
+    └── components/      # shadcn-svelte UI components
+```
 
 ## Getting Started
 
@@ -124,20 +130,20 @@ bun install
 bun dev
 ```
 
-## Local Convex + Auth Notes
+Convex dev server must be running in a separate terminal:
 
-- Local Convex API runs on `http://127.0.0.1:3210`
-- Local Convex site proxy runs on `http://127.0.0.1:3211` (used by Better Auth)
-- Better Auth sets a Convex JWT cookie on sign-in; SSR redirects use it to resolve the viewer
+```sh
+bunx convex dev
+```
 
-If local Convex gets stuck or fails to start repeatedly, use:
+If local Convex gets stuck:
 
 ```sh
 bun run convex:local:recover
 bunx convex dev --configure existing --typecheck=disable
 ```
 
-Then, while `convex dev` is running in another terminal:
+Then in another terminal:
 
 ```sh
 bun run convex:local:env-sync
@@ -145,29 +151,67 @@ bun run convex:local:env-sync
 
 Full runbook: `docs/convex-local-recovery.md`
 
-For local E2E, use:
+## Testing (3-Layer Approach)
+
+### Browser Unit Tests (Vitest + vitest-browser-svelte)
+
+Real Chromium via Playwright, tests page structure with semantic locators:
+
+```sh
+bunx vitest run --config vite.config.ts
+```
+
+### Server Unit Tests (convex-test)
+
+Deterministic mock DB, no network calls:
+
+```sh
+bunx vitest run src/convex/*.test.ts
+```
+
+### E2E Tests (Playwright)
+
+Requires dev servers running:
 
 ```sh
 ./scripts/start-dev-servers.sh
 bunx playwright test e2e
 ```
 
-## Required Environment Variables
+Run all tests:
 
-Set these before production deploy:
+```sh
+bun run test:all
+```
 
-- `BETTER_AUTH_SECRET`
-  - Required in production. The app now fails startup in production if it is missing.
-- `CRON_SECRET`
-  - Required for `/api/cron-backup` cron authentication (`Authorization: Bearer <CRON_SECRET>`).
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `GOOGLE_REFRESH_TOKEN`
-  - Required for Google Drive backup uploads.
+## Environment Variables
 
-Optional but recommended:
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `BETTER_AUTH_SECRET` | Production | Auth JWT signing |
+| `GOOGLE_CLIENT_ID` | Yes | Google OAuth |
+| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth |
+| `SITE_URL` / `VITE_SITE_URL` | Yes | Service URLs |
+| `PUBLIC_CONVEX_URL` | Yes | Convex deployment URL |
+| `CONVEX_DEPLOYMENT` | Yes | Convex deployment name |
+| `CRON_SECRET` | Cron | Vercel cron auth |
+| `GOOGLE_REFRESH_TOKEN` | Drive backup | Google Drive upload |
+| `GOOGLE_DRIVE_FOLDER_ID` | Optional | Drive backup folder |
+| `E2E_TEST_TOKEN` | Testing | Custom test token |
 
-- `GOOGLE_DRIVE_FOLDER_ID`
-  - If set, backups are uploaded to that folder; otherwise they go to Drive root.
-- `E2E_TEST_TOKEN`
-  - Custom non-production token for test helper mutations. If unset, non-production uses `unit-test-token`. Production does not allow the default token.
+## Database Schema (11 Tables)
+
+| Table | Purpose |
+|-------|---------|
+| `users` | Auth-linked user profiles with roles |
+| `sessions` | Better Auth sessions |
+| `accounts` | OAuth/password accounts |
+| `verifications` | Email verifications |
+| `students` | Student records with house/class/status |
+| `classes` | Grade-class mappings with homeroom teachers |
+| `evaluations` | Point records linked to students/categories |
+| `point_categories` | Dynamic categories with criteria |
+| `audit_logs` | Full mutation history |
+| `backups` | Database snapshots |
+| `settings` | Key-value app settings |
+| `house_events` | Timed house point events |
