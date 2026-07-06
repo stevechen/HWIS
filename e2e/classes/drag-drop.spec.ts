@@ -41,7 +41,7 @@ test.describe('Drag and Drop Student Movement', () => {
 		await expect(page.getByText(`DragTest_${suffix}`)).toBeVisible();
 
 		const studentRow = page
-			.locator('[role="button"][aria-label*="Drag"]')
+			.locator('[role="button"][aria-label*="Move"]')
 			.filter({ hasText: `DragTest_${suffix}` });
 		await expect(studentRow).toBeVisible();
 	});
@@ -64,7 +64,7 @@ test.describe('Drag and Drop Student Movement', () => {
 		await page.waitForSelector('body.hydrated');
 
 		const studentElement = page
-			.locator('[role="button"][aria-label*="Drag"]')
+			.locator('[role="button"][aria-label*="Move"]')
 			.filter({ hasText: `Draggable_${suffix}` });
 		await expect(studentElement).toBeVisible();
 		await expect(studentElement).toHaveAttribute('role', 'button');
@@ -105,7 +105,7 @@ test.describe('Drag and Drop Student Movement', () => {
 
 		// Get the student draggable element
 		const studentEl = page
-			.locator('[role="button"][aria-label*="Drag"]')
+			.locator('[role="button"][aria-label*="Move"]')
 			.filter({ hasText: englishName });
 
 		// Get a grade 10 class container

@@ -2,9 +2,11 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
-	import { GripVertical, Users } from '@lucide/svelte';
+	import { GripVertical, Users, ChevronDown, ChevronRight } from '@lucide/svelte';
 	import { draggable, dropZone, dragState } from '$lib/utils/dnd.svelte';
 	import type { DragData } from '$lib/utils/dnd.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	// Import house logos
 	import LogoHeracles from '$lib/components/LogoHeracles.svelte';
@@ -130,6 +132,43 @@
 			window.alert(err instanceof Error ? err.message : 'Failed to assign house');
 		}
 	}
+
+	let collapsedHouses = new SvelteSet<string>(
+		typeof window !== 'undefined' &&
+			window.innerWidth < 768 &&
+			window.matchMedia('(hover: none)').matches
+			? [...HOUSES, '__orphaned']
+			: []
+	);
+
+	function toggleCollapse(house: string) {
+		if (collapsedHouses.has(house)) {
+			collapsedHouses.delete(house);
+		} else {
+			collapsedHouses.add(house);
+		}
+	}
+
+	let moveDialogRef = $state<HTMLDialogElement | null>(null);
+	let moveDialogStudent = $state<{
+		_id: Id<'students'>;
+		englishName: string;
+		sourceHouse: string;
+	} | null>(null);
+
+	function openMoveDialog(student: Student, sourceHouse: string) {
+		moveDialogStudent = {
+			_id: student._id,
+			englishName: student.englishName,
+			sourceHouse
+		};
+		moveDialogRef?.showModal();
+	}
+
+	function closeMoveDialog() {
+		moveDialogRef?.close();
+		moveDialogStudent = null;
+	}
 </script>
 
 <div class="space-y-4 p-4">
@@ -139,7 +178,8 @@
 		<div class="py-8 text-center text-red-500">Error loading houses</div>
 	{:else}
 		<p class="text-muted-foreground text-sm">
-			Drag and drop students between houses to manage assignments.
+			Click a student's name to move them to a different house. You can also drag and drop on
+			desktop.
 		</p>
 		<!-- Five columns: 4 houses + unassigned -->
 		<div class="houses-board grid grid-cols-1 items-start gap-3 md:grid-cols-5">
@@ -171,9 +211,14 @@
 					<!-- House Header -->
 					<div
 						class={[
-							'house-column__header flex items-center justify-between rounded-t-md px-3 py-2',
+							`house-column__header flex cursor-pointer items-center justify-between px-3 py-2`,
+							collapsedHouses.has(house) ? 'rounded-md' : 'rounded-t-md',
 							colors.bg
 						]}
+						onclick={() => toggleCollapse(house)}
+						role="button"
+						tabindex="0"
+						onkeydown={(e) => e.key === 'Enter' && toggleCollapse(house)}
 					>
 						<div class="flex items-center gap-2">
 							<div class="size-8 text-white">
@@ -184,92 +229,81 @@
 						<div class="flex items-center gap-1 text-white">
 							<Users class="size-4" />
 							<span class="text-sm font-semibold">{students.length}</span>
+							{#if collapsedHouses.has(house)}
+								<ChevronRight class="size-4" />
+							{:else}
+								<ChevronDown class="size-4" />
+							{/if}
 						</div>
 					</div>
 
 					<!-- Student List -->
-					<div class={['house-column__body min-h-0 flex-1 rounded-b-md p-2', colors.lightBg]}>
-						{#if students.length > 0}
-							<div class="house-column__groups flex flex-col gap-1">
-								{#each groupedStudents as group (group.className)}
-									<div class="flex flex-col gap-1">
-										<!-- Class Header -->
-										<div class="house-group__header flex items-center gap-2 px-2 py-1">
-											<span
-												class={[
-													'rounded-full bg-white px-2 py-0.5 text-[10px] font-bold tracking-[0.14em] uppercase',
-													colors.text
-												]}
-											>
-												{group.className}
-											</span>
-											<span class={['text-xs font-medium', colors.text]}>
-												{group.students.length}
-											</span>
-										</div>
-										{#each group.students as student (student._id)}
-											{@const enrolled = student.status !== 'Not Enrolled'}
-											<div
-												class={[
-													'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 max-md:gap-3 max-md:py-3',
-													!enrolled && 'text-muted-foreground bg-gray-100'
-												]}
-											>
-												<div
-													use:draggable={{
-														data: {
-															id: student._id,
-															englishName: student.englishName,
-															sourceHouse: house
-														},
-														label: student.englishName
-													}}
-													class="flex min-w-0 flex-1 items-center gap-2"
-													role="button"
-													aria-label="Drag {student.englishName} to move to another house"
-													tabindex="0"
+					{#if !collapsedHouses.has(house)}
+						<div class={['house-column__body min-h-0 flex-1 rounded-b-md p-2', colors.lightBg]}>
+							{#if students.length > 0}
+								<div class="house-column__groups flex flex-col gap-1">
+									{#each groupedStudents as group (group.className)}
+										<div class="flex flex-col gap-1">
+											<!-- Class Header -->
+											<div class="house-group__header flex items-center gap-2 px-2 py-1">
+												<span
+													class={[
+														'rounded-full bg-white px-2 py-0.5 text-[10px] font-bold tracking-[0.14em] uppercase',
+														colors.text
+													]}
 												>
-													<GripVertical class="size-3 shrink-0 text-gray-400 max-md:size-4" />
-													<div class="flex min-w-0 flex-1 flex-col">
-														<span class="truncate font-medium">{student.englishName}</span>
-														{#if !enrolled}
-															<span class="text-muted-foreground text-xs">Not Enrolled</span>
-														{/if}
+													{group.className}
+												</span>
+												<span class={['text-xs font-medium', colors.text]}>
+													{group.students.length}
+												</span>
+											</div>
+											{#each group.students as student (student._id)}
+												{@const enrolled = student.status !== 'Not Enrolled'}
+												<div
+													class={[
+														'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 max-md:gap-3 max-md:py-3',
+														!enrolled && 'text-muted-foreground bg-gray-100'
+													]}
+												>
+													<div
+														use:draggable={{
+															data: {
+																id: student._id,
+																englishName: student.englishName,
+																sourceHouse: house
+															},
+															label: student.englishName
+														}}
+														class="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
+														role="button"
+														aria-label="Move {student.englishName} to another house"
+														tabindex="0"
+														onclick={() => openMoveDialog(student, house)}
+														onkeydown={(e) => e.key === 'Enter' && openMoveDialog(student, house)}
+													>
+														<GripVertical class="size-3 shrink-0 text-gray-400 max-md:hidden" />
+														<div class="flex min-w-0 flex-1 flex-col">
+															<span class="truncate font-medium">{student.englishName}</span>
+															{#if !enrolled}
+																<span class="text-muted-foreground text-xs">Not Enrolled</span>
+															{/if}
+														</div>
 													</div>
 												</div>
-												<select
-													class="h-5 max-w-14 rounded border border-gray-200 bg-gray-50 px-1 text-[10px] max-md:h-8 max-md:px-2 max-md:text-xs md:hidden"
-													onchange={(e) => {
-														const val = (e.currentTarget as HTMLSelectElement).value;
-														if (val === '__unassign') {
-															assignHouse(student._id as Id<'students'>, undefined);
-														} else if (val) {
-															assignHouse(student._id as Id<'students'>, val as House);
-														}
-														(e.currentTarget as HTMLSelectElement).value = '';
-													}}
-													onpointerdown={(e) => e.stopPropagation()}
-													aria-label="Move student to another house"
-												>
-													<option value="">Move to...</option>
-													{#each HOUSES.filter((h) => h !== house) as targetHouse (targetHouse)}
-														<option value={targetHouse}>{targetHouse}</option>
-													{/each}
-													<option value="__unassign">Unassigned</option>
-												</select>
-											</div>
-										{/each}
-									</div>
-								{/each}
-							</div>
-						{:else}
-							<div
-								class="text-muted-foreground flex h-24 items-center justify-center text-sm italic"
-							>
-								No students assigned
-							</div>
-						{/if}
-					</div>
+											{/each}
+										</div>
+									{/each}
+								</div>
+							{:else}
+								<div
+									class="text-muted-foreground flex h-24 items-center justify-center text-sm italic"
+								>
+									No students assigned
+								</div>
+							{/if}
+						</div>
+					{/if}
 				</div>
 			{/each}
 
@@ -294,7 +328,15 @@
 			>
 				<!-- Unassigned Header -->
 				<div
-					class="house-column__header flex items-center justify-between rounded-t-md bg-gray-400 px-3 py-2"
+					class={[
+						'house-column__header flex cursor-pointer items-center justify-between px-3 py-2',
+						collapsedHouses.has('__orphaned') ? 'rounded-md' : 'rounded-t-md',
+						'bg-gray-400'
+					]}
+					onclick={() => toggleCollapse('__orphaned')}
+					role="button"
+					tabindex="0"
+					onkeydown={(e) => e.key === 'Enter' && toggleCollapse('__orphaned')}
 				>
 					<div class="flex items-center gap-2">
 						<h2 class="text-lg font-bold text-white">Unassigned</h2>
@@ -302,87 +344,130 @@
 					<div class="flex items-center gap-1 text-white">
 						<Users class="size-4" />
 						<span class="text-sm font-semibold">{orphanedStudents.length}</span>
+						{#if collapsedHouses.has('__orphaned')}
+							<ChevronRight class="size-4" />
+						{:else}
+							<ChevronDown class="size-4" />
+						{/if}
 					</div>
 				</div>
 
 				<!-- Unassigned Student List -->
-				<div class="house-column__body min-h-0 flex-1 rounded-b-md bg-gray-50 p-2">
-					{#if orphanedStudents.length > 0}
-						{@const groupedOrphaned = getGroupedStudents(orphanedStudents)}
-						<div class="house-column__groups flex flex-col gap-1">
-							{#each groupedOrphaned as group (group.className)}
-								<div class="flex flex-col gap-1">
-									<!-- Class Header -->
-									<div class="house-group__header flex items-center gap-2 px-2 py-1">
-										<span
-											class="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold tracking-[0.14em] text-gray-600 uppercase"
-										>
-											{group.className}
-										</span>
-										<span class="text-xs font-medium text-gray-500">{group.students.length}</span>
-									</div>
-									{#each group.students as student (student._id)}
-										{@const enrolled = student.status !== 'Not Enrolled'}
-										<div
-											class={[
-												'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 max-md:gap-3 max-md:py-3',
-												!enrolled && 'text-muted-foreground bg-gray-100'
-											]}
-										>
-											<div
-												use:draggable={{
-													data: {
-														id: student._id,
-														englishName: student.englishName,
-														sourceHouse: 'orphaned'
-													},
-													label: student.englishName
-												}}
-												class="flex min-w-0 flex-1 items-center gap-2"
-												role="button"
-												aria-label="Drag {student.englishName} to assign to a house"
-												tabindex="0"
+				{#if !collapsedHouses.has('__orphaned')}
+					<div class="house-column__body min-h-0 flex-1 rounded-b-md bg-gray-50 p-2">
+						{#if orphanedStudents.length > 0}
+							{@const groupedOrphaned = getGroupedStudents(orphanedStudents)}
+							<div class="house-column__groups flex flex-col gap-1">
+								{#each groupedOrphaned as group (group.className)}
+									<div class="flex flex-col gap-1">
+										<!-- Class Header -->
+										<div class="house-group__header flex items-center gap-2 px-2 py-1">
+											<span
+												class="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold tracking-[0.14em] text-gray-600 uppercase"
 											>
-												<GripVertical class="size-3 shrink-0 text-gray-400 max-md:size-4" />
-												<div class="flex min-w-0 flex-1 flex-col">
-													<span class="truncate font-medium">{student.englishName}</span>
-													{#if !enrolled}
-														<span class="text-muted-foreground text-xs">Not Enrolled</span>
-													{/if}
+												{group.className}
+											</span>
+											<span class="text-xs font-medium text-gray-500">{group.students.length}</span>
+										</div>
+										{#each group.students as student (student._id)}
+											{@const enrolled = student.status !== 'Not Enrolled'}
+											<div
+												class={[
+													'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 max-md:gap-3 max-md:py-3',
+													!enrolled && 'text-muted-foreground bg-gray-100'
+												]}
+											>
+												<div
+													use:draggable={{
+														data: {
+															id: student._id,
+															englishName: student.englishName,
+															sourceHouse: 'orphaned'
+														},
+														label: student.englishName
+													}}
+													class="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
+													role="button"
+													aria-label="Move {student.englishName} to a house"
+													tabindex="0"
+													onclick={() => openMoveDialog(student, 'orphaned')}
+													onkeydown={(e) =>
+														e.key === 'Enter' && openMoveDialog(student, 'orphaned')}
+												>
+													<GripVertical class="size-3 shrink-0 text-gray-400 max-md:hidden" />
+													<div class="flex min-w-0 flex-1 flex-col">
+														<span class="truncate font-medium">{student.englishName}</span>
+														{#if !enrolled}
+															<span class="text-muted-foreground text-xs">Not Enrolled</span>
+														{/if}
+													</div>
 												</div>
 											</div>
-											<select
-												class="h-5 max-w-14 rounded border border-gray-200 bg-gray-50 px-1 text-[10px] max-md:h-8 max-md:px-2 max-md:text-xs md:hidden"
-												onchange={(e) => {
-													const val = (e.currentTarget as HTMLSelectElement).value;
-													if (val) {
-														assignHouse(student._id as Id<'students'>, val as House);
-													}
-													(e.currentTarget as HTMLSelectElement).value = '';
-												}}
-												onpointerdown={(e) => e.stopPropagation()}
-												aria-label="Assign student to a house"
-											>
-												<option value="">Move to...</option>
-												{#each HOUSES as house (house)}
-													<option value={house}>{house}</option>
-												{/each}
-											</select>
-										</div>
-									{/each}
-								</div>
-							{/each}
-						</div>
-					{:else}
-						<div class="text-muted-foreground flex h-24 items-center justify-center text-sm italic">
-							All students assigned
-						</div>
-					{/if}
-				</div>
+										{/each}
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<div
+								class="text-muted-foreground flex h-24 items-center justify-center text-sm italic"
+							>
+								All students assigned
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/if}
 </div>
+
+<!-- Move Student Dialog -->
+<dialog
+	bind:this={moveDialogRef}
+	class="fixed inset-0 m-auto w-full max-w-sm rounded-none border p-4 shadow-lg"
+	onclick={(e) => {
+		if (e.currentTarget === e.target) {
+			closeMoveDialog();
+		}
+	}}
+>
+	{#if moveDialogStudent}
+		{@const s = moveDialogStudent}
+		<h3 class="mb-2 text-lg font-semibold">Move {s.englishName}</h3>
+		<p class="text-muted-foreground mb-4 text-sm">
+			Currently in {s.sourceHouse === 'orphaned' ? 'Unassigned' : s.sourceHouse}
+		</p>
+		<div class="flex flex-col gap-2">
+			{#each HOUSES.filter((h) => h !== s.sourceHouse) as house (house)}
+				<Button
+					variant="outline"
+					class="w-full justify-start"
+					onclick={() => {
+						assignHouse(s._id, house);
+						closeMoveDialog();
+					}}
+				>
+					{house}
+				</Button>
+			{/each}
+			{#if s.sourceHouse !== 'orphaned'}
+				<Button
+					variant="outline"
+					class="w-full justify-start"
+					onclick={() => {
+						assignHouse(s._id, undefined);
+						closeMoveDialog();
+					}}
+				>
+					Unassigned
+				</Button>
+			{/if}
+		</div>
+		<div class="mt-4 flex justify-end">
+			<Button variant="ghost" onclick={closeMoveDialog}>Cancel</Button>
+		</div>
+	{/if}
+</dialog>
 
 <style>
 	.houses-board {

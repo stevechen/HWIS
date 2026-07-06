@@ -47,7 +47,7 @@ test.describe('House Management - Integration', () => {
 		});
 
 		const studentCard = unassignedSection.getByRole('button', {
-			name: new RegExp(`Drag ${studentName} to assign to a house`)
+			name: new RegExp(`Move ${studentName} to a house`)
 		});
 		await expect(studentCard).toBeVisible();
 	});

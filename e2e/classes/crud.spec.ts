@@ -41,7 +41,7 @@ test.describe('Classes CRUD', () => {
 	test('protected class "1" does not show a delete control', async ({ page }) => {
 		const classCard = page.getByRole('region', { name: 'Class 7-1', exact: true });
 		await expect(classCard).toBeVisible();
-		await expect(classCard.getByRole('button')).toHaveCount(0);
+		await expect(classCard.locator('button')).toHaveCount(0);
 	});
 
 	test('protected class "IB" does not show a delete control', async ({ page }) => {
@@ -51,7 +51,7 @@ test.describe('Classes CRUD', () => {
 		}
 		const classCard = page.getByRole('region', { name: 'Class 7-IB', exact: true });
 		await expect(classCard).toBeVisible();
-		await expect(classCard.getByRole('button')).toHaveCount(0);
+		await expect(classCard.locator('button')).toHaveCount(0);
 	});
 
 	test('class with enrolled students shows warning dialog when attempting deletion', async ({
@@ -77,7 +77,7 @@ test.describe('Classes CRUD', () => {
 
 		const classCard = page.getByRole('region', { name: `Class 7-${className}` });
 		await expect(classCard.getByText(`TestStudent_${suffix}`)).toBeVisible({ timeout: 15000 });
-		const deleteButton = classCard.getByRole('button').first();
+		const deleteButton = classCard.locator('button');
 		await deleteButton.click();
 		await expect(page.getByRole('heading', { name: 'Cannot Delete Class' })).toBeVisible();
 		await expect(

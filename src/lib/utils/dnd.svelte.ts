@@ -92,11 +92,16 @@ export function draggable(
 	node.draggable = false;
 	node.style.cursor = 'grab';
 
+	if (window.innerWidth < 768) {
+		return { destroy() {}, update() {} };
+	}
+
 	const DRAG_THRESHOLD = 5;
 	let capturedPointerId: number | null = null;
 	let dragActivated = false;
 	let startX = 0;
 	let startY = 0;
+	let pendingDragEnd = false;
 
 	function releaseCapture() {
 		if (capturedPointerId != null) {
@@ -154,6 +159,8 @@ export function draggable(
 		if (!dragActivated || capturedPointerId == null) return;
 		if (e.pointerId !== capturedPointerId) return;
 
+		pendingDragEnd = true;
+
 		const zone = findZone(e.clientX, e.clientY);
 		if (zone) {
 			if (zone.accept(dragState.currentDrag)) {
@@ -188,6 +195,7 @@ export function draggable(
 		if (dragState.currentDrag || dragActivated) {
 			cleanup();
 		}
+		pendingDragEnd = false;
 		startX = e.clientX;
 		startY = e.clientY;
 		dragActivated = false;
@@ -201,11 +209,8 @@ export function draggable(
 
 			if (dist < DRAG_THRESHOLD) return;
 
-			// Only activate drag if movement is more horizontal than vertical
-			if (Math.abs(dx) > Math.abs(dy)) {
-				e.preventDefault();
-				activateDrag(e.pointerId, e.clientX, e.clientY);
-			}
+			e.preventDefault();
+			activateDrag(e.pointerId, e.clientX, e.clientY);
 			return;
 		}
 
@@ -232,6 +237,8 @@ export function draggable(
 			return;
 		}
 
+		pendingDragEnd = true;
+
 		const zone = findZone(e.clientX, e.clientY);
 		if (zone) {
 			if (zone.accept(dragState.currentDrag)) {
@@ -254,11 +261,21 @@ export function draggable(
 	node.addEventListener('pointerup', onUp);
 	node.addEventListener('pointercancel', onCancel);
 
+	const onClick = (e: MouseEvent) => {
+		if (pendingDragEnd) {
+			e.stopPropagation();
+			e.preventDefault();
+			pendingDragEnd = false;
+		}
+	};
+	node.addEventListener('click', onClick, true);
+
 	return {
 		destroy() {
 			removeWindowListeners();
 			releaseCapture();
 			resetTouchStyles();
+			node.removeEventListener('click', onClick, true);
 			node.removeEventListener('pointerdown', onDown);
 			node.removeEventListener('pointermove', onMove);
 			node.removeEventListener('pointerup', onUp);
@@ -282,6 +299,10 @@ export function dropZone(
 		onDrop: (data: DragData) => void;
 	}
 ) {
+	if (window.innerWidth < 768) {
+		return { destroy() {}, update() {} };
+	}
+
 	node.dataset.dropZoneId = options.id;
 	zones.set(options.id, {
 		id: options.id,

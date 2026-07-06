@@ -71,8 +71,160 @@ describe('Houses Page', () => {
 			render(HousesPage);
 
 			await expect
-				.element(page.getByText(/Drag and drop students between houses/))
+				.element(page.getByText(/Click a student's name to move them/))
 				.toBeInTheDocument();
+		});
+	});
+
+	describe('Accordion', () => {
+		it('collapses and expands student list when house header is clicked', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValue({
+				data: {
+					houses: {
+						Heracles: [
+							{
+								_id: 's1',
+								englishName: 'Alice',
+								chineseName: '',
+								studentId: 'S001',
+								status: 'Enrolled',
+								house: 'Heracles',
+								classDisplay: '7-1'
+							}
+						],
+						Wukong: [],
+						Ixbalam: [],
+						Setna: []
+					},
+					orphaned: []
+				},
+				isLoading: false,
+				isStale: false,
+				error: undefined
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any);
+
+			render(HousesPage);
+
+			const student = page.getByText('Alice');
+			await expect.element(student).toBeInTheDocument();
+
+			const region = page.getByRole('region', { name: 'Heracles House' });
+			await region.getByRole('button').first().click();
+			await expect.element(student).not.toBeInTheDocument();
+
+			await region.getByRole('button').first().click();
+			await expect.element(student).toBeInTheDocument();
+		});
+
+		it('collapses and expands orphaned section when unassigned header is clicked', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValue({
+				data: {
+					houses: { Heracles: [], Wukong: [], Ixbalam: [], Setna: [] },
+					orphaned: [
+						{
+							_id: 's2',
+							englishName: 'Bob',
+							chineseName: '',
+							studentId: 'S002',
+							status: 'Enrolled',
+							classDisplay: '7-1'
+						}
+					]
+				},
+				isLoading: false,
+				isStale: false,
+				error: undefined
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any);
+
+			render(HousesPage);
+
+			const student = page.getByText('Bob');
+			await expect.element(student).toBeInTheDocument();
+
+			const region = page.getByRole('region', { name: 'Unassigned Students' });
+			await region.getByRole('button').first().click();
+			await expect.element(student).not.toBeInTheDocument();
+
+			await region.getByRole('button').first().click();
+			await expect.element(student).toBeInTheDocument();
+		});
+	});
+
+	describe('Move Dialog', () => {
+		it('opens dialog when student is clicked and closes on Cancel', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValue({
+				data: {
+					houses: {
+						Heracles: [
+							{
+								_id: 's1',
+								englishName: 'Alice',
+								chineseName: '',
+								studentId: 'S001',
+								status: 'Enrolled',
+								house: 'Heracles',
+								classDisplay: '7-1'
+							}
+						],
+						Wukong: [],
+						Ixbalam: [],
+						Setna: []
+					},
+					orphaned: []
+				},
+				isLoading: false,
+				isStale: false,
+				error: undefined
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any);
+
+			render(HousesPage);
+
+			await page.getByRole('button', { name: 'Move Alice to another house' }).click();
+
+			await expect.element(page.getByText('Move Alice')).toBeInTheDocument();
+			await expect.element(page.getByText('Currently in Heracles')).toBeInTheDocument();
+
+			await page.getByRole('button', { name: 'Cancel' }).click();
+			await expect.element(page.getByText('Move Alice')).not.toBeInTheDocument();
+		});
+
+		it('opens dialog for unassigned students', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValue({
+				data: {
+					houses: { Heracles: [], Wukong: [], Ixbalam: [], Setna: [] },
+					orphaned: [
+						{
+							_id: 's2',
+							englishName: 'Bob',
+							chineseName: '',
+							studentId: 'S002',
+							status: 'Enrolled',
+							classDisplay: '7-1'
+						}
+					]
+				},
+				isLoading: false,
+				isStale: false,
+				error: undefined
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any);
+
+			render(HousesPage);
+
+			await page.getByRole('button', { name: /Move Bob/ }).click();
+
+			await expect.element(page.getByText('Move Bob')).toBeInTheDocument();
+			await expect.element(page.getByText('Currently in Unassigned')).toBeInTheDocument();
+
+			await page.getByRole('button', { name: 'Cancel' }).click();
+			await expect.element(page.getByText('Move Bob')).not.toBeInTheDocument();
 		});
 	});
 

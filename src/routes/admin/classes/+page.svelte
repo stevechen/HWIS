@@ -2,7 +2,16 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
-	import { Plus, Trash2, Eye, EyeOff, Users, GripVertical } from '@lucide/svelte';
+	import {
+		Plus,
+		Trash2,
+		Eye,
+		EyeOff,
+		Users,
+		GripVertical,
+		ChevronDown,
+		ChevronRight
+	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -126,12 +135,65 @@
 		}
 	});
 
+	// Collapse all classes by default on mobile (touch device + small viewport)
+	let hasCollapsedOnMobile = $state(false);
+	$effect(() => {
+		const data = classesQuery.data;
+		if (
+			data &&
+			data.length > 0 &&
+			!hasCollapsedOnMobile &&
+			window.innerWidth < 768 &&
+			window.matchMedia('(hover: none)').matches
+		) {
+			for (const c of data) {
+				collapsedClasses.add(c._id);
+			}
+			hasCollapsedOnMobile = true;
+		}
+	});
+
 	async function moveStudent(studentId: Id<'students'>, targetClassId: Id<'classes'>) {
 		try {
 			await client.mutation(api.classes.moveStudent, { studentId, targetClassId });
 		} catch (e) {
 			window.alert(e instanceof Error ? e.message : 'Failed to move student');
 		}
+	}
+
+	// Accordion state
+	let collapsedClasses = new SvelteSet<string>();
+
+	function toggleCollapse(name: string) {
+		if (collapsedClasses.has(name)) {
+			collapsedClasses.delete(name);
+		} else {
+			collapsedClasses.add(name);
+		}
+	}
+
+	// Move dialog state
+	let moveDialogRef = $state<HTMLDialogElement | null>(null);
+	let moveDialogStudent = $state<{
+		id: Id<'students'>;
+		name: string;
+		grade: number;
+		classId: Id<'classes'>;
+	} | null>(null);
+
+	function openMoveDialog(student: Student, cls: ClassRecord) {
+		moveDialogStudent = {
+			id: student._id,
+			name: student.name,
+			grade: cls.grade,
+			classId: cls._id
+		};
+		moveDialogRef?.showModal();
+	}
+
+	function closeMoveDialog() {
+		moveDialogRef?.close();
+		moveDialogStudent = null;
 	}
 
 	// State for visible grades (default only grade 7 visible)
@@ -295,30 +357,32 @@
 
 <div class="space-y-2">
 	<!-- Top Control Bar -->
-	<div class="bg-muted/50 flex flex-wrap items-center gap-3 rounded-sm border px-3 py-2">
+	<div
+		class="bg-muted/50 flex flex-wrap items-center gap-3 rounded-sm border px-3 py-2 max-md:flex-nowrap max-md:overflow-x-auto"
+	>
 		<!-- Grade Checkboxes -->
-		<div class="flex items-center gap-2">
-			<span class="text-muted-foreground mr-1 text-xs">Grades:</span>
+		<div class="flex items-center gap-2 max-md:flex-nowrap max-md:gap-3">
+			<span class="text-muted-foreground mr-1 text-xs max-md:text-sm">Grades:</span>
 			{#each grades as grade (grade)}
-				<label class="flex cursor-pointer items-center gap-1">
+				<label class="flex cursor-pointer items-center gap-1 max-md:gap-1.5">
 					<input
 						type="checkbox"
 						checked={visibleGrades.has(grade)}
 						onchange={() => toggleGradeVisibility(grade)}
-						class="size-3"
+						class="size-3 max-md:size-5"
 					/>
-					<span class="text-xs">{grade}</span>
+					<span class="text-xs max-md:text-base">{grade}</span>
 				</label>
 			{/each}
 		</div>
 
-		<div class="bg-border mx-1 h-4 w-px"></div>
+		<div class="bg-border mx-1 h-4 w-px max-md:hidden"></div>
 
 		<!-- Global Student Lists Toggle -->
 		<Button
 			variant="ghost"
 			size="sm"
-			class="h-6 gap-1 px-2 text-xs"
+			class="h-6 gap-1 px-2 text-xs max-md:hidden"
 			onclick={toggleGlobalStudentLists}
 			aria-label={globalStudentListsVisible ? 'Hide all student lists' : 'Show all student lists'}
 		>
@@ -407,6 +471,7 @@
 									<div
 										class={[
 											'border-b-none flex w-full flex-col gap-0 border-r p-0 transition-all md:min-w-25 md:flex-1',
+											'max-md:rounded-lg max-md:border max-md:shadow-sm',
 											isDragOver && 'scale-[1.02] ring-2 ring-blue-500 ring-inset'
 										]}
 										role="region"
@@ -424,28 +489,71 @@
 									>
 										<!-- Class Header -->
 										<div
-											class="flex items-center justify-between px-1 py-0.5"
+											class={[
+												'flex items-center px-2 py-1 max-md:px-3 max-md:py-2.5',
+												collapsedClasses.has(cls._id) ? 'max-md:rounded-md' : 'max-md:rounded-t-md'
+											]}
 											style="background-color: {cardBg};"
 										>
-											<div class="flex items-center gap-1">
-												<!-- IB Logo for IB classes -->
-												{#if isIBClass}
-													<img
-														src="/International_Baccalaureate_Logo.svg"
-														alt="IB"
-														class="size-3 shrink-0"
-													/>
+											<div
+												class="flex flex-1 cursor-pointer items-center justify-between gap-1 max-md:gap-2"
+												onclick={() => toggleCollapse(cls._id)}
+												role="button"
+												tabindex="0"
+												onkeydown={(e) => e.key === 'Enter' && toggleCollapse(cls._id)}
+											>
+												<div class="flex items-center gap-1 max-md:gap-2">
+													<!-- IB Logo for IB classes -->
+													{#if isIBClass}
+														<img
+															src="/International_Baccalaureate_Logo.svg"
+															alt="IB"
+															class="size-3 shrink-0 max-md:size-4"
+														/>
+													{/if}
+
+													<!-- Class Name -->
+													<span class="text-sm font-semibold max-md:text-base">
+														{getDisplayName(cls.grade, cls.class, gradeClasses)}
+													</span>
+
+													<!-- Teacher Select (mobile inline) -->
+													<select
+														value={cls.homeroomTeacherId?.toString() || ''}
+														onchange={(e: Event) => {
+															e.stopPropagation();
+															const target = e.target as HTMLSelectElement;
+															updateTeacher(cls, target.value || undefined);
+														}}
+														onclick={(e) => e.stopPropagation()}
+														aria-label="Teacher for {getDisplayName(
+															cls.grade,
+															cls.class,
+															gradeClasses
+														)}"
+														class="hidden cursor-pointer appearance-none rounded border border-current/20 bg-white/10 px-1.5 font-medium text-current opacity-80 hover:opacity-100 focus:outline-none max-md:inline-block max-md:h-8 max-md:max-h-8 max-md:text-base"
+													>
+														<option value="">- Teacher -</option>
+														{#each teachers as teacher (teacher._id)}
+															<option value={teacher._id}>
+																{teacher.name}
+															</option>
+														{/each}
+													</select>
+
+													<!-- Student Count (inline with class name) -->
+													<Users class="ml-1 size-3 max-md:size-4" /><span
+														class="text-muted-foreground text-xs max-md:text-sm"
+														>{cls.studentCount}</span
+													>
+												</div>
+
+												<!-- Chevron -->
+												{#if collapsedClasses.has(cls._id)}
+													<ChevronRight class="size-3 shrink-0 opacity-60 max-md:size-4" />
+												{:else}
+													<ChevronDown class="size-3 shrink-0 opacity-60 max-md:size-4" />
 												{/if}
-
-												<!-- Class Name -->
-												<span class="text-sm font-semibold">
-													{getDisplayName(cls.grade, cls.class, gradeClasses)}
-												</span>
-
-												<!-- Student Count (inline with class name) -->
-												<Users class="ml-2 size-3" /><span class="text-muted-foreground text-xs"
-													>{cls.studentCount}</span
-												>
 											</div>
 
 											<!-- Delete Button (only for non-protected classes) -->
@@ -453,16 +561,16 @@
 												<Button
 													variant="ghost"
 													size="icon"
-													class="size-4 shrink-0 rounded-none p-0 text-red-500 hover:text-red-600"
+													class="size-4 shrink-0 rounded-none p-0 text-red-500 hover:text-red-600 max-md:size-6"
 													onclick={() => deleteClass(cls)}
 												>
-													<Trash2 class="size-2.5" />
+													<Trash2 class="size-2.5 max-md:size-3.5" />
 												</Button>
 											{/if}
 										</div>
 
-										<!-- Teacher Dropdown (no label) -->
-										<div class="px-1 pb-0.5">
+										<!-- Teacher Dropdown (desktop only) -->
+										<div class="px-1 pb-0.5 max-md:hidden">
 											<NativeSelect.Root
 												value={cls.homeroomTeacherId?.toString() || ''}
 												onchange={(e: Event) => {
@@ -487,20 +595,23 @@
 											</NativeSelect.Root>
 										</div>
 
-										<!-- Student List (shown when global toggle is on) -->
-										{#if globalStudentListsVisible}
-											<div class="border-t text-center" style="background-color:{studentListBg}">
+										<!-- Student List (shown when global toggle is on and class is expanded) -->
+										{#if globalStudentListsVisible && !collapsedClasses.has(cls._id)}
+											<div
+												class="border-t text-center max-md:rounded-b-md max-md:p-3"
+												style="background-color:{studentListBg}"
+											>
 												{#if cls.students && cls.students.length > 0}
-													<div class="flex flex-col gap-0 overflow-y-auto">
+													<div class="flex flex-col gap-0 overflow-y-auto max-md:gap-2">
 														{#each [...cls.students].sort( (a, b) => a.name.localeCompare(b.name) ) as student (student._id)}
 															{@const enrolled = student.status !== 'Not Enrolled'}
-															{@const availableTargets = classesByGrade[cls.grade].filter(
-																(c) => c._id !== cls._id
-															)}
 															<div
 																class={[
-																	!enrolled && 'text-muted-foreground bg-black/10',
-																	'flex items-center gap-1 truncate px-1 py-1 text-xs leading-tight hover:bg-black/5 max-md:gap-2 max-md:py-3 max-md:text-sm'
+																	!enrolled &&
+																		'text-muted-foreground bg-black/10 max-md:bg-gray-100',
+																	enrolled && 'max-md:bg-white',
+																	'flex items-center gap-1 truncate px-1 py-1 text-xs leading-tight hover:bg-black/5',
+																	'max-md:gap-3 max-md:rounded max-md:border max-md:px-3 max-md:py-3 max-md:text-sm max-md:shadow-sm hover:max-md:bg-gray-50'
 																]}
 															>
 																<div
@@ -523,43 +634,28 @@
 																			}
 																		}
 																	}}
-																	class="flex flex-1 items-center gap-1 truncate"
+																	class="flex flex-1 cursor-pointer items-center gap-1 truncate"
 																	role="button"
-																	aria-label="Drag {student.name} to move to another class"
+																	aria-label="Move {student.name} to another class"
 																	tabindex="0"
+																	onclick={() => openMoveDialog(student, cls)}
+																	onkeydown={(e) =>
+																		e.key === 'Enter' && openMoveDialog(student, cls)}
 																>
 																	<GripVertical
-																		class="size-2.5 shrink-0 opacity-40 max-md:size-4"
+																		class="size-2.5 shrink-0 opacity-40 max-md:hidden"
 																	/>
-																	<span class="truncate">{student.name}</span>
+																	<span class="truncate max-md:text-base">{student.name}</span>
 																</div>
-																<select
-																	class="h-4 max-w-14 border-none bg-transparent text-[10px] max-md:h-8 max-md:text-xs md:hidden"
-																	onchange={(e) => {
-																		const val = (e.currentTarget as HTMLSelectElement).value;
-																		if (val) {
-																			moveStudent(
-																				student._id as Id<'students'>,
-																				val as Id<'classes'>
-																			);
-																		}
-																		(e.currentTarget as HTMLSelectElement).value = '';
-																	}}
-																	onpointerdown={(e) => e.stopPropagation()}
-																	aria-label="Move student to another class"
-																>
-																	<option value="">Move to...</option>
-																	{#each availableTargets as target (target._id)}
-																		<option value={target._id}>
-																			{getDisplayName(target.grade, target.class, gradeClasses)}
-																		</option>
-																	{/each}
-																</select>
 															</div>
 														{/each}
 													</div>
 												{:else}
-													<p class="text-muted-foreground px-1 py-0 text-xs italic">--</p>
+													<p
+														class="text-muted-foreground px-1 py-0 text-xs italic max-md:px-2 max-md:py-1 max-md:text-sm"
+													>
+														--
+													</p>
 												{/if}
 											</div>
 										{/if}
@@ -671,4 +767,45 @@
 	<div class="flex justify-end">
 		<Button onclick={() => crossGradeDialogRef?.close()}>OK</Button>
 	</div>
+</dialog>
+
+<!-- Move Student Dialog -->
+<dialog
+	bind:this={moveDialogRef}
+	class="fixed inset-0 m-auto w-full max-w-sm rounded-none border p-4 shadow-lg"
+	onclick={(e) => {
+		if (e.currentTarget === e.target) {
+			closeMoveDialog();
+		}
+	}}
+>
+	{#if moveDialogStudent}
+		{@const s = moveDialogStudent}
+		{@const gradeClasses = classesByGrade[s.grade] || []}
+		{@const currentClass = gradeClasses.find((c) => c._id === s.classId)}
+		{@const targets = gradeClasses.filter((c) => c._id !== s.classId)}
+		<h3 class="mb-2 text-lg font-semibold">Move {s.name}</h3>
+		<p class="text-muted-foreground mb-4 text-sm">
+			Currently in {currentClass
+				? getDisplayName(currentClass.grade, currentClass.class, gradeClasses)
+				: ''}
+		</p>
+		<div class="flex flex-col gap-2">
+			{#each targets as target (target._id)}
+				<Button
+					variant="outline"
+					class="w-full justify-start"
+					onclick={() => {
+						moveStudent(s.id, target._id);
+						closeMoveDialog();
+					}}
+				>
+					{getDisplayName(target.grade, target.class, gradeClasses)}
+				</Button>
+			{/each}
+		</div>
+		<div class="mt-4 flex justify-end">
+			<Button variant="ghost" onclick={closeMoveDialog}>Cancel</Button>
+		</div>
+	{/if}
 </dialog>
