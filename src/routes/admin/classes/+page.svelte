@@ -500,7 +500,7 @@
 															<div
 																class={[
 																	!enrolled && 'text-muted-foreground bg-black/10',
-																	'flex items-center gap-1 truncate px-1 py-1 text-xs leading-tight hover:bg-black/5'
+																	'flex items-center gap-1 truncate px-1 py-1 text-xs leading-tight hover:bg-black/5 max-md:gap-2 max-md:py-3 max-md:text-sm'
 																]}
 															>
 																<div
@@ -528,11 +528,13 @@
 																	aria-label="Drag {student.name} to move to another class"
 																	tabindex="0"
 																>
-																	<GripVertical class="size-2.5 shrink-0 opacity-40" />
+																	<GripVertical
+																		class="size-2.5 shrink-0 opacity-40 max-md:size-4"
+																	/>
 																	<span class="truncate">{student.name}</span>
 																</div>
 																<select
-																	class="h-4 max-w-14 border-none bg-transparent text-[10px] md:hidden"
+																	class="h-4 max-w-14 border-none bg-transparent text-[10px] max-md:h-8 max-md:text-xs md:hidden"
 																	onchange={(e) => {
 																		const val = (e.currentTarget as HTMLSelectElement).value;
 																		if (val) {
@@ -546,7 +548,7 @@
 																	onpointerdown={(e) => e.stopPropagation()}
 																	aria-label="Move student to another class"
 																>
-																	<option value="">Move...</option>
+																	<option value="">Move to...</option>
 																	{#each availableTargets as target (target._id)}
 																		<option value={target._id}>
 																			{getDisplayName(target.grade, target.class, gradeClasses)}

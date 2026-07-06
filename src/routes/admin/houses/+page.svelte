@@ -211,7 +211,7 @@
 											{@const enrolled = student.status !== 'Not Enrolled'}
 											<div
 												class={[
-													'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50',
+													'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 max-md:gap-3 max-md:py-3',
 													!enrolled && 'text-muted-foreground bg-gray-100'
 												]}
 											>
@@ -229,7 +229,7 @@
 													aria-label="Drag {student.englishName} to move to another house"
 													tabindex="0"
 												>
-													<GripVertical class="size-3 shrink-0 text-gray-400" />
+													<GripVertical class="size-3 shrink-0 text-gray-400 max-md:size-4" />
 													<div class="flex min-w-0 flex-1 flex-col">
 														<span class="truncate font-medium">{student.englishName}</span>
 														{#if !enrolled}
@@ -238,7 +238,7 @@
 													</div>
 												</div>
 												<select
-													class="h-5 max-w-14 rounded border border-gray-200 bg-gray-50 px-1 text-[10px] md:hidden"
+													class="h-5 max-w-14 rounded border border-gray-200 bg-gray-50 px-1 text-[10px] max-md:h-8 max-md:px-2 max-md:text-xs md:hidden"
 													onchange={(e) => {
 														const val = (e.currentTarget as HTMLSelectElement).value;
 														if (val === '__unassign') {
@@ -251,7 +251,7 @@
 													onpointerdown={(e) => e.stopPropagation()}
 													aria-label="Move student to another house"
 												>
-													<option value="">Move...</option>
+													<option value="">Move to...</option>
 													{#each HOUSES.filter((h) => h !== house) as targetHouse (targetHouse)}
 														<option value={targetHouse}>{targetHouse}</option>
 													{/each}
@@ -325,7 +325,7 @@
 										{@const enrolled = student.status !== 'Not Enrolled'}
 										<div
 											class={[
-												'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50',
+												'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 max-md:gap-3 max-md:py-3',
 												!enrolled && 'text-muted-foreground bg-gray-100'
 											]}
 										>
@@ -343,7 +343,7 @@
 												aria-label="Drag {student.englishName} to assign to a house"
 												tabindex="0"
 											>
-												<GripVertical class="size-3 shrink-0 text-gray-400" />
+												<GripVertical class="size-3 shrink-0 text-gray-400 max-md:size-4" />
 												<div class="flex min-w-0 flex-1 flex-col">
 													<span class="truncate font-medium">{student.englishName}</span>
 													{#if !enrolled}
@@ -352,7 +352,7 @@
 												</div>
 											</div>
 											<select
-												class="h-5 max-w-14 rounded border border-gray-200 bg-gray-50 px-1 text-[10px] md:hidden"
+												class="h-5 max-w-14 rounded border border-gray-200 bg-gray-50 px-1 text-[10px] max-md:h-8 max-md:px-2 max-md:text-xs md:hidden"
 												onchange={(e) => {
 													const val = (e.currentTarget as HTMLSelectElement).value;
 													if (val) {
@@ -363,7 +363,7 @@
 												onpointerdown={(e) => e.stopPropagation()}
 												aria-label="Assign student to a house"
 											>
-												<option value="">Move...</option>
+												<option value="">Move to...</option>
 												{#each HOUSES as house (house)}
 													<option value={house}>{house}</option>
 												{/each}
