@@ -33,11 +33,8 @@
 		data = {}
 	}: {
 		children: Snippet;
-		data?: { authState?: { isAuthenticated: boolean }; demo?: string };
+		data?: { authState?: { isAuthenticated: boolean } };
 	} = $props();
-
-	// Check if we're in demo mode
-	const isDemo = $derived(!!data.demo);
 
 	if (browser) {
 		const externalSession = (() => {
@@ -74,11 +71,9 @@
 		void goto('/login');
 	}
 
-	const user = useQuery(api.users.viewer, () => (isDemo ? 'skip' : {}));
+	const user = useQuery(api.users.viewer, () => ({}));
 
 	const shouldShowModal = $derived.by(() => {
-		// Skip modal check in demo mode
-		if (isDemo) return false;
 		if (!$page.url.pathname || $page.url.pathname === '/login' || $page.url.pathname === '/') {
 			return false;
 		}

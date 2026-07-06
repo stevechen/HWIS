@@ -7,19 +7,6 @@
 	import * as Table from '$lib/components/ui/table';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 
-	let { data }: { data: { demoMode?: boolean } } = $props();
-
-	let isDemoMode = $state(false);
-	$effect(() => {
-		if (data.demoMode === true) {
-			isDemoMode = true;
-			return;
-		}
-		if (!browser) return;
-		const url = new URL(window.location.href);
-		isDemoMode = url.searchParams.get('demo') === 'true';
-	});
-
 	let dialogElement: HTMLDialogElement | undefined = $state();
 	let selectedReport = $state<{
 		weekNumber: number;
@@ -36,235 +23,17 @@
 	const weeklyLookbackMs = 52 * 7 * 24 * 60 * 60 * 1000;
 	const sinceTimestamp = Date.now() - weeklyLookbackMs;
 
-	const demoReports = [
-		{
-			weekNumber: 3,
-			fridayDate: 1737062400000,
-			formattedDate: 'Jan 13 - Jan 17, 2025',
-			studentCount: 3
-		},
-		{
-			weekNumber: 2,
-			fridayDate: 1736457600000,
-			formattedDate: 'Jan 06 - Jan 10, 2025',
-			studentCount: 5
-		},
-		{
-			weekNumber: 1,
-			fridayDate: 1735852800000,
-			formattedDate: 'Dec 30 - Jan 03, 2025',
-			studentCount: 4
-		}
-	];
-
-	const demoStudentsWeek3 = [
-		{
-			studentId: 'STU001',
-			englishName: 'John Doe',
-			chineseName: '張三',
-			grade: 10,
-			pointsByCategory: {
-				Creativity: 3,
-				Activity: -1,
-				Service: 2,
-				Academic: 5,
-				"Parents' Day": 1,
-				'Other Issues': 0
-			},
-			totalPoints: 10
-		},
-		{
-			studentId: 'STU002',
-			englishName: 'Jane Doe',
-			chineseName: '李四',
-			grade: 11,
-			pointsByCategory: {
-				Creativity: 1,
-				Activity: 2,
-				Service: 0,
-				Academic: 8,
-				"Parents' Day": -1,
-				'Other Issues': -2
-			},
-			totalPoints: 8
-		},
-		{
-			studentId: 'STU003',
-			englishName: 'Alex Smith',
-			chineseName: '王五',
-			grade: 9,
-			pointsByCategory: {
-				Creativity: 4,
-				Activity: 1,
-				Service: 6,
-				Academic: 2,
-				"Parents' Day": 0,
-				'Other Issues': 1
-			},
-			totalPoints: 14
-		}
-	];
-
-	const demoStudentsWeek2 = [
-		{
-			studentId: 'STU001',
-			englishName: 'John Doe',
-			chineseName: '張三',
-			grade: 10,
-			pointsByCategory: {
-				Creativity: 2,
-				Activity: 3,
-				Service: 1,
-				Academic: 4,
-				"Parents' Day": 0,
-				'Other Issues': -1
-			},
-			totalPoints: 9
-		},
-		{
-			studentId: 'STU002',
-			englishName: 'Jane Doe',
-			chineseName: '李四',
-			grade: 11,
-			pointsByCategory: {
-				Creativity: 5,
-				Activity: 2,
-				Service: 3,
-				Academic: 6,
-				"Parents' Day": 1,
-				'Other Issues': 0
-			},
-			totalPoints: 17
-		},
-		{
-			studentId: 'STU003',
-			englishName: 'Alex Smith',
-			chineseName: '王五',
-			grade: 9,
-			pointsByCategory: {
-				Creativity: 1,
-				Activity: 0,
-				Service: 5,
-				Academic: 3,
-				"Parents' Day": -1,
-				'Other Issues': 2
-			},
-			totalPoints: 10
-		},
-		{
-			studentId: 'STU004',
-			englishName: 'Emma Wilson',
-			chineseName: '陳小明',
-			grade: 10,
-			pointsByCategory: {
-				Creativity: 3,
-				Activity: 4,
-				Service: 2,
-				Academic: 7,
-				"Parents' Day": 2,
-				'Other Issues': -1
-			},
-			totalPoints: 17
-		},
-		{
-			studentId: 'STU005',
-			englishName: 'Michael Brown',
-			chineseName: '林小華',
-			grade: 12,
-			pointsByCategory: {
-				Creativity: 4,
-				Activity: 3,
-				Service: 2,
-				Academic: 8,
-				"Parents' Day": 0,
-				'Other Issues': 1
-			},
-			totalPoints: 18
-		}
-	];
-
-	const demoStudentsWeek1 = [
-		{
-			studentId: 'STU002',
-			englishName: 'Jane Doe',
-			chineseName: '李四',
-			grade: 11,
-			pointsByCategory: {
-				Creativity: 2,
-				Activity: 1,
-				Service: 0,
-				Academic: 5,
-				"Parents' Day": 0,
-				'Other Issues': -2
-			},
-			totalPoints: 6
-		},
-		{
-			studentId: 'STU003',
-			englishName: 'Alex Smith',
-			chineseName: '王五',
-			grade: 9,
-			pointsByCategory: {
-				Creativity: 3,
-				Activity: 2,
-				Service: 4,
-				Academic: 1,
-				"Parents' Day": 1,
-				'Other Issues': 0
-			},
-			totalPoints: 11
-		},
-		{
-			studentId: 'STU004',
-			englishName: 'Emma Wilson',
-			chineseName: '陳小明',
-			grade: 10,
-			pointsByCategory: {
-				Creativity: 1,
-				Activity: 0,
-				Service: 3,
-				Academic: 4,
-				"Parents' Day": 0,
-				'Other Issues': -3
-			},
-			totalPoints: 5
-		},
-		{
-			studentId: 'STU006',
-			englishName: 'Sarah Davis',
-			chineseName: '黃小美',
-			grade: 9,
-			pointsByCategory: {
-				Creativity: 4,
-				Activity: 3,
-				Service: 2,
-				Academic: 6,
-				"Parents' Day": 1,
-				'Other Issues': 0
-			},
-			totalPoints: 16
-		}
-	];
-
 	let reportsQuery = useQuery(api.evaluations.getWeeklyReportsList, () => ({
 		sinceTimestamp
 	}));
 
 	const detailData = useQuery(api.evaluations.getWeeklyReportDetail, () =>
-		isDemoMode || !selectedReport ? 'skip' : { fridayDate: selectedReport.fridayDate }
+		!selectedReport ? 'skip' : { fridayDate: selectedReport.fridayDate }
 	);
 
-	let reports = $derived(isDemoMode ? demoReports : reportsQuery.data || []);
+	let reports = $derived(reportsQuery.data || []);
 
-	let allStudents = $derived(
-		isDemoMode
-			? selectedReport?.weekNumber === 3
-				? demoStudentsWeek3
-				: selectedReport?.weekNumber === 2
-					? demoStudentsWeek2
-					: demoStudentsWeek1
-			: (detailData?.data ?? [])
-	);
+	let allStudents = $derived(detailData?.data ?? []);
 
 	let availableGrades = $derived(
 		Array.from(new Set(allStudents.map((s) => (s as { grade: number }).grade))).sort(
@@ -320,25 +89,14 @@
 		return result;
 	});
 
-	const categories = [
-		'Creativity',
-		'Activity',
-		'Service',
-		'Academic',
-		"Parents' Day",
-		'Other Issues'
-	];
-
 	let categoryColumns = $derived(
-		isDemoMode
-			? categories
-			: Array.from(
-					new Set(
-						allStudents.flatMap((s: { pointsByCategory: Record<string, number> }) =>
-							Object.keys(s.pointsByCategory)
-						)
-					)
-				).sort()
+		Array.from(
+			new Set(
+				allStudents.flatMap((s: { pointsByCategory: Record<string, number> }) =>
+					Object.keys(s.pointsByCategory)
+				)
+			)
+		).sort()
 	);
 
 	function openReport(report: typeof selectedReport) {
@@ -372,13 +130,7 @@
 	}
 
 	function exportToExcel() {
-		const students = isDemoMode
-			? selectedReport?.weekNumber === 3
-				? demoStudentsWeek3
-				: selectedReport?.weekNumber === 2
-					? demoStudentsWeek2
-					: demoStudentsWeek1
-			: (detailData?.data ?? []);
+		const students = detailData?.data ?? [];
 		if (!students.length) return;
 
 		const headers = ['Student ID', 'English Name', 'Chinese Name', 'Grade', 'Total Points'];
@@ -433,18 +185,11 @@
 
 <div class="bg-background min-h-screen">
 	<main class="mx-auto px-4 py-6 sm:px-6 lg:px-8" aria-label="Weekly Reports">
-		{#if isDemoMode}
-			<div class="mb-4 flex justify-end">
-				<span class="rounded bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
-					Demo Mode
-				</span>
-			</div>
-		{/if}
-		{#if !isDemoMode && reportsQuery.isLoading}
+		{#if reportsQuery.isLoading}
 			<div class="flex items-center justify-center py-12" role="status" aria-live="polite">
 				<p class="text-muted-foreground">Loading reports...</p>
 			</div>
-		{:else if !isDemoMode && reportsQuery.error}
+		{:else if reportsQuery.error}
 			<div class="flex items-center justify-center py-12" role="alert">
 				<p class="text-red-500">
 					Error loading reports: {import.meta.env.DEV
@@ -548,11 +293,11 @@
 			</div>
 
 			<div class="flex-1 overflow-auto" role="region" aria-label="Student details table">
-				{#if !isDemoMode && detailData?.isLoading}
+				{#if detailData?.isLoading}
 					<div class="flex items-center justify-center py-8" role="status" aria-live="polite">
 						<p class="text-muted-foreground">Loading details...</p>
 					</div>
-				{:else if !isDemoMode && detailData?.error}
+				{:else if detailData?.error}
 					<div class="flex items-center justify-center py-8" role="alert">
 						<p class="text-red-500">Error loading details</p>
 					</div>

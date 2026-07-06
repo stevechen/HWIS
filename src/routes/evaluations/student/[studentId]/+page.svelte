@@ -32,24 +32,16 @@
 	import LogoIxbalam from '$lib/components/LogoIxbalam.svelte';
 	import LogoSetna from '$lib/components/LogoSetna.svelte';
 
-	let { data }: { data: { demo?: string; studentId?: string } } = $props();
-
-	// Demo mode flags
-	const isDemo = $derived(!!data.demo);
-	const demoRole = $derived(data.demo || 'teacher');
+	let { data }: { data: { studentId?: string } } = $props();
 
 	// Fetch user to check role (always call useQuery at top level)
-	const userQuery = useQuery(api.users.viewer, () => (isDemo ? 'skip' : {}));
+	const userQuery = useQuery(api.users.viewer, () => ({}));
 
 	// Fetch all categories for radar chart
-	// Note: In demo mode, we use demoCategories instead (see radarCategories derived below)
-	const categoriesQuery = useQuery(api.categories.list, () => (isDemo ? 'skip' : {}));
+	const categoriesQuery = useQuery(api.categories.list, () => ({}));
 
 	// Determine if user is admin
 	const isAdmin = $derived.by(() => {
-		if (isDemo) {
-			return demoRole === 'admin' || demoRole === 'super';
-		}
 		if (!userQuery.isLoading && userQuery.data?.role) {
 			return userQuery.data.role === 'admin' || userQuery.data.role === 'super';
 		}
@@ -58,9 +50,6 @@
 
 	// Determine if user is a teacher (not admin, not super)
 	const isTeacher = $derived.by(() => {
-		if (isDemo) {
-			return demoRole === 'teacher';
-		}
 		if (!userQuery.isLoading && userQuery.data?.role) {
 			return userQuery.data.role === 'teacher';
 		}
@@ -69,9 +58,6 @@
 
 	// Determine if user is a student
 	const isStudent = $derived.by(() => {
-		if (isDemo) {
-			return demoRole === 'student';
-		}
 		if (!userQuery.isLoading && userQuery.data?.role) {
 			return userQuery.data.role === 'student';
 		}
@@ -80,7 +66,6 @@
 
 	// Get student's enrollment status
 	const enrollmentStatus = $derived.by(() => {
-		if (isDemo) return 'Enrolled';
 		const data = userQuery.data as { enrollmentStatus?: string } | undefined;
 		if (data?.enrollmentStatus) {
 			return data.enrollmentStatus;
@@ -93,22 +78,8 @@
 		return enrollmentStatus === 'Enrolled';
 	});
 
-	// Demo user ID for demo mode (used for ownership check)
-	const demoUserId = 'demo-user-id';
-
 	// Current user ID for ownership check
-	const currentUserId = $derived(isDemo ? demoUserId : userQuery.data?._id);
-
-	// Demo student data
-	const demoStudent = {
-		_id: 'demo-student-id',
-		englishName: 'John Smith',
-		chineseName: '張約翰',
-		studentId: 'SE2024001',
-		grade: 10,
-		classSection: 'A',
-		house: 'Wukong'
-	};
+	const currentUserId = $derived(userQuery.data?._id);
 
 	// House logos mapping
 	const houseLogos: Record<string, HouseLogoComponent> = {
@@ -120,67 +91,9 @@
 
 	// Get student's house
 	const studentHouse = $derived.by(() => {
-		if (isDemo) return demoStudent.house;
 		const s = student as { house?: string } | undefined;
 		return s?.house || null;
 	});
-
-	// Demo evaluation data with teacherId for ownership check
-	// Note: Categories are intentionally hardcoded to show variety across different categories for demo purposes.
-	// This differs from real mode which pulls categories from the database.
-	const demoEvaluations: EvaluationEntry[] = [
-		{
-			_id: 'eval-1',
-			value: 5,
-			category: 'Responsibility',
-			details: 'Excellent homework submission - all problems solved correctly',
-			timestamp: Date.now() - 1000 * 60 * 60 * 24,
-			teacherName: 'Ms. Johnson',
-			teacherId: demoUserId,
-			isAdmin: false
-		},
-		{
-			_id: 'eval-2',
-			value: -3,
-			category: 'Responsibility',
-			details: 'Arrived 15 minutes late to class without permission',
-			timestamp: Date.now() - 1000 * 60 * 60 * 48,
-			teacherName: 'Mr. Smith',
-			teacherId: 'other-teacher-id',
-			isAdmin: false
-		},
-		{
-			_id: 'eval-3',
-			value: 10,
-			category: 'Excellence',
-			details: 'Outstanding performance on midterm exam - scored 95%',
-			timestamp: Date.now() - 1000 * 60 * 60 * 72,
-			teacherName: 'Ms. Johnson',
-			teacherId: demoUserId,
-			isAdmin: false
-		},
-		{
-			_id: 'admin-eval-1',
-			value: 15,
-			category: 'Excellence',
-			details: 'Student of the Month Award',
-			timestamp: Date.now() - 1000 * 60 * 60 * 6,
-			teacherName: 'Admin',
-			teacherId: 'admin-user-id',
-			isAdmin: true
-		}
-	];
-
-	// Demo categories - ordered to match the standard category order
-	const demoCategories = [
-		{ _id: 'cat-1', name: 'Responsibility' },
-		{ _id: 'cat-2', name: 'Excellence' },
-		{ _id: 'cat-3', name: 'Service' },
-		{ _id: 'cat-4', name: 'Persistence' },
-		{ _id: 'cat-5', name: 'Enthusiasm' },
-		{ _id: 'cat-6', name: 'Collaboration' },
-		{ _id: 'cat-7', name: 'Timeliness' }
-	];
 
 	// Check if studentId is a Convex ID (format: tableName:hexString)
 	// Convex IDs look like "students:abc123def456" or similar
@@ -197,31 +110,31 @@
 	// Real Convex queries - support both Convex ID and custom studentId code
 	// Use 'skip' pattern for conditional queries - always call useQuery at top level
 	const studentQueryById = useQuery(api.evaluations.getStudent, () =>
-		isDemo || !useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
+		!useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
 	);
 	const studentQueryByCode = useQuery(api.evaluations.getStudentByStudentIdCode, () =>
-		isDemo || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId }
+		useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId }
 	);
 
 	const teacherEvalsQueryById = useQuery(api.evaluations.getStudentEvaluationsByTeacher, () =>
-		isDemo || isAdmin || !useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
+		isAdmin || !useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
 	);
 	const teacherEvalsQueryByCode = useQuery(
 		api.evaluations.getStudentEvaluationsByTeacherByStudentIdCode,
-		() => (isDemo || isAdmin || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId })
+		() => (isAdmin || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId })
 	);
 
 	const allEvalsQueryById = useQuery(api.evaluations.getStudentEvaluationsAll, () =>
-		isDemo || !isAdmin || !useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
+		!isAdmin || !useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
 	);
 	const allEvalsQueryByCode = useQuery(
 		api.evaluations.getStudentEvaluationsAllByStudentIdCode,
-		() => (isDemo || !isAdmin || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId })
+		() => (!isAdmin || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId })
 	);
 
 	// Student-specific anonymous evaluation query (no teacher names)
 	const studentAnonymousEvalsQuery = useQuery(api.evaluations.getStudentEvaluationsAnonymous, () =>
-		isDemo || !isStudent ? 'skip' : {}
+		!isStudent ? 'skip' : {}
 	);
 
 	// Derived values to get the active query data
@@ -231,16 +144,10 @@
 	);
 	const allEvalsQuery = $derived(useConvexIdQuery ? allEvalsQueryById : allEvalsQueryByCode);
 
-	const student = $derived.by(() => {
-		if (isDemo) return demoStudent;
-		return studentQuery.data;
-	});
+	const student = $derived(studentQuery.data);
 
 	// Get evaluations data
 	const evaluations = $derived.by(() => {
-		if (isDemo) {
-			return isAdmin ? demoEvaluations : demoEvaluations.filter((e) => !e.isAdmin);
-		}
 		// Student view: anonymous evaluations (no teacher names)
 		if (isStudent) {
 			if (studentAnonymousEvalsQuery.isLoading) return [];
@@ -309,14 +216,7 @@
 		const categories: string[] = [];
 
 		// Get categories from all available sources
-		if (isDemo) {
-			// Demo mode: use demo categories
-			for (const cat of demoCategories) {
-				if (cat.name && !categories.includes(cat.name)) {
-					categories.push(cat.name);
-				}
-			}
-		} else if (categoriesQuery.data) {
+		if (categoriesQuery.data) {
 			// Real mode: use all categories from the database
 			for (const cat of categoriesQuery.data) {
 				if (cat.name && !categories.includes(cat.name)) {
@@ -409,10 +309,6 @@
 	});
 
 	function canEditEntry(entry: EvaluationEntry): boolean {
-		if (isDemo) {
-			// In demo mode, allow editing all entries for testing
-			return true;
-		}
 		return entry.teacherId === currentUserId;
 	}
 
@@ -454,7 +350,6 @@
 
 	// Determine loading state
 	const isLoading = $derived.by(() => {
-		if (isDemo) return false;
 		if (userQuery.isLoading) return true;
 		if (studentQuery.isLoading) return true;
 		if (isStudent && studentAnonymousEvalsQuery.isLoading) return true;
@@ -486,16 +381,6 @@
 <svelte:window onscroll={handleScroll} />
 
 <div class="mx-auto flex min-h-screen max-w-6xl flex-col p-8">
-	{#if isDemo}
-		<div class="mb-6">
-			<span
-				class="rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
-			>
-				DEMO MODE ({demoRole.toUpperCase()})
-			</span>
-		</div>
-	{/if}
-
 	<!-- Loading State -->
 	{#if isLoading}
 		<EvaluationsLoadingState message={loadingMessage} />
@@ -651,8 +536,7 @@
 		selectedEvaluation = null;
 	}}
 	onDelete={handleDeleteRequest}
-	{isDemo}
 />
 
 <!-- Delete Confirmation Dialog -->
-<DeleteEvaluationDialog bind:open={deleteDialogOpen} evaluation={selectedEvaluation} {isDemo} />
+<DeleteEvaluationDialog bind:open={deleteDialogOpen} evaluation={selectedEvaluation} />

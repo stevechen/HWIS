@@ -94,20 +94,6 @@ describe('Evaluation Dialogs', () => {
 			});
 		});
 
-		describe('Demo Mode', () => {
-			it('closes dialog without mutation in demo mode', async () => {
-				render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation, isDemo: true });
-				await page.getByRole('button', { name: 'Delete' }).click();
-				expect(mockMutation).not.toHaveBeenCalled();
-			});
-
-			it('closes dialog in demo mode', async () => {
-				render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation, isDemo: true });
-				await page.getByRole('button', { name: 'Delete' }).click();
-				await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
-			});
-		});
-
 		describe('Accessibility', () => {
 			it('dialog has accessible name', async () => {
 				render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
@@ -254,20 +240,6 @@ describe('Evaluation Dialogs', () => {
 				});
 				await page.getByRole('button', { name: 'Delete' }).click();
 				expect(onDelete).toHaveBeenCalled();
-			});
-		});
-
-		describe('Demo Mode', () => {
-			it('closes dialog without mutation in demo mode', async () => {
-				render(EditEvaluationDialog, {
-					open: true,
-					evaluation: mockEvaluation,
-					onClose: vi.fn(),
-					onDelete: vi.fn(),
-					isDemo: true
-				});
-				await page.getByRole('button', { name: 'Save Changes' }).click();
-				expect(mockMutation).not.toHaveBeenCalled();
 			});
 		});
 

@@ -12,10 +12,9 @@
 		evaluation: EvaluationEntry | null;
 		onClose: () => void;
 		onDelete: () => void;
-		isDemo?: boolean;
 	}
 
-	let { open = $bindable(), evaluation, onClose, onDelete, isDemo = false }: Props = $props();
+	let { open = $bindable(), evaluation, onClose, onDelete }: Props = $props();
 
 	const client = useConvexClient();
 	const categoriesQuery = useQuery(api.categories.list, () => ({}));
@@ -40,17 +39,13 @@
 
 		editLoading = true;
 		try {
-			if (isDemo) {
-				open = false;
-			} else {
-				await client.mutation(api.evaluations.update, {
-					id: evaluation._id as Id<'evaluations'>,
-					value: editValue,
-					categoryId: editCategoryId as Id<'point_categories'>,
-					details: editDetails
-				});
-				open = false;
-			}
+			await client.mutation(api.evaluations.update, {
+				id: evaluation._id as Id<'evaluations'>,
+				value: editValue,
+				categoryId: editCategoryId as Id<'point_categories'>,
+				details: editDetails
+			});
+			open = false;
 		} finally {
 			editLoading = false;
 		}

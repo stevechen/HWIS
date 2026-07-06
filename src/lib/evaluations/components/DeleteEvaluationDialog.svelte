@@ -9,25 +9,20 @@
 	interface Props {
 		open: boolean;
 		evaluation: EvaluationEntry | null;
-		isDemo?: boolean;
 		onDelete?: () => void;
 	}
 
-	let { open = $bindable(), evaluation, isDemo = false, onDelete }: Props = $props();
+	let { open = $bindable(), evaluation, onDelete }: Props = $props();
 
 	const client = useConvexClient();
 
 	async function handleDelete(): Promise<void> {
 		if (!evaluation) return;
 
-		if (isDemo) {
-			open = false;
-		} else {
-			await client.mutation(api.evaluations.remove, {
-				id: evaluation._id as Id<'evaluations'>
-			});
-			open = false;
-		}
+		await client.mutation(api.evaluations.remove, {
+			id: evaluation._id as Id<'evaluations'>
+		});
+		open = false;
 		onDelete?.();
 	}
 </script>

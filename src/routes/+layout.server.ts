@@ -15,20 +15,16 @@ export const load = async ({
 	const isLoginPage = url.pathname === '/login';
 	const authState = await getAuthState(createAuth, cookies);
 
-	// Check for demo mode (skip auth for demo)
-	const isDemoMode = url.searchParams.has('demo');
-
 	// Redirect logic for SSR protection
 	const isAuthenticated = !!locals.token || authState.isAuthenticated;
 
-	if (!isAuthenticated && !isLoginPage && !isDemoMode) {
+	if (!isAuthenticated && !isLoginPage) {
 		const callbackUrl = `${url.pathname}${url.search}`;
 		const redirectTo = `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`;
 		throw redirect(302, redirectTo);
 	}
 
 	return {
-		authState,
-		demo: url.searchParams.get('demo') || undefined
+		authState
 	};
 };

@@ -30,12 +30,12 @@ describe('Weekly Reports Page', () => {
 	});
 
 	it('renders main element with aria-label', async () => {
-		render(WeeklyReportsPage, { data: { demoMode: false } });
+		render(WeeklyReportsPage, { data: {} });
 		await expect.element(page.getByRole('main', { name: 'Weekly Reports' })).toBeInTheDocument();
 	});
 
 	it('shows empty state when no reports available', async () => {
-		render(WeeklyReportsPage, { data: { demoMode: false } });
+		render(WeeklyReportsPage, { data: {} });
 		await expect.element(page.getByText('No weekly reports available yet.')).toBeInTheDocument();
 	});
 });
