@@ -1049,4 +1049,54 @@ describe('backup clearing logic', () => {
 		expect(backupData.houseEvents).toHaveLength(1);
 		expect(backupData.houseEvents[0].title).toBe('Advance Backup Test');
 	});
+
+	test('advanceGradesAndClearEvaluations clears homeroom teacher on existing classes', async () => {
+		const t = convexTest(schema, modules);
+
+		const teacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'teacher-auth-id',
+				name: 'Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		// Create existing target class at grade 8 with a homeroom teacher assigned
+		const class8Id = await t.run(async (ctx) => {
+			return await ctx.db.insert('classes', {
+				grade: 8,
+				class: '1',
+				homeroomTeacherId: teacherId
+			});
+		});
+
+		// Create student at grade 7 who will advance into that class
+		await createStudentWithClass(t, {
+			englishName: 'Advancing Student',
+			chineseName: '升級學生',
+			studentId: 'STU100',
+			grade: 7,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		// Run the mutation
+		await t.mutation(api.backup.advanceGradesAndClearEvaluations, {});
+
+		// Verify the homeroom teacher was cleared
+		const classes = await t.run(async (ctx) => {
+			return await ctx.db.query('classes').collect();
+		});
+
+		const grade8Class = classes.find((c) => c._id === class8Id);
+		expect(grade8Class).toBeDefined();
+		expect(grade8Class!.homeroomTeacherId).toBeUndefined();
+
+		// Verify the teacher user still exists (only class assignment was cleared)
+		const users = await t.run(async (ctx) => {
+			return await ctx.db.query('users').collect();
+		});
+		expect(users.find((u) => u._id === teacherId)).toBeDefined();
+	});
 });

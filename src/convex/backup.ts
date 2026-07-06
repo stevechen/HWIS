@@ -432,6 +432,15 @@ export const advanceGradesAndClearEvaluations = mutation({
 			}
 		}
 
+		// Clear homeroom teacher assignments on all classes — they change yearly
+		// and admins prefer to reassign them each year after grade migration.
+		const allClassesAfterAdvance = await ctx.db.query('classes').collect();
+		for (const cls of allClassesAfterAdvance) {
+			if (cls.homeroomTeacherId !== undefined) {
+				await ctx.db.patch(cls._id, { homeroomTeacherId: undefined });
+			}
+		}
+
 		// Remove empty classes (no student references them), but never remove
 		// IB classes at grades 11 and 12 — those are kept for future planning.
 		const remainingStudents = await ctx.db.query('students').collect();
