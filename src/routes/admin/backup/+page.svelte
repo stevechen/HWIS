@@ -97,7 +97,7 @@
 	}
 </script>
 
-<div class="bg-background min-h-screen">
+<div class="bg-background min-h-dvh overflow-x-hidden">
 	<main class="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
 		<div class="grid gap-6">
 			<Card.Root>
@@ -148,14 +148,16 @@
 						<div class="space-y-2">
 							{#each backupsQuery.data ?? [] as backup (backup._id)}
 								{@const data = backup.data}
-								<div class="flex items-center justify-between rounded-lg border p-4">
-									<div>
-										<p class="font-medium">{backup.filename}</p>
+								<div
+									class="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
+								>
+									<div class="min-w-0">
+										<p class="truncate font-medium">{backup.filename}</p>
 										<p class="text-muted-foreground text-sm">
 											{formatDate(backup.createdAt)} - {data?.students?.length ?? 0} students
 										</p>
 									</div>
-									<div class="flex gap-2">
+									<div class="flex flex-wrap gap-2">
 										<Button variant="outline" size="sm" onclick={() => handleDownload(backup)}>
 											<Download class="mr-1 h-4 w-4" /> Download
 										</Button>
