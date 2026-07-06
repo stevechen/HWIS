@@ -7,6 +7,8 @@
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { onMount } from 'svelte';
+	import { draggable, dropZone, dragState } from '$lib/utils/dnd.svelte';
+	import type { DragData } from '$lib/utils/dnd.svelte';
 
 	// Client-side helper functions (duplicated from classes.ts for client use)
 	function getDisplayName(grade: number, className: string, gradeClasses?: ClassRecord[]): string {
@@ -124,6 +126,14 @@
 		}
 	});
 
+	async function moveStudent(studentId: Id<'students'>, targetClassId: Id<'classes'>) {
+		try {
+			await client.mutation(api.classes.moveStudent, { studentId, targetClassId });
+		} catch (e) {
+			window.alert(e instanceof Error ? e.message : 'Failed to move student');
+		}
+	}
+
 	// State for visible grades (default all grades visible)
 	let visibleGrades = new SvelteSet([7, 8, 9, 10, 11, 12]);
 
@@ -142,19 +152,6 @@
 	// Warning dialog state
 	let warningDialogRef = $state<HTMLDialogElement | null>(null);
 	let warningClass = $state<ClassRecord | null>(null);
-
-	// Grade error dialog state
-	let gradeErrorDialogRef = $state<HTMLDialogElement | null>(null);
-	let gradeErrorMessage = $state('');
-
-	// Drag and drop state
-	let draggedStudent = $state<{
-		id: string;
-		name: string;
-		sourceClassId: string;
-		grade: number;
-	} | null>(null);
-	let dragOverClassId = $state<string | null>(null);
 
 	const grades = [7, 8, 9, 10, 11, 12];
 
@@ -290,73 +287,6 @@
 			window.alert(e instanceof Error ? e.message : 'Failed to delete class');
 		}
 	}
-
-	// Drag and drop handlers
-	function handleDragStart(
-		e: DragEvent,
-		student: { _id: string; name: string },
-		sourceClassId: string,
-		grade: number
-	) {
-		draggedStudent = { id: student._id, name: student.name, sourceClassId, grade };
-		if (e.dataTransfer) {
-			e.dataTransfer.effectAllowed = 'move';
-			e.dataTransfer.setData('text/plain', student._id);
-		}
-	}
-
-	function handleDragEnd() {
-		draggedStudent = null;
-		dragOverClassId = null;
-	}
-
-	function handleDragOver(e: DragEvent, targetClassId: string, targetGrade: number) {
-		e.preventDefault();
-		if (!draggedStudent) return;
-
-		// Only allow dropping on classes in the same grade
-		if (draggedStudent.grade === targetGrade && draggedStudent.sourceClassId !== targetClassId) {
-			dragOverClassId = targetClassId;
-			if (e.dataTransfer) {
-				e.dataTransfer.dropEffect = 'move';
-			}
-		}
-	}
-
-	function handleDragLeave() {
-		dragOverClassId = null;
-	}
-
-	async function handleDrop(e: DragEvent, targetClassId: string, targetGrade: number) {
-		e.preventDefault();
-		dragOverClassId = null;
-
-		if (!draggedStudent) return;
-
-		// Verify same grade
-		if (draggedStudent.grade !== targetGrade) {
-			gradeErrorMessage = `Cannot move student from Grade ${draggedStudent.grade} to Grade ${targetGrade}. Students can only be moved between classes in the same grade.`;
-			gradeErrorDialogRef?.showModal();
-			return;
-		}
-
-		// Don't drop on same class
-		if (draggedStudent.sourceClassId === targetClassId) {
-			return;
-		}
-
-		try {
-			await client.mutation(api.classes.moveStudent, {
-				studentId: draggedStudent.id as Id<'students'>,
-				targetClassId: targetClassId as Id<'classes'>
-			});
-			// Convex reactivity will automatically update the UI
-		} catch (e) {
-			window.alert(e instanceof Error ? e.message : 'Failed to move student');
-		}
-
-		draggedStudent = null;
-	}
 </script>
 
 <div class="space-y-2">
@@ -403,7 +333,7 @@
 	{:else if classesQuery.error}
 		<div class="py-4 text-center text-sm text-red-500">Error loading classes</div>
 	{:else}
-		<div class="flex flex-wrap gap-x-0 gap-y-2">
+		<div class="flex flex-col gap-2 md:flex-row md:flex-wrap md:gap-0">
 			{#each grades as grade (grade)}
 				{@const gradeClasses = classesByGrade[grade] || []}
 				{@const totalStudents = gradeClasses.reduce((sum, c) => sum + c.studentCount, 0)}
@@ -411,7 +341,7 @@
 				{@const ibHasStudents = hasIBStudents(grade)}
 				{@const shouldShowIB = ibHasStudents || ibVisibleGrades.has(grade)}
 				{#if isGradeVisible}
-					<div class="border-0 border-gray-200">
+					<div class="w-full border-0 border-gray-200 md:w-auto">
 						<!-- Grade Header -->
 						<div
 							class="bg-muted/30 last-border-r-none flex items-center justify-between border-r border-b border-r-gray-300 px-1 py-0.5"
@@ -454,11 +384,10 @@
 						</div>
 
 						<!-- Classes List -->
-						<div class="flex flex-row flex-wrap gap-0">
+						<div class="flex flex-col gap-0 md:flex-row md:flex-wrap">
 							{#each gradeClasses as cls (cls._id)}
 								{@const isIBClass = cls.class === 'IB'}
 								{@const shouldRenderClass = !isIBClass || shouldShowIB}
-								{@const isDragOver = dragOverClassId === cls._id}
 								{#if shouldRenderClass}
 									{@const cardBg = getClassBackgroundStyle(
 										cls.grade,
@@ -470,16 +399,24 @@
 										cls.class,
 										gradeClasses.length
 									)}
+									{@const isDragOver = dragState.activeDropZoneId === cls._id}
 									<div
 										class={[
-											'border-b-none flex min-w-25 flex-1 flex-col gap-0 border-r p-0 transition-all',
+											'border-b-none flex w-full flex-col gap-0 border-r p-0 transition-all md:min-w-25 md:flex-1',
 											isDragOver && 'scale-[1.02] ring-2 ring-blue-500 ring-inset'
 										]}
 										role="region"
 										aria-label="Class {getDisplayName(cls.grade, cls.class, gradeClasses)}"
-										ondragover={(e) => handleDragOver(e, cls._id, cls.grade)}
-										ondragleave={handleDragLeave}
-										ondrop={(e) => handleDrop(e, cls._id, cls.grade)}
+										use:dropZone={{
+											id: cls._id,
+											accept: (data: DragData) => {
+												const d = data as unknown as { sourceGrade: number; sourceClassId: string };
+												return d.sourceGrade === cls.grade && d.sourceClassId !== cls._id;
+											},
+											onDrop: (data: DragData) => {
+												moveStudent(data.id as Id<'students'>, cls._id as Id<'classes'>);
+											}
+										}}
 									>
 										<!-- Class Header -->
 										<div
@@ -553,20 +490,55 @@
 													<div class="flex flex-col gap-0 overflow-y-auto">
 														{#each [...cls.students].sort( (a, b) => a.name.localeCompare(b.name) ) as student (student._id)}
 															{@const enrolled = student.status !== 'Not Enrolled'}
+															{@const availableTargets = classesByGrade[cls.grade].filter(
+																(c) => c._id !== cls._id
+															)}
 															<div
 																class={[
 																	!enrolled && 'text-muted-foreground bg-black/10',
-																	'flex cursor-grab items-center gap-1 truncate px-1 py-1 text-xs leading-tight hover:bg-black/5 active:cursor-grabbing'
+																	'flex items-center gap-1 truncate px-1 py-1 text-xs leading-tight hover:bg-black/5'
 																]}
-																draggable="true"
-																ondragstart={(e) => handleDragStart(e, student, cls._id, cls.grade)}
-																ondragend={handleDragEnd}
-																role="button"
-																aria-label="Drag {student.name} to move to another class"
-																tabindex="0"
 															>
-																<GripVertical class="size-2.5 shrink-0 opacity-40" />
-																<span class="truncate">{student.name}</span>
+																<div
+																	use:draggable={{
+																		data: {
+																			id: student._id,
+																			name: student.name,
+																			sourceClassId: cls._id,
+																			sourceGrade: cls.grade
+																		},
+																		label: student.name
+																	}}
+																	class="flex flex-1 items-center gap-1 truncate"
+																	role="button"
+																	aria-label="Drag {student.name} to move to another class"
+																	tabindex="0"
+																>
+																	<GripVertical class="size-2.5 shrink-0 opacity-40" />
+																	<span class="truncate">{student.name}</span>
+																</div>
+																<select
+																	class="h-4 max-w-14 border-none bg-transparent text-[10px] md:hidden"
+																	onchange={(e) => {
+																		const val = (e.currentTarget as HTMLSelectElement).value;
+																		if (val) {
+																			moveStudent(
+																				student._id as Id<'students'>,
+																				val as Id<'classes'>
+																			);
+																		}
+																		(e.currentTarget as HTMLSelectElement).value = '';
+																	}}
+																	onpointerdown={(e) => e.stopPropagation()}
+																	aria-label="Move student to another class"
+																>
+																	<option value="">Move...</option>
+																	{#each availableTargets as target (target._id)}
+																		<option value={target._id}>
+																			{getDisplayName(target.grade, target.class, gradeClasses)}
+																		</option>
+																	{/each}
+																</select>
 															</div>
 														{/each}
 													</div>
@@ -664,23 +636,4 @@
 			<Button variant="destructive" onclick={confirmDelete}>Delete</Button>
 		</div>
 	{/if}
-</dialog>
-
-<!-- Grade Error Dialog -->
-<dialog
-	bind:this={gradeErrorDialogRef}
-	class="fixed inset-0 m-auto w-full max-w-sm rounded-none border p-4 shadow-lg"
-	onclick={(e) => {
-		if (e.currentTarget === e.target) {
-			gradeErrorDialogRef?.close();
-		}
-	}}
->
-	<h3 class="mb-2 text-lg font-semibold text-red-600">Cannot Move Student</h3>
-	<p class="text-muted-foreground mb-4 text-sm">
-		{gradeErrorMessage}
-	</p>
-	<div class="flex justify-end">
-		<Button onclick={() => gradeErrorDialogRef?.close()}>OK</Button>
-	</div>
 </dialog>

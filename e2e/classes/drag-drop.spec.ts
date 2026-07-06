@@ -47,10 +47,9 @@ test.describe('Drag and Drop Student Movement', () => {
 		// Verify student is visible
 		await expect(page.getByText(`DragTest_${suffix}`)).toBeVisible();
 
-		// Verify drag handle (GripVertical icon) is present
-		// The grip icon is an SVG inside the draggable student row
+		// Verify the draggable element is present (uses pointer events, not native DnD)
 		const studentRow = page
-			.locator('div[draggable="true"]')
+			.locator('[role="button"][aria-label*="Drag"]')
 			.filter({ hasText: `DragTest_${suffix}` });
 		await expect(studentRow).toBeVisible();
 	});
@@ -79,11 +78,11 @@ test.describe('Drag and Drop Student Movement', () => {
 		await toggleBtn.click();
 		await page.waitForTimeout(500);
 
-		// Find the student element and verify it has draggable attribute
+		// Find the student element and verify it has the drag interaction setup
 		const studentElement = page
-			.locator('div[draggable="true"]')
+			.locator('[role="button"][aria-label*="Drag"]')
 			.filter({ hasText: `Draggable_${suffix}` });
-		await expect(studentElement).toHaveAttribute('draggable', 'true');
+		await expect(studentElement).toBeVisible();
 		await expect(studentElement).toHaveAttribute('role', 'button');
 	});
 

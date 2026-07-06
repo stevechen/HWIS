@@ -3,6 +3,8 @@
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { GripVertical, Users } from '@lucide/svelte';
+	import { draggable, dropZone, dragState } from '$lib/utils/dnd.svelte';
+	import type { DragData } from '$lib/utils/dnd.svelte';
 
 	// Import house logos
 	import LogoHeracles from '$lib/components/LogoHeracles.svelte';
@@ -57,14 +59,6 @@
 
 	const housesQuery = useQuery(api.students.listByHouse, () => ({}));
 	const client = useConvexClient();
-
-	// Drag and drop state
-	let draggedStudent = $state<{
-		id: string;
-		name: string;
-		sourceHouse: House | 'orphaned';
-	} | null>(null);
-	let dragOverHouse = $state<House | null>(null);
 
 	// Get students data - sorted by class then name
 	const housesData = $derived.by(() => {
@@ -129,89 +123,11 @@
 	// Get orphaned students separately for use in template
 	const orphanedStudents = $derived(housesData.orphaned || []);
 
-	// Drag and drop handlers
-	function handleDragStart(
-		e: DragEvent,
-		student: { _id: string; englishName: string },
-		sourceHouse: House | 'orphaned'
-	) {
-		draggedStudent = { id: student._id, name: student.englishName, sourceHouse };
-		if (e.dataTransfer) {
-			e.dataTransfer.effectAllowed = 'move';
-			e.dataTransfer.setData('text/plain', student._id);
-		}
-	}
-
-	function handleDragEnd() {
-		draggedStudent = null;
-		dragOverHouse = null;
-	}
-
-	function handleDragOver(e: DragEvent, targetHouse: House) {
-		e.preventDefault();
-		if (!draggedStudent) return;
-		if (draggedStudent.sourceHouse !== targetHouse) {
-			dragOverHouse = targetHouse;
-			if (e.dataTransfer) {
-				e.dataTransfer.dropEffect = 'move';
-			}
-		}
-	}
-
-	function handleDragLeave() {
-		dragOverHouse = null;
-	}
-
-	async function handleDrop(e: DragEvent, targetHouse: House) {
-		e.preventDefault();
-		dragOverHouse = null;
-
-		if (!draggedStudent) return;
-		if (draggedStudent.sourceHouse === targetHouse) {
-			draggedStudent = null;
-			return;
-		}
-
+	async function assignHouse(studentId: Id<'students'>, house: House | undefined) {
 		try {
-			await client.mutation(api.students.assignHouse, {
-				studentId: draggedStudent.id as Id<'students'>,
-				house: targetHouse
-			});
-			// Convex reactivity will automatically update the UI
+			await client.mutation(api.students.assignHouse, { studentId, house });
 		} catch (err) {
 			window.alert(err instanceof Error ? err.message : 'Failed to assign house');
-		}
-
-		draggedStudent = null;
-	}
-
-	async function handleRemoveFromHouse(e: DragEvent) {
-		e.preventDefault();
-		dragOverHouse = null;
-
-		if (!draggedStudent || draggedStudent.sourceHouse === 'orphaned') {
-			draggedStudent = null;
-			return;
-		}
-
-		try {
-			await client.mutation(api.students.assignHouse, {
-				studentId: draggedStudent.id as Id<'students'>,
-				house: undefined
-			});
-			// Convex reactivity will automatically update the UI
-		} catch (err) {
-			window.alert(err instanceof Error ? err.message : 'Failed to remove from house');
-		}
-
-		draggedStudent = null;
-	}
-
-	function handleDragOverOrphaned(e: DragEvent) {
-		e.preventDefault();
-		if (!draggedStudent || draggedStudent.sourceHouse === 'orphaned') return;
-		if (e.dataTransfer) {
-			e.dataTransfer.dropEffect = 'move';
 		}
 	}
 </script>
@@ -231,7 +147,7 @@
 			{#each HOUSES as house (house)}
 				{@const students = housesData[house] || []}
 				{@const colors = houseColors[house]}
-				{@const isDragOver = dragOverHouse === house}
+				{@const isDragOver = dragState.activeDropZoneId === house}
 				{@const Logo = houseLogos[house]}
 				{@const groupedStudents = getGroupedStudents(students)}
 				<div
@@ -241,9 +157,16 @@
 					]}
 					role="region"
 					aria-label="{house} House"
-					ondragover={(e) => handleDragOver(e, house)}
-					ondragleave={handleDragLeave}
-					ondrop={(e) => handleDrop(e, house)}
+					use:dropZone={{
+						id: house,
+						accept: (data: DragData) => {
+							const d = data as unknown as { sourceHouse: string };
+							return d.sourceHouse !== house;
+						},
+						onDrop: (data: DragData) => {
+							assignHouse(data.id as Id<'students'>, house);
+						}
+					}}
 				>
 					<!-- House Header -->
 					<div
@@ -288,23 +211,52 @@
 											{@const enrolled = student.status !== 'Not Enrolled'}
 											<div
 												class={[
-													'flex cursor-grab items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 active:cursor-grabbing',
+													'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50',
 													!enrolled && 'text-muted-foreground bg-gray-100'
 												]}
-												draggable="true"
-												ondragstart={(e) => handleDragStart(e, student, house)}
-												ondragend={handleDragEnd}
-												role="button"
-												aria-label="Drag {student.englishName} to move to another house"
-												tabindex="0"
 											>
-												<GripVertical class="size-3 shrink-0 text-gray-400" />
-												<div class="flex min-w-0 flex-1 flex-col">
-													<span class="truncate font-medium">{student.englishName}</span>
-													{#if !enrolled}
-														<span class="text-muted-foreground text-xs">Not Enrolled</span>
-													{/if}
+												<div
+													use:draggable={{
+														data: {
+															id: student._id,
+															englishName: student.englishName,
+															sourceHouse: house
+														},
+														label: student.englishName
+													}}
+													class="flex min-w-0 flex-1 items-center gap-2"
+													role="button"
+													aria-label="Drag {student.englishName} to move to another house"
+													tabindex="0"
+												>
+													<GripVertical class="size-3 shrink-0 text-gray-400" />
+													<div class="flex min-w-0 flex-1 flex-col">
+														<span class="truncate font-medium">{student.englishName}</span>
+														{#if !enrolled}
+															<span class="text-muted-foreground text-xs">Not Enrolled</span>
+														{/if}
+													</div>
 												</div>
+												<select
+													class="h-5 max-w-14 rounded border border-gray-200 bg-gray-50 px-1 text-[10px] md:hidden"
+													onchange={(e) => {
+														const val = (e.currentTarget as HTMLSelectElement).value;
+														if (val === '__unassign') {
+															assignHouse(student._id as Id<'students'>, undefined);
+														} else if (val) {
+															assignHouse(student._id as Id<'students'>, val as House);
+														}
+														(e.currentTarget as HTMLSelectElement).value = '';
+													}}
+													onpointerdown={(e) => e.stopPropagation()}
+													aria-label="Move student to another house"
+												>
+													<option value="">Move...</option>
+													{#each HOUSES.filter((h) => h !== house) as targetHouse (targetHouse)}
+														<option value={targetHouse}>{targetHouse}</option>
+													{/each}
+													<option value="__unassign">Unassigned</option>
+												</select>
 											</div>
 										{/each}
 									</div>
@@ -325,12 +277,20 @@
 			<div
 				class={[
 					'house-column house-column--orphaned flex min-h-0 flex-col rounded-lg transition-all',
-					dragOverHouse === null && 'bg-gray-50'
+					dragState.activeDropZoneId === '__orphaned' && 'ring-2 ring-blue-500 ring-offset-2'
 				]}
 				role="region"
 				aria-label="Unassigned Students"
-				ondragover={handleDragOverOrphaned}
-				ondrop={handleRemoveFromHouse}
+				use:dropZone={{
+					id: '__orphaned',
+					accept: (data: DragData) => {
+						const d = data as unknown as { sourceHouse: string };
+						return d.sourceHouse !== 'orphaned';
+					},
+					onDrop: (data: DragData) => {
+						assignHouse(data.id as Id<'students'>, undefined);
+					}
+				}}
 			>
 				<!-- Unassigned Header -->
 				<div
@@ -365,23 +325,49 @@
 										{@const enrolled = student.status !== 'Not Enrolled'}
 										<div
 											class={[
-												'flex cursor-grab items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 active:cursor-grabbing',
+												'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50',
 												!enrolled && 'text-muted-foreground bg-gray-100'
 											]}
-											draggable="true"
-											ondragstart={(e) => handleDragStart(e, student, 'orphaned')}
-											ondragend={handleDragEnd}
-											role="button"
-											aria-label="Drag {student.englishName} to assign to a house"
-											tabindex="0"
 										>
-											<GripVertical class="size-3 shrink-0 text-gray-400" />
-											<div class="flex min-w-0 flex-1 flex-col">
-												<span class="truncate font-medium">{student.englishName}</span>
-												{#if !enrolled}
-													<span class="text-muted-foreground text-xs">Not Enrolled</span>
-												{/if}
+											<div
+												use:draggable={{
+													data: {
+														id: student._id,
+														englishName: student.englishName,
+														sourceHouse: 'orphaned'
+													},
+													label: student.englishName
+												}}
+												class="flex min-w-0 flex-1 items-center gap-2"
+												role="button"
+												aria-label="Drag {student.englishName} to assign to a house"
+												tabindex="0"
+											>
+												<GripVertical class="size-3 shrink-0 text-gray-400" />
+												<div class="flex min-w-0 flex-1 flex-col">
+													<span class="truncate font-medium">{student.englishName}</span>
+													{#if !enrolled}
+														<span class="text-muted-foreground text-xs">Not Enrolled</span>
+													{/if}
+												</div>
 											</div>
+											<select
+												class="h-5 max-w-14 rounded border border-gray-200 bg-gray-50 px-1 text-[10px] md:hidden"
+												onchange={(e) => {
+													const val = (e.currentTarget as HTMLSelectElement).value;
+													if (val) {
+														assignHouse(student._id as Id<'students'>, val as House);
+													}
+													(e.currentTarget as HTMLSelectElement).value = '';
+												}}
+												onpointerdown={(e) => e.stopPropagation()}
+												aria-label="Assign student to a house"
+											>
+												<option value="">Move...</option>
+												{#each HOUSES as house (house)}
+													<option value={house}>{house}</option>
+												{/each}
+											</select>
 										</div>
 									{/each}
 								</div>
