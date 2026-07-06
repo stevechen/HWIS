@@ -109,15 +109,27 @@ export function draggable(
 		}
 	}
 
+	function preventTextSelection() {
+		document.body.style.userSelect = 'none';
+		document.body.style.webkitUserSelect = 'none';
+	}
+
+	function restoreTextSelection() {
+		document.body.style.userSelect = '';
+		document.body.style.webkitUserSelect = '';
+	}
+
 	function resetTouchStyles() {
 		node.style.touchAction = '';
 		node.style.userSelect = '';
+		restoreTextSelection();
 	}
 
 	function activateDrag(pointerId: number, x: number, y: number) {
 		dragActivated = true;
 		node.style.touchAction = 'none';
 		node.style.userSelect = 'none';
+		preventTextSelection();
 		capturedPointerId = pointerId;
 		node.setPointerCapture(pointerId);
 		node.classList.add('is-dragging');
