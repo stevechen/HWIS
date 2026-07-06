@@ -90,11 +90,13 @@ export function draggable(
 	}
 ) {
 	node.draggable = false;
-	node.style.touchAction = 'none';
-	node.style.userSelect = 'none';
 	node.style.cursor = 'grab';
 
+	const DRAG_THRESHOLD = 5;
 	let capturedPointerId: number | null = null;
+	let dragActivated = false;
+	let startX = 0;
+	let startY = 0;
 
 	function releaseCapture() {
 		if (capturedPointerId != null) {
@@ -107,7 +109,25 @@ export function draggable(
 		}
 	}
 
+	function resetTouchStyles() {
+		node.style.touchAction = '';
+		node.style.userSelect = '';
+	}
+
+	function activateDrag(pointerId: number, x: number, y: number) {
+		dragActivated = true;
+		node.style.touchAction = 'none';
+		node.style.userSelect = 'none';
+		capturedPointerId = pointerId;
+		node.setPointerCapture(pointerId);
+		node.classList.add('is-dragging');
+		dragState.currentDrag = options.data;
+		showGhost(options.label ?? '', x, y);
+		addWindowListeners();
+	}
+
 	function cleanup() {
+		dragActivated = false;
 		node.classList.remove('is-dragging');
 		dragState.currentDrag = null;
 		dragState.activeDropZoneId = null;
@@ -115,10 +135,11 @@ export function draggable(
 		hideGhost();
 		releaseCapture();
 		removeWindowListeners();
+		resetTouchStyles();
 	}
 
 	function onWindowUp(e: PointerEvent) {
-		if (!dragState.currentDrag || capturedPointerId == null) return;
+		if (!dragActivated || capturedPointerId == null) return;
 		if (e.pointerId !== capturedPointerId) return;
 
 		const zone = findZone(e.clientX, e.clientY);
@@ -134,7 +155,7 @@ export function draggable(
 	}
 
 	function onWindowCancel(e: PointerEvent) {
-		if (!dragState.currentDrag || capturedPointerId == null) return;
+		if (!dragActivated || capturedPointerId == null) return;
 		if (e.pointerId !== capturedPointerId) return;
 		cleanup();
 	}
@@ -150,21 +171,32 @@ export function draggable(
 	}
 
 	function onDown(e: PointerEvent) {
-		e.preventDefault();
+		// Don't prevent default — allow scroll to start naturally
 		// Clean up any stale state from a previous interrupted drag
-		if (dragState.currentDrag) {
+		if (dragState.currentDrag || dragActivated) {
 			cleanup();
 		}
-		capturedPointerId = e.pointerId;
-		node.setPointerCapture(e.pointerId);
-		node.classList.add('is-dragging');
-		dragState.currentDrag = options.data;
-		showGhost(options.label ?? '', e.clientX, e.clientY);
-		addWindowListeners();
+		startX = e.clientX;
+		startY = e.clientY;
+		dragActivated = false;
 	}
 
 	function onMove(e: PointerEvent) {
-		if (!dragState.currentDrag) return;
+		if (!dragActivated) {
+			const dx = e.clientX - startX;
+			const dy = e.clientY - startY;
+			const dist = Math.sqrt(dx * dx + dy * dy);
+
+			if (dist < DRAG_THRESHOLD) return;
+
+			// Only activate drag if movement is more horizontal than vertical
+			if (Math.abs(dx) > Math.abs(dy)) {
+				e.preventDefault();
+				activateDrag(e.pointerId, e.clientX, e.clientY);
+			}
+			return;
+		}
+
 		e.preventDefault();
 		moveGhost(e.clientX, e.clientY);
 
@@ -183,7 +215,10 @@ export function draggable(
 	}
 
 	function onUp(e: PointerEvent) {
-		if (!dragState.currentDrag) return;
+		if (!dragActivated) {
+			// Was a tap/scroll, not a drag — nothing to clean up
+			return;
+		}
 
 		const zone = findZone(e.clientX, e.clientY);
 		if (zone) {
@@ -198,7 +233,7 @@ export function draggable(
 	}
 
 	function onCancel() {
-		if (!dragState.currentDrag) return;
+		if (!dragActivated) return;
 		cleanup();
 	}
 
@@ -211,6 +246,7 @@ export function draggable(
 		destroy() {
 			removeWindowListeners();
 			releaseCapture();
+			resetTouchStyles();
 			node.removeEventListener('pointerdown', onDown);
 			node.removeEventListener('pointermove', onMove);
 			node.removeEventListener('pointerup', onUp);
