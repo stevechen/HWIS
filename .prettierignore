@@ -7,3 +7,8 @@ bun.lockb
 
 # Miscellaneous
 /static/
+
+# Generated files
+/convex/
+src/convex/_generated/
+.convex/
