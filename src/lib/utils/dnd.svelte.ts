@@ -94,12 +94,59 @@ export function draggable(
 	node.style.userSelect = 'none';
 	node.style.cursor = 'grab';
 
+	let capturedPointerId: number | null = null;
+
+	function releaseCapture() {
+		if (capturedPointerId != null) {
+			try {
+				node.releasePointerCapture(capturedPointerId);
+			} catch {
+				// Ignore if capture wasn't active
+			}
+			capturedPointerId = null;
+		}
+	}
+
 	function cleanup() {
 		node.classList.remove('is-dragging');
 		dragState.currentDrag = null;
 		dragState.activeDropZoneId = null;
 		clearZoneHighlight();
 		hideGhost();
+		releaseCapture();
+		removeWindowListeners();
+	}
+
+	function onWindowUp(e: PointerEvent) {
+		if (!dragState.currentDrag || capturedPointerId == null) return;
+		if (e.pointerId !== capturedPointerId) return;
+
+		const zone = findZone(e.clientX, e.clientY);
+		if (zone) {
+			if (zone.accept(dragState.currentDrag)) {
+				zone.onDrop(dragState.currentDrag);
+			} else if (options.onReject) {
+				options.onReject(dragState.currentDrag, zone.id);
+			}
+		}
+
+		cleanup();
+	}
+
+	function onWindowCancel(e: PointerEvent) {
+		if (!dragState.currentDrag || capturedPointerId == null) return;
+		if (e.pointerId !== capturedPointerId) return;
+		cleanup();
+	}
+
+	function addWindowListeners() {
+		window.addEventListener('pointerup', onWindowUp);
+		window.addEventListener('pointercancel', onWindowCancel);
+	}
+
+	function removeWindowListeners() {
+		window.removeEventListener('pointerup', onWindowUp);
+		window.removeEventListener('pointercancel', onWindowCancel);
 	}
 
 	function onDown(e: PointerEvent) {
@@ -108,10 +155,12 @@ export function draggable(
 		if (dragState.currentDrag) {
 			cleanup();
 		}
+		capturedPointerId = e.pointerId;
 		node.setPointerCapture(e.pointerId);
 		node.classList.add('is-dragging');
 		dragState.currentDrag = options.data;
 		showGhost(options.label ?? '', e.clientX, e.clientY);
+		addWindowListeners();
 	}
 
 	function onMove(e: PointerEvent) {
@@ -160,6 +209,8 @@ export function draggable(
 
 	return {
 		destroy() {
+			removeWindowListeners();
+			releaseCapture();
 			node.removeEventListener('pointerdown', onDown);
 			node.removeEventListener('pointermove', onMove);
 			node.removeEventListener('pointerup', onUp);

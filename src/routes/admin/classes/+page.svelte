@@ -153,6 +153,10 @@
 	let warningDialogRef = $state<HTMLDialogElement | null>(null);
 	let warningClass = $state<ClassRecord | null>(null);
 
+	// Cross-grade drag warning dialog
+	let crossGradeDialogRef = $state<HTMLDialogElement | null>(null);
+	let crossGradeErrorMessage = $state('');
+
 	const grades = [7, 8, 9, 10, 11, 12];
 
 	// Group classes by grade with IB-first gradient sorting
@@ -513,9 +517,9 @@
 																				sourceClassId: string;
 																			};
 																			if (d.sourceClassId !== zoneId) {
-																				window.alert(
-																					'Moving students between different grades is not allowed here. Please use the Students page to change a student\'s grade.'
-																				);
+																				crossGradeErrorMessage =
+																					"Moving students between different grades is not allowed here. Please use the Students page to change a student's grade.";
+																				crossGradeDialogRef?.showModal();
 																			}
 																		}
 																	}}
@@ -646,4 +650,23 @@
 			<Button variant="destructive" onclick={confirmDelete}>Delete</Button>
 		</div>
 	{/if}
+</dialog>
+
+<!-- Cross-Grade Drag Warning Dialog -->
+<dialog
+	bind:this={crossGradeDialogRef}
+	class="fixed inset-0 m-auto w-full max-w-sm rounded-none border p-4 shadow-lg"
+	onclick={(e) => {
+		if (e.currentTarget === e.target) {
+			crossGradeDialogRef?.close();
+		}
+	}}
+>
+	<h3 class="mb-2 text-lg font-semibold text-red-600">Cannot Move Student</h3>
+	<p class="text-muted-foreground mb-4 text-sm">
+		{crossGradeErrorMessage}
+	</p>
+	<div class="flex justify-end">
+		<Button onclick={() => crossGradeDialogRef?.close()}>OK</Button>
+	</div>
 </dialog>

@@ -111,14 +111,6 @@ test.describe('Drag and Drop Student Movement', () => {
 		// Get a grade 10 class container
 		const targetClass = page.getByRole('region', { name: 'Class 10-1' });
 
-		// Set up dialog watcher before triggering drag
-		page.on('dialog', async (dialog) => {
-			expect(dialog.message()).toContain(
-				'Moving students between different grades is not allowed here'
-			);
-			await dialog.accept();
-		});
-
 		// Perform drag via pointer events using bounding boxes
 		const sourceBox = await studentEl.boundingBox();
 		const targetBox = await targetClass.boundingBox();
@@ -133,5 +125,12 @@ test.describe('Drag and Drop Student Movement', () => {
 		await page.mouse.down();
 		await page.mouse.move(tx, ty, { steps: 10 });
 		await page.mouse.up();
+
+		// Verify the styled dialog appears
+		await expect(page.getByRole('heading', { name: 'Cannot Move Student' })).toBeVisible();
+		await expect(
+			page.getByText('Moving students between different grades is not allowed here')
+		).toBeVisible();
+		await page.getByRole('button', { name: 'OK' }).click();
 	});
 });
