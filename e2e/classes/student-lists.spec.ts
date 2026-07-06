@@ -20,27 +20,31 @@ test.describe('Student List Visibility', () => {
 		}
 	});
 
+	test('student lists visible by default', async ({ page }) => {
+		// The toggle should show "Hide Students" since lists are visible by default
+		const toggleBtn = page.locator('button[aria-label*="student lists" i]').first();
+		await expect(toggleBtn).toBeVisible();
+		await expect(toggleBtn).toContainText('Hide Students');
+
+		// Grade 7 classes should show student list regions
+		const classRegions = page.getByRole('region', { name: /Class 7/ });
+		await expect(classRegions.first()).toBeVisible();
+	});
+
 	test('can toggle global student list visibility', async ({ page }) => {
-		// Find the students toggle button by aria-label
 		const toggleBtn = page.locator('button[aria-label*="student lists" i]').first();
 		await expect(toggleBtn).toBeVisible();
 
-		// Get initial text
 		const initialText = await toggleBtn.textContent();
 
-		// Click to toggle
 		await toggleBtn.click();
-
-		// Wait a moment for state change
 		await page.waitForTimeout(200);
 
-		// Text should have changed
 		const newText = await toggleBtn.textContent();
 		expect(newText).not.toBe(initialText);
 	});
 
 	test('student names displayed in list when visible', async ({ page }) => {
-		// Create a test student
 		const suffix = getTestSuffix('list');
 		await createStudent({
 			studentId: '7001001',
@@ -51,18 +55,10 @@ test.describe('Student List Visibility', () => {
 		});
 		testDataCreated = true;
 
-		// Refresh to see the student
 		await page.reload();
 		await page.waitForSelector('body.hydrated');
 
-		// Show student lists
-		const toggleBtn = page.locator('button[aria-label*="student lists" i]').first();
-		await toggleBtn.click();
-
-		// Wait for student lists to render
-		await page.waitForTimeout(500);
-
-		// Verify student name is displayed
-		await expect(page.getByText(`ListTest_${suffix}`)).toBeVisible();
+		// Students are already visible by default
+		await expect(page.getByText(`ListTest_${suffix}`)).toBeVisible({ timeout: 15000 });
 	});
 });

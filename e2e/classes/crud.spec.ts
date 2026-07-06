@@ -75,8 +75,6 @@ test.describe('Classes CRUD', () => {
 			timeout: 15000
 		});
 
-		const studentToggleBtn = page.locator('button[aria-label*="student lists" i]').first();
-		await studentToggleBtn.click();
 		const classCard = page.getByRole('region', { name: `Class 7-${className}` });
 		await expect(classCard.getByText(`TestStudent_${suffix}`)).toBeVisible({ timeout: 15000 });
 		const deleteButton = classCard.getByRole('button').first();

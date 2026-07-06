@@ -134,11 +134,11 @@
 		}
 	}
 
-	// State for visible grades (default all grades visible)
-	let visibleGrades = new SvelteSet([7, 8, 9, 10, 11, 12]);
+	// State for visible grades (default only grade 7 visible)
+	let visibleGrades = new SvelteSet([7]);
 
-	// State for global student list visibility toggle
-	let globalStudentListsVisible = $state(false);
+	// State for global student list visibility toggle (default visible)
+	let globalStudentListsVisible = $state(true);
 
 	// State for IB visibility per grade (grades where IB classes should be shown)
 	let ibVisibleGrades = new SvelteSet();
@@ -507,7 +507,17 @@
 																			sourceClassId: cls._id,
 																			sourceGrade: cls.grade
 																		},
-																		label: student.name
+																		label: student.name,
+																		onReject: (data, zoneId) => {
+																			const d = data as unknown as {
+																				sourceClassId: string;
+																			};
+																			if (d.sourceClassId !== zoneId) {
+																				window.alert(
+																					'Moving students between different grades is not allowed here. Please use the Students page to change a student\'s grade.'
+																				);
+																			}
+																		}
 																	}}
 																	class="flex flex-1 items-center gap-1 truncate"
 																	role="button"

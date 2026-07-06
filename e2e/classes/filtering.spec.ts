@@ -31,16 +31,23 @@ test.describe('Grade Filtering', () => {
 		await expect(page.getByText('G7')).toBeVisible();
 	});
 
-	test('all grades visible by default', async ({ page }) => {
-		// All grade checkboxes should be checked by default
-		for (const grade of [7, 8, 9, 10, 11, 12]) {
+	test('only grade 7 visible by default', async ({ page }) => {
+		// Only grade 7 should be checked by default
+		const grade7Checkbox = page.getByRole('checkbox', { name: '7' });
+		await expect(grade7Checkbox).toBeChecked();
+
+		// Other grades should be unchecked
+		for (const grade of [8, 9, 10, 11, 12]) {
 			const checkbox = page.getByRole('checkbox', { name: String(grade) });
-			await expect(checkbox).toBeChecked();
+			await expect(checkbox).not.toBeChecked();
 		}
 
-		// All grade headers should be visible
-		for (const grade of [7, 8, 9, 10, 11, 12]) {
-			await expect(page.getByText(`G${grade}`)).toBeVisible();
+		// Only grade 7 header should be visible
+		await expect(page.getByText('G7')).toBeVisible();
+
+		// Other grade headers should not be visible
+		for (const grade of [8, 9, 10, 11, 12]) {
+			await expect(page.getByText(`G${grade}`)).not.toBeVisible();
 		}
 	});
 });

@@ -81,14 +81,33 @@ function clearZoneHighlight() {
 	}
 }
 
-export function draggable(node: HTMLElement, options: { data: DragData; label?: string }) {
+export function draggable(
+	node: HTMLElement,
+	options: {
+		data: DragData;
+		label?: string;
+		onReject?: (data: DragData, zoneId: string) => void;
+	}
+) {
 	node.draggable = false;
 	node.style.touchAction = 'none';
 	node.style.userSelect = 'none';
 	node.style.cursor = 'grab';
 
+	function cleanup() {
+		node.classList.remove('is-dragging');
+		dragState.currentDrag = null;
+		dragState.activeDropZoneId = null;
+		clearZoneHighlight();
+		hideGhost();
+	}
+
 	function onDown(e: PointerEvent) {
 		e.preventDefault();
+		// Clean up any stale state from a previous interrupted drag
+		if (dragState.currentDrag) {
+			cleanup();
+		}
 		node.setPointerCapture(e.pointerId);
 		node.classList.add('is-dragging');
 		dragState.currentDrag = options.data;
@@ -118,28 +137,39 @@ export function draggable(node: HTMLElement, options: { data: DragData; label?: 
 		if (!dragState.currentDrag) return;
 
 		const zone = findZone(e.clientX, e.clientY);
-		if (zone && zone.accept(dragState.currentDrag)) {
-			zone.onDrop(dragState.currentDrag);
+		if (zone) {
+			if (zone.accept(dragState.currentDrag)) {
+				zone.onDrop(dragState.currentDrag);
+			} else if (options.onReject) {
+				options.onReject(dragState.currentDrag, zone.id);
+			}
 		}
 
-		node.classList.remove('is-dragging');
-		dragState.currentDrag = null;
-		dragState.activeDropZoneId = null;
-		clearZoneHighlight();
-		hideGhost();
+		cleanup();
+	}
+
+	function onCancel() {
+		if (!dragState.currentDrag) return;
+		cleanup();
 	}
 
 	node.addEventListener('pointerdown', onDown);
 	node.addEventListener('pointermove', onMove);
 	node.addEventListener('pointerup', onUp);
+	node.addEventListener('pointercancel', onCancel);
 
 	return {
 		destroy() {
 			node.removeEventListener('pointerdown', onDown);
 			node.removeEventListener('pointermove', onMove);
 			node.removeEventListener('pointerup', onUp);
+			node.removeEventListener('pointercancel', onCancel);
 		},
-		update(next: { data: DragData; label?: string }) {
+		update(next: {
+			data: DragData;
+			label?: string;
+			onReject?: (data: DragData, zoneId: string) => void;
+		}) {
 			options = next;
 		}
 	};
