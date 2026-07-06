@@ -69,11 +69,8 @@ test.describe('Student CRUD Cycle @integration', () => {
 		// Wait for dialog to close
 		await expect(dialog).not.toBeVisible();
 
-		// Verify status changed - check for Not Enrolled badge in the student's row
-		const updatedRow = page.getByRole('row', { name: studentId });
-		await expect(updatedRow.getByRole('button', { name: `Toggle ${studentId} status` })).toHaveText(
-			'Not Enrolled'
-		);
+		// Verify status changed - check for Not Enrolled text in the student's row
+		await expect(page.getByRole('row', { name: studentId })).toContainText('Not Enrolled');
 
 		// Delete student - find and click delete button (last button in row with trash icon)
 		await studentRow.getByRole('button', { name: `Delete ${studentId}` }).click();

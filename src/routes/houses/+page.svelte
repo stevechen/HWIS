@@ -209,24 +209,26 @@
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">
-	<div class="mb-8 flex items-center justify-between">
+	<div class="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 		<div>
 			<h1 class="text-3xl font-bold text-gray-900">House Events</h1>
 			<p class="mt-1 text-gray-600">Manage house competitions and award event points</p>
 		</div>
-		<Button onclick={() => (eventDialogOpen = true)}>
-			<Plus class="mr-2 h-4 w-4" />
-			New Event
-		</Button>
-		<Button variant="outline" onclick={openDisplay}>
-			<Monitor class="mr-2 h-4 w-4" />
-			Display House Scores
-		</Button>
+		<div class="flex flex-wrap gap-2">
+			<Button onclick={() => (eventDialogOpen = true)}>
+				<Plus class="mr-2 size-4" />
+				New Event
+			</Button>
+			<Button variant="outline" onclick={openDisplay}>
+				<Monitor class="mr-2 size-4" />
+				Display House Scores
+			</Button>
+		</div>
 	</div>
 
 	{#if eventsQuery.isLoading}
 		<div class="flex items-center justify-center py-20">
-			<div class="h-12 w-12 animate-spin rounded-full border-b-2 border-gray-900"></div>
+			<div class="size-12 animate-spin rounded-full border-b-2 border-gray-900"></div>
 		</div>
 	{:else if eventsQuery.error}
 		<div class="py-20 text-center">
@@ -235,7 +237,7 @@
 	{:else if events.length === 0}
 		<Card.Root class="text-center">
 			<Card.Content class="py-16">
-				<Calendar class="mx-auto mb-4 h-12 w-12 text-gray-300" />
+				<Calendar class="mx-auto mb-4 size-12 text-gray-300" />
 				<h3 class="text-lg font-semibold text-gray-700">No Events Yet</h3>
 				<p class="mt-2 text-gray-500">Create your first house event to get started.</p>
 			</Card.Content>
@@ -247,24 +249,24 @@
 				{@const hasPoints = hp != null && Object.values(hp).some((v) => v !== undefined && v !== 0)}
 				<Card.Root>
 					<Card.Header class="flex flex-col gap-1 pb-3">
-						<div class="flex items-start justify-between">
-							<div>
-								<Card.Title class="flex items-center gap-2 text-lg">
-									<Trophy class="h-5 w-5 text-yellow-600" />
-									{event.title}
+						<div class="flex items-start justify-between gap-2">
+							<div class="min-w-0">
+								<Card.Title class="flex items-center gap-2 text-base sm:text-lg">
+									<Trophy class="size-5 shrink-0 text-yellow-600" />
+									<span class="break-words">{event.title}</span>
 								</Card.Title>
 								<p class="mt-1 flex items-center gap-1.5 text-sm text-gray-500">
-									<Calendar class="h-4 w-4" />
+									<Calendar class="size-4 shrink-0" />
 									{event.dateRange}
 								</p>
 							</div>
-							<div class="flex gap-2">
+							<div class="flex shrink-0 gap-2">
 								<Button size="sm" variant="outline" onclick={() => openEdit(event)}>
-									<Pencil class="h-3.5 w-3.5" />
+									<Pencil class="size-3.5" />
 									Edit
 								</Button>
 								<Button size="sm" variant="destructive" onclick={() => openDelete(event)}>
-									<Trash2 class="h-3.5 w-3.5" />
+									<Trash2 class="size-3.5" />
 									Delete
 								</Button>
 							</div>
@@ -380,7 +382,7 @@
 			<div
 				class="mb-3 flex gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700"
 			>
-				<AlertTriangle class="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+				<AlertTriangle class="mt-0.5 size-5 shrink-0 text-red-500" />
 				<div>
 					<p class="font-semibold">Warning</p>
 					<p>

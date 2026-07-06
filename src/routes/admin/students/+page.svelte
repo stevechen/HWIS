@@ -570,7 +570,7 @@
 		</div>
 	</header>
 
-	<main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+	<main class="px-4 py-6 sm:px-6 lg:px-8">
 		<div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 			<div class="relative max-w-md flex-1">
 				<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
@@ -615,14 +615,13 @@
 			<Table.Root aria-label="Student table">
 				<Table.Header>
 					<Table.Row>
-						<Table.Head class="text-center">Student ID</Table.Head>
-						<Table.Head>English Name</Table.Head>
-						<Table.Head>Chinese Name</Table.Head>
-						<Table.Head class="text-center">Grade</Table.Head>
-
-						<Table.Head class="text-center">Status</Table.Head>
-						<Table.Head>Note</Table.Head>
-						<Table.Head class="text-center">Actions</Table.Head>
+						<Table.Head class="hidden text-center sm:table-cell">Student ID</Table.Head>
+						<Table.Head class="whitespace-normal sm:whitespace-nowrap">English Name</Table.Head>
+						<Table.Head class="hidden sm:table-cell">Chinese Name</Table.Head>
+						<Table.Head class="px-1 text-center sm:px-2">Grade</Table.Head>
+						<Table.Head class="px-1 text-center sm:px-2">Status</Table.Head>
+						<Table.Head class="hidden sm:table-cell">Note</Table.Head>
+						<Table.Head class="px-1 text-center sm:px-2">Actions</Table.Head>
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
@@ -630,10 +629,12 @@
 						<Table.Row
 							class={`${student.status === 'Not Enrolled' && 'bg-muted-foreground opacity-60'}`}
 						>
-							<Table.Cell class="text-center">{student.studentId}</Table.Cell>
-							<Table.Cell>{student.englishName}</Table.Cell>
-							<Table.Cell>{student.chineseName}</Table.Cell>
-							<Table.Cell class="text-center"
+							<Table.Cell class="hidden text-center sm:table-cell">{student.studentId}</Table.Cell>
+							<Table.Cell class="max-w-[80px] truncate px-1 sm:max-w-none sm:px-2"
+								>{student.englishName}</Table.Cell
+							>
+							<Table.Cell class="hidden sm:table-cell">{student.chineseName}</Table.Cell>
+							<Table.Cell class="px-1 text-center sm:px-2"
 								>{student.classInfo
 									? getDisplayName(
 											student.classInfo.grade,
@@ -642,31 +643,27 @@
 										)
 									: '-'}</Table.Cell
 							>
-							<Table.Cell class="text-center">
-								<Button
-									variant="ghost"
-									size="sm"
-									onclick={() =>
-										client.mutation(studentsApi.changeStatus, {
-											id: student._id,
-											status: student.status === 'Enrolled' ? 'Not Enrolled' : 'Enrolled'
-										})}
-									aria-label="Toggle {student.studentId} status"
-									class="cursor-pointer"
+							<Table.Cell
+								class="cursor-pointer px-1 text-center sm:px-2"
+								onclick={() =>
+									client.mutation(studentsApi.changeStatus, {
+										id: student._id,
+										status: student.status === 'Enrolled' ? 'Not Enrolled' : 'Enrolled'
+									})}
+							>
+								<Badge
+									variant={student.status === 'Enrolled' ? 'default' : 'outline'}
+									class="hover:ring-primary/50 pointer-events-none hover:ring-2 hover:ring-offset-1"
 								>
-									<Badge
-										variant={student.status === 'Enrolled' ? 'default' : 'outline'}
-										class="hover:ring-primary/50 w-22 hover:ring-2 hover:ring-offset-1"
-									>
-										{student.status}
-									</Badge>
-								</Button>
+									{student.status}
+								</Badge>
 							</Table.Cell>
-							<Table.Cell class="text-muted-foreground max-w-xs truncate text-sm"
+							<Table.Cell
+								class="text-muted-foreground hidden max-w-xs truncate text-sm sm:table-cell"
 								>{student.note || '-'}</Table.Cell
 							>
-							<Table.Cell class="text-center">
-								<div class="flex justify-center gap-1">
+							<Table.Cell class="px-1 text-center sm:px-2">
+								<div class="flex justify-center gap-0 sm:gap-1">
 									<Button
 										variant="ghost"
 										size="icon"
@@ -675,7 +672,7 @@
 											showForm = true;
 										}}
 										aria-label="Edit {student.studentId}"
-										class="hover:ring-primary/50 cursor-pointer hover:ring-2 hover:ring-offset-1"
+										class="hover:ring-primary/50 size-8 cursor-pointer hover:ring-2 hover:ring-offset-1 sm:size-10"
 									>
 										<Pencil class="size-4" />
 									</Button>
@@ -687,7 +684,7 @@
 											showDelete = true;
 										}}
 										aria-label="Delete {student.studentId}"
-										class="hover:ring-destructive/50 cursor-pointer hover:ring-2 hover:ring-offset-1"
+										class="hover:ring-destructive/50 size-8 cursor-pointer hover:ring-2 hover:ring-offset-1 sm:size-10"
 									>
 										<Trash2 class="size-4 text-red-500" />
 									</Button>

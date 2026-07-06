@@ -170,11 +170,11 @@ test.describe('Edit Student - Data Tests', () => {
 
 	test('can update student status', async ({ page }) => {
 		const row = studentRow(page, studentId);
-		const statusToggle = row.getByRole('button', { name: `Toggle ${studentId} status` });
 
-		// Edit status through the toggle
-		await statusToggle.click();
-		await expect(statusToggle).toContainText('Not Enrolled');
+		// Edit status through the clickable status cell
+		// force: true needed because the span has pointer-events: none (td handles the click)
+		await row.getByText('Enrolled').click({ force: true });
+		await expect(row.getByText('Not Enrolled')).toBeVisible();
 
 		// Find and click edit button for this student
 		const editButton = row.getByRole('button', { name: `Edit ${studentId}` });

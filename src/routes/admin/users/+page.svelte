@@ -64,92 +64,90 @@
 	}
 </script>
 
-<div class="flex justify-center py-8">
-	<div class="bg-card rounded-lg border shadow-sm">
-		{#if usersQuery.isLoading}
-			<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
-				<div class="border-muted border-t-primary h-8 w-8 animate-spin rounded-full border-3"></div>
-				<p>Loading user records...</p>
-			</div>
-		{:else if usersQuery.data}
-			<Table.Root aria-label="users">
-				<Table.Header>
+<div class="py-6">
+	{#if usersQuery.isLoading}
+		<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
+			<div class="border-muted border-t-primary h-8 w-8 animate-spin rounded-full border-3"></div>
+			<p>Loading user records...</p>
+		</div>
+	{:else if usersQuery.data}
+		<Table.Root aria-label="users">
+			<Table.Header>
+				<Table.Row>
+					<Table.Head>Name</Table.Head>
+					<Table.Head>Role</Table.Head>
+					<Table.Head>Status</Table.Head>
+					<Table.Head class="text-right">Active</Table.Head>
+				</Table.Row>
+			</Table.Header>
+			<Table.Body>
+				{#each usersQuery.data as user (user._id)}
 					<Table.Row>
-						<Table.Head class="w-auto">Name</Table.Head>
-						<Table.Head>Role</Table.Head>
-						<Table.Head>Status</Table.Head>
-						<Table.Head class="text-center">Approve</Table.Head>
-					</Table.Row>
-				</Table.Header>
-				<Table.Body>
-					{#each usersQuery.data as user (user._id)}
-						<Table.Row>
-							<Table.Cell>
-								<span class="font-medium">{user.name || 'Unknown'}</span>
-							</Table.Cell>
-							<Table.Cell>
-								<Select.Root
-									type="single"
-									value={roleStates[user._id] ?? user.role}
-									onValueChange={(val) =>
-										updateUserRole(user._id, val as 'super' | 'admin' | 'teacher')}
-									disabled={updatingId === user._id ||
-										user._id === (currentUser.data?._id as Id<'users'> | undefined) ||
-										user.role === 'super'}
+						<Table.Cell class="max-w-[160px] truncate sm:max-w-none">
+							<span class="font-medium">{user.name || 'Unknown'}</span>
+						</Table.Cell>
+						<Table.Cell>
+							<Select.Root
+								type="single"
+								value={roleStates[user._id] ?? user.role}
+								onValueChange={(val) =>
+									updateUserRole(user._id, val as 'super' | 'admin' | 'teacher')}
+								disabled={updatingId === user._id ||
+									user._id === (currentUser.data?._id as Id<'users'> | undefined) ||
+									user.role === 'super'}
+							>
+								<Select.Trigger
+									class="h-8 w-20 text-sm sm:w-auto"
+									placeholder="Select role"
+									aria-label="Select role for {user.name || 'user'}"
 								>
-									<Select.Trigger
-										class="h-8 w-auto text-sm"
-										placeholder="Select role"
-										aria-label="Select role for {user.name || 'user'}"
+									{roles.find((r) => r.value === (roleStates[user._id] ?? user.role))?.label ||
+										'Select role'}
+								</Select.Trigger>
+								<Select.Content>
+									{#each roles as role (role.value)}
+										{#if role.value !== 'super' || currentUser.data?.role === 'super'}
+											<Select.Item value={role.value}>{role.label}</Select.Item>
+										{/if}
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						</Table.Cell>
+						<Table.Cell>
+							<Badge variant={getStatusVariant(user.status)} class="capitalize">
+								{user.status || 'pending'}
+							</Badge>
+						</Table.Cell>
+						<Table.Cell>
+							<div class="flex justify-end gap-2">
+								{#if user.status !== 'active'}
+									<Button
+										variant="ghost"
+										size="icon"
+										onclick={() => updateUserStatus(user._id, 'active')}
+										disabled={updatingId === user._id}
+										title="Approve User"
 									>
-										{roles.find((r) => r.value === (roleStates[user._id] ?? user.role))?.label ||
-											'Select role'}
-									</Select.Trigger>
-									<Select.Content>
-										{#each roles as role (role.value)}
-											{#if role.value !== 'super' || currentUser.data?.role === 'super'}
-												<Select.Item value={role.value}>{role.label}</Select.Item>
-											{/if}
-										{/each}
-									</Select.Content>
-								</Select.Root>
-							</Table.Cell>
-							<Table.Cell>
-								<Badge variant={getStatusVariant(user.status)} class="capitalize">
-									{user.status || 'pending'}
-								</Badge>
-							</Table.Cell>
-							<Table.Cell>
-								<div class="flex justify-center gap-2">
-									{#if user.status !== 'active'}
-										<Button
-											variant="ghost"
-											size="icon"
-											onclick={() => updateUserStatus(user._id, 'active')}
-											disabled={updatingId === user._id}
-											title="Approve User"
-										>
-											<CheckCircle2 class="h-4 w-4 text-emerald-600" />
-										</Button>
-									{/if}
-									{#if user.status === 'active'}
-										<Button
-											variant="ghost"
-											size="icon"
-											onclick={() => updateUserStatus(user._id, 'pending')}
-											disabled={updatingId === user._id ||
-												user._id === (currentUser.data?._id as Id<'users'> | undefined)}
-											title="Remove Access"
-										>
-											<XCircle class="h-4 w-4 text-red-600" />
-										</Button>
-									{/if}
-								</div>
-							</Table.Cell>
-						</Table.Row>
-					{/each}
-				</Table.Body>
-			</Table.Root>
-		{/if}
-	</div>
+										<CheckCircle2 class="size-4 text-emerald-600" />
+									</Button>
+								{/if}
+								{#if user.status === 'active'}
+									<Button
+										variant="ghost"
+										size="icon"
+										onclick={() => updateUserStatus(user._id, 'pending')}
+										disabled={updatingId === user._id ||
+											user._id === (currentUser.data?._id as Id<'users'> | undefined)}
+										title="Remove Access"
+									>
+										<XCircle class="size-4 text-red-600" />
+									</Button>
+								{/if}
+							</div>
+						</Table.Cell>
+					</Table.Row>
+				{/each}
+			</Table.Body>
+		</Table.Root>
+	{/if}
 </div>

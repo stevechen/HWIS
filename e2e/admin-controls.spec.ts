@@ -47,7 +47,7 @@ test.describe('Admin Controls Visibility @admin', () => {
 		await expect(studentRow).toBeVisible();
 		await expect(page.getByRole('button', { name: `Edit ${studentId}` })).toBeVisible();
 		await expect(page.getByRole('button', { name: `Delete ${studentId}` })).toBeVisible();
-		await expect(page.getByRole('button', { name: `Toggle ${studentId} status` })).toBeVisible();
+		await expect(studentRow.getByText('Enrolled')).toBeVisible();
 	});
 });
 
