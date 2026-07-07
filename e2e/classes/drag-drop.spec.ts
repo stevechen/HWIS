@@ -93,8 +93,9 @@ test.describe('Drag and Drop Student Movement', () => {
 		});
 		testDataCreated = true;
 
-		// Ensure grade 10 has at least one class
-		await createClass({ grade: 10, class: '1', e2eTag });
+		// Ensure grade 10 has at least one class (use unique name to avoid collision)
+		const targetClassName = `dd_target_${suffix}`;
+		await createClass({ grade: 10, class: targetClassName, e2eTag });
 
 		await page.reload();
 		await page.waitForSelector('body.hydrated');
@@ -108,10 +109,12 @@ test.describe('Drag and Drop Student Movement', () => {
 			.locator('[role="button"][aria-label*="Move"]')
 			.filter({ hasText: englishName });
 
-		// Get a grade 10 class container
-		const targetClass = page.getByRole('region', { name: 'Class 10-1' });
+		// Get the target class container
+		const targetClass = page.getByRole('region', { name: `Class 10-${targetClassName}` });
 
 		// Perform drag via pointer events using bounding boxes
+		// First move after pointerdown must stay within the draggable element
+		// to ensure onMove fires and activates the drag
 		const sourceBox = await studentEl.boundingBox();
 		const targetBox = await targetClass.boundingBox();
 		if (!sourceBox || !targetBox) throw new Error('Could not get bounding boxes');
@@ -123,6 +126,11 @@ test.describe('Drag and Drop Student Movement', () => {
 
 		await page.mouse.move(sx, sy);
 		await page.mouse.down();
+
+		// Move horizontally past the 5px threshold to activate drag (element is wide)
+		await page.mouse.move(sx + 10, sy, { steps: 1 });
+
+		// Move to target (pointer capture is active, events reach draggable)
 		await page.mouse.move(tx, ty, { steps: 10 });
 		await page.mouse.up();
 

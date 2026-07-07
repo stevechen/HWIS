@@ -11,7 +11,7 @@ export default defineConfig({
 		// Component tests in tests/ folder - use browser mode
 		name: 'component',
 		include: ['tests/**/*.test.ts'],
-		exclude: ['**/node_modules/**', 'tests/lib/**'],
+		exclude: ['**/node_modules/**'],
 		setupFiles: ['./vitest-setup-client.ts'],
 
 		browser: {

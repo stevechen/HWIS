@@ -102,6 +102,7 @@ export function draggable(
 	let startX = 0;
 	let startY = 0;
 	let pendingDragEnd = false;
+	let isPointerDown = false;
 
 	function releaseCapture() {
 		if (capturedPointerId != null) {
@@ -145,6 +146,7 @@ export function draggable(
 
 	function cleanup() {
 		dragActivated = false;
+		isPointerDown = false;
 		node.classList.remove('is-dragging');
 		dragState.currentDrag = null;
 		dragState.activeDropZoneId = null;
@@ -195,6 +197,7 @@ export function draggable(
 		if (dragState.currentDrag || dragActivated) {
 			cleanup();
 		}
+		isPointerDown = true;
 		pendingDragEnd = false;
 		startX = e.clientX;
 		startY = e.clientY;
@@ -202,6 +205,8 @@ export function draggable(
 	}
 
 	function onMove(e: PointerEvent) {
+		if (!isPointerDown) return;
+
 		if (!dragActivated) {
 			const dx = e.clientX - startX;
 			const dy = e.clientY - startY;
@@ -233,6 +238,7 @@ export function draggable(
 
 	function onUp(e: PointerEvent) {
 		if (!dragActivated) {
+			isPointerDown = false;
 			// Was a tap/scroll, not a drag — nothing to clean up
 			return;
 		}
