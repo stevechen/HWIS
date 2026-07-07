@@ -5,10 +5,7 @@
 	import { api } from '$convex/_generated/api';
 	import { CircleAlert, Medal, Star, TrendingUp, Trophy } from '@lucide/svelte';
 	import RadarChart from '$lib/components/RadarChart.svelte';
-	import LogoHeracles from '$lib/components/LogoHeracles.svelte';
-	import LogoWukong from '$lib/components/LogoWukong.svelte';
-	import LogoIxbalam from '$lib/components/LogoIxbalam.svelte';
-	import LogoSetna from '$lib/components/LogoSetna.svelte';
+	import { houseLogos } from '$lib/assets/house-logos';
 
 	let viewportWidth = $state(1920);
 
@@ -74,13 +71,6 @@
 			accent: 'text-blue-600',
 			glow: 'shadow-blue-200/70'
 		}
-	};
-
-	const houseLogos: Record<House, typeof LogoHeracles> = {
-		Heracles: LogoHeracles,
-		Wukong: LogoWukong,
-		Ixbalam: LogoIxbalam,
-		Setna: LogoSetna
 	};
 
 	const houseRadarColors: Record<House, string> = {

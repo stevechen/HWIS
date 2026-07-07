@@ -31,7 +31,7 @@
 	let submitted = $state(false);
 
 	// Reactive validation errors that update as user makes selections
-	let validationErrors = $derived(() => {
+	let validationErrors = $derived.by(() => {
 		if (!submitted) return [];
 		const errors: string[] = [];
 		if (selectedStudentIds.size === 0) {
@@ -388,9 +388,9 @@
 					</label>
 				</div>
 
-				{#if validationErrors().length > 0}
+				{#if validationErrors.length > 0}
 					<div role="alert" class="bg-destructive/10 text-destructive mb-4 rounded-md p-3 text-sm">
-						{#each validationErrors() as errorMsg (errorMsg)}
+						{#each validationErrors as errorMsg (errorMsg)}
 							<div>{errorMsg}</div>
 						{/each}
 					</div>

@@ -164,11 +164,12 @@ export function draggable(
 		pendingDragEnd = true;
 
 		const zone = findZone(e.clientX, e.clientY);
-		if (zone) {
-			if (zone.accept(dragState.currentDrag)) {
-				zone.onDrop(dragState.currentDrag);
+		const dragData = dragState.currentDrag;
+		if (zone && dragData) {
+			if (zone.accept(dragData)) {
+				zone.onDrop(dragData);
 			} else if (options.onReject) {
-				options.onReject(dragState.currentDrag, zone.id);
+				options.onReject(dragData, zone.id);
 			}
 		}
 
@@ -225,9 +226,10 @@ export function draggable(
 		const zone = findZone(e.clientX, e.clientY);
 		const zoneId = zone?.id ?? null;
 
+		const dragData = dragState.currentDrag;
 		if (zoneId !== lastHoveredId) {
 			clearZoneHighlight();
-			if (zone && zone.accept(dragState.currentDrag)) {
+			if (zone && dragData && zone.accept(dragData)) {
 				zone.element.classList.add('drag-over');
 				lastHoveredId = zoneId;
 			}
@@ -246,11 +248,12 @@ export function draggable(
 		pendingDragEnd = true;
 
 		const zone = findZone(e.clientX, e.clientY);
-		if (zone) {
-			if (zone.accept(dragState.currentDrag)) {
-				zone.onDrop(dragState.currentDrag);
+		const dragData = dragState.currentDrag;
+		if (zone && dragData) {
+			if (zone.accept(dragData)) {
+				zone.onDrop(dragData);
 			} else if (options.onReject) {
-				options.onReject(dragState.currentDrag, zone.id);
+				options.onReject(dragData, zone.id);
 			}
 		}
 

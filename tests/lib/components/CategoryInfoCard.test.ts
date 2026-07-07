@@ -5,14 +5,14 @@ import CategoryInfoCard from '$lib/components/CategoryInfoCard.svelte';
 
 const defaultCategory = {
 	name: 'Academic Excellence',
-	casAlignment: [] as string[],
+	casAlignment: [] as ('Creativity' | 'Activity' | 'Service')[],
 	meritCriteria: ['Completed all assignments on time', 'Active participation in class discussions'],
 	demeritCriteria: ['Late submissions without valid reason', 'Disruptive behavior during lessons']
 };
 
 const categoryWithCas = {
 	...defaultCategory,
-	casAlignment: ['Creativity', 'Activity']
+	casAlignment: ['Creativity', 'Activity'] as ('Creativity' | 'Activity' | 'Service')[]
 };
 
 describe('CategoryInfoCard', () => {

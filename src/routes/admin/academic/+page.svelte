@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { useConvexClient } from 'convex-svelte';
-	import { api as apiAny } from '$convex/_generated/api';
+	import { api } from '$convex/_generated/api';
 	import { RotateCcw } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
@@ -11,15 +11,12 @@
 	let advanceResult = $state<{ message: string } | null>(null);
 	let showAdvanceDialog = $state(false);
 
-	function refreshStudents() {}
-
 	async function handleAdvanceYear() {
 		isAdvancing = true;
 		advanceResult = null;
 		try {
-			const result = await client.mutation(apiAny.backup.advanceGradesAndClearEvaluations, {});
+			const result = await client.mutation(api.backup.advanceGradesAndClearEvaluations, {});
 			advanceResult = result;
-			refreshStudents();
 		} catch (e) {
 			alert('Failed: ' + (e instanceof Error ? e.message : String(e)));
 		} finally {

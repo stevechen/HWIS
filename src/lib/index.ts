@@ -1,9 +1,3 @@
-export {
-	Root as Avatar,
-	Image as AvatarImage,
-	Fallback as AvatarFallback
-} from './components/ui/avatar';
-
 export { Badge } from './components/ui/badge';
 
 export {

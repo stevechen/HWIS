@@ -8,46 +8,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import { SvelteSet } from 'svelte/reactivity';
 
-	// Import house logos
-	import LogoHeracles from '$lib/components/LogoHeracles.svelte';
-	import LogoWukong from '$lib/components/LogoWukong.svelte';
-	import LogoIxbalam from '$lib/components/LogoIxbalam.svelte';
-	import LogoSetna from '$lib/components/LogoSetna.svelte';
-
-	const HOUSES = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
-	type House = (typeof HOUSES)[number];
-
-	// House colors for theming
-	const houseColors: Record<House, { bg: string; text: string; lightBg: string }> = {
-		Heracles: {
-			bg: 'bg-red-600',
-			text: 'text-red-700',
-			lightBg: 'bg-red-50'
-		},
-		Wukong: {
-			bg: 'bg-amber-600',
-			text: 'text-amber-700',
-			lightBg: 'bg-amber-50'
-		},
-		Ixbalam: {
-			bg: 'bg-emerald-600',
-			text: 'text-emerald-700',
-			lightBg: 'bg-emerald-50'
-		},
-		Setna: {
-			bg: 'bg-blue-600',
-			text: 'text-blue-700',
-			lightBg: 'bg-blue-50'
-		}
-	};
-
-	// House logos mapping
-	const houseLogos: Record<House, typeof LogoHeracles> = {
-		Heracles: LogoHeracles,
-		Wukong: LogoWukong,
-		Ixbalam: LogoIxbalam,
-		Setna: LogoSetna
-	};
+	import { HOUSES, HOUSE_COLORS, type House } from '$lib/constants/houses';
+	import { houseLogos } from '$lib/assets/house-logos';
 
 	type Student = {
 		_id: Id<'students'>;
@@ -186,7 +148,7 @@
 			<!-- Four Houses Grid -->
 			{#each HOUSES as house (house)}
 				{@const students = housesData[house] || []}
-				{@const colors = houseColors[house]}
+				{@const colors = HOUSE_COLORS[house]}
 				{@const isDragOver = dragState.activeDropZoneId === house}
 				{@const Logo = houseLogos[house]}
 				{@const groupedStudents = getGroupedStudents(students)}

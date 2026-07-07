@@ -9,36 +9,7 @@
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 
-	const HOUSES = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
-	type House = (typeof HOUSES)[number];
-
-	const houseColors: Record<House, { bg: string; text: string; lightBg: string; border: string }> =
-		{
-			Heracles: {
-				bg: 'bg-red-600',
-				text: 'text-red-700',
-				lightBg: 'bg-red-50',
-				border: 'border-red-500'
-			},
-			Wukong: {
-				bg: 'bg-amber-600',
-				text: 'text-amber-700',
-				lightBg: 'bg-amber-50',
-				border: 'border-amber-500'
-			},
-			Ixbalam: {
-				bg: 'bg-emerald-600',
-				text: 'text-emerald-700',
-				lightBg: 'bg-emerald-50',
-				border: 'border-emerald-500'
-			},
-			Setna: {
-				bg: 'bg-blue-600',
-				text: 'text-blue-700',
-				lightBg: 'bg-blue-50',
-				border: 'border-blue-500'
-			}
-		};
+	import { HOUSES, HOUSE_COLORS, type House } from '$lib/constants/houses';
 
 	const eventsQuery = useQuery(api.houseEvents.list, () => ({}));
 	const client = useConvexClient();
@@ -281,7 +252,7 @@
 							<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
 								{#each HOUSES as h (h)}
 									{@const pts = hp?.[h]}
-									{@const colors = houseColors[h]}
+									{@const colors = HOUSE_COLORS[h]}
 									<div
 										class="flex items-center justify-between rounded-lg px-3 py-2 {colors.lightBg} {colors.border} border"
 									>
@@ -346,7 +317,7 @@
 				</p>
 				<div class="grid grid-cols-2 gap-3">
 					{#each HOUSES as h (h)}
-						{@const colors = houseColors[h]}
+						{@const colors = HOUSE_COLORS[h]}
 						<div>
 							<label for={`points-${h}`} class="mb-1 block text-xs font-semibold {colors.text}">
 								{h}

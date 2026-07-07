@@ -342,12 +342,6 @@
 		}
 	});
 
-	// Cleanup on destroy
-	onDestroy(() => {
-		$headerTitleOverride = '';
-		clearHeaderHouseBadge();
-	});
-
 	// Determine loading state
 	const isLoading = $derived.by(() => {
 		if (userQuery.isLoading) return true;

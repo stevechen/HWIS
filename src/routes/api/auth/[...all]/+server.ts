@@ -28,9 +28,9 @@ const normalizeConvexSiteUrl = (value?: string) => {
 	return normalized;
 };
 
-const convexUrl = publicEnv.CONVEX_URL || publicEnv.PUBLIC_CONVEX_URL || 'http://127.0.0.1:3210';
+const convexUrl = publicEnv.PUBLIC_CONVEX_URL || 'http://127.0.0.1:3210';
 const convexSiteUrl =
-	normalizeConvexSiteUrl(publicEnv.CONVEX_SITE_URL || publicEnv.PUBLIC_CONVEX_SITE_URL) ||
+	normalizeConvexSiteUrl(publicEnv.PUBLIC_CONVEX_SITE_URL) ||
 	normalizeConvexSiteUrl(convexUrl) ||
 	'http://127.0.0.1:3211';
 

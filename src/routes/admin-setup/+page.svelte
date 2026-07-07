@@ -12,8 +12,6 @@
 
 	let status = $state('Checking auth...');
 	let error = $state<string | null>(null);
-	let authUserId = $state<string | null>(null);
-
 	onMount(async () => {
 		await new Promise((r) => setTimeout(r, 1000));
 
@@ -49,9 +47,6 @@
 
 <div class="flex h-screen flex-col items-center justify-center gap-4 p-4">
 	<p class="text-lg">{status}</p>
-	{#if authUserId}
-		<p class="text-muted-foreground text-sm">Auth User ID: {authUserId}</p>
-	{/if}
 	{#if error}
 		<p class="text-red-600">Error: {error}</p>
 	{/if}
