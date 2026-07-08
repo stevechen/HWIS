@@ -19,6 +19,7 @@
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import { onMount } from 'svelte';
+	import { parseCsv, mapCsvRowToStudent } from './import-utils';
 
 	type Student = {
 		_id: Id<'students'>;
@@ -91,6 +92,7 @@
 	// Import dialog state
 	let importMode = $state<'halt' | 'skip' | 'update'>('halt');
 	let importFile = $state<File | null>(null);
+	let fileInput = $state<HTMLInputElement | null>(null);
 	let importPreview = $state<Record<string, string>[]>([]);
 	let importResult = $state<{
 		created: string[];
@@ -101,8 +103,6 @@
 	let isImporting = $state(false);
 	let importError = $state('');
 
-	type ParsedCsvRow = Record<string, string>;
-
 	// Duplicate check state
 	let isCheckingId = $state(false);
 	let idAvailability = $state<'available' | 'taken' | 'unknown'>('unknown');
@@ -110,37 +110,10 @@
 	const grades = [7, 8, 9, 10, 11, 12];
 	const statuses = ['Enrolled', 'Not Enrolled'] as const;
 
-	// Type for class records from the API
-	type ClassRecord = {
-		_id: Id<'classes'>;
-		grade: number;
-		class: string;
-		homeroomTeacherId?: Id<'users'>;
-		homeroomTeacherName?: string | null;
-	};
-
-	// Group classes by grade for display name logic
-	const classesByGrade = $derived.by(() => {
-		const classes = classesQuery.data || [];
-		const grouped: Record<number, ClassRecord[]> = {};
-		for (const grade of grades) {
-			grouped[grade] = classes.filter((c) => c.grade === grade);
-		}
-		return grouped;
-	});
-
 	// Helper function to get display name for a class
-	// default -> "7", "1" -> "7-1" (or "7" if only "1" and "IB" exist), "IB" -> "7-IB"
-	function getDisplayName(grade: number, className: string, gradeClasses?: ClassRecord[]): string {
+	function getDisplayName(grade: number, className: string): string {
 		if (className === 'default') return `${grade}`;
 		if (className === 'IB') return `${grade}-IB`;
-		// Check if grade has only "1" and "IB" classes - if so, display "1" as just the grade number
-		if (gradeClasses && className === '1') {
-			const classNames = gradeClasses.map((c) => c.class);
-			if (classNames.length === 2 && classNames.includes('1') && classNames.includes('IB')) {
-				return `${grade}`;
-			}
-		}
 		return `${grade}-${className}`;
 	}
 
@@ -152,7 +125,7 @@
 		}
 		return classesQuery.data.map((c) => ({
 			value: `${c.grade}-${c.class}`,
-			label: getDisplayName(c.grade, c.class, classesByGrade[c.grade]),
+			label: getDisplayName(c.grade, c.class),
 			grade: c.grade,
 			classNum: c.class,
 			classId: c._id
@@ -392,135 +365,6 @@
 		}
 	}
 
-	function normalizeHeader(header: string): string {
-		return header
-			.trim()
-			.toLowerCase()
-			.replace(/^\ufeff/, '')
-			.replace(/[^a-z0-9]/g, '');
-	}
-
-	function parseCsv(text: string): ParsedCsvRow[] {
-		const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-		const rows: string[][] = [];
-		let currentRow: string[] = [];
-		let currentCell = '';
-		let inQuotes = false;
-
-		for (let i = 0; i < normalized.length; i++) {
-			const char = normalized[i];
-			const nextChar = normalized[i + 1];
-
-			if (char === '"') {
-				if (inQuotes && nextChar === '"') {
-					currentCell += '"';
-					i++;
-				} else {
-					inQuotes = !inQuotes;
-				}
-				continue;
-			}
-
-			if (char === ',' && !inQuotes) {
-				currentRow.push(currentCell);
-				currentCell = '';
-				continue;
-			}
-
-			if (char === '\n' && !inQuotes) {
-				currentRow.push(currentCell);
-				rows.push(currentRow);
-				currentRow = [];
-				currentCell = '';
-				continue;
-			}
-
-			currentCell += char;
-		}
-
-		// Flush final row
-		if (currentCell.length > 0 || currentRow.length > 0) {
-			currentRow.push(currentCell);
-			rows.push(currentRow);
-		}
-
-		if (rows.length === 0) {
-			return [];
-		}
-
-		const headers = rows[0].map((h) => normalizeHeader(h));
-		const dataRows: ParsedCsvRow[] = [];
-		for (let i = 1; i < rows.length; i++) {
-			const rowValues = rows[i];
-			if (rowValues.every((v) => v.trim() === '')) {
-				continue;
-			}
-			const row: ParsedCsvRow = {};
-			for (let j = 0; j < headers.length; j++) {
-				row[headers[j]] = (rowValues[j] ?? '').trim();
-			}
-			dataRows.push(row);
-		}
-		return dataRows;
-	}
-
-	function mapCsvRowToStudent(row: ParsedCsvRow): {
-		englishName: string;
-		chineseName: string;
-		studentId: string;
-		grade: number;
-		class?: string;
-		note?: string;
-		status?: 'Enrolled' | 'Not Enrolled';
-		house?: 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna';
-	} {
-		const englishName = row.englishname || row.name || '';
-		const chineseName = row.chinesename || row.chinese || '';
-		const studentId = row.studentid || row.id || '';
-		const gradeValue = row.grade || '';
-		const gradeClass = parseGradeAndClass(gradeValue);
-		const rawStatus = (row.status || '').trim();
-		let parsedStatus: 'Enrolled' | 'Not Enrolled' | undefined = undefined;
-		if (rawStatus.toLowerCase() === 'enrolled') parsedStatus = 'Enrolled';
-		if (rawStatus.toLowerCase() === 'not enrolled') parsedStatus = 'Not Enrolled';
-
-		const rawHouse = (row.house || '').trim();
-		let parsedHouse: 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna' | undefined = undefined;
-		if (rawHouse.toLowerCase() === 'heracles') parsedHouse = 'Heracles';
-		if (rawHouse.toLowerCase() === 'wukong') parsedHouse = 'Wukong';
-		if (rawHouse.toLowerCase() === 'ixbalam') parsedHouse = 'Ixbalam';
-		if (rawHouse.toLowerCase() === 'setna') parsedHouse = 'Setna';
-
-		return {
-			englishName,
-			chineseName,
-			studentId,
-			grade: gradeClass.grade,
-			class: gradeClass.class,
-			status: parsedStatus,
-			note: row.note || '',
-			house: parsedHouse
-		};
-	}
-
-	function parseGradeAndClass(value: string): { grade: number; class?: string } {
-		const cleaned = value.trim();
-		if (!cleaned) return { grade: 7, class: '1' };
-
-		const dashMatch = cleaned.match(/^(\d{1,2})\s*-\s*([A-Za-z0-9]+)$/);
-		if (dashMatch) {
-			const grade = parseInt(dashMatch[1], 10);
-			const className = dashMatch[2].toUpperCase() === 'IB' ? 'IB' : dashMatch[2];
-			return { grade: Number.isNaN(grade) ? 7 : grade, class: className };
-		}
-
-		const gradeOnly = parseInt(cleaned, 10);
-		return {
-			grade: Number.isNaN(gradeOnly) ? 7 : gradeOnly,
-			class: '1'
-		};
-	}
-
 	const filteredStudents = $derived(
 		studentsQuery.data?.filter((s: Student) => {
 			if (selectedStatus && s.status !== selectedStatus) return false;
@@ -636,11 +480,7 @@
 							<Table.Cell class="hidden sm:table-cell">{student.chineseName}</Table.Cell>
 							<Table.Cell class="px-1 text-center sm:px-2"
 								>{student.classInfo
-									? getDisplayName(
-											student.classInfo.grade,
-											student.classInfo.class,
-											classesByGrade[student.classInfo.grade]
-										)
+									? getDisplayName(student.classInfo.grade, student.classInfo.class)
 									: '-'}</Table.Cell
 							>
 							<Table.Cell
@@ -932,7 +772,14 @@
 				<h2 id="import-students-title" class="text-lg font-semibold">Import Students from Excel</h2>
 				<div class="grid gap-4 py-4">
 					<p class="text-muted-foreground text-sm">
-						Upload a CSV file with columns: englishName, chineseName, studentId, grade, status, note
+						Upload a CSV file. <strong>Required:</strong> Student ID, English Name, Chinese Name,
+						Grade-Class. <strong>Optional:</strong> House, Status.
+						<a
+							href="/example-import.csv"
+							download
+							class="ml-1 text-blue-600 underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
+							>Download example</a
+						>
 					</p>
 					<div class="space-y-2">
 						<Label for="importMode">On duplicate student ID:</Label>
@@ -944,10 +791,14 @@
 					</div>
 					<div class="space-y-2">
 						<Label for="file">CSV File</Label>
-						<Input
-							id="file"
+						<Button variant="outline" onclick={() => fileInput?.click()}>
+							{importFile ? importFile.name : 'Choose File'}
+						</Button>
+						<input
+							bind:this={fileInput}
 							type="file"
 							accept=".csv"
+							class="hidden"
 							onchange={(e) => {
 								const target = e.target as HTMLInputElement;
 								importFile = target.files?.[0] || null;

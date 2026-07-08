@@ -20,16 +20,9 @@
 	import type { DragData } from '$lib/utils/dnd.svelte';
 
 	// Client-side helper functions (duplicated from classes.ts for client use)
-	function getDisplayName(grade: number, className: string, gradeClasses?: ClassRecord[]): string {
+	function getDisplayName(grade: number, className: string): string {
 		if (className === 'default') return `${grade}`;
 		if (className === 'IB') return `${grade}-IB`;
-		// Check if grade has only "1" and "IB" classes - if so, display "1" as just the grade number
-		if (gradeClasses && className === '1') {
-			const classNames = gradeClasses.map((c) => c.class);
-			if (classNames.length === 2 && classNames.includes('1') && classNames.includes('IB')) {
-				return `${grade}`;
-			}
-		}
 		return `${grade}-${className}`;
 	}
 
@@ -327,7 +320,7 @@
 	async function deleteClass(cls: ClassRecord) {
 		if (isProtectedClass(cls.class)) {
 			window.alert(
-				`Cannot delete protected class ${getDisplayName(cls.grade, cls.class, classesByGrade[cls.grade])}: ${cls.class === 'default' ? 'default' : 'IB'} classes are required`
+				`Cannot delete protected class ${getDisplayName(cls.grade, cls.class)}: ${cls.class === 'default' ? 'default' : 'IB'} classes are required`
 			);
 			return;
 		}
@@ -475,7 +468,7 @@
 											isDragOver && 'scale-[1.02] ring-2 ring-blue-500 ring-inset'
 										]}
 										role="region"
-										aria-label="Class {getDisplayName(cls.grade, cls.class, gradeClasses)}"
+										aria-label="Class {getDisplayName(cls.grade, cls.class)}"
 										use:dropZone={{
 											id: cls._id,
 											accept: (data: DragData) => {
@@ -514,7 +507,7 @@
 
 													<!-- Class Name -->
 													<span class="text-sm font-semibold max-md:text-base">
-														{getDisplayName(cls.grade, cls.class, gradeClasses)}
+														{getDisplayName(cls.grade, cls.class)}
 													</span>
 
 													<!-- Teacher Select (mobile inline) -->
@@ -526,11 +519,7 @@
 															updateTeacher(cls, target.value || undefined);
 														}}
 														onclick={(e) => e.stopPropagation()}
-														aria-label="Teacher for {getDisplayName(
-															cls.grade,
-															cls.class,
-															gradeClasses
-														)}"
+														aria-label="Teacher for {getDisplayName(cls.grade, cls.class)}"
 														class="hidden cursor-pointer appearance-none rounded border border-current/20 bg-white/10 px-1.5 font-medium text-current opacity-80 hover:opacity-100 focus:outline-none max-md:inline-block max-md:h-8 max-md:max-h-8 max-md:text-base"
 													>
 														<option value="">- Teacher -</option>
@@ -578,11 +567,7 @@
 													updateTeacher(cls, target.value || undefined);
 												}}
 												class="h-5 min-h-0 w-full rounded-none px-0 py-0 text-xs"
-												aria-label="Teacher for {getDisplayName(
-													cls.grade,
-													cls.class,
-													gradeClasses
-												)}"
+												aria-label="Teacher for {getDisplayName(cls.grade, cls.class)}"
 											>
 												<NativeSelect.Option value="">- No Teacher -</NativeSelect.Option>
 												{#each teachers as teacher (teacher._id)}
@@ -722,11 +707,7 @@
 		<!-- Warning: students assigned -->
 		<h3 class="mb-2 text-lg font-semibold text-red-600">Cannot Delete Class</h3>
 		<p class="text-muted-foreground mb-4 text-sm">
-			Class {getDisplayName(
-				warningClass.grade,
-				warningClass.class,
-				classesByGrade[warningClass.grade]
-			)} has {warningClass.studentCount}
+			Class {getDisplayName(warningClass.grade, warningClass.class)} has {warningClass.studentCount}
 			student{warningClass.studentCount !== 1 ? 's' : ''} assigned.
 		</p>
 		<p class="mb-4 text-sm">
@@ -740,7 +721,7 @@
 		<h3 class="mb-2 text-lg font-semibold">Delete Class</h3>
 		<p class="text-muted-foreground mb-4 text-sm">
 			Are you sure you want to delete class {warningClass
-				? getDisplayName(warningClass.grade, warningClass.class, classesByGrade[warningClass.grade])
+				? getDisplayName(warningClass.grade, warningClass.class)
 				: ''}? This cannot be undone.
 		</p>
 		<div class="flex justify-end gap-2">
@@ -786,9 +767,7 @@
 		{@const targets = gradeClasses.filter((c) => c._id !== s.classId)}
 		<h3 class="mb-2 text-lg font-semibold">Move {s.name}</h3>
 		<p class="text-muted-foreground mb-4 text-sm">
-			Currently in {currentClass
-				? getDisplayName(currentClass.grade, currentClass.class, gradeClasses)
-				: ''}
+			Currently in {currentClass ? getDisplayName(currentClass.grade, currentClass.class) : ''}
 		</p>
 		<div class="flex flex-col gap-2">
 			{#each targets as target (target._id)}
@@ -800,7 +779,7 @@
 						closeMoveDialog();
 					}}
 				>
-					{getDisplayName(target.grade, target.class, gradeClasses)}
+					{getDisplayName(target.grade, target.class)}
 				</Button>
 			{/each}
 		</div>

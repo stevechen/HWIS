@@ -544,7 +544,6 @@ export const bulkImportWithDuplicateCheck = mutation({
 				grade: v.number(),
 				class: v.optional(v.string()),
 				status: v.optional(v.union(v.literal('Enrolled'), v.literal('Not Enrolled'))),
-				note: v.optional(v.string()),
 				house: v.optional(
 					v.union(
 						v.literal('Heracles'),
@@ -635,7 +634,7 @@ export const bulkImportWithDuplicateCheck = mutation({
 			}
 
 			// If no explicit class provided, default to class "1" for the grade
-			const className = student.class || '1';
+			const className = student.class || 'default';
 			const classId = await getOrCreateClass(ctx, student.grade, className);
 
 			// Default status to 'Enrolled' if not provided
@@ -656,7 +655,6 @@ export const bulkImportWithDuplicateCheck = mutation({
 						studentId: student.studentId,
 						classId,
 						status,
-						note: student.note ?? '',
 						house: student.house
 					});
 					results.created.push(student.studentId);
@@ -666,7 +664,6 @@ export const bulkImportWithDuplicateCheck = mutation({
 						chineseName: student.chineseName,
 						classId,
 						status,
-						note: student.note ?? '',
 						house: student.house
 					});
 					results.updated.push(student.studentId);
@@ -688,7 +685,6 @@ export const bulkImportWithDuplicateCheck = mutation({
 					studentId: student.studentId,
 					classId,
 					status,
-					note: student.note ?? '',
 					house: student.house
 				});
 				results.created.push(student.studentId);
