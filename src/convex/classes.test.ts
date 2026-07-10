@@ -334,13 +334,13 @@ describe('classes', () => {
 
 			const result = await t.mutation(api.classes.seedDefaultClasses, {});
 
-			expect(result.created?.length ?? result.classes?.length).toBe(12); // 6 grades × 2 classes (default + IB)
-			expect(result.message).toContain('12');
+			expect(result.created?.length ?? result.classes?.length).toBe(8); // 6 grades × "1" + 2 grades (11,12) × "IB"
+			expect(result.message).toContain('8');
 
 			// Verify classes exist
 			const classes = await t.query(api.classes.list, {});
 
-			expect(classes).toHaveLength(12);
+			expect(classes).toHaveLength(8);
 		});
 
 		it('should not duplicate existing classes', async () => {
@@ -355,11 +355,11 @@ describe('classes', () => {
 			// Seed defaults - should skip existing
 			const result = await t.mutation(api.classes.seedDefaultClasses, {});
 
-			expect(result.created?.length ?? result.classes?.length).toBe(12); // Always 12 (1 + IB per grade)
+			expect(result.created?.length ?? result.classes?.length).toBe(8); // 6 × "1" + 2 × "IB" (grades 11-12)
 
 			const classes = await t.query(api.classes.list, {});
 
-			expect(classes).toHaveLength(13); // 12 defaults + 1 manually created
+			expect(classes).toHaveLength(9); // 8 defaults + 1 manually created
 		});
 	});
 

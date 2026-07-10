@@ -354,19 +354,21 @@ export const seedDefaultClasses = mutation({
 				created.push(`${grade}-1`);
 			}
 
-			// Create IB class (displayed as "7-IB", "8-IB", etc.)
-			const existingIB = await ctx.db
-				.query('classes')
-				.withIndex('by_grade_class', (q) => q.eq('grade', grade).eq('class', 'IB'))
-				.first();
+			// Create IB class only for grades 11-12 (IB-DP program)
+			if (grade >= 11) {
+				const existingIB = await ctx.db
+					.query('classes')
+					.withIndex('by_grade_class', (q) => q.eq('grade', grade).eq('class', 'IB'))
+					.first();
 
-			if (!existingIB) {
-				await ctx.db.insert('classes', {
-					grade,
-					class: 'IB',
-					homeroomTeacherId: undefined
-				});
-				created.push(`${grade}-IB`);
+				if (!existingIB) {
+					await ctx.db.insert('classes', {
+						grade,
+						class: 'IB',
+						homeroomTeacherId: undefined
+					});
+					created.push(`${grade}-IB`);
+				}
 			}
 		}
 

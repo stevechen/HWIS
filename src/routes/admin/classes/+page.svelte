@@ -414,8 +414,8 @@
 								>
 							</div>
 							<div class="flex items-center gap-0">
-								<!-- IB Toggle Button (only show if IB has no students) -->
-								{#if !ibHasStudents}
+								<!-- IB Toggle Button (grades 11-12 only, IB-DP program) -->
+								{#if grade >= 11 && !ibHasStudents}
 									<Button
 										variant="ghost"
 										size="icon"

@@ -45,11 +45,19 @@ test.describe('Classes CRUD', () => {
 	});
 
 	test('protected class "IB" does not show a delete control', async ({ page }) => {
+		// Show grade 11 (IB-DP only exists for grades 11-12)
+		const grade11Checkbox = page
+			.locator('label')
+			.filter({ hasText: '11' })
+			.locator('input[type="checkbox"]');
+		await grade11Checkbox.check();
+		await page.waitForTimeout(300);
+
 		const ibToggle = page.locator('button[title*="IB" i], button[aria-label*="IB" i]').first();
 		if (await ibToggle.isVisible()) {
 			await ibToggle.click();
 		}
-		const classCard = page.getByRole('region', { name: 'Class 7-IB', exact: true });
+		const classCard = page.getByRole('region', { name: 'Class 11-IB', exact: true });
 		await expect(classCard).toBeVisible();
 		await expect(classCard.locator('button')).toHaveCount(0);
 	});

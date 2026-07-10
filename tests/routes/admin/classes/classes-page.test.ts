@@ -71,11 +71,14 @@ describe('Classes Page', () => {
 			await expect.element(addButtons.first()).toBeInTheDocument();
 		});
 
-		it('renders IB toggle buttons for grades', async () => {
+		it('renders IB toggle buttons for grade 11', async () => {
 			render(ClassesPage);
 
-			// IB toggle buttons should exist (using img alt text as proxy)
-			await expect.element(page.getByAltText('IB').first()).toBeInTheDocument();
+			// Make grade 11 visible by clicking checkbox
+			await page.getByRole('checkbox', { name: '11' }).click();
+
+			// IB toggle button should exist for grades 11-12 (IB-DP program)
+			await expect.element(page.getByAltText('IB')).toBeInTheDocument();
 		});
 	});
 

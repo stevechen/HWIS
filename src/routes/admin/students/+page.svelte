@@ -47,7 +47,7 @@
 	const classesQuery = useQuery(classesApi.list, () => ({}));
 	const client = useConvexClient();
 
-	// Automatically seed default classes (G#-1 and G#-IB) when page loads
+	// Automatically seed default classes when page loads
 	onMount(async () => {
 		try {
 			await client.mutation(api.classes.seedDefaultClasses, {});
