@@ -823,5 +823,68 @@ describe('classes', () => {
 				})
 			).rejects.toThrow('Class not found');
 		});
+
+		it('should not move student to same class (no-op)', async () => {
+			const t = convexTest(schema, modules);
+
+			const classA = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'A'
+			});
+
+			const studentId = await t.run(async (ctx) => {
+				return await ctx.db.insert('students', {
+					englishName: 'Test Student',
+					chineseName: '測試學生',
+					studentId: '7001001',
+					classId: classA,
+					status: 'Enrolled'
+				});
+			});
+
+			const result = await t.mutation(api.classes.moveStudent, {
+				studentId,
+				targetClassId: classA
+			});
+
+			expect(result.success).toBe(true);
+			expect(result.fromClassId).toBe(classA);
+			expect(result.toClassId).toBe(classA);
+		});
+
+		it('should move student with Not Enrolled status', async () => {
+			const t = convexTest(schema, modules);
+
+			const classA = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'A'
+			});
+			const classB = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'B'
+			});
+
+			const studentId = await t.run(async (ctx) => {
+				return await ctx.db.insert('students', {
+					englishName: 'Test Student',
+					chineseName: '測試學生',
+					studentId: '7001001',
+					classId: classA,
+					status: 'Not Enrolled'
+				});
+			});
+
+			const result = await t.mutation(api.classes.moveStudent, {
+				studentId,
+				targetClassId: classB
+			});
+
+			expect(result.success).toBe(true);
+
+			const studentsInB = await t.query(api.classes.getStudents, {
+				id: classB
+			});
+			expect(studentsInB[0].status).toBe('Not Enrolled');
+		});
 	});
 });

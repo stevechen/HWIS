@@ -55,7 +55,7 @@ function triggerPointerEvent(
 }
 
 // Skip mobile-like environments where draggable is disabled
-const isDesktop = () => window.innerWidth >= 768;
+const isDesktop = () => window.innerWidth >= 640;
 
 describe('draggable - ghost prevention on hover', () => {
 	beforeEach(() => {

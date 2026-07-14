@@ -24,9 +24,7 @@ const zones = new SvelteMap<string, DropZoneEntry>();
 let lastHoveredId: string | null = null;
 
 function style(el: HTMLElement, styles: Record<string, string>) {
-	for (const [key, val] of Object.entries(styles)) {
-		el.style.setProperty(key, val);
-	}
+	Object.assign(el.style, styles);
 }
 
 let ghost: HTMLElement | null = null;
@@ -92,7 +90,7 @@ export function draggable(
 	node.draggable = false;
 	node.style.cursor = 'grab';
 
-	if (window.innerWidth < 768) {
+	if (window.innerWidth < 640) {
 		return { destroy() {}, update() {} };
 	}
 
@@ -308,7 +306,7 @@ export function dropZone(
 		onDrop: (data: DragData) => void;
 	}
 ) {
-	if (window.innerWidth < 768) {
+	if (window.innerWidth < 640) {
 		return { destroy() {}, update() {} };
 	}
 

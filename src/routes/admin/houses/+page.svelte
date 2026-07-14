@@ -8,6 +8,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import { SvelteSet } from 'svelte/reactivity';
 
+	import { createMultiSelectState } from '$lib/utils/multiSelect.svelte';
+	import BulkActionBar from '$lib/components/BulkActionBar.svelte';
 	import { HOUSES, HOUSE_COLORS, type House } from '$lib/constants/houses';
 	import { houseLogos } from '$lib/assets/house-logos';
 
@@ -103,6 +105,31 @@
 			: []
 	);
 
+	let multiSelect = createMultiSelectState();
+
+	async function bulkAssignHouse(house: House | undefined) {
+		const ids = Array.from(multiSelect.selectedIds) as Id<'students'>[];
+		for (const id of ids) {
+			await assignHouse(id, house);
+		}
+		multiSelect.exitSelectionMode();
+	}
+
+	// Find which houses the selected students belong to
+	let selectedSourceHouses = $derived.by(() => {
+		const selected = multiSelect.selectedIds;
+		if (selected.size === 0) return new Set<string>();
+		const houses = new SvelteSet<string>();
+		for (const [house, students] of Object.entries(housesData)) {
+			for (const student of students) {
+				if (selected.has(student._id)) {
+					houses.add(house);
+				}
+			}
+		}
+		return houses;
+	});
+
 	function toggleCollapse(house: string) {
 		if (collapsedHouses.has(house)) {
 			collapsedHouses.delete(house);
@@ -139,10 +166,16 @@
 	{:else if housesQuery.error}
 		<div class="py-8 text-center text-red-500">Error loading houses</div>
 	{:else}
-		<p class="text-muted-foreground text-sm">
-			Click a student's name to move them to a different house. You can also drag and drop on
-			desktop.
-		</p>
+		<div class="flex items-center justify-between">
+			<Button
+				variant="outline"
+				size="sm"
+				onclick={() => multiSelect.toggleSelectionMode()}
+				aria-label={multiSelect.selectionMode ? 'Exit selection mode' : 'Enter selection mode'}
+			>
+				{multiSelect.selectionMode ? 'Done' : 'Select'}
+			</Button>
+		</div>
 		<!-- Five columns: 4 houses + unassigned -->
 		<div class="houses-board grid grid-cols-1 items-start gap-3 md:grid-cols-5">
 			<!-- Four Houses Grid -->
@@ -166,7 +199,19 @@
 							return d.sourceHouse !== house;
 						},
 						onDrop: (data: DragData) => {
-							assignHouse(data.id as Id<'students'>, house);
+							if (
+								multiSelect.selectionMode &&
+								multiSelect.selectedIds.has(data.id) &&
+								multiSelect.selectedIds.size > 1
+							) {
+								const ids = Array.from(multiSelect.selectedIds) as Id<'students'>[];
+								multiSelect.exitSelectionMode();
+								for (const sid of ids) {
+									assignHouse(sid, house);
+								}
+							} else {
+								assignHouse(data.id as Id<'students'>, house);
+							}
 						}
 					}}
 				>
@@ -222,10 +267,13 @@
 											</div>
 											{#each group.students as student (student._id)}
 												{@const enrolled = student.status !== 'Not Enrolled'}
+												{@const isSelected = multiSelect.selectedIds.has(student._id)}
 												<div
 													class={[
 														'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 max-md:gap-3 max-md:py-3',
-														!enrolled && 'text-muted-foreground bg-gray-100'
+														!enrolled && 'text-muted-foreground bg-gray-100',
+														isSelected && 'ring-2 ring-blue-500 ring-offset-1',
+														multiSelect.selectionMode && 'cursor-pointer'
 													]}
 												>
 													<div
@@ -235,16 +283,55 @@
 																englishName: student.englishName,
 																sourceHouse: house
 															},
-															label: student.englishName
+															label:
+																multiSelect.selectionMode &&
+																multiSelect.selectedIds.has(student._id) &&
+																multiSelect.selectedIds.size > 1
+																	? `${multiSelect.selectedIds.size} students`
+																	: student.englishName
 														}}
-														class="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
+														class={[
+															'flex min-w-0 flex-1 items-center gap-2',
+															multiSelect.selectionMode ? 'cursor-pointer' : 'cursor-grab'
+														]}
 														role="button"
-														aria-label="Move {student.englishName} to another house"
+														aria-pressed={multiSelect.selectionMode ? isSelected : undefined}
+														aria-label={multiSelect.selectionMode
+															? `Select ${student.englishName}`
+															: `Move ${student.englishName} to another house`}
 														tabindex="0"
-														onclick={() => openMoveDialog(student, house)}
-														onkeydown={(e) => e.key === 'Enter' && openMoveDialog(student, house)}
+														onclick={() => {
+															if (multiSelect.selectionMode) {
+																multiSelect.toggleSelect(student._id);
+															} else {
+																openMoveDialog(student, house);
+															}
+														}}
+														onkeydown={(e) => {
+															if (e.key === 'Enter') {
+																if (multiSelect.selectionMode) {
+																	multiSelect.toggleSelect(student._id);
+																} else {
+																	openMoveDialog(student, house);
+																}
+															}
+														}}
 													>
-														<GripVertical class="size-3 shrink-0 text-gray-400 max-md:hidden" />
+														{#if multiSelect.selectionMode}
+															<input
+																type="checkbox"
+																checked={isSelected}
+																class="size-4 shrink-0 max-md:size-5"
+																onclick={(e) => e.stopPropagation()}
+																onchange={() => multiSelect.toggleSelect(student._id)}
+															/>
+														{/if}
+														<GripVertical
+															class={[
+																'size-3 shrink-0 text-gray-400 max-md:hidden',
+																multiSelect.selectionMode && 'hidden'
+															]}
+														/>
 														<div class="flex min-w-0 flex-1 flex-col">
 															<span class="truncate font-medium">{student.englishName}</span>
 															{#if !enrolled}
@@ -284,7 +371,19 @@
 						return d.sourceHouse !== 'orphaned';
 					},
 					onDrop: (data: DragData) => {
-						assignHouse(data.id as Id<'students'>, undefined);
+						if (
+							multiSelect.selectionMode &&
+							multiSelect.selectedIds.has(data.id) &&
+							multiSelect.selectedIds.size > 1
+						) {
+							const ids = Array.from(multiSelect.selectedIds) as Id<'students'>[];
+							multiSelect.exitSelectionMode();
+							for (const sid of ids) {
+								assignHouse(sid, undefined);
+							}
+						} else {
+							assignHouse(data.id as Id<'students'>, undefined);
+						}
 					}
 				}}
 			>
@@ -333,10 +432,13 @@
 										</div>
 										{#each group.students as student (student._id)}
 											{@const enrolled = student.status !== 'Not Enrolled'}
+											{@const isSelected = multiSelect.selectedIds.has(student._id)}
 											<div
 												class={[
 													'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 max-md:gap-3 max-md:py-3',
-													!enrolled && 'text-muted-foreground bg-gray-100'
+													!enrolled && 'text-muted-foreground bg-gray-100',
+													isSelected && 'ring-2 ring-blue-500 ring-offset-1',
+													multiSelect.selectionMode && 'cursor-pointer'
 												]}
 											>
 												<div
@@ -346,17 +448,55 @@
 															englishName: student.englishName,
 															sourceHouse: 'orphaned'
 														},
-														label: student.englishName
+														label:
+															multiSelect.selectionMode &&
+															multiSelect.selectedIds.has(student._id) &&
+															multiSelect.selectedIds.size > 1
+																? `${multiSelect.selectedIds.size} students`
+																: student.englishName
 													}}
-													class="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
+													class={[
+														'flex min-w-0 flex-1 items-center gap-2',
+														multiSelect.selectionMode ? 'cursor-pointer' : 'cursor-grab'
+													]}
 													role="button"
-													aria-label="Move {student.englishName} to a house"
+													aria-pressed={multiSelect.selectionMode ? isSelected : undefined}
+													aria-label={multiSelect.selectionMode
+														? `Select ${student.englishName}`
+														: `Move ${student.englishName} to a house`}
 													tabindex="0"
-													onclick={() => openMoveDialog(student, 'orphaned')}
-													onkeydown={(e) =>
-														e.key === 'Enter' && openMoveDialog(student, 'orphaned')}
+													onclick={() => {
+														if (multiSelect.selectionMode) {
+															multiSelect.toggleSelect(student._id);
+														} else {
+															openMoveDialog(student, 'orphaned');
+														}
+													}}
+													onkeydown={(e) => {
+														if (e.key === 'Enter') {
+															if (multiSelect.selectionMode) {
+																multiSelect.toggleSelect(student._id);
+															} else {
+																openMoveDialog(student, 'orphaned');
+															}
+														}
+													}}
 												>
-													<GripVertical class="size-3 shrink-0 text-gray-400 max-md:hidden" />
+													{#if multiSelect.selectionMode}
+														<input
+															type="checkbox"
+															checked={isSelected}
+															class="size-4 shrink-0 max-md:size-5"
+															onclick={(e) => e.stopPropagation()}
+															onchange={() => multiSelect.toggleSelect(student._id)}
+														/>
+													{/if}
+													<GripVertical
+														class={[
+															'size-3 shrink-0 text-gray-400 max-md:hidden',
+															multiSelect.selectionMode && 'hidden'
+														]}
+													/>
 													<div class="flex min-w-0 flex-1 flex-col">
 														<span class="truncate font-medium">{student.englishName}</span>
 														{#if !enrolled}
@@ -380,6 +520,23 @@
 				{/if}
 			</div>
 		</div>
+
+		{@const isSingleSource = selectedSourceHouses.size === 1}
+		{@const sourceHouse = isSingleSource ? [...selectedSourceHouses][0] : null}
+		{@const bulkActions = [
+			...HOUSES.filter((house) => !(isSingleSource && sourceHouse === house)).map((house) => ({
+				label: house,
+				action: () => bulkAssignHouse(house)
+			})),
+			...(isSingleSource && sourceHouse === 'orphaned'
+				? []
+				: [{ label: 'Unassigned', action: () => bulkAssignHouse(undefined) }])
+		]}
+		<BulkActionBar
+			selectedCount={multiSelect.selectedCount}
+			actions={bulkActions}
+			onDone={() => multiSelect.exitSelectionMode()}
+		/>
 	{/if}
 </div>
 

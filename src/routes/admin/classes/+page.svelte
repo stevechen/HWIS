@@ -5,17 +5,19 @@
 	import {
 		Plus,
 		Trash2,
-		Eye,
-		EyeOff,
 		Users,
 		GripVertical,
 		ChevronDown,
-		ChevronRight
+		ChevronRight,
+		MousePointer2,
+		MousePointerClick
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { onMount } from 'svelte';
+	import { createMultiSelectState } from '$lib/utils/multiSelect.svelte';
+	import BulkActionBar from '$lib/components/BulkActionBar.svelte';
 	import { draggable, dropZone, dragState } from '$lib/utils/dnd.svelte';
 	import type { DragData } from '$lib/utils/dnd.svelte';
 
@@ -154,6 +156,60 @@
 		}
 	}
 
+	let multiSelect = createMultiSelectState();
+
+	let bulkClassActions = $derived.by(() => {
+		if (selectedSelectGrade === null) return [] as { label: string; action: () => void }[];
+		const selected = multiSelect.selectedIds;
+		if (selected.size === 0) return [] as { label: string; action: () => void }[];
+
+		const sourceClassIds = new SvelteSet<string>();
+		for (const cls of classesQuery.data || []) {
+			for (const student of cls.students) {
+				if (selected.has(student._id)) {
+					sourceClassIds.add(cls._id);
+				}
+			}
+		}
+
+		const isSingleSource = sourceClassIds.size === 1;
+
+		const actions: { label: string; action: () => void }[] = [];
+		for (const cls of classesByGrade[selectedSelectGrade] || []) {
+			if (isSingleSource && sourceClassIds.has(cls._id)) continue;
+			if (cls.class === 'IB' && selectedSelectGrade < 11) continue;
+			const displayName = getDisplayName(cls.grade, cls.class);
+			actions.push({
+				label: displayName,
+				action: async () => {
+					const ids = Array.from(multiSelect.selectedIds) as Id<'students'>[];
+					let moved = 0;
+					for (const sId of ids) {
+						const studentClass = (classesQuery.data || []).find((c) =>
+							c.students.some((s) => s._id === sId)
+						);
+						if (studentClass && studentClass.grade === cls.grade) {
+							try {
+								await moveStudent(sId, cls._id as Id<'classes'>);
+								moved++;
+							} catch {
+								// skip individual failures
+							}
+						}
+					}
+					exitGradeSelection();
+					if (moved < ids.length) {
+						window.alert(
+							`Moved ${moved} of ${ids.length} students. ${ids.length - moved} student${ids.length - moved !== 1 ? 's' : ''} from other grades were skipped.`
+						);
+					}
+				}
+			});
+		}
+
+		return actions;
+	});
+
 	// Accordion state
 	let collapsedClasses = new SvelteSet<string>();
 
@@ -192,11 +248,11 @@
 	// State for visible grades (default only grade 7 visible)
 	let visibleGrades = new SvelteSet([7]);
 
-	// State for global student list visibility toggle (default visible)
-	let globalStudentListsVisible = $state(true);
-
 	// State for IB visibility per grade (grades where IB classes should be shown)
 	let ibVisibleGrades = new SvelteSet();
+
+	// State for which grade is in selection mode (null = none active)
+	let selectedSelectGrade = $state<number | null>(null);
 
 	// Add dialog state
 	let addDialogRef = $state<HTMLDialogElement | null>(null);
@@ -256,17 +312,26 @@
 		}
 	}
 
-	// Toggle global student list visibility
-	function toggleGlobalStudentLists() {
-		globalStudentListsVisible = !globalStudentListsVisible;
-	}
-
 	// Toggle IB visibility for a grade
 	function toggleIBVisibility(grade: number) {
 		if (ibVisibleGrades.has(grade)) {
 			ibVisibleGrades.delete(grade);
 		} else {
 			ibVisibleGrades.add(grade);
+		}
+	}
+
+	function exitGradeSelection() {
+		multiSelect.clearSelection();
+		selectedSelectGrade = null;
+	}
+
+	function toggleGradeSelect(grade: number) {
+		if (selectedSelectGrade === grade) {
+			exitGradeSelection();
+		} else {
+			multiSelect.clearSelection();
+			selectedSelectGrade = grade;
 		}
 	}
 
@@ -355,7 +420,7 @@
 	>
 		<!-- Grade Checkboxes -->
 		<div class="flex items-center gap-2 max-md:flex-nowrap max-md:gap-3">
-			<span class="text-muted-foreground mr-1 text-xs max-md:text-sm">Grades:</span>
+			<span class="text-muted-foreground mr-1 text-xs max-md:text-sm">Show Grades:</span>
 			{#each grades as grade (grade)}
 				<label class="flex cursor-pointer items-center gap-1 max-md:gap-1.5">
 					<input
@@ -368,25 +433,6 @@
 				</label>
 			{/each}
 		</div>
-
-		<div class="bg-border mx-1 h-4 w-px max-md:hidden"></div>
-
-		<!-- Global Student Lists Toggle -->
-		<Button
-			variant="ghost"
-			size="sm"
-			class="h-6 gap-1 px-2 text-xs max-md:hidden"
-			onclick={toggleGlobalStudentLists}
-			aria-label={globalStudentListsVisible ? 'Hide all student lists' : 'Show all student lists'}
-		>
-			{#if globalStudentListsVisible}
-				<EyeOff class="size-3" />
-				<span>Hide Students</span>
-			{:else}
-				<Eye class="size-3" />
-				<span>Show Students</span>
-			{/if}
-		</Button>
 	</div>
 
 	{#if classesQuery.isLoading}
@@ -412,12 +458,30 @@
 								<Users class="ml-2 size-3" /><span class="text-muted-foreground text-xs"
 									>{totalStudents}</span
 								>
+								{#if totalStudents > 0}
+									<!-- Select/Done Button -->
+									<Button
+										variant={selectedSelectGrade === grade ? 'default' : 'outline'}
+										size="icon"
+										class="size-5 shrink-0 rounded-none"
+										onclick={() => toggleGradeSelect(grade)}
+										aria-label={selectedSelectGrade === grade
+											? `Done selecting in grade ${grade}`
+											: `Select grade ${grade}`}
+									>
+										{#if selectedSelectGrade === grade}
+											<MousePointer2 class="size-3.5" />
+										{:else}
+											<MousePointerClick class="size-3.5" />
+										{/if}
+									</Button>
+								{/if}
 							</div>
 							<div class="flex items-center gap-0">
 								<!-- IB Toggle Button (grades 11-12 only, IB-DP program) -->
 								{#if grade >= 11 && !ibHasStudents}
 									<Button
-										variant="ghost"
+										variant="outline"
 										size="icon"
 										class="size-5 shrink-0 rounded-none"
 										onclick={() => toggleIBVisibility(grade)}
@@ -433,7 +497,7 @@
 								{/if}
 								<!-- Add Class Button -->
 								<Button
-									variant="ghost"
+									variant="outline"
 									size="icon"
 									class="size-5 shrink-0 rounded-none"
 									onclick={() => openAddDialog(grade)}
@@ -473,10 +537,22 @@
 											id: cls._id,
 											accept: (data: DragData) => {
 												const d = data as unknown as { sourceGrade: number; sourceClassId: string };
-												return d.sourceGrade === cls.grade && d.sourceClassId !== cls._id;
+												return d.sourceGrade === cls.grade;
 											},
 											onDrop: (data: DragData) => {
-												moveStudent(data.id as Id<'students'>, cls._id as Id<'classes'>);
+												if (
+													selectedSelectGrade !== null &&
+													multiSelect.selectedIds.has(data.id) &&
+													multiSelect.selectedIds.size > 1
+												) {
+													const ids = Array.from(multiSelect.selectedIds) as Id<'students'>[];
+													exitGradeSelection();
+													for (const sid of ids) {
+														moveStudent(sid, cls._id);
+													}
+												} else {
+													moveStudent(data.id as Id<'students'>, cls._id);
+												}
 											}
 										}}
 									>
@@ -581,7 +657,7 @@
 										</div>
 
 										<!-- Student List (shown when global toggle is on and class is expanded) -->
-										{#if globalStudentListsVisible && !collapsedClasses.has(cls._id)}
+										{#if !collapsedClasses.has(cls._id)}
 											<div
 												class="border-t text-center max-md:rounded-b-md max-md:p-3"
 												style="background-color:{studentListBg}"
@@ -590,13 +666,16 @@
 													<div class="flex flex-col gap-0 overflow-y-auto max-md:gap-2">
 														{#each [...cls.students].sort( (a, b) => a.name.localeCompare(b.name) ) as student (student._id)}
 															{@const enrolled = student.status !== 'Not Enrolled'}
+															{@const isSelected = multiSelect.selectedIds.has(student._id)}
 															<div
 																class={[
 																	!enrolled &&
 																		'text-muted-foreground bg-black/10 max-md:bg-gray-100',
 																	enrolled && 'max-md:bg-white',
 																	'flex items-center gap-1 truncate px-1 py-1 text-xs leading-tight hover:bg-black/5',
-																	'max-md:gap-3 max-md:rounded max-md:border max-md:px-3 max-md:py-3 max-md:text-sm max-md:shadow-sm hover:max-md:bg-gray-50'
+																	'max-md:gap-3 max-md:rounded max-md:border max-md:px-3 max-md:py-3 max-md:text-sm max-md:shadow-sm hover:max-md:bg-gray-50',
+																	isSelected && 'ring-2 ring-blue-500 ring-inset',
+																	selectedSelectGrade !== null && 'cursor-pointer'
 																]}
 															>
 																<div
@@ -607,28 +686,67 @@
 																			sourceClassId: cls._id,
 																			sourceGrade: cls.grade
 																		},
-																		label: student.name,
-																		onReject: (data, zoneId) => {
-																			const d = data as unknown as {
-																				sourceClassId: string;
-																			};
-																			if (d.sourceClassId !== zoneId) {
-																				crossGradeErrorMessage =
-																					"Moving students between different grades is not allowed here. Please use the Students page to change a student's grade.";
-																				crossGradeDialogRef?.showModal();
+																		label:
+																			selectedSelectGrade !== null &&
+																			multiSelect.selectedIds.has(student._id) &&
+																			multiSelect.selectedIds.size > 1
+																				? `${multiSelect.selectedIds.size} students`
+																				: student.name,
+																		onReject: () => {
+																			crossGradeErrorMessage =
+																				'Moving students between different grades is not allowed here';
+																			crossGradeDialogRef?.showModal();
+																		}
+																	}}
+																	class={[
+																		'flex flex-1 items-center gap-1 truncate',
+																		selectedSelectGrade !== null ? 'cursor-pointer' : 'cursor-grab'
+																	]}
+																	role="button"
+																	aria-pressed={selectedSelectGrade !== null
+																		? isSelected
+																		: undefined}
+																	aria-label={selectedSelectGrade !== null
+																		? `Select ${student.name}`
+																		: `Move ${student.name} to another class`}
+																	tabindex="0"
+																	onclick={() => {
+																		if (
+																			selectedSelectGrade !== null &&
+																			selectedSelectGrade === cls.grade
+																		) {
+																			multiSelect.toggleSelect(student._id);
+																		} else {
+																			openMoveDialog(student, cls);
+																		}
+																	}}
+																	onkeydown={(e) => {
+																		if (e.key === 'Enter') {
+																			if (
+																				selectedSelectGrade !== null &&
+																				selectedSelectGrade === cls.grade
+																			) {
+																				multiSelect.toggleSelect(student._id);
+																			} else {
+																				openMoveDialog(student, cls);
 																			}
 																		}
 																	}}
-																	class="flex flex-1 cursor-pointer items-center gap-1 truncate"
-																	role="button"
-																	aria-label="Move {student.name} to another class"
-																	tabindex="0"
-																	onclick={() => openMoveDialog(student, cls)}
-																	onkeydown={(e) =>
-																		e.key === 'Enter' && openMoveDialog(student, cls)}
 																>
+																	{#if selectedSelectGrade === cls.grade}
+																		<input
+																			type="checkbox"
+																			checked={isSelected}
+																			class="size-3 shrink-0 max-md:size-4"
+																			onclick={(e) => e.stopPropagation()}
+																			onchange={() => multiSelect.toggleSelect(student._id)}
+																		/>
+																	{/if}
 																	<GripVertical
-																		class="size-2.5 shrink-0 opacity-40 max-md:hidden"
+																		class={[
+																			'size-2.5 shrink-0 opacity-40 max-md:hidden',
+																			selectedSelectGrade === cls.grade && 'hidden'
+																		]}
 																	/>
 																	<span class="truncate max-md:text-base">{student.name}</span>
 																</div>
@@ -652,6 +770,12 @@
 				{/if}
 			{/each}
 		</div>
+
+		<BulkActionBar
+			selectedCount={multiSelect.selectedCount}
+			actions={bulkClassActions}
+			onDone={exitGradeSelection}
+		/>
 	{/if}
 </div>
 
@@ -764,7 +888,9 @@
 		{@const s = moveDialogStudent}
 		{@const gradeClasses = classesByGrade[s.grade] || []}
 		{@const currentClass = gradeClasses.find((c) => c._id === s.classId)}
-		{@const targets = gradeClasses.filter((c) => c._id !== s.classId)}
+		{@const targets = gradeClasses.filter(
+			(c) => c._id !== s.classId && (c.class !== 'IB' || s.grade >= 11)
+		)}
 		<h3 class="mb-2 text-lg font-semibold">Move {s.name}</h3>
 		<p class="text-muted-foreground mb-4 text-sm">
 			Currently in {currentClass ? getDisplayName(currentClass.grade, currentClass.class) : ''}

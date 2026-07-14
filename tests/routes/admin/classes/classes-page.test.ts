@@ -124,4 +124,86 @@ describe('Classes Page', () => {
 			await expect.element(page.getByText(/Currently in/)).toBeInTheDocument();
 		});
 	});
+
+	describe('Multi-Select', () => {
+		it('renders Select button in grade 7 header', async () => {
+			render(ClassesPage);
+
+			await expect
+				.element(page.getByRole('button', { name: 'Select grade 7' }))
+				.toBeInTheDocument();
+		});
+
+		it('enters selection mode when grade Select is clicked', async () => {
+			render(ClassesPage);
+
+			await page.getByRole('button', { name: 'Select grade 7' }).click();
+			await expect
+				.element(page.getByRole('button', { name: 'Done selecting in grade 7' }))
+				.toBeInTheDocument();
+		});
+
+		it('exits selection mode when Done is clicked', async () => {
+			render(ClassesPage);
+
+			await page.getByRole('button', { name: 'Select grade 7' }).click();
+			await page.getByRole('button', { name: 'Done selecting in grade 7' }).click();
+			await expect
+				.element(page.getByRole('button', { name: 'Select grade 7' }))
+				.toBeInTheDocument();
+		});
+
+		it('selects and deselects a student in selection mode', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValue({
+				data: mockClassWithStudents,
+				isLoading: false,
+				error: null
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any);
+
+			render(ClassesPage);
+
+			await page.getByRole('button', { name: 'Select grade 7' }).click();
+
+			// Click student to select
+			await page.getByRole('button', { name: /Select Alice/ }).click();
+
+			// Bulk action bar should appear
+			await expect.element(page.getByRole('toolbar')).toBeInTheDocument();
+			await expect.element(page.getByText('1 student selected')).toBeInTheDocument();
+
+			// Deselect
+			await page.getByRole('button', { name: /Select Alice/ }).click();
+			await expect.element(page.getByText('1 student selected')).not.toBeInTheDocument();
+		});
+
+		it('shows class action buttons for the selected grade excluding source class', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValue({
+				data: mockClassWithStudents,
+				isLoading: false,
+				error: null
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any);
+
+			render(ClassesPage);
+
+			await page.getByRole('button', { name: 'Select grade 7' }).click();
+			await page.getByRole('button', { name: /Select Alice/ }).click();
+
+			// Should show "Move to:" label
+			await expect.element(page.getByText('Move to:')).toBeInTheDocument();
+
+			// Source class (7-1) should NOT appear as a target
+			await expect
+				.element(page.getByRole('button', { name: '7-1', exact: true }))
+				.not.toBeInTheDocument();
+
+			// Other classes in the grade should appear
+			await expect
+				.element(page.getByRole('button', { name: '7-2', exact: true }))
+				.toBeInTheDocument();
+		});
+	});
 });

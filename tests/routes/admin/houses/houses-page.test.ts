@@ -228,6 +228,162 @@ describe('Houses Page', () => {
 		});
 	});
 
+	describe('Multi-Select', () => {
+		it('renders Select button', async () => {
+			render(HousesPage);
+
+			await expect
+				.element(page.getByRole('button', { name: 'Enter selection mode' }))
+				.toBeInTheDocument();
+		});
+
+		it('enters selection mode when Select is clicked', async () => {
+			render(HousesPage);
+
+			await page.getByRole('button', { name: 'Enter selection mode' }).click();
+			await expect
+				.element(page.getByRole('button', { name: 'Exit selection mode' }))
+				.toBeInTheDocument();
+		});
+
+		it('selects and deselects a student in selection mode', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValue({
+				data: {
+					houses: {
+						Heracles: [
+							{
+								_id: 's1',
+								englishName: 'Alice',
+								chineseName: '',
+								studentId: 'S001',
+								status: 'Enrolled',
+								house: 'Heracles',
+								classDisplay: '7-1'
+							}
+						],
+						Wukong: [],
+						Ixbalam: [],
+						Setna: []
+					},
+					orphaned: []
+				},
+				isLoading: false,
+				isStale: false,
+				error: undefined
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any);
+
+			render(HousesPage);
+
+			await page.getByRole('button', { name: 'Enter selection mode' }).click();
+
+			// Click student to select
+			await page.getByRole('button', { name: /Select Alice/ }).click();
+
+			// Bulk action bar should appear
+			await expect.element(page.getByRole('toolbar')).toBeInTheDocument();
+			await expect.element(page.getByText('1 student selected')).toBeInTheDocument();
+
+			// Click again to deselect
+			await page.getByRole('button', { name: /Select Alice/ }).click();
+			await expect.element(page.getByText('1 student selected')).not.toBeInTheDocument();
+		});
+
+		it('exits selection mode when Done is clicked', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValue({
+				data: {
+					houses: {
+						Heracles: [
+							{
+								_id: 's1',
+								englishName: 'Alice',
+								chineseName: '',
+								studentId: 'S001',
+								status: 'Enrolled',
+								house: 'Heracles',
+								classDisplay: '7-1'
+							}
+						],
+						Wukong: [],
+						Ixbalam: [],
+						Setna: []
+					},
+					orphaned: []
+				},
+				isLoading: false,
+				isStale: false,
+				error: undefined
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any);
+
+			render(HousesPage);
+
+			await page.getByRole('button', { name: 'Enter selection mode' }).click();
+			await page.getByRole('button', { name: /Select Alice/ }).click();
+			await expect.element(page.getByText('1 student selected')).toBeInTheDocument();
+
+			// Exit selection mode
+			await page.getByRole('button', { name: 'Exit selection mode' }).click();
+
+			await expect.element(page.getByRole('toolbar')).not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Enter selection mode' }))
+				.toBeInTheDocument();
+		});
+
+		it('renders house action buttons in BulkActionBar when students are selected', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValue({
+				data: {
+					houses: {
+						Heracles: [
+							{
+								_id: 's1',
+								englishName: 'Alice',
+								chineseName: '',
+								studentId: 'S001',
+								status: 'Enrolled',
+								house: 'Heracles',
+								classDisplay: '7-1'
+							}
+						],
+						Wukong: [],
+						Ixbalam: [],
+						Setna: []
+					},
+					orphaned: []
+				},
+				isLoading: false,
+				isStale: false,
+				error: undefined
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any);
+
+			render(HousesPage);
+
+			await page.getByRole('button', { name: 'Enter selection mode' }).click();
+			await page.getByRole('button', { name: /Select Alice/ }).click();
+
+			await expect
+				.element(page.getByRole('button', { name: 'Heracles', exact: true }))
+				.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Wukong', exact: true }))
+				.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Ixbalam', exact: true }))
+				.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Setna', exact: true }))
+				.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Unassigned', exact: true }))
+				.toBeInTheDocument();
+		});
+	});
+
 	describe('Loading State', () => {
 		it('renders loading message when data is loading', async () => {
 			const { useQuery } = await import('convex-svelte');

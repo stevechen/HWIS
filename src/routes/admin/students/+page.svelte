@@ -123,13 +123,15 @@
 			// No classes available - return empty array
 			return [];
 		}
-		return classesQuery.data.map((c) => ({
-			value: `${c.grade}-${c.class}`,
-			label: getDisplayName(c.grade, c.class),
-			grade: c.grade,
-			classNum: c.class,
-			classId: c._id
-		}));
+		return classesQuery.data
+			.filter((c) => c.class !== 'IB' || c.grade >= 11)
+			.map((c) => ({
+				value: `${c.grade}-${c.class}`,
+				label: getDisplayName(c.grade, c.class),
+				grade: c.grade,
+				classNum: c.class,
+				classId: c._id
+			}));
 	});
 
 	function startAdd() {
