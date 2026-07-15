@@ -476,15 +476,15 @@
 							class={`${student.status === 'Not Enrolled' && 'bg-muted-foreground opacity-60'}`}
 						>
 							<Table.Cell class="hidden text-center sm:table-cell">{student.studentId}</Table.Cell>
-							<Table.Cell class="max-w-[80px] truncate px-1 sm:max-w-none sm:px-2"
+							<Table.Cell class="max-w-20 truncate px-1 sm:max-w-none sm:px-2"
 								>{student.englishName}</Table.Cell
 							>
 							<Table.Cell class="hidden sm:table-cell">{student.chineseName}</Table.Cell>
-							<Table.Cell class="px-1 text-center sm:px-2"
-								>{student.classInfo
+							<Table.Cell class="px-1 text-center sm:px-2">
+								{student.classInfo
 									? getDisplayName(student.classInfo.grade, student.classInfo.class)
-									: '-'}</Table.Cell
-							>
+									: '-'}
+							</Table.Cell>
 							<Table.Cell
 								class="cursor-pointer px-1 text-center sm:px-2"
 								onclick={() =>
@@ -502,8 +502,9 @@
 							</Table.Cell>
 							<Table.Cell
 								class="text-muted-foreground hidden max-w-xs truncate text-sm sm:table-cell"
-								>{student.note || '-'}</Table.Cell
 							>
+								{student.note || '-'}
+							</Table.Cell>
 							<Table.Cell class="px-1 text-center sm:px-2">
 								<div class="flex justify-center gap-0 sm:gap-1">
 									<Button

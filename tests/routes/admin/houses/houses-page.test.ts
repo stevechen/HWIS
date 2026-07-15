@@ -66,14 +66,6 @@ describe('Houses Page', () => {
 				.element(page.getByRole('region', { name: 'Unassigned Students' }))
 				.toBeInTheDocument();
 		});
-
-		it('renders instructions text', async () => {
-			render(HousesPage);
-
-			await expect
-				.element(page.getByText(/Click a student's name to move them/))
-				.toBeInTheDocument();
-		});
 	});
 
 	describe('Accordion', () => {
@@ -283,11 +275,11 @@ describe('Houses Page', () => {
 
 			// Bulk action bar should appear
 			await expect.element(page.getByRole('toolbar')).toBeInTheDocument();
-			await expect.element(page.getByText('1 student selected')).toBeInTheDocument();
+			await expect.element(page.getByText('Move 1 student to:')).toBeInTheDocument();
 
 			// Click again to deselect
 			await page.getByRole('button', { name: /Select Alice/ }).click();
-			await expect.element(page.getByText('1 student selected')).not.toBeInTheDocument();
+			await expect.element(page.getByText('Move 1 student to:')).not.toBeInTheDocument();
 		});
 
 		it('exits selection mode when Done is clicked', async () => {
@@ -322,7 +314,7 @@ describe('Houses Page', () => {
 
 			await page.getByRole('button', { name: 'Enter selection mode' }).click();
 			await page.getByRole('button', { name: /Select Alice/ }).click();
-			await expect.element(page.getByText('1 student selected')).toBeInTheDocument();
+			await expect.element(page.getByText('Move 1 student to:')).toBeInTheDocument();
 
 			// Exit selection mode
 			await page.getByRole('button', { name: 'Exit selection mode' }).click();
@@ -366,9 +358,15 @@ describe('Houses Page', () => {
 			await page.getByRole('button', { name: 'Enter selection mode' }).click();
 			await page.getByRole('button', { name: /Select Alice/ }).click();
 
+			// Bulk action bar should appear
+			await expect.element(page.getByRole('toolbar')).toBeInTheDocument();
+
+			// Source house (Heracles) should NOT appear as a target
 			await expect
 				.element(page.getByRole('button', { name: 'Heracles', exact: true }))
-				.toBeInTheDocument();
+				.not.toBeInTheDocument();
+
+			// Other houses should appear as targets
 			await expect
 				.element(page.getByRole('button', { name: 'Wukong', exact: true }))
 				.toBeInTheDocument();

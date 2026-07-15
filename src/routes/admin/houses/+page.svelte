@@ -10,6 +10,7 @@
 
 	import { createMultiSelectState } from '$lib/utils/multiSelect.svelte';
 	import BulkActionBar from '$lib/components/BulkActionBar.svelte';
+	import MoveDialog from '$lib/components/MoveDialog.svelte';
 	import { HOUSES, HOUSE_COLORS, type House } from '$lib/constants/houses';
 	import { houseLogos } from '$lib/assets/house-logos';
 
@@ -138,7 +139,6 @@
 		}
 	}
 
-	let moveDialogRef = $state<HTMLDialogElement | null>(null);
 	let moveDialogStudent = $state<{
 		_id: Id<'students'>;
 		englishName: string;
@@ -151,11 +151,9 @@
 			englishName: student.englishName,
 			sourceHouse
 		};
-		moveDialogRef?.showModal();
 	}
 
 	function closeMoveDialog() {
-		moveDialogRef?.close();
 		moveDialogStudent = null;
 	}
 </script>
@@ -540,53 +538,45 @@
 	{/if}
 </div>
 
-<!-- Move Student Dialog -->
-<dialog
-	bind:this={moveDialogRef}
-	class="fixed inset-0 m-auto w-full max-w-sm rounded-none border p-4 shadow-lg"
-	onclick={(e) => {
-		if (e.currentTarget === e.target) {
-			closeMoveDialog();
-		}
-	}}
->
-	{#if moveDialogStudent}
-		{@const s = moveDialogStudent}
-		<h3 class="mb-2 text-lg font-semibold">Move {s.englishName}</h3>
-		<p class="text-muted-foreground mb-4 text-sm">
-			Currently in {s.sourceHouse === 'orphaned' ? 'Unassigned' : s.sourceHouse}
-		</p>
-		<div class="flex flex-col gap-2">
-			{#each HOUSES.filter((h) => h !== s.sourceHouse) as house (house)}
-				<Button
-					variant="outline"
-					class="w-full justify-start"
-					onclick={() => {
-						assignHouse(s._id, house);
+<MoveDialog
+	open={!!moveDialogStudent}
+	onClose={closeMoveDialog}
+	title={moveDialogStudent ? `Move ${moveDialogStudent.englishName}` : ''}
+	subtitle={moveDialogStudent
+		? `Currently in ${moveDialogStudent.sourceHouse === 'orphaned' ? 'Unassigned' : moveDialogStudent.sourceHouse}`
+		: ''}
+	targets={moveDialogStudent
+		? HOUSES.filter((h) => h !== moveDialogStudent.sourceHouse)
+				.map((house) => ({
+					label: house,
+					action: () => {
+						assignHouse(moveDialogStudent._id, house);
 						closeMoveDialog();
-					}}
-				>
-					{house}
-				</Button>
-			{/each}
-			{#if s.sourceHouse !== 'orphaned'}
-				<Button
-					variant="outline"
-					class="w-full justify-start"
-					onclick={() => {
-						assignHouse(s._id, undefined);
-						closeMoveDialog();
-					}}
-				>
-					Unassigned
-				</Button>
-			{/if}
-		</div>
-		<div class="mt-4 flex justify-end">
-			<Button variant="ghost" onclick={closeMoveDialog}>Cancel</Button>
-		</div>
-	{/if}
-</dialog>
+					},
+					color:
+						HOUSE_COLORS[house].lightBg +
+						' ' +
+						HOUSE_COLORS[house].text +
+						' hover:' +
+						HOUSE_COLORS[house].lightBg.replace('50', '100')
+				}))
+				.concat(
+					moveDialogStudent.sourceHouse !== 'orphaned'
+						? [
+								{
+									label: 'Unassigned',
+									action: () => {
+										assignHouse(moveDialogStudent._id, undefined);
+										closeMoveDialog();
+									},
+									color: 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+								}
+							]
+						: []
+				)
+		: []}
+	cancelLabel="Cancel"
+/>
 
 <style>
 	.houses-board {

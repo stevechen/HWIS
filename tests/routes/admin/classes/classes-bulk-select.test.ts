@@ -132,11 +132,11 @@ describe('Classes Page - Bulk Select and Move', () => {
 
 		// Bulk action bar should appear
 		await expect.element(page.getByRole('toolbar')).toBeInTheDocument();
-		await expect.element(page.getByText('1 student selected')).toBeInTheDocument();
+		await expect.element(page.getByText('Move 1 student to:')).toBeInTheDocument();
 
 		// Deselect Alice
 		await page.getByRole('button', { name: /Select Alice/ }).click();
-		await expect.element(page.getByText('1 student selected')).not.toBeInTheDocument();
+		await expect.element(page.getByText('Move 1 student to:')).not.toBeInTheDocument();
 	});
 
 	it('shows target class buttons excluding source class in bulk mode', async () => {
@@ -164,8 +164,8 @@ describe('Classes Page - Bulk Select and Move', () => {
 		await page.getByRole('button', { name: 'Select grade 7' }).click();
 		await page.getByRole('button', { name: /Select Alice/ }).click();
 
-		// Should show "Move to:" label
-		await expect.element(page.getByText('Move to:')).toBeInTheDocument();
+		// Should show "Move X students to:" label
+		await expect.element(page.getByText('Move 1 student to:')).toBeInTheDocument();
 
 		// Source class (7-1) should NOT appear
 		await expect

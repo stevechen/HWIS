@@ -18,6 +18,7 @@
 	import { onMount } from 'svelte';
 	import { createMultiSelectState } from '$lib/utils/multiSelect.svelte';
 	import BulkActionBar from '$lib/components/BulkActionBar.svelte';
+	import MoveDialog from '$lib/components/MoveDialog.svelte';
 	import { draggable, dropZone, dragState } from '$lib/utils/dnd.svelte';
 	import type { DragData } from '$lib/utils/dnd.svelte';
 
@@ -40,6 +41,16 @@
 		10: 145, // Green
 		11: 250, // Blue
 		12: 310 // Purple
+	};
+
+	// Tailwind color classes for each grade (used in MoveDialog buttons)
+	const gradeColorClasses: Record<number, string> = {
+		7: 'bg-red-50 text-red-700 hover:bg-red-100',
+		8: 'bg-amber-50 text-amber-700 hover:bg-amber-100',
+		9: 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100',
+		10: 'bg-green-50 text-green-700 hover:bg-green-100',
+		11: 'bg-blue-50 text-blue-700 hover:bg-blue-100',
+		12: 'bg-purple-50 text-purple-700 hover:bg-purple-100'
 	};
 
 	// Get OKLCH color string for a class based on grade and position in gradient
@@ -222,7 +233,6 @@
 	}
 
 	// Move dialog state
-	let moveDialogRef = $state<HTMLDialogElement | null>(null);
 	let moveDialogStudent = $state<{
 		id: Id<'students'>;
 		name: string;
@@ -237,11 +247,9 @@
 			grade: cls.grade,
 			classId: cls._id
 		};
-		moveDialogRef?.showModal();
 	}
 
 	function closeMoveDialog() {
-		moveDialogRef?.close();
 		moveDialogStudent = null;
 	}
 
@@ -874,43 +882,27 @@
 	</div>
 </dialog>
 
-<!-- Move Student Dialog -->
-<dialog
-	bind:this={moveDialogRef}
-	class="fixed inset-0 m-auto w-full max-w-sm rounded-none border p-4 shadow-lg"
-	onclick={(e) => {
-		if (e.currentTarget === e.target) {
-			closeMoveDialog();
-		}
-	}}
->
-	{#if moveDialogStudent}
-		{@const s = moveDialogStudent}
-		{@const gradeClasses = classesByGrade[s.grade] || []}
-		{@const currentClass = gradeClasses.find((c) => c._id === s.classId)}
-		{@const targets = gradeClasses.filter(
-			(c) => c._id !== s.classId && (c.class !== 'IB' || s.grade >= 11)
-		)}
-		<h3 class="mb-2 text-lg font-semibold">Move {s.name}</h3>
-		<p class="text-muted-foreground mb-4 text-sm">
-			Currently in {currentClass ? getDisplayName(currentClass.grade, currentClass.class) : ''}
-		</p>
-		<div class="flex flex-col gap-2">
-			{#each targets as target (target._id)}
-				<Button
-					variant="outline"
-					class="w-full justify-start"
-					onclick={() => {
-						moveStudent(s.id, target._id);
+<MoveDialog
+	open={!!moveDialogStudent}
+	onClose={closeMoveDialog}
+	title={moveDialogStudent ? `Move ${moveDialogStudent.name}` : ''}
+	subtitle={moveDialogStudent
+		? `Currently in ${classesByGrade[moveDialogStudent.grade!]?.find((c) => c._id === moveDialogStudent!.classId) ? getDisplayName(classesByGrade[moveDialogStudent.grade!].find((c) => c._id === moveDialogStudent!.classId)!.grade, classesByGrade[moveDialogStudent.grade!].find((c) => c._id === moveDialogStudent!.classId)!.class) : ''}`
+		: ''}
+	targets={moveDialogStudent
+		? classesByGrade[moveDialogStudent.grade!]
+				?.filter(
+					(c) =>
+						c._id !== moveDialogStudent!.classId &&
+						(c.class !== 'IB' || moveDialogStudent!.grade! >= 11)
+				)
+				.map((c) => ({
+					label: getDisplayName(c.grade, c.class),
+					action: () => {
+						moveStudent(moveDialogStudent!.id, c._id);
 						closeMoveDialog();
-					}}
-				>
-					{getDisplayName(target.grade, target.class)}
-				</Button>
-			{/each}
-		</div>
-		<div class="mt-4 flex justify-end">
-			<Button variant="ghost" onclick={closeMoveDialog}>Cancel</Button>
-		</div>
-	{/if}
-</dialog>
+					},
+					color: gradeColorClasses[c.grade]
+				})) || []
+		: []}
+/>

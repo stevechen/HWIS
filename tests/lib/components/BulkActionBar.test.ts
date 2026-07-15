@@ -25,19 +25,19 @@ describe('BulkActionBar', () => {
 	it('shows the correct count with singular text', async () => {
 		render(BulkActionBar, {
 			selectedCount: 1,
-			actions: [],
+			actions: [{ label: 'Test', action: vi.fn() }],
 			onDone: vi.fn()
 		});
-		await expect.element(page.getByText('1 student selected')).toBeInTheDocument();
+		await expect.element(page.getByText('Move 1 student to:')).toBeInTheDocument();
 	});
 
 	it('shows the correct count with plural text', async () => {
 		render(BulkActionBar, {
 			selectedCount: 5,
-			actions: [],
+			actions: [{ label: 'Test', action: vi.fn() }],
 			onDone: vi.fn()
 		});
-		await expect.element(page.getByText('5 students selected')).toBeInTheDocument();
+		await expect.element(page.getByText('Move 5 students to:')).toBeInTheDocument();
 	});
 
 	it('renders action buttons', async () => {
@@ -55,14 +55,14 @@ describe('BulkActionBar', () => {
 		await expect.element(page.getByRole('button', { name: 'Move to Wukong' })).toBeInTheDocument();
 	});
 
-	it('fires onDone when Done button is clicked', async () => {
+	it('fires onDone when Cancel button is clicked', async () => {
 		const onDone = vi.fn();
 		render(BulkActionBar, {
 			selectedCount: 2,
 			actions: [],
 			onDone
 		});
-		await page.getByRole('button', { name: 'Done selecting' }).click();
+		await page.getByRole('button', { name: 'Cancel' }).click();
 		expect(onDone).toHaveBeenCalledOnce();
 	});
 
