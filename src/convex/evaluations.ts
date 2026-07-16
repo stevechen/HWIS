@@ -94,6 +94,14 @@ export const remove = mutation({
 			throw new Error('Not authorized to delete this evaluation');
 		}
 
+		const evalMonday = getFridayOfWeek(evaluation.timestamp);
+		const lockTime = evalMonday + 7 * 24 * 60 * 60 * 1000;
+		if (Date.now() >= lockTime) {
+			throw new Error(
+				'This evaluation can no longer be deleted. Evaluations are locked the Monday after the week ends (Mon 00:00). You can only edit evaluations within their Monday-to-Sunday week.'
+			);
+		}
+
 		await ctx.db.delete(args.id);
 
 		await ctx.db.insert('audit_logs', {
@@ -834,6 +842,14 @@ export const update = mutation({
 		// Admins can only edit evaluations they created, same as regular teachers
 		if (evaluation.teacherId !== userDoc._id) {
 			throw new Error('Not authorized to edit this evaluation');
+		}
+
+		const evalMonday = getFridayOfWeek(evaluation.timestamp);
+		const lockTime = evalMonday + 7 * 24 * 60 * 60 * 1000;
+		if (Date.now() >= lockTime) {
+			throw new Error(
+				'This evaluation can no longer be edited. Evaluations are locked the Monday after the week ends (Mon 00:00). You can only edit evaluations within their Monday-to-Sunday week.'
+			);
 		}
 
 		if (args.categoryId !== undefined) {
