@@ -66,17 +66,6 @@ test.describe('Student Timeline Long-Press @timeline-longpress @sequential', () 
 
 		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).toBeVisible();
 	});
-
-	test('can navigate away during long-press if not held long enough', async ({ page }) => {
-		const evalCard = page.getByRole('button', { name: /Evaluation by/ });
-		await expect(evalCard).toBeVisible();
-
-		await evalCard.dispatchEvent('mousedown');
-		await page.waitForTimeout(200);
-		await evalCard.dispatchEvent('mouseup');
-
-		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).not.toBeVisible();
-	});
 });
 
 test.describe('Student Timeline Long-Press Admin @timeline-longpress @sequential', () => {
@@ -128,6 +117,17 @@ test.describe('Student Timeline Long-Press Admin @timeline-longpress @sequential
 		await evalCard.dispatchEvent('mouseup');
 
 		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).toBeVisible();
+	});
+
+	test('can navigate away during long-press if not held long enough', async ({ page }) => {
+		const evalCard = page.getByRole('button', { name: /Evaluation by/ });
+		await expect(evalCard).toBeVisible();
+
+		await evalCard.dispatchEvent('mousedown');
+		await page.waitForTimeout(200);
+		await evalCard.dispatchEvent('mouseup');
+
+		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).not.toBeVisible();
 	});
 });
 

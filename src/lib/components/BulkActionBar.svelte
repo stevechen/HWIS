@@ -25,25 +25,23 @@
 		aria-label="Bulk actions"
 	>
 		<div class="mx-auto flex max-w-2xl flex-col gap-3">
-			{#if actions.length > 0}
-				<span class="text-sm font-medium"
-					>Move {selectedCount} student{selectedCount !== 1 ? 's' : ''} to:</span
-				>
-			{/if}
+			<span class="text-sm font-medium"
+				>Move {selectedCount} student{selectedCount !== 1 ? 's' : ''} to:</span
+			>
 			<div class="flex flex-col gap-2">
 				{#each actions as act (act.label)}
-					<Button class="w-full justify-start" size="sm" variant="default" onclick={act.action}
-						>{act.label}</Button
-					>
+					<Button class="w-full justify-start" size="sm" onclick={act.action}>
+						{act.label}
+					</Button>
 				{/each}
 				<Button
 					variant="outline"
 					class="w-full justify-start"
 					size="sm"
 					onclick={onDone}
-					aria-label="Cancel"
+					aria-label="Done"
 				>
-					<X class="mr-2 size-4" />Cancel
+					<X class="mr-2 size-4" />Done
 				</Button>
 			</div>
 		</div>

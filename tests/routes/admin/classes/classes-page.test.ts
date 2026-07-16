@@ -107,7 +107,7 @@ describe('Classes Page', () => {
 	});
 
 	describe('Move Dialog', () => {
-		it('opens dialog when student is clicked', async () => {
+		it('does not open dialog when student is clicked outside select mode', async () => {
 			const { useQuery } = await import('convex-svelte');
 			vi.mocked(useQuery).mockReturnValue({
 				data: mockClassWithStudents,
@@ -118,10 +118,12 @@ describe('Classes Page', () => {
 
 			render(ClassesPage);
 
+			// Clicking a student outside select mode should not open a dialog
 			await page.getByRole('button', { name: /Move Alice/ }).click();
 
-			await expect.element(page.getByText('Move Alice')).toBeInTheDocument();
-			await expect.element(page.getByText(/Currently in/)).toBeInTheDocument();
+			// No dialog should appear
+			await expect.element(page.getByText('Move Alice')).not.toBeInTheDocument();
+			await expect.element(page.getByText(/Currently in/)).not.toBeInTheDocument();
 		});
 	});
 

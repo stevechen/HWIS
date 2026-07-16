@@ -55,14 +55,14 @@ describe('BulkActionBar', () => {
 		await expect.element(page.getByRole('button', { name: 'Move to Wukong' })).toBeInTheDocument();
 	});
 
-	it('fires onDone when Cancel button is clicked', async () => {
+	it('fires onDone when Done button is clicked', async () => {
 		const onDone = vi.fn();
 		render(BulkActionBar, {
 			selectedCount: 2,
 			actions: [],
 			onDone
 		});
-		await page.getByRole('button', { name: 'Cancel' }).click();
+		await page.getByRole('button', { name: 'Done' }).click();
 		expect(onDone).toHaveBeenCalledOnce();
 	});
 
