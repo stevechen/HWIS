@@ -18,7 +18,6 @@
 	import { onMount } from 'svelte';
 	import { createMultiSelectState } from '$lib/utils/multiSelect.svelte';
 	import BulkActionBar from '$lib/components/BulkActionBar.svelte';
-	import MoveDialog from '$lib/components/MoveDialog.svelte';
 	import { draggable, dropZone, dragState } from '$lib/utils/dnd.svelte';
 	import type { DragData } from '$lib/utils/dnd.svelte';
 
@@ -41,16 +40,6 @@
 		10: 145, // Green
 		11: 250, // Blue
 		12: 310 // Purple
-	};
-
-	// Tailwind color classes for each grade (used in MoveDialog buttons)
-	const gradeColorClasses: Record<number, string> = {
-		7: 'bg-red-50 text-red-700 hover:bg-red-100',
-		8: 'bg-amber-50 text-amber-700 hover:bg-amber-100',
-		9: 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100',
-		10: 'bg-green-50 text-green-700 hover:bg-green-100',
-		11: 'bg-blue-50 text-blue-700 hover:bg-blue-100',
-		12: 'bg-purple-50 text-purple-700 hover:bg-purple-100'
 	};
 
 	// Get OKLCH color string for a class based on grade and position in gradient
@@ -232,32 +221,10 @@
 		}
 	}
 
-	// Move dialog state
-	let moveDialogStudent = $state<{
-		id: Id<'students'>;
-		name: string;
-		grade: number;
-		classId: Id<'classes'>;
-	} | null>(null);
-
-	function openMoveDialog(student: Student, cls: ClassRecord) {
-		moveDialogStudent = {
-			id: student._id,
-			name: student.name,
-			grade: cls.grade,
-			classId: cls._id
-		};
-	}
-
-	function closeMoveDialog() {
-		moveDialogStudent = null;
-	}
+	let ibVisibleGrades = new SvelteSet();
 
 	// State for visible grades (default only grade 7 visible)
 	let visibleGrades = new SvelteSet([7]);
-
-	// State for IB visibility per grade (grades where IB classes should be shown)
-	let ibVisibleGrades = new SvelteSet();
 
 	// State for which grade is in selection mode (null = none active)
 	let selectedSelectGrade = $state<number | null>(null);
@@ -467,7 +434,7 @@
 									>{totalStudents}</span
 								>
 								{#if totalStudents > 0}
-									<!-- Select/Done Button -->
+									<!-- Select/Cancel Button -->
 									<Button
 										variant={selectedSelectGrade === grade ? 'default' : 'outline'}
 										size="icon"
@@ -724,8 +691,6 @@
 																			selectedSelectGrade === cls.grade
 																		) {
 																			multiSelect.toggleSelect(student._id);
-																		} else {
-																			openMoveDialog(student, cls);
 																		}
 																	}}
 																	onkeydown={(e) => {
@@ -735,8 +700,6 @@
 																				selectedSelectGrade === cls.grade
 																			) {
 																				multiSelect.toggleSelect(student._id);
-																			} else {
-																				openMoveDialog(student, cls);
 																			}
 																		}
 																	}}
@@ -881,28 +844,3 @@
 		<Button onclick={() => crossGradeDialogRef?.close()}>OK</Button>
 	</div>
 </dialog>
-
-<MoveDialog
-	open={!!moveDialogStudent}
-	onClose={closeMoveDialog}
-	title={moveDialogStudent ? `Move ${moveDialogStudent.name}` : ''}
-	subtitle={moveDialogStudent
-		? `Currently in ${classesByGrade[moveDialogStudent.grade!]?.find((c) => c._id === moveDialogStudent!.classId) ? getDisplayName(classesByGrade[moveDialogStudent.grade!].find((c) => c._id === moveDialogStudent!.classId)!.grade, classesByGrade[moveDialogStudent.grade!].find((c) => c._id === moveDialogStudent!.classId)!.class) : ''}`
-		: ''}
-	targets={moveDialogStudent
-		? classesByGrade[moveDialogStudent.grade!]
-				?.filter(
-					(c) =>
-						c._id !== moveDialogStudent!.classId &&
-						(c.class !== 'IB' || moveDialogStudent!.grade! >= 11)
-				)
-				.map((c) => ({
-					label: getDisplayName(c.grade, c.class),
-					action: () => {
-						moveStudent(moveDialogStudent!.id, c._id);
-						closeMoveDialog();
-					},
-					color: gradeColorClasses[c.grade]
-				})) || []
-		: []}
-/>
