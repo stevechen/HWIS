@@ -25,12 +25,12 @@
 
 {#if open}
 	<div
-		class="fixed inset-0 z-50"
+		class="fixed inset-0 z-50 md:relative md:inset-auto md:max-w-full md:overflow-hidden"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="move-dialog-title"
 	>
-		<div class="fixed inset-0 bg-black/50" onclick={onClose} aria-hidden="true"></div>
+		<div class="fixed inset-0 bg-black/50 md:hidden" onclick={onClose} aria-hidden="true"></div>
 		<div
 			class="animate-slide-up fixed inset-x-0 bottom-0 z-50 border-t bg-white px-4 py-3 shadow-lg md:fixed md:inset-auto md:top-1/2 md:left-1/2 md:w-full md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-lg md:border md:border-none md:bg-white md:p-4 md:shadow-xl"
 		>

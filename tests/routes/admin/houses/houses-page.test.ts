@@ -224,18 +224,14 @@ describe('Houses Page', () => {
 		it('renders Select button', async () => {
 			render(HousesPage);
 
-			await expect
-				.element(page.getByRole('button', { name: 'Enter selection mode' }))
-				.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Select' })).toBeInTheDocument();
 		});
 
 		it('enters selection mode when Select is clicked', async () => {
 			render(HousesPage);
 
-			await page.getByRole('button', { name: 'Enter selection mode' }).click();
-			await expect
-				.element(page.getByRole('button', { name: 'Exit selection mode' }))
-				.toBeInTheDocument();
+			await page.getByRole('button', { name: 'Select' }).click();
+			await expect.element(page.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
 		});
 
 		it('selects and deselects a student in selection mode', async () => {
@@ -268,7 +264,7 @@ describe('Houses Page', () => {
 
 			render(HousesPage);
 
-			await page.getByRole('button', { name: 'Enter selection mode' }).click();
+			await page.getByRole('button', { name: 'Select' }).click();
 
 			// Click student to select
 			await page.getByRole('button', { name: /Select Alice/ }).click();
@@ -312,17 +308,15 @@ describe('Houses Page', () => {
 
 			render(HousesPage);
 
-			await page.getByRole('button', { name: 'Enter selection mode' }).click();
+			await page.getByRole('button', { name: 'Select' }).click();
 			await page.getByRole('button', { name: /Select Alice/ }).click();
 			await expect.element(page.getByText('Move 1 student to:')).toBeInTheDocument();
 
 			// Exit selection mode
-			await page.getByRole('button', { name: 'Exit selection mode' }).click();
+			await page.getByRole('button', { name: 'Cancel' }).click();
 
 			await expect.element(page.getByRole('toolbar')).not.toBeInTheDocument();
-			await expect
-				.element(page.getByRole('button', { name: 'Enter selection mode' }))
-				.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Select' })).toBeInTheDocument();
 		});
 
 		it('renders house action buttons in BulkActionBar when students are selected', async () => {
@@ -355,7 +349,7 @@ describe('Houses Page', () => {
 
 			render(HousesPage);
 
-			await page.getByRole('button', { name: 'Enter selection mode' }).click();
+			await page.getByRole('button', { name: 'Select' }).click();
 			await page.getByRole('button', { name: /Select Alice/ }).click();
 
 			// Bulk action bar should appear

@@ -164,15 +164,55 @@
 	{:else if housesQuery.error}
 		<div class="py-8 text-center text-red-500">Error loading houses</div>
 	{:else}
-		<div class="flex items-center justify-between">
+		<div class="flex flex-wrap items-center justify-between gap-2">
 			<Button
 				variant="outline"
 				size="sm"
 				onclick={() => multiSelect.toggleSelectionMode()}
 				aria-label={multiSelect.selectionMode ? 'Exit selection mode' : 'Enter selection mode'}
 			>
-				{multiSelect.selectionMode ? 'Done' : 'Select'}
+				{multiSelect.selectionMode ? 'Cancel' : 'Select'}
 			</Button>
+			{#if multiSelect.selectionMode}
+				<!-- Inline move targets (desktop) -->
+				<div class="ml-4 hidden items-center gap-2 md:flex">
+					<span class="text-muted-foreground mr-1 text-xs"
+						>Move {multiSelect.selectedCount} student{multiSelect.selectedCount !== 1 ? 's' : ''} to:</span
+					>
+					{#each HOUSES as targetHouse (targetHouse)}
+						{#if !selectedSourceHouses.has(targetHouse)}
+							<Button
+								variant="outline"
+								size="sm"
+								class="h-5 shrink-0 rounded-none px-2 text-xs"
+								onclick={() => {
+									const ids = Array.from(multiSelect.selectedIds) as Id<'students'>[];
+									multiSelect.exitSelectionMode();
+									for (const sid of ids) {
+										assignHouse(sid, targetHouse);
+									}
+								}}
+							>
+								{targetHouse}
+							</Button>
+						{/if}
+					{/each}
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-5 shrink-0 rounded-none px-2 text-xs"
+						onclick={() => {
+							const ids = Array.from(multiSelect.selectedIds) as Id<'students'>[];
+							multiSelect.exitSelectionMode();
+							for (const sid of ids) {
+								assignHouse(sid, undefined);
+							}
+						}}
+					>
+						Unassigned
+					</Button>
+				</div>
+			{/if}
 		</div>
 		<!-- Five columns: 4 houses + unassigned -->
 		<div class="houses-board grid grid-cols-1 items-start gap-3 md:grid-cols-5">
