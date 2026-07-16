@@ -2,8 +2,8 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
-	import { GripVertical, Users, ChevronDown, ChevronRight } from '@lucide/svelte';
-	import { draggable, dropZone, dragState } from '$lib/utils/dnd.svelte';
+	import { Users, ChevronDown, ChevronRight } from '@lucide/svelte';
+	import { dropZone, dragState } from '$lib/utils/dnd.svelte';
 	import type { DragData } from '$lib/utils/dnd.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -11,6 +11,7 @@
 	import { createMultiSelectState } from '$lib/utils/multiSelect.svelte';
 	import BulkActionBar from '$lib/components/BulkActionBar.svelte';
 	import MoveDialog from '$lib/components/MoveDialog.svelte';
+	import StudentCard from '$lib/components/StudentCard.svelte';
 	import { HOUSES, HOUSE_COLORS, type House } from '$lib/constants/houses';
 	import { houseLogos } from '$lib/assets/house-logos';
 
@@ -332,80 +333,12 @@
 												</span>
 											</div>
 											{#each group.students as student (student._id)}
-												{@const enrolled = student.status !== 'Not Enrolled'}
-												{@const isSelected = multiSelect.selectedIds.has(student._id)}
-												<div
-													class={[
-														'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 max-md:gap-3 max-md:py-3',
-														!enrolled && 'text-muted-foreground bg-gray-100',
-														isSelected && 'ring-2 ring-blue-500 ring-offset-1',
-														multiSelect.selectionMode && 'cursor-pointer'
-													]}
-												>
-													<div
-														use:draggable={{
-															data: {
-																id: student._id,
-																englishName: student.englishName,
-																sourceHouse: house
-															},
-															label:
-																multiSelect.selectionMode &&
-																multiSelect.selectedIds.has(student._id) &&
-																multiSelect.selectedIds.size > 1
-																	? `${multiSelect.selectedIds.size} students`
-																	: student.englishName
-														}}
-														class={[
-															'flex min-w-0 flex-1 items-center gap-2',
-															multiSelect.selectionMode ? 'cursor-pointer' : 'cursor-grab'
-														]}
-														role="button"
-														aria-pressed={multiSelect.selectionMode ? isSelected : undefined}
-														aria-label={multiSelect.selectionMode
-															? `Select ${student.englishName}`
-															: `Move ${student.englishName} to another house`}
-														tabindex="0"
-														onclick={() => {
-															if (multiSelect.selectionMode) {
-																multiSelect.toggleSelect(student._id);
-															} else {
-																openMoveDialog(student, house);
-															}
-														}}
-														onkeydown={(e) => {
-															if (e.key === 'Enter') {
-																if (multiSelect.selectionMode) {
-																	multiSelect.toggleSelect(student._id);
-																} else {
-																	openMoveDialog(student, house);
-																}
-															}
-														}}
-													>
-														{#if multiSelect.selectionMode}
-															<input
-																type="checkbox"
-																checked={isSelected}
-																class="size-4 shrink-0 max-md:size-5"
-																onclick={(e) => e.stopPropagation()}
-																onchange={() => multiSelect.toggleSelect(student._id)}
-															/>
-														{/if}
-														<GripVertical
-															class={[
-																'size-3 shrink-0 text-gray-400 max-md:hidden',
-																multiSelect.selectionMode && 'hidden'
-															]}
-														/>
-														<div class="flex min-w-0 flex-1 flex-col">
-															<span class="truncate font-medium">{student.englishName}</span>
-															{#if !enrolled}
-																<span class="text-muted-foreground text-xs">Not Enrolled</span>
-															{/if}
-														</div>
-													</div>
-												</div>
+												<StudentCard
+													{student}
+													sourceHouse={house}
+													{multiSelect}
+													onOpenDialog={(s) => openMoveDialog(s, house)}
+												/>
 											{/each}
 										</div>
 									{/each}
@@ -497,80 +430,12 @@
 											<span class="text-xs font-medium text-gray-500">{group.students.length}</span>
 										</div>
 										{#each group.students as student (student._id)}
-											{@const enrolled = student.status !== 'Not Enrolled'}
-											{@const isSelected = multiSelect.selectedIds.has(student._id)}
-											<div
-												class={[
-													'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 max-md:gap-3 max-md:py-3',
-													!enrolled && 'text-muted-foreground bg-gray-100',
-													isSelected && 'ring-2 ring-blue-500 ring-offset-1',
-													multiSelect.selectionMode && 'cursor-pointer'
-												]}
-											>
-												<div
-													use:draggable={{
-														data: {
-															id: student._id,
-															englishName: student.englishName,
-															sourceHouse: 'orphaned'
-														},
-														label:
-															multiSelect.selectionMode &&
-															multiSelect.selectedIds.has(student._id) &&
-															multiSelect.selectedIds.size > 1
-																? `${multiSelect.selectedIds.size} students`
-																: student.englishName
-													}}
-													class={[
-														'flex min-w-0 flex-1 items-center gap-2',
-														multiSelect.selectionMode ? 'cursor-pointer' : 'cursor-grab'
-													]}
-													role="button"
-													aria-pressed={multiSelect.selectionMode ? isSelected : undefined}
-													aria-label={multiSelect.selectionMode
-														? `Select ${student.englishName}`
-														: `Move ${student.englishName} to a house`}
-													tabindex="0"
-													onclick={() => {
-														if (multiSelect.selectionMode) {
-															multiSelect.toggleSelect(student._id);
-														} else {
-															openMoveDialog(student, 'orphaned');
-														}
-													}}
-													onkeydown={(e) => {
-														if (e.key === 'Enter') {
-															if (multiSelect.selectionMode) {
-																multiSelect.toggleSelect(student._id);
-															} else {
-																openMoveDialog(student, 'orphaned');
-															}
-														}
-													}}
-												>
-													{#if multiSelect.selectionMode}
-														<input
-															type="checkbox"
-															checked={isSelected}
-															class="size-4 shrink-0 max-md:size-5"
-															onclick={(e) => e.stopPropagation()}
-															onchange={() => multiSelect.toggleSelect(student._id)}
-														/>
-													{/if}
-													<GripVertical
-														class={[
-															'size-3 shrink-0 text-gray-400 max-md:hidden',
-															multiSelect.selectionMode && 'hidden'
-														]}
-													/>
-													<div class="flex min-w-0 flex-1 flex-col">
-														<span class="truncate font-medium">{student.englishName}</span>
-														{#if !enrolled}
-															<span class="text-muted-foreground text-xs">Not Enrolled</span>
-														{/if}
-													</div>
-												</div>
-											</div>
+											<StudentCard
+												{student}
+												sourceHouse="orphaned"
+												{multiSelect}
+												onOpenDialog={(s) => openMoveDialog(s, 'orphaned')}
+											/>
 										{/each}
 									</div>
 								{/each}
@@ -640,7 +505,6 @@
 
 		return [...houseTargets, ...unassignedTarget];
 	})()}
-	cancelLabel="Cancel"
 />
 
 <style>

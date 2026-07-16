@@ -231,7 +231,7 @@ describe('Houses Page', () => {
 			render(HousesPage);
 
 			await page.getByRole('button', { name: 'Select' }).click();
-			await expect.element(page.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+			await expect.element(page.getByText('Cancel')).toBeInTheDocument();
 		});
 
 		it('selects and deselects a student in selection mode', async () => {
@@ -265,20 +265,20 @@ describe('Houses Page', () => {
 			render(HousesPage);
 
 			await page.getByRole('button', { name: 'Select' }).click();
-
-			// Click student to select
 			await page.getByRole('button', { name: /Select Alice/ }).click();
 
 			// Bulk action bar should appear
 			await expect.element(page.getByRole('toolbar')).toBeInTheDocument();
-			await expect.element(page.getByText('Move 1 student to:')).toBeInTheDocument();
+			await expect
+				.element(page.getByRole('toolbar').getByText('Move 1 student to:'))
+				.toBeInTheDocument();
 
 			// Click again to deselect
 			await page.getByRole('button', { name: /Select Alice/ }).click();
-			await expect.element(page.getByText('Move 1 student to:')).not.toBeInTheDocument();
+			await expect.element(page.getByRole('toolbar')).not.toBeInTheDocument();
 		});
 
-		it('exits selection mode when Done is clicked', async () => {
+		it('does not show move dialog when clicking student in multi-select mode', async () => {
 			const { useQuery } = await import('convex-svelte');
 			vi.mocked(useQuery).mockReturnValue({
 				data: {
@@ -289,6 +289,15 @@ describe('Houses Page', () => {
 								englishName: 'Alice',
 								chineseName: '',
 								studentId: 'S001',
+								status: 'Enrolled',
+								house: 'Heracles',
+								classDisplay: '7-1'
+							},
+							{
+								_id: 's2',
+								englishName: 'Bob',
+								chineseName: '',
+								studentId: 'S002',
 								status: 'Enrolled',
 								house: 'Heracles',
 								classDisplay: '7-1'
@@ -310,13 +319,16 @@ describe('Houses Page', () => {
 
 			await page.getByRole('button', { name: 'Select' }).click();
 			await page.getByRole('button', { name: /Select Alice/ }).click();
-			await expect.element(page.getByText('Move 1 student to:')).toBeInTheDocument();
 
-			// Exit selection mode
-			await page.getByRole('button', { name: 'Cancel' }).click();
+			// In multi-select mode with students selected, clicking another student should not open dialog
+			await page.getByRole('button', { name: /Select Bob/ }).click();
 
-			await expect.element(page.getByRole('toolbar')).not.toBeInTheDocument();
-			await expect.element(page.getByRole('button', { name: 'Select' })).toBeInTheDocument();
+			// No dialog should be visible - check for dialog-specific elements
+			await expect.element(page.getByText('Currently in')).not.toBeInTheDocument();
+			await expect.element(page.getByText(/Move Alice|Move Bob/)).not.toBeInTheDocument();
+
+			const dialogElements = page.getByRole('dialog');
+			await expect.element(dialogElements).not.toBeInTheDocument();
 		});
 
 		it('renders house action buttons in BulkActionBar when students are selected', async () => {
@@ -355,24 +367,136 @@ describe('Houses Page', () => {
 			// Bulk action bar should appear
 			await expect.element(page.getByRole('toolbar')).toBeInTheDocument();
 
-			// Source house (Heracles) should NOT appear as a target
+			// Source house (Heracles) should NOT appear as a target in BulkActionBar
+			const toolbar = page.getByRole('toolbar');
 			await expect
-				.element(page.getByRole('button', { name: 'Heracles', exact: true }))
+				.element(toolbar.getByRole('button', { name: 'Heracles', exact: true }))
 				.not.toBeInTheDocument();
 
-			// Other houses should appear as targets
+			// Other houses should appear as targets in BulkActionBar
 			await expect
-				.element(page.getByRole('button', { name: 'Wukong', exact: true }))
+				.element(toolbar.getByRole('button', { name: 'Wukong', exact: true }))
 				.toBeInTheDocument();
 			await expect
-				.element(page.getByRole('button', { name: 'Ixbalam', exact: true }))
+				.element(toolbar.getByRole('button', { name: 'Ixbalam', exact: true }))
 				.toBeInTheDocument();
 			await expect
-				.element(page.getByRole('button', { name: 'Setna', exact: true }))
+				.element(toolbar.getByRole('button', { name: 'Setna', exact: true }))
 				.toBeInTheDocument();
 			await expect
-				.element(page.getByRole('button', { name: 'Unassigned', exact: true }))
+				.element(toolbar.getByRole('button', { name: 'Unassigned', exact: true }))
 				.toBeInTheDocument();
+		});
+
+		it('shows all house buttons when students from multiple houses are selected', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValue({
+				data: {
+					houses: {
+						Heracles: [
+							{
+								_id: 's1',
+								englishName: 'Alice',
+								chineseName: '',
+								studentId: 'S001',
+								status: 'Enrolled',
+								house: 'Heracles',
+								classDisplay: '7-1'
+							}
+						],
+						Wukong: [
+							{
+								_id: 's2',
+								englishName: 'Bob',
+								chineseName: '',
+								studentId: 'S002',
+								status: 'Enrolled',
+								house: 'Wukong',
+								classDisplay: '7-1'
+							}
+						],
+						Ixbalam: [],
+						Setna: []
+					},
+					orphaned: []
+				},
+				isLoading: false,
+				isStale: false,
+				error: undefined
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any);
+
+			render(HousesPage);
+
+			await page.getByRole('button', { name: 'Select' }).click();
+			await page.getByRole('button', { name: /Select Alice/ }).click();
+			await page.getByRole('button', { name: /Select Bob/ }).click();
+
+			// All 4 house buttons should appear (no filtering since sources differ)
+			const toolbar = page.getByRole('toolbar');
+			await expect
+				.element(toolbar.getByRole('button', { name: 'Heracles', exact: true }))
+				.toBeInTheDocument();
+			await expect
+				.element(toolbar.getByRole('button', { name: 'Wukong', exact: true }))
+				.toBeInTheDocument();
+			await expect
+				.element(toolbar.getByRole('button', { name: 'Ixbalam', exact: true }))
+				.toBeInTheDocument();
+			await expect
+				.element(toolbar.getByRole('button', { name: 'Setna', exact: true }))
+				.toBeInTheDocument();
+			await expect
+				.element(toolbar.getByRole('button', { name: 'Unassigned', exact: true }))
+				.toBeInTheDocument();
+		});
+
+		it('does not show Unassigned button when all selected students are orphaned', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValue({
+				data: {
+					houses: { Heracles: [], Wukong: [], Ixbalam: [], Setna: [] },
+					orphaned: [
+						{
+							_id: 's1',
+							englishName: 'Alice',
+							chineseName: '',
+							studentId: 'S001',
+							status: 'Enrolled',
+							classDisplay: '7-1'
+						}
+					]
+				},
+				isLoading: false,
+				isStale: false,
+				error: undefined
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any);
+
+			render(HousesPage);
+
+			await page.getByRole('button', { name: 'Select' }).click();
+			await page.getByRole('button', { name: /Select Alice/ }).click();
+
+			// All 4 house buttons should appear (orphaned has no source house to filter)
+			const toolbar = page.getByRole('toolbar');
+			await expect
+				.element(toolbar.getByRole('button', { name: 'Heracles', exact: true }))
+				.toBeInTheDocument();
+			await expect
+				.element(toolbar.getByRole('button', { name: 'Wukong', exact: true }))
+				.toBeInTheDocument();
+			await expect
+				.element(toolbar.getByRole('button', { name: 'Ixbalam', exact: true }))
+				.toBeInTheDocument();
+			await expect
+				.element(toolbar.getByRole('button', { name: 'Setna', exact: true }))
+				.toBeInTheDocument();
+
+			// Unassigned should NOT appear since students are already orphaned
+			await expect
+				.element(toolbar.getByRole('button', { name: 'Unassigned', exact: true }))
+				.not.toBeInTheDocument();
 		});
 	});
 
