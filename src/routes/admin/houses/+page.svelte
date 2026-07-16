@@ -131,6 +131,30 @@
 		return houses;
 	});
 
+	// Derived: whether all selected students are from a single house
+	let isSingleSource = $derived(selectedSourceHouses.size === 1);
+	// Derived: the single source house if all selected students are from one house
+	let sourceHouse = $derived(isSingleSource ? [...selectedSourceHouses][0] : null);
+
+	// Derived: bulk actions for moving students to other houses
+	let bulkActions = $derived.by(() => {
+		const filteredHouses = HOUSES.filter((house) => !(isSingleSource && sourceHouse === house));
+		const actions: Array<{ label: string; action: () => void }> = [];
+		for (const house of filteredHouses) {
+			actions.push({
+				label: house,
+				action: () => bulkAssignHouse(house)
+			});
+		}
+		if (!(isSingleSource && sourceHouse === 'orphaned')) {
+			actions.push({
+				label: 'Unassigned',
+				action: () => bulkAssignHouse(undefined)
+			});
+		}
+		return actions;
+	});
+
 	function toggleCollapse(house: string) {
 		if (collapsedHouses.has(house)) {
 			collapsedHouses.delete(house);
@@ -165,14 +189,6 @@
 		<div class="py-8 text-center text-red-500">Error loading houses</div>
 	{:else}
 		<div class="flex flex-wrap items-center justify-between gap-2">
-			<Button
-				variant="outline"
-				size="sm"
-				onclick={() => multiSelect.toggleSelectionMode()}
-				aria-label={multiSelect.selectionMode ? 'Exit selection mode' : 'Enter selection mode'}
-			>
-				{multiSelect.selectionMode ? 'Cancel' : 'Select'}
-			</Button>
 			{#if multiSelect.selectionMode}
 				<!-- Inline move targets (desktop) -->
 				<div class="ml-4 hidden items-center gap-2 md:flex">
@@ -180,11 +196,14 @@
 						>Move {multiSelect.selectedCount} student{multiSelect.selectedCount !== 1 ? 's' : ''} to:</span
 					>
 					{#each HOUSES as targetHouse (targetHouse)}
-						{#if !selectedSourceHouses.has(targetHouse)}
-							<Button
-								variant="outline"
-								size="sm"
-								class="h-5 shrink-0 rounded-none px-2 text-xs"
+						{#if !(isSingleSource && selectedSourceHouses.has(targetHouse))}
+							<button
+								type="button"
+								class="inline-flex h-5 shrink-0 items-center justify-center rounded-none border px-2 text-xs shadow-xs {HOUSE_COLORS[
+									targetHouse
+								].lightBg} {HOUSE_COLORS[targetHouse].text} hover:{HOUSE_COLORS[
+									targetHouse
+								].lightBg.replace('50', '100')}"
 								onclick={() => {
 									const ids = Array.from(multiSelect.selectedIds) as Id<'students'>[];
 									multiSelect.exitSelectionMode();
@@ -194,25 +213,34 @@
 								}}
 							>
 								{targetHouse}
-							</Button>
+							</button>
 						{/if}
 					{/each}
-					<Button
-						variant="outline"
-						size="sm"
-						class="h-5 shrink-0 rounded-none px-2 text-xs"
-						onclick={() => {
-							const ids = Array.from(multiSelect.selectedIds) as Id<'students'>[];
-							multiSelect.exitSelectionMode();
-							for (const sid of ids) {
-								assignHouse(sid, undefined);
-							}
-						}}
-					>
-						Unassigned
-					</Button>
+					{#if !(isSingleSource && sourceHouse === 'orphaned')}
+						<button
+							type="button"
+							class="inline-flex h-5 shrink-0 items-center justify-center rounded-none border bg-gray-50 px-2 text-xs text-gray-700 shadow-xs hover:bg-gray-100"
+							onclick={() => {
+								const ids = Array.from(multiSelect.selectedIds) as Id<'students'>[];
+								multiSelect.exitSelectionMode();
+								for (const sid of ids) {
+									assignHouse(sid, undefined);
+								}
+							}}
+						>
+							Unassigned
+						</button>
+					{/if}
 				</div>
 			{/if}
+			<Button
+				variant="outline"
+				size="sm"
+				onclick={() => multiSelect.toggleSelectionMode()}
+				aria-label={multiSelect.selectionMode ? 'Exit selection mode' : 'Enter selection mode'}
+			>
+				{multiSelect.selectionMode ? 'Cancel' : 'Select'}
+			</Button>
 		</div>
 		<!-- Five columns: 4 houses + unassigned -->
 		<div class="houses-board grid grid-cols-1 items-start gap-3 md:grid-cols-5">
@@ -558,24 +586,18 @@
 				{/if}
 			</div>
 		</div>
-
-		{@const isSingleSource = selectedSourceHouses.size === 1}
-		{@const sourceHouse = isSingleSource ? [...selectedSourceHouses][0] : null}
-		{@const bulkActions = [
-			...HOUSES.filter((house) => !(isSingleSource && sourceHouse === house)).map((house) => ({
-				label: house,
-				action: () => bulkAssignHouse(house)
-			})),
-			...(isSingleSource && sourceHouse === 'orphaned'
-				? []
-				: [{ label: 'Unassigned', action: () => bulkAssignHouse(undefined) }])
-		]}
-		<BulkActionBar
-			selectedCount={multiSelect.selectedCount}
-			actions={bulkActions}
-			onDone={() => multiSelect.exitSelectionMode()}
-		/>
+		{#if multiSelect.selectedCount > 0}
+			<div class="h-64 md:hidden" aria-hidden="true"></div>
+		{/if}
 	{/if}
+</div>
+
+<div class="md:hidden">
+	<BulkActionBar
+		selectedCount={multiSelect.selectedCount}
+		actions={bulkActions}
+		onDone={() => multiSelect.exitSelectionMode()}
+	/>
 </div>
 
 <MoveDialog
@@ -585,36 +607,39 @@
 	subtitle={moveDialogStudent
 		? `Currently in ${moveDialogStudent.sourceHouse === 'orphaned' ? 'Unassigned' : moveDialogStudent.sourceHouse}`
 		: ''}
-	targets={moveDialogStudent
-		? HOUSES.filter((h) => h !== moveDialogStudent.sourceHouse)
-				.map((house) => ({
-					label: house,
-					action: () => {
-						assignHouse(moveDialogStudent._id, house);
-						closeMoveDialog();
-					},
-					color:
-						HOUSE_COLORS[house].lightBg +
-						' ' +
-						HOUSE_COLORS[house].text +
-						' hover:' +
-						HOUSE_COLORS[house].lightBg.replace('50', '100')
-				}))
-				.concat(
-					moveDialogStudent.sourceHouse !== 'orphaned'
-						? [
-								{
-									label: 'Unassigned',
-									action: () => {
-										assignHouse(moveDialogStudent._id, undefined);
-										closeMoveDialog();
-									},
-									color: 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-								}
-							]
-						: []
-				)
-		: []}
+	targets={(() => {
+		if (!moveDialogStudent) return [];
+		const student = moveDialogStudent;
+		const houseTargets = HOUSES.filter((h) => h !== student.sourceHouse).map((house) => ({
+			label: house,
+			action: () => {
+				assignHouse(student._id, house);
+				closeMoveDialog();
+			},
+			color:
+				HOUSE_COLORS[house].lightBg +
+				' ' +
+				HOUSE_COLORS[house].text +
+				' hover:' +
+				HOUSE_COLORS[house].lightBg.replace('50', '100')
+		}));
+
+		const unassignedTarget =
+			student.sourceHouse !== 'orphaned'
+				? [
+						{
+							label: 'Unassigned',
+							action: () => {
+								assignHouse(student._id, undefined);
+								closeMoveDialog();
+							},
+							color: 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+						}
+					]
+				: [];
+
+		return [...houseTargets, ...unassignedTarget];
+	})()}
 	cancelLabel="Cancel"
 />
 
