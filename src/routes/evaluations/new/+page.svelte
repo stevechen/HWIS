@@ -22,6 +22,27 @@
 		return `${semesterYear}-${half}`;
 	}
 
+	function getFridayOfWeek(timestamp: number): number {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const date = new Date(timestamp);
+		const day = date.getDay();
+		const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const monday = new Date(date.setDate(diff));
+		monday.setHours(0, 0, 0, 0);
+		return monday.getTime();
+	}
+
+	const now = Date.now();
+	const evalMonday = getFridayOfWeek(now);
+	const lockTime = evalMonday + 7 * 24 * 60 * 60 * 1000;
+	const lockDate = new Date(lockTime);
+	const lockDateStr = lockDate.toLocaleDateString('en-US', {
+		weekday: 'short',
+		month: 'short',
+		day: 'numeric'
+	});
+
 	let searchQuery = $state('');
 	let selectedStudentIds = new SvelteSet<Id<'students'>>();
 	let categoryId = $state<string | undefined>(undefined);
@@ -409,6 +430,10 @@
 						Submit Evaluation
 					{/if}
 				</Button>
+
+				<p class="text-muted-foreground mt-3 text-center text-xs">
+					* This evaluation locks for edits on {lockDateStr} (Monday 00:00)
+				</p>
 			</Card.Content>
 		</Card.Root>
 	</div>
