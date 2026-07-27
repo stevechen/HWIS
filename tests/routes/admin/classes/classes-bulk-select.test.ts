@@ -6,7 +6,7 @@ vi.mock('convex-svelte', () => ({
 	useQuery: vi.fn(() => ({
 		data: [],
 		isLoading: false,
-		error: null
+		error: undefined
 	})),
 	useConvexClient: vi.fn(() => ({
 		mutation: vi.fn().mockResolvedValue(undefined),
@@ -69,23 +69,19 @@ describe('Classes Page - Bulk Select and Move', () => {
 	});
 
 	it('enters selection mode when clicking Select button', async () => {
-		const { useConvexClient } = await import('convex-svelte');
-		vi.mocked(useConvexClient).mockReturnValue({
-			mutation: vi.fn().mockResolvedValue(undefined),
-			query: vi.fn().mockResolvedValue({})
-		});
-
 		const { useQuery } = await import('convex-svelte');
 		vi.mocked(useQuery)
 			.mockReturnValueOnce({
 				data: mockClassesWithMultipleStudents,
 				isLoading: false,
-				error: null
+				isStale: false,
+				error: undefined
 			})
 			.mockReturnValueOnce({
 				data: mockTeachers,
 				isLoading: false,
-				error: null
+				isStale: false,
+				error: undefined
 			});
 
 		render(ClassesPage);
@@ -104,23 +100,19 @@ describe('Classes Page - Bulk Select and Move', () => {
 	});
 
 	it('selects and deselects students in selection mode', async () => {
-		const { useConvexClient } = await import('convex-svelte');
-		vi.mocked(useConvexClient).mockReturnValue({
-			mutation: vi.fn().mockResolvedValue(undefined),
-			query: vi.fn().mockResolvedValue({})
-		});
-
 		const { useQuery } = await import('convex-svelte');
 		vi.mocked(useQuery)
 			.mockReturnValueOnce({
 				data: mockClassesWithMultipleStudents,
 				isLoading: false,
-				error: null
+				isStale: false,
+				error: undefined
 			})
 			.mockReturnValueOnce({
 				data: mockTeachers,
 				isLoading: false,
-				error: null
+				isStale: false,
+				error: undefined
 			});
 
 		render(ClassesPage);
@@ -140,23 +132,19 @@ describe('Classes Page - Bulk Select and Move', () => {
 	});
 
 	it('shows target class buttons excluding source class in bulk mode', async () => {
-		const { useConvexClient } = await import('convex-svelte');
-		vi.mocked(useConvexClient).mockReturnValue({
-			mutation: vi.fn().mockResolvedValue(undefined),
-			query: vi.fn().mockResolvedValue({})
-		});
-
 		const { useQuery } = await import('convex-svelte');
 		vi.mocked(useQuery)
 			.mockReturnValueOnce({
 				data: mockClassesWithMultipleStudents,
 				isLoading: false,
-				error: null
+				isStale: false,
+				error: undefined
 			})
 			.mockReturnValueOnce({
 				data: mockTeachers,
 				isLoading: false,
-				error: null
+				isStale: false,
+				error: undefined
 			});
 
 		render(ClassesPage);
@@ -182,12 +170,6 @@ describe('Classes Page - Bulk Select and Move', () => {
 	});
 
 	it('excludes IB class for grades below 11', async () => {
-		const { useConvexClient } = await import('convex-svelte');
-		vi.mocked(useConvexClient).mockReturnValue({
-			mutation: vi.fn().mockResolvedValue(undefined),
-			query: vi.fn().mockResolvedValue({})
-		});
-
 		const classesWithIB = [
 			...mockClassesWithMultipleStudents,
 			{
@@ -207,12 +189,14 @@ describe('Classes Page - Bulk Select and Move', () => {
 			.mockReturnValueOnce({
 				data: classesWithIB,
 				isLoading: false,
-				error: null
+				isStale: false,
+				error: undefined
 			})
 			.mockReturnValueOnce({
 				data: mockTeachers,
 				isLoading: false,
-				error: null
+				isStale: false,
+				error: undefined
 			});
 
 		render(ClassesPage);
@@ -227,12 +211,6 @@ describe('Classes Page - Bulk Select and Move', () => {
 	});
 
 	it('includes IB class for grades 11-12', async () => {
-		const { useConvexClient } = await import('convex-svelte');
-		vi.mocked(useConvexClient).mockReturnValue({
-			mutation: vi.fn().mockResolvedValue(undefined),
-			query: vi.fn().mockResolvedValue({})
-		});
-
 		const classesGrade11 = [
 			{
 				_id: 'c1',
@@ -261,12 +239,14 @@ describe('Classes Page - Bulk Select and Move', () => {
 			.mockReturnValueOnce({
 				data: classesGrade11,
 				isLoading: false,
-				error: null
+				isStale: false,
+				error: undefined
 			})
 			.mockReturnValueOnce({
 				data: mockTeachers,
 				isLoading: false,
-				error: null
+				isStale: false,
+				error: undefined
 			});
 
 		render(ClassesPage);
@@ -283,23 +263,19 @@ describe('Classes Page - Bulk Select and Move', () => {
 	});
 
 	it('exits selection mode when Done is clicked', async () => {
-		const { useConvexClient } = await import('convex-svelte');
-		vi.mocked(useConvexClient).mockReturnValue({
-			mutation: vi.fn().mockResolvedValue(undefined),
-			query: vi.fn().mockResolvedValue({})
-		});
-
 		const { useQuery } = await import('convex-svelte');
 		vi.mocked(useQuery)
 			.mockReturnValueOnce({
 				data: mockClassesWithMultipleStudents,
 				isLoading: false,
-				error: null
+				isStale: false,
+				error: undefined
 			})
 			.mockReturnValueOnce({
 				data: mockTeachers,
 				isLoading: false,
-				error: null
+				isStale: false,
+				error: undefined
 			});
 
 		render(ClassesPage);
