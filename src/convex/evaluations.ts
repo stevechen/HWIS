@@ -2,6 +2,18 @@ import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import { requireUserProfile, getAuthenticatedUser, requireAdminRole } from './auth';
+import {
+	getFridayOfWeek,
+	getWeekNumber,
+	formatDateRange,
+	matchesMultiSearch
+} from './shared/evaluation_utils';
+import {
+	canReadStudent,
+	canReadEvaluation,
+	isStudent,
+	requireStudentRole
+} from './shared/authorization';
 
 export const getUserByAuthId = query({
 	args: { authId: v.string(), testToken: v.optional(v.string()) },
@@ -121,17 +133,6 @@ export const remove = mutation({
 	}
 });
 
-// Helper function for server-side filtering
-function matchesMultiSearch(filter: string, value: string): boolean {
-	if (!filter.trim()) return true;
-	const searchTerms = filter
-		.split(',')
-		.map((s) => s.trim().toLowerCase())
-		.filter(Boolean);
-	if (searchTerms.length === 0) return true;
-	return searchTerms.some((term) => value.toLowerCase().includes(term));
-}
-
 export const listRecent = query({
 	args: {
 		studentFilter: v.optional(v.string()),
@@ -213,42 +214,6 @@ export const listRecent = query({
 		return results.sort((a, b) => b.timestamp - a.timestamp);
 	}
 });
-
-function getFridayOfWeek(timestamp: number): number {
-	const date = new Date(timestamp);
-	const day = date.getDay();
-	// Calculate Monday of the week (used as the week key)
-	// Sunday (0) -> Monday is -6 days
-	// Monday (1) -> Monday is today (0 days)
-	// Saturday (6) -> Monday is -5 days
-	const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-	const monday = new Date(date.setDate(diff));
-	monday.setHours(0, 0, 0, 0);
-	return monday.getTime();
-}
-
-function getWeekNumber(timestamp: number): number {
-	const date = new Date(timestamp);
-	const start = new Date(date.getFullYear(), 0, 1);
-	const diff = date.getTime() - start.getTime();
-	const oneWeek = 604800000;
-	return Math.floor(diff / oneWeek) + 1;
-}
-
-function formatDateRange(mondayTimestamp: number): string {
-	const monday = new Date(mondayTimestamp);
-	const friday = new Date(monday);
-	friday.setDate(monday.getDate() + 4); // Friday is 4 days after Monday
-
-	const mondayStr = monday.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
-	const fridayStr = friday.toLocaleDateString('en-US', {
-		month: 'short',
-		day: '2-digit',
-		year: 'numeric'
-	});
-
-	return `${mondayStr} - ${fridayStr}`;
-}
 
 export const getWeeklyReportsList = query({
 	args: {
@@ -380,7 +345,7 @@ export const getStudent = query({
 	args: { studentId: v.id('students'), testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
 		const user = await requireUserProfile(ctx, args.testToken);
-		if (user.role === 'student' && user.studentRecordId !== args.studentId) {
+		if (!canReadStudent(user, args.studentId)) {
 			return null;
 		}
 		return await ctx.db.get(args.studentId);
@@ -392,7 +357,7 @@ export const getStudentByStudentIdCode = query({
 	args: { studentIdCode: v.string(), testToken: v.optional(v.string()) },
 	handler: async (ctx, args) => {
 		const user = await requireUserProfile(ctx, args.testToken);
-		if (user.role === 'student') return null;
+		if (isStudent(user)) return null;
 		return await ctx.db
 			.query('students')
 			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentIdCode))
@@ -888,12 +853,8 @@ export const getEvaluation = query({
 		const evaluation = await ctx.db.get(args.id);
 		if (!evaluation) return null;
 
-		if (user.role !== 'admin' && user.role !== 'super') {
-			if (user.role === 'student') {
-				if (evaluation.studentId !== user.studentRecordId) return null;
-			} else if (evaluation.teacherId !== user._id) {
-				return null;
-			}
+		if (!canReadEvaluation(user, evaluation)) {
+			return null;
 		}
 
 		return evaluation;
@@ -907,14 +868,9 @@ export const getStudentEvaluationsAnonymous = query({
 	handler: async (ctx, args) => {
 		const user = await requireUserProfile(ctx, args.testToken);
 
-		if (user.role !== 'student') {
-			throw new Error('Only students can access this endpoint');
-		}
+		requireStudentRole(user);
 
 		const studentRecordId = user.studentRecordId;
-		if (!studentRecordId) {
-			throw new Error('Student record not linked');
-		}
 
 		const evaluations = await ctx.db
 			.query('evaluations')

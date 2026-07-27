@@ -14,6 +14,7 @@
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import { api } from '$convex/_generated/api';
 	import { headerTitleOverride, headerHouseBadge } from '$lib/stores/header';
+	import { theme } from '$lib/stores/theme';
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
 
@@ -59,6 +60,7 @@
 
 	onMount(() => {
 		document.body.classList.add('hydrated');
+		theme.init();
 	});
 
 	async function handleReload() {

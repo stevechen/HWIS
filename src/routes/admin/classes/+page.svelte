@@ -20,17 +20,7 @@
 	import BulkActionBar from '$lib/components/BulkActionBar.svelte';
 	import { draggable, dropZone, dragState } from '$lib/utils/dnd.svelte';
 	import type { DragData } from '$lib/utils/dnd.svelte';
-
-	// Client-side helper functions (duplicated from classes.ts for client use)
-	function getDisplayName(grade: number, className: string): string {
-		if (className === 'default') return `${grade}`;
-		if (className === 'IB') return `${grade}-IB`;
-		return `${grade}-${className}`;
-	}
-
-	function isProtectedClass(className: string): boolean {
-		return className === '1' || className === 'IB';
-	}
+	import { getDisplayName, isProtectedClass } from '$lib/class-utils';
 
 	// Grade base hues (HSL) - G7=red, G8=orange, G9=yellow, G10=green, G11=blue, G12=purple
 	const gradeBaseHues: Record<number, number> = {

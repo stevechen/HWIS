@@ -27,6 +27,8 @@ import type * as onboarding from "../onboarding.js";
 import type * as recoverAuth from "../recoverAuth.js";
 import type * as resetDb from "../resetDb.js";
 import type * as seedAdmin from "../seedAdmin.js";
+import type * as shared_authorization from "../shared/authorization.js";
+import type * as shared_evaluation_utils from "../shared/evaluation_utils.js";
 import type * as shared_houses from "../shared/houses.js";
 import type * as students from "../students.js";
 import type * as testCleanup from "../testCleanup.js";
@@ -61,6 +63,8 @@ declare const fullApi: ApiFromModules<{
   recoverAuth: typeof recoverAuth;
   resetDb: typeof resetDb;
   seedAdmin: typeof seedAdmin;
+  "shared/authorization": typeof shared_authorization;
+  "shared/evaluation_utils": typeof shared_evaluation_utils;
   "shared/houses": typeof shared_houses;
   students: typeof students;
   testCleanup: typeof testCleanup;

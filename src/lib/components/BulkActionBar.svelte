@@ -1,11 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { X } from '@lucide/svelte';
-
-	interface Action {
-		label: string;
-		action: () => void;
-	}
+	import type { ActionItem } from './types';
 
 	let {
 		selectedCount,
@@ -13,7 +9,7 @@
 		onDone
 	}: {
 		selectedCount: number;
-		actions: Action[];
+		actions: ActionItem[];
 		onDone: () => void;
 	} = $props();
 </script>
@@ -47,18 +43,3 @@
 		</div>
 	</div>
 {/if}
-
-<style>
-	@keyframes slide-up {
-		from {
-			transform: translateY(100%);
-		}
-		to {
-			transform: translateY(0);
-		}
-	}
-
-	.animate-slide-up {
-		animation: slide-up 0.2s ease-out;
-	}
-</style>

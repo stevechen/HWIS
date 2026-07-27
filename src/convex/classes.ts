@@ -2,18 +2,7 @@ import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { requireAdminRole, getAuthenticatedUser } from './auth';
 import type { Id } from './_generated/dataModel';
-
-// Helper function to get display name for a class
-// "1" -> "7-1", "IB" -> "7-IB"
-export function getDisplayName(grade: number, className: string): string {
-	if (className === 'IB') return `${grade}-IB`;
-	return `${grade}-${className}`;
-}
-
-// Helper to check if a class is protected (1 or IB)
-export function isProtectedClass(className: string): boolean {
-	return className === '1' || className === 'IB';
-}
+import { getDisplayName, isProtectedClass } from '../lib/class-utils';
 
 export const list = query({
 	args: {

@@ -1,12 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { X } from '@lucide/svelte';
-
-	interface Target {
-		label: string;
-		action: () => void;
-		color?: string;
-	}
+	import type { ActionItem } from './types';
 
 	let {
 		open,
@@ -19,7 +14,7 @@
 		onClose: () => void;
 		title: string;
 		subtitle?: string;
-		targets: Target[];
+		targets: ActionItem[];
 	} = $props();
 </script>
 
@@ -64,18 +59,3 @@
 		</div>
 	</div>
 {/if}
-
-<style>
-	@keyframes slide-up {
-		from {
-			transform: translateY(100%);
-		}
-		to {
-			transform: translateY(0);
-		}
-	}
-
-	.animate-slide-up {
-		animation: slide-up 0.2s ease-out;
-	}
-</style>

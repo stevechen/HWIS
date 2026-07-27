@@ -110,12 +110,7 @@
 	const grades = [7, 8, 9, 10, 11, 12];
 	const statuses = ['Enrolled', 'Not Enrolled'] as const;
 
-	// Helper function to get display name for a class
-	function getDisplayName(grade: number, className: string): string {
-		if (className === 'default') return `${grade}`;
-		if (className === 'IB') return `${grade}-IB`;
-		return `${grade}-${className}`;
-	}
+	import { getDisplayName } from '$lib/class-utils';
 
 	// Combined grade-class options for the form dropdown
 	let gradeClassOptions = $derived.by(() => {
