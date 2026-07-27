@@ -14,7 +14,6 @@ function getAuthOptions(): { auth?: string } {
 	if (process.env.CONVEX_AUTH_TOKEN) {
 		return { auth: process.env.CONVEX_AUTH_TOKEN };
 	}
-	// Fallback to localStorage for browser context
 	if (typeof window !== 'undefined') {
 		try {
 			const convexAuth = localStorage.getItem('convexAuth');

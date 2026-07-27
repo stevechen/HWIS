@@ -38,13 +38,7 @@ export function useRole(role: 'admin' | 'teacher' | 'super') {
 			const state: { cookies: Cookie[] } = JSON.parse(fs.readFileSync(authPath, 'utf8'));
 			const convexCookie = state.cookies?.find((c: Cookie) => c.name === 'better-auth.convex_jwt');
 			if (convexCookie?.value) {
-				// Set token in environment variable (for Node.js context)
 				setAuthToken(convexCookie.value);
-
-				// Also set in localStorage (for browser context)
-				if (typeof localStorage !== 'undefined') {
-					localStorage.setItem('convexAuth', JSON.stringify({ token: convexCookie.value }));
-				}
 				return true;
 			}
 		} catch (e) {
