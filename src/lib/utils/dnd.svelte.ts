@@ -1,15 +1,6 @@
-import { SvelteMap } from 'svelte/reactivity';
-
 export interface DragData {
 	id: string;
 	[key: string]: unknown;
-}
-
-interface DropZoneEntry {
-	id: string;
-	element: HTMLElement;
-	accept: (data: DragData) => boolean;
-	onDrop: (data: DragData) => void;
 }
 
 export const dragState = $state<{
@@ -20,19 +11,12 @@ export const dragState = $state<{
 	activeDropZoneId: null
 });
 
-const zones = new SvelteMap<string, DropZoneEntry>();
-let lastHoveredId: string | null = null;
+let currentOnReject: ((data: DragData, zoneId: string) => void) | null = null;
 
-function style(el: HTMLElement, styles: Record<string, string>) {
-	Object.assign(el.style, styles);
-}
-
-let ghost: HTMLElement | null = null;
-
-function showGhost(text: string, x: number, y: number) {
-	ghost = document.createElement('div');
-	ghost.textContent = text;
-	style(ghost, {
+function createGhost(label: string) {
+	const ghost = document.createElement('div');
+	ghost.textContent = label;
+	Object.assign(ghost.style, {
 		position: 'fixed',
 		zIndex: '99999',
 		pointerEvents: 'none',
@@ -42,40 +26,14 @@ function showGhost(text: string, x: number, y: number) {
 		borderRadius: '4px',
 		fontSize: '13px',
 		whiteSpace: 'nowrap',
-		boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-		transform: 'translate(-50%, -50%)'
+		boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
 	});
-	moveGhost(x, y);
-	document.body.appendChild(ghost);
+	return ghost;
 }
 
-function moveGhost(x: number, y: number) {
-	if (ghost) {
-		ghost.style.left = `${x}px`;
-		ghost.style.top = `${y}px`;
-	}
-}
-
-function hideGhost() {
-	if (ghost?.parentNode) ghost.parentNode.removeChild(ghost);
-	ghost = null;
-}
-
-function findZone(x: number, y: number): DropZoneEntry | null {
-	const els = document.elementsFromPoint(x, y);
-	for (const el of els) {
-		const id = (el as HTMLElement).dataset.dropZoneId;
-		if (id && zones.has(id)) {
-			return zones.get(id)!;
-		}
-	}
-	return null;
-}
-
-function clearZoneHighlight() {
-	if (lastHoveredId) {
-		zones.get(lastHoveredId)?.element.classList.remove('drag-over');
-		lastHoveredId = null;
+function clearDragOver() {
+	for (const el of document.querySelectorAll('.drag-over')) {
+		el.classList.remove('drag-over');
 	}
 }
 
@@ -87,206 +45,42 @@ export function draggable(
 		onReject?: (data: DragData, zoneId: string) => void;
 	}
 ) {
-	node.draggable = false;
+	node.draggable = true;
 	node.style.cursor = 'grab';
 
 	if (window.innerWidth < 640) {
 		return { destroy() {}, update() {} };
 	}
 
-	const DRAG_THRESHOLD = 5;
-	let capturedPointerId: number | null = null;
-	let dragActivated = false;
-	let startX = 0;
-	let startY = 0;
-	let pendingDragEnd = false;
-	let isPointerDown = false;
+	function onDragStart(e: DragEvent) {
+		dragState.currentDrag = options.data;
+		dragState.activeDropZoneId = null;
+		currentOnReject = options.onReject ?? null;
+		e.dataTransfer!.setData('application/json', JSON.stringify(options.data));
+		e.dataTransfer!.effectAllowed = 'move';
 
-	function releaseCapture() {
-		if (capturedPointerId != null) {
-			try {
-				node.releasePointerCapture(capturedPointerId);
-			} catch {
-				// Ignore if capture wasn't active
-			}
-			capturedPointerId = null;
+		if (options.label) {
+			const ghost = createGhost(options.label);
+			document.body.appendChild(ghost);
+			e.dataTransfer!.setDragImage(ghost, 0, 0);
+			setTimeout(() => ghost.remove(), 0);
 		}
 	}
 
-	function preventTextSelection() {
-		document.body.style.userSelect = 'none';
-		document.body.style.webkitUserSelect = 'none';
-	}
-
-	function restoreTextSelection() {
-		document.body.style.userSelect = '';
-		document.body.style.webkitUserSelect = '';
-	}
-
-	function resetTouchStyles() {
-		node.style.touchAction = '';
-		node.style.userSelect = '';
-		restoreTextSelection();
-	}
-
-	function activateDrag(pointerId: number, x: number, y: number) {
-		dragActivated = true;
-		node.style.touchAction = 'none';
-		node.style.userSelect = 'none';
-		preventTextSelection();
-		capturedPointerId = pointerId;
-		node.setPointerCapture(pointerId);
-		node.classList.add('is-dragging');
-		dragState.currentDrag = options.data;
-		showGhost(options.label ?? '', x, y);
-		addWindowListeners();
-	}
-
-	function cleanup() {
-		dragActivated = false;
-		isPointerDown = false;
-		node.classList.remove('is-dragging');
+	function onDragEnd() {
 		dragState.currentDrag = null;
 		dragState.activeDropZoneId = null;
-		clearZoneHighlight();
-		hideGhost();
-		releaseCapture();
-		removeWindowListeners();
-		resetTouchStyles();
+		currentOnReject = null;
+		clearDragOver();
 	}
 
-	function onWindowUp(e: PointerEvent) {
-		if (!dragActivated || capturedPointerId == null) return;
-		if (e.pointerId !== capturedPointerId) return;
-
-		pendingDragEnd = true;
-
-		const zone = findZone(e.clientX, e.clientY);
-		const dragData = dragState.currentDrag;
-		if (zone && dragData) {
-			if (zone.accept(dragData)) {
-				zone.onDrop(dragData);
-			} else if (options.onReject) {
-				options.onReject(dragData, zone.id);
-			}
-		}
-
-		cleanup();
-	}
-
-	function onWindowCancel(e: PointerEvent) {
-		if (!dragActivated || capturedPointerId == null) return;
-		if (e.pointerId !== capturedPointerId) return;
-		cleanup();
-	}
-
-	function addWindowListeners() {
-		window.addEventListener('pointerup', onWindowUp);
-		window.addEventListener('pointercancel', onWindowCancel);
-	}
-
-	function removeWindowListeners() {
-		window.removeEventListener('pointerup', onWindowUp);
-		window.removeEventListener('pointercancel', onWindowCancel);
-	}
-
-	function onDown(e: PointerEvent) {
-		// Don't prevent default — allow scroll to start naturally
-		// Clean up any stale state from a previous interrupted drag
-		if (dragState.currentDrag || dragActivated) {
-			cleanup();
-		}
-		isPointerDown = true;
-		pendingDragEnd = false;
-		startX = e.clientX;
-		startY = e.clientY;
-		dragActivated = false;
-	}
-
-	function onMove(e: PointerEvent) {
-		if (!isPointerDown) return;
-
-		if (!dragActivated) {
-			const dx = e.clientX - startX;
-			const dy = e.clientY - startY;
-			const dist = Math.sqrt(dx * dx + dy * dy);
-
-			if (dist < DRAG_THRESHOLD) return;
-
-			e.preventDefault();
-			activateDrag(e.pointerId, e.clientX, e.clientY);
-			return;
-		}
-
-		e.preventDefault();
-		moveGhost(e.clientX, e.clientY);
-
-		const zone = findZone(e.clientX, e.clientY);
-		const zoneId = zone?.id ?? null;
-
-		const dragData = dragState.currentDrag;
-		if (zoneId !== lastHoveredId) {
-			clearZoneHighlight();
-			if (zone && dragData && zone.accept(dragData)) {
-				zone.element.classList.add('drag-over');
-				lastHoveredId = zoneId;
-			}
-		}
-
-		dragState.activeDropZoneId = zoneId;
-	}
-
-	function onUp(e: PointerEvent) {
-		if (!dragActivated) {
-			isPointerDown = false;
-			// Was a tap/scroll, not a drag — nothing to clean up
-			return;
-		}
-
-		pendingDragEnd = true;
-
-		const zone = findZone(e.clientX, e.clientY);
-		const dragData = dragState.currentDrag;
-		if (zone && dragData) {
-			if (zone.accept(dragData)) {
-				zone.onDrop(dragData);
-			} else if (options.onReject) {
-				options.onReject(dragData, zone.id);
-			}
-		}
-
-		cleanup();
-	}
-
-	function onCancel() {
-		if (!dragActivated) return;
-		cleanup();
-	}
-
-	node.addEventListener('pointerdown', onDown);
-	node.addEventListener('pointermove', onMove);
-	node.addEventListener('pointerup', onUp);
-	node.addEventListener('pointercancel', onCancel);
-
-	const onClick = (e: MouseEvent) => {
-		if (pendingDragEnd) {
-			e.stopPropagation();
-			e.preventDefault();
-			pendingDragEnd = false;
-		}
-	};
-	node.addEventListener('click', onClick, true);
+	node.addEventListener('dragstart', onDragStart);
+	node.addEventListener('dragend', onDragEnd);
 
 	return {
 		destroy() {
-			removeWindowListeners();
-			releaseCapture();
-			resetTouchStyles();
-			node.removeEventListener('click', onClick, true);
-			node.removeEventListener('pointerdown', onDown);
-			node.removeEventListener('pointermove', onMove);
-			node.removeEventListener('pointerup', onUp);
-			node.removeEventListener('pointercancel', onCancel);
+			node.removeEventListener('dragstart', onDragStart);
+			node.removeEventListener('dragend', onDragEnd);
 		},
 		update(next: {
 			data: DragData;
@@ -306,37 +100,67 @@ export function dropZone(
 		onDrop: (data: DragData) => void;
 	}
 ) {
-	if (window.innerWidth < 640) {
-		return { destroy() {}, update() {} };
+	function onDragOver(e: DragEvent) {
+		e.preventDefault();
+		e.dataTransfer!.dropEffect = 'move';
 	}
 
-	node.dataset.dropZoneId = options.id;
-	zones.set(options.id, {
-		id: options.id,
-		element: node,
-		accept: options.accept,
-		onDrop: options.onDrop
-	});
+	function onDragEnter() {
+		const data = dragState.currentDrag;
+		if (data && options.accept(data)) {
+			node.classList.add('drag-over');
+			dragState.activeDropZoneId = options.id;
+		}
+	}
+
+	function onDragLeave() {
+		node.classList.remove('drag-over');
+		if (dragState.activeDropZoneId === options.id) {
+			dragState.activeDropZoneId = null;
+		}
+	}
+
+	function onDropFn(e: DragEvent) {
+		e.preventDefault();
+		node.classList.remove('drag-over');
+		dragState.activeDropZoneId = null;
+
+		try {
+			const raw = e.dataTransfer!.getData('application/json');
+			const data = JSON.parse(raw) as DragData;
+			if (options.accept(data)) {
+				options.onDrop(data);
+			} else if (currentOnReject) {
+				currentOnReject(data, options.id);
+			}
+		} catch {
+			// Invalid data
+		}
+
+		dragState.currentDrag = null;
+		dragState.activeDropZoneId = null;
+		currentOnReject = null;
+		clearDragOver();
+	}
+
+	node.addEventListener('dragover', onDragOver);
+	node.addEventListener('dragenter', onDragEnter);
+	node.addEventListener('dragleave', onDragLeave);
+	node.addEventListener('drop', onDropFn);
 
 	return {
 		destroy() {
-			zones.delete(options.id);
-			node.classList.remove('drag-over');
+			node.removeEventListener('dragover', onDragOver);
+			node.removeEventListener('dragenter', onDragEnter);
+			node.removeEventListener('dragleave', onDragLeave);
+			node.removeEventListener('drop', onDropFn);
 		},
 		update(next: {
 			id: string;
 			accept: (data: DragData) => boolean;
 			onDrop: (data: DragData) => void;
 		}) {
-			zones.delete(options.id);
 			options = next;
-			node.dataset.dropZoneId = options.id;
-			zones.set(options.id, {
-				id: options.id,
-				element: node,
-				accept: options.accept,
-				onDrop: options.onDrop
-			});
 		}
 	};
 }

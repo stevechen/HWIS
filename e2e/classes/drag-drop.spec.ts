@@ -1,6 +1,46 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { getTestSuffix, getUniqueTag, getTestStudentId } from '../helpers';
 import { cleanupByTag, useRole, createStudent, createClass } from '../convex-client';
+
+async function simulateDragAndDrop(page: Page, sourceLabel: string, targetLabel: string) {
+	return page.evaluate(
+		({ sourceLabel, targetLabel }: { sourceLabel: string; targetLabel: string }) => {
+			const source = Array.from(document.querySelectorAll('[role="button"]')).find(
+				(el) =>
+					el.textContent?.includes(sourceLabel) && el.getAttribute('aria-label')?.includes('Move')
+			) as HTMLElement | undefined;
+			const target = Array.from(document.querySelectorAll('[role="region"]')).find(
+				(el) => el.getAttribute('aria-label') === targetLabel
+			) as HTMLElement | undefined;
+			if (!source || !target) return false;
+
+			const dt = new DataTransfer();
+
+			source.dispatchEvent(
+				new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt })
+			);
+
+			target.dispatchEvent(
+				new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: dt })
+			);
+
+			target.dispatchEvent(
+				new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt })
+			);
+
+			target.dispatchEvent(
+				new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt })
+			);
+
+			source.dispatchEvent(
+				new DragEvent('dragend', { bubbles: true, cancelable: true, dataTransfer: dt })
+			);
+
+			return true;
+		},
+		{ sourceLabel, targetLabel }
+	);
+}
 
 test.describe('Drag and Drop Student Movement', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
@@ -37,7 +77,6 @@ test.describe('Drag and Drop Student Movement', () => {
 		await page.reload();
 		await page.waitForSelector('body.hydrated');
 
-		// Student lists are visible by default
 		await expect(page.getByText(`DragTest_${suffix}`)).toBeVisible();
 
 		const studentRow = page
@@ -78,7 +117,6 @@ test.describe('Drag and Drop Student Movement', () => {
 	});
 
 	test('shows alert when dropping student on different grade class', async ({ page }) => {
-		// Create a student in grade 7
 		const studentId = getTestStudentId('DD3');
 		const suffix = getTestSuffix('crossGrade');
 		const englishName = `CrossGrade_${suffix}`;
@@ -93,48 +131,19 @@ test.describe('Drag and Drop Student Movement', () => {
 		});
 		testDataCreated = true;
 
-		// Ensure grade 10 has at least one class (use unique name to avoid collision)
 		const targetClassName = `dd_target_${suffix}`;
 		await createClass({ grade: 10, class: targetClassName, e2eTag });
 
 		await page.reload();
 		await page.waitForSelector('body.hydrated');
 
-		// Show grade 10 so we can see the target
 		await page.getByRole('checkbox', { name: '10' }).check();
 		await page.waitForTimeout(500);
 
-		// Get the student draggable element
-		const studentEl = page
-			.locator('[role="button"][aria-label*="Move"]')
-			.filter({ hasText: englishName });
+		const targetLabel = `Class 10-${targetClassName}`;
+		const dragged = await simulateDragAndDrop(page, englishName, targetLabel);
+		expect(dragged).toBe(true);
 
-		// Get the target class container
-		const targetClass = page.getByRole('region', { name: `Class 10-${targetClassName}` });
-
-		// Perform drag via pointer events using bounding boxes
-		// First move after pointerdown must stay within the draggable element
-		// to ensure onMove fires and activates the drag
-		const sourceBox = await studentEl.boundingBox();
-		const targetBox = await targetClass.boundingBox();
-		if (!sourceBox || !targetBox) throw new Error('Could not get bounding boxes');
-
-		const sx = sourceBox.x + sourceBox.width / 2;
-		const sy = sourceBox.y + sourceBox.height / 2;
-		const tx = targetBox.x + targetBox.width / 2;
-		const ty = targetBox.y + targetBox.height / 2;
-
-		await page.mouse.move(sx, sy);
-		await page.mouse.down();
-
-		// Move horizontally past the 5px threshold to activate drag (element is wide)
-		await page.mouse.move(sx + 10, sy, { steps: 1 });
-
-		// Move to target (pointer capture is active, events reach draggable)
-		await page.mouse.move(tx, ty, { steps: 10 });
-		await page.mouse.up();
-
-		// Verify the styled dialog appears
 		await expect(page.getByRole('heading', { name: 'Cannot Move Student' })).toBeVisible();
 		await expect(
 			page.getByText('Moving students between different grades is not allowed here')
