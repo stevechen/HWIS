@@ -29,6 +29,7 @@ Query path → enrich() → Map<studentId, StudentDoc> + Map<categoryId, Categor
 ```
 
 The `enrich()` function:
+
 1. Collects all unique studentIds, categoryIds, and classIds from the input array
 2. Fetches each in parallel via `ctx.db.query()`
 3. Builds Maps for O(1) lookup

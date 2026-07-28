@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
+import { HOUSES } from '$lib/constants/houses';
 
-export const HOUSES = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
 export type House = (typeof HOUSES)[number];
 
 export const HOUSE_VALIDATOR = v.union(

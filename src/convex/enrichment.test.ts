@@ -121,10 +121,7 @@ describe('enrichment helper', () => {
 
 		let evaluations: Doc<'evaluations'>[] = [];
 		await t.run(async (ctx) => {
-			evaluations = await ctx.db
-				.query('evaluations')
-				.order('desc')
-				.collect();
+			evaluations = await ctx.db.query('evaluations').order('desc').collect();
 		});
 
 		const enrich = await import('./shared/enrichment');

@@ -3,24 +3,24 @@ import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import type { EnrichedEvaluation } from './shared/enrichment';
 import {
-  requireAdminForSensitiveOperation,
-  getAuthenticatedUser,
-  requireUserProfile,
-  requireUserProfileForSensitiveOperation,
-  isTestRuntime
+	requireAdminForSensitiveOperation,
+	getAuthenticatedUser,
+	requireUserProfile,
+	requireUserProfileForSensitiveOperation,
+	isTestRuntime
 } from './auth';
 import {
-  getFridayOfWeek,
-  getWeekNumber,
-  formatDateRange,
-  matchesMultiSearch
+	getFridayOfWeek,
+	getWeekNumber,
+	formatDateRange,
+	matchesMultiSearch
 } from './shared/evaluation_utils';
 import { enrichEvaluations } from './shared/enrichment';
 import {
-  canReadStudent,
-  canReadEvaluation,
-  isStudent,
-  requireStudentRole
+	canReadStudent,
+	canReadEvaluation,
+	isStudent,
+	requireStudentRole
 } from './shared/authorization';
 
 export const getUserByAuthId = query({
@@ -339,9 +339,9 @@ export const getStudentEvaluationsByTeacher = query({
 		studentId: v.id('students')
 	},
 	handler: async (ctx, args) => {
-	const user = await requireUserProfile(ctx);
+		const user = await requireUserProfile(ctx);
 
-	const evaluations = await ctx.db
+		const evaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_studentId_teacherId', (q) =>
 				q.eq('studentId', args.studentId).eq('teacherId', user._id)
@@ -432,7 +432,9 @@ export const getStudentEvaluationsAll = query({
 			...eval_,
 			categoryId: eval_.categoryId.toString(),
 			teacherName: teacherMap.get(eval_.teacherId)?.name || 'Unknown Teacher',
-			isAdmin: teacherMap.get(eval_.teacherId)?.role === 'admin' || teacherMap.get(eval_.teacherId)?.role === 'super'
+			isAdmin:
+				teacherMap.get(eval_.teacherId)?.role === 'admin' ||
+				teacherMap.get(eval_.teacherId)?.role === 'super'
 		}));
 
 		return enriched.sort((a, b) => b.timestamp - a.timestamp);
@@ -565,24 +567,24 @@ export const listAllEvaluationsPaginated = query({
 			.order(order)
 			.paginate(args.paginationOpts);
 
-// Enrich only the current page
-			const baseEnriched = await enrichEvaluations(result.page, ctx);
+		// Enrich only the current page
+		const baseEnriched = await enrichEvaluations(result.page, ctx);
 
-			// Fetch teacher data for enrichment
-			const teacherIds = [...new Set(result.page.map((e) => e.teacherId))];
-			const teachers = await Promise.all(teacherIds.map((id) => ctx.db.get(id)));
-			const teacherMap = new Map(
-				teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
-			);
-	
-			let enriched = baseEnriched.map((eval_: EnrichedEvaluation) => ({
-				...eval_,
-				_id: eval_._id.toString(),
-				studentId: eval_.studentId.toString(),
-				categoryId: eval_.categoryId.toString(),
-				teacherName: teacherMap.get(eval_.teacherId)?.name || 'Unknown Teacher',
-				teacherId: eval_.teacherId.toString()
-			}));
+		// Fetch teacher data for enrichment
+		const teacherIds = [...new Set(result.page.map((e) => e.teacherId))];
+		const teachers = await Promise.all(teacherIds.map((id) => ctx.db.get(id)));
+		const teacherMap = new Map(
+			teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
+		);
+
+		let enriched = baseEnriched.map((eval_: EnrichedEvaluation) => ({
+			...eval_,
+			_id: eval_._id.toString(),
+			studentId: eval_.studentId.toString(),
+			categoryId: eval_.categoryId.toString(),
+			teacherName: teacherMap.get(eval_.teacherId)?.name || 'Unknown Teacher',
+			teacherId: eval_.teacherId.toString()
+		}));
 
 		// Server-side: unenrolled filter
 		if (args.showUnenrolled !== true) {

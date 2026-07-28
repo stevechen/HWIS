@@ -1,15 +1,15 @@
 <script lang="ts">
-import { useQuery, useConvexClient } from 'convex-svelte';
-import { api } from '$convex/_generated/api';
-import type { Id } from '$convex/_generated/dataModel';
-import { goto } from '$app/navigation';
-import { browser } from '$app/environment';
-import { Search } from '@lucide/svelte';
-import { SvelteSet } from 'svelte/reactivity';
-import { onMount, onDestroy } from 'svelte';
-import { Button } from '$lib/components/ui/button';
-import { Input } from '$lib/components/ui/input';
-import { matchesMultiSearch } from '$lib/evaluations';
+	import { useQuery, useConvexClient } from 'convex-svelte';
+	import { api } from '$convex/_generated/api';
+	import type { Id } from '$convex/_generated/dataModel';
+	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import { Search } from '@lucide/svelte';
+	import { SvelteSet } from 'svelte/reactivity';
+	import { onMount, onDestroy } from 'svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { matchesMultiSearch } from '$lib/evaluations';
 	import * as Card from '$lib/components/ui/card';
 	import * as Select from '$lib/components/ui/select';
 	import CategoryInfoCard from '$lib/components/CategoryInfoCard.svelte';
