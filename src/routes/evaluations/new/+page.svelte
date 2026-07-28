@@ -1,14 +1,15 @@
 <script lang="ts">
-	import { useQuery, useConvexClient } from 'convex-svelte';
-	import { api } from '$convex/_generated/api';
-	import type { Id } from '$convex/_generated/dataModel';
-	import { goto } from '$app/navigation';
-	import { browser } from '$app/environment';
-	import { Search } from '@lucide/svelte';
-	import { SvelteSet } from 'svelte/reactivity';
-	import { onMount, onDestroy } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+import { useQuery, useConvexClient } from 'convex-svelte';
+import { api } from '$convex/_generated/api';
+import type { Id } from '$convex/_generated/dataModel';
+import { goto } from '$app/navigation';
+import { browser } from '$app/environment';
+import { Search } from '@lucide/svelte';
+import { SvelteSet } from 'svelte/reactivity';
+import { onMount, onDestroy } from 'svelte';
+import { Button } from '$lib/components/ui/button';
+import { Input } from '$lib/components/ui/input';
+import { matchesMultiSearch } from '../../../convex/shared/evaluation_utils';
 	import * as Card from '$lib/components/ui/card';
 	import * as Select from '$lib/components/ui/select';
 	import CategoryInfoCard from '$lib/components/CategoryInfoCard.svelte';
@@ -71,17 +72,10 @@
 	let filteredStudents = $derived(
 		studentsQuery.data?.filter((s) => {
 			if (!searchQuery.trim()) return true;
-			const terms = searchQuery
-				.split(',')
-				.map((t) => t.trim().toLowerCase())
-				.filter((t) => t.length > 0);
-			if (terms.length === 0) return true;
-
-			return terms.some(
-				(term) =>
-					s.englishName.toLowerCase().includes(term) ||
-					s.chineseName.toLowerCase().includes(term) ||
-					s.studentId.toLowerCase().includes(term)
+			return (
+				matchesMultiSearch(searchQuery, s.englishName) ||
+				matchesMultiSearch(searchQuery, s.chineseName) ||
+				matchesMultiSearch(searchQuery, s.studentId)
 			);
 		}) || []
 	);
