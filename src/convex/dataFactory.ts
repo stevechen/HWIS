@@ -111,11 +111,10 @@ function generateChineseName(): string {
 
 export const cleanupAll = mutation({
 	args: {
-		tag: v.optional(v.string()),
-		testToken: v.optional(v.string())
+		tag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const e2eTag = args.tag || getE2ETag();
 		let totalDeleted = 0;
 
@@ -134,11 +133,9 @@ export const cleanupAll = mutation({
 });
 
 export const seedBaseline = mutation({
-	args: {
-		testToken: v.optional(v.string())
-	},
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const now = Date.now();
 
 		// Real user emails to PRESERVE
@@ -172,7 +169,7 @@ export const seedBaseline = mutation({
 
 		// Step 3: Validate test token for cloud Convex compatibility
 		// (Must be done after creating test user)
-		await getAuthenticatedUser(ctx, args.testToken);
+		await getAuthenticatedUser(ctx);
 
 		await ctx.db.insert('users', {
 			authId: 'test_admin',
@@ -286,11 +283,10 @@ export const seedBaseline = mutation({
 export const createEvaluationForStudent = mutation({
 	args: {
 		studentId: v.string(),
-		e2eTag: v.optional(v.string()),
-		testToken: v.optional(v.string())
+		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		let teacherId: Id<'users'> | null = null;
 		let resolvedFromJwt = false;
@@ -316,31 +312,11 @@ export const createEvaluationForStudent = mutation({
 			// No JWT session available; fallback to token-based behavior below.
 		}
 
-		// If no JWT user is available, keep token-based fallback for headless setup helpers.
-		if (!resolvedFromJwt && args.testToken === 'unit-test-token') {
-			// Look for existing test teacher or create one
-			const existingUser = await ctx.db
-				.query('users')
-				.withIndex('by_authId', (q) => q.eq('authId', 'e2e_test_teacher'))
-				.first();
+		if (!resolvedFromJwt) {
+			const authUser = await getAuthenticatedUser(ctx);
 
-			if (existingUser) {
-				teacherId = existingUser._id;
-			} else {
-				teacherId = await ctx.db.insert('users', {
-					authId: 'e2e_test_teacher',
-					name: 'E2E Test Teacher',
-					role: 'teacher',
-					status: 'active'
-				});
-			}
-		} else if (!resolvedFromJwt) {
-			// Get authenticated user info - use JWT auth or testToken bypass
-			const authUser = await getAuthenticatedUser(ctx, args.testToken);
-
-			// Normal lookup using authenticated user's authId
 			if (!authUser) {
-				throw new Error('User not authenticated. Provide testToken or use JWT auth.');
+				throw new Error('User not authenticated.');
 			}
 			const authId = (authUser as AuthUserInfo).authId || (authUser as AuthUserInfo)._id;
 			const userFromDb = await ctx.db
@@ -426,11 +402,10 @@ export const createStudent = mutation({
 		class: v.optional(v.string()),
 		classId: v.optional(v.id('classes')),
 		status: v.optional(v.string()),
-		e2eTag: v.optional(v.string()),
-		testToken: v.optional(v.string())
+		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const tag = args.e2eTag || getE2ETag();
 		return await ctx.db.insert('students', {
 			englishName: args.englishName ?? generateStudentName(),
@@ -451,11 +426,10 @@ export const createStudentWithId = mutation({
 		grade: v.number(),
 		class: v.optional(v.string()),
 		status: v.optional(v.string()),
-		e2eTag: v.optional(v.string()),
-		testToken: v.optional(v.string())
+		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const tag = args.e2eTag || getE2ETag();
 
 		// Get or create class
@@ -494,7 +468,6 @@ export const createCategory = mutation({
 	args: {
 		name: v.optional(v.string()),
 		e2eTag: v.optional(v.string()),
-		testToken: v.optional(v.string()),
 		casAlignment: v.optional(
 			v.array(v.union(v.literal('Creativity'), v.literal('Activity'), v.literal('Service')))
 		),
@@ -502,7 +475,7 @@ export const createCategory = mutation({
 		demeritCriteria: v.optional(v.array(v.string()))
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const tag = args.e2eTag || getE2ETag();
 		return await ctx.db.insert('point_categories', {
 			name: args.name ?? `Category_${Date.now().toString().slice(-6)}`,
@@ -517,11 +490,10 @@ export const createCategory = mutation({
 export const setStudentE2eTag = mutation({
 	args: {
 		studentId: v.string(),
-		e2eTag: v.string(),
-		testToken: v.optional(v.string())
+		e2eTag: v.string()
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const student = await ctx.db
 			.query('students')
 			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
@@ -540,11 +512,10 @@ export const setE2eTag = mutation({
 	args: {
 		dataType: v.union(v.literal('students'), v.literal('categories'), v.literal('evaluations')),
 		dataId: v.string(),
-		e2eTag: v.string(),
-		testToken: v.optional(v.string())
+		e2eTag: v.string()
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		if (args.dataType === 'students') {
 			const student = await ctx.db
@@ -590,11 +561,10 @@ export const setE2eTag = mutation({
 
 export const cleanupHouseEventsByTag = mutation({
 	args: {
-		tag: v.string(),
-		testToken: v.optional(v.string())
+		tag: v.string()
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		let totalDeleted = 0;
 		const events = await ctx.db.query('house_events').collect();
 		for (const event of events) {
@@ -608,9 +578,9 @@ export const cleanupHouseEventsByTag = mutation({
 });
 
 export const cleanupAllHouseEvents = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const events = await ctx.db.query('house_events').collect();
 		for (const event of events) {
 			await ctx.db.delete(event._id);

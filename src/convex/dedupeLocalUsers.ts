@@ -1,11 +1,10 @@
 import { mutation } from './_generated/server';
-import { v } from 'convex/values';
 import { requireAdminForSensitiveOperation } from './auth';
 
 export const dedupe = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 
 		const allUsers = await ctx.db.query('users').collect();
 

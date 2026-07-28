@@ -1,24 +1,21 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { requireAdminRole, getAuthenticatedUser } from './auth';
+import { requireAdminForSensitiveOperation } from './auth';
 
 export const list = query({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return [];
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		return await ctx.db.query('point_categories').take(20);
 	}
 });
 
 export const getEvaluationCount = query({
 	args: {
-		categoryId: v.id('point_categories'),
-		testToken: v.optional(v.string())
+		categoryId: v.id('point_categories')
 	},
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return 0;
+		await requireAdminForSensitiveOperation(ctx);
 		const matches = await ctx.db
 			.query('evaluations')
 			.withIndex('by_categoryId', (q) => q.eq('categoryId', args.categoryId))
@@ -28,9 +25,9 @@ export const getEvaluationCount = query({
 });
 
 export const seed = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 
 		const existing = await ctx.db.query('point_categories').collect();
 		if (existing.length > 0) {
@@ -160,11 +157,10 @@ export const create = mutation({
 		casAlignment: v.optional(
 			v.array(v.union(v.literal('Creativity'), v.literal('Activity'), v.literal('Service')))
 		),
-		testToken: v.optional(v.string()),
 		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const data: {
 			name: string;
@@ -202,11 +198,10 @@ export const update = mutation({
 		demeritCriteria: v.optional(v.array(v.string())),
 		casAlignment: v.optional(
 			v.array(v.union(v.literal('Creativity'), v.literal('Activity'), v.literal('Service')))
-		),
-		testToken: v.optional(v.string())
+		)
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const patchData: {
 			name: string;
@@ -233,11 +228,10 @@ export const update = mutation({
 
 export const remove = mutation({
 	args: {
-		id: v.id('point_categories'),
-		testToken: v.optional(v.string())
+		id: v.id('point_categories')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const category = await ctx.db.get(args.id);
 		if (!category) throw new Error('Category not found');
 
@@ -259,9 +253,9 @@ export const remove = mutation({
 
 // Migration: Convert old string casAlignment to array format
 export const migrateCasAlignment = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 
 		const categories = await ctx.db.query('point_categories').collect();
 		const migrated: string[] = [];

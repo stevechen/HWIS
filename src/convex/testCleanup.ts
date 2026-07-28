@@ -9,9 +9,9 @@ const PROTECTED_EMAILS = new Set(['teacher@hwis.test', 'admin@hwis.test', 'super
 const TEST_AUTH_ID_PREFIXES = ['e2e_', 'e2e-', 'test_', 'eval_', 'e2e-test_'];
 
 export const cleanupAllTestUsers = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const adapter = await authComponent.adapter(ctx)({
 			user: { fields: undefined }
 		});
@@ -55,11 +55,10 @@ export const cleanupAllTestUsers = mutation({
 export const cleanupAuditLogs = mutation({
 	args: {
 		authId: v.optional(v.id('users')),
-		authIdString: v.optional(v.string()),
-		testToken: v.optional(v.string())
+		authIdString: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const auditLogs = await ctx.db.query('audit_logs').collect();
 		let deleted = 0;
 
@@ -120,9 +119,9 @@ export const cleanupAuditLogs = mutation({
 });
 
 export const cleanupAllTestData = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		let totalDeleted = 0;
 		let usersDeleted = 0;
 
@@ -242,9 +241,9 @@ export const cleanupAllTestData = mutation({
 });
 
 export const cleanupAll = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const adapter = await authComponent.adapter(ctx)({
 			user: { fields: undefined }
 		});
@@ -349,11 +348,10 @@ export const cleanupByTag = mutation({
 			v.literal('houseEvents'),
 			v.literal('all')
 		),
-		e2eTag: v.optional(v.string()),
-		testToken: v.optional(v.string())
+		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		let totalDeleted = 0;
 
@@ -460,9 +458,9 @@ export const cleanupByTag = mutation({
 });
 
 export const cleanupAllE2eTaggedData = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 
 		let totalDeleted = 0;
 		const studentIdsWithTag: Id<'students'>[] = [];

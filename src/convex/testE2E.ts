@@ -4,9 +4,9 @@ import type { Id } from './_generated/dataModel';
 import { requireAdminForSensitiveOperation } from './auth';
 
 export const e2eResetAll = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const allStudents = await ctx.db.query('students').collect();
 		for (const s of allStudents) {
 			await ctx.db.delete(s._id);
@@ -42,9 +42,9 @@ export const e2eResetAll = mutation({
 });
 
 export const e2eResetCategoriesAndEvals = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const allCategories = await ctx.db.query('point_categories').collect();
 		for (const c of allCategories) {
 			await ctx.db.delete(c._id);
@@ -60,9 +60,9 @@ export const e2eResetCategoriesAndEvals = mutation({
 });
 
 export const e2eSeedAll = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const now = Date.now();
 
 		// Create test admin user for Convex auth
@@ -267,9 +267,9 @@ export const e2eSeedAll = mutation({
 });
 
 export const e2eClearAuditOnly = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const allAuditLogs = await ctx.db.query('audit_logs').collect();
 		for (const a of allAuditLogs) {
 			await ctx.db.delete(a._id);
@@ -279,9 +279,9 @@ export const e2eClearAuditOnly = mutation({
 });
 
 export const e2eSeedCategoriesForDelete = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		await ctx.db.insert('point_categories', {
 			name: 'Category Without Evals'
 		});
@@ -295,9 +295,9 @@ export const e2eSeedCategoriesForDelete = mutation({
 });
 
 export const e2eCreateEvaluationForCategory = mutation({
-	args: { categoryName: v.string(), testToken: v.optional(v.string()) },
+	args: { categoryName: v.string() },
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		console.log('[e2e] Starting e2eCreateEvaluationForCategory for:', args.categoryName);
 
 		// Get the category
@@ -346,9 +346,9 @@ export const e2eCreateEvaluationForCategory = mutation({
 });
 
 export const e2eCheckEvaluationExists = query({
-	args: { categoryId: v.id('point_categories'), testToken: v.optional(v.string()) },
+	args: { categoryId: v.id('point_categories') },
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_categoryId', (q) => q.eq('categoryId', args.categoryId))
@@ -358,9 +358,9 @@ export const e2eCheckEvaluationExists = query({
 });
 
 export const e2eSeedStudentsForDisable = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const existingStudents = await ctx.db.query('students').collect();
 		for (const s of existingStudents) {
 			if (s.studentId.startsWith('S9') || s.studentId.startsWith('S8')) {
@@ -471,9 +471,9 @@ export const e2eSeedStudentsForDisable = mutation({
 });
 
 export const e2eSeedAuditLogs = mutation({
-	args: { authId: v.optional(v.string()), testToken: v.optional(v.string()) },
+	args: { authId: v.optional(v.string()) },
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const authId = args.authId || 'default_user';
 
 		// Check if user already exists, if so reuse it
@@ -537,11 +537,10 @@ export const e2eCreateEvaluationInternal = mutation({
 		value: v.number(),
 		categoryName: v.string(),
 		details: v.string(),
-		semesterId: v.string(),
-		testToken: v.optional(v.string())
+		semesterId: v.string()
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const users = await ctx.db.query('users').collect();
 		const teacher = users.find((u) => u.role === 'teacher' || u.role === 'admin');
 

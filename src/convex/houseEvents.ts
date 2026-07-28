@@ -1,6 +1,6 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { requireAdminRole, getAuthenticatedUser } from './auth';
+import { requireAdminForSensitiveOperation } from './auth';
 
 const HOUSE_POINTS_SCHEMA = v.object({
 	Heracles: v.optional(v.number()),
@@ -10,12 +10,9 @@ const HOUSE_POINTS_SCHEMA = v.object({
 });
 
 export const list = query({
-	args: {
-		testToken: v.optional(v.string())
-	},
-	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return [];
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 
 		const events = await ctx.db
 			.query('house_events')
@@ -28,12 +25,10 @@ export const list = query({
 
 export const getById = query({
 	args: {
-		id: v.id('house_events'),
-		testToken: v.optional(v.string())
+		id: v.id('house_events')
 	},
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return null;
+		await requireAdminForSensitiveOperation(ctx);
 
 		const event = await ctx.db.get(args.id);
 		return event ?? null;
@@ -46,11 +41,10 @@ export const create = mutation({
 		startDate: v.number(),
 		endDate: v.number(),
 		housePoints: v.optional(HOUSE_POINTS_SCHEMA),
-		e2eTag: v.optional(v.string()),
-		testToken: v.optional(v.string())
+		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		if (args.endDate < args.startDate) {
 			throw new Error('End date must be on or after the start date');
@@ -74,11 +68,10 @@ export const update = mutation({
 		title: v.optional(v.string()),
 		startDate: v.optional(v.number()),
 		endDate: v.optional(v.number()),
-		housePoints: v.optional(HOUSE_POINTS_SCHEMA),
-		testToken: v.optional(v.string())
+		housePoints: v.optional(HOUSE_POINTS_SCHEMA)
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const event = await ctx.db.get(args.id);
 		if (!event) throw new Error('Event not found');
@@ -101,11 +94,10 @@ export const update = mutation({
 
 export const remove = mutation({
 	args: {
-		id: v.id('house_events'),
-		testToken: v.optional(v.string())
+		id: v.id('house_events')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const event = await ctx.db.get(args.id);
 		if (!event) throw new Error('Event not found');

@@ -1,7 +1,6 @@
 import { mutation } from './_generated/server';
 import { authComponent, requireAdminForSensitiveOperation } from './auth';
 import type { Id } from './_generated/dataModel';
-import { v } from 'convex/values';
 
 type User = {
 	_id: Id<'users'>;
@@ -15,9 +14,9 @@ type BAUser = {
 };
 
 export const dedupeUsers = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const adapter = await authComponent.adapter(ctx)({
 			user: { fields: undefined }
 		});

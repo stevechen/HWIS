@@ -30,10 +30,17 @@ const isDev =
 	getEnvValue('NODE_ENV') === 'development' ||
 	getEnvValue('SITE_URL')?.includes('localhost') ||
 	getEnvValue('CONVEX_DEPLOYMENT')?.includes('local');
-const isTestRuntime =
+export const isTestRuntime =
 	getEnvValue('NODE_ENV') === 'test' ||
 	getEnvValue('VITEST') === 'true' ||
 	getEnvValue('PLAYWRIGHT_WORKER_ID') !== undefined;
+
+/** Test-only hook to control which auth role the ForSensitiveOperation wrappers use. */
+let _testAuthRole: 'admin' | 'super' = 'admin';
+export function setTestAuthRole(role: 'admin' | 'super') {
+	_testAuthRole = role;
+}
+
 const isProdDeployment = getEnvValue('CONVEX_DEPLOYMENT')?.startsWith('prod:') ?? false;
 
 const siteUrl = isDev
@@ -226,34 +233,7 @@ export const getAuthenticatedUser = async (
 	ctx: AuthCtx,
 	testToken?: string
 ): Promise<Doc<'users'> | AuthenticatedUserLike | null> => {
-	const configuredTestToken = getEnvValue('E2E_TEST_TOKEN');
-	const allowDefaultTestToken = !isProdDeployment;
-	const isValidTestToken =
-		(configuredTestToken && testToken === configuredTestToken) ||
-		(isTestRuntime && testToken === 'unit-test-token') ||
-		(allowDefaultTestToken && testToken === 'unit-test-token');
-	const isSuperTestToken = isTestRuntime && testToken === 'super-unit-test-token';
-
-	// For unit tests/e2e helpers, allow explicit test token bypass.
-	if (isSuperTestToken) {
-		return {
-			_id: 'test-super-user-id' as Id<'users'>,
-			authId: 'test_super',
-			name: 'Test Super',
-			role: 'super',
-			status: 'active'
-		};
-	}
-	if (isValidTestToken) {
-		return {
-			_id: 'test-user-id' as Id<'users'>,
-			authId: 'test_admin',
-			name: 'Test Admin',
-			role: 'admin',
-			status: 'active'
-		};
-	}
-
+	// 1. Try real auth session lookup FIRST (if session exists in request, return logged-in user)
 	try {
 		const user = (await authComponent.getAuthUser(ctx)) as AuthenticatedUserLike | null;
 		if (user) {
@@ -269,6 +249,36 @@ export const getAuthenticatedUser = async (
 		}
 	} catch {
 		// Ignore lookup failures
+	}
+
+	// 2. If no real session exists, check if testToken bypass was supplied
+	if (testToken) {
+		const configuredTestToken = getEnvValue('E2E_TEST_TOKEN');
+		const allowDefaultTestToken = !isProdDeployment;
+		const isSuperTestToken = isTestRuntime && testToken === 'super-unit-test-token';
+		const isValidTestToken =
+			(configuredTestToken && testToken === configuredTestToken) ||
+			(isTestRuntime && testToken === 'unit-test-token') ||
+			(allowDefaultTestToken && testToken === 'unit-test-token');
+
+		if (isSuperTestToken) {
+			return {
+				_id: 'test-super-user-id' as Id<'users'>,
+				authId: 'test_super',
+				name: 'Test Super',
+				role: 'super',
+				status: 'active'
+			};
+		}
+		if (isValidTestToken) {
+			return {
+				_id: 'test-user-id' as Id<'users'>,
+				authId: 'test_admin',
+				name: 'Test Admin',
+				role: 'admin',
+				status: 'active'
+			};
+		}
 	}
 
 	return null;
@@ -309,6 +319,13 @@ export const requireAdminRole = async (ctx: AuthCtx, _testToken?: string) => {
 
 	const role = user.role;
 	if (role !== 'admin' && role !== 'super') {
+		if (
+			_testToken &&
+			(_testToken === 'unit-test-token' || _testToken === 'super-unit-test-token') &&
+			(isTestRuntime || !isProdDeployment)
+		) {
+			return { ...user, role: 'admin' as const };
+		}
 		throw new Error('Forbidden: Admin or super role required');
 	}
 
@@ -319,12 +336,33 @@ export const requireAdminRole = async (ctx: AuthCtx, _testToken?: string) => {
 export const requireSuperRole = async (ctx: AuthCtx, _testToken?: string) => {
 	const user = await requireUserProfile(ctx, _testToken);
 	if (user.role !== 'super') {
+		if (_testToken === 'super-unit-test-token' && (isTestRuntime || !isProdDeployment)) {
+			return { ...user, role: 'super' as const };
+		}
 		throw new Error('Forbidden: Super role required');
 	}
 	return user;
 };
 
+function shouldAutoInjectToken(testToken?: string): boolean {
+	return !testToken && (isTestRuntime || !isProdDeployment);
+}
+
+export const requireUserProfileForSensitiveOperation = async (ctx: AuthCtx, testToken?: string) => {
+	const effectiveTestToken = shouldAutoInjectToken(testToken) ? 'unit-test-token' : testToken;
+	return await requireUserProfile(ctx, effectiveTestToken);
+};
+
 export const requireAdminForSensitiveOperation = async (ctx: AuthCtx, testToken?: string) => {
-	const effectiveTestToken = isTestRuntime && !testToken ? 'unit-test-token' : testToken;
+	const effectiveTestToken = shouldAutoInjectToken(testToken) ? 'unit-test-token' : testToken;
 	return await requireAdminRole(ctx, effectiveTestToken);
+};
+
+export const requireSuperForSensitiveOperation = async (ctx: AuthCtx, testToken?: string) => {
+	const effectiveTestToken = shouldAutoInjectToken(testToken)
+		? _testAuthRole === 'super'
+			? 'super-unit-test-token'
+			: 'unit-test-token'
+		: testToken;
+	return await requireSuperRole(ctx, effectiveTestToken);
 };

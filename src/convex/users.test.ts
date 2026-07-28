@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { convexTest, modules, SUPER_TEST_TOKEN } from './test.setup';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { convexTest, modules } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
 import type { Id } from './_generated/dataModel';
+import { setTestAuthRole } from './auth';
 
 describe('users.update', () => {
 	it('updates user status to active', async () => {
@@ -18,8 +19,7 @@ describe('users.update', () => {
 
 		await t.mutation(api.users.update, {
 			id: userId as Id<'users'>,
-			status: 'active',
-			testToken: 'admin-token'
+			status: 'active'
 		});
 
 		const user = await t.run(async (ctx) => {
@@ -42,8 +42,7 @@ describe('users.update', () => {
 
 		await t.mutation(api.users.update, {
 			id: userId as Id<'users'>,
-			role: 'admin',
-			testToken: 'admin-token'
+			role: 'admin'
 		});
 
 		const user = await t.run(async (ctx) => {
@@ -69,8 +68,7 @@ describe('users.setUserRole', () => {
 		await t.mutation(api.users.setUserRole, {
 			userId: userId as Id<'users'>,
 			role: 'teacher',
-			status: 'active',
-			testToken: 'admin-token'
+			status: 'active'
 		});
 
 		const user = await t.run(async (ctx) => {
@@ -95,8 +93,7 @@ describe('users.setUserRole', () => {
 		await t.mutation(api.users.setUserRole, {
 			userId: userId as Id<'users'>,
 			role: 'teacher',
-			status: 'pending',
-			testToken: 'admin-token'
+			status: 'pending'
 		});
 
 		const user = await t.run(async (ctx) => {
@@ -122,8 +119,7 @@ describe('users.setRoleByEmail', () => {
 
 		await t.mutation(api.users.setRoleByEmail, {
 			email: 'findme@example.com',
-			role: 'admin',
-			testToken: 'admin-token'
+			role: 'admin'
 		});
 
 		const users = await t.run(async (ctx) => {
@@ -140,8 +136,7 @@ describe('users.setRoleByEmail', () => {
 		await expect(async () => {
 			await t.mutation(api.users.setRoleByEmail, {
 				email: 'nonexistent@example.com',
-				role: 'admin',
-				testToken: 'admin-token'
+				role: 'admin'
 			});
 		}).rejects.toThrowError('User not found for email: nonexistent@example.com');
 	});
@@ -243,6 +238,9 @@ describe('Role promotion constraint - super role requires super user', () => {
 	});
 
 	describe('Super user attempts', () => {
+		beforeEach(() => setTestAuthRole('super'));
+		afterEach(() => setTestAuthRole('admin'));
+
 		it('super can promote teacher to super', async () => {
 			const t = convexTest(schema, modules);
 
@@ -258,8 +256,7 @@ describe('Role promotion constraint - super role requires super user', () => {
 			// Promote teacher to super as super user
 			await t.mutation(api.users.update, {
 				id: teacherId as Id<'users'>,
-				role: 'super',
-				testToken: SUPER_TEST_TOKEN
+				role: 'super'
 			});
 
 			const user = await t.run(async (ctx) => {
@@ -284,8 +281,7 @@ describe('Role promotion constraint - super role requires super user', () => {
 			// Promote admin to super as super user
 			await t.mutation(api.users.update, {
 				id: adminId as Id<'users'>,
-				role: 'super',
-				testToken: SUPER_TEST_TOKEN
+				role: 'super'
 			});
 
 			const user = await t.run(async (ctx) => {

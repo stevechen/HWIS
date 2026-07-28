@@ -1,6 +1,6 @@
 import { query, mutation, type QueryCtx } from './_generated/server';
 import { v, type GenericId } from 'convex/values';
-import { requireAdminRole } from './auth';
+import { requireAdminForSensitiveOperation } from './auth';
 import type { Doc, Id } from './_generated/dataModel';
 
 async function collectBackupData(ctx: QueryCtx) {
@@ -22,9 +22,9 @@ async function collectBackupData(ctx: QueryCtx) {
 }
 
 export const exportData = query({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		return await collectBackupData(ctx);
 	}
 });
@@ -41,9 +41,9 @@ export const exportDataForCron = query({
 });
 
 export const createBackup = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const students = await ctx.db.query('students').collect();
 		const evaluations = await ctx.db.query('evaluations').collect();
 		const users = await ctx.db.query('users').collect();
@@ -108,11 +108,10 @@ type BackupPayload = {
 
 export const restoreFromBackup = mutation({
 	args: {
-		backupId: v.id('backups'),
-		testToken: v.optional(v.string())
+		backupId: v.id('backups')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const backup = (await ctx.db.get(args.backupId)) as BackupRecord | null;
 		if (!backup) throw new Error('Backup not found');
 
@@ -246,9 +245,9 @@ export const restoreFromBackup = mutation({
 });
 
 export const clearAllData = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const students = await ctx.db.query('students').collect();
 		const evaluations = await ctx.db.query('evaluations').collect();
 		const categories = await ctx.db.query('point_categories').collect();
@@ -279,11 +278,10 @@ export const clearAllData = mutation({
 
 export const listBackups = query({
 	args: {
-		_trigger: v.optional(v.number()),
-		testToken: v.optional(v.string())
+		_trigger: v.optional(v.number())
 	},
-	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const backups = await ctx.db.query('backups').collect();
 		return backups.sort((a, b) => b.createdAt - a.createdAt);
 	}
@@ -291,20 +289,19 @@ export const listBackups = query({
 
 export const deleteBackup = mutation({
 	args: {
-		backupId: v.id('backups'),
-		testToken: v.optional(v.string())
+		backupId: v.id('backups')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		await ctx.db.delete(args.backupId);
 		return { message: 'Backup deleted' };
 	}
 });
 
 export const clearEvaluations = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const evaluations = await ctx.db.query('evaluations').collect();
 		for (const evaluation of evaluations) {
 			await ctx.db.delete(evaluation._id);
@@ -326,9 +323,9 @@ export const clearEvaluations = mutation({
 });
 
 export const advanceGradesAndClearEvaluations = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const students = await ctx.db.query('students').collect();
 		const evaluations = await ctx.db.query('evaluations').collect();
 		const users = await ctx.db.query('users').collect();

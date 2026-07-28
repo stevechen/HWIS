@@ -1,6 +1,6 @@
 import { query, mutation, type QueryCtx } from './_generated/server';
 import { v } from 'convex/values';
-import { requireAdminRole, getAuthenticatedUser } from './auth';
+import { requireAdminForSensitiveOperation, getAuthenticatedUser } from './auth';
 import type { Id } from './_generated/dataModel';
 
 const ACTION_LABELS: Record<string, string> = {
@@ -122,11 +122,10 @@ export const list = query({
 	args: {
 		limit: v.optional(v.number()),
 		action: v.optional(v.string()),
-		performerId: v.optional(v.id('users')),
-		testToken: v.optional(v.string())
+		performerId: v.optional(v.id('users'))
 	},
 	handler: async (ctx, args) => {
-		const authUser = await getAuthenticatedUser(ctx, args.testToken);
+		const authUser = await getAuthenticatedUser(ctx);
 		if (!authUser) return [];
 		const user = authUser as AuthUserForAudit;
 		if (
@@ -242,9 +241,8 @@ export const list = query({
 });
 
 export const debugList = query({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const logs = await ctx.db.query('audit_logs').withIndex('by_timestamp').order('desc').take(20);
 
 		// Also check for test_admin user
@@ -266,9 +264,8 @@ export const debugList = query({
 });
 
 export const seed = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		const dbUser = await requireAdminRole(ctx, args.testToken);
+	handler: async (ctx) => {
+		const dbUser = await requireAdminForSensitiveOperation(ctx);
 
 		if (dbUser.role !== 'super') {
 			throw new Error('Unauthorized');

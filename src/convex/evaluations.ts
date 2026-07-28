@@ -1,7 +1,13 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
-import { requireUserProfile, getAuthenticatedUser, requireAdminRole } from './auth';
+import {
+	requireAdminForSensitiveOperation,
+	getAuthenticatedUser,
+	requireUserProfile,
+	requireUserProfileForSensitiveOperation,
+	isTestRuntime
+} from './auth';
 import {
 	getFridayOfWeek,
 	getWeekNumber,
@@ -16,9 +22,9 @@ import {
 } from './shared/authorization';
 
 export const getUserByAuthId = query({
-	args: { authId: v.string(), testToken: v.optional(v.string()) },
+	args: { authId: v.string() },
 	handler: async (ctx, args) => {
-		const currentUser = await getAuthenticatedUser(ctx, args.testToken);
+		const currentUser = await getAuthenticatedUser(ctx);
 		if (!currentUser) return null;
 
 		const user = await ctx.db
@@ -39,11 +45,10 @@ export const create = mutation({
 		categoryId: v.id('point_categories'),
 		details: v.string(),
 		semesterId: v.string(),
-		testToken: v.optional(v.string()),
 		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const userDoc = await requireUserProfile(ctx, args.testToken);
+		const userDoc = await requireUserProfile(ctx);
 		const teacherId = userDoc._id;
 
 		const category = await ctx.db.get(args.categoryId);
@@ -91,11 +96,10 @@ export const create = mutation({
 
 export const remove = mutation({
 	args: {
-		id: v.id('evaluations'),
-		testToken: v.optional(v.string())
+		id: v.id('evaluations')
 	},
 	handler: async (ctx, args) => {
-		const userDoc = await requireUserProfile(ctx, args.testToken);
+		const userDoc = await requireUserProfile(ctx);
 
 		const evaluation = await ctx.db.get(args.id);
 		if (!evaluation) {
@@ -135,12 +139,11 @@ export const remove = mutation({
 
 export const listRecent = query({
 	args: {
-		studentFilter: v.optional(v.string()),
-		testToken: v.optional(v.string())
+		studentFilter: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		// Require authentication and filter by teacher
-		const authUser = await getAuthenticatedUser(ctx, args.testToken);
+		const authUser = await getAuthenticatedUser(ctx);
 		if (!authUser) return { evaluations: [], cursor: null };
 
 		const authId = authUser.authId || (typeof authUser._id === 'string' ? authUser._id : undefined);
@@ -217,15 +220,14 @@ export const listRecent = query({
 
 export const getWeeklyReportsList = query({
 	args: {
-		sinceTimestamp: v.optional(v.number()),
-		testToken: v.optional(v.string())
+		sinceTimestamp: v.optional(v.number())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const defaultLookbackMs = 1000 * 60 * 60 * 24 * 365 * 2; // 2 years
 		const sinceTimestamp =
-			args.sinceTimestamp ?? (args.testToken ? undefined : Date.now() - defaultLookbackMs);
+			args.sinceTimestamp ?? (isTestRuntime ? undefined : Date.now() - defaultLookbackMs);
 
 		const evaluations = await ctx.db
 			.query('evaluations')
@@ -259,11 +261,10 @@ export const getWeeklyReportsList = query({
 
 export const getWeeklyReportDetail = query({
 	args: {
-		fridayDate: v.number(),
-		testToken: v.optional(v.string())
+		fridayDate: v.number()
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		// fridayDate is actually the Monday of the week (despite the name)
 		// Week runs from Monday to end of Friday (Monday + 6 days)
@@ -342,9 +343,9 @@ export const getWeeklyReportDetail = query({
 
 // Get student details by ID
 export const getStudent = query({
-	args: { studentId: v.id('students'), testToken: v.optional(v.string()) },
+	args: { studentId: v.id('students') },
 	handler: async (ctx, args) => {
-		const user = await requireUserProfile(ctx, args.testToken);
+		const user = await requireUserProfile(ctx);
 		if (!canReadStudent(user, args.studentId)) {
 			return null;
 		}
@@ -354,9 +355,9 @@ export const getStudent = query({
 
 // Get student by custom studentId code (e.g., "S1001")
 export const getStudentByStudentIdCode = query({
-	args: { studentIdCode: v.string(), testToken: v.optional(v.string()) },
+	args: { studentIdCode: v.string() },
 	handler: async (ctx, args) => {
-		const user = await requireUserProfile(ctx, args.testToken);
+		const user = await requireUserProfile(ctx);
 		if (isStudent(user)) return null;
 		return await ctx.db
 			.query('students')
@@ -368,11 +369,10 @@ export const getStudentByStudentIdCode = query({
 // Get evaluation history for a student (teacher view - only their own evaluations)
 export const getStudentEvaluationsByTeacher = query({
 	args: {
-		studentId: v.id('students'),
-		testToken: v.optional(v.string())
+		studentId: v.id('students')
 	},
 	handler: async (ctx, args) => {
-		const user = await requireUserProfile(ctx, args.testToken);
+		const user = await requireUserProfile(ctx);
 		const student = await ctx.db.get(args.studentId);
 		const evaluations = await ctx.db
 			.query('evaluations')
@@ -418,11 +418,10 @@ export const getStudentEvaluationsByTeacher = query({
 // Get evaluation history for a student by custom studentId code (teacher view)
 export const getStudentEvaluationsByTeacherByStudentIdCode = query({
 	args: {
-		studentIdCode: v.string(),
-		testToken: v.optional(v.string())
+		studentIdCode: v.string()
 	},
 	handler: async (ctx, args) => {
-		const user = await requireUserProfile(ctx, args.testToken);
+		const user = await requireUserProfile(ctx);
 
 		// Look up student by custom studentId code to get the Convex ID
 		const student = await ctx.db
@@ -479,11 +478,10 @@ export const getStudentEvaluationsByTeacherByStudentIdCode = query({
 // Get all evaluation history for a student (admin view - all evaluations)
 export const getStudentEvaluationsAll = query({
 	args: {
-		studentId: v.id('students'),
-		testToken: v.optional(v.string())
+		studentId: v.id('students')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const student = await ctx.db.get(args.studentId);
 		const evaluations = await ctx.db
 			.query('evaluations')
@@ -535,11 +533,10 @@ export const getStudentEvaluationsAll = query({
 // Get all evaluations for a student by custom studentId code (e.g., "S1001")
 export const getStudentEvaluationsAllByStudentIdCode = query({
 	args: {
-		studentIdCode: v.string(),
-		testToken: v.optional(v.string())
+		studentIdCode: v.string()
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		// Look up student by custom studentId code to get the Convex ID
 		const student = await ctx.db
@@ -603,11 +600,10 @@ export const listAllEvaluations = query({
 	args: {
 		studentFilter: v.optional(v.string()),
 		teacherFilter: v.optional(v.string()),
-		showUnenrolled: v.optional(v.boolean()),
-		testToken: v.optional(v.string())
+		showUnenrolled: v.optional(v.boolean())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const allEvaluations = await ctx.db
 			.query('evaluations')
@@ -696,11 +692,10 @@ export const listAllEvaluationsPaginated = query({
 		teacherFilter: v.optional(v.string()),
 		showUnenrolled: v.boolean(),
 		sortAscending: v.boolean(),
-		paginationOpts: paginationOptsValidator,
-		testToken: v.optional(v.string())
+		paginationOpts: paginationOptsValidator
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const order = args.sortAscending ? 'asc' : 'desc';
 
@@ -792,11 +787,10 @@ export const update = mutation({
 		id: v.id('evaluations'),
 		value: v.optional(v.number()),
 		categoryId: v.optional(v.id('point_categories')),
-		details: v.optional(v.string()),
-		testToken: v.optional(v.string())
+		details: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const userDoc = await requireUserProfile(ctx, args.testToken);
+		const userDoc = await requireUserProfileForSensitiveOperation(ctx);
 		const evaluation = await ctx.db.get(args.id);
 
 		if (!evaluation) {
@@ -846,9 +840,9 @@ export const update = mutation({
 });
 
 export const getEvaluation = query({
-	args: { id: v.id('evaluations'), testToken: v.optional(v.string()) },
+	args: { id: v.id('evaluations') },
 	handler: async (ctx, args) => {
-		const user = await requireUserProfile(ctx, args.testToken);
+		const user = await requireUserProfile(ctx);
 
 		const evaluation = await ctx.db.get(args.id);
 		if (!evaluation) return null;
@@ -864,9 +858,9 @@ export const getEvaluation = query({
 // Get evaluations for a student (anonymous view - no teacher names)
 // Used by students to view their own evaluations
 export const getStudentEvaluationsAnonymous = query({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		const user = await requireUserProfile(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		const user = await requireUserProfile(ctx);
 
 		requireStudentRole(user);
 

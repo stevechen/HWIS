@@ -37,8 +37,7 @@ describe('session invalidation', () => {
 		// Change status to pending
 		await t.mutation(api.users.update, {
 			id: userId as Id<'users'>,
-			status: 'pending',
-			testToken: 'unit-test-token'
+			status: 'pending'
 		});
 
 		// Verify session was deleted
@@ -80,8 +79,7 @@ describe('session invalidation', () => {
 		// Change role
 		await t.mutation(api.users.update, {
 			id: userId as Id<'users'>,
-			role: 'admin',
-			testToken: 'unit-test-token'
+			role: 'admin'
 		});
 
 		// Verify session was deleted
@@ -177,8 +175,7 @@ describe('session invalidation', () => {
 		// Change status to pending
 		await t.mutation(api.users.update, {
 			id: userId as Id<'users'>,
-			status: 'pending',
-			testToken: 'unit-test-token'
+			status: 'pending'
 		});
 
 		// Verify all sessions were deleted

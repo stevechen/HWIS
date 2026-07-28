@@ -1,6 +1,5 @@
 import { mutation } from './_generated/server';
 import { authComponent, getAllowlistedRole, requireAdminForSensitiveOperation } from './auth';
-import { v } from 'convex/values';
 
 type BetterAuthUser = {
 	_id?: string;
@@ -17,9 +16,9 @@ type RecoverAuthResult = {
 };
 
 export const forceCreateUser = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const adapter = await authComponent.adapter(ctx)({
 			user: { fields: undefined }
 		});

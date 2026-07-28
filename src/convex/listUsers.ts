@@ -1,6 +1,5 @@
 import { query } from './_generated/server';
 import { authComponent, requireAdminForSensitiveOperation } from './auth';
-import { v } from 'convex/values';
 
 type BetterAuthUser = {
 	_id?: string;
@@ -10,9 +9,9 @@ type BetterAuthUser = {
 };
 
 export const listAllBAUsers = query({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const adapter = await authComponent.adapter(ctx)({
 			user: { fields: undefined }
 		});

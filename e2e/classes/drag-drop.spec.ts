@@ -138,9 +138,14 @@ test.describe('Drag and Drop Student Movement', () => {
 		await page.waitForSelector('body.hydrated');
 
 		await page.getByRole('checkbox', { name: '10' }).check();
-		await page.waitForTimeout(500);
 
+		// Wait for both source and target to be fully loaded before drag
+		await expect(page.getByRole('button', { name: /Move.*CrossGrade/ })).toBeVisible();
+
+		// Use specific selector for the target class (not broad regex which matches multiple)
 		const targetLabel = `Class 10-${targetClassName}`;
+		await expect(page.getByRole('region', { name: targetLabel })).toBeVisible();
+
 		const dragged = await simulateDragAndDrop(page, englishName, targetLabel);
 		expect(dragged).toBe(true);
 

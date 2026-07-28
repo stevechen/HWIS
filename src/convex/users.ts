@@ -2,7 +2,11 @@ import { v } from 'convex/values';
 import { query, mutation } from './_generated/server';
 import type { MutationCtx } from './_generated/server';
 import { verifyJWT } from 'better-auth/crypto';
-import { requireAdminRole, requireSuperRole, getAuthenticatedUser } from './auth';
+import {
+	requireAdminForSensitiveOperation,
+	requireSuperForSensitiveOperation,
+	getAuthenticatedUser
+} from './auth';
 import { extractStudentIdFromEmail, isStudentEmail } from './auth';
 import type { Id } from './_generated/dataModel';
 
@@ -17,9 +21,9 @@ async function invalidateUserSessions(ctx: MutationCtx, userId: Id<'users'>): Pr
 }
 
 export const viewer = query({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		const authUser = await getAuthenticatedUser(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		const authUser = await getAuthenticatedUser(ctx);
 		if (!authUser) return null;
 
 		// Check if this is the mock Super Admin from dev mode
@@ -77,18 +81,9 @@ export const viewer = query({
 });
 
 export const list = query({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		const typedUser = user as { role?: string; email?: string } | null;
-		if (
-			!typedUser ||
-			(typedUser.role !== 'admin' &&
-				typedUser.role !== 'super' &&
-				typedUser.email !== 'super@hwis.test')
-		) {
-			return [];
-		}
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 
 		const allUsers = await ctx.db.query('users').take(200);
 		// Filter out students - only show staff (teachers, admins, super)
@@ -104,18 +99,9 @@ export const list = query({
 
 // Optimized query to fetch only teachers and admins (for class assignment)
 export const getTeachers = query({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		const typedUser = user as { role?: string; email?: string } | null;
-		if (
-			!typedUser ||
-			(typedUser.role !== 'admin' &&
-				typedUser.role !== 'super' &&
-				typedUser.email !== 'super@hwis.test')
-		) {
-			return [];
-		}
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 
 		const allUsers = await ctx.db.query('users').take(200);
 		// Filter to only teachers, admins, and super users
@@ -136,24 +122,20 @@ export const update = mutation({
 	args: {
 		id: v.id('users'),
 		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
-		testToken: v.optional(v.string())
+		status: v.optional(v.union(v.literal('pending'), v.literal('active')))
 	},
 	handler: async (ctx, args) => {
-		// First fetch the target user to check their current role
 		const targetUser = await ctx.db.get(args.id);
 		if (!targetUser) throw new Error('User not found');
 
-		// If promoting to super role, require super role
 		let currentUser;
 		if (args.role === 'super' && targetUser.role !== 'super') {
-			currentUser = await requireSuperRole(ctx, args.testToken);
+			currentUser = await requireSuperForSensitiveOperation(ctx);
 		} else {
-			currentUser = await requireAdminRole(ctx, args.testToken);
+			currentUser = await requireAdminForSensitiveOperation(ctx);
 		}
 
 		const { id, ...updates } = args;
-		delete (updates as Record<string, unknown>).testToken;
 
 		await ctx.db.patch(id, updates);
 
@@ -194,11 +176,10 @@ export const update = mutation({
 
 export const seedTestAdmin = mutation({
 	args: {
-		userId: v.id('users'),
-		testToken: v.optional(v.string())
+		userId: v.id('users')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const existing = await ctx.db.get(args.userId);
 		if (!existing) {
 			await ctx.db.insert('users', {
@@ -218,8 +199,7 @@ export const setUserRole = mutation({
 	args: {
 		userId: v.id('users'),
 		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
-		testToken: v.optional(v.string())
+		status: v.optional(v.union(v.literal('pending'), v.literal('active')))
 	},
 	handler: async (ctx, args) => {
 		// First fetch the target user to check their current role
@@ -228,9 +208,9 @@ export const setUserRole = mutation({
 
 		// If promoting to super role, require super role
 		if (args.role === 'super' && targetUser.role !== 'super') {
-			await requireSuperRole(ctx, args.testToken);
+			await requireSuperForSensitiveOperation(ctx);
 		} else {
-			await requireAdminRole(ctx, args.testToken);
+			await requireAdminForSensitiveOperation(ctx);
 		}
 
 		await ctx.db.patch(args.userId, {
@@ -248,8 +228,7 @@ export const setRoleByEmail = mutation({
 	args: {
 		email: v.string(),
 		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
-		testToken: v.optional(v.string())
+		status: v.optional(v.union(v.literal('pending'), v.literal('active')))
 	},
 	handler: async (ctx, args) => {
 		// First find the user to check their current role
@@ -263,9 +242,9 @@ export const setRoleByEmail = mutation({
 
 		// If promoting to super role, require super role
 		if (args.role === 'super' && user.role !== 'super') {
-			await requireSuperRole(ctx, args.testToken);
+			await requireSuperForSensitiveOperation(ctx);
 		} else {
-			await requireAdminRole(ctx, args.testToken);
+			await requireAdminForSensitiveOperation(ctx);
 		}
 
 		await ctx.db.patch(user._id, {
@@ -285,8 +264,7 @@ export const setRoleByToken = mutation({
 	args: {
 		token: v.string(),
 		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
-		testToken: v.optional(v.string())
+		status: v.optional(v.union(v.literal('pending'), v.literal('active')))
 	},
 	handler: async (ctx, args) => {
 		try {
@@ -316,9 +294,9 @@ export const setRoleByToken = mutation({
 
 			// If promoting to super role, require super role
 			if (args.role === 'super' && user.role !== 'super') {
-				await requireSuperRole(ctx, args.testToken);
+				await requireSuperForSensitiveOperation(ctx);
 			} else {
-				await requireAdminRole(ctx, args.testToken);
+				await requireAdminForSensitiveOperation(ctx);
 			}
 
 			await ctx.db.patch(user._id, {
@@ -344,8 +322,7 @@ export const setupStudentUser = mutation({
 	args: {
 		authId: v.string(),
 		email: v.string(),
-		name: v.optional(v.string()),
-		testToken: v.optional(v.string())
+		name: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		// Verify this is a student email

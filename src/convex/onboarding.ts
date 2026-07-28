@@ -1,7 +1,6 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
 import {
-	requireAdminRole,
 	getAuthenticatedUser,
 	requireUserProfile,
 	getAllowlistedRole,
@@ -14,9 +13,9 @@ type BetterAuthUser = {
 };
 
 export const ensureUserProfile = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		const authUser = await getAuthenticatedUser(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		const authUser = await getAuthenticatedUser(ctx);
 
 		if (!authUser) {
 			throw new Error('Not authenticated');
@@ -69,11 +68,10 @@ export const ensureUserProfile = mutation({
 export const setMyRole = mutation({
 	args: {
 		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
-		testToken: v.optional(v.string())
+		status: v.optional(v.union(v.literal('pending'), v.literal('active')))
 	},
 	handler: async (ctx, args) => {
-		const userDoc = await requireUserProfile(ctx, args.testToken);
+		const userDoc = await requireUserProfile(ctx);
 		const desiredRole = args.role ?? userDoc.role;
 		const desiredStatus = args.status ?? userDoc.status;
 
@@ -106,7 +104,7 @@ export const setMyRole = mutation({
 			return { created: false, bootstrap: true };
 		}
 
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		await ctx.db.patch(userDoc._id, {
 			role: desiredRole,
@@ -120,11 +118,10 @@ export const createUserProfile = mutation({
 	args: {
 		authId: v.string(),
 		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
-		testToken: v.optional(v.string())
+		status: v.optional(v.union(v.literal('pending'), v.literal('active')))
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const existing = await ctx.db
 			.query('users')
 			.withIndex('by_authId', (q) => q.eq('authId', args.authId))
@@ -147,9 +144,9 @@ export const createUserProfile = mutation({
 });
 
 export const deleteAllUserProfiles = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const allUsers = await ctx.db.query('users').collect();
 		for (const user of allUsers) {
 			await ctx.db.delete(user._id);
@@ -161,11 +158,10 @@ export const deleteAllUserProfiles = mutation({
 export const updateUserName = mutation({
 	args: {
 		authId: v.string(),
-		name: v.string(),
-		testToken: v.optional(v.string())
+		name: v.string()
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const existing = await ctx.db
 			.query('users')
 			.withIndex('by_authId', (q) => q.eq('authId', args.authId))

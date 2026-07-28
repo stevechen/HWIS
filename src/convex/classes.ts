@@ -1,18 +1,16 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { requireAdminRole, getAuthenticatedUser } from './auth';
+import { requireAdminForSensitiveOperation } from './auth';
 import type { Id } from './_generated/dataModel';
 import { getDisplayName, isProtectedClass } from '../lib/class-utils';
 
 export const list = query({
 	args: {
 		grade: v.optional(v.number()),
-		includeStudents: v.optional(v.boolean()),
-		testToken: v.optional(v.string())
+		includeStudents: v.optional(v.boolean())
 	},
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return [];
+		await requireAdminForSensitiveOperation(ctx);
 
 		let classes;
 		if (args.grade !== undefined) {
@@ -42,7 +40,7 @@ export const list = query({
 			}[]
 		> = new Map();
 		if (args.includeStudents) {
-			await requireAdminRole(ctx, args.testToken);
+			await requireAdminForSensitiveOperation(ctx);
 			const allStudents = await ctx.db.query('students').take(500);
 			for (const student of allStudents) {
 				if (student.classId) {
@@ -77,11 +75,10 @@ export const list = query({
 
 export const getStudentCount = query({
 	args: {
-		classId: v.id('classes'),
-		testToken: v.optional(v.string())
+		classId: v.id('classes')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const classRecord = await ctx.db.get(args.classId);
 		if (!classRecord) return { count: 0, classInfo: null };
@@ -104,11 +101,10 @@ export const getStudentCount = query({
 
 export const getByGrade = query({
 	args: {
-		grade: v.number(),
-		testToken: v.optional(v.string())
+		grade: v.number()
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		return await ctx.db
 			.query('classes')
@@ -120,11 +116,10 @@ export const getByGrade = query({
 export const getByGradeAndClass = query({
 	args: {
 		grade: v.number(),
-		class: v.string(),
-		testToken: v.optional(v.string())
+		class: v.string()
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		return await ctx.db
 			.query('classes')
@@ -135,11 +130,10 @@ export const getByGradeAndClass = query({
 
 export const getByTeacher = query({
 	args: {
-		teacherId: v.id('users'),
-		testToken: v.optional(v.string())
+		teacherId: v.id('users')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const classRecord = await ctx.db
 			.query('classes')
@@ -162,11 +156,10 @@ export const create = mutation({
 	args: {
 		grade: v.number(),
 		class: v.optional(v.string()), // Optional - if not provided, auto-increment
-		homeroomTeacherId: v.optional(v.id('users')),
-		testToken: v.optional(v.string())
+		homeroomTeacherId: v.optional(v.id('users'))
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		if (args.grade < 7 || args.grade > 12) {
 			throw new Error('Grade must be between 7 and 12');
@@ -224,11 +217,10 @@ export const create = mutation({
 export const update = mutation({
 	args: {
 		id: v.id('classes'),
-		homeroomTeacherId: v.optional(v.id('users')),
-		testToken: v.optional(v.string())
+		homeroomTeacherId: v.optional(v.id('users'))
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const existing = await ctx.db.get(args.id);
 		if (!existing) {
@@ -247,11 +239,10 @@ export const update = mutation({
 export const rename = mutation({
 	args: {
 		id: v.id('classes'),
-		newClass: v.string(),
-		testToken: v.optional(v.string())
+		newClass: v.string()
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const existing = await ctx.db.get(args.id);
 		if (!existing) {
@@ -282,11 +273,10 @@ export const rename = mutation({
 
 export const remove = mutation({
 	args: {
-		id: v.id('classes'),
-		testToken: v.optional(v.string())
+		id: v.id('classes')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const classRecord = await ctx.db.get(args.id);
 		if (!classRecord) {
@@ -317,12 +307,9 @@ export const remove = mutation({
 });
 
 export const seedDefaultClasses = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user || (user.role !== 'admin' && user.role !== 'super')) {
-			return { message: 'Not authenticated, skipping seed', created: [] };
-		}
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 
 		const grades = [7, 8, 9, 10, 11, 12];
 		const created = [];
@@ -370,11 +357,10 @@ export const seedDefaultClasses = mutation({
 
 export const getById = query({
 	args: {
-		id: v.id('classes'),
-		testToken: v.optional(v.string())
+		id: v.id('classes')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const classRecord = await ctx.db.get(args.id);
 		if (!classRecord) return null;
@@ -396,11 +382,10 @@ export const getById = query({
 // Assign a student to this class (for yearly migration or mid-year transfers)
 export const assignStudent = mutation({
 	args: {
-		studentId: v.id('students'),
-		testToken: v.optional(v.string())
+		studentId: v.id('students')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const student = await ctx.db.get(args.studentId);
 		if (!student) {
@@ -418,11 +403,10 @@ export const assignStudent = mutation({
 // Get all students in a class (useful for checking class assignments)
 export const getStudents = query({
 	args: {
-		id: v.id('classes'),
-		testToken: v.optional(v.string())
+		id: v.id('classes')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const classRecord = await ctx.db.get(args.id);
 		if (!classRecord) return [];
@@ -441,11 +425,10 @@ export const getStudents = query({
 export const moveStudent = mutation({
 	args: {
 		studentId: v.id('students'),
-		targetClassId: v.id('classes'),
-		testToken: v.optional(v.string())
+		targetClassId: v.id('classes')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		// Get student
 		const student = await ctx.db.get(args.studentId);

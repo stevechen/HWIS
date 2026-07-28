@@ -45,7 +45,7 @@ else
 fi
 
 echo "Setting up test users..."
-RESULT=$(bun convex run testSetup:setupTestUsers '{"testToken":"unit-test-token"}' 2>&1)
+RESULT=$(bun convex run testSetup:setupTestUsers '{"testToken":"unit-test-token"}' 2>&1 || true)
 
 if [ -z "$RESULT" ] || echo "$RESULT" | grep -q "error"; then
   echo "Error setting up test users: $RESULT"

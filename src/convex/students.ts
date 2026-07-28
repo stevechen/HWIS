@@ -1,14 +1,12 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
-import { requireAdminRole, getAuthenticatedUser } from './auth';
+import { requireAdminForSensitiveOperation, isTestRuntime } from './auth';
 import type { MutationCtx } from './_generated/server';
 
-// Validate studentId is a 6- or 7-digit number (skip for testToken)
-function validateStudentId(studentId: string, testToken?: string): void {
-	if (testToken) {
-		return;
-	}
+// Validate studentId is a 6- or 7-digit number
+function validateStudentId(studentId: string): void {
+	if (isTestRuntime) return;
 	if (!/^\d{6,7}$/.test(studentId)) {
 		throw new Error('Student ID must be a 6- or 7-digit number');
 	}
@@ -45,12 +43,10 @@ export const list = query({
 		search: v.optional(v.string()),
 		status: v.optional(v.union(v.literal('Enrolled'), v.literal('Not Enrolled'))),
 		classId: v.optional(v.id('classes')),
-		_trigger: v.optional(v.number()),
-		testToken: v.optional(v.string())
+		_trigger: v.optional(v.number())
 	},
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return [];
+		await requireAdminForSensitiveOperation(ctx);
 
 		let students;
 		let statusIndexUsed = false;
@@ -129,13 +125,12 @@ export const create = mutation({
 		class: v.optional(v.string()), // Class number (e.g., "1", "2"), defaults to "1"
 		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
 		note: v.optional(v.string()),
-		upsert: v.optional(v.boolean()),
-		testToken: v.optional(v.string())
+		upsert: v.optional(v.boolean())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
-		validateStudentId(args.studentId, args.testToken);
+		validateStudentId(args.studentId);
 
 		const className = args.class || 'default';
 		const classId = await getOrCreateClass(ctx, args.grade, className);
@@ -180,13 +175,12 @@ export const update = mutation({
 		grade: v.number(), // Grade (7-12) - will get or create class
 		class: v.optional(v.string()), // Class name: "default", "IB", "1", "2", etc. - defaults to "default"
 		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
-		note: v.optional(v.string()),
-		testToken: v.optional(v.string())
+		note: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
-		validateStudentId(args.studentId, args.testToken);
+		validateStudentId(args.studentId);
 
 		const className = args.class || 'default';
 		const classId = await getOrCreateClass(ctx, args.grade, className);
@@ -228,11 +222,10 @@ export const update = mutation({
 
 export const remove = mutation({
 	args: {
-		id: v.id('students'),
-		testToken: v.optional(v.string())
+		id: v.id('students')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_studentId', (q) => q.eq('studentId', args.id))
@@ -248,11 +241,10 @@ export const remove = mutation({
 
 export const removeWithCascade = mutation({
 	args: {
-		id: v.id('students'),
-		testToken: v.optional(v.string())
+		id: v.id('students')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const student = await ctx.db.get(args.id);
 		if (!student) throw new Error('Student not found');
 
@@ -277,11 +269,10 @@ export const removeWithCascade = mutation({
 export const changeStatus = mutation({
 	args: {
 		id: v.id('students'),
-		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
-		testToken: v.optional(v.string())
+		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled'))
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		await ctx.db.patch(args.id, { status: args.status });
 	}
 });
@@ -306,16 +297,15 @@ export const importFromExcel = mutation({
 					)
 				)
 			})
-		),
-		testToken: v.optional(v.string())
+		)
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const results = [];
 
 		for (const student of args.students) {
 			try {
-				validateStudentId(student.studentId, args.testToken);
+				validateStudentId(student.studentId);
 
 				const className = student.class || 'default';
 				const classId = await getOrCreateClass(ctx, student.grade, className);
@@ -358,9 +348,9 @@ export const importFromExcel = mutation({
 });
 
 export const seed = mutation({
-	args: { testToken: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 		const existing = await ctx.db.query('students').first();
 		if (existing) return { message: 'Students already seeded', count: 0 };
 
@@ -442,11 +432,10 @@ export const seed = mutation({
 
 export const getById = query({
 	args: {
-		id: v.id('students'),
-		testToken: v.optional(v.string())
+		id: v.id('students')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const student = await ctx.db.get(args.id);
 		if (!student) return null;
@@ -463,11 +452,10 @@ export const getById = query({
 // Get student by studentId code (used for student authentication)
 export const getByStudentId = query({
 	args: {
-		studentId: v.string(),
-		testToken: v.optional(v.string())
+		studentId: v.string()
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const student = await ctx.db
 			.query('students')
@@ -481,15 +469,13 @@ export const getByStudentId = query({
 export const checkStudentIdExists = query({
 	args: {
 		studentId: v.string(),
-		excludeId: v.optional(v.id('students')),
-		testToken: v.optional(v.string())
+		excludeId: v.optional(v.id('students'))
 	},
 	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return { exists: false };
+		await requireAdminForSensitiveOperation(ctx);
 
 		try {
-			validateStudentId(args.studentId, args.testToken);
+			validateStudentId(args.studentId);
 		} catch {
 			return { exists: false };
 		}
@@ -505,11 +491,10 @@ export const checkStudentIdExists = query({
 
 export const checkStudentHasEvaluations = query({
 	args: {
-		id: v.id('students'),
-		testToken: v.optional(v.string())
+		id: v.id('students')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const evaluations = await ctx.db
 			.query('evaluations')
@@ -525,11 +510,10 @@ export const checkStudentHasEvaluations = query({
 
 export const disableStudent = mutation({
 	args: {
-		id: v.id('students'),
-		testToken: v.optional(v.string())
+		id: v.id('students')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		await ctx.db.patch(args.id, { status: 'Not Enrolled' });
 	}
 });
@@ -554,11 +538,10 @@ export const bulkImportWithDuplicateCheck = mutation({
 				)
 			})
 		),
-		mode: v.union(v.literal('halt'), v.literal('skip'), v.literal('update')),
-		testToken: v.optional(v.string())
+		mode: v.union(v.literal('halt'), v.literal('skip'), v.literal('update'))
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 		const results = {
 			created: [] as string[],
 			updated: [] as string[],
@@ -571,7 +554,7 @@ export const bulkImportWithDuplicateCheck = mutation({
 
 		args.students.forEach((student, index) => {
 			try {
-				validateStudentId(student.studentId, args.testToken);
+				validateStudentId(student.studentId);
 			} catch (e) {
 				const error = e instanceof Error ? e.message : 'Invalid student ID format';
 				results.errors.push({ studentId: student.studentId, reason: error });
@@ -697,16 +680,9 @@ export const bulkImportWithDuplicateCheck = mutation({
 
 // House management exports
 export const listByHouse = query({
-	args: {
-		testToken: v.optional(v.string())
-	},
-	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user)
-			return {
-				houses: {} as Record<string, typeof studentsWithClass>,
-				orphaned: [] as typeof studentsWithClass
-			};
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 
 		const students = await ctx.db.query('students').take(500);
 
@@ -780,11 +756,10 @@ export const bulkAssignHouses = mutation({
 					v.literal('Setna')
 				)
 			})
-		),
-		testToken: v.optional(v.string())
+		)
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const allStudents = await ctx.db.query('students').take(500);
 		const studentsByName = new Map<string, (typeof allStudents)[number]>();
@@ -816,11 +791,10 @@ export const assignHouse = mutation({
 		studentId: v.id('students'),
 		house: v.optional(
 			v.union(v.literal('Heracles'), v.literal('Wukong'), v.literal('Ixbalam'), v.literal('Setna'))
-		),
-		testToken: v.optional(v.string())
+		)
 	},
 	handler: async (ctx, args) => {
-		await requireAdminRole(ctx, args.testToken);
+		await requireAdminForSensitiveOperation(ctx);
 
 		const student = await ctx.db.get(args.studentId);
 		if (!student) throw new Error('Student not found');
@@ -831,12 +805,9 @@ export const assignHouse = mutation({
 
 // Houses competition page - get statistics for all houses
 export const getHouseStats = query({
-	args: {
-		testToken: v.optional(v.string())
-	},
-	handler: async (ctx, args) => {
-		const user = await getAuthenticatedUser(ctx, args.testToken);
-		if (!user) return null;
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
 
 		const HOUSES = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
 

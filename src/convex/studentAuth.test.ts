@@ -120,9 +120,7 @@ describe('User List - Student Filtering', () => {
 		});
 
 		// Use super token to get all users
-		const users = await t.query(api.users.list, {
-			testToken: 'super-unit-test-token'
-		});
+		const users = await t.query(api.users.list, {});
 
 		const roles = users.map((u: { role?: string }) => u.role);
 		expect(roles).toContain('admin');
