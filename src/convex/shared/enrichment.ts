@@ -1,45 +1,7 @@
-interface StudentDoc {
-	_id: string;
-	englishName: string;
-	chineseName: string;
-	studentId: string;
-	status: string;
-	classId?: string;
-}
-
-interface CategoryDoc {
-	_id: string;
-	name: string;
-}
-
-interface ClassDoc {
-	_id: string;
-	grade: number;
-	class: string;
-}
-
-interface EvaluationRow {
-	studentId: string;
-	categoryId: string;
-	[_key: string]: unknown;
-}
-
-interface EnrichedField {
-	englishName: string;
-	chineseName: string;
-	studentIdCode: string;
-	status: string;
-	grade: number;
-	class: string | undefined;
-	category: string;
-}
-
-type EnrichedRow = EvaluationRow & EnrichedField;
-
 export async function enrichEvaluations(
-	evaluations: EvaluationRow[],
-	ctx: { db: { get: (id: string) => Promise<StudentDoc | CategoryDoc | ClassDoc | null>; query: (table: string) => { collect: () => Promise<any[]> } } }
-): Promise<EnrichedRow[]> {
+	evaluations: any[],
+	ctx: any
+) {
 	const studentIds = [...new Set(evaluations.map((e) => e.studentId).filter(Boolean))];
 	const categoryIds = [...new Set(evaluations.map((e) => e.categoryId).filter(Boolean))];
 
@@ -50,14 +12,14 @@ export async function enrichEvaluations(
 	]);
 
 	const studentMap = new Map(
-		students.filter(Boolean).map((s: StudentDoc) => [s._id, s])
+		students.filter(Boolean).map((s: any) => [s._id, s])
 	);
 	const categoryMap = new Map(
-		categories.filter(Boolean).map((c: CategoryDoc) => [c._id, c])
+		categories.filter(Boolean).map((c: any) => [c._id, c])
 	);
-	const classMap = new Map(classes.map((c: ClassDoc) => [c._id, c]));
+	const classMap = new Map(classes.map((c: any) => [c._id, c]));
 
-	return evaluations.map((eval_: EvaluationRow): EnrichedRow => {
+	return evaluations.map((eval_: any) => {
 		const student = studentMap.get(eval_.studentId);
 		const category = categoryMap.get(eval_.categoryId);
 		const classRecord = student?.classId ? classMap.get(student.classId) : null;

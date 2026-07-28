@@ -48,3 +48,14 @@ export function sortEvaluations(
 		ascending ? a.timestamp - b.timestamp : b.timestamp - a.timestamp
 	);
 }
+
+// Multi-term filter matching (comma-separated search terms)
+export function matchesMultiSearch(filter: string, value: string): boolean {
+	if (!filter.trim()) return true;
+	const searchTerms = filter
+		.split(',')
+		.map((s) => s.trim().toLowerCase())
+		.filter(Boolean);
+	if (searchTerms.length === 0) return true;
+	return searchTerms.some((term) => value.toLowerCase().includes(term));
+}
