@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { convexTest, modules } from './test.setup';
 import schema from './schema';
+import type { Doc } from './_generated/dataModel';
 
 async function setupEvaluationData(t: ReturnType<typeof convexTest>) {
 	const classId = await t.run(async (ctx) => {
@@ -58,7 +59,7 @@ describe('enrichment helper', () => {
 			});
 		});
 
-		let evaluations: any[] = [];
+		let evaluations: Doc<'evaluations'>[] = [];
 		await t.run(async (ctx) => {
 			evaluations = await ctx.db.query('evaluations').collect();
 		});
@@ -80,7 +81,7 @@ describe('enrichment helper', () => {
 		const t = convexTest(schema, modules);
 		const now = Date.now();
 
-		const { studentId, classId, teacherId } = await setupEvaluationData(t);
+		const { studentId, teacherId } = await setupEvaluationData(t);
 
 		const cat1 = await t.run(async (ctx) => {
 			return await ctx.db.insert('point_categories', {
@@ -118,9 +119,12 @@ describe('enrichment helper', () => {
 			});
 		});
 
-		let evaluations: any[] = [];
+		let evaluations: Doc<'evaluations'>[] = [];
 		await t.run(async (ctx) => {
-			evaluations = await ctx.db.query('evaluations').order('desc').collect();
+			evaluations = await ctx.db
+				.query('evaluations')
+				.order('desc')
+				.collect();
 		});
 
 		const enrich = await import('./shared/enrichment');

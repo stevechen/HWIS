@@ -1,7 +1,29 @@
+import type { Doc, Id } from '../_generated/dataModel';
+import type { GenericDatabaseReader } from 'convex/server';
+import type { DataModel } from '../_generated/dataModel';
+
+export type EnrichedEvaluation = {
+	_id: Id<'evaluations'>;
+	studentId: Id<'students'>;
+	teacherId: Id<'users'>;
+	value: number;
+	categoryId: Id<'point_categories'>;
+	details: string;
+	timestamp: number;
+	semesterId: string;
+	englishName: string;
+	chineseName: string;
+	studentIdCode: string;
+	status: 'Enrolled' | 'Not Enrolled';
+	grade: number;
+	class?: string;
+	category: string;
+};
+
 export async function enrichEvaluations(
-	evaluations: any[],
-	ctx: any
-) {
+	evaluations: Doc<'evaluations'>[],
+	ctx: { db: GenericDatabaseReader<DataModel> }
+): Promise<EnrichedEvaluation[]> {
 	const studentIds = [...new Set(evaluations.map((e) => e.studentId).filter(Boolean))];
 	const categoryIds = [...new Set(evaluations.map((e) => e.categoryId).filter(Boolean))];
 
@@ -12,14 +34,14 @@ export async function enrichEvaluations(
 	]);
 
 	const studentMap = new Map(
-		students.filter(Boolean).map((s: any) => [s._id, s])
+		students.filter((s): s is Doc<'students'> => Boolean(s)).map((s) => [s._id, s])
 	);
 	const categoryMap = new Map(
-		categories.filter(Boolean).map((c: any) => [c._id, c])
+		categories.filter((c): c is Doc<'point_categories'> => Boolean(c)).map((c) => [c._id, c])
 	);
-	const classMap = new Map(classes.map((c: any) => [c._id, c]));
+	const classMap = new Map(classes.map((c) => [c._id, c]));
 
-	return evaluations.map((eval_: any) => {
+	return evaluations.map((eval_) => {
 		const student = studentMap.get(eval_.studentId);
 		const category = categoryMap.get(eval_.categoryId);
 		const classRecord = student?.classId ? classMap.get(student.classId) : null;
