@@ -18,6 +18,7 @@
 		"test:unit:convex": "vitest run src/convex",
 		"test:component": "vitest run --config vitest.component.config.ts",
 		"test:component:watch": "vitest --config vitest.component.config.ts",
+		"test:ai": "bun scripts/run-tests-ai.ts",
 		"test:e2e": "playwright test",
 		"test:e2e:ui": "playwright test --ui",
 		"test:e2e:cleanup": "playwright test --project=cleanup",

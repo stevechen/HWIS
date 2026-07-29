@@ -9,6 +9,7 @@ Project guidelines:
 - use the convex service for calling convex queries, actions, and mutations from the backend
 - use tailwindcss for styling whenever possible
 - run `bun run lint` to check for linting errors, `bun run format`, and `bun run heck` to check for errors after making changes.
+- use `bun run test:ai` instead of raw `bunx playwright test` to save tokens when analyzing e2e test results
 
 You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
 
@@ -243,3 +244,36 @@ Convex agent skills for common tasks can be installed by running
 `npx convex ai-files install`.
 
 <!-- convex-ai-end -->
+
+## AI Test Result Compressor
+
+When analyzing test results, use `bun run test:ai` instead of raw Playwright commands to save tokens. This runs the full e2e suite through a compressor that strips pass/setup/cleanup noise and outputs only failures:
+
+```
+# All pass → one line
+All 114 tests passed.
+
+# Failures → compressed per-failure block
+## Failures (2/114)
+
+### suite › test name
+`e2e/file.spec.ts:42`
+- Error: expect(received).toBe(expected)
+  `at e2e/file.spec.ts:45:18`
+```
+
+**Usage:**
+
+```bash
+# Full suite
+bun run test:ai
+
+# Targeted subset
+bun run test:ai -- --project=chromium-parallel
+bun run test:ai -- --grep="@smoke"
+bun run test:ai -- e2e/students/ e2e/categories.spec.ts
+```
+
+**Token savings:** ~500 lines of raw output → 1–15 lines.
+
+The compressor lives in `scripts/test-compressor.ts` and is tested via `bunx vitest run scripts/test-compressor.test.ts --config vite.config.ts`.

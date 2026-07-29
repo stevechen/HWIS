@@ -45,6 +45,16 @@ export default defineConfig({
 					include: ['src/convex/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}', 'tests/**']
 				}
+			},
+
+			{
+				extends: './vite.config.ts',
+
+				test: {
+					name: 'scripts',
+					environment: 'node',
+					include: ['scripts/**/*.test.ts']
+				}
 			}
 		]
 	}
