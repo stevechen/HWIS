@@ -956,23 +956,23 @@ export const getHouseStats = query({
 		for (const event of allEvents) {
 			if (!event.housePoints) continue;
 
-			for (const [houseName, points] of Object.entries(event.housePoints)) {
+			for (const [houseName, housePoints] of Object.entries(event.housePoints)) {
 				const stats = houseStats[houseName];
 				if (!stats) continue;
 
-				stats.totalPoints += points;
+				stats.totalPoints += housePoints;
 				if (!stats.pointsByCategory[EVENTS_CATEGORY]) {
 					stats.pointsByCategory[EVENTS_CATEGORY] = 0;
 				}
-				stats.pointsByCategory[EVENTS_CATEGORY] += points;
+				stats.pointsByCategory[EVENTS_CATEGORY] += housePoints;
 
 				// If the event overlaps the last 30 days, also count it as recent
 				if (event.endDate >= thirtyDaysAgo) {
-					stats.recentTotalPoints += points;
+					stats.recentTotalPoints += housePoints;
 					if (!stats.recentPointsByCategory[EVENTS_CATEGORY]) {
 						stats.recentPointsByCategory[EVENTS_CATEGORY] = 0;
 					}
-					stats.recentPointsByCategory[EVENTS_CATEGORY] += points;
+					stats.recentPointsByCategory[EVENTS_CATEGORY] += housePoints;
 				}
 			}
 		}

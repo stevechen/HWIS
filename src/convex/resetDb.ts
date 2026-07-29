@@ -37,7 +37,7 @@ export const resetDatabase = mutation({
 			}
 		}
 
-		// Delete all Convex users table entries except real accounts
+		// Delete all Convex users table entries except real users
 		const allUsers = await ctx.db.query('users').collect();
 		let deletedConvexUsers = 0;
 		for (const user of allUsers) {

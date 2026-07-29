@@ -37,7 +37,7 @@ export const ensureUserProfile = mutation({
 			.first();
 
 		if (existing) {
-			// Self-heal privileged owner accounts that may have been created as pending previously.
+			// Self-heal privileged owner users that may have been created as pending previously.
 			const role = allowlistedRole ?? existing.role ?? 'teacher';
 			const status = allowlistedRole ? 'active' : (existing.status ?? 'pending');
 			await ctx.db.patch(existing._id, {
@@ -91,10 +91,10 @@ export const setMyRole = mutation({
 				throw new Error('Initial bootstrap role must be admin or super.');
 			}
 			if (allowlistedRole === 'teacher') {
-				throw new Error('This allowlisted account cannot bootstrap privileged roles.');
+				throw new Error('This allowlisted user cannot bootstrap privileged roles.');
 			}
 			if (allowlistedRole === 'admin' && desiredRole === 'super') {
-				throw new Error('This allowlisted account can bootstrap admin but not super.');
+				throw new Error('This allowlisted user can bootstrap admin but not super.');
 			}
 
 			await ctx.db.patch(userDoc._id, {

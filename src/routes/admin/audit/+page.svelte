@@ -64,7 +64,7 @@
 		{ key: 'action', label: 'Type', sortable: true, defaultVisible: true, optional: false },
 		{ key: 'performerId', label: 'Teacher', sortable: true, defaultVisible: true, optional: false },
 		{ key: 'category', label: 'Category', sortable: false, defaultVisible: true, optional: true },
-		{ key: 'points', label: 'Points', sortable: false, defaultVisible: false, optional: true },
+		{ key: 'points', label: 'Eval Points', sortable: false, defaultVisible: false, optional: true },
 		{ key: 'details', label: 'Details', sortable: false, defaultVisible: false, optional: true }
 	];
 
