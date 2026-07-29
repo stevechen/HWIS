@@ -6,6 +6,7 @@ import type { MutationCtx, QueryCtx } from './_generated/server';
 import { betterAuth } from 'better-auth/minimal';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import authConfig from './auth.config';
+import { resolveEffectiveTestToken } from './testAuth';
 
 function normalizeEnvValue(value?: string | null): string | undefined {
 	if (!value) return undefined;
@@ -21,7 +22,7 @@ function normalizeEnvValue(value?: string | null): string | undefined {
 	return trimmed;
 }
 
-function getEnvValue(key: string): string | undefined {
+export function getEnvValue(key: string): string | undefined {
 	return normalizeEnvValue(process.env[key]);
 }
 
@@ -35,13 +36,7 @@ export const isTestRuntime =
 	getEnvValue('VITEST') === 'true' ||
 	getEnvValue('PLAYWRIGHT_WORKER_ID') !== undefined;
 
-/** Test-only hook to control which auth role the ForSensitiveOperation wrappers use. */
-let _testAuthRole: 'admin' | 'super' = 'admin';
-export function setTestAuthRole(role: 'admin' | 'super') {
-	_testAuthRole = role;
-}
-
-const isProdDeployment = getEnvValue('CONVEX_DEPLOYMENT')?.startsWith('prod:') ?? false;
+export const isProdDeployment = getEnvValue('CONVEX_DEPLOYMENT')?.startsWith('prod:') ?? false;
 
 const siteUrl = isDev
 	? 'http://localhost:5173'
@@ -344,25 +339,17 @@ export const requireSuperRole = async (ctx: AuthCtx, _testToken?: string) => {
 	return user;
 };
 
-function shouldAutoInjectToken(testToken?: string): boolean {
-	return !testToken && (isTestRuntime || !isProdDeployment);
-}
-
 export const requireUserProfileForSensitiveOperation = async (ctx: AuthCtx, testToken?: string) => {
-	const effectiveTestToken = shouldAutoInjectToken(testToken) ? 'unit-test-token' : testToken;
+	const effectiveTestToken = resolveEffectiveTestToken(testToken);
 	return await requireUserProfile(ctx, effectiveTestToken);
 };
 
 export const requireAdminForSensitiveOperation = async (ctx: AuthCtx, testToken?: string) => {
-	const effectiveTestToken = shouldAutoInjectToken(testToken) ? 'unit-test-token' : testToken;
+	const effectiveTestToken = resolveEffectiveTestToken(testToken);
 	return await requireAdminRole(ctx, effectiveTestToken);
 };
 
 export const requireSuperForSensitiveOperation = async (ctx: AuthCtx, testToken?: string) => {
-	const effectiveTestToken = shouldAutoInjectToken(testToken)
-		? _testAuthRole === 'super'
-			? 'super-unit-test-token'
-			: 'unit-test-token'
-		: testToken;
+	const effectiveTestToken = resolveEffectiveTestToken(testToken);
 	return await requireSuperRole(ctx, effectiveTestToken);
 };

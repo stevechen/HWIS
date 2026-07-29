@@ -3,7 +3,7 @@ import { convexTest, modules } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
 import type { Id } from './_generated/dataModel';
-import { setTestAuthRole } from './auth';
+import { setTestAuthRole } from './testAuth';
 
 describe('users.update', () => {
 	it('updates user status to active', async () => {
