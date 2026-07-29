@@ -42,6 +42,8 @@ test.describe('Audit Log - Data-driven column toggle', () => {
 
 		await page.goto('/admin/audit');
 		await page.waitForSelector('body.hydrated');
+		// Wait for Convex reactivity to deliver seeded audit logs before proceeding
+		await expect(page.getByText('student_created')).toBeVisible();
 		await page.evaluate(() => {
 			localStorage.removeItem('audit-table-columns');
 			localStorage.removeItem('audit-visible-columns');

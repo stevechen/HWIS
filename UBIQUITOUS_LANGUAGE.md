@@ -2,61 +2,61 @@
 
 ## People & Roles
 
-| Term            | Definition                                                    | Aliases to avoid       |
-| --------------- | ------------------------------------------------------------- | ---------------------- |
-| **User**        | An authentication identity in the system with a role          | Login, account         |
-| **Student**     | A person enrolled at the school (grades 7–12) with a record   | Pupil, learner         |
-| **Teacher**     | A staff member who gives/takes evaluation points              | Staff, faculty         |
-| **Admin**       | A staff member with elevated system management privileges     | Manager, moderator     |
-| **Super User**  | A user with full system access, including admin promotion     | Root, owner            |
+| Term           | Definition                                                  | Aliases to avoid   |
+| -------------- | ----------------------------------------------------------- | ------------------ |
+| **User**       | An authentication identity in the system with a role        | Login, account     |
+| **Student**    | A person enrolled at the school (grades 7–12) with a record | Pupil, learner     |
+| **Teacher**    | A staff member who gives/takes evaluation points            | Staff, faculty     |
+| **Admin**      | A staff member with elevated system management privileges   | Manager, moderator |
+| **Super User** | A user with full system access, including admin promotion   | Root, owner        |
 
 ## Class & Academic Structure
 
-| Term                  | Definition                                                    | Aliases to avoid       |
-| --------------------- | ------------------------------------------------------------- | ---------------------- |
-| **Class**             | A grouping of students by grade and class name (e.g., "10-1") | Section, homeroom      |
-| **Grade**             | The year level (7–12) a student belongs to                    | Year, level            |
-| **Semester**          | An academic term identifier attached to evaluations           | Term, period           |
-| **Homeroom Teacher**  | A teacher assigned to oversee a specific class                | Class teacher, advisor |
+| Term                 | Definition                                                    | Aliases to avoid       |
+| -------------------- | ------------------------------------------------------------- | ---------------------- |
+| **Class**            | A grouping of students by grade and class name (e.g., "10-1") | Section, homeroom      |
+| **Grade**            | The year level (7–12) a student belongs to                    | Year, level            |
+| **Semester**         | An academic term identifier attached to evaluations           | Term, period           |
+| **Homeroom Teacher** | A teacher assigned to oversee a specific class                | Class teacher, advisor |
 
 ## Student Lifecycle
 
-| Term                | Definition                                                         | Aliases to avoid       |
-| ------------------- | ------------------------------------------------------------------ | ---------------------- |
-| **Enrolled**        | A student currently attending the school                           | Active, registered     |
-| **Not Enrolled**    | A student no longer attending the school                           | Inactive, withdrawn    |
-| **Student ID**      | A unique 6- or 7-digit identifier assigned to each student         | Student number, SID    |
-| **House Assignment**| The act of placing a student into one of the four houses           | House placement        |
-| **Duplicate**       | A student record with a Student ID matching an existing record     | Conflict, collision    |
-| **Import**          | Bulk creation of student records from an external source (Excel)   | Upload, batch create   |
-| **Academic Year Rollover** | Year-end process that advances grades and archives graduates | Promotion, graduation  |
+| Term                       | Definition                                                       | Aliases to avoid      |
+| -------------------------- | ---------------------------------------------------------------- | --------------------- |
+| **Enrolled**               | A student currently attending the school                         | Active, registered    |
+| **Not Enrolled**           | A student no longer attending the school                         | Inactive, withdrawn   |
+| **Student ID**             | A unique 6- or 7-digit identifier assigned to each student       | Student number, SID   |
+| **House Assignment**       | The act of placing a student into one of the four houses         | House placement       |
+| **Duplicate**              | A student record with a Student ID matching an existing record   | Conflict, collision   |
+| **Import**                 | Bulk creation of student records from an external source (Excel) | Upload, batch create  |
+| **Academic Year Rollover** | Year-end process that advances grades and archives graduates     | Promotion, graduation |
 
 ## Evaluation System
 
-| Term                | Definition                                                         | Aliases to avoid       |
-| ------------------- | ------------------------------------------------------------------ | ---------------------- |
-| **Evaluation**      | A point-based assessment given by a Teacher to a Student in a Category | Point, score, entry |
-| **Point Category**  | A named category defining what behaviors are evaluated             | Category, rubric       |
-| **Merit Criteria**  | Positive behaviors for which points are awarded                    | Positive criteria      |
-| **Demerit Criteria**| Negative behaviors for which points are deducted                   | Negative criteria      |
-| **CAS Alignment**   | Alignment of a Point Category to Creativity, Activity, or Service  | IB alignment           |
-| **Value**           | The numeric point adjustment (-2, -1, +1, +2) of an Evaluation     | Score, amount          |
-| **Weekly Report**   | A summary of all Evaluations grouped by the Friday of each week    | Weekly summary         |
+| Term                 | Definition                                                             | Aliases to avoid    |
+| -------------------- | ---------------------------------------------------------------------- | ------------------- |
+| **Evaluation**       | A point-based assessment given by a Teacher to a Student in a Category | Point, score, entry |
+| **Point Category**   | A named category defining what behaviors are evaluated                 | Category, rubric    |
+| **Merit Criteria**   | Positive behaviors for which points are awarded                        | Positive criteria   |
+| **Demerit Criteria** | Negative behaviors for which points are deducted                       | Negative criteria   |
+| **CAS Alignment**    | Alignment of a Point Category to Creativity, Activity, or Service      | IB alignment        |
+| **Value**            | The numeric point adjustment (-2, -1, +1, +2) of an Evaluation         | Score, amount       |
+| **Weekly Report**    | A summary of all Evaluations grouped by the Friday of each week        | Weekly summary      |
 
 ## House System
 
-| Term              | Definition                                                        | Aliases to avoid      |
-| ----------------- | ----------------------------------------------------------------- | --------------------- |
-| **House**         | One of four competitive student houses — Heracles, Wukong, Ixbalam, Setna | Team, group    |
-| **House Event**   | A time-bound event that awards House Points across multiple Houses | Competition, activity |
-| **House Points**   | Points awarded to a House through Events                          | Points, score         |
+| Term             | Definition                                                                | Aliases to avoid      |
+| ---------------- | ------------------------------------------------------------------------- | --------------------- |
+| **House**        | One of four competitive student houses — Heracles, Wukong, Ixbalam, Setna | Team, group           |
+| **House Event**  | A time-bound event that awards House Points across multiple Houses        | Competition, activity |
+| **House Points** | Points awarded to a House through Events                                  | Points, score         |
 
 ## Operations & Audit
 
-| Term              | Definition                                                        | Aliases to avoid       |
-| ----------------- | ----------------------------------------------------------------- | ---------------------- |
-| **Audit Log**     | A historical record of all data mutations with performer and values | Journal, trail       |
-| **Backup**        | A JSON snapshot of the full database for restore purposes         | Dump, export, snapshot |
+| Term          | Definition                                                          | Aliases to avoid       |
+| ------------- | ------------------------------------------------------------------- | ---------------------- |
+| **Audit Log** | A historical record of all data mutations with performer and values | Journal, trail         |
+| **Backup**    | A JSON snapshot of the full database for restore purposes           | Dump, export, snapshot |
 
 ## Relationships
 

@@ -27,19 +27,21 @@ export async function enrichEvaluations(
 	const studentIds = [...new Set(evaluations.map((e) => e.studentId).filter(Boolean))];
 	const categoryIds = [...new Set(evaluations.map((e) => e.categoryId).filter(Boolean))];
 
-	const [students, categories, classes] = await Promise.all([
+	const [rawStudents, categories] = await Promise.all([
 		Promise.all(studentIds.map((id) => ctx.db.get(id))),
-		Promise.all(categoryIds.map((id) => ctx.db.get(id))),
-		ctx.db.query('classes').collect()
+		Promise.all(categoryIds.map((id) => ctx.db.get(id)))
 	]);
 
-	const studentMap = new Map(
-		students.filter((s): s is Doc<'students'> => Boolean(s)).map((s) => [s._id, s])
-	);
 	const categoryMap = new Map(
 		categories.filter((c): c is Doc<'point_categories'> => Boolean(c)).map((c) => [c._id, c])
 	);
-	const classMap = new Map(classes.map((c) => [c._id, c]));
+
+	const students = rawStudents.filter((s): s is Doc<'students'> => Boolean(s));
+	const studentMap = new Map(students.map((s) => [s._id, s]));
+
+	const classIds = [...new Set(students.map((s) => s.classId).filter(Boolean))] as Id<'classes'>[];
+	const classes = await Promise.all(classIds.map((id) => ctx.db.get(id)));
+	const classMap = new Map(classes.filter(Boolean).map((c) => [c!._id, c!]));
 
 	return evaluations.map((eval_) => {
 		const student = studentMap.get(eval_.studentId);

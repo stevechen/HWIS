@@ -811,13 +811,29 @@ export const getHouseStats = query({
 
 		const HOUSES = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
 
-		const students = await ctx.db.query('students').collect();
-		const studentsWithHouses = students.filter((s) => s.house && HOUSES.includes(s.house));
+		// Use by_house index to fetch only housed students (4 indexed queries)
+		const studentGroups = await Promise.all(
+			HOUSES.map((house) =>
+				ctx.db
+					.query('students')
+					.withIndex('by_house', (q) => q.eq('house', house))
+					.collect()
+			)
+		);
+		const studentsWithHouses = studentGroups.flat();
 		const studentIds = studentsWithHouses.map((s) => s._id);
 
-		// Get all evaluations for these students
-		const allEvaluations = await ctx.db.query('evaluations').take(1000);
-		const evaluations = allEvaluations.filter((e) => studentIds.includes(e.studentId));
+		// Use by_studentId index to fetch evaluations for housed students
+		const evaluations = (
+			await Promise.all(
+				studentIds.map((id) =>
+					ctx.db
+						.query('evaluations')
+						.withIndex('by_studentId', (q) => q.eq('studentId', id))
+						.collect()
+				)
+			)
+		).flat();
 
 		const allEvents = await ctx.db.query('house_events').take(200);
 
@@ -842,8 +858,8 @@ export const getHouseStats = query({
 
 		const studentPointsMap = new Map<string, StudentPointsData>();
 
-		// Get timestamp for 30 days ago
-		const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+		// Get timestamp for 30 days ago, rounded to day boundary for cache friendliness
+		const thirtyDaysAgo = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 86400000) * 86400000;
 
 		for (const student of studentsWithHouses) {
 			studentPointsMap.set(student._id, {

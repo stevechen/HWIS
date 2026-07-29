@@ -1,7 +1,7 @@
 import { query, mutation, type QueryCtx } from './_generated/server';
 import { v } from 'convex/values';
 import { requireAdminForSensitiveOperation, getAuthenticatedUser } from './auth';
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 
 const ACTION_LABELS: Record<string, string> = {
 	create_evaluation: 'Created',
@@ -26,63 +26,11 @@ interface Student {
 	classId: Id<'classes'> | null;
 }
 
-interface Evaluation {
-	_id: Id<'evaluations'>;
-	details: string;
-	categoryId: Id<'point_categories'>;
-	value: number;
-}
-
 type AuthUserForAudit = {
 	role?: 'admin' | 'super' | 'teacher';
 	email?: string;
 	authId?: string;
 };
-
-type StudentDisplayInfo = {
-	studentName: string | null;
-	studentGrade: number | null;
-	studentGradeDisplay: string | null;
-	studentId: string | null;
-};
-
-function formatStudentName(student: Pick<Student, 'englishName' | 'chineseName'>) {
-	return student.englishName || null;
-}
-
-async function getStudentDisplayInfo(ctx: QueryCtx, student: Student): Promise<StudentDisplayInfo> {
-	let studentGrade: number | null = null;
-	let studentGradeDisplay: string | null = null;
-
-	if (student.classId) {
-		try {
-			const classRecord = await ctx.db.get(student.classId);
-			if (classRecord) {
-				const className = classRecord.class;
-				studentGrade = classRecord.grade;
-				if (studentGrade !== null && studentGrade !== undefined) {
-					studentGradeDisplay =
-						className === 'IB' ? `${studentGrade}-IB` : `${studentGrade}-${className}`;
-				}
-			}
-		} catch (error) {
-			console.warn('Failed to fetch class info for student:', student._id, error);
-		}
-
-		if (studentGradeDisplay === null) {
-			studentGradeDisplay = 'unknown';
-		}
-	} else {
-		studentGradeDisplay = 'no class';
-	}
-
-	return {
-		studentName: formatStudentName(student),
-		studentGrade,
-		studentGradeDisplay,
-		studentId: student.studentId
-	};
-}
 
 async function findStudentByReference(
 	ctx: QueryCtx,
@@ -147,6 +95,106 @@ export const list = query({
 			logs = logs.filter((l) => l.performerId === args.performerId);
 		}
 
+		const limitedLogs = logs.slice(0, args.limit || 50);
+
+		// --- Batch 1: Load all performers ---
+		const performerIds = [...new Set(limitedLogs.map((l) => l.performerId))];
+		const performers = await Promise.all(performerIds.map((id) => ctx.db.get(id)));
+		const performerMap = new Map(
+			performers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
+		);
+
+		// --- Batch 2: Load all evaluation documents referenced by audit logs ---
+		const evalTargetIds: Id<'evaluations'>[] = [];
+		// --- Batch 3: Collect student Convex IDs from evaluation entries ---
+		const studentConvexIds: Id<'students'>[] = [];
+		// --- Batch 4: Collect studentId strings from student entries ---
+		const studentStringIds: string[] = [];
+
+		for (const log of limitedLogs) {
+			if (log.targetTable === 'evaluations') {
+				if (log.targetId && log.targetId.length > 5) {
+					evalTargetIds.push(log.targetId as Id<'evaluations'>);
+				}
+				const sid = log.newValue?.studentId || log.oldValue?.studentId;
+				if (sid) {
+					studentConvexIds.push(sid.toString() as Id<'students'>);
+				}
+			}
+			if (log.targetTable === 'students') {
+				const data = log.newValue || log.oldValue;
+				if (data?.studentId) {
+					studentStringIds.push(data.studentId.toString());
+				}
+			}
+		}
+
+		const uniqueEvalIds = [...new Set(evalTargetIds)];
+		const evaluationDocs = await Promise.all(uniqueEvalIds.map((id) => ctx.db.get(id)));
+		const evaluationMap = new Map(
+			evaluationDocs.filter((e): e is NonNullable<typeof e> => e != null).map((e) => [e._id, e])
+		);
+
+		// --- Batch 3: Load categories from those evaluations ---
+		const categoryIds: Id<'point_categories'>[] = [];
+		for (const evalDoc of evaluationDocs) {
+			if (evalDoc?.categoryId) categoryIds.push(evalDoc.categoryId);
+		}
+		const uniqueCategoryIds = [...new Set(categoryIds)];
+		const categoryDocs = await Promise.all(uniqueCategoryIds.map((id) => ctx.db.get(id)));
+		const categoryMap = new Map(
+			categoryDocs.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
+		);
+
+		// --- Batch 4: Load students by Convex ID (from evaluation entries) ---
+		const uniqueStudentConvexIds = [...new Set(studentConvexIds)];
+		const studentDocs = await Promise.all(
+			uniqueStudentConvexIds.map(async (id) => {
+				try {
+					return await ctx.db.get(id);
+				} catch {
+					return null;
+				}
+			})
+		);
+		const studentByConvexIdMap = new Map(
+			studentDocs.filter((s): s is Doc<'students'> => Boolean(s)).map((s) => [s._id, s])
+		);
+
+		// --- Batch 5: Load students by studentId string (from student entries) ---
+		const studentByStringIdMap = new Map<string, Doc<'students'>>();
+		const uniqueStudentStringIds = [...new Set(studentStringIds)];
+		const studentStringLookups = await Promise.all(
+			uniqueStudentStringIds.map((sid) =>
+				ctx.db
+					.query('students')
+					.withIndex('by_studentId', (q) => q.eq('studentId', sid))
+					.first()
+			)
+		);
+		for (let i = 0; i < uniqueStudentStringIds.length; i++) {
+			const lookup = studentStringLookups[i];
+			if (lookup) studentByStringIdMap.set(uniqueStudentStringIds[i], lookup as Doc<'students'>);
+		}
+
+		// --- Batch 6: Load classes for all resolved students ---
+		const allResolvedStudents = [
+			...studentByConvexIdMap.values(),
+			...studentByStringIdMap.values()
+		];
+		const classIds = [
+			...new Set(
+				allResolvedStudents
+					.map((s) => s.classId)
+					.filter((id): id is Id<'classes'> => id !== undefined)
+			)
+		];
+		const classDocs = await Promise.all(classIds.map((id) => ctx.db.get(id)));
+		const classMap = new Map(
+			classDocs.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
+		);
+
+		// --- Build results using batched maps ---
 		const results: Array<
 			Omit<(typeof logs)[number], 'performerId'> & {
 				performerId: string;
@@ -161,8 +209,9 @@ export const list = query({
 				points: number | null;
 			}
 		> = [];
-		for (const log of logs.slice(0, args.limit || 50)) {
-			const performer = await ctx.db.get(log.performerId);
+
+		for (const log of limitedLogs) {
+			const performer = performerMap.get(log.performerId);
 			let studentName: string | null = null;
 			let studentGrade: number | null = null;
 			let studentGradeDisplay: string | null = null;
@@ -174,45 +223,66 @@ export const list = query({
 			if (log.targetTable === 'evaluations') {
 				const evalStudentId = log.newValue?.studentId || log.oldValue?.studentId;
 				if (evalStudentId) {
-					studentId = evalStudentId.toString();
-					const student = await findStudentByReference(ctx, evalStudentId.toString());
+					const studentRef = evalStudentId.toString();
+					const student =
+						studentByConvexIdMap.get(studentRef as Id<'students'>) ??
+						(await findStudentByReference(ctx, studentRef));
 					if (student) {
-						({ studentName, studentGrade, studentGradeDisplay, studentId } =
-							await getStudentDisplayInfo(ctx, student));
+						const classRecord = student.classId ? classMap.get(student.classId) : null;
+						let studentGradeDisplayVal: string | null = null;
+						if (classRecord) {
+							studentGrade = classRecord.grade;
+							studentGradeDisplayVal =
+								classRecord.class === 'IB'
+									? `${classRecord.grade}-IB`
+									: `${classRecord.grade}-${classRecord.class}`;
+						} else if (student.classId) {
+							studentGradeDisplayVal = 'unknown';
+						} else {
+							studentGradeDisplayVal = 'no class';
+						}
+						studentName = student.englishName || null;
+						studentGradeDisplay = studentGradeDisplayVal;
+						studentId = student.studentId;
 					}
 				}
 				if (log.targetId && log.targetId.length > 5) {
-					// Only try to get evaluation if it's a valid-looking Convex ID
-					const evaluation = (await ctx.db.get(
-						log.targetId as Id<'evaluations'>
-					)) as Evaluation | null;
+					const evaluation = evaluationMap.get(log.targetId as Id<'evaluations'>);
 					if (evaluation) {
 						details = evaluation.details || null;
-						// Look up category name from categoryId
-						const categoryDoc = evaluation.categoryId
-							? await ctx.db.get(evaluation.categoryId)
-							: null;
+						const categoryDoc = categoryMap.get(evaluation.categoryId);
 						category = categoryDoc?.name || null;
 						points = evaluation.value || null;
 					}
 				}
 			}
 
-			// Handle student information from direct student-related audit logs
 			if (log.targetTable === 'students') {
-				// For student create/update/delete actions, student info is in newValue/oldValue
 				const studentData = log.newValue || log.oldValue;
 				if (studentData && typeof studentData === 'object') {
 					const studentIdFromData = studentData.studentId?.toString();
-					const completeStudent = await findStudentByReference(ctx, studentIdFromData);
+					const student =
+						(studentIdFromData ? studentByStringIdMap.get(studentIdFromData) : null) ??
+						(await findStudentByReference(ctx, studentIdFromData)) ??
+						(studentData as Student);
 
-					// Use complete student record if we got it, otherwise fall back to raw data
-					const student = completeStudent || (studentData as Student);
-
-					// Extract student information
 					if (student) {
-						({ studentName, studentGrade, studentGradeDisplay, studentId } =
-							await getStudentDisplayInfo(ctx, student));
+						const classRecord = student.classId ? classMap.get(student.classId) : null;
+						let studentGradeDisplayVal: string | null = null;
+						if (classRecord) {
+							studentGrade = classRecord.grade;
+							studentGradeDisplayVal =
+								classRecord.class === 'IB'
+									? `${classRecord.grade}-IB`
+									: `${classRecord.grade}-${classRecord.class}`;
+						} else if (student.classId) {
+							studentGradeDisplayVal = 'unknown';
+						} else {
+							studentGradeDisplayVal = 'no class';
+						}
+						studentName = student.englishName || null;
+						studentGradeDisplay = studentGradeDisplayVal;
+						studentId = student.studentId ?? studentIdFromData ?? null;
 					}
 				}
 			}
