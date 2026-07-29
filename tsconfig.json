@@ -28,7 +28,8 @@
 		"test/**/*.svelte",
 		"tests/**/*.js",
 		"tests/**/*.ts",
-		"tests/**/*.svelte"
+		"tests/**/*.svelte",
+		"scripts/**/*.ts"
 	],
 	"exclude": ["node_modules/**", "src/convex/*.test.ts"]
 }
