@@ -4,3 +4,4 @@ export * from './TeacherEvaluationsPage';
 export * from './NewEvaluationPage';
 export * from './AdminCategoriesPage';
 export * from './AdminClassesPage';
+export * from './AdminHousesPage';

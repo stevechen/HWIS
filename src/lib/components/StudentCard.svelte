@@ -37,6 +37,7 @@
 </script>
 
 <div
+	testId={`admin-houses.student-${student.studentId}`}
 	class={[
 		'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 max-md:gap-3 max-md:py-3',
 		!enrolled && 'text-muted-foreground bg-gray-100',
@@ -58,6 +59,7 @@
 					? `${multiSelect.selectedIds.size} students`
 					: student.englishName
 		}}
+		testId={`admin-houses.student-${student.studentId}.drag-handle`}
 		class={[
 			'flex min-w-0 flex-1 items-center gap-2',
 			multiSelect.selectionMode ? 'cursor-pointer' : 'cursor-grab'
@@ -90,9 +92,11 @@
 				class="size-4 shrink-0 max-md:size-5"
 				onclick={(e) => e.stopPropagation()}
 				onchange={() => multiSelect.toggleSelect(student._id)}
+				testId={`admin-houses.student-${student.studentId}.checkbox`}
 			/>
 		{/if}
 		<GripVertical
+			testId={`admin-houses.student-${student.studentId}.grip`}
 			class={['size-3 shrink-0 text-gray-400 max-md:hidden', multiSelect.selectionMode && 'hidden']}
 		/>
 		<div class="flex min-w-0 flex-1 flex-col">
