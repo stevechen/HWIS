@@ -1,11 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { getTestSuffix } from '../e2e/helpers';
-import {
-	createStudent,
-	createStudentWithEvaluations,
-	createCategory,
-	useRole
-} from '../e2e/convex-client';
+import { createStudentWithEvaluations, createCategory, useRole } from '../e2e/convex-client';
 
 test.describe('long-press debug', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
