@@ -433,6 +433,7 @@
 										aria-label={selectedSelectGrade === grade
 											? `Done selecting in grade ${grade}`
 											: `Select grade ${grade}`}
+										testId={`admin-classes.grade-${grade}.select-toggle`}
 									>
 										{#if selectedSelectGrade === grade}
 											<MousePointer2 class="size-3.5" />
@@ -452,6 +453,7 @@
 										onclick={() => toggleIBVisibility(grade)}
 										aria-label={shouldShowIB ? 'Hide IB classes' : 'Show IB classes'}
 										title={shouldShowIB ? 'Hide IB classes' : 'Show IB classes'}
+										testId={`admin-classes.grade-${grade}.ib-toggle`}
 									>
 										<img
 											src="/International_Baccalaureate_Logo.svg"
@@ -467,6 +469,7 @@
 									class="size-5 shrink-0 rounded-none"
 									onclick={() => openAddDialog(grade)}
 									aria-label="Add class to grade {grade}"
+									testId={`admin-classes.grade-${grade}.add-button`}
 								>
 									<Plus class="size-3" />
 								</Button>
@@ -498,6 +501,7 @@
 										]}
 										role="region"
 										aria-label="Class {getDisplayName(cls.grade, cls.class)}"
+										testId={`admin-classes.grade-${cls.grade}.class-${cls.class}`}
 										use:dropZone={{
 											id: cls._id,
 											accept: (data: DragData) => {
@@ -593,6 +597,7 @@
 													size="icon"
 													class="size-4 shrink-0 rounded-none p-0 text-red-500 hover:text-red-600 max-md:size-6"
 													onclick={() => deleteClass(cls)}
+													testId={`admin-classes.grade-${cls.grade}.class-${cls.class}.delete`}
 												>
 													<Trash2 class="size-2.5 max-md:size-3.5" />
 												</Button>
@@ -633,6 +638,7 @@
 															{@const enrolled = student.status !== 'Not Enrolled'}
 															{@const isSelected = multiSelect.selectedIds.has(student._id)}
 															<div
+																testId={`admin-classes.grade-${cls.grade}.class-${cls.class}.student-${student.studentId}`}
 																class={[
 																	!enrolled &&
 																		'text-muted-foreground bg-black/10 max-md:bg-gray-100',
@@ -663,6 +669,7 @@
 																			crossGradeDialogRef?.showModal();
 																		}
 																	}}
+																	testId={`admin-classes.grade-${cls.grade}.class-${cls.class}.student-${student.studentId}.drag-handle`}
 																	class={[
 																		'flex flex-1 items-center gap-1 truncate',
 																		selectedSelectGrade !== null ? 'cursor-pointer' : 'cursor-grab'
@@ -701,9 +708,11 @@
 																			class="size-3 shrink-0 max-md:size-4"
 																			onclick={(e) => e.stopPropagation()}
 																			onchange={() => multiSelect.toggleSelect(student._id)}
+																			testId={`admin-classes.grade-${cls.grade}.class-${cls.class}.student-${student.studentId}.checkbox`}
 																		/>
 																	{/if}
 																	<GripVertical
+																		testId={`admin-classes.grade-${cls.grade}.class-${cls.class}.student-${student.studentId}.grip`}
 																		class={[
 																			'size-2.5 shrink-0 opacity-40 max-md:hidden',
 																			selectedSelectGrade === cls.grade && 'hidden'
@@ -750,11 +759,15 @@
 			closeAddDialog();
 		}
 	}}
+	testId="admin-classes.add-dialog"
 >
 	<h3 class="mb-4 text-lg font-semibold">Add Class - Grade {addGrade}</h3>
 
 	{#if addError}
-		<div class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+		<div
+			class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600"
+			testId="admin-classes.add-dialog.error"
+		>
 			{addError}
 		</div>
 	{/if}
@@ -764,7 +777,12 @@
 	</p>
 
 	<form method="dialog" class="flex justify-end gap-2">
-		<Button type="button" variant="outline" onclick={closeAddDialog}>Cancel</Button>
+		<Button
+			type="button"
+			variant="outline"
+			onclick={closeAddDialog}
+			testId="admin-classes.add-dialog.cancel">Cancel</Button
+		>
 		<Button
 			type="submit"
 			disabled={isAdding}
@@ -772,6 +790,7 @@
 				e.preventDefault();
 				handleAdd();
 			}}
+			testId="admin-classes.add-dialog.confirm"
 		>
 			{isAdding ? 'Adding...' : 'Add Class'}
 		</Button>
@@ -787,6 +806,7 @@
 			warningDialogRef?.close();
 		}
 	}}
+	testId="admin-classes.warning-dialog"
 >
 	{#if warningClass && warningClass.studentCount > 0}
 		<!-- Warning: students assigned -->
@@ -799,7 +819,9 @@
 			To delete this class, please first remove or reassign these students to another class.
 		</p>
 		<div class="flex justify-end">
-			<Button onclick={() => warningDialogRef?.close()}>OK</Button>
+			<Button onclick={() => warningDialogRef?.close()} testId="admin-classes.warning-dialog.ok"
+				>OK</Button
+			>
 		</div>
 	{:else}
 		<!-- Confirmation: no students -->
@@ -810,8 +832,16 @@
 				: ''}? This cannot be undone.
 		</p>
 		<div class="flex justify-end gap-2">
-			<Button variant="outline" onclick={() => warningDialogRef?.close()}>Cancel</Button>
-			<Button variant="destructive" onclick={confirmDelete}>Delete</Button>
+			<Button
+				variant="outline"
+				onclick={() => warningDialogRef?.close()}
+				testId="admin-classes.warning-dialog.cancel">Cancel</Button
+			>
+			<Button
+				variant="destructive"
+				onclick={confirmDelete}
+				testId="admin-classes.warning-dialog.delete">Delete</Button
+			>
 		</div>
 	{/if}
 </dialog>
@@ -825,12 +855,16 @@
 			crossGradeDialogRef?.close();
 		}
 	}}
+	testId="admin-classes.cross-grade-dialog"
 >
 	<h3 class="mb-2 text-lg font-semibold text-red-600">Cannot Move Student</h3>
 	<p class="text-muted-foreground mb-4 text-sm">
 		{crossGradeErrorMessage}
 	</p>
 	<div class="flex justify-end">
-		<Button onclick={() => crossGradeDialogRef?.close()}>OK</Button>
+		<Button
+			onclick={() => crossGradeDialogRef?.close()}
+			testId="admin-classes.cross-grade-dialog.ok">OK</Button
+		>
 	</div>
 </dialog>

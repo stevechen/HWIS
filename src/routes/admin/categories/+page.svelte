@@ -255,6 +255,7 @@
 								size="sm"
 								onclick={() => toggleExpand(category._id)}
 								aria-label={expandedCategory === category._id ? 'Hide criteria' : 'Show criteria'}
+								testId={`categories.table.expand-${category._id}`}
 							>
 								<Info class="mr-1 size-4" />
 								{expandedCategory === category._id ? 'Hide' : 'View'}
@@ -267,6 +268,7 @@
 									size="icon"
 									onclick={() => startEdit(category)}
 									aria-label="Edit"
+									testId={`categories.table.edit-${category._id}`}
 								>
 									<Pencil class="size-4" />
 								</Button>
@@ -275,6 +277,7 @@
 									size="icon"
 									onclick={() => confirmDelete(category)}
 									aria-label="Delete"
+									testId={`categories.table.delete-${category._id}`}
 								>
 									<Trash2 class="size-4" />
 								</Button>
@@ -302,7 +305,7 @@
 	</div>
 
 	<div class="mt-6 flex justify-end">
-		<Button onclick={startAdd}>
+		<Button onclick={startAdd} testId="categories.add-button">
 			<Plus class="mr-2 size-4" />
 			Add new category
 		</Button>
@@ -322,11 +325,18 @@
 		onkeydown={(e) => {
 			if (e.key === 'Escape') handleCancel();
 		}}
+		testId="categories.form-dialog"
 	>
 		<div class="bg-background my-8 w-full max-w-3xl rounded-lg p-6 shadow-lg">
 			<div class="mb-4 flex items-center justify-between">
 				<h2 class="text-xl font-semibold">{editingId ? 'Edit Category' : 'Add New Category'}</h2>
-				<Button variant="ghost" size="icon" onclick={handleCancel} aria-label="Close">
+				<Button
+					variant="ghost"
+					size="icon"
+					onclick={handleCancel}
+					aria-label="Close"
+					testId="categories.form-dialog.close"
+				>
 					<X class="size-4" />
 				</Button>
 			</div>
@@ -342,6 +352,7 @@
 					{#if formError}
 						<div
 							class="rounded bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400"
+							testId="categories.form-dialog.error"
 						>
 							{formError}
 						</div>
@@ -355,6 +366,7 @@
 									id="categoryName"
 									bind:value={categoryName}
 									placeholder="e.g., Responsibility (責任)"
+									testId="categories.form-dialog.name"
 								/>
 							</div>
 							<fieldset>
@@ -366,6 +378,7 @@
 											type="checkbox"
 											bind:checked={casCreativity}
 											class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
+											testId="categories.form-dialog.cas-creativity"
 										/>
 										<span class="text-sm">Creativity</span>
 									</label>
@@ -374,6 +387,7 @@
 											type="checkbox"
 											bind:checked={casActivity}
 											class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
+											testId="categories.form-dialog.cas-activity"
 										/>
 										<span class="text-sm">Activity</span>
 									</label>
@@ -382,6 +396,7 @@
 											type="checkbox"
 											bind:checked={casService}
 											class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
+											testId="categories.form-dialog.cas-service"
 										/>
 										<span class="text-sm">Service</span>
 									</label>
@@ -405,6 +420,7 @@
 											size="sm"
 											onclick={addMeritCriterion}
 											class="h-7 px-2"
+											testId="categories.form-dialog.merit-add"
 										>
 											<Plus class="mr-1 size-3" />
 											Add
@@ -418,6 +434,7 @@
 													oninput={(e) => updateMeritCriterion(index, e.currentTarget.value)}
 													placeholder="Enter criterion..."
 													class="flex-1"
+													testId={`categories.form-dialog.merit-${index}`}
 												/>
 												<Button
 													type="button"
@@ -426,6 +443,7 @@
 													onclick={() => removeMeritCriterion(index)}
 													class="size-9 shrink-0"
 													aria-label="Remove criterion"
+													testId={`categories.form-dialog.merit-remove-${index}`}
 												>
 													<Trash2 class="size-4" />
 												</Button>
@@ -447,6 +465,7 @@
 											size="sm"
 											onclick={addDemeritCriterion}
 											class="h-7 px-2"
+											testId="categories.form-dialog.demerit-add"
 										>
 											<Plus class="mr-1 size-3" />
 											Add
@@ -460,6 +479,7 @@
 													oninput={(e) => updateDemeritCriterion(index, e.currentTarget.value)}
 													placeholder="Enter criterion..."
 													class="flex-1"
+													testId={`categories.form-dialog.demerit-${index}`}
 												/>
 												<Button
 													type="button"
@@ -468,6 +488,7 @@
 													onclick={() => removeDemeritCriterion(index)}
 													class="size-9 shrink-0"
 													aria-label="Remove criterion"
+													testId={`categories.form-dialog.demerit-remove-${index}`}
 												>
 													<Trash2 class="size-4" />
 												</Button>
@@ -483,8 +504,17 @@
 					</Card.Root>
 
 					<div class="flex justify-end gap-2 pt-4">
-						<Button type="button" variant="outline" onclick={handleCancel}>Cancel</Button>
-						<Button type="submit" disabled={isSubmitting || !categoryName.trim()}>
+						<Button
+							type="button"
+							variant="outline"
+							onclick={handleCancel}
+							testId="admin-categories.form.cancel">Cancel</Button
+						>
+						<Button
+							type="submit"
+							disabled={isSubmitting || !categoryName.trim()}
+							testId="admin-categories.form.submit"
+						>
 							{editingId ? 'Update' : 'Save'}
 						</Button>
 					</div>
@@ -506,6 +536,7 @@
 		onkeydown={(e) => {
 			if (e.key === 'Escape') cancelDelete();
 		}}
+		testId="categories.delete-dialog"
 	>
 		<div class="bg-background w-full max-w-md rounded-lg p-6 shadow-lg">
 			<h2 class="mb-2 text-xl font-semibold">Delete Category</h2>
@@ -521,8 +552,15 @@
 			{/if}
 
 			<div class="flex justify-end gap-2">
-				<Button variant="outline" onclick={cancelDelete}>Cancel</Button>
-				<Button variant="destructive" onclick={handleDelete} disabled={isSubmitting}>Delete</Button>
+				<Button variant="outline" onclick={cancelDelete} testId="categories.delete-dialog.cancel"
+					>Cancel</Button
+				>
+				<Button
+					variant="destructive"
+					onclick={handleDelete}
+					disabled={isSubmitting}
+					testId="categories.delete-dialog.delete">Delete</Button
+				>
 			</div>
 		</div>
 	</div>
