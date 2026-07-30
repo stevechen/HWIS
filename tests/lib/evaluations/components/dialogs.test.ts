@@ -241,6 +241,17 @@ describe('Evaluation Dialogs', () => {
 				await page.getByRole('button', { name: 'Delete' }).click();
 				expect(onDelete).toHaveBeenCalled();
 			});
+
+			it('save button closes dialog after mutation', async () => {
+				render(EditEvaluationDialog, {
+					open: true,
+					evaluation: mockEvaluation,
+					onClose: vi.fn(),
+					onDelete: vi.fn()
+				});
+				await page.getByRole('button', { name: 'Save Changes' }).click();
+				await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+			});
 		});
 
 		describe('Accessibility', () => {
