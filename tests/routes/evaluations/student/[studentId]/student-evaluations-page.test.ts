@@ -1,5 +1,5 @@
 import { page } from 'vitest/browser';
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { createMockEvaluationSet } from '../../../../fixtures/evaluations';
 

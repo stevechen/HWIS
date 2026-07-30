@@ -402,6 +402,7 @@
 							showForm = true;
 						}}
 						aria-label="Add new student"
+						data-testid="admin-students.add-button"
 					>
 						<Plus class="mr-2 size-4" />
 						Add Student
@@ -412,7 +413,10 @@
 	</header>
 
 	<main class="px-4 py-6 sm:px-6 lg:px-8">
-		<div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+		<div
+			data-testid="admin-students"
+			class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+		>
 			<div class="relative max-w-md flex-1">
 				<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 				<Input
@@ -420,16 +424,25 @@
 					class="pl-9"
 					bind:value={searchQuery}
 					aria-label="Search students"
+					data-testid="admin-students.search-input"
 				/>
 			</div>
 			<div class="flex gap-2">
-				<NativeSelect.Root bind:value={selectedGrade} aria-label="Filter by grade">
+				<NativeSelect.Root
+					bind:value={selectedGrade}
+					aria-label="Filter by grade"
+					data-testid="admin-students.filter-grade"
+				>
 					<NativeSelect.Option value="">All Grades</NativeSelect.Option>
 					{#each grades as grade (grade)}
 						<NativeSelect.Option value={grade.toString()}>Grade {grade}</NativeSelect.Option>
 					{/each}
 				</NativeSelect.Root>
-				<NativeSelect.Root bind:value={selectedStatus} aria-label="Filter by status">
+				<NativeSelect.Root
+					bind:value={selectedStatus}
+					aria-label="Filter by status"
+					data-testid="admin-students.filter-status"
+				>
 					<NativeSelect.Option value="">All Status</NativeSelect.Option>
 					{#each statuses as status (status)}
 						<NativeSelect.Option value={status}>{status}</NativeSelect.Option>
@@ -468,6 +481,9 @@
 				<Table.Body>
 					{#each filteredStudents as student (student._id)}
 						<Table.Row
+							data-testid={`admin-students.student-row-${student._id}`}
+							data-student-id={student.studentId}
+							data-student-name={student.englishName}
 							class={`${student.status === 'Not Enrolled' && 'bg-muted-foreground opacity-60'}`}
 						>
 							<Table.Cell class="hidden text-center sm:table-cell">{student.studentId}</Table.Cell>
@@ -539,6 +555,7 @@
 <!-- Add/Edit Dialog -->
 {#if showForm}
 	<div
+		data-testid="admin-students.dialog.root"
 		class="fixed inset-0 z-50 flex items-center justify-center p-4"
 		role="dialog"
 		aria-modal="true"
@@ -580,6 +597,7 @@
 										bind:value={formStudentId}
 										placeholder="e.g., 7001001 (6-7 digits)"
 										onblur={checkIdAvailability}
+										testId="admin-students.dialog.student-id"
 										class={`
 										${idAvailability === 'available' && 'text-green-600 dark:text-green-400'}
 										${idAvailability === 'taken' && 'text-red-600 dark:text-red-400'}`}
@@ -617,6 +635,7 @@
 						<NativeSelect.Root
 							bind:value={formGradeClass}
 							aria-label="Grade and Class"
+							testId="admin-students.dialog.grade-class"
 							onchange={(e) => {
 								const target = e.target as HTMLSelectElement;
 								handleGradeClassChange(target.value);
@@ -630,15 +649,29 @@
 					</div>
 					<div class="space-y-2">
 						<Label for="englishName">English Name *</Label>
-						<Input id="englishName" bind:value={formEnglishName} placeholder="e.g., John Smith" />
+						<Input
+							id="englishName"
+							bind:value={formEnglishName}
+							placeholder="e.g., John Smith"
+							testId="admin-students.dialog.english-name"
+						/>
 					</div>
 					<div class="space-y-2">
 						<Label for="chineseName">Chinese Name</Label>
-						<Input id="chineseName" bind:value={formChineseName} placeholder="e.g., 張三" />
+						<Input
+							id="chineseName"
+							bind:value={formChineseName}
+							placeholder="e.g., 張三"
+							testId="admin-students.dialog.chinese-name"
+						/>
 					</div>
 					<div class="space-y-2">
 						<Label for="status">Status</Label>
-						<NativeSelect.Root bind:value={formStatus} aria-label="Student status">
+						<NativeSelect.Root
+							bind:value={formStatus}
+							aria-label="Student status"
+							testId="admin-students.dialog.status"
+						>
 							<NativeSelect.Option value="" disabled>Select status</NativeSelect.Option>
 							{#each statuses as status (status)}
 								<NativeSelect.Option value={status}>{status}</NativeSelect.Option>
@@ -652,17 +685,26 @@
 					</div>
 					<div class="space-y-2">
 						<Label for="note">Note</Label>
-						<Input id="note" bind:value={formNote} placeholder="Optional notes..." />
+						<Input
+							id="note"
+							bind:value={formNote}
+							placeholder="Optional notes..."
+							testId="admin-students.dialog.note"
+						/>
 					</div>
 				</div>
 				<div class="flex justify-end gap-2">
-					<Button variant="outline" onclick={() => (showForm = false)} disabled={isSubmitting}
-						>Cancel</Button
+					<Button
+						variant="outline"
+						onclick={() => (showForm = false)}
+						disabled={isSubmitting}
+						testId="admin-students.dialog.cancel-button">Cancel</Button
 					>
 					<Button
 						onclick={handleSubmit}
 						disabled={isSubmitting}
 						aria-label={editingId ? 'Update student' : 'Create student'}
+						testId="admin-students.dialog.create-button"
 					>
 						{isSubmitting ? 'Saving...' : editingId ? 'Update' : 'Create'}
 					</Button>

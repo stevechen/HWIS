@@ -73,12 +73,15 @@ export function getUniqueTag(prefix: string = 'test'): string {
 /**
  * Generate a valid 7-digit student ID for e2e tests.
  * Student IDs must be exactly 7 digits to pass validation.
+ * Uses large random space to avoid collisions with seeded data.
  */
 export function getTestStudentId(prefix: string = ''): string {
 	const suffix = getTestSuffix(prefix);
-	// Generate a 7-digit number based on the suffix hash
+	// Use crypto random for maximum entropy
+	const randomBytes = randomUUID().replace(/-/g, '');
 	const hash = suffix.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-	const randomPart = Math.floor(Math.random() * 10000);
-	const id = String(1000000 + (hash % 1000000) + randomPart).slice(-7);
+	const randomPart = parseInt(randomBytes.slice(0, 8), 16);
+	// 7 digits: 1000000-9999999
+	const id = String(1000000 + (hash % 1000000) + (randomPart % 1000000)).slice(-7);
 	return id;
 }

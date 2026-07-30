@@ -12,14 +12,16 @@
 		type = 'button',
 		disabled,
 		children,
+		testId,
 		...restProps
-	}: ButtonProps = $props();
+	}: ButtonProps & { testId?: string } = $props();
 </script>
 
 {#if href}
 	<a
 		bind:this={ref}
 		data-slot="button"
+		data-testid={testId}
 		class={cn(buttonVariants({ variant, size }), className)}
 		href={disabled ? undefined : href}
 		aria-disabled={disabled}
@@ -33,6 +35,7 @@
 	<button
 		bind:this={ref}
 		data-slot="button"
+		data-testid={testId}
 		class={cn(buttonVariants({ variant, size }), className)}
 		{type}
 		{disabled}

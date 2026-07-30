@@ -619,9 +619,9 @@ await expect(page.getByRole('row', { name: studentId })).toBeVisible();
 
 ### Avoid
 
-- `page.waitForTimeout()` - use web-first assertions with timeout instead
-- `page.reload()` - only use if absolutely necessary; prefer web-first assertions
-- `window.e2e.*` - use imports from `convex-client.ts`
+- `page.waitForTimeout()` — use web-first assertions; default timeout is sufficient. Only set a custom timeout as a **last resort** (e.g., `await expect(locator).toBeVisible({ timeout: 15000 })`).
+- `page.reload()` — only use if absolutely necessary; prefer web-first assertions
+- `window.e2e.*` — use imports from `convex-client.ts`
 
 ### Empty State Testing
 
