@@ -121,6 +121,8 @@
 	}
 </script>
 
+<span data-current-user-id={currentUserId} class="hidden"></span>
+
 <div class="mx-auto w-full max-w-6xl p-8 pt-0">
 	<!-- Filter Controls - Always at top, outside conditionals -->
 	<EvaluationsControls

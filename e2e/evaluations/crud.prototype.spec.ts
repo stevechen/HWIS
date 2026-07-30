@@ -9,7 +9,7 @@ test.describe('Evaluations page (prototype)', () => {
 	const suffix = getTestSuffix('eval');
 	const categoryName = `EvalCat_${suffix}`;
 
-	test.beforeEach(async () => {
+	test.beforeAll(async () => {
 		useRole('teacher');
 		await createCategory({ name: categoryName, e2eTag: `e2e-test_${suffix}` });
 	});
@@ -37,8 +37,23 @@ test.describe('Evaluations page (prototype)', () => {
 
 	test('creates an evaluation', async ({ page }) => {
 		await createEvaluationViaUi(page, `Create_${suffix}`);
-
 		const teacherPage = new TeacherEvaluationsPage(page);
 		await teacherPage.waitForCard(`Create_${suffix}`);
+	});
+
+	test('edits an evaluation', async ({ page }) => {
+		await createEvaluationViaUi(page, `Edit_${suffix}`);
+		const teacherPage = new TeacherEvaluationsPage(page);
+		await teacherPage.editEvaluation(`Edit_${suffix}`);
+		await teacherPage.selectCategory(categoryName);
+		await teacherPage.selectPoint(2);
+		await teacherPage.clickSave();
+	});
+
+	test('deletes an evaluation', async ({ page }) => {
+		await createEvaluationViaUi(page, `Delete_${suffix}`);
+		const teacherPage = new TeacherEvaluationsPage(page);
+		await teacherPage.editEvaluation(`Delete_${suffix}`);
+		await teacherPage.deleteEvaluation();
 	});
 });

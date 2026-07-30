@@ -38,7 +38,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content aria-label="Delete Evaluation" {dialogTestId}>
+	<Dialog.Content aria-label="Delete Evaluation" testId={dialogTestId}>
 		<Dialog.Header>
 			<Dialog.Title>Delete Evaluation</Dialog.Title>
 		</Dialog.Header>

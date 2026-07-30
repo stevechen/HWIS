@@ -109,7 +109,7 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 			await page.getByRole('button', { name: 'Award 2 points' }).click();
 
 			// Submit the form
-			await page.getByRole('button', { name: /submit|create|save/i }).click();
+			await page.getByTestId('evaluations-new.submit-button').click();
 
 			// Should see success message or be redirected
 			// The evaluations page should show the new evaluations

@@ -96,7 +96,11 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content aria-label="Edit Evaluation" onkeydown={handlePointShortcuts} {dialogTestId}>
+	<Dialog.Content
+		aria-label="Edit Evaluation"
+		onkeydown={handlePointShortcuts}
+		testId={dialogTestId}
+	>
 		<Dialog.Header>
 			<Dialog.Title>Edit Evaluation</Dialog.Title>
 		</Dialog.Header>

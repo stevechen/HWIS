@@ -24,12 +24,19 @@ export class TeacherEvaluationsPage {
 	async editEvaluation(studentName: string) {
 		const card = this.page.locator(`[aria-label="Evaluation for ${studentName}"]`);
 		await expect(card).toBeVisible();
-		const box = await card.boundingBox();
-		if (!box) throw new Error('Card has no bounding box');
-		await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-		await this.page.mouse.down();
+
+		await this.page.waitForFunction(
+			() => {
+				const el = document.querySelector('[data-current-user-id]');
+				const val = el?.getAttribute('data-current-user-id');
+				return val && val !== 'undefined' && val !== '';
+			},
+			{ timeout: 10_000 }
+		);
+
+		await card.dispatchEvent('mousedown');
 		await this.page.waitForTimeout(600);
-		await this.page.mouse.up();
+		await card.dispatchEvent('mouseup');
 		await expect(this.page.getByTestId('evaluations.edit-dialog')).toBeVisible();
 	}
 
