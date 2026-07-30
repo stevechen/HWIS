@@ -5,3 +5,4 @@ export * from './NewEvaluationPage';
 export * from './AdminCategoriesPage';
 export * from './AdminClassesPage';
 export * from './AdminHousesPage';
+export * from './AdminUsersPage';

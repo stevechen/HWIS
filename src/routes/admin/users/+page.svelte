@@ -64,14 +64,14 @@
 	}
 </script>
 
-<div class="py-6">
+<div class="py-6" testId="admin-users.root">
 	{#if usersQuery.isLoading}
 		<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
 			<div class="border-muted border-t-primary h-8 w-8 animate-spin rounded-full border-3"></div>
 			<p>Loading user records...</p>
 		</div>
 	{:else if usersQuery.data}
-		<Table.Root aria-label="users">
+		<Table.Root aria-label="users" testId="admin-users.table">
 			<Table.Header>
 				<Table.Row>
 					<Table.Head>Name</Table.Head>
@@ -82,7 +82,7 @@
 			</Table.Header>
 			<Table.Body>
 				{#each usersQuery.data as user (user._id)}
-					<Table.Row>
+					<Table.Row testId={`admin-users.row-${user._id}`}>
 						<Table.Cell class="max-w-[160px] truncate sm:max-w-none">
 							<span class="font-medium">{user.name || 'Unknown'}</span>
 						</Table.Cell>
@@ -95,6 +95,7 @@
 								disabled={updatingId === user._id ||
 									user._id === (currentUser.data?._id as Id<'users'> | undefined) ||
 									user.role === 'super'}
+								testId={`admin-users.role-select-${user._id}`}
 							>
 								<Select.Trigger
 									class="h-8 w-20 text-sm sm:w-auto"
@@ -119,7 +120,7 @@
 							</Badge>
 						</Table.Cell>
 						<Table.Cell>
-							<div class="flex justify-end gap-2">
+							<div class="flex justify-end gap-2" testId={`admin-users.actions-${user._id}`}>
 								{#if user.status !== 'active'}
 									<Button
 										variant="ghost"
@@ -127,6 +128,7 @@
 										onclick={() => updateUserStatus(user._id, 'active')}
 										disabled={updatingId === user._id}
 										title="Approve User"
+										testId={`admin-users.approve-${user._id}`}
 									>
 										<CheckCircle2 class="size-4 text-emerald-600" />
 									</Button>
@@ -139,6 +141,7 @@
 										disabled={updatingId === user._id ||
 											user._id === (currentUser.data?._id as Id<'users'> | undefined)}
 										title="Remove Access"
+										testId={`admin-users.remove-access-${user._id}`}
 									>
 										<XCircle class="size-4 text-red-600" />
 									</Button>
