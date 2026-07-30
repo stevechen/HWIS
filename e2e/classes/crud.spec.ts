@@ -30,10 +30,8 @@ test.describe('Classes CRUD', () => {
 		const dialog = page.getByRole('dialog');
 		await expect(dialog).toBeVisible();
 		await dialog.getByRole('button', { name: /add class/i }).click();
-		await expect(dialog).not.toBeVisible({ timeout: 15000 });
-		await expect(page.getByRole('region', { name: 'Class 7-2', exact: true })).toBeVisible({
-			timeout: 15000
-		});
+		await expect(dialog).not.toBeVisible();
+		await expect(page.getByRole('region', { name: 'Class 7-2', exact: true })).toBeVisible();
 		const newClasses = await page.getByRole('region', { name: /Class 7/ }).count();
 		expect(newClasses).toBeGreaterThan(initialClasses);
 	});
@@ -79,12 +77,10 @@ test.describe('Classes CRUD', () => {
 
 		await page.reload();
 		await page.waitForSelector('body.hydrated');
-		await expect(page.getByRole('region', { name: `Class 7-${className}` })).toBeVisible({
-			timeout: 15000
-		});
+		await expect(page.getByRole('region', { name: `Class 7-${className}` })).toBeVisible();
 
 		const classCard = page.getByRole('region', { name: `Class 7-${className}` });
-		await expect(classCard.getByText(`TestStudent_${suffix}`)).toBeVisible({ timeout: 15000 });
+		await expect(classCard.getByText(`TestStudent_${suffix}`)).toBeVisible();
 		const deleteButton = classCard.locator('button');
 		await deleteButton.click();
 		await expect(page.getByRole('heading', { name: 'Cannot Delete Class' })).toBeVisible();

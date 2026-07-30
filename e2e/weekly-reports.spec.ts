@@ -18,12 +18,12 @@ async function waitForReportDetails(page: Page) {
 	const detailsRegion = dialog.getByRole('region', { name: 'Student details table' });
 	const detailTable = detailsRegion.getByRole('table');
 
-	await expect(detailTable).toBeVisible({ timeout: 10000 });
+	await expect(detailTable).toBeVisible();
 	const dataRow = detailTable
 		.getByRole('row')
 		.filter({ hasNot: detailTable.getByRole('columnheader') })
 		.first();
-	await expect(dataRow).toBeVisible({ timeout: 10000 });
+	await expect(dataRow).toBeVisible();
 }
 
 async function selectFirstAvailableGrade(gradeFilter: Locator) {

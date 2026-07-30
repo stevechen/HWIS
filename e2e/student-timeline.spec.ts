@@ -245,9 +245,7 @@ test.describe('Score Tally Bar @score-tally @sequential', () => {
 		await expect(page.getByRole('region', { name: 'Evaluation' })).toBeVisible();
 
 		// Wait for evaluations to load - admin can see all evaluations
-		await expect(page.getByRole('button', { name: /Evaluation / }).first()).toBeVisible({
-			timeout: 10000
-		});
+		await expect(page.getByRole('button', { name: /Evaluation / }).first()).toBeVisible();
 	});
 
 	test.afterEach(async () => {

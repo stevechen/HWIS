@@ -40,7 +40,7 @@ test.describe('Admin Controls Visibility @admin', () => {
 
 	test('admin can access student management controls for a student row', async ({ page }) => {
 		await page.getByPlaceholder('Search by name or student ID...').fill(studentId);
-		await expect(page.getByText(studentId, { exact: true })).toBeVisible({ timeout: 15000 });
+		await expect(page.getByText(studentId, { exact: true })).toBeVisible({});
 		const studentRow = page.getByRole('row').filter({
 			has: page.getByText(studentId, { exact: true })
 		});

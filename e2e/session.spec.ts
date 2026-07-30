@@ -127,7 +127,7 @@ test.describe('Session Management @session @auth-sequential', () => {
 			// Look for sign out option in the UI
 			// The actual logout button location varies by UI implementation
 			const signOutButton = page.getByRole('menuitem', { name: /sign out|logout|sign out/i });
-			if (await signOutButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+			if (await signOutButton.isVisible().catch(() => false)) {
 				await signOutButton.click();
 
 				// After logout, should be redirected to login or home
@@ -163,13 +163,11 @@ test.describe('Session Management @session @auth-sequential', () => {
 
 			// Look for sign out option
 			const signOutButton = page.getByRole('menuitem', { name: /sign out|logout/i });
-			if (await signOutButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+			if (await signOutButton.isVisible().catch(() => false)) {
 				await signOutButton.click();
 
 				// After logout, should see login button
-				await expect(page.getByRole('button', { name: /sign in|signin/i })).toBeVisible({
-					timeout: 10000
-				});
+				await expect(page.getByRole('button', { name: /sign in|signin/i })).toBeVisible();
 			}
 		});
 	});

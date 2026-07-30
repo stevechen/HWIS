@@ -215,7 +215,8 @@ test.describe('Category to Evaluation Integration @integration', () => {
 	});
 
 	test('category created by admin can be used in evaluation by teacher', async ({ context }) => {
-		test.setTimeout(60000); // Extend timeout for this complex multi-context test
+		// Extend timeout for this complex multi-context test
+		//test.setTimeout(60000);
 
 		// Step 2: Create a new browser context for teacher
 		const browser = context.browser();

@@ -52,7 +52,7 @@ test.describe('Evaluations - Select Student', () => {
 		const filterInput = page.getByRole('textbox', { name: 'Search students' });
 		await filterInput.fill(studentName.toLowerCase());
 		const studentRow = page.getByRole('button', { name: new RegExp(studentName, 'i') });
-		await expect(studentRow).toBeVisible({ timeout: 10000 });
+		await expect(studentRow).toBeVisible();
 	});
 
 	test.afterEach(async () => {
@@ -193,7 +193,7 @@ test.describe('Evaluations - Submit Success', () => {
 		await page.getByRole('button', { name: 'Select category' }).click();
 
 		// Wait for categories to load (Convex sync) - look for any option
-		await expect(page.getByRole('option').first()).toBeVisible({ timeout: 10000 });
+		await expect(page.getByRole('option').first()).toBeVisible();
 
 		// Now wait for our specific category and select it
 		await expect(page.getByRole('option', { name: categoryName })).toBeVisible();

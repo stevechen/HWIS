@@ -165,7 +165,7 @@ test.describe('Edit Student - Data Tests', () => {
 		const searchInput = page.getByRole('textbox', { name: 'Search students' });
 		await searchInput.fill(studentId);
 		await expect(page.getByText('Loading students...')).not.toBeVisible();
-		await expect(studentRow(page, studentId)).toBeVisible({ timeout: 15000 });
+		await expect(studentRow(page, studentId)).toBeVisible();
 	});
 
 	test('can update student status', async ({ page }) => {

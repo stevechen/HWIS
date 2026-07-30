@@ -14,7 +14,7 @@ test.describe('Users Page @users', () => {
 				.getByRole('row')
 				.filter({ hasNot: page.getByRole('columnheader') })
 				.first()
-		).toBeVisible({ timeout: 10000 });
+		).toBeVisible();
 	});
 
 	test('can open role dropdown', async ({ page }) => {
@@ -58,7 +58,7 @@ test.describe('Users Page - Super User @users', () => {
 				.getByRole('row')
 				.filter({ hasNot: page.getByRole('columnheader') })
 				.first()
-		).toBeVisible({ timeout: 10000 });
+		).toBeVisible();
 	});
 
 	test('super option is visible for super users', async ({ page }) => {

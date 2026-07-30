@@ -8,8 +8,8 @@ async function waitForEvaluationsReady(page: Page) {
 
 	for (let attempt = 0; attempt < 2; attempt++) {
 		await Promise.race([
-			evaluationsRegion.waitFor({ state: 'visible', timeout: 10000 }),
-			errorMessage.waitFor({ state: 'visible', timeout: 10000 })
+			evaluationsRegion.waitFor({ state: 'visible' }),
+			errorMessage.waitFor({ state: 'visible' })
 		]);
 
 		if (!(await errorMessage.isVisible())) break;
