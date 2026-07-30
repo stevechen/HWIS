@@ -80,6 +80,47 @@ describe('Classes Page', () => {
 			// IB toggle button should exist for grades 11-12 (IB-DP program)
 			await expect.element(page.getByAltText('IB')).toBeInTheDocument();
 		});
+
+		it('only grade 7 is visible by default', async () => {
+			render(ClassesPage);
+
+			// Grade 7 checkbox should be checked by default
+			await expect.element(page.getByRole('checkbox', { name: '7' })).toBeChecked();
+
+			// Other grades should be unchecked
+			for (const grade of [8, 9, 10, 11, 12]) {
+				await expect.element(page.getByRole('checkbox', { name: String(grade) })).not.toBeChecked();
+			}
+
+			// Only grade 7 header should be visible
+			await expect.element(page.getByText('G7')).toBeInTheDocument();
+
+			// Other grade headers should not be visible
+			for (const grade of [8, 9, 10, 11, 12]) {
+				await expect.element(page.getByText(`G${grade}`)).not.toBeInTheDocument();
+			}
+		});
+
+		it('can show and hide grades using checkboxes', async () => {
+			render(ClassesPage);
+
+			const grade7Checkbox = page.getByRole('checkbox', { name: '7' });
+
+			// Initially G7 should be visible
+			await expect.element(page.getByText('G7')).toBeInTheDocument();
+
+			// Uncheck grade 7
+			await grade7Checkbox.click();
+
+			// Grade 7 classes should be hidden
+			await expect.element(page.getByText('G7')).not.toBeInTheDocument();
+
+			// Check grade 7 again
+			await grade7Checkbox.click();
+
+			// Grade 7 should be visible again
+			await expect.element(page.getByText('G7')).toBeInTheDocument();
+		});
 	});
 
 	describe('Accordion', () => {
