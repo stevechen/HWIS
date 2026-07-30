@@ -1,7 +1,14 @@
 import { page } from 'vitest/browser';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { createMockEvaluationSet } from '../../../../fixtures/evaluations';
+
+const mockAdminUser = {
+	_id: 'admin-001',
+	name: 'Admin User',
+	email: 'admin@school.edu',
+	role: 'admin'
+};
 
 const mockEvalData = createMockEvaluationSet();
 
@@ -10,7 +17,7 @@ vi.mock('convex-svelte', () => ({
 		data: mockEvalData,
 		isLoading: false,
 		isStale: false,
-		error: undefined
+		error: null
 	})),
 	useConvexClient: vi.fn(() => ({
 		mutation: vi.fn().mockResolvedValue(undefined),
@@ -22,15 +29,27 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 	useAuth: vi.fn(() => ({
 		isLoading: false,
 		isAuthenticated: true,
-		data: { user: { name: 'Test Teacher', role: 'teacher' } }
+		data: { user: { name: 'Test Admin', role: 'admin' } }
 	}))
 }));
 
 import StudentEvaluationsPage from '$src/routes/evaluations/student/[studentId]/+page.svelte';
 
 describe('Student Evaluations Page', () => {
-	afterEach(() => {
+	beforeEach(async () => {
 		vi.clearAllMocks();
+		// The page makes multiple useQuery calls. The first is userQuery:
+		// it must return an object with a `role` property (not an array)
+		// so that isAdmin/isTeacher/isStudent resolve and the main content
+		// area renders. Remaining calls (categories, student, evaluations)
+		// fall through to the module-level default (mockEvalData).
+		const { useQuery } = await import('convex-svelte');
+		vi.mocked(useQuery).mockReturnValueOnce({
+			data: mockAdminUser,
+			isLoading: false,
+			isStale: false,
+			error: null
+		});
 	});
 
 	describe('Static Structure', () => {
