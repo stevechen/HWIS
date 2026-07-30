@@ -213,6 +213,9 @@
 <div class="mx-auto max-w-6xl p-8 pt-0">
 	<!-- Filters Section - Sticky for easy access while scrolling -->
 	<EvaluationsControls
+		sortTestId="admin-evaluations.sort"
+		unenrolledTestId="admin-evaluations.unenrolled"
+		detailsTestId="admin-evaluations.details"
 		sortAscending={displayState.sortAscending}
 		{showUnenrolled}
 		showDetails={displayState.showDetails}
@@ -221,12 +224,14 @@
 		onToggleShowDetails={handleToggleShowDetails}
 	>
 		<FilterInput
+			testId="admin-evaluations.filter-student"
 			bind:value={studentFilter}
 			placeholder="Filter by student name..."
 			ariaLabel="Filter by student name"
 			class="w-full sm:w-64"
 		/>
 		<FilterInput
+			testId="admin-evaluations.filter-teacher"
 			bind:value={teacherFilter}
 			placeholder="Filter by teacher..."
 			ariaLabel="Filter by teacher"
@@ -234,6 +239,7 @@
 		/>
 		{#snippet extraToggles()}
 			<Button
+				testId="admin-evaluations.toggle-teacher-name"
 				aria-label={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
 				variant="outline"
 				size="sm"
@@ -250,20 +256,28 @@
 	</EvaluationsControls>
 
 	{#if (hasActiveFilters ? nonPaginatedQuery.isLoading : paginatedQuery.isLoading) && cursor === null}
-		<EvaluationsLoadingState />
+		<EvaluationsLoadingState testId="admin-evaluations.loading" />
 	{:else if hasActiveFilters ? nonPaginatedQuery.error : paginatedQuery.error}
 		<EvaluationsErrorState
+			testId="admin-evaluations.error"
 			message={(hasActiveFilters ? nonPaginatedQuery.error : paginatedQuery.error)?.message ||
 				'An error occurred'}
 		/>
 	{:else if accumulatedEvaluations.length === 0}
 		<EvaluationsEmptyState
+			testId="admin-evaluations.empty"
 			message={hasActiveFilters
 				? 'No evaluations match your search criteria.'
 				: 'No evaluations found.'}
 		/>
 	{:else}
 		<EvaluationsTimeline
+			regionTestId="admin-evaluations.timeline"
+			cardTestIdPrefix="admin-evaluations.card"
+			sortTestId="admin-evaluations.sort"
+			detailsTestId="admin-evaluations.details"
+			unenrolledTestId="admin-evaluations.unenrolled"
+			emptyTestId="admin-evaluations.empty-timeline"
 			evaluations={accumulatedEvaluations}
 			showStudentName={true}
 			{showTeacherName}
@@ -277,20 +291,29 @@
 		/>
 
 		<!-- Load more sentinel -->
-		<div bind:this={sentinelElement} class="h-4"></div>
+		<div data-testid="admin-evaluations.sentinel" bind:this={sentinelElement} class="h-4"></div>
 
 		<!-- Loading indicator -->
 		{#if isLoadingMore}
-			<div class="flex justify-center py-4">
+			<div data-testid="admin-evaluations.loading-more" class="flex justify-center py-4">
 				<Loader class="text-muted-foreground size-6 animate-spin" />
 			</div>
 		{/if}
 
 		<!-- End of list indicator -->
 		{#if isDone && accumulatedEvaluations.length > 0}
-			<div class="text-muted-foreground py-4 text-center text-sm">No more evaluations</div>
+			<div
+				data-testid="admin-evaluations.no-more"
+				class="text-muted-foreground py-4 text-center text-sm"
+			>
+				No more evaluations
+			</div>
 		{/if}
 	{/if}
 
-	<FilterSummaryToast show={filterSummary.showSummary} count={accumulatedEvaluations.length} />
+	<FilterSummaryToast
+		testId="admin-evaluations.filter-summary"
+		show={filterSummary.showSummary}
+		count={accumulatedEvaluations.length}
+	/>
 </div>

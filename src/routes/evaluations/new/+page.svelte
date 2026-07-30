@@ -207,6 +207,7 @@
 				<div class="relative mb-4">
 					<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 					<Input
+						testId="evaluations-new.search-input"
 						type="text"
 						placeholder="Filter by names (separated by commas) or ID..."
 						bind:value={searchQuery}
@@ -227,6 +228,7 @@
 					{:else}
 						{#if filteredStudents.length > 1}
 							<div
+								data-testid="evaluations-new.select-all"
 								class="bg-background hover:bg-accent cursor-pointer border-b transition-colors"
 								onclick={toggleAllFiltered}
 								onkeydown={(e) => e.key === 'Enter' && toggleAllFiltered()}
@@ -254,6 +256,7 @@
 						{/if}
 						{#each filteredStudents as student (student._id)}
 							<div
+								data-testid="evaluations-new.student-row-{student.englishName}"
 								class="bg-background hover:bg-accent cursor-pointer border-b transition-colors last:border-b-0"
 								class:bg-accent={selectedStudentIds.has(student._id)}
 								onclick={() => toggleStudent(student._id)}
@@ -306,7 +309,11 @@
 					<label class="mb-2 block text-sm font-medium">
 						Category
 						<Select.Root type="single" bind:value={categoryId}>
-							<Select.Trigger class="mt-1" aria-label="Select category">
+							<Select.Trigger
+								testId="evaluations-new.category-trigger"
+								class="mt-1"
+								aria-label="Select category"
+							>
 								{selectedCategory?.name ?? 'Select Category'}
 							</Select.Trigger>
 							<Select.Content>
@@ -334,6 +341,7 @@
 						<Button
 							type="button"
 							variant="outline"
+							testId="evaluations-new.point--2"
 							class={[
 								(points === -2 && selectedNegativePointButtonClass) ||
 									unselectedNegativePointButtonClass
@@ -348,6 +356,7 @@
 						<Button
 							type="button"
 							variant="outline"
+							testId="evaluations-new.point--1"
 							class={[
 								(points === -1 && selectedNegativePointButtonClass) ||
 									unselectedNegativePointButtonClass
@@ -362,6 +371,7 @@
 						<Button
 							type="button"
 							variant="outline"
+							testId="evaluations-new.point-1"
 							class={[
 								(points === 1 && selectedPositivePointButtonClass) ||
 									unselectedPositivePointButtonClass
@@ -376,6 +386,7 @@
 						<Button
 							type="button"
 							variant="outline"
+							testId="evaluations-new.point-2"
 							class={[
 								(points === 2 && selectedPositivePointButtonClass) ||
 									unselectedPositivePointButtonClass
@@ -395,6 +406,7 @@
 						Details / Comments
 						<textarea
 							id="evaluation-details"
+							data-testid="evaluations-new.details"
 							bind:value={details}
 							placeholder="Enter specific details about the behavior..."
 							class="bg-background border-input focus-visible:ring-ring ring-offset-background placeholder:text-muted-foreground mt-1 flex min-h-20 w-full resize-none rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
@@ -404,7 +416,11 @@
 				</div>
 
 				{#if validationErrors.length > 0}
-					<div role="alert" class="bg-destructive/10 text-destructive mb-4 rounded-md p-3 text-sm">
+					<div
+						data-testid="evaluations-new.errors"
+						role="alert"
+						class="bg-destructive/10 text-destructive mb-4 rounded-md p-3 text-sm"
+					>
 						{#each validationErrors as errorMsg (errorMsg)}
 							<div>{errorMsg}</div>
 						{/each}
@@ -412,6 +428,7 @@
 				{/if}
 
 				<Button
+					testId="evaluations-new.submit-button"
 					class="w-full"
 					onclick={handleSubmit}
 					disabled={loading}

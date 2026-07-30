@@ -124,6 +124,8 @@
 <div class="mx-auto w-full max-w-6xl p-8 pt-0">
 	<!-- Filter Controls - Always at top, outside conditionals -->
 	<EvaluationsControls
+		sortTestId="evaluations.sort"
+		detailsTestId="evaluations.details"
 		sortAscending={displayState.sortAscending}
 		showDetails={displayState.showDetails}
 		onToggleSort={handleToggleSort}
@@ -131,12 +133,13 @@
 	>
 		{#snippet children()}
 			<FilterInput
+				testId="evaluations.filter-student"
 				bind:value={studentFilter}
 				placeholder="Filter by names (separated by commas)…"
 				ariaLabel="Filter by student"
 				class="w-full sm:w-80"
 			/>
-			<Button onclick={() => void goto('/evaluations/new')}>
+			<Button testId="evaluations.new-button" onclick={() => void goto('/evaluations/new')}>
 				<Plus class="size-4" />
 				New
 			</Button>
@@ -144,11 +147,12 @@
 	</EvaluationsControls>
 
 	{#if evaluationsQuery.isLoading && cursor === null}
-		<EvaluationsLoadingState message="Loading history..." />
+		<EvaluationsLoadingState testId="evaluations.loading" message="Loading history..." />
 	{:else if evaluationsQuery.error}
-		<EvaluationsErrorState message={evaluationsQuery.error.message} />
+		<EvaluationsErrorState testId="evaluations.error" message={evaluationsQuery.error.message} />
 	{:else if accumulatedEvaluations.length === 0}
 		<EvaluationsEmptyState
+			testId="evaluations.empty"
 			message={studentFilter
 				? "No evaluations found for '" +
 					studentFilter +
@@ -156,11 +160,19 @@
 				: 'No evaluations found. Start by awarding some points!'}
 		>
 			{#if !studentFilter}
-				<Button onclick={() => void goto('/evaluations/new')}>Give Points</Button>
+				<Button
+					testId="evaluations.give-points-button"
+					onclick={() => void goto('/evaluations/new')}>Give Points</Button
+				>
 			{/if}
 		</EvaluationsEmptyState>
 	{:else}
 		<EvaluationsTimeline
+			regionTestId="evaluations.timeline"
+			cardTestIdPrefix="evaluations.card"
+			sortTestId="evaluations.sort"
+			detailsTestId="evaluations.details"
+			emptyTestId="evaluations.empty-timeline"
 			evaluations={accumulatedEvaluations}
 			showStudentName={true}
 			showTeacherName={false}
@@ -176,6 +188,7 @@
 		/>
 
 		<FilterSummaryToast
+			testId="evaluations.filter-summary"
 			show={filterSummary.showSummary}
 			count={accumulatedEvaluations.length}
 			filterLabel="student"
@@ -185,6 +198,13 @@
 </div>
 
 <EditEvaluationDialog
+	dialogTestId="evaluations.edit-dialog"
+	categoryTriggerTestId="evaluations.edit-dialog.category"
+	pointButtonTestIdPrefix="evaluations.edit-dialog.point"
+	detailsTestId="evaluations.edit-dialog.details"
+	cancelTestId="evaluations.edit-dialog.cancel"
+	deleteTestId="evaluations.edit-dialog.delete"
+	saveTestId="evaluations.edit-dialog.save"
 	bind:open={editDialogOpen}
 	evaluation={selectedEvaluation}
 	onClose={() => {
@@ -195,6 +215,9 @@
 />
 
 <DeleteEvaluationDialog
+	dialogTestId="evaluations.delete-dialog"
+	cancelTestId="evaluations.delete-dialog.cancel"
+	deleteTestId="evaluations.delete-dialog.delete"
 	bind:open={deleteDialogOpen}
 	evaluation={selectedEvaluation}
 	onDelete={() => {

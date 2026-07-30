@@ -28,6 +28,9 @@
 		children?: import('svelte').Snippet;
 		/** Additional toggle buttons (admin-only features) */
 		extraToggles?: import('svelte').Snippet;
+		sortTestId?: string;
+		unenrolledTestId?: string;
+		detailsTestId?: string;
 	}
 
 	let {
@@ -39,7 +42,10 @@
 		onToggleShowDetails,
 		title,
 		children,
-		extraToggles
+		extraToggles,
+		sortTestId,
+		unenrolledTestId,
+		detailsTestId
 	}: Props = $props();
 </script>
 
@@ -61,6 +67,7 @@
 					size="sm"
 					onclick={onToggleSort}
 					title={sortAscending ? 'Oldest First' : 'Newest First'}
+					testId={sortTestId}
 				>
 					{#if sortAscending}
 						<ArrowUp class="size-4" />
@@ -76,6 +83,7 @@
 						size="sm"
 						onclick={onToggleShowUnenrolled}
 						title={showUnenrolled ? 'Hide unenrolled students' : 'Show unenrolled students'}
+						testId={unenrolledTestId}
 					>
 						{#if showUnenrolled}
 							<ShieldUser class="size-4" />
@@ -92,6 +100,7 @@
 						size="sm"
 						onclick={onToggleShowDetails}
 						title={showDetails ? 'Hide Details' : 'Show Details'}
+						testId={detailsTestId}
 					>
 						{#if showDetails}
 							<ListChevronsUpDown class="size-4" />

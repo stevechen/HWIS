@@ -10,9 +10,19 @@
 		open: boolean;
 		evaluation: EvaluationEntry | null;
 		onDelete?: () => void;
+		dialogTestId?: string;
+		cancelTestId?: string;
+		deleteTestId?: string;
 	}
 
-	let { open = $bindable(), evaluation, onDelete }: Props = $props();
+	let {
+		open = $bindable(),
+		evaluation,
+		onDelete,
+		dialogTestId,
+		cancelTestId,
+		deleteTestId
+	}: Props = $props();
 
 	const client = useConvexClient();
 
@@ -28,7 +38,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content aria-label="Delete Evaluation">
+	<Dialog.Content aria-label="Delete Evaluation" {dialogTestId}>
 		<Dialog.Header>
 			<Dialog.Title>Delete Evaluation</Dialog.Title>
 		</Dialog.Header>
@@ -38,8 +48,8 @@
 		</p>
 
 		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (open = false)}>Cancel</Button>
-			<Button variant="destructive" onclick={handleDelete}>Delete</Button>
+			<Button variant="outline" onclick={() => (open = false)} testId={cancelTestId}>Cancel</Button>
+			<Button variant="destructive" onclick={handleDelete} testId={deleteTestId}>Delete</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

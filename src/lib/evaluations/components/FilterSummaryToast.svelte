@@ -5,9 +5,10 @@
 		total?: number;
 		filterLabel?: string;
 		filterValue?: string;
+		testId?: string;
 	}
 
-	let { show, count, total, filterLabel = 'evaluations', filterValue }: Props = $props();
+	let { show, count, total, filterLabel = 'evaluations', filterValue, testId }: Props = $props();
 
 	const displayText = $derived(
 		total !== undefined
@@ -17,7 +18,7 @@
 </script>
 
 {#if show}
-	<div class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+	<div class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2" data-testid={testId}>
 		<p class="bg-card/90 rounded-full px-4 py-2 text-sm shadow-lg backdrop-blur-sm">
 			{displayText}
 		</p>

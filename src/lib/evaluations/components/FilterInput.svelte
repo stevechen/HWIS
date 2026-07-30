@@ -7,17 +7,19 @@
 		placeholder?: string;
 		ariaLabel?: string;
 		class?: string;
+		testId?: string;
 	}
 
 	let {
 		value = $bindable(),
 		placeholder = 'Filter...',
 		ariaLabel = 'Filter',
-		class: className = ''
+		class: className = '',
+		testId
 	}: Props = $props();
 </script>
 
 <div class="relative {className}">
 	<Funnel class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-	<Input type="text" bind:value {placeholder} class="pl-9" aria-label={ariaLabel} />
+	<Input type="text" bind:value {placeholder} class="pl-9" aria-label={ariaLabel} {testId} />
 </div>

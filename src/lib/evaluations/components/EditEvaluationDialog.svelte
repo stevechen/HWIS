@@ -12,9 +12,28 @@
 		evaluation: EvaluationEntry | null;
 		onClose: () => void;
 		onDelete: () => void;
+		dialogTestId?: string;
+		categoryTriggerTestId?: string;
+		pointButtonTestIdPrefix?: string;
+		detailsTestId?: string;
+		cancelTestId?: string;
+		deleteTestId?: string;
+		saveTestId?: string;
 	}
 
-	let { open = $bindable(), evaluation, onClose, onDelete }: Props = $props();
+	let {
+		open = $bindable(),
+		evaluation,
+		onClose,
+		onDelete,
+		dialogTestId,
+		categoryTriggerTestId,
+		pointButtonTestIdPrefix,
+		detailsTestId,
+		cancelTestId,
+		deleteTestId,
+		saveTestId
+	}: Props = $props();
 
 	const client = useConvexClient();
 	const categoriesQuery = useQuery(api.categories.list, () => ({}));
@@ -77,7 +96,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content aria-label="Edit Evaluation" onkeydown={handlePointShortcuts}>
+	<Dialog.Content aria-label="Edit Evaluation" onkeydown={handlePointShortcuts} {dialogTestId}>
 		<Dialog.Header>
 			<Dialog.Title>Edit Evaluation</Dialog.Title>
 		</Dialog.Header>
@@ -87,7 +106,11 @@
 			<div class="space-y-2">
 				<label class="text-sm font-medium" for="category-select">Category</label>
 				<Select.Root type="single" bind:value={editCategoryId}>
-					<Select.Trigger id="category-select" aria-label="Select category">
+					<Select.Trigger
+						id="category-select"
+						aria-label="Select category"
+						testId={categoryTriggerTestId}
+					>
 						{#if categoriesQuery.isLoading}
 							Loading...
 						{:else if editCategoryId && categoriesQuery.data}
@@ -113,6 +136,7 @@
 						<Button
 							type="button"
 							variant="outline"
+							testId={pointButtonTestIdPrefix ? pointButtonTestIdPrefix + '-' + p : undefined}
 							class={[
 								(editValue === p &&
 									p > 0 &&
@@ -149,20 +173,22 @@
 					class="bg-background border-input w-full rounded-md border p-3 text-sm"
 					rows="3"
 					aria-label="Evaluation details"
+					data-testid={detailsTestId}
 				></textarea>
 			</div>
 		</div>
 
 		<Dialog.Footer>
-			<Button variant="outline" onclick={onClose}>Cancel</Button>
+			<Button variant="outline" onclick={onClose} testId={cancelTestId}>Cancel</Button>
 			<Button
 				variant="destructive"
 				onclick={() => {
 					open = false;
 					onDelete();
-				}}>Delete</Button
+				}}
+				testId={deleteTestId}>Delete</Button
 			>
-			<Button onclick={handleSave} disabled={editLoading}>
+			<Button onclick={handleSave} disabled={editLoading} testId={saveTestId}>
 				{editLoading ? 'Saving...' : 'Save Changes'}
 			</Button>
 		</Dialog.Footer>

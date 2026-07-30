@@ -377,7 +377,7 @@
 <div class="mx-auto flex min-h-screen max-w-6xl flex-col p-8">
 	<!-- Loading State -->
 	{#if isLoading}
-		<EvaluationsLoadingState message={loadingMessage} />
+		<EvaluationsLoadingState testId="evaluations-student.loading" message={loadingMessage} />
 	{:else if isStudent && !isEnrolled}
 		<!-- Access Denied for Not Enrolled Students -->
 		<div class="flex flex-col items-center justify-center px-4 py-16 text-center">
@@ -442,6 +442,11 @@
 				<!-- Right column: Timeline -->
 				<div class="flex min-w-0 flex-1 flex-col">
 					<EvaluationsTimeline
+						regionTestId="evaluations-student.timeline"
+						cardTestIdPrefix="evaluations-student.card"
+						sortTestId="evaluations-student.sort"
+						detailsTestId="evaluations-student.details"
+						emptyTestId="evaluations-student.empty-timeline"
 						evaluations={filteredEvaluations}
 						showStudentName={false}
 						studentGrade={(student as { grade?: number }).grade}
@@ -454,6 +459,7 @@
 					>
 						{#if !isTeacher}
 							<FilterInput
+								testId="evaluations-student.filter-teacher"
 								bind:value={teacherFilter}
 								placeholder="Filter by teacher(s)…"
 								ariaLabel="Filter by teacher"
@@ -463,6 +469,7 @@
 						{#snippet extraToggles()}
 							{#if isAdmin}
 								<Button
+									testId="evaluations-student.toggle-teacher-name"
 									aria-label={showTeacherName ? 'Hide teacher name' : 'Show teacher name'}
 									variant="outline"
 									size="sm"
@@ -512,6 +519,7 @@
 
 		<!-- Filter Summary -->
 		<FilterSummaryToast
+			testId="evaluations-student.filter-summary"
 			show={showFilterSummary}
 			count={filteredEvaluations.length}
 			total={evaluations.length}
@@ -523,6 +531,13 @@
 
 <!-- Edit Dialog -->
 <EditEvaluationDialog
+	dialogTestId="evaluations-student.edit-dialog"
+	categoryTriggerTestId="evaluations-student.edit-dialog.category"
+	pointButtonTestIdPrefix="evaluations-student.edit-dialog.point"
+	detailsTestId="evaluations-student.edit-dialog.details"
+	cancelTestId="evaluations-student.edit-dialog.cancel"
+	deleteTestId="evaluations-student.edit-dialog.delete"
+	saveTestId="evaluations-student.edit-dialog.save"
 	bind:open={editDialogOpen}
 	evaluation={selectedEvaluation}
 	onClose={() => {
@@ -533,4 +548,10 @@
 />
 
 <!-- Delete Confirmation Dialog -->
-<DeleteEvaluationDialog bind:open={deleteDialogOpen} evaluation={selectedEvaluation} />
+<DeleteEvaluationDialog
+	dialogTestId="evaluations-student.delete-dialog"
+	cancelTestId="evaluations-student.delete-dialog.cancel"
+	deleteTestId="evaluations-student.delete-dialog.delete"
+	bind:open={deleteDialogOpen}
+	evaluation={selectedEvaluation}
+/>

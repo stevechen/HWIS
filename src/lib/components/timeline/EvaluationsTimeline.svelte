@@ -33,6 +33,12 @@
 		children?: import('svelte').Snippet;
 		/** Additional toggle buttons to show in the right-side control group */
 		extraToggles?: import('svelte').Snippet;
+		regionTestId?: string;
+		cardTestIdPrefix?: string;
+		sortTestId?: string;
+		detailsTestId?: string;
+		unenrolledTestId?: string;
+		emptyTestId?: string;
 	}
 
 	let {
@@ -53,7 +59,13 @@
 		onLongPress,
 		canEditEntry,
 		children,
-		extraToggles
+		extraToggles,
+		regionTestId,
+		cardTestIdPrefix,
+		sortTestId,
+		detailsTestId,
+		unenrolledTestId,
+		emptyTestId
 	}: Props = $props();
 
 	// Client-side fallback filter (server handles primary filtering)
@@ -137,6 +149,7 @@
 				size="sm"
 				onclick={() => (sortAscending = !sortAscending)}
 				title={sortAscending ? 'Oldest First' : 'Newest First'}
+				testId={sortTestId}
 			>
 				{#if sortAscending}
 					<ArrowUp class="size-4" />
@@ -153,6 +166,7 @@
 					size="sm"
 					onclick={() => onToggleShowUnenrolled()}
 					title={showUnenrolled ? 'Hide unenrolled students' : 'Show unenrolled students'}
+					testId={unenrolledTestId}
 				>
 					{#if showUnenrolled}
 						<ShieldPlus class="size-4" />
@@ -168,6 +182,7 @@
 				size="sm"
 				onclick={() => (showDetails = !showDetails)}
 				title={showDetails ? 'Hide Details' : 'Show Details'}
+				testId={detailsTestId}
 			>
 				{#if showDetails}
 					<ListChevronsUpDown class="size-4" />
@@ -200,7 +215,7 @@
 {/if}
 
 {#if filteredEvaluations.length === 0}
-	<Card.Root class="p-8 text-center">
+	<Card.Root data-testid={emptyTestId} class="p-8 text-center">
 		<Card.Content class="pt-6">
 			<p class="text-muted-foreground mb-6">No evaluations found.</p>
 		</Card.Content>
@@ -209,6 +224,7 @@
 	<div
 		role="region"
 		aria-label="Evaluations"
+		data-testid={regionTestId}
 		class="from-background/0 via-background/80 to-background/0 relative bg-linear-to-b"
 	>
 		<div
@@ -272,6 +288,7 @@
 			'bg-card relative max-w-40 cursor-pointer rounded-lg border p-3 shadow-sm transition-shadow hover:shadow-md sm:max-w-full sm:min-w-50'
 		]}
 		role="button"
+		data-testid={cardTestIdPrefix ? cardTestIdPrefix + '-' + entry._id : undefined}
 		aria-label="Evaluation {showStudentName
 			? 'for ' + entry.englishName
 			: 'by ' + entry.teacherName}"
