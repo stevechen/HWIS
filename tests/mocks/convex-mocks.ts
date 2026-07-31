@@ -37,15 +37,12 @@ const mockMutation = vi.fn().mockResolvedValue(undefined);
 const mockQuery = vi.fn().mockResolvedValue({});
 const mockCreateSvelteAuthClient = vi.fn();
 
-const getMockUseQuery = () =>
-	vi.fn(() => ({
-		data: currentConvexOptions.data,
-		isLoading: currentConvexOptions.isLoading ?? false,
-		error: currentConvexOptions.error,
-		isStale: false
-	}));
-
-let mockUseQuery = getMockUseQuery();
+const mockUseQuery = vi.fn(() => ({
+	data: currentConvexOptions.data,
+	isLoading: currentConvexOptions.isLoading ?? false,
+	error: currentConvexOptions.error,
+	isStale: false
+}));
 
 const mockUseAuth = vi.fn(() => ({
 	isLoading: currentAuthOptions.isLoading ?? false,
@@ -55,7 +52,7 @@ const mockUseAuth = vi.fn(() => ({
 
 vi.mock('convex-svelte', () => ({
 	setupConvex: vi.fn(),
-	useQuery: () => mockUseQuery(),
+	useQuery: mockUseQuery,
 	useConvexClient: vi.fn(() => ({
 		mutation: currentConvexOptions.customMutation ?? mockMutation,
 		query: currentConvexOptions.customQuery ?? mockQuery
@@ -69,7 +66,12 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 
 export function setupConvexMocks(options: ConvexMockOptions = {}) {
 	currentConvexOptions = { ...defaultConvexOptions, ...options };
-	mockUseQuery = getMockUseQuery();
+	mockUseQuery.mockImplementation(() => ({
+		data: currentConvexOptions.data,
+		isLoading: currentConvexOptions.isLoading ?? false,
+		error: currentConvexOptions.error,
+		isStale: false
+	}));
 	return {
 		useQuery: mockUseQuery,
 		mutation: currentConvexOptions.customMutation ?? mockMutation,
@@ -85,12 +87,28 @@ export function setupAuthMocks(options: AuthMockOptions = {}) {
 	};
 }
 
-export function createMockQueryResult<T>(data: T) {
+export function createMockQueryResult<T>(
+	data: T,
+	overrides?: { isLoading?: boolean; error?: unknown; isStale?: boolean }
+) {
 	return {
 		data,
-		isLoading: false,
-		error: undefined,
-		isStale: false
+		isLoading: overrides?.isLoading ?? false,
+		error: overrides?.error ?? undefined,
+		isStale: overrides?.isStale ?? false
+	} as any;
+}
+
+export function createMockAuthResult(
+	isAuthenticated: boolean,
+	overrides?: { isLoading?: boolean; user?: { name: string; role?: string } }
+) {
+	return {
+		isLoading: overrides?.isLoading ?? false,
+		isAuthenticated,
+		data: isAuthenticated
+			? { user: { name: overrides?.user?.name ?? 'Test User', role: overrides?.user?.role } }
+			: null
 	};
 }
 
@@ -111,7 +129,12 @@ export function resetMockOptions() {
 	mockMutation.mockResolvedValue(undefined);
 	mockQuery.mockReset();
 	mockQuery.mockResolvedValue({});
-	mockUseQuery = getMockUseQuery();
+	mockUseQuery.mockImplementation(() => ({
+		data: currentConvexOptions.data,
+		isLoading: currentConvexOptions.isLoading ?? false,
+		error: currentConvexOptions.error,
+		isStale: false
+	}));
 	mockCreateSvelteAuthClient.mockClear();
 	mockUseAuth.mockClear();
 }

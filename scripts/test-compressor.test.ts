@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { compressResults } from './test-compressor';
+import { compressResults, type JsonReport } from './test-compressor';
 
 const allPassFixture = {
 	stats: { expected: 2, unexpected: 0, flaky: 0, skipped: 0, ok: true },
@@ -31,7 +31,7 @@ const allPassFixture = {
 			]
 		}
 	]
-};
+} as const satisfies JsonReport;
 
 const twoFailuresFixture = {
 	stats: { expected: 1, unexpected: 2, flaky: 0, skipped: 0, ok: false },
@@ -44,7 +44,7 @@ const twoFailuresFixture = {
 					file: 'e2e/passing.spec.ts',
 					line: 10,
 					column: 2,
-					tests: [{ status: 'passed', expectedStatus: 'passed', errors: [] }]
+					tests: [{ status: 'passed' as const, expectedStatus: 'passed' as const, errors: [] }]
 				}
 			],
 			suites: [
@@ -58,8 +58,8 @@ const twoFailuresFixture = {
 							column: 5,
 							tests: [
 								{
-									status: 'failed',
-									expectedStatus: 'passed',
+									status: 'failed' as const,
+									expectedStatus: 'passed' as const,
 									errors: [
 										{
 											message: `Error: expect(locator).toBeVisible() failed
@@ -83,8 +83,8 @@ Error: element(s) not found`,
 							column: 3,
 							tests: [
 								{
-									status: 'failed',
-									expectedStatus: 'passed',
+									status: 'failed' as const,
+									expectedStatus: 'passed' as const,
 									errors: [
 										{
 											message: `TimeoutError: page.getByText("Submit") — locator not found
@@ -104,7 +104,7 @@ Timeout: 30000ms`,
 			]
 		}
 	]
-};
+} as const satisfies JsonReport;
 
 describe('compressResults', () => {
 	it('returns "All N tests passed." when all pass', () => {
@@ -172,8 +172,8 @@ describe('compressResults', () => {
 							column: 1,
 							tests: [
 								{
-									status: 'failed',
-									expectedStatus: 'passed',
+									status: 'failed' as const,
+									expectedStatus: 'passed' as const,
 									errors: [
 										{
 											message: 'Error: kaboom',
@@ -207,8 +207,8 @@ describe('compressResults', () => {
 							column: 1,
 							tests: [
 								{
-									status: 'failed',
-									expectedStatus: 'passed',
+									status: 'failed' as const,
+									expectedStatus: 'passed' as const,
 									errors: [
 										{
 											message: "Error: expect(received).toBe(expected) — expected 'bar' got 'foo'",

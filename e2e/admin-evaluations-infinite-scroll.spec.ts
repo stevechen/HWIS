@@ -4,25 +4,25 @@ import { createStudentWithEvaluations, cleanupByTag, useRole } from './convex-cl
 import { AdminEvaluationsPage } from './pages';
 
 async function waitForEvaluationsReady(page: import('@playwright/test').Page) {
-	const errorMessage = page.getByTestId('admin-evaluations.error');
+	const evalsPage = new AdminEvaluationsPage(page);
 
 	for (let attempt = 0; attempt < 2; attempt++) {
 		const loading = page.getByTestId('admin-evaluations.loading');
 		await Promise.race([
 			loading.waitFor({ state: 'hidden' }),
-			errorMessage.waitFor({ state: 'visible' })
+			page.getByTestId('admin-evaluations.error').waitFor({ state: 'visible' })
 		]);
 
-		if (!(await errorMessage.isVisible())) break;
+		if (!(await page.getByTestId('admin-evaluations.error').isVisible())) break;
 
 		// Auth can race on first load in Chromium; reload once and retry
 		await page.reload();
 		await page.waitForSelector('body.hydrated');
 	}
 
-	await expect(errorMessage).toBeHidden();
-	await expect(page.getByTestId('admin-evaluations.loading')).toBeHidden();
-	await expect(page.getByTestId('admin-evaluations.timeline')).toBeVisible();
+	await evalsPage.expectErrorHidden();
+	await evalsPage.expectLoadingHidden();
+	await evalsPage.expectTimelineVisible();
 }
 
 test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential', () => {
@@ -79,7 +79,7 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 	});
 
 	test('initial page load shows evaluations', async () => {
-		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
+		await evalsPage.expectTimelineVisible();
 
 		// Verify at least one evaluation is displayed
 		await evalsPage.expectFirstCardVisible();
@@ -89,7 +89,7 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 	});
 
 	test('shows "No more evaluations" message at end of list', async () => {
-		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
+		await evalsPage.expectTimelineVisible();
 
 		// Filter by this test's unique suffix to isolate from parallel tests
 		await evalsPage.fillStudentFilter(suffix);
@@ -116,7 +116,7 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 	});
 
 	test('filter changes reset pagination and show filtered results', async () => {
-		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
+		await evalsPage.expectTimelineVisible();
 
 		// Verify multiple students are visible initially (at least 2 different ones)
 		await evalsPage.expectFirstCardVisible();
@@ -133,8 +133,8 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 		await evalsPage.expectFirstCardVisible();
 
 		// Verify that other students are NOT visible (filter is working)
-		const otherStudentCards = evalsPage.page.locator('[data-testid^="admin-evaluations.card-"]', {
-			hasText: 'ScrollStudent_1'
+		const otherStudentCards = evalsPage.getAllCards().filter({
+			has: evalsPage.page.locator('text="ScrollStudent_1"')
 		});
 		await expect(otherStudentCards).not.toBeVisible();
 
@@ -151,7 +151,7 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 
 	test('sort order toggle resets pagination', async () => {
 		// Wait for initial load
-		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
+		await evalsPage.expectTimelineVisible();
 
 		// Scope the list to this test's own records so seeded data cannot dominate the view.
 		await evalsPage.fillStudentFilter(suffix);
@@ -191,7 +191,7 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 
 	test('teacher filter works correctly', async () => {
 		// Wait for initial load
-		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
+		await evalsPage.expectTimelineVisible();
 
 		// Apply a teacher filter
 		await evalsPage.fillTeacherFilter('Test');
@@ -214,7 +214,7 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 
 	test('loading indicator appears when fetching more data', async () => {
 		// Wait for initial load
-		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
+		await evalsPage.expectTimelineVisible();
 
 		// The loading indicator (spinner) should appear when loading more data
 		// This is hard to test directly since it appears briefly during loading
@@ -224,7 +224,7 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 		evalsPage.scrollToBottom();
 
 		// The page should still be functional
-		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
+		await evalsPage.expectTimelineVisible();
 	});
 });
 
@@ -267,7 +267,7 @@ test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small @sequent
 	});
 
 	test('shows "No more evaluations" immediately for small datasets', async () => {
-		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
+		await evalsPage.expectTimelineVisible();
 
 		// Filter to this test's single record so the assertion is independent of seeded data.
 		await evalsPage.fillStudentFilter(suffix);
@@ -321,7 +321,7 @@ test.describe('Admin Evaluations - Filter Empty State @infinite-scroll-filter-em
 	});
 
 	test('filter with no matches shows empty state', async () => {
-		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
+		await evalsPage.expectTimelineVisible();
 
 		// Apply a filter that matches nothing
 		await evalsPage.fillStudentFilter('NonExistentStudentXYZ123');

@@ -1,6 +1,6 @@
 type TestError = { message: string; stack?: string };
 
-type JsonReport = {
+export type JsonReport = {
 	stats?: { expected: number; unexpected: number; flaky: number; skipped: number; ok: boolean };
 	suites?: Suite[];
 };
@@ -16,6 +16,7 @@ type Spec = {
 	title: string;
 	file: string;
 	line: number;
+	column?: number;
 	tests?: TestResult[];
 };
 

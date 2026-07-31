@@ -52,10 +52,10 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations 
 		await evalsPage.expectTimelineVisible();
 
 		// Use card testIds to find evaluation cards for each student
-		enrolled = page.locator('[data-testid^="admin-evaluations.card-"]', {
+		enrolled = evalsPage.getAllCards().filter({
 			has: page.locator(`text="${enrolledStudentName}"`)
 		});
-		unEnrolled = page.locator('[data-testid^="admin-evaluations.card-"]', {
+		unEnrolled = evalsPage.getAllCards().filter({
 			has: page.locator(`text="${unenrolledStudentName}"`)
 		});
 	});
@@ -271,10 +271,10 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases @sequential', () => {
 	test('all students enrolled shows all regardless of toggle state', async () => {
 		useRole('admin');
 
-		const student1Card = evalsPage.page.locator('[data-testid^="admin-evaluations.card-"]', {
+		const student1Card = evalsPage.getAllCards().filter({
 			has: evalsPage.page.locator(`text="${student1Name}"`)
 		});
-		const student2Card = evalsPage.page.locator('[data-testid^="admin-evaluations.card-"]', {
+		const student2Card = evalsPage.getAllCards().filter({
 			has: evalsPage.page.locator(`text="${student2Name}"`)
 		});
 
