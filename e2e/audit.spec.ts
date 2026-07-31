@@ -1,16 +1,16 @@
 import { test, expect } from '@playwright/test';
 import { cleanupAuditLogs, seedAuditLogs } from './convex-client';
+import { AdminAuditPage } from './pages';
 
 test.describe('Audit Log Page (super admin) @audit', () => {
 	test.use({ storageState: 'e2e/.auth/super.json' });
 
+	let auditPage: AdminAuditPage;
+
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/admin/audit');
-		await page.waitForSelector('body.hydrated');
-		await page.evaluate(() => {
-			localStorage.removeItem('audit-table-columns');
-			localStorage.removeItem('audit-visible-columns');
-		});
+		auditPage = new AdminAuditPage(page);
+		await auditPage.goto();
+		await auditPage.resetColumnVisibility();
 	});
 
 	test.afterEach(async () => {
@@ -18,10 +18,10 @@ test.describe('Audit Log Page (super admin) @audit', () => {
 	});
 
 	test('loads core audit controls', async ({ page }) => {
-		await expect(page.getByRole('button', { name: 'Columns control' })).toBeVisible();
-		await expect(page.getByPlaceholder('Student')).toBeVisible();
-		await expect(page.getByPlaceholder('Teacher')).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Grade' })).toBeVisible();
+		await expect(page.getByTestId('audit.columns-control')).toBeVisible();
+		await expect(page.getByTestId('audit.filter-student')).toBeVisible();
+		await expect(page.getByTestId('audit.filter-teacher')).toBeVisible();
+		await expect(page.getByTestId('audit.filter-grade')).toBeVisible();
 	});
 });
 
@@ -30,8 +30,10 @@ test.describe('Audit Log - Data-driven column toggle', () => {
 
 	let testAuthId: string;
 	let testAuditLogs = false;
+	let auditPage: AdminAuditPage;
 
 	test.beforeEach(async ({ page }) => {
+		auditPage = new AdminAuditPage(page);
 		testAuthId = `e2e-audit-${Math.random().toString(36).substring(7)}`;
 
 		const seedResult = await seedAuditLogs(testAuthId);
@@ -40,14 +42,10 @@ test.describe('Audit Log - Data-driven column toggle', () => {
 		}
 		testAuditLogs = true;
 
-		await page.goto('/admin/audit');
-		await page.waitForSelector('body.hydrated');
+		await auditPage.goto();
 		// Wait for Convex reactivity to deliver seeded audit logs before proceeding
-		await expect(page.getByText('student_created')).toBeVisible();
-		await page.evaluate(() => {
-			localStorage.removeItem('audit-table-columns');
-			localStorage.removeItem('audit-visible-columns');
-		});
+		await expect(page.getByTestId('audit.table')).toBeVisible();
+		await auditPage.resetColumnVisibility();
 	});
 
 	test.afterEach(async () => {
@@ -55,25 +53,21 @@ test.describe('Audit Log - Data-driven column toggle', () => {
 	});
 
 	test('toggles Details column while filtering seeded data', async ({ page }) => {
-		await expect(page.getByRole('table', { name: 'Audit log table' })).toBeVisible();
+		await expect(page.getByTestId('audit.table')).toBeVisible();
 
-		const teacherInput = page.getByRole('textbox', { name: 'Filter by teacher name' });
-		await teacherInput.fill(`Test Performer ${testAuthId}`);
-		await expect(page.locator('tbody tr')).toHaveCount(3);
+		await auditPage.fillTeacherFilter(`Test Performer ${testAuthId}`);
+		await auditPage.expectTableRowCount(3);
 
-		await page.getByRole('button', { name: 'Columns control' }).click();
-		const menu = page.getByRole('menu', { name: 'Available columns' });
-		await expect(menu).toBeVisible();
+		// Toggle Details column off
+		await auditPage.openColumnSelector();
+		await auditPage.toggleColumn('details', false);
+		await auditPage.closeColumnSelector();
+		await auditPage.expectColumnVisible('details', false);
 
-		const detailsCheckbox = page.getByRole('checkbox', { name: 'Details' });
-		if (await detailsCheckbox.isChecked()) await detailsCheckbox.click();
-
-		await page.keyboard.press('Escape');
-		await expect(page.getByRole('columnheader', { name: 'Details' })).not.toBeVisible();
-
-		await page.getByRole('button', { name: 'Columns control' }).click();
-		await page.getByRole('checkbox', { name: 'Details' }).click();
-		await page.keyboard.press('Escape');
-		await expect(page.getByRole('columnheader', { name: 'Details' })).toBeVisible();
+		// Toggle Details column back on
+		await auditPage.openColumnSelector();
+		await auditPage.toggleColumn('details', true);
+		await auditPage.closeColumnSelector();
+		await auditPage.expectColumnVisible('details', true);
 	});
 });

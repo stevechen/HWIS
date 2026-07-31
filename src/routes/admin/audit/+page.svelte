@@ -360,19 +360,25 @@
 <div class="container mx-auto max-w-[1400px] py-8">
 	<div class="mb-6 flex items-center justify-end gap-2">
 		{#if !isDefaultOrder()}
-			<Button variant="outline" onclick={resetColumnOrder} class="mr-2" aria-label="Reset Columns">
+			<Button
+				variant="outline"
+				onclick={resetColumnOrder}
+				class="mr-2"
+				aria-label="Reset Columns"
+				testId="audit.reset-columns"
+			>
 				<GripVertical class="mr-2 size-4" />
 				Reset Columns
 			</Button>
 		{/if}
 		<Popover.Root bind:open={isColumnSelectorOpen}>
 			<Popover.Trigger aria-label="Columns control">
-				<Button variant="outline">
+				<Button variant="outline" testId="audit.columns-control">
 					<Columns class="mr-2 size-4" />
 					Columns
 				</Button>
 			</Popover.Trigger>
-			<Popover.Content class="w-56 p-0" align="end">
+			<Popover.Content class="w-56 p-0" align="end" data-testid="audit.columns-popover">
 				<div class="flex items-center border-b px-3 py-2">
 					<span class="text-sm font-medium">Show Columns</span>
 				</div>
@@ -386,6 +392,7 @@
 								checked={isColumnVisible(column.key)}
 								onchange={() => toggleColumn(column.key)}
 								class="size-4 rounded border-gray-300"
+								data-testid={`audit.column-toggle.${column.key}`}
 							/>
 							<span>{column.label}</span>
 						</label>
@@ -405,6 +412,7 @@
 						placeholder="ID"
 						bind:value={filterId}
 						aria-label="Filter by ID"
+						testId="audit.filter-id"
 					/>
 				</div>
 			{/if}
@@ -415,10 +423,11 @@
 					placeholder="Student"
 					bind:value={filterName}
 					aria-label="Filter by student name"
+					testId="audit.filter-student"
 				/>
 			</div>
 			<Select.Root type="single" value={filterGrade} onValueChange={(val) => (filterGrade = val)}>
-				<Select.Trigger class="w-24">
+				<Select.Trigger class="w-24" testId="audit.filter-grade">
 					{filterGrade ? `G${filterGrade}` : 'Grade'}
 				</Select.Trigger>
 				<Select.Content>
@@ -436,10 +445,16 @@
 					placeholder="Teacher"
 					bind:value={filterTeacher}
 					aria-label="Filter by teacher name"
+					testId="audit.filter-teacher"
 				/>
 			</div>
 			{#if hasActiveFilters()}
-				<Button variant="outline" onclick={clearFilters} aria-label="Clear all filters">
+				<Button
+					variant="outline"
+					onclick={clearFilters}
+					aria-label="Clear all filters"
+					testId="audit.clear-filters"
+				>
 					<X class="mr-2 size-4" />
 					Clear Filters
 				</Button>
@@ -460,7 +475,7 @@
 					<p>No matching audit logs found.</p>
 				</div>
 			{:else}
-				<div class="overflow-x-auto">
+				<div class="overflow-x-auto" data-testid="audit.table">
 					<Table.Root aria-label="Audit log table">
 						<Table.Header>
 							<Table.Row>
@@ -479,6 +494,7 @@
 										ondragenter={(e) => handleDragEnter(column.key, e)}
 										ondrop={(e) => handleDrop(column.key, e)}
 										onclick={() => column.sortable && handleSort(column.key)}
+										data-testid={`audit.column-header.${column.key}`}
 									>
 										<div
 											class="flex items-center gap-2 {column.key === 'studentGrade'

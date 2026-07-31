@@ -6,3 +6,4 @@ export * from './AdminCategoriesPage';
 export * from './AdminClassesPage';
 export * from './AdminHousesPage';
 export * from './AdminUsersPage';
+export * from './AdminAuditPage';
