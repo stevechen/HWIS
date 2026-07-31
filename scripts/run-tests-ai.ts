@@ -9,7 +9,21 @@ function isJsonReport(value: unknown): value is JsonReport {
 	return typeof value === 'object' && value !== null && 'stats' in (value as object);
 }
 
+/**
+ * Bun injects CONVEX_AUTH_TOKEN from Convex's internal config, but its format
+ * is `dev:<project>|<base64>` — not a valid JWT.  The local Convex dev server
+ * accepts unauthenticated requests, so passing a malformed token causes 401
+ * errors. Strip it when it's not a real 3-part JWT.
+ */
+function sanitizeEnv() {
+	const token = process.env.CONVEX_AUTH_TOKEN;
+	if (token && token.split('.').length !== 3) {
+		delete process.env.CONVEX_AUTH_TOKEN;
+	}
+}
+
 async function main() {
+	sanitizeEnv();
 	const passthroughArgs = process.argv.slice(2);
 
 	const child = spawn('bunx', ['playwright', 'test', '--reporter=json', ...passthroughArgs], {
