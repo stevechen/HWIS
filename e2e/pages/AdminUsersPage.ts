@@ -1,12 +1,12 @@
 import { Page, expect } from '@playwright/test';
 
 export class AdminUsersPage {
-	constructor(private page: Page) {}
+	constructor(public page: Page) {}
 
 	async goto() {
 		await this.page.goto('/admin/users');
 		await this.page.waitForSelector('body.hydrated');
-		await expect(this.page.getByTestId('admin-users.root')).toBeVisible({ timeout: 10000 });
+		await expect(this.page.getByTestId('admin-users.root')).toBeVisible();
 	}
 
 	async expectUserVisible(userId: string, name: string) {

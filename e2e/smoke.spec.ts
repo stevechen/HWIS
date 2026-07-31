@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { getTestSuffix } from './helpers';
 import { createStudent, cleanupTestData } from './convex-client';
+import { NewEvaluationPage, AdminStudentsPage } from './pages';
 
 test.describe('Smoke Tests @smoke', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
@@ -22,21 +23,17 @@ test.describe('Smoke Tests @smoke', () => {
 	});
 
 	test('Teacher creates evaluation - full UI flow', async ({ page }) => {
-		await page.goto('/evaluations/new');
-		await page.waitForSelector('body.hydrated');
+		const evalsPage = new NewEvaluationPage(page);
+		await evalsPage.goto();
 
-		// Verify page structure loads correctly
 		await expect(page.getByRole('heading', { name: 'New Evaluation' })).toBeVisible();
 		await expect(page.getByText('1. Select Students')).toBeVisible();
 
-		// Wait for students section to load
 		await page.waitForSelector('text=Loading students...', { state: 'detached' });
 
-		// Verify search input is present
 		const filterInput = page.getByRole('textbox', { name: 'Search students' });
 		await expect(filterInput).toBeVisible();
 
-		// Verify evaluation details section
 		await expect(page.getByText('2. Evaluation Details')).toBeVisible();
 	});
 
@@ -55,13 +52,11 @@ test.describe('Smoke Tests @smoke', () => {
 			e2eTag: testE2eTag
 		});
 
-		// Teachers should be redirected away from admin pages
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
 
 		await page.waitForURL(/\/evaluations/);
 		await expect(page).toHaveURL(/\/evaluations/);
-		// Ensure we did not land on admin students page
 		await expect(page).not.toHaveURL(/\/admin\/students/);
 	});
 });
@@ -86,6 +81,7 @@ test.describe('Student Table UI Tests @students', () => {
 	});
 
 	test('filters students by search term', async ({ page }) => {
+		const studentsPage = new AdminStudentsPage(page);
 		const suffix = getTestSuffix('smokeSearch');
 		const studentId = `SS_${suffix}`;
 		const englishName = `SmokeSearch_${suffix}`;
@@ -100,20 +96,18 @@ test.describe('Student Table UI Tests @students', () => {
 			e2eTag: testE2eTag
 		});
 
-		await page.goto('/admin/students');
-		await page.waitForSelector('body.hydrated');
+		await studentsPage.goto();
 
-		// Wait for students to load
 		await page.waitForSelector('text=Loading students...', { state: 'detached' });
 
 		const searchInput = page.getByLabel('Search students');
 		await searchInput.fill(englishName);
 
-		// Wait for filter to apply and student to appear
 		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 	});
 
 	test('filters students by grade', async ({ page }) => {
+		const studentsPage = new AdminStudentsPage(page);
 		const suffix = getTestSuffix('smokeGrade');
 		const studentId = `SG_${suffix}`;
 		const englishName = `SmokeGrade_${suffix}`;
@@ -128,16 +122,13 @@ test.describe('Student Table UI Tests @students', () => {
 			e2eTag: testE2eTag
 		});
 
-		await page.goto('/admin/students');
-		await page.waitForSelector('body.hydrated');
+		await studentsPage.goto();
 
-		// Wait for students to load
 		await page.waitForSelector('text=Loading students...', { state: 'detached' });
 
 		const gradeFilter = page.getByLabel('Filter by grade');
 		await gradeFilter.selectOption('10');
 
-		// Wait for filter to apply and student to appear
 		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
 	});
 });

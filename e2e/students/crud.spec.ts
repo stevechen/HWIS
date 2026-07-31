@@ -8,6 +8,7 @@ import {
 	createCategory,
 	useRole
 } from '../convex-client';
+import { AdminStudentsPage } from '../pages';
 
 // ============================================================================
 // CREATE STUDENT TESTS
@@ -21,52 +22,30 @@ test.describe('Add Student - UI Data Tests', () => {
 	const englishName = `AddTest_${suffix}`;
 	const e2eTag = `e2e-test_${suffix}`;
 	let testStudent = false;
+	let studentsPage: AdminStudentsPage;
 
 	test.beforeEach(async ({ page }) => {
+		studentsPage = new AdminStudentsPage(page);
 		useRole('admin');
-		await page.goto('/admin/students');
-		await page.waitForSelector('body.hydrated');
+		await studentsPage.goto();
 	});
 
 	test.afterEach(async () => {
 		if (testStudent) await cleanupByTag('students', e2eTag);
 	});
 
-	test('can add a new student', async ({ page }) => {
+	test('can add a new student', async () => {
 		useRole('admin');
 		const chineseName = '新增測試';
 
-		// Click Add Student button using aria-label
-		await page.getByRole('button', { name: 'Add new student' }).click();
-
-		// Wait for dialog to open - the form is in a div with role="dialog"
-		const dialog = page.getByRole('dialog', { name: 'Student form' });
-		await expect(dialog).toBeVisible();
-
-		// Fill form using accessible labels
-		await dialog.getByRole('textbox', { name: 'Student ID' }).fill(studentId);
-		await dialog.getByRole('textbox', { name: 'English Name *' }).fill(englishName);
-		await dialog.getByRole('textbox', { name: 'Chinese Name' }).fill(chineseName);
-
-		// Wait for grade/class select options to load (dynamic async data)
-		const gradeSelect = page.locator('select[aria-label="Grade and Class"]');
-		await gradeSelect.waitFor({ state: 'visible' });
-		// Wait for actual options to be populated (not just placeholder)
-		await page.waitForFunction(() => {
-			const select = document.querySelector('select[aria-label="Grade and Class"]');
-			return select && select.querySelectorAll('option:not([disabled])').length > 1;
+		await studentsPage.addStudent({
+			studentId,
+			englishName,
+			chineseName
 		});
-		await gradeSelect.selectOption('7-1');
-
-		// Submit form using aria-label
-		await page.getByRole('button', { name: 'Create student' }).click({ force: true });
-
-		// Wait for the dialog to close
-		await expect(dialog).not.toBeVisible();
-		await page.waitForSelector('body.hydrated');
 
 		// Wait for the student to appear in the list
-		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
+		await studentsPage.expectStudentVisible(studentId, englishName);
 
 		// Set e2eTag on the student for cleanup
 		await setE2eTag('students', studentId, e2eTag);
@@ -81,8 +60,10 @@ test.describe('Student ID Validation - Duplicate Data Tests', () => {
 	const studentId = getTestStudentId('dupIdForm');
 	const englishName = `First_${suffix}`;
 	let testStudent = false;
+	let studentsPage: AdminStudentsPage;
 
 	test.beforeEach(async ({ page }) => {
+		studentsPage = new AdminStudentsPage(page);
 		useRole('admin');
 		// Create the student first so we can test duplicate detection
 		await createStudent({
@@ -93,40 +74,43 @@ test.describe('Student ID Validation - Duplicate Data Tests', () => {
 		});
 		testStudent = true;
 
-		await page.goto('/admin/students');
-		await page.waitForSelector('body.hydrated');
+		await studentsPage.goto();
+		await studentsPage.expectLoadingHidden();
 
 		// Wait for student to appear in the list
-		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
+		await studentsPage.expectStudentRowVisible(studentId);
 	});
 
 	test.afterEach(async () => {
 		if (testStudent) await cleanupByTag('students', `e2e-test_${suffix}`);
 	});
 
-	test('shows error when submitting duplicate student ID via form', async ({ page }) => {
-		// Try to add duplicate via form
-		await page.getByRole('button', { name: 'Add new student' }).click();
+	test('shows error when submitting duplicate student ID via form', async () => {
+		await studentsPage.page.getByTestId('admin-students.add-button').click();
+		await expect(studentsPage.page.getByTestId('admin-students.dialog.root')).toBeVisible();
 
-		const dialog = page.getByRole('dialog', { name: 'Student form' });
-		await expect(dialog).toBeVisible();
-		await dialog.getByRole('textbox', { name: 'Student ID' }).fill(studentId);
-		await dialog.getByLabel('English Name').fill('Duplicate Test');
+		await studentsPage.page.getByTestId('admin-students.dialog.student-id').fill(studentId);
+		await studentsPage.page
+			.getByTestId('admin-students.dialog.english-name')
+			.fill('Duplicate Test');
 
-		// Wait for grade/class select options to load (dynamic async data)
-		const gradeSelect = page.locator('select[aria-label="Grade and Class"]');
-		await gradeSelect.waitFor({ state: 'visible' });
-		// Wait for actual options to be populated (not just placeholder)
-		await page.waitForFunction(() => {
-			const select = document.querySelector('select[aria-label="Grade and Class"]');
-			return select && select.querySelectorAll('option:not([disabled])').length > 1;
-		});
-		await gradeSelect.selectOption('7-1');
+		// Wait for grade/class select options to load
+		const gradeClassSelect = studentsPage.page.getByTestId('admin-students.dialog.grade-class');
+		await gradeClassSelect.waitFor({ state: 'visible' });
+		await expect(async () => {
+			const options = await gradeClassSelect.locator('option:not([disabled])').all();
+			if (options.length <= 1) {
+				throw new Error('Options not loaded yet');
+			}
+		}).toPass();
+		await gradeClassSelect.selectOption('7-1');
 
-		await dialog.getByRole('button', { name: 'Create student' }).click();
+		await studentsPage.page.getByTestId('admin-students.dialog.create-button').click();
 
-		await dialog.getByRole('alert', { name: 'Form errors' }).isVisible();
-		await expect(dialog.getByRole('alert', { name: 'Form errors' })).toHaveText(/taken/);
+		// Form error should appear
+		await expect(
+			studentsPage.page.getByTestId('admin-students.dialog.root').getByRole('alert')
+		).toHaveText(/taken/);
 	});
 });
 
@@ -141,6 +125,7 @@ test.describe('Edit Student - Data Tests', () => {
 	const studentId = getTestStudentId('editStatus');
 	const englishName = `Status_${suffix}`;
 	let testStudent = false;
+	let studentsPage: AdminStudentsPage;
 
 	test.beforeEach(async () => {
 		useRole('admin');
@@ -159,51 +144,25 @@ test.describe('Edit Student - Data Tests', () => {
 	});
 
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/admin/students');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading students...')).not.toBeVisible();
-		const searchInput = page.getByRole('textbox', { name: 'Search students' });
-		await searchInput.fill(studentId);
-		await expect(page.getByText('Loading students...')).not.toBeVisible();
-		await expect(studentRow(page, studentId)).toBeVisible();
+		studentsPage = new AdminStudentsPage(page);
+		await studentsPage.goto();
+		await studentsPage.expectLoadingHidden();
+		await studentsPage.fillSearch(studentId);
+		await studentsPage.expectStudentRowVisible(studentId);
 	});
 
-	test('can update student status', async ({ page }) => {
-		const row = studentRow(page, studentId);
-
+	test('can update student status', async () => {
 		// Edit status through the clickable status cell
-		// force: true needed because the span has pointer-events: none (td handles the click)
-		await row.getByText('Enrolled').click({ force: true });
-		await expect(row.getByText('Not Enrolled')).toBeVisible();
+		await studentsPage.toggleStudentStatus(studentId);
+		await studentsPage.expectStudentStatus(studentId, 'Not Enrolled');
 
 		// Find and click edit button for this student
-		const editButton = row.getByRole('button', { name: `Edit ${studentId}` });
-		await editButton.click();
+		await studentsPage.setStudentStatusViaDialog(studentId, 'Enrolled');
 
-		// Wait for dialog and change status
-		const dialog = page.getByRole('dialog', { name: 'student form' });
-		await expect(dialog).toBeVisible();
-
-		// Select the status dropdown and change it
-		// Use a more specific selector to target the status dropdown
-		const statusSelect = dialog.getByLabel('Status');
-		await statusSelect.selectOption('Enrolled');
-
-		// Click Update button
-		await dialog.getByRole('button', { name: 'Update student' }).click();
-
-		// Wait for dialog to close and Convex to update
-		await expect(dialog).not.toBeVisible();
-		await expect(row).toBeVisible();
-		await expect(row.getByText('Enrolled')).toBeVisible();
+		// Verify status changed back to Enrolled
+		await studentsPage.expectStudentStatus(studentId, 'Enrolled');
 	});
 });
-
-function studentRow(page: import('@playwright/test').Page, studentId: string) {
-	return page.getByRole('row').filter({
-		has: page.getByRole('cell', { name: studentId, exact: true })
-	});
-}
 
 // ============================================================================
 // DELETE STUDENT TESTS
@@ -218,8 +177,10 @@ test.describe('Delete Student - Without Evaluations', () => {
 	const e2eTag = `e2e-test_${suffix}`;
 	let testStudent = false;
 	let testCategory = false;
+	let studentsPage: AdminStudentsPage;
 
 	test.beforeEach(async ({ page }) => {
+		studentsPage = new AdminStudentsPage(page);
 		useRole('admin');
 		// Create category first (needed for students)
 		await createCategory({
@@ -238,20 +199,12 @@ test.describe('Delete Student - Without Evaluations', () => {
 		});
 		testStudent = true;
 
-		await page.goto('/admin/students');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading students...')).not.toBeVisible();
+		await studentsPage.goto();
+		await studentsPage.expectLoadingHidden();
 
 		// Clear filters and wait for student to appear
-		const statusFilter = page.getByLabel('Filter by status');
-		if (await statusFilter.isVisible()) {
-			await statusFilter.selectOption('');
-		}
-		const searchInput = page.getByRole('textbox', { name: 'Search students' });
-		await searchInput.fill('');
-
-		// Wait for the created student to appear in the list
-		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
+		await studentsPage.clearFilters();
+		await studentsPage.expectStudentRowVisible(studentId);
 	});
 
 	test.afterEach(async () => {
@@ -259,30 +212,13 @@ test.describe('Delete Student - Without Evaluations', () => {
 		if (testCategory) await cleanupByTag('categories', e2eTag);
 	});
 
-	test('can delete student without evaluations', async ({ page }) => {
+	test('can delete student without evaluations', async () => {
 		// Filter to the specific student
-		const searchInput = page.getByRole('textbox', { name: 'Search students' });
-		await searchInput.fill(englishName);
-		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
+		await studentsPage.fillSearch(englishName);
+		await studentsPage.expectStudentRowVisible(studentId);
 
-		// Click delete button
-		const deleteButton = page.getByRole('button', { name: `Delete ${studentId}` });
-		await deleteButton.click();
-
-		// Wait for dialog
-		await expect(page.getByRole('dialog')).toBeVisible();
-		const dialog = page.getByRole('dialog');
-
-		// Click Delete button
-		const deleteBtn = dialog.getByRole('button', { name: 'Delete' });
-		await expect(deleteBtn).toBeVisible();
-		await deleteBtn.click();
-
-		// Wait for dialog to close
-		await expect(dialog).not.toBeVisible();
-
-		// Verify deletion
-		await expect(page.getByRole('cell', { name: englishName })).not.toBeVisible();
+		// Click delete button and confirm
+		await studentsPage.deleteStudent(studentId);
 
 		// Data was deleted, don't clean up in afterEach
 		testStudent = false;
@@ -299,8 +235,10 @@ test.describe('Delete Student - With Cascade @sequential', () => {
 	let testStudent = false;
 	let testCategory = false;
 	let testEvaluation = false;
+	let studentsPage: AdminStudentsPage;
 
 	test.beforeEach(async ({ page }) => {
+		studentsPage = new AdminStudentsPage(page);
 		useRole('admin');
 		suffix = getTestSuffix('delCascade');
 		studentId = getTestStudentId('delCascade');
@@ -325,16 +263,11 @@ test.describe('Delete Student - With Cascade @sequential', () => {
 		testStudent = true;
 		testEvaluation = true;
 
-		await page.goto('/admin/students');
-		await page.waitForSelector('body.hydrated');
+		await studentsPage.goto();
+		await studentsPage.expectLoadingHidden();
 
 		// Clear filters
-		const statusFilter = page.getByLabel('Filter by status');
-		if (await statusFilter.isVisible()) {
-			await statusFilter.selectOption('');
-		}
-		const searchInput = page.getByRole('textbox', { name: 'Search students' });
-		await searchInput.fill('');
+		await studentsPage.clearFilters();
 	});
 
 	test.afterEach(async () => {
@@ -343,29 +276,14 @@ test.describe('Delete Student - With Cascade @sequential', () => {
 		if (testStudent) await cleanupByTag('students', e2eTag);
 	});
 
-	test('can delete student with cascade', async ({ page }) => {
+	test('can delete student with cascade', async () => {
 		// Wait for student
-		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
+		await studentsPage.expectStudentRowVisible(studentId);
 
-		// Click delete button
-		const deleteButton = page.getByRole('button', { name: `Delete ${studentId}` });
-		await deleteButton.click();
+		// Click delete button and confirm cascade
+		await studentsPage.deleteStudentWithCascade(studentId);
 
-		// Wait for dialog
-		await expect(page.getByRole('dialog')).toBeVisible();
-		const dialog = page.getByRole('dialog');
-
-		// Wait for cascade UI
-		await expect(dialog.getByRole('alert')).toBeVisible();
-		await expect(dialog.getByRole('button', { name: 'Delete Anyway' })).toBeVisible();
-
-		// Click Delete Anyway
-		await dialog.getByRole('button', { name: 'Delete Anyway' }).click();
-
-		// Verify deletion
-		await expect(page.getByRole('row', { name: englishName })).not.toBeVisible();
-
-		// Student and evaluation deleted via cascade, but category & audit log (through evaluation clean up) still needs cleanup
+		// Student and evaluation deleted via cascade, but category & audit log still needs cleanup
 		testStudent = false;
 		// testCategory remains true for cleanup
 	});
@@ -381,8 +299,11 @@ test.describe('Delete - Set Not Enrolled @sequential', () => {
 	let testStudent = false;
 	let testCategory = false;
 	let testEvaluation = false;
+	let studentsPage: AdminStudentsPage;
 
 	test.beforeEach(async ({ page }) => {
+		studentsPage = new AdminStudentsPage(page);
+		useRole('admin');
 		// Create category
 		await createCategory({
 			name: `Cat_${suffix}`,
@@ -402,16 +323,11 @@ test.describe('Delete - Set Not Enrolled @sequential', () => {
 		testStudent = true;
 		testEvaluation = true;
 
-		await page.goto('/admin/students');
-		await page.waitForSelector('body.hydrated');
+		await studentsPage.goto();
+		await studentsPage.expectLoadingHidden();
 
 		// Clear filters
-		const statusFilter = page.getByLabel('Filter by status');
-		if (await statusFilter.isVisible()) {
-			await statusFilter.selectOption('');
-		}
-		const searchInput = page.getByRole('textbox', { name: 'Search students' });
-		await searchInput.fill('');
+		await studentsPage.clearFilters();
 	});
 
 	test.afterEach(async () => {
@@ -420,32 +336,19 @@ test.describe('Delete - Set Not Enrolled @sequential', () => {
 		if (testStudent) await cleanupByTag('students', e2eTag);
 	});
 
-	test('can set student to Not Enrolled from delete dialog', async ({ page }) => {
+	test('can set student to Not Enrolled from delete dialog', async () => {
 		// Wait for student
-		await expect(page.getByRole('row', { name: englishName })).toBeVisible();
+		await studentsPage.expectStudentRowVisible(studentId);
 
-		// Click delete button
-		const deleteButton = page
-			.getByRole('row', { name: englishName })
-			.getByRole('button')
-			.filter({ has: page.locator('svg') })
-			.first();
-		await deleteButton.click();
-
-		// Wait for dialog
-		await expect(page.getByRole('dialog')).toBeVisible();
-
-		// Click Set Not Enrolled
-		const status = page.getByRole('dialog', { name: 'student form' }).getByLabel('Student Status');
-		await status.selectOption('Not Enrolled');
-		await page.getByRole('button', { name: 'Update student' }).click();
+		// Set status to Not Enrolled via edit dialog
+		await studentsPage.setStudentStatusViaDialog(studentId, 'Not Enrolled');
 
 		// Clear search
-		await page.getByRole('textbox', { name: 'Search students' }).fill('');
+		await studentsPage.fillSearch('');
 
 		// Verify status changed
 		await expect(
-			page.getByRole('row', { name: englishName }).getByText('Not Enrolled')
+			studentsPage.page.locator(`[data-student-id="${studentId}"]`).getByText('Not Enrolled')
 		).toBeVisible();
 
 		// Student and category still exist, evaluation was used but should be cleaned up

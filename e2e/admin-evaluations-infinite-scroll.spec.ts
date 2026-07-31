@@ -1,28 +1,28 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { getTestSuffix } from './helpers';
 import { createStudentWithEvaluations, cleanupByTag, useRole } from './convex-client';
+import { AdminEvaluationsPage } from './pages';
 
-async function waitForEvaluationsReady(page: Page) {
-	const evaluationsRegion = page.getByRole('region', { name: 'Evaluations' });
-	const errorMessage = page.getByText(/Error loading evaluations/);
+async function waitForEvaluationsReady(page: import('@playwright/test').Page) {
+	const errorMessage = page.getByTestId('admin-evaluations.error');
 
 	for (let attempt = 0; attempt < 2; attempt++) {
+		const loading = page.getByTestId('admin-evaluations.loading');
 		await Promise.race([
-			evaluationsRegion.waitFor({ state: 'visible' }),
+			loading.waitFor({ state: 'hidden' }),
 			errorMessage.waitFor({ state: 'visible' })
 		]);
 
 		if (!(await errorMessage.isVisible())) break;
 
 		// Auth can race on first load in Chromium; reload once and retry
-		await page.waitForTimeout(500);
 		await page.reload();
 		await page.waitForSelector('body.hydrated');
 	}
 
 	await expect(errorMessage).toBeHidden();
-	await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
-	await expect(evaluationsRegion).toBeVisible();
+	await expect(page.getByTestId('admin-evaluations.loading')).toBeHidden();
+	await expect(page.getByTestId('admin-evaluations.timeline')).toBeVisible();
 }
 
 test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential', () => {
@@ -32,11 +32,13 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 	let suffix: string;
 	let e2eTag: string;
 	let testEntity = false;
+	let evalsPage: AdminEvaluationsPage;
 
 	test.beforeEach(async ({ page }) => {
 		// Extend timeout for data creation (5 students × 6 evaluations = 30 evaluations)
 		test.setTimeout(60000);
 
+		evalsPage = new AdminEvaluationsPage(page);
 		useRole('admin');
 		testEntity = false; // Reset at start of each test
 		suffix = getTestSuffix('infiniteScroll');
@@ -76,165 +78,153 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 		if (testEntity) await cleanupByTag('all', e2eTag);
 	});
 
-	test('initial page load shows evaluations', async ({ page }) => {
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+	test('initial page load shows evaluations', async () => {
+		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
 
 		// Verify at least one evaluation is displayed
-		const evaluationButtons = page.getByRole('button', { name: /Evaluation for ScrollStudent_/ });
-		await expect(evaluationButtons.first()).toBeVisible();
+		await evalsPage.expectFirstCardVisible();
 
 		// Verify at least some evaluations loaded
-		await expect(evaluationButtons.nth(1)).toBeVisible();
+		await evalsPage.expectSecondCardVisible();
 	});
 
-	test('shows "No more evaluations" message at end of list', async ({ page }) => {
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+	test('shows "No more evaluations" message at end of list', async () => {
+		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
 
 		// Filter by this test's unique suffix to isolate from parallel tests
-		const studentFilterInput = page.getByPlaceholder('Filter by student name...');
-		await studentFilterInput.fill(suffix);
+		await evalsPage.fillStudentFilter(suffix);
 
 		// Wait for filter to apply
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await evalsPage.expectLoadingHidden();
 
 		// Scroll until we see "No more evaluations" or timeout
 		// This handles the case where multiple pages need to be loaded
-		const noMoreText = page.getByText('No more evaluations');
 		let attempts = 0;
 		const maxAttempts = 10;
 
-		while (!(await noMoreText.isVisible()) && attempts < maxAttempts) {
-			await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-			await page.waitForTimeout(300);
+		while (
+			!(await evalsPage.page.getByTestId('admin-evaluations.no-more').isVisible()) &&
+			attempts < maxAttempts
+		) {
+			evalsPage.scrollToBottom();
+			await evalsPage.expectLoadingHidden();
 			attempts++;
 		}
 
 		// Eventually the "No more evaluations" message should appear
-		await expect(noMoreText).toBeVisible();
+		await evalsPage.expectNoMoreVisible();
 	});
 
-	test('filter changes reset pagination and show filtered results', async ({ page }) => {
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+	test('filter changes reset pagination and show filtered results', async () => {
+		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
 
 		// Verify multiple students are visible initially (at least 2 different ones)
-		const initialButtons = page.getByRole('button', { name: /Evaluation for ScrollStudent_/ });
-		await expect(initialButtons.first()).toBeVisible();
-		await expect(initialButtons.nth(1)).toBeVisible();
+		await evalsPage.expectFirstCardVisible();
+		await evalsPage.expectSecondCardVisible();
 
 		// Apply a filter for a specific student
-		const studentFilterInput = page.getByPlaceholder('Filter by student name...');
-		await studentFilterInput.fill('ScrollStudent_0');
+		await evalsPage.fillStudentFilter('ScrollStudent_0');
 
 		// Wait for the filter to apply (Convex reactivity)
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
-		await expect(page.getByText(/Error loading evaluations/)).toBeHidden();
+		await evalsPage.expectLoadingHidden();
+		await evalsPage.expectErrorHidden();
 
 		// Verify only filtered results are shown (ScrollStudent_0)
-		const filteredButtons = page.getByRole('button', { name: /Evaluation for ScrollStudent_0/ });
-		await expect(filteredButtons.first()).toBeVisible();
+		await evalsPage.expectFirstCardVisible();
 
 		// Verify that other students are NOT visible (filter is working)
-		const otherStudentButtons = page.getByRole('button', {
-			name: /Evaluation for ScrollStudent_1/
+		const otherStudentCards = evalsPage.page.locator('[data-testid^="admin-evaluations.card-"]', {
+			hasText: 'ScrollStudent_1'
 		});
-		await expect(otherStudentButtons).not.toBeVisible();
+		await expect(otherStudentCards).not.toBeVisible();
 
 		// Clear the filter
-		await studentFilterInput.fill('');
+		await evalsPage.fillStudentFilter('');
 
 		// Wait for the filter to clear (Convex reactivity)
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await evalsPage.expectLoadingHidden();
 
 		// Verify multiple students are visible again (at least 2 different ones)
-		const restoredButtons = page.getByRole('button', { name: /Evaluation for ScrollStudent_/ });
-		await expect(restoredButtons.first()).toBeVisible();
-		await expect(restoredButtons.nth(1)).toBeVisible();
+		await evalsPage.expectFirstCardVisible();
+		await evalsPage.expectSecondCardVisible();
 	});
 
-	test('sort order toggle resets pagination', async ({ page }) => {
+	test('sort order toggle resets pagination', async () => {
 		// Wait for initial load
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
 
 		// Scope the list to this test's own records so seeded data cannot dominate the view.
-		const studentFilterInput = page.getByPlaceholder('Filter by student name...');
-		await studentFilterInput.fill(suffix);
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
-		await expect(page.getByText(/Error loading evaluations/)).toBeHidden();
+		await evalsPage.fillStudentFilter(suffix);
+		await evalsPage.expectLoadingHidden();
+		await evalsPage.expectErrorHidden();
 
-		// Get the evaluation buttons for this test dataset only
-		const evaluationButtons = page.getByRole('button', { name: /Evaluation for ScrollStudent_/ });
-		await expect(evaluationButtons.first()).toBeVisible();
+		// Get the evaluation cards for this test dataset only
+		await evalsPage.expectFirstCardVisible();
 
 		// Verify sort button shows "newest first" initially (default sort)
-		const sortButton = page.getByRole('button', { name: /newest first/i });
-		await expect(sortButton).toBeVisible();
+		await evalsPage.expectSortButton('Newest First');
 
 		// Click the sort toggle button to change to "oldest first"
-		await sortButton.click();
+		await evalsPage.clickSortButton();
 
 		// Wait for the sort to apply
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
-		await expect(page.getByText(/Error loading evaluations/)).toBeHidden();
+		await evalsPage.expectLoadingHidden();
+		await evalsPage.expectErrorHidden();
 
 		// Verify the sort button text changed to "oldest first"
-		await expect(page.getByRole('button', { name: /oldest first/i })).toBeVisible();
+		await evalsPage.expectSortButton('Oldest First');
 
 		// Verify evaluations are still visible after sort change
-		await expect(evaluationButtons.first()).toBeVisible();
+		await evalsPage.expectFirstCardVisible();
 
 		// Click again to toggle back to "newest first"
-		const oldestButton = page.getByRole('button', { name: /oldest first/i });
-		await oldestButton.click();
+		await evalsPage.clickSortButton();
 
 		// Wait for the sort to apply
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
-		await expect(page.getByText(/Error loading evaluations/)).toBeHidden();
+		await evalsPage.expectLoadingHidden();
+		await evalsPage.expectErrorHidden();
 
 		// Verify we're back to "newest first"
-		await expect(page.getByRole('button', { name: /newest first/i })).toBeVisible();
-		await expect(evaluationButtons.first()).toBeVisible();
+		await evalsPage.expectSortButton('Newest First');
+		await evalsPage.expectFirstCardVisible();
 	});
 
-	test('teacher filter works correctly', async ({ page }) => {
+	test('teacher filter works correctly', async () => {
 		// Wait for initial load
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
 
-		// Apply a teacher filter (assuming there's a teacher associated with evaluations)
-		const teacherFilterInput = page.getByPlaceholder('Filter by teacher...');
-		await teacherFilterInput.fill('Test');
+		// Apply a teacher filter
+		await evalsPage.fillTeacherFilter('Test');
 
 		// Wait for the filter to apply
-		await page.waitForTimeout(500);
+		await evalsPage.expectLoadingHidden();
 
 		// The filter should be applied - either showing results or empty state
 		// We just verify the filter input works
-		await expect(teacherFilterInput).toHaveValue('Test');
+		await expect(evalsPage.page.getByTestId('admin-evaluations.filter-teacher')).toHaveValue(
+			'Test'
+		);
 
 		// Clear the filter
-		await teacherFilterInput.fill('');
-		await page.waitForTimeout(500);
+		await evalsPage.fillTeacherFilter('');
 
 		// Verify evaluations are visible again
-		const evaluationButtons = page.getByRole('button', { name: /Evaluation for ScrollStudent_/ });
-		await expect(evaluationButtons.first()).toBeVisible();
+		await evalsPage.expectFirstCardVisible();
 	});
 
-	test('loading indicator appears when fetching more data', async ({ page }) => {
+	test('loading indicator appears when fetching more data', async () => {
 		// Wait for initial load
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
 
 		// The loading indicator (spinner) should appear when loading more data
 		// This is hard to test directly since it appears briefly during loading
 		// We can verify the loading state component exists in the DOM structure
 
 		// Scroll to trigger potential loading
-		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-
-		// Wait a moment for any loading to potentially start
-		await page.waitForTimeout(100);
+		evalsPage.scrollToBottom();
 
 		// The page should still be functional
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
 	});
 });
 
@@ -245,8 +235,10 @@ test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small @sequent
 	let suffix: string;
 	let e2eTag: string;
 	let testEntity = false;
+	let evalsPage: AdminEvaluationsPage;
 
 	test.beforeEach(async ({ page }) => {
+		evalsPage = new AdminEvaluationsPage(page);
 		useRole('admin');
 		testEntity = false; // Reset at start of each test
 		suffix = getTestSuffix('scrollSmall');
@@ -267,28 +259,26 @@ test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small @sequent
 		// Navigate to admin evaluations page
 		await page.goto('/admin/evaluations');
 		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading evaluations…')).not.toBeVisible();
+		await evalsPage.expectLoadingHidden();
 	});
 
 	test.afterEach(async () => {
 		if (testEntity) await cleanupByTag('all', e2eTag);
 	});
 
-	test('shows "No more evaluations" immediately for small datasets', async ({ page }) => {
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+	test('shows "No more evaluations" immediately for small datasets', async () => {
+		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
 
 		// Filter to this test's single record so the assertion is independent of seeded data.
-		const studentFilterInput = page.getByPlaceholder('Filter by student name...');
-		await studentFilterInput.fill(suffix);
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
-		await expect(page.getByText(/Error loading evaluations/)).toBeHidden();
+		await evalsPage.fillStudentFilter(suffix);
+		await evalsPage.expectLoadingHidden();
+		await evalsPage.expectErrorHidden();
 
 		// Scroll to bottom
-		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-		await page.waitForTimeout(500);
+		evalsPage.scrollToBottom();
 
 		// Should show "No more evaluations" since we have less than a page of data
-		await expect(page.getByText('No more evaluations')).toBeVisible();
+		await evalsPage.expectNoMoreVisible();
 	});
 });
 
@@ -299,8 +289,10 @@ test.describe('Admin Evaluations - Filter Empty State @infinite-scroll-filter-em
 	let suffix: string;
 	let e2eTag: string;
 	let testEntity = false;
+	let evalsPage: AdminEvaluationsPage;
 
 	test.beforeEach(async ({ page }) => {
+		evalsPage = new AdminEvaluationsPage(page);
 		useRole('admin');
 		testEntity = false; // Reset at start of each test
 		suffix = getTestSuffix('scrollFilter');
@@ -321,21 +313,20 @@ test.describe('Admin Evaluations - Filter Empty State @infinite-scroll-filter-em
 		// Navigate to admin evaluations page
 		await page.goto('/admin/evaluations');
 		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading evaluations…')).not.toBeVisible();
+		await evalsPage.expectLoadingHidden();
 	});
 
 	test.afterEach(async () => {
 		if (testEntity) await cleanupByTag('all', e2eTag);
 	});
 
-	test('filter with no matches shows empty state', async ({ page }) => {
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+	test('filter with no matches shows empty state', async () => {
+		await expect(evalsPage.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
 
 		// Apply a filter that matches nothing
-		const studentFilterInput = page.getByPlaceholder('Filter by student name...');
-		await studentFilterInput.fill('NonExistentStudentXYZ123');
+		await evalsPage.fillStudentFilter('NonExistentStudentXYZ123');
 
 		// Wait for the filter to apply - use web-first assertion with timeout
-		await expect(page.getByText('No evaluations match your search criteria.')).toBeVisible();
+		await evalsPage.expectEmptyStateVisible();
 	});
 });

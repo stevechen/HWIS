@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { getTestSuffix, getStudentId } from './helpers';
 import { createStudent, createCategory, cleanupByTag, useRole } from './convex-client';
+import { AdminStudentsPage, NewEvaluationPage } from './pages';
 
 test.describe('Bulk Operations @bulk @sequential', () => {
 	test.describe('Bulk Evaluation Creation', () => {
@@ -10,11 +11,12 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 		const e2eTag = `e2e-test_${suffix}`;
 		const categoryName = `BulkTest_${suffix}`;
 		let testDataCreated = false;
+		let evalsPage: NewEvaluationPage;
 
 		test.beforeEach(async ({ page }) => {
+			evalsPage = new NewEvaluationPage(page);
 			useRole('teacher');
 
-			// Create multiple students for bulk evaluation
 			for (let i = 1; i <= 3; i++) {
 				await createStudent({
 					studentId: getStudentId(`BULK${i}_${suffix}`),
@@ -26,7 +28,6 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 				});
 			}
 
-			// Create category for evaluations
 			await createCategory({
 				name: categoryName,
 				e2eTag
@@ -34,86 +35,60 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 
 			testDataCreated = true;
 
-			// Navigate to new evaluation page
-			await page.goto('/evaluations/new');
-			await page.waitForSelector('body.hydrated');
-			await expect(page.getByText('Loading students...')).not.toBeVisible();
+			await evalsPage.goto();
 		});
 
 		test.afterEach(async () => {
 			if (testDataCreated) await cleanupByTag('all', e2eTag);
 		});
 
-		test('can select multiple students for bulk evaluation', async ({ page }) => {
-			// Verify the step 1 heading is visible
-			await expect(page.getByText('1. Select Students')).toBeVisible();
+		test('can select multiple students for bulk evaluation', async () => {
+			await expect(evalsPage.page.getByText('1. Select Students')).toBeVisible();
 
-			// Search for students
-			const searchInput = page.getByRole('textbox', { name: 'Search students' });
+			const searchInput = evalsPage.page.getByRole('textbox', { name: 'Search students' });
 			await expect(searchInput).toBeVisible();
 
-			// Clear search to show all students
 			await searchInput.clear();
 
-			// Look for student checkboxes - they should appear in the list
-			// The UI should show student items with checkboxes
-			const studentCheckboxes = page.locator('input[type="checkbox"]');
+			// Wait for at least one student row to appear (Convex data load)
+			await expect(
+				evalsPage.page.locator('[data-testid^="evaluations-new.student-row-"]').first()
+			).toBeVisible();
+
+			const studentCheckboxes = evalsPage.page.locator('input[type="checkbox"]');
 			const count = await studentCheckboxes.count();
 
-			// Should have at least 3 students (created in beforeEach)
 			expect(count).toBeGreaterThanOrEqual(3);
 		});
 
-		test('can create evaluation for all selected students', async ({ page }) => {
-			// Clear search to show all students
-			const searchInput = page.getByRole('textbox', { name: 'Search students' });
+		test('can create evaluation for all selected students', async () => {
+			const searchInput = evalsPage.page.getByRole('textbox', { name: 'Search students' });
 			await searchInput.clear();
 
-			// Select all visible students by clicking the select all checkbox if it exists
-			// Or by selecting individual students
-			const selectAllCheckbox = page.locator('input[type="checkbox"]').first();
+			const selectAllCheckbox = evalsPage.page.locator('input[type="checkbox"]').first();
 			await selectAllCheckbox.click();
 
-			// Click the "Select All" or similar control if available
-			// Otherwise, manually select 3 students
-			const checkboxes = page.locator('input[type="checkbox"]');
+			const checkboxes = evalsPage.page.locator('input[type="checkbox"]');
 			const totalCheckboxes = await checkboxes.count();
 
-			// Select up to 3 checkboxes (first one might be select all)
 			for (let i = 0; i < Math.min(3, totalCheckboxes); i++) {
 				await checkboxes.nth(i).check();
 			}
 
-			// Proceed to step 2 - select category
-			const continueButton = page.getByRole('button', { name: /continue|next/i });
+			const continueButton = evalsPage.page.getByRole('button', { name: /continue|next/i });
 			if (await continueButton.isVisible()) {
 				await continueButton.click();
 			}
 
-			// Step 2: Select category
-			// await expect(page.getByText('2. Select Category')).toBeVisible();
+			await evalsPage.selectCategory(categoryName);
 
-			// Click the category dropdown
-			const categoryTrigger = page.getByRole('button', { name: /select category/i });
-			await categoryTrigger.click();
+			await evalsPage.fillDetails('Great work on homework!');
 
-			// Select the category we created
-			const categoryOption = page.getByRole('option', { name: categoryName });
-			await categoryOption.click();
+			await evalsPage.selectPoint(2);
 
-			// Fill in evaluation details
-			const detailsInput = page.getByRole('textbox', { name: /details|notes/i });
-			await detailsInput.fill('Great work on homework!');
+			await evalsPage.submit();
 
-			// Fill in value (points)
-			await page.getByRole('button', { name: 'Award 2 points' }).click();
-
-			// Submit the form
-			await page.getByTestId('evaluations-new.submit-button').click();
-
-			// Should see success message or be redirected
-			// The evaluations page should show the new evaluations
-			await expect(page).toHaveURL(/evaluations|admin/);
+			await expect(evalsPage.page).toHaveURL(/evaluations|admin/);
 		});
 	});
 
@@ -123,11 +98,12 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 		const suffix = getTestSuffix('bulkStatus');
 		const e2eTag = `e2e-status_${suffix}`;
 		let testDataCreated = false;
+		let studentsPage: AdminStudentsPage;
 
 		test.beforeEach(async ({ page }) => {
+			studentsPage = new AdminStudentsPage(page);
 			useRole('admin');
 
-			// Create multiple students with Not Enrolled status
 			for (let i = 1; i <= 3; i++) {
 				await createStudent({
 					studentId: getStudentId(`STAT${i}_${suffix}`),
@@ -140,8 +116,7 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 			}
 			testDataCreated = true;
 
-			await page.goto('/admin/students');
-			await page.waitForSelector('body.hydrated');
+			await studentsPage.goto();
 		});
 
 		test.afterEach(async () => {
@@ -150,33 +125,22 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 			}
 		});
 
-		test('can filter students by status', async ({ page }) => {
-			// Initially show all students - should see the "Not Enrolled" ones
-			await expect(page.getByText(`StatusStudent1_${suffix}`)).toBeVisible();
+		test('can filter students by status', async () => {
+			await studentsPage.expectStudentNameVisible(`StatusStudent1_${suffix}`);
 
-			// Filter by "Enrolled" status
-			const statusFilter = page.getByRole('combobox', { name: /filter by status/i });
-			await statusFilter.selectOption('Enrolled');
+			await studentsPage.filterByStatus('Enrolled');
 
-			// The "Not Enrolled" students should not be visible
-			// and there should be no students or different ones shown
-			await expect(page.getByText(`StatusStudent1_${suffix}`)).not.toBeVisible();
+			await studentsPage.expectStudentNameNotVisible(`StatusStudent1_${suffix}`);
 		});
 
-		test('can filter students by grade', async ({ page }) => {
-			// Filter by grade 10
-			const gradeFilter = page.getByRole('combobox', { name: /filter by grade/i });
+		test('can filter students by grade', async () => {
+			await studentsPage.expectLoadingHidden();
 
-			await expect(page.getByText('Loading students...')).not.toBeVisible();
+			await studentsPage.filterByGrade('11');
 
-			await gradeFilter.selectOption('11');
-
-			// Should only see grade 10 students
-			// Our test students are in grades 10, 11, 12
-			await expect(page.getByText(`StatusStudent1_${suffix}`)).not.toBeVisible();
-			// Grade 9 and 11 should not be visible
-			await expect(page.getByText(`StatusStudent2_${suffix}`)).toBeVisible();
-			await expect(page.getByText(`StatusStudent3_${suffix}`)).not.toBeVisible();
+			await studentsPage.expectStudentNameNotVisible(`StatusStudent1_${suffix}`);
+			await studentsPage.expectStudentNameVisible(`StatusStudent2_${suffix}`);
+			await studentsPage.expectStudentNameNotVisible(`StatusStudent3_${suffix}`);
 		});
 	});
 
@@ -186,11 +150,12 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 		const suffix = getTestSuffix('bulkSelect');
 		const e2eTag = `e2e-select_${suffix}`;
 		let testDataCreated = false;
+		let studentsPage: AdminStudentsPage;
 
 		test.beforeEach(async ({ page }) => {
+			studentsPage = new AdminStudentsPage(page);
 			useRole('admin');
 
-			// Create multiple students
 			for (let i = 1; i <= 5; i++) {
 				await createStudent({
 					studentId: getStudentId(`SEL${i}_${suffix}`),
@@ -203,8 +168,7 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 			}
 			testDataCreated = true;
 
-			await page.goto('/admin/students');
-			await page.waitForSelector('body.hydrated');
+			await studentsPage.goto();
 		});
 
 		test.afterEach(async () => {
@@ -213,16 +177,11 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 			}
 		});
 
-		test('can search for students', async ({ page }) => {
-			// Search for a specific student
-			const searchInput = page.getByPlaceholder(/search/i);
-			await searchInput.fill(`SelectStudent2_${suffix}`);
+		test('can search for students', async () => {
+			await studentsPage.fillSearch(`SelectStudent2_${suffix}`);
 
-			// Only the matching student should be visible
-			await expect(page.getByText(`SelectStudent2_${suffix}`)).toBeVisible();
-
-			// Other students should not be visible
-			await expect(page.getByText(`SelectStudent1_${suffix}`)).not.toBeVisible();
+			await studentsPage.expectStudentNameVisible(`SelectStudent2_${suffix}`);
+			await studentsPage.expectStudentNameNotVisible(`SelectStudent1_${suffix}`);
 		});
 	});
 });

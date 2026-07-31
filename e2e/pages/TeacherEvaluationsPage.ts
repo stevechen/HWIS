@@ -1,7 +1,7 @@
 import { Page, expect } from '@playwright/test';
 
 export class TeacherEvaluationsPage {
-	constructor(private page: Page) {}
+	constructor(public page: Page) {}
 
 	async goto() {
 		await this.page.goto('/evaluations');
@@ -25,14 +25,11 @@ export class TeacherEvaluationsPage {
 		const card = this.page.locator(`[aria-label="Evaluation for ${studentName}"]`);
 		await expect(card).toBeVisible();
 
-		await this.page.waitForFunction(
-			() => {
-				const el = document.querySelector('[data-current-user-id]');
-				const val = el?.getAttribute('data-current-user-id');
-				return val && val !== 'undefined' && val !== '';
-			},
-			{ timeout: 10_000 }
-		);
+		await this.page.waitForFunction(() => {
+			const el = document.querySelector('[data-current-user-id]');
+			const val = el?.getAttribute('data-current-user-id');
+			return val && val !== 'undefined' && val !== '';
+		});
 
 		await card.dispatchEvent('mousedown');
 		await this.page.waitForTimeout(600);

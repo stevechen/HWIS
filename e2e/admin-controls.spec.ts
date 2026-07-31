@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { createStudent, cleanupByTag, useRole } from './convex-client';
 import { getTestSuffix } from './helpers';
+import { AdminStudentsPage } from './pages';
 
 test.describe('Admin Controls Visibility @admin', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
@@ -8,8 +9,10 @@ test.describe('Admin Controls Visibility @admin', () => {
 	let testE2eTag: string;
 	let studentId: string;
 	let testStudent = false;
+	let studentsPage: AdminStudentsPage;
 
 	test.beforeEach(async ({ page }) => {
+		studentsPage = new AdminStudentsPage(page);
 		useRole('admin');
 		const suffix = getTestSuffix('adminActions');
 		studentId = `SA_${suffix}`;
@@ -29,25 +32,23 @@ test.describe('Admin Controls Visibility @admin', () => {
 		}
 		testStudent = true;
 
-		await page.goto('/admin/students');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading students...')).not.toBeVisible();
+		await studentsPage.goto();
 	});
 
 	test.afterEach(async () => {
 		if (testStudent) await cleanupByTag('students', testE2eTag);
 	});
 
-	test('admin can access student management controls for a student row', async ({ page }) => {
-		await page.getByPlaceholder('Search by name or student ID...').fill(studentId);
-		await expect(page.getByText(studentId, { exact: true })).toBeVisible({});
-		const studentRow = page.getByRole('row').filter({
-			has: page.getByText(studentId, { exact: true })
-		});
-		await expect(studentRow).toBeVisible();
-		await expect(page.getByRole('button', { name: `Edit ${studentId}` })).toBeVisible();
-		await expect(page.getByRole('button', { name: `Delete ${studentId}` })).toBeVisible();
-		await expect(studentRow.getByText('Enrolled')).toBeVisible();
+	test('admin can access student management controls for a student row', async () => {
+		await studentsPage.fillSearch(studentId);
+		await studentsPage.expectStudentRowVisible(studentId);
+		await expect(
+			studentsPage.page.getByTestId(`admin-students.student-row-${studentId}.edit`)
+		).toBeVisible();
+		await expect(
+			studentsPage.page.getByTestId(`admin-students.student-row-${studentId}.delete`)
+		).toBeVisible();
+		await studentsPage.expectStudentStatus(studentId, 'Enrolled');
 	});
 });
 
@@ -61,9 +62,7 @@ test.describe('Teacher User', () => {
 	});
 
 	test('teacher cannot access admin student controls', async ({ page }) => {
-		await expect(page.getByRole('button', { name: 'Add new student' })).not.toBeVisible();
-		await expect(page.getByRole('button', { name: 'Import students from file' })).not.toBeVisible();
-		await expect(page.getByRole('button', { name: /delete/i }).first()).not.toBeVisible();
-		await expect(page.getByRole('button', { name: /not enrolled/i }).first()).not.toBeVisible();
+		// Teachers are redirected from /admin/* to /evaluations by the admin layout guard
+		await expect(page).toHaveURL(/\/evaluations/);
 	});
 });

@@ -6,6 +6,7 @@ import {
 	cleanupByTag,
 	useRole
 } from './convex-client';
+import { StudentTimelinePage } from './pages';
 
 test.describe('Student Timeline Long-Press @timeline-longpress @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });
@@ -15,8 +16,10 @@ test.describe('Student Timeline Long-Press @timeline-longpress @sequential', () 
 	let englishName: string;
 	let e2eTag: string;
 	let testData = false;
+	let timelinePage: StudentTimelinePage;
 
 	test.beforeEach(async ({ page }) => {
+		timelinePage = new StudentTimelinePage(page);
 		useRole('teacher');
 		suffix = getTestSuffix('timelineLongpress');
 		studentId = `STU_${suffix}`;
@@ -38,33 +41,27 @@ test.describe('Student Timeline Long-Press @timeline-longpress @sequential', () 
 		});
 		testData = true;
 
-		await page.goto(`/evaluations/student/${studentId}`);
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading user data...')).not.toBeVisible();
+		await timelinePage.goto(studentId);
+		await timelinePage.waitForLoading();
 	});
 
 	test.afterEach(async () => {
 		if (testData) await cleanupByTag('all', e2eTag);
 	});
 
-	test('page header displays student name', async ({ page }) => {
+	test('page header displays student name', async () => {
 		// Verify the header contains the student name, not the generic "My Evaluation"
-		const header = page.locator('h1');
-		await expect(header).toContainText(englishName);
-		await expect(header).toContainText('Evaluations');
+		await timelinePage.expectHeaderContains(englishName);
+		await timelinePage.expectHeaderContains('Evaluations');
 		// Ensure it doesn't show the fallback "My Evaluation" text
-		await expect(header).not.toContainText('My Evaluation');
+		await expect(timelinePage.page.getByTestId('layout.header-title')).not.toContainText(
+			'My Evaluation'
+		);
 	});
 
-	test('long-press on evaluation card opens edit dialog', async ({ page }) => {
-		const evalCard = page.getByRole('button', { name: /Evaluation by/ });
-		await expect(evalCard).toBeVisible();
-
-		await evalCard.dispatchEvent('mousedown');
-		await page.waitForTimeout(600);
-		await evalCard.dispatchEvent('mouseup');
-
-		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).toBeVisible();
+	test('long-press on evaluation card opens edit dialog', async () => {
+		await timelinePage.longPressFirstCard();
+		await timelinePage.expectEditDialogVisible();
 	});
 });
 
@@ -76,8 +73,10 @@ test.describe('Student Timeline Long-Press Admin @timeline-longpress @sequential
 	let englishName: string;
 	let e2eTag: string;
 	let testData = false;
+	let timelinePage: StudentTimelinePage;
 
 	test.beforeEach(async ({ page }) => {
+		timelinePage = new StudentTimelinePage(page);
 		useRole('admin');
 		suffix = getTestSuffix('timelineLongpressAdmin');
 		studentId = `STU_${suffix}`;
@@ -99,35 +98,22 @@ test.describe('Student Timeline Long-Press Admin @timeline-longpress @sequential
 		});
 		testData = true;
 
-		await page.goto(`/evaluations/student/${studentId}`);
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading user data...')).not.toBeVisible();
+		await timelinePage.goto(studentId);
+		await timelinePage.waitForLoading();
 	});
 
 	test.afterEach(async () => {
 		if (testData) await cleanupByTag('all', e2eTag);
 	});
 
-	test('admin can long-press on own evaluations', async ({ page }) => {
-		const evalCard = page.getByRole('button', { name: /Evaluation by/ });
-		await expect(evalCard).toBeVisible();
-
-		await evalCard.dispatchEvent('mousedown');
-		await page.waitForTimeout(600);
-		await evalCard.dispatchEvent('mouseup');
-
-		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).toBeVisible();
+	test('admin can long-press on own evaluations', async () => {
+		await timelinePage.longPressFirstCard();
+		await timelinePage.expectEditDialogVisible();
 	});
 
-	test('can navigate away during long-press if not held long enough', async ({ page }) => {
-		const evalCard = page.getByRole('button', { name: /Evaluation by/ });
-		await expect(evalCard).toBeVisible();
-
-		await evalCard.dispatchEvent('mousedown');
-		await page.waitForTimeout(200);
-		await evalCard.dispatchEvent('mouseup');
-
-		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).not.toBeVisible();
+	test('can navigate away during long-press if not held long enough', async () => {
+		await timelinePage.shortPressFirstCard();
+		await timelinePage.expectEditDialogHidden();
 	});
 });
 
@@ -139,8 +125,10 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress @sequential', ()
 	let englishName: string;
 	let e2eTag: string;
 	let testData = false;
+	let timelinePage: StudentTimelinePage;
 
 	test.beforeEach(async ({ page }) => {
+		timelinePage = new StudentTimelinePage(page);
 		useRole('teacher');
 		suffix = getTestSuffix('timelineEdit');
 		studentId = `STU_${suffix}`;
@@ -162,46 +150,32 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress @sequential', ()
 		});
 		testData = true;
 
-		await page.goto(`/evaluations/student/${studentId}`);
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading user data...')).not.toBeVisible();
+		await timelinePage.goto(studentId);
+		await timelinePage.waitForLoading();
 	});
 
 	test.afterEach(async () => {
 		if (testData) await cleanupByTag('all', e2eTag);
 	});
 
-	test('can edit evaluation details', async ({ page }) => {
-		const evalCard = page.getByRole('button', { name: /Evaluation by/ }).first();
-		await expect(evalCard).toBeVisible();
-
-		await evalCard.dispatchEvent('mousedown');
-		await page.waitForTimeout(600);
-		await evalCard.dispatchEvent('mouseup');
-
-		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).toBeVisible();
-		await page.getByRole('button', { name: /Award 2 points/i }).click();
-		await page.getByRole('button', { name: /Save Changes/i }).click();
-		await expect(page.getByRole('dialog')).not.toBeVisible();
+	test('can edit evaluation details', async () => {
+		await timelinePage.longPressFirstCard();
+		await timelinePage.expectEditDialogVisible();
+		await timelinePage.clickPointButton(2);
+		await timelinePage.clickSave();
+		await timelinePage.expectEditDialogHidden();
 	});
 
-	test('can delete evaluation via long-press', async ({ page }) => {
-		const evalCard = page.getByRole('button', { name: /Evaluation by/i }).first();
-		await expect(evalCard).toBeVisible();
+	test('can delete evaluation via long-press', async () => {
+		await timelinePage.longPressFirstCard();
+		await timelinePage.expectEditDialogVisible();
+		await timelinePage.clickDeleteInEditDialog();
 
-		await evalCard.dispatchEvent('mousedown');
-		await page.waitForTimeout(600);
-		await evalCard.dispatchEvent('mouseup');
+		await timelinePage.expectDeleteDialogVisible();
+		await timelinePage.clickDeleteInDeleteDialog();
 
-		await expect(page.getByRole('dialog', { name: /Edit Evaluation/i })).toBeVisible();
-		await page.getByRole('button', { name: /Delete/i }).click();
-
-		const dialog = page.getByRole('dialog', { name: /Delete Evaluation/i });
-		await expect(dialog).toBeVisible();
-		await dialog.getByRole('button', { name: /Delete/i, exact: true }).click();
-
-		await expect(page.getByRole('dialog', { name: /Delete Evaluation/i })).not.toBeVisible();
-		await expect(evalCard).not.toBeVisible();
+		await timelinePage.expectDeleteDialogHidden();
+		await expect(timelinePage.getFirstEvaluationCard()).not.toBeVisible();
 	});
 });
 
@@ -214,8 +188,10 @@ test.describe('Score Tally Bar @score-tally @sequential', () => {
 	let englishName: string;
 	let e2eTag: string;
 	let testData = false;
+	let timelinePage: StudentTimelinePage;
 
 	test.beforeEach(async ({ page }) => {
+		timelinePage = new StudentTimelinePage(page);
 		useRole('admin');
 		suffix = getTestSuffix('scoreTally');
 		studentId = `STU_${suffix}`;
@@ -239,55 +215,34 @@ test.describe('Score Tally Bar @score-tally @sequential', () => {
 		});
 		testData = true;
 
-		await page.goto(`/evaluations/student/${studentId}`);
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading user data...')).not.toBeVisible();
-		await expect(page.getByRole('region', { name: 'Evaluation' })).toBeVisible();
+		await timelinePage.goto(studentId);
+		await timelinePage.waitForLoading();
+		await timelinePage.expectTimelineVisible();
 
 		// Wait for evaluations to load - admin can see all evaluations
-		await expect(page.getByRole('button', { name: /Evaluation / }).first()).toBeVisible();
+		await expect(timelinePage.getFirstEvaluationCard()).toBeVisible();
 	});
 
 	test.afterEach(async () => {
 		if (testData) await cleanupByTag('all', e2eTag);
 	});
 
-	test('displays score tally bar with correct totals', async ({ page }) => {
-		// Wait for evaluations to be fully loaded and stable
-		// Use waitForFunction to ensure evaluations stay visible (not flash and disappear)
-		// await page.waitForFunction(
-		// 	() => {
-		// 		const buttons = document.querySelectorAll('button');
-		// 		return Array.from(buttons).some((b) => b.textContent?.includes('Evaluation by'));
-		// 	},
-		// 	{ timeout: 10000 }
-		// );
-
+	test('displays score tally bar with correct totals', async () => {
 		// Wait for the score tally bar to be visible with evaluations count
 		// Note: Each evaluation has value=1, so 4 evaluations = +4 positive tally
 		// ScoreTallyBar only shows non-zero tallies, so we only check for +4
-		await expect(page.getByText('+4').first()).toBeVisible();
+		await timelinePage.expectScoreTally('+4');
 	});
 
-	test('score tally updates when filter is applied', async ({ page }) => {
-		// Wait for evaluations to be fully loaded and stable
-		// await page.waitForFunction(
-		// 	() => {
-		// 		const buttons = document.querySelectorAll('button');
-		// 		return Array.from(buttons).some((b) => b.textContent?.includes('Evaluation by'));
-		// 	},
-		// 	{ timeout: 10000 }
-		// );
-
+	test('score tally updates when filter is applied', async () => {
 		// Initial totals should show +4 (4 evaluations with value=1 each)
-		await expect(page.getByText('+4').first()).toBeVisible();
+		await timelinePage.expectScoreTally('+4');
 
 		// Apply a filter that excludes all evaluations
-		const filterInput = page.getByPlaceholder('Filter by teacher(s)…');
-		await filterInput.fill('NonExistentTeacher');
+		await timelinePage.fillTeacherFilter('NonExistentTeacher');
 
 		// When filter excludes all evaluations, the tally bar shows nothing
 		// because both positive and negative totals are 0 (hasScores = false)
-		await expect(page.getByText('+4')).not.toBeVisible();
+		await timelinePage.expectScoreTallyNotVisible();
 	});
 });

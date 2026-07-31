@@ -1,5 +1,4 @@
-import { test } from '@playwright/test';
-import { expect } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 test.describe('Permission Tests @smoke', () => {
 	test('unauthenticated user is redirected to login for admin route', async ({ page }) => {

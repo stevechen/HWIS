@@ -2,7 +2,7 @@ import { Page, expect } from '@playwright/test';
 import { NewEvaluationPage } from './NewEvaluationPage';
 
 export class AdminWeeklyReportsPage {
-	constructor(private page: Page) {}
+	constructor(public page: Page) {}
 
 	async goto() {
 		await this.page.goto('/admin/weekly-reports');

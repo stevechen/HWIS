@@ -1,64 +1,78 @@
 import { Page, expect } from '@playwright/test';
 
 export class AdminEvaluationsPage {
-	constructor(private page: Page) {}
+	constructor(public page: Page) {}
 
 	async goto() {
 		await this.page.goto('/admin/evaluations');
 		await this.page.waitForSelector('body.hydrated');
-		await expect(this.page.getByTestId('admin-evaluations.filter-student')).toBeVisible();
+		await this.expectTimelineVisible();
 	}
 
-	async filterByStudent(text: string) {
-		await this.page.getByTestId('admin-evaluations.filter-student').fill(text);
+	async expectTimelineVisible() {
+		await expect(this.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
 	}
 
-	async filterByTeacher(text: string) {
-		await this.page.getByTestId('admin-evaluations.filter-teacher').fill(text);
+	async expectLoadingHidden() {
+		await expect(this.page.getByTestId('admin-evaluations.loading')).toBeHidden();
 	}
 
-	async toggleSort() {
-		await this.page.getByTestId('admin-evaluations.sort').click();
+	async expectErrorHidden() {
+		await expect(this.page.getByTestId('admin-evaluations.error')).toBeHidden();
 	}
 
-	async toggleShowUnenrolled() {
-		await this.page.getByTestId('admin-evaluations.unenrolled').click();
-	}
-
-	async toggleShowDetails() {
-		await this.page.getByTestId('admin-evaluations.details').click();
-	}
-
-	async toggleTeacherName() {
-		await this.page.getByTestId('admin-evaluations.toggle-teacher-name').click();
-	}
-
-	async getStudentNames(): Promise<string[]> {
-		const cards = this.page.getByTestId(/^admin-evaluations\.card-/);
-		return cards.evaluateAll((elements) =>
-			elements.map((el) => el.getAttribute('aria-label')?.replace('Evaluation for ', '') ?? '')
-		);
-	}
-
-	async waitForCard(name: string) {
-		await expect(this.page.getByRole('button', { name: `Evaluation for ${name}` })).toBeVisible();
-	}
-
-	async waitForNoMoreEvaluations() {
+	async expectNoMoreVisible() {
 		await expect(this.page.getByTestId('admin-evaluations.no-more')).toBeVisible();
 	}
 
+	async expectEmptyStateVisible() {
+		await expect(this.page.getByTestId('admin-evaluations.empty')).toBeVisible();
+	}
+
+	async fillStudentFilter(query: string) {
+		await this.page.getByTestId('admin-evaluations.filter-student').fill(query);
+	}
+
+	async fillTeacherFilter(query: string) {
+		await this.page.getByTestId('admin-evaluations.filter-teacher').fill(query);
+	}
+
+	getAllCards() {
+		return this.page.locator('[data-testid^="admin-evaluations.card-"]');
+	}
+
+	async expectFirstCardVisible() {
+		await expect(this.getAllCards().first()).toBeVisible();
+	}
+
+	async expectSecondCardVisible() {
+		await expect(this.getAllCards().nth(1)).toBeVisible();
+	}
+
+	async expectCardCount(count: number) {
+		await expect(this.getAllCards()).toHaveCount(count);
+	}
+
+	async expectCardNotVisible() {
+		await expect(this.getAllCards().first()).not.toBeVisible();
+	}
+
+	async clickSortButton() {
+		await this.page.getByTestId('admin-evaluations.sort').click();
+	}
+
+	async expectSortButton(text: string) {
+		await expect(this.page.getByTestId('admin-evaluations.sort')).toHaveAttribute(
+			'aria-label',
+			text
+		);
+	}
+
 	async scrollToBottom() {
-		await this.page.getByTestId('admin-evaluations.sentinel').scrollIntoViewIfNeeded();
+		await this.page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 	}
 
-	async expectCardVisible(name: string) {
-		await expect(this.page.getByRole('button', { name: `Evaluation for ${name}` })).toBeVisible();
-	}
-
-	async expectCardNotVisible(name: string) {
-		await expect(
-			this.page.getByRole('button', { name: `Evaluation for ${name}` })
-		).not.toBeVisible();
+	async waitForNoMore() {
+		await expect(this.page.getByTestId('admin-evaluations.no-more')).toBeVisible();
 	}
 }

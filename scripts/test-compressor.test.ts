@@ -62,9 +62,14 @@ const twoFailuresFixture = {
 									expectedStatus: 'passed',
 									errors: [
 										{
-											message: "Error: expect(received).toBe(expected) — expected 'bar' got 'foo'",
-											stack: `Error: expect(received).toBe(expected) — expected 'bar' got 'foo'
-    at <anonymous> (e2e/failing.spec.ts:45:18)
+											message: `Error: expect(locator).toBeVisible() failed
+
+Locator: getByTestId('admin-users.root')
+Expected: visible
+Timeout: 5000ms
+Error: element(s) not found`,
+											stack: `Error: expect(locator).toBeVisible() failed
+    at e2e/failing.spec.ts:45:18
     at Proxy.<anonymous> (file:///node_modules/playwright/lib/index.js:100:10)`
 										}
 									]
@@ -82,7 +87,10 @@ const twoFailuresFixture = {
 									expectedStatus: 'passed',
 									errors: [
 										{
-											message: 'TimeoutError: page.getByText("Submit") — locator not found',
+											message: `TimeoutError: page.getByText("Submit") — locator not found
+
+Locator: getByText("Submit")
+Timeout: 30000ms`,
 											stack: `TimeoutError: page.getByText("Submit") — locator not found
     at e2e/slow.spec.ts:105:20
     at runMicrotasks (<anonymous>)`
@@ -128,8 +136,20 @@ describe('compressResults', () => {
 
 	it('includes the error message line for each failure', () => {
 		const result = compressResults(twoFailuresFixture);
-		expect(result).toContain("expected 'bar' got 'foo'");
+		expect(result).toContain('expect(locator).toBeVisible() failed');
 		expect(result).toContain('locator not found');
+	});
+
+	it('includes locator details when present', () => {
+		const result = compressResults(twoFailuresFixture);
+		expect(result).toContain("Locator: `getByTestId('admin-users.root')`");
+		expect(result).toContain('Locator: `getByText("Submit")`');
+	});
+
+	it('includes timeout when present', () => {
+		const result = compressResults(twoFailuresFixture);
+		expect(result).toContain('Timeout: 5000ms');
+		expect(result).toContain('Timeout: 30000ms');
 	});
 
 	it('includes the first user-code stack frame, filtering Playwright internals', () => {
@@ -171,6 +191,49 @@ describe('compressResults', () => {
 		};
 		const result = compressResults(noMatchFixture);
 		expect(result).toContain('node_modules/some-lib/helper.js:10:5');
+	});
+
+	it('parses inline expected/received from assertion messages', () => {
+		const inlineFixture = {
+			stats: { expected: 0, unexpected: 1, flaky: 0, skipped: 0, ok: false },
+			suites: [
+				{
+					title: 'root',
+					specs: [
+						{
+							title: 'value mismatch',
+							file: 'e2e/inline.spec.ts',
+							line: 10,
+							column: 1,
+							tests: [
+								{
+									status: 'failed',
+									expectedStatus: 'passed',
+									errors: [
+										{
+											message: "Error: expect(received).toBe(expected) — expected 'bar' got 'foo'",
+											stack: `Error: expect(received).toBe(expected)
+    at e2e/inline.spec.ts:12:5`
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		};
+		const result = compressResults(inlineFixture);
+		expect(result).toContain('Expected: `bar`');
+		expect(result).toContain('Received: `foo`');
+	});
+
+	it('formats error details with proper indentation', () => {
+		const result = compressResults(twoFailuresFixture);
+		const lines = result.split('\n');
+		const locatorLine = lines.find((l) => l.includes('Locator:'));
+		expect(locatorLine).toBeDefined();
+		expect(locatorLine).toMatch(/^ {2}Locator: /);
 	});
 });
 

@@ -215,13 +215,17 @@
 							<Button
 								variant="default"
 								class="border bg-white text-blue-950 hover:bg-gray-100"
+								testId="layout.back-button"
 								onclick={handleBack}
 							>
 								<ArrowLeft class="size-4" />
 								<span class="hidden sm:inline">{backLabel}</span>
 							</Button>
 						{/if}
-						<h1 class="text-primary-foreground flex items-center gap-2 font-semibold">
+						<h1
+							class="text-primary-foreground flex items-center gap-2 font-semibold"
+							data-testid="layout.header-title"
+						>
 							{#if $headerHouseBadge}
 								{@const LogoComponent = $headerHouseBadge.logo}
 								<div

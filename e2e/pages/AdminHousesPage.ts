@@ -1,12 +1,12 @@
 import { Page, expect } from '@playwright/test';
 
 export class AdminHousesPage {
-	constructor(private page: Page) {}
+	constructor(public page: Page) {}
 
 	async goto() {
 		await this.page.goto('/admin/houses');
 		await this.page.waitForSelector('body.hydrated');
-		await expect(this.page.getByTestId('admin-houses.root')).toBeVisible({ timeout: 10000 });
+		await expect(this.page.getByTestId('admin-houses.root')).toBeVisible();
 	}
 
 	async getHouseColumn(house: 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna') {

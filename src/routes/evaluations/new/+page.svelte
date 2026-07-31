@@ -294,7 +294,10 @@
 					{/if}
 				</div>
 
-				<p class="text-primary mt-4 text-sm font-medium">
+				<p
+					class="text-primary mt-4 text-sm font-medium"
+					data-testid="evaluations-new.selected-count"
+				>
 					{selectedStudentIds.size} student(s) selected
 				</p>
 			</Card.Content>

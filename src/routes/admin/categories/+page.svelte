@@ -227,7 +227,7 @@
 
 <div class="container mx-auto w-fit py-8">
 	<div class="bg-card rounded-lg border shadow-sm">
-		<Table.Root aria-label="Categories">
+		<Table.Root aria-label="Categories" data-testid="categories.table">
 			<Table.Header class="bg-muted/50">
 				<Table.Row>
 					<Table.Head class="w-auto">Category</Table.Head>
@@ -238,7 +238,7 @@
 			</Table.Header>
 			<Table.Body>
 				{#each categories as category (category._id)}
-					<Table.Row>
+					<Table.Row data-testid={`categories.table.row-${category._id}`}>
 						<Table.Cell>
 							<span class="font-medium">{category.name}</span>
 						</Table.Cell>
@@ -325,7 +325,7 @@
 		onkeydown={(e) => {
 			if (e.key === 'Escape') handleCancel();
 		}}
-		testId="categories.form-dialog"
+		data-testid="categories.form-dialog"
 	>
 		<div class="bg-background my-8 w-full max-w-3xl rounded-lg p-6 shadow-lg">
 			<div class="mb-4 flex items-center justify-between">
@@ -352,7 +352,7 @@
 					{#if formError}
 						<div
 							class="rounded bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400"
-							testId="categories.form-dialog.error"
+							data-testid="categories.form-dialog.error"
 						>
 							{formError}
 						</div>
@@ -378,7 +378,7 @@
 											type="checkbox"
 											bind:checked={casCreativity}
 											class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
-											testId="categories.form-dialog.cas-creativity"
+											data-testid="categories.form-dialog.cas-creativity"
 										/>
 										<span class="text-sm">Creativity</span>
 									</label>
@@ -387,7 +387,7 @@
 											type="checkbox"
 											bind:checked={casActivity}
 											class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
-											testId="categories.form-dialog.cas-activity"
+											data-testid="categories.form-dialog.cas-activity"
 										/>
 										<span class="text-sm">Activity</span>
 									</label>
@@ -396,7 +396,7 @@
 											type="checkbox"
 											bind:checked={casService}
 											class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
-											testId="categories.form-dialog.cas-service"
+											data-testid="categories.form-dialog.cas-service"
 										/>
 										<span class="text-sm">Service</span>
 									</label>
@@ -536,7 +536,7 @@
 		onkeydown={(e) => {
 			if (e.key === 'Escape') cancelDelete();
 		}}
-		testId="categories.delete-dialog"
+		data-testid="categories.delete-dialog"
 	>
 		<div class="bg-background w-full max-w-md rounded-lg p-6 shadow-lg">
 			<h2 class="mb-2 text-xl font-semibold">Delete Category</h2>

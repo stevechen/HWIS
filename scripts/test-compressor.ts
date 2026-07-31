@@ -84,8 +84,76 @@ function firstRelevantStackFrame(stack: string): string {
 	return lines[0] ?? '';
 }
 
-function firstLine(message: string): string {
-	return message.split('\n')[0] ?? message;
+type ErrorDetails = {
+	summary: string;
+	locator?: string;
+	timeout?: string;
+	expected?: string;
+	received?: string;
+};
+
+function parseErrorDetails(message: string): ErrorDetails {
+	const lines = message
+		.split('\n')
+		.map((l) => l.trim())
+		.filter(Boolean);
+	const summary = lines[0] ?? message;
+
+	let locator: string | undefined;
+	let timeout: string | undefined;
+	let expected: string | undefined;
+	let received: string | undefined;
+
+	for (const line of lines) {
+		const locatorMatch = line.match(/^Locator:\s+(.+)$/i);
+		if (locatorMatch) {
+			locator = locatorMatch[1];
+			continue;
+		}
+		const timeoutMatch = line.match(/^Timeout:\s+(.+)$/i);
+		if (timeoutMatch) {
+			timeout = timeoutMatch[1];
+			continue;
+		}
+		const expectedMatch = line.match(/^Expected:\s+(.+)$/i);
+		if (expectedMatch) {
+			expected = expectedMatch[1];
+			continue;
+		}
+		const receivedMatch = line.match(/^Received:\s+(.+)$/i);
+		if (receivedMatch) {
+			received = receivedMatch[1];
+			continue;
+		}
+	}
+
+	// Fallback: try to extract expected/received from inline format like
+	// "expect(received).toBe(expected) — expected 'bar' got 'foo'"
+	if (!expected && !received) {
+		const inlineMatch = summary.match(/expected\s+['"](.+?)['"]\s+got\s+['"](.+?)['"]/);
+		if (inlineMatch) {
+			expected = inlineMatch[1];
+			received = inlineMatch[2];
+		}
+	}
+
+	return { summary, locator, timeout, expected, received };
+}
+
+function formatErrorLines(details: ErrorDetails): string[] {
+	const lines: string[] = [];
+	lines.push(`- ${details.summary}`);
+	if (details.locator) {
+		lines.push(`  Locator: \`${details.locator}\``);
+	}
+	if (details.timeout) {
+		lines.push(`  Timeout: ${details.timeout}`);
+	}
+	if (details.expected !== undefined && details.received !== undefined) {
+		lines.push(`  Expected: \`${details.expected}\``);
+		lines.push(`  Received: \`${details.received}\``);
+	}
+	return lines;
 }
 
 export function compressResults(report: JsonReport): string {
@@ -108,11 +176,12 @@ export function compressResults(report: JsonReport): string {
 		lines.push(`### ${spec.title}`);
 		lines.push(`\`${spec.file}:${spec.line}\``);
 		for (const err of spec.errors) {
-			lines.push(`- ${firstLine(err.message)}`);
+			const details = parseErrorDetails(err.message);
+			lines.push(...formatErrorLines(details));
 			if (err.stack) {
 				const frame = firstRelevantStackFrame(err.stack);
 				if (frame) {
-					lines.push(`  \`${frame}\``);
+					lines.push(`  at \`${frame}\``);
 				}
 			}
 		}

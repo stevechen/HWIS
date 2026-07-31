@@ -7,6 +7,11 @@ import {
 	useRole
 } from './convex-client';
 import { getTestSuffix, getTestStudentId } from './helpers';
+import { AdminStudentsPage, StudentTimelinePage } from './pages';
+
+// ============================================================================
+// CREATE STUDENT TESTS
+// ============================================================================
 
 test.describe('Student CRUD Cycle @integration', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
@@ -15,8 +20,10 @@ test.describe('Student CRUD Cycle @integration', () => {
 	const studentId = getTestStudentId('crud');
 	const englishName = `CrudTest_${suffix}`;
 	let testE2eTag: string | null = null;
+	let studentsPage: AdminStudentsPage;
 
 	test.beforeEach(async ({ page }) => {
+		studentsPage = new AdminStudentsPage(page);
 		useRole('admin');
 		testE2eTag = `e2e-test_${suffix}`;
 
@@ -29,62 +36,28 @@ test.describe('Student CRUD Cycle @integration', () => {
 			e2eTag: testE2eTag
 		});
 
-		await page.goto('/admin/students');
-		await page.waitForSelector('body.hydrated');
+		await studentsPage.goto();
 	});
 
 	test.afterEach(async () => {
 		if (testE2eTag) await cleanupTestData(testE2eTag);
 	});
 
-	test('create, edit, delete works with real backend', async ({ page }) => {
+	test('create, edit, delete works with real backend', async () => {
 		// Verify student was created
-		await expect(page.getByRole('row', { name: studentId })).toBeVisible();
+		await studentsPage.expectStudentRowVisible(studentId);
 
-		// Edit student - find and click edit button (first button in the row with pencil icon)
-		const studentRow = page.getByRole('row', { name: studentId });
-		await studentRow.getByRole('button', { name: `Edit ${studentId}` }).click();
+		// Edit student - click edit button
+		await studentsPage.setStudentStatusViaDialog(studentId, 'Not Enrolled');
 
-		// Wait for edit dialog
-		// await expect(page.getByRole('dialog', {name: 'student form'})).toBeVisible();
-		const dialog = page.getByRole('dialog', { name: 'student form' });
-		await expect(dialog).toBeVisible();
-		// await expect(page.getByText('Edit Student')).toBeVisible();
+		// Verify status changed
+		await studentsPage.expectStudentStatus(studentId, 'Not Enrolled');
 
-		// Change status to Not Enrolled - use the Status select
-		const statusSelect = dialog.getByRole('combobox', { name: 'Student status' });
-		await statusSelect.selectOption('Not Enrolled');
+		// Delete student
+		await studentsPage.deleteStudent(studentId);
 
-		// Click Update button - scope to dialog to avoid matching other buttons
-		await dialog.getByRole('button', { name: 'Update student' }).click();
-
-		// Debug: check for form errors
-		await page.waitForTimeout(500);
-		const errorAlert = dialog.locator('[role="alert"]');
-		if (await errorAlert.isVisible().catch(() => false)) {
-			const errorText = await errorAlert.textContent();
-			console.log('Form errors:', errorText);
-		}
-
-		// Wait for dialog to close
-		await expect(dialog).not.toBeVisible();
-
-		// Verify status changed - check for Not Enrolled text in the student's row
-		await expect(page.getByRole('row', { name: studentId })).toContainText('Not Enrolled');
-
-		// Delete student - find and click delete button (last button in row with trash icon)
-		await studentRow.getByRole('button', { name: `Delete ${studentId}` }).click();
-
-		// Wait for delete dialog
-		await expect(page.getByRole('dialog')).toBeVisible();
-		await expect(page.getByText('Delete Student')).toBeVisible();
-
-		// Click Delete button - scope to dialog
-		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
-
-		// Wait for dialog to close and student to be removed
-		await expect(page.getByRole('dialog')).not.toBeVisible();
-		await expect(page.getByRole('cell', { name: studentId, exact: true })).not.toBeVisible();
+		// Verify deletion
+		await studentsPage.expectStudentRowNotVisible(studentId);
 	});
 });
 
@@ -95,8 +68,10 @@ test.describe('Evaluation Persistence @integration', () => {
 	const studentId = `SE_${suffix}`;
 	const englishName = `EvalPersist_${suffix}`;
 	let testE2eTag: string | null = null;
+	let page: import('@playwright/test').Page;
 
-	test.beforeEach(async ({ page }) => {
+	test.beforeEach(async ({ page: p }) => {
+		page = p;
 		useRole('admin');
 		testE2eTag = `e2e-test_${suffix}`;
 
@@ -118,22 +93,22 @@ test.describe('Evaluation Persistence @integration', () => {
 
 		await page.goto('/evaluations/new');
 		await page.waitForSelector('body.hydrated');
-		await page.waitForSelector('text=Loading students...', { state: 'detached' });
+		await expect(page.getByText('Loading students...')).not.toBeVisible();
 	});
 
 	test.afterEach(async () => {
 		if (testE2eTag) await cleanupTestData(testE2eTag);
 	});
 
-	test('evaluation persists to database and appears in list', async ({ page }) => {
-		const filterInput = page.getByRole('textbox', { name: 'Search students' });
+	test('evaluation persists to database and appears in list', async () => {
+		const filterInput = page.getByTestId('evaluations-new.search-input');
 		await filterInput.fill(englishName);
 
-		const studentRow = page.getByRole('button', { name: englishName });
+		const studentRow = page.getByTestId(`evaluations-new.student-row-${englishName}`);
 		await expect(studentRow).toBeVisible();
 
 		await studentRow.click();
-		await expect(page.getByText(/student.*selected/i)).toBeVisible();
+		await expect(page.getByTestId('evaluations-new.selected-count')).toBeVisible();
 	});
 });
 
@@ -145,8 +120,10 @@ test.describe('Student Timeline Navigation @integration @sequential', () => {
 	const englishName = `EvalNav_${suffix}`;
 	let testE2eTag: string | null = null;
 	let studentDocId: string;
+	let timelinePage: StudentTimelinePage;
 
 	test.beforeEach(async ({ page }) => {
+		timelinePage = new StudentTimelinePage(page);
 		useRole('admin');
 		testE2eTag = `e2e-test_${suffix}`;
 
@@ -168,19 +145,17 @@ test.describe('Student Timeline Navigation @integration @sequential', () => {
 		expect(studentDocId).toBeTruthy();
 
 		// Navigate directly to the student timeline page
-		// This tests that the evaluation data is persisted and can be viewed
-		await page.goto(`/evaluations/student/${studentDocId}`);
-		await page.waitForSelector('body.hydrated');
+		await timelinePage.goto(studentDocId);
+		await timelinePage.waitForLoading();
 	});
 
 	test.afterEach(async () => {
 		if (testE2eTag) await cleanupTestData(testE2eTag);
 	});
 
-	test('clicking evaluation card navigates to student timeline with valid ID', async ({ page }) => {
-		// Verify breadcrumb navigation button exists
-		const backButton = page.getByRole('button', { name: /back/i });
-		await expect(backButton).toBeVisible();
+	test('clicking evaluation card navigates to student timeline with valid ID', async () => {
+		// Verify back button exists
+		await expect(timelinePage.page.getByTestId('layout.back-button')).toBeVisible();
 	});
 });
 
@@ -190,8 +165,10 @@ test.describe('Category to Evaluation Integration @integration', () => {
 	const suffix = getTestSuffix('catEvalInt');
 	const categoryName = `IntTestCat_${suffix}`;
 	let testE2eTag: string | null = null;
+	let page: import('@playwright/test').Page;
 
-	test.beforeEach(async ({ page }) => {
+	test.beforeEach(async ({ page: p }) => {
+		page = p;
 		useRole('admin');
 		testE2eTag = `e2e-test_${suffix}`;
 
@@ -204,10 +181,10 @@ test.describe('Category to Evaluation Integration @integration', () => {
 		// Navigate to admin categories page to verify
 		await page.goto('/admin/categories');
 		await page.waitForSelector('body.hydrated');
-		await expect(page.getByRole('table', { name: 'Categories' })).toBeVisible();
+		await expect(page.getByTestId('categories.table')).toBeVisible();
 
 		// Verify category appears in the list
-		await expect(page.getByRole('cell', { name: categoryName })).toBeVisible();
+		await expect(page.getByText(categoryName)).toBeVisible();
 	});
 
 	test.afterEach(async () => {
@@ -215,9 +192,6 @@ test.describe('Category to Evaluation Integration @integration', () => {
 	});
 
 	test('category created by admin can be used in evaluation by teacher', async ({ context }) => {
-		// Extend timeout for this complex multi-context test
-		//test.setTimeout(60000);
-
 		// Step 2: Create a new browser context for teacher
 		const browser = context.browser();
 		if (!browser) {
@@ -234,13 +208,10 @@ test.describe('Category to Evaluation Integration @integration', () => {
 			await teacherPage.waitForSelector('body.hydrated');
 
 			// Step 4: Verify the evaluation page loads correctly
-			// Wait for the page to be ready - check for key elements
-			await expect(teacherPage.getByRole('heading', { name: 'New Evaluation' })).toBeVisible();
+			await expect(teacherPage.getByTestId('layout.header-title')).toContainText('New Evaluation');
 
 			// Verify the category trigger exists (page structure is correct)
-			// Use soft assertion - we just want to verify the page structure
-			const categoryTrigger = teacherPage.getByRole('button', { name: 'Select category' });
-			await expect(categoryTrigger).toBeVisible();
+			await expect(teacherPage.getByTestId('evaluations-new.category-trigger')).toBeVisible();
 
 			// Test passes - we've verified:
 			// 1. Admin can create a category

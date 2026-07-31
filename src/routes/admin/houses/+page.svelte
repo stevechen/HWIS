@@ -183,16 +183,19 @@
 	}
 </script>
 
-<div class="space-y-4 p-4" testId="admin-houses.root">
+<div class="space-y-4 p-4" data-testid="admin-houses.root">
 	{#if housesQuery.isLoading}
 		<div class="text-muted-foreground py-8 text-center">Loading houses...</div>
 	{:else if housesQuery.error}
 		<div class="py-8 text-center text-red-500">Error loading houses</div>
 	{:else}
-		<div class="flex flex-wrap items-center justify-between gap-2" testId="admin-houses.header">
+		<div
+			class="flex flex-wrap items-center justify-between gap-2"
+			data-testid="admin-houses.header"
+		>
 			{#if multiSelect.selectionMode}
 				<!-- Inline move targets (desktop) -->
-				<div class="ml-4 hidden items-center gap-2 md:flex" testId="admin-houses.bulk-targets">
+				<div class="ml-4 hidden items-center gap-2 md:flex" data-testid="admin-houses.bulk-targets">
 					<span class="text-muted-foreground mr-1 text-xs"
 						>Move {multiSelect.selectedCount} student{multiSelect.selectedCount !== 1 ? 's' : ''} to:</span
 					>
@@ -212,7 +215,7 @@
 										assignHouse(sid, targetHouse);
 									}
 								}}
-								testId={`admin-houses.bulk-target-${targetHouse}`}
+								data-testid={`admin-houses.bulk-target-${targetHouse}`}
 							>
 								{targetHouse}
 							</button>
@@ -229,7 +232,7 @@
 									assignHouse(sid, undefined);
 								}
 							}}
-							testId="admin-houses.bulk-target-orphaned"
+							data-testid="admin-houses.bulk-target-orphaned"
 						>
 							Unassigned
 						</button>
@@ -262,7 +265,7 @@
 					]}
 					role="region"
 					aria-label="{house} House"
-					testId={`admin-houses.house-${house}`}
+					data-testid={`admin-houses.house-${house}`}
 					use:dropZone={{
 						id: house,
 						accept: (data: DragData) => {
@@ -367,7 +370,7 @@
 				]}
 				role="region"
 				aria-label="Unassigned Students"
-				testId="admin-houses.orphaned"
+				data-testid="admin-houses.orphaned"
 				use:dropZone={{
 					id: '__orphaned',
 					accept: (data: DragData) => {

@@ -9,3 +9,5 @@ export * from './AdminUsersPage';
 export * from './AdminAuditPage';
 export * from './AdminWeeklyReportsPage';
 export * from './HousesEventsPage';
+export * from './StudentTimelinePage';
+export * from './HousesDisplayPage';

@@ -36,7 +36,7 @@
 
 {#if hasScores}
 	<!-- Single centered container -->
-	<div class="flex items-center justify-center">
+	<div class="flex items-center justify-center" data-testid="score-tally-bar">
 		<!-- Left side: Number + Bar extending from center -->
 		<div class="flex items-center justify-end" style="width: {MAX_BAR_WIDTH + 24}px">
 			{#if negativeTotal > 0}

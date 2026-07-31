@@ -7,6 +7,7 @@ import {
 	setE2eTag,
 	useRole
 } from './convex-client';
+import { AdminCategoriesPage, AdminEvaluationsPage } from './pages';
 
 test.describe('Categories Management @categories', () => {
 	test('redirects non-admin users from /admin/categories', async ({ page }) => {
@@ -24,10 +25,12 @@ test.describe('Categories - Update Name', () => {
 	const updatedName = `Updated_${suffix}`;
 	const e2eTag = `e2e-test_${suffix}`;
 	let testCategory = false;
+	let categoriesPage: AdminCategoriesPage;
 
 	test.beforeEach(async ({ page }) => {
+		categoriesPage = new AdminCategoriesPage(page);
 		useRole('admin');
-		await createCategory({ name: categoryName, e2eTag });
+		await createCategory({ name: categoryName, e2eTag, casAlignment: ['Creativity'] });
 		testCategory = true;
 
 		await page.goto('/admin/categories');
@@ -38,20 +41,10 @@ test.describe('Categories - Update Name', () => {
 		if (testCategory) await cleanupByTag('categories', e2eTag);
 	});
 
-	test('can update category name', async ({ page }) => {
-		await expect(page.getByRole('row', { name: categoryName })).toBeVisible();
-
-		const row = page.getByRole('row', { name: categoryName });
-		await row.getByRole('button', { name: 'Edit' }).click();
-		await expect(page.getByRole('dialog', { name: 'Edit category' })).toBeVisible();
-		await page.getByRole('textbox', { name: 'Category Name' }).fill(updatedName);
-
-		// Select at least one CAS alignment checkbox (required field)
-		await page.getByRole('checkbox', { name: 'Service' }).check();
-
-		await page.getByRole('button', { name: 'Update' }).click();
-
-		await expect(page.getByRole('cell', { name: updatedName })).toBeVisible();
+	test('can update category name', async () => {
+		await categoriesPage.expectCategoryVisible(categoryName);
+		await categoriesPage.editCategory(categoryName, { name: updatedName });
+		await categoriesPage.expectCategoryVisible(updatedName);
 		await setE2eTag('categories', updatedName, e2eTag);
 	});
 });
@@ -67,8 +60,12 @@ test.describe('Categories - Name Change Reflects in Evaluations @sequential', ()
 	let studentId: string;
 	let testCategory = false;
 	let testStudent = false;
+	let categoriesPage: AdminCategoriesPage;
+	let evalsPage: AdminEvaluationsPage;
 
-	test.beforeEach(async () => {
+	test.beforeEach(async ({ page }) => {
+		categoriesPage = new AdminCategoriesPage(page);
+		evalsPage = new AdminEvaluationsPage(page);
 		suffix = getTestSuffix('nameReflect');
 		englishName = `English_${suffix}`;
 		categoryName = `Category_${suffix}`;
@@ -76,7 +73,7 @@ test.describe('Categories - Name Change Reflects in Evaluations @sequential', ()
 		e2eTag = `e2e-test_${suffix}`;
 		studentId = `S_${suffix}`;
 		useRole('admin');
-		await createCategory({ name: categoryName, e2eTag });
+		await createCategory({ name: categoryName, e2eTag, casAlignment: ['Creativity'] });
 		testCategory = true;
 		await createStudentWithEvaluations({
 			studentId,
@@ -95,36 +92,27 @@ test.describe('Categories - Name Change Reflects in Evaluations @sequential', ()
 		await cleanupByTag('evaluations', e2eTag);
 	});
 
-	test('changing category name reflects in evaluation displays', async ({ page }) => {
-		await page.goto('/admin/evaluations');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
-		await expect(
-			page.getByRole('button', { name: `Evaluation for ${englishName}` }).getByText(categoryName)
-		).toBeVisible();
+	test('changing category name reflects in evaluation displays', async () => {
+		await evalsPage.goto();
+		await evalsPage.expectLoadingHidden();
 
-		await page.goto('/admin/categories');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByRole('table', { name: 'Categories' })).toBeVisible();
+		// Verify initial category name appears in evaluation
+		const evalCard = evalsPage.page.locator('[data-testid^="admin-evaluations.card-"]', {
+			has: evalsPage.page.locator(`text="${englishName}"`)
+		});
+		await expect(evalCard.locator(`text="${categoryName}"`)).toBeVisible();
 
-		const row = page.getByRole('row', { name: categoryName });
-		await row.getByRole('button', { name: 'Edit' }).click();
-		await page.getByRole('textbox', { name: 'Category Name' }).fill(updatedName);
+		await categoriesPage.goto();
+		await categoriesPage.editCategory(categoryName, { name: updatedName });
 
-		// Select at least one CAS alignment checkbox (required field)
-		await page.getByRole('checkbox', { name: 'Service' }).check();
+		await evalsPage.goto();
+		await evalsPage.expectLoadingHidden();
 
-		await page.getByRole('button', { name: 'Update' }).click();
-		await expect(page.getByRole('cell', { name: updatedName })).toBeVisible();
-
-		await page.goto('/admin/evaluations');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
-		await expect(
-			page.getByRole('button', { name: `Evaluation for ${englishName}` }).getByText(updatedName)
-		).toBeVisible();
+		// Verify updated category name appears in evaluation
+		const updatedEvalCard = evalsPage.page.locator('[data-testid^="admin-evaluations.card-"]', {
+			has: evalsPage.page.locator(`text="${englishName}"`)
+		});
+		await expect(updatedEvalCard.locator(`text="${updatedName}"`)).toBeVisible();
 	});
 });
 
@@ -136,15 +124,19 @@ test.describe('Categories - Delete Cascade Removes Evaluations @sequential', () 
 	let categoryName: string;
 	let e2eTag: string;
 	let studentId: string;
+	let categoriesPage: AdminCategoriesPage;
+	let evalsPage: AdminEvaluationsPage;
 
-	test.beforeEach(async () => {
+	test.beforeEach(async ({ page }) => {
+		categoriesPage = new AdminCategoriesPage(page);
+		evalsPage = new AdminEvaluationsPage(page);
 		suffix = getTestSuffix('delCascEval');
 		englishName = `English_${suffix}`;
 		categoryName = `Category_${suffix}`;
 		e2eTag = `e2e-test_${suffix}`;
 		studentId = `S_${suffix}`;
 		useRole('admin');
-		await createCategory({ name: categoryName, e2eTag });
+		await createCategory({ name: categoryName, e2eTag, casAlignment: ['Creativity'] });
 		await createStudentWithEvaluations({
 			studentId,
 			englishName,
@@ -161,30 +153,23 @@ test.describe('Categories - Delete Cascade Removes Evaluations @sequential', () 
 		await cleanupByTag('evaluations', e2eTag);
 	});
 
-	test('deleting category cascade removes related evaluations', async ({ page }) => {
-		await page.goto('/admin/evaluations');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
-		await expect(
-			page.getByRole('button', { name: `Evaluation for ${englishName}` }).getByText(categoryName)
-		).toBeVisible();
+	test('deleting category cascade removes related evaluations', async () => {
+		await evalsPage.goto();
+		await evalsPage.expectLoadingHidden();
 
-		await page.goto('/admin/categories');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByRole('table', { name: 'Categories' })).toBeVisible();
+		// Verify initial category name appears in evaluation
+		const evalCard = evalsPage.page.locator('[data-testid^="admin-evaluations.card-"]', {
+			has: evalsPage.page.locator(`text="${englishName}"`)
+		});
+		await expect(evalCard.locator(`text="${categoryName}"`)).toBeVisible();
 
-		const row = page.getByRole('row', { name: categoryName });
-		await expect(row).toBeVisible();
-		await row.getByRole('button', { name: 'Delete' }).click();
-		await expect(page.getByRole('dialog')).toBeVisible();
-		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
-		await expect(page.getByRole('dialog')).not.toBeVisible();
+		await categoriesPage.goto();
+		await categoriesPage.deleteCategory(categoryName);
 
-		await page.goto('/admin/evaluations');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
-		await expect(
-			page.getByRole('button', { name: `Evaluation for ${englishName}` }).getByText(categoryName)
-		).not.toBeVisible();
+		await evalsPage.goto();
+		await evalsPage.expectLoadingHidden();
+
+		// Verify evaluation is gone (cascade deleted)
+		await expect(evalCard).not.toBeVisible();
 	});
 });

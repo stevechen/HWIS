@@ -1,6 +1,7 @@
 import { test, expect, Locator } from '@playwright/test';
 import { getTestSuffix } from './helpers';
 import { createStudentWithEvaluations, cleanupByTag, useRole } from './convex-client';
+import { AdminEvaluationsPage } from './pages';
 
 test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
@@ -13,8 +14,10 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations 
 	let testEntity = false;
 	let enrolled: Locator;
 	let unEnrolled: Locator;
+	let evalsPage: AdminEvaluationsPage;
 
 	test.beforeEach(async ({ page }) => {
+		evalsPage = new AdminEvaluationsPage(page);
 		useRole('admin');
 		suffix = getTestSuffix('unenrolledToggle');
 		e2eTag = `e2e-test_${suffix}`;
@@ -44,14 +47,17 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations 
 			e2eTag
 		});
 
-		enrolled = page.getByRole('button', { name: `Evaluation for ${enrolledStudentName}` });
-		unEnrolled = page.getByRole('button', { name: `Evaluation for ${unenrolledStudentName}` });
+		await evalsPage.goto();
+		await evalsPage.expectLoadingHidden();
+		await evalsPage.expectTimelineVisible();
 
-		// Navigate to admin evaluations page
-		await page.goto('/admin/evaluations');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading students…')).not.toBeVisible();
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+		// Use card testIds to find evaluation cards for each student
+		enrolled = page.locator('[data-testid^="admin-evaluations.card-"]', {
+			has: page.locator(`text="${enrolledStudentName}"`)
+		});
+		unEnrolled = page.locator('[data-testid^="admin-evaluations.card-"]', {
+			has: page.locator(`text="${unenrolledStudentName}"`)
+		});
 	});
 
 	test.afterEach(async () => {
@@ -66,9 +72,9 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations 
 		await expect(unEnrolled).not.toBeVisible();
 	});
 
-	test('can show unenrolled students by clicking eye toggle', async ({ page }) => {
+	test('can show unenrolled students by clicking eye toggle', async () => {
 		// Click to show unenrolled students
-		const showUnenrolledButton = page.getByRole('button', { name: 'Show unenrolled students' });
+		const showUnenrolledButton = evalsPage.page.getByTestId('admin-evaluations.unenrolled');
 		await expect(showUnenrolledButton).toBeVisible();
 		await showUnenrolledButton.click();
 
@@ -77,13 +83,13 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations 
 		await expect(unEnrolled).toBeVisible();
 	});
 
-	test('can hide unenrolled students again by clicking eye toggle', async ({ page }) => {
+	test('can hide unenrolled students again by clicking eye toggle', async () => {
 		// First, show unenrolled students
-		const showUnenrolledButton = page.getByRole('button', { name: 'Show unenrolled students' });
+		const showUnenrolledButton = evalsPage.page.getByTestId('admin-evaluations.unenrolled');
 		await showUnenrolledButton.click();
 
-		// Now the button should say "hide unenrolled students"
-		const hideUnenrolledButton = page.getByRole('button', { name: 'Hide unenrolled students' });
+		// Now the button should say "Hide unenrolled students"
+		const hideUnenrolledButton = evalsPage.page.getByTestId('admin-evaluations.unenrolled');
 		await expect(hideUnenrolledButton).toBeVisible();
 
 		// Click to hide unenrolled students again
@@ -94,21 +100,22 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations 
 		await expect(unEnrolled).not.toBeVisible();
 	});
 
-	test('button aria-label updates correctly when toggling', async ({ page }) => {
+	test('button aria-label updates correctly when toggling', async () => {
 		// Initial state - button should say "Show unenrolled students" (hidden by default)
-		await expect(page.getByRole('button', { name: 'Show unenrolled students' })).toBeVisible();
+		const toggleButton = evalsPage.page.getByTestId('admin-evaluations.unenrolled');
+		await expect(toggleButton).toHaveAttribute('aria-label', 'Show unenrolled students');
 
 		// Click to show
-		await page.getByRole('button', { name: 'Show unenrolled students' }).click();
+		await toggleButton.click();
 
 		// Button should now say "Hide unenrolled students"
-		await expect(page.getByRole('button', { name: 'Hide unenrolled students' })).toBeVisible();
+		await expect(toggleButton).toHaveAttribute('aria-label', 'Hide unenrolled students');
 
 		// Click to hide again
-		await page.getByRole('button', { name: 'Hide unenrolled students' }).click();
+		await toggleButton.click();
 
 		// Button should revert to "Show unenrolled students"
-		await expect(page.getByRole('button', { name: 'Show unenrolled students' })).toBeVisible();
+		await expect(toggleButton).toHaveAttribute('aria-label', 'Show unenrolled students');
 	});
 });
 
@@ -126,8 +133,10 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations 
 	let testEntity = false;
 	let enrolled: Locator;
 	let unEnrolled: Locator;
+	let page: import('@playwright/test').Page;
 
-	test.beforeEach(async ({ page }) => {
+	test.beforeEach(async ({ page: p }) => {
+		page = p;
 		useRole('teacher');
 		suffix = getTestSuffix('teacherToggle');
 		e2eTag = `e2e-test_${suffix}`;
@@ -163,28 +172,26 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations 
 			throw new Error(`Failed to create unenrolled student: ${unenrolledResult.error}`);
 		}
 
-		enrolled = page.getByRole('button', { name: `Evaluation for ${enrolledStudentName}` });
-		unEnrolled = page.getByRole('button', { name: `Evaluation for ${unenrolledStudentName}` });
-
 		// Navigate to teacher evaluations page
 		await page.goto('/evaluations');
 		await page.waitForSelector('body.hydrated');
-		await expect(
-			page.getByText('No evaluations found. Start by awarding some points! Give Points')
-		).not.toBeVisible();
+		await expect(page.getByTestId('evaluations.empty')).not.toBeVisible();
+
+		enrolled = page.locator('[data-testid^="evaluations.card-"]', {
+			has: page.locator(`text="${enrolledStudentName}"`)
+		});
+		unEnrolled = page.locator('[data-testid^="evaluations.card-"]', {
+			has: page.locator(`text="${unenrolledStudentName}"`)
+		});
 	});
 
 	test.afterEach(async () => {
 		if (testEntity) await cleanupByTag('all', e2eTag);
 	});
 
-	test('teacher does not see the show unenrolled students toggle button', async ({ page }) => {
+	test('teacher does not see the show unenrolled students toggle button', async () => {
 		// Teacher should NOT see the toggle button at all
-		const showToggle = page.getByRole('button', { name: 'Show unenrolled students' });
-		const hideToggle = page.getByRole('button', { name: 'Hide unenrolled students' });
-
-		await expect(showToggle).not.toBeVisible();
-		await expect(hideToggle).not.toBeVisible();
+		await expect(page.getByTestId('evaluations.unenrolled')).not.toBeVisible();
 	});
 
 	test('teacher sees only enrolled students (unenrolled hidden by default)', async () => {
@@ -195,18 +202,15 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations 
 		await expect(unEnrolled).not.toBeVisible();
 	});
 
-	test('teacher evaluations page has correct controls without unenrolled toggle', async ({
-		page
-	}) => {
+	test('teacher evaluations page has correct controls without unenrolled toggle', async () => {
 		// Teacher should see sort toggle
-		await expect(page.getByRole('button', { name: /newest first/i })).toBeVisible();
+		await expect(page.getByTestId('evaluations.sort')).toBeVisible();
 
 		// Teacher should see details toggle
-		await expect(page.getByRole('button', { name: /show details/i })).toBeVisible();
+		await expect(page.getByTestId('evaluations.details')).toBeVisible();
 
 		// Teacher should NOT see unenrolled toggle
-		await expect(page.getByRole('button', { name: 'Show unenrolled students' })).not.toBeVisible();
-		await expect(page.getByRole('button', { name: 'Hide unenrolled students' })).not.toBeVisible();
+		await expect(page.getByTestId('evaluations.unenrolled')).not.toBeVisible();
 	});
 });
 
@@ -224,8 +228,10 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases @sequential', () => {
 	let student2Name: string;
 	let student1Id: string;
 	let student2Id: string;
+	let evalsPage: AdminEvaluationsPage;
 
 	test.beforeEach(async ({ page }) => {
+		evalsPage = new AdminEvaluationsPage(page);
 		suffix = getTestSuffix('edgeAllEnrolled');
 		e2eTag = `e2e-test_${suffix}`;
 		student1Name = `Student1_${suffix}`;
@@ -254,46 +260,40 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases @sequential', () => {
 
 		testEntity = true;
 
-		await page.goto('/admin/evaluations');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await evalsPage.goto();
+		await evalsPage.expectLoadingHidden();
 	});
 
 	test.afterEach(async () => {
 		if (testEntity) await cleanupByTag('all', e2eTag);
 	});
 
-	test('all students enrolled shows all regardless of toggle state', async ({ page }) => {
+	test('all students enrolled shows all regardless of toggle state', async () => {
 		useRole('admin');
 
+		const student1Card = evalsPage.page.locator('[data-testid^="admin-evaluations.card-"]', {
+			has: evalsPage.page.locator(`text="${student1Name}"`)
+		});
+		const student2Card = evalsPage.page.locator('[data-testid^="admin-evaluations.card-"]', {
+			has: evalsPage.page.locator(`text="${student2Name}"`)
+		});
+
 		// Both students should be visible regardless of toggle state
-		await expect(
-			page.getByRole('button', { name: `Evaluation for ${student1Name}` })
-		).toBeVisible();
-		await expect(
-			page.getByRole('button', { name: `Evaluation for ${student2Name}` })
-		).toBeVisible();
+		await expect(student1Card).toBeVisible();
+		await expect(student2Card).toBeVisible();
 
 		// Toggle on and off, students should remain visible
-		const showToggle = page.getByRole('button', { name: 'Show unenrolled students' });
+		const showToggle = evalsPage.page.getByTestId('admin-evaluations.unenrolled');
 		await showToggle.click();
 
-		await expect(
-			page.getByRole('button', { name: `Evaluation for ${student1Name}` })
-		).toBeVisible();
-		await expect(
-			page.getByRole('button', { name: `Evaluation for ${student2Name}` })
-		).toBeVisible();
+		await expect(student1Card).toBeVisible();
+		await expect(student2Card).toBeVisible();
 
-		const hideToggle = page.getByRole('button', { name: 'Hide unenrolled students' });
+		const hideToggle = evalsPage.page.getByTestId('admin-evaluations.unenrolled');
 		await hideToggle.click();
 
-		await expect(
-			page.getByRole('button', { name: `Evaluation for ${student1Name}` })
-		).toBeVisible();
-		await expect(
-			page.getByRole('button', { name: `Evaluation for ${student2Name}` })
-		).toBeVisible();
+		await expect(student1Card).toBeVisible();
+		await expect(student2Card).toBeVisible();
 	});
 });
 
@@ -308,8 +308,10 @@ test.describe('Admin Evaluations - Teacher Name Toggle @admin-evaluations @seque
 	let e2eTag: string;
 	let testEntity = false;
 	let studentName: string;
+	let evalsPage: AdminEvaluationsPage;
 
 	test.beforeEach(async ({ page }) => {
+		evalsPage = new AdminEvaluationsPage(page);
 		useRole('admin');
 		suffix = getTestSuffix('teacherNameToggle');
 		e2eTag = `e2e-test_${suffix}`;
@@ -328,10 +330,9 @@ test.describe('Admin Evaluations - Teacher Name Toggle @admin-evaluations @seque
 		testEntity = true;
 
 		// Navigate to admin evaluations page
-		await page.goto('/admin/evaluations');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading students')).not.toBeVisible();
-		await expect(page.getByRole('region', { name: 'Evaluations' })).toBeVisible();
+		await evalsPage.goto();
+		await evalsPage.expectLoadingHidden();
+		await evalsPage.expectTimelineVisible();
 	});
 
 	test.afterEach(async () => {
@@ -339,51 +340,56 @@ test.describe('Admin Evaluations - Teacher Name Toggle @admin-evaluations @seque
 		if (testEntity) await cleanupByTag('all', e2eTag);
 	});
 
-	test('shows teacher name toggle button with correct default aria-label', async ({ page }) => {
+	test('shows teacher name toggle button with correct default aria-label', async () => {
 		// By default, teacher name is hidden, so button should say "Show teacher name"
-		const showTeacherNameButton = page.getByRole('button', { name: 'Show teacher name' });
+		const showTeacherNameButton = evalsPage.page.getByTestId(
+			'admin-evaluations.toggle-teacher-name'
+		);
 		await expect(showTeacherNameButton).toBeVisible();
+		await expect(showTeacherNameButton).toHaveAttribute('aria-label', 'Show teacher name');
 	});
 
-	test('clicking toggle changes aria-label from Show to Hide', async ({ page }) => {
+	test('clicking toggle changes aria-label from Show to Hide', async () => {
 		// Initial state - button should say "Show teacher name" (hidden by default)
-		const showButton = page.getByRole('button', { name: 'Show teacher name' });
+		const showButton = evalsPage.page.getByTestId('admin-evaluations.toggle-teacher-name');
 		await expect(showButton).toBeVisible();
 
 		// Click to show teacher names
 		await showButton.click();
 
 		// Button should now say "Hide teacher name"
-		const hideButton = page.getByRole('button', { name: 'Hide teacher name' });
-		await expect(hideButton).toBeVisible();
+		await expect(showButton).toHaveAttribute('aria-label', 'Hide teacher name');
 	});
 
-	test('can toggle teacher name visibility on and off', async ({ page }) => {
+	test('can toggle teacher name visibility on and off', async () => {
 		// Start with "Show teacher name" (hidden by default)
-		await expect(page.getByRole('button', { name: 'Show teacher name' })).toBeVisible();
+		const toggleButton = evalsPage.page.getByTestId('admin-evaluations.toggle-teacher-name');
+		await expect(toggleButton).toHaveAttribute('aria-label', 'Show teacher name');
 
 		// Click to show
-		await page.getByRole('button', { name: 'Show teacher name' }).click();
+		await toggleButton.click();
 
 		// Now should say "Hide teacher name"
-		await expect(page.getByRole('button', { name: 'Hide teacher name' })).toBeVisible();
+		await expect(toggleButton).toHaveAttribute('aria-label', 'Hide teacher name');
 
 		// Click to hide again
-		await page.getByRole('button', { name: 'Hide teacher name' }).click();
+		await toggleButton.click();
 
 		// Should revert to "Show teacher name"
-		await expect(page.getByRole('button', { name: 'Show teacher name' })).toBeVisible();
+		await expect(toggleButton).toHaveAttribute('aria-label', 'Show teacher name');
 	});
 
-	test('teacher name toggle button is in toggle controls section', async ({ page }) => {
+	test('teacher name toggle button is in toggle controls section', async () => {
 		// Verify the teacher name toggle button exists alongside other toggle buttons
-		const showTeacherNameButton = page.getByRole('button', { name: 'Show teacher name' });
+		const showTeacherNameButton = evalsPage.page.getByTestId(
+			'admin-evaluations.toggle-teacher-name'
+		);
 		await expect(showTeacherNameButton).toBeVisible();
 
 		// Verify other toggle buttons are also present
-		await expect(page.getByRole('button', { name: /newest first/i })).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Show unenrolled students' })).toBeVisible();
-		await expect(page.getByRole('button', { name: /show details/i })).toBeVisible();
+		await expect(evalsPage.page.getByTestId('admin-evaluations.sort')).toBeVisible();
+		await expect(evalsPage.page.getByTestId('admin-evaluations.unenrolled')).toBeVisible();
+		await expect(evalsPage.page.getByTestId('admin-evaluations.details')).toBeVisible();
 	});
 });
 
@@ -401,8 +407,10 @@ test.describe('Unenrolled Toggle - Icon Visibility @icons @sequential', () => {
 	let enrolledStudentId: string;
 	let unenrolledName: string;
 	let unenrolledStudentId: string;
+	let evalsPage: AdminEvaluationsPage;
 
-	test.beforeEach(async () => {
+	test.beforeEach(async ({ page }) => {
+		evalsPage = new AdminEvaluationsPage(page);
 		suffix = getTestSuffix('eyeIconBoth');
 		e2eTag = `e2e-test_${suffix}`;
 		enrolledName = `Enrolled_${suffix}`;
@@ -435,44 +443,45 @@ test.describe('Unenrolled Toggle - Icon Visibility @icons @sequential', () => {
 		if (testEntity) await cleanupByTag('all', e2eTag);
 	});
 
-	test('eye icon visible when unenrolled are hidden', async ({ page }) => {
+	test('eye icon visible when unenrolled are hidden', async () => {
 		useRole('admin');
 
-		await page.goto('/admin/evaluations');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await evalsPage.goto();
+		await evalsPage.expectLoadingHidden();
 
 		// Eye icon should be visible (indicating hidden content)
-		const eyeIcon = page.getByRole('button', { name: 'Show unenrolled students' });
+		const eyeIcon = evalsPage.page.getByTestId('admin-evaluations.unenrolled');
 		await expect(eyeIcon).toBeVisible();
 
 		// Enrolled student should be visible
-		await expect(
-			page.getByRole('button', { name: `Evaluation for ${enrolledName}` })
-		).toBeVisible();
+		const enrolledCard = evalsPage.page.locator('[data-testid^="admin-evaluations.card-"]', {
+			has: evalsPage.page.locator(`text="${enrolledName}"`)
+		});
+		await expect(enrolledCard).toBeVisible();
 	});
 
-	test('eye icon hidden after toggle shows both enrolled and unenrolled', async ({ page }) => {
+	test('eye icon hidden after toggle shows both enrolled and unenrolled', async () => {
 		useRole('admin');
 
-		await page.goto('/admin/evaluations');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Loading evaluations...')).not.toBeVisible();
+		await evalsPage.goto();
+		await evalsPage.expectLoadingHidden();
 
 		// Click toggle to show both
-		const eyeIcon = page.getByRole('button', { name: 'Show unenrolled students' });
+		const eyeIcon = evalsPage.page.getByTestId('admin-evaluations.unenrolled');
 		await eyeIcon.click();
 
 		// Eye-off icon should now be visible (indicating content is shown)
-		const eyeOffIcon = page.getByRole('button', { name: 'Hide unenrolled students' });
+		const eyeOffIcon = evalsPage.page.getByTestId('admin-evaluations.unenrolled');
 		await expect(eyeOffIcon).toBeVisible();
 
 		// Both students should be visible
-		await expect(
-			page.getByRole('button', { name: `Evaluation for ${enrolledName}` })
-		).toBeVisible();
-		await expect(
-			page.getByRole('button', { name: `Evaluation for ${unenrolledName}` })
-		).toBeVisible();
+		const enrolledCard = evalsPage.page.locator('[data-testid^="admin-evaluations.card-"]', {
+			has: evalsPage.page.locator(`text="${enrolledName}"`)
+		});
+		const unenrolledCard = evalsPage.page.locator('[data-testid^="admin-evaluations.card-"]', {
+			has: evalsPage.page.locator(`text="${unenrolledName}"`)
+		});
+		await expect(enrolledCard).toBeVisible();
+		await expect(unenrolledCard).toBeVisible();
 	});
 });

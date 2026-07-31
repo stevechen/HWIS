@@ -64,14 +64,14 @@
 	}
 </script>
 
-<div class="py-6" testId="admin-users.root">
+<div class="py-6" data-testid="admin-users.root">
 	{#if usersQuery.isLoading}
 		<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
 			<div class="border-muted border-t-primary h-8 w-8 animate-spin rounded-full border-3"></div>
 			<p>Loading user records...</p>
 		</div>
 	{:else if usersQuery.data}
-		<Table.Root aria-label="users" testId="admin-users.table">
+		<Table.Root aria-label="users" data-testid="admin-users.table">
 			<Table.Header>
 				<Table.Row>
 					<Table.Head>Name</Table.Head>
@@ -82,7 +82,7 @@
 			</Table.Header>
 			<Table.Body>
 				{#each usersQuery.data as user (user._id)}
-					<Table.Row testId={`admin-users.row-${user._id}`}>
+					<Table.Row data-testid={`admin-users.row-${user._id}`}>
 						<Table.Cell class="max-w-[160px] truncate sm:max-w-none">
 							<span class="font-medium">{user.name || 'Unknown'}</span>
 						</Table.Cell>
@@ -120,7 +120,7 @@
 							</Badge>
 						</Table.Cell>
 						<Table.Cell>
-							<div class="flex justify-end gap-2" testId={`admin-users.actions-${user._id}`}>
+							<div class="flex justify-end gap-2" data-testid={`admin-users.actions-${user._id}`}>
 								{#if user.status !== 'active'}
 									<Button
 										variant="ghost"

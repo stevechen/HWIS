@@ -374,7 +374,10 @@
 
 <svelte:window onscroll={handleScroll} />
 
-<div class="mx-auto flex min-h-screen max-w-6xl flex-col p-8">
+<div
+	class="mx-auto flex min-h-screen max-w-6xl flex-col p-8"
+	data-testid="evaluations-student.root"
+>
 	<!-- Loading State -->
 	{#if isLoading}
 		<EvaluationsLoadingState testId="evaluations-student.loading" message={loadingMessage} />

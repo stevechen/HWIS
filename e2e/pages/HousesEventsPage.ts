@@ -1,7 +1,7 @@
 import { Page, expect } from '@playwright/test';
 
 export class HousesEventsPage {
-	constructor(private page: Page) {}
+	constructor(public page: Page) {}
 
 	async goto() {
 		await this.page.goto('/houses');
@@ -33,7 +33,7 @@ export class HousesEventsPage {
 
 	async submitEvent() {
 		await this.page.getByTestId('houses.event-dialog.submit').click();
-		await expect(this.page.getByTestId('houses.event-dialog')).not.toBeVisible({ timeout: 10000 });
+		await expect(this.page.getByTestId('houses.event-dialog')).not.toBeVisible();
 	}
 
 	async cancelEvent() {
@@ -49,7 +49,7 @@ export class HousesEventsPage {
 		await this.page.getByTestId(`houses.event-card.${title}.delete`).click();
 		await expect(this.page.getByTestId('houses.delete-dialog')).toBeVisible();
 		await this.page.getByTestId('houses.delete-dialog.delete').click();
-		await expect(this.page.getByTestId('houses.delete-dialog')).not.toBeVisible({ timeout: 10000 });
+		await expect(this.page.getByTestId('houses.delete-dialog')).not.toBeVisible();
 	}
 
 	async expectEventVisible(title: string) {

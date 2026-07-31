@@ -247,19 +247,21 @@ Convex agent skills for common tasks can be installed by running
 
 ## AI Test Result Compressor
 
-When analyzing test results, use `bun run test:ai` instead of raw Playwright commands to save tokens. This runs the full e2e suite through a compressor that strips pass/setup/cleanup noise and outputs only failures:
+When analyzing test results, use `bun run test:ai` instead of raw Playwright commands to save tokens. This runs the full e2e suite through a compressor that strips pass/setup/cleanup noise and outputs only failures with structured details:
 
 ```
 # All pass → one line
 All 114 tests passed.
 
-# Failures → compressed per-failure block
+# Failures → compressed per-failure block with locator/timeout/expected/received
 ## Failures (2/114)
 
 ### suite › test name
 `e2e/file.spec.ts:42`
-- Error: expect(received).toBe(expected)
-  `at e2e/file.spec.ts:45:18`
+- Error: expect(locator).toBeVisible() failed
+  Locator: `getByTestId('admin-users.root')`
+  Timeout: 5000ms
+  at `e2e/file.spec.ts:45:18`
 ```
 
 **Usage:**

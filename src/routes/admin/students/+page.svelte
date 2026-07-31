@@ -387,6 +387,7 @@
 				<div class="flex items-center gap-2">
 					<Button
 						variant="outline"
+						testId="admin-students.import-button"
 						onclick={() => {
 							showImport = true;
 						}}
@@ -498,6 +499,7 @@
 							</Table.Cell>
 							<Table.Cell
 								class="cursor-pointer px-1 text-center sm:px-2"
+								data-testid={`admin-students.student-row-${student.studentId}.status`}
 								onclick={() =>
 									client.mutation(studentsApi.changeStatus, {
 										id: student._id,
@@ -521,6 +523,7 @@
 									<Button
 										variant="ghost"
 										size="icon"
+										testId={`admin-students.student-row-${student.studentId}.edit`}
 										onclick={() => {
 											startEdit(student);
 											showForm = true;
@@ -533,6 +536,7 @@
 									<Button
 										variant="ghost"
 										size="icon"
+										testId={`admin-students.student-row-${student.studentId}.delete`}
 										onclick={() => {
 											confirmDelete(student);
 											showDelete = true;
@@ -717,6 +721,7 @@
 <!-- Delete Confirmation Dialog -->
 {#if showDelete}
 	<div
+		data-testid="admin-students.delete-dialog"
 		class="fixed inset-0 z-50 flex items-center justify-center p-4"
 		role="dialog"
 		aria-modal="true"
@@ -754,10 +759,15 @@
 					{/if}
 				</div>
 				<div class="flex justify-end gap-2">
-					<Button variant="outline" onclick={() => (showDelete = false)}>Cancel</Button>
+					<Button
+						variant="outline"
+						testId="admin-students.delete-dialog.cancel"
+						onclick={() => (showDelete = false)}>Cancel</Button
+					>
 					{#if deleteHasRelated}
 						<Button
 							variant="default"
+							testId="admin-students.delete-dialog.set-not-enrolled"
 							onclick={() => {
 								handleSetNotEnrolled();
 								showDelete = false;
@@ -765,6 +775,7 @@
 						>
 						<Button
 							variant="destructive"
+							testId="admin-students.delete-dialog.delete-anyway"
 							onclick={() => {
 								handleDelete();
 								showDelete = false;
@@ -773,6 +784,7 @@
 					{:else}
 						<Button
 							variant="destructive"
+							testId="admin-students.delete-dialog.delete"
 							onclick={() => {
 								handleDelete();
 								showDelete = false;

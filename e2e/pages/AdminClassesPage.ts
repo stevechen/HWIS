@@ -1,14 +1,12 @@
 import { Page, expect } from '@playwright/test';
 
 export class AdminClassesPage {
-	constructor(private page: Page) {}
+	constructor(public page: Page) {}
 
 	async goto() {
 		await this.page.goto('/admin/classes');
 		await this.page.waitForSelector('body.hydrated');
-		await expect(this.page.getByTestId('admin-classes.grade-7.add-button')).toBeVisible({
-			timeout: 10000
-		});
+		await expect(this.page.getByTestId('admin-classes.grade-7.add-button')).toBeVisible();
 	}
 
 	async ensureGradeVisible(grade: number) {
@@ -16,7 +14,6 @@ export class AdminClassesPage {
 		await expect(checkbox).toBeVisible();
 		if (!(await checkbox.isChecked())) {
 			await checkbox.check();
-			await this.page.waitForTimeout(300);
 		}
 	}
 
@@ -25,9 +22,7 @@ export class AdminClassesPage {
 		// The add dialog is a native <dialog> with form method="dialog" and type="submit"
 		// The Add Class button has type="submit" and onclick preventDefault + handleAdd()
 		await this.page.getByTestId('admin-classes.add-dialog.submit').click();
-		await expect(this.page.getByTestId('admin-classes.add-dialog.root')).not.toBeVisible({
-			timeout: 10000
-		});
+		await expect(this.page.getByTestId('admin-classes.add-dialog.root')).not.toBeVisible();
 	}
 
 	async deleteClass(grade: number, className: string) {
@@ -92,5 +87,55 @@ export class AdminClassesPage {
 		await expect(this.page.getByTestId('admin-classes.cross-grade-dialog')).toBeVisible();
 		await this.page.getByTestId('admin-classes.cross-grade-dialog.ok').click();
 		await expect(this.page.getByTestId('admin-classes.cross-grade-dialog')).not.toBeVisible();
+	}
+
+	getDraggableStudent(studentName: string) {
+		return this.page
+			.locator('[role="button"][aria-label*="Move"]')
+			.filter({ hasText: studentName });
+	}
+
+	getClassRegion(name: string) {
+		return this.page.getByRole('region', { name });
+	}
+
+	async simulateDragAndDrop(sourceLabel: string, targetLabel: string) {
+		return this.page.evaluate(
+			({ sourceLabel, targetLabel }: { sourceLabel: string; targetLabel: string }) => {
+				const source = Array.from(document.querySelectorAll('[role="button"]')).find(
+					(el) =>
+						el.textContent?.includes(sourceLabel) && el.getAttribute('aria-label')?.includes('Move')
+				) as HTMLElement | undefined;
+				const target = Array.from(document.querySelectorAll('[role="region"]')).find(
+					(el) => el.getAttribute('aria-label') === targetLabel
+				) as HTMLElement | undefined;
+				if (!source || !target) return false;
+
+				const dt = new DataTransfer();
+
+				source.dispatchEvent(
+					new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt })
+				);
+
+				target.dispatchEvent(
+					new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: dt })
+				);
+
+				target.dispatchEvent(
+					new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt })
+				);
+
+				target.dispatchEvent(
+					new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt })
+				);
+
+				source.dispatchEvent(
+					new DragEvent('dragend', { bubbles: true, cancelable: true, dataTransfer: dt })
+				);
+
+				return true;
+			},
+			{ sourceLabel, targetLabel }
+		);
 	}
 }
