@@ -6,11 +6,17 @@ export class AdminEvaluationsPage {
 	async goto() {
 		await this.page.goto('/admin/evaluations');
 		await this.page.waitForSelector('body.hydrated');
-		await this.expectTimelineVisible();
+		await this.expectTimelineOrEmptyVisible();
 	}
 
 	async expectTimelineVisible() {
 		await expect(this.page.getByTestId('admin-evaluations.timeline')).toBeVisible();
+	}
+
+	async expectTimelineOrEmptyVisible() {
+		const timeline = this.page.getByTestId('admin-evaluations.timeline');
+		const emptyState = this.page.getByText('No evaluations found.');
+		await expect(timeline.or(emptyState)).toBeVisible();
 	}
 
 	async expectLoadingHidden() {

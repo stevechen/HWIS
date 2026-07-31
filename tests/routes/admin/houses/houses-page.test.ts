@@ -450,9 +450,7 @@ describe('Houses Page', () => {
 	describe('Loading State', () => {
 		it('renders loading message when data is loading', async () => {
 			const { useQuery } = await import('convex-svelte');
-			vi.mocked(useQuery).mockReturnValue(
-				createMockQueryResult(null, { isLoading: true })
-			);
+			vi.mocked(useQuery).mockReturnValue(createMockQueryResult(null, { isLoading: true }));
 
 			render(HousesPage);
 

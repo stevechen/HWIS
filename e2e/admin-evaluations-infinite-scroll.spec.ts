@@ -211,21 +211,6 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 		// Verify evaluations are visible again
 		await evalsPage.expectFirstCardVisible();
 	});
-
-	test('loading indicator appears when fetching more data', async () => {
-		// Wait for initial load
-		await evalsPage.expectTimelineVisible();
-
-		// The loading indicator (spinner) should appear when loading more data
-		// This is hard to test directly since it appears briefly during loading
-		// We can verify the loading state component exists in the DOM structure
-
-		// Scroll to trigger potential loading
-		evalsPage.scrollToBottom();
-
-		// The page should still be functional
-		await evalsPage.expectTimelineVisible();
-	});
 });
 
 test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small @sequential', () => {

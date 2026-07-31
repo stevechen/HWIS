@@ -87,21 +87,13 @@ test.describe('Session Management @session @auth-sequential', () => {
 			await cleanupByTag('students', testE2eTag);
 		});
 
-		test('deactivating user invalidates their sessions (server-side)', async ({ page }) => {
+		test.skip('deactivating user invalidates their sessions (server-side)', async ({ page }) => {
 			// This test verifies that when an admin deactivates a user,
 			// the server-side session invalidation occurs (verified in server tests)
-			// and the user is redirected to login
-
-			// First, verify admin can access the users page
-			await page.goto('/admin/users');
-			await page.waitForSelector('body.hydrated');
-
-			// Verify user table is visible (admin feature)
-			await expect(page.getByRole('table', { name: 'users' })).toBeVisible();
-
-			// The session invalidation is tested in server unit tests
-			// This E2E test verifies the UI remains functional for admin
-			// Actual session invalidation happens on the server when status changes to pending
+			// and the user is redirected to login.
+			// Skipped: E2E testing of session invalidation requires triggering
+			// a server-side status change and waiting for token expiry,
+			// which is not feasible in a single E2E test run.
 		});
 	});
 
@@ -118,24 +110,16 @@ test.describe('Session Management @session @auth-sequential', () => {
 			// Verify logged in
 			await expect(page.getByRole('link', { name: 'Student Management' })).toBeVisible();
 
-			// Click on user menu to find logout
-			const userMenuButton = page.locator('button').filter({ hasText: /admin/i }).first();
-			if (await userMenuButton.isVisible()) {
-				await userMenuButton.click();
-			}
+			// Click sign out directly
+			const signOutButton = page.getByRole('button', { name: /sign out|logout/i });
+			await expect(signOutButton).toBeVisible();
+			await signOutButton.click();
 
-			// Look for sign out option in the UI
-			// The actual logout button location varies by UI implementation
-			const signOutButton = page.getByRole('menuitem', { name: /sign out|logout|sign out/i });
-			if (await signOutButton.isVisible().catch(() => false)) {
-				await signOutButton.click();
+			// After logout, should be redirected to login or home
+			await page.waitForLoadState('networkidle');
 
-				// After logout, should be redirected to login or home
-				await page.waitForLoadState('networkidle');
-
-				// Should now see login button
-				await expect(page.getByRole('button', { name: /sign in|signin/i })).toBeVisible();
-			}
+			// Should now see login button
+			await expect(page.getByRole('button', { name: /sign in|signin/i })).toBeVisible();
 		});
 	});
 
@@ -152,23 +136,13 @@ test.describe('Session Management @session @auth-sequential', () => {
 			// Verify logged in
 			await expect(page.getByRole('heading', { name: 'My Evaluations' })).toBeVisible();
 
-			// Look for user menu
-			const userMenuButton = page
-				.locator('button')
-				.filter({ hasText: /teacher/i })
-				.first();
-			if (await userMenuButton.isVisible()) {
-				await userMenuButton.click();
-			}
+			// Click sign out directly
+			const signOutButton = page.getByRole('button', { name: /sign out|logout/i });
+			await expect(signOutButton).toBeVisible();
+			await signOutButton.click();
 
-			// Look for sign out option
-			const signOutButton = page.getByRole('menuitem', { name: /sign out|logout/i });
-			if (await signOutButton.isVisible().catch(() => false)) {
-				await signOutButton.click();
-
-				// After logout, should see login button
-				await expect(page.getByRole('button', { name: /sign in|signin/i })).toBeVisible();
-			}
+			// After logout, should see login button
+			await expect(page.getByRole('button', { name: /sign in|signin/i })).toBeVisible();
 		});
 	});
 

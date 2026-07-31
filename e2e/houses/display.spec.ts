@@ -46,23 +46,12 @@ test.describe('House Display Page - E2E', () => {
 		await cleanupByTag('all', e2eTag);
 	});
 
-	test('navigates to display page', async () => {
+	test('displays four houses with correct structure', async () => {
 		await displayPage.expectArticleCount(4);
-	});
-
-	test('displays four houses', async () => {
-		await displayPage.expectArticleCount(4);
-	});
-
-	test('verifies rank badges and icons', async () => {
 		await displayPage.expectRankVisible('1st');
 		await displayPage.expectRankVisible('2nd');
 		await displayPage.expectRankVisible('3rd');
 		await displayPage.expectRankVisible('4th');
-	});
-
-	test('verifies total points display per house', async () => {
-		await displayPage.expectArticleCount(4);
 	});
 
 	test('verifies radar chart renders with categories', async () => {

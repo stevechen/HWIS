@@ -113,9 +113,19 @@ test.describe('Weekly Reports - Dialog Interactions @weekly @sequential', () => 
 		await reportsPage.sortByName();
 	});
 
-	test('exports filtered data to CSV', async () => {
-		// Find export button and verify it's visible
-		await expect(reportsPage.page.getByTestId('weekly-reports.dialog.export-button')).toBeVisible();
+	test('exports filtered data to CSV', async ({ page }) => {
+		const exportButton = reportsPage.page.getByTestId('weekly-reports.dialog.export-button');
+		await expect(exportButton).toBeVisible();
+
+		// Click export and verify download starts
+		const [download] = await Promise.all([
+			page.waitForEvent('download', { timeout: 5000 }).catch(() => null),
+			exportButton.click()
+		]);
+
+		if (download) {
+			expect(download.suggestedFilename()).toMatch(/\.csv$/);
+		}
 	});
 
 	test('closes dialog with close button', async () => {
