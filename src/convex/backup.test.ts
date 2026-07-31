@@ -1099,4 +1099,171 @@ describe('backup clearing logic', () => {
 		});
 		expect(users.find((u) => u._id === teacherId)).toBeDefined();
 	});
+
+	test('advanceGradesAndClearEvaluations handles empty database gracefully', async () => {
+		const t = convexTest(schema, modules);
+
+		// No data in the database — function should still succeed
+		const result = await t.mutation(api.backup.advanceGradesAndClearEvaluations, {});
+
+		expect(result.message).toContain('Advanced grades for 0 students');
+		expect(result.message).toContain('deleted 0 grade 12 students');
+		expect(result.message).toContain('deleted 0 not enrolled students');
+		expect(result.message).toContain('cleared 0 evaluations');
+		expect(result.message).toContain('deleted 0 events');
+		expect(result.message).toContain('deleted 0 empty classes');
+
+		// Backup should still be created even with empty data
+		const backups = await t.run(async (ctx) => {
+			return await ctx.db.query('backups').collect();
+		});
+		expect(backups).toHaveLength(1);
+
+		// All tables should remain empty
+		const students = await t.run(async (ctx) => await ctx.db.query('students').collect());
+		const evaluations = await t.run(async (ctx) => await ctx.db.query('evaluations').collect());
+		const houseEvents = await t.run(async (ctx) => await ctx.db.query('house_events').collect());
+		const classes = await t.run(async (ctx) => await ctx.db.query('classes').collect());
+
+		expect(students).toHaveLength(0);
+		expect(evaluations).toHaveLength(0);
+		expect(houseEvents).toHaveLength(0);
+		expect(classes).toHaveLength(0);
+	});
+
+	test('advanceGradesAndClearEvaluations backup includes all data tables', async () => {
+		const t = convexTest(schema, modules);
+
+		// Create data in all tables that should be backed up
+		await t.run(async (ctx) => {
+			await ctx.db.insert('classes', { grade: 10, class: '1' });
+		});
+
+		const { studentId: backupStudentId } = await createStudentWithClass(t, {
+			englishName: 'Backup Student',
+			chineseName: '備份學生',
+			studentId: 'STU_BACKUP',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const teacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'backup-teacher',
+				name: 'Backup Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Backup Category'
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId: backupStudentId,
+				teacherId,
+				value: 1,
+				categoryId,
+				details: 'Backup test',
+				timestamp: Date.now(),
+				semesterId: '2025-H1'
+			});
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('house_events', {
+				title: 'Backup Event',
+				startDate: Date.now(),
+				endDate: Date.now() + 86400000
+			});
+		});
+
+		// Run the mutation
+		await t.mutation(api.backup.advanceGradesAndClearEvaluations, {});
+
+		// Verify backup was created (at least one backup exists)
+		const backups = await t.run(async (ctx) => {
+			return await ctx.db.query('backups').collect();
+		});
+		expect(backups.length).toBeGreaterThanOrEqual(1);
+
+		const backupData = backups[0].data as {
+			students: Array<{ studentId: string }>;
+			evaluations: Array<{ value: number }>;
+			users: Array<{ name: string }>;
+			categories: Array<{ name: string }>;
+			classes: Array<{ grade: number }>;
+			houseEvents: Array<{ title: string }>;
+		};
+
+		// Verify all expected tables are present in the backup
+		expect(backupData.students).toHaveLength(1);
+		expect(backupData.students[0].studentId).toBe('STU_BACKUP');
+		expect(backupData.evaluations).toHaveLength(1);
+		expect(backupData.evaluations[0].value).toBe(1);
+		expect(backupData.users).toHaveLength(1);
+		expect(backupData.users[0].name).toBe('Backup Teacher');
+		expect(backupData.categories).toHaveLength(1);
+		expect(backupData.categories[0].name).toBe('Backup Category');
+		expect(backupData.classes.length).toBeGreaterThanOrEqual(1);
+		expect(backupData.houseEvents).toHaveLength(1);
+		expect(backupData.houseEvents[0].title).toBe('Backup Event');
+	});
+
+	test('advanceGradesAndClearEvaluations deletes all grade 12 students regardless of status', async () => {
+		const t = convexTest(schema, modules);
+
+		// Grade 12 enrolled student — should be deleted
+		await createStudentWithClass(t, {
+			englishName: 'Grade 12 Enrolled',
+			chineseName: '十二年級在校',
+			studentId: 'STU_G12_E',
+			grade: 12,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		// Grade 12 not enrolled student — should also be deleted
+		await createStudentWithClass(t, {
+			englishName: 'Grade 12 Not Enrolled',
+			chineseName: '十二年級非在校',
+			studentId: 'STU_G12_NE',
+			grade: 12,
+			classNum: '1',
+			status: 'Not Enrolled'
+		});
+
+		// Grade 11 enrolled student — should survive
+		await createStudentWithClass(t, {
+			englishName: 'Grade 11 Enrolled',
+			chineseName: '十一年級在校',
+			studentId: 'STU_G11',
+			grade: 11,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		await t.mutation(api.backup.advanceGradesAndClearEvaluations, {});
+
+		const students = await t.run(async (ctx) => await ctx.db.query('students').collect());
+
+		// Only the grade 11 student should remain
+		expect(students).toHaveLength(1);
+		expect(students[0].studentId).toBe('STU_G11');
+
+		// Verify the surviving student's class is grade 12 (advanced from 11)
+		const survivingClass = await t.run(async (ctx) => {
+			const student = await ctx.db.get(students[0]._id);
+			if (!student?.classId) return null;
+			return await ctx.db.get(student.classId);
+		});
+		expect(survivingClass?.grade).toBe(12);
+
+		// Verify grade 12 students were deleted
+		expect(students.find((s) => s.studentId === 'STU_G12_E')).toBeUndefined();
+		expect(students.find((s) => s.studentId === 'STU_G12_NE')).toBeUndefined();
+	});
 });
