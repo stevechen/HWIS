@@ -1052,27 +1052,39 @@ Tests run on every PR:
 
 ## Test Coverage Summary
 
-### Current Coverage (as of Feb 2026)
+### Current Coverage (as of Jul 2026)
 
 | Category           | Test Files | Tests  |
 | ------------------ | ---------- | ------ |
-| Browser unit tests | 10         | varies |
+| Browser unit tests | 26         | varies |
 | Server unit tests  | 7          | varies |
 | E2E tests          | 19         | varies |
 
 ### Pages with Browser Tests
 
-| Route                   | Tests | Coverage        |
-| ----------------------- | ----- | --------------- |
-| `/login`                | 1     | Structure       |
-| `/admin`                | 1     | Structure       |
-| `/admin/academic`       | 1     | Structure       |
-| `/admin/students`       | 2     | Dialogs, fields |
-| `/admin/weekly-reports` | 1     | Structure       |
-| `/evaluations`          | 1     | Structure       |
-| `/evaluations/new`      | 1     | Structure       |
-| `/rejected`             | 1     | Static page     |
-| `$lib/utils.ts`         | 1     | cn() utility    |
+| Route                              | Tests | Coverage              |
+| ---------------------------------- | ----- | --------------------- |
+| `/login`                           | 1     | Structure             |
+| `/admin`                           | 1     | Structure             |
+| `/admin/academic`                  | 1     | Structure             |
+| `/admin/audit`                     | 1     | Structure             |
+| `/admin/backup`                    | 1     | Structure             |
+| `/admin/categories`                | 1     | Dialogs               |
+| `/admin/classes`                   | 2     | Page, bulk select     |
+| `/admin/evaluations`               | 1     | Structure             |
+| `/admin/houses`                    | 1     | Structure             |
+| `/admin/students`                  | 3     | Page, dialogs, import |
+| `/admin/users`                     | 1     | Structure             |
+| `/admin/weekly-reports`            | 1     | Structure             |
+| `/evaluations`                     | 1     | Structure             |
+| `/evaluations/new`                 | 1     | Form                  |
+| `/evaluations/student/[studentId]` | 2     | Page, score tally     |
+| `/evaluations/teacher`             | 1     | Structure             |
+| `/houses`                          | 1     | Events                |
+| `/houses/display`                  | 1     | Structure             |
+| `/rejected`                        | 1     | Static page           |
+| `$lib/utils.ts`                    | 1     | cn() utility          |
+| Access control                     | 2     | Control, modal        |
 
 ### Convex Functions with Tests
 
