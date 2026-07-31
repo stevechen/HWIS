@@ -186,11 +186,11 @@
 			<p class="mt-1 text-gray-600">Manage house competitions and award event points</p>
 		</div>
 		<div class="flex flex-wrap gap-2">
-			<Button onclick={() => (eventDialogOpen = true)}>
+			<Button onclick={() => (eventDialogOpen = true)} testId="houses.new-event-button">
 				<Plus class="mr-2 size-4" />
 				New Event
 			</Button>
-			<Button variant="outline" onclick={openDisplay}>
+			<Button variant="outline" onclick={openDisplay} testId="houses.display-button">
 				<Monitor class="mr-2 size-4" />
 				Display House Scores
 			</Button>
@@ -218,7 +218,7 @@
 			{#each events as event (event._id)}
 				{@const hp = event.housePoints}
 				{@const hasPoints = hp != null && Object.values(hp).some((v) => v !== undefined && v !== 0)}
-				<Card.Root>
+				<Card.Root data-testid={`houses.event-card.${event.title}`}>
 					<Card.Header class="flex flex-col gap-1 pb-3">
 						<div class="flex items-start justify-between gap-2">
 							<div class="min-w-0">
@@ -232,11 +232,21 @@
 								</p>
 							</div>
 							<div class="flex shrink-0 gap-2">
-								<Button size="sm" variant="outline" onclick={() => openEdit(event)}>
+								<Button
+									size="sm"
+									variant="outline"
+									onclick={() => openEdit(event)}
+									testId={`houses.event-card.${event.title}.edit`}
+								>
 									<Pencil class="size-3.5" />
 									Edit
 								</Button>
-								<Button size="sm" variant="destructive" onclick={() => openDelete(event)}>
+								<Button
+									size="sm"
+									variant="destructive"
+									onclick={() => openDelete(event)}
+									testId={`houses.event-card.${event.title}.delete`}
+								>
 									<Trash2 class="size-3.5" />
 									Delete
 								</Button>
@@ -271,7 +281,7 @@
 
 <!-- Create / Edit Event Dialog -->
 <Dialog.Root bind:open={eventDialogOpen}>
-	<Dialog.Content class="max-w-lg">
+	<Dialog.Content class="max-w-lg" testId="houses.event-dialog">
 		<Dialog.Header>
 			<Dialog.Title>{isEditing ? 'Edit Event' : 'New House Event'}</Dialog.Title>
 			<Dialog.Description>
@@ -292,7 +302,12 @@
 				<label for="event-title" class="mb-1.5 block text-sm font-medium text-gray-700"
 					>Event Title</label
 				>
-				<Input id="event-title" bind:value={title} placeholder="e.g. Sports Day" />
+				<Input
+					id="event-title"
+					bind:value={title}
+					placeholder="e.g. Sports Day"
+					testId="houses.event-dialog.title-input"
+				/>
 			</div>
 
 			<div class="grid grid-cols-2 gap-4">
@@ -300,13 +315,23 @@
 					<label for="event-start" class="mb-1.5 block text-sm font-medium text-gray-700"
 						>Start Date</label
 					>
-					<Input id="event-start" type="date" bind:value={startDate} />
+					<Input
+						id="event-start"
+						type="date"
+						bind:value={startDate}
+						testId="houses.event-dialog.start-date"
+					/>
 				</div>
 				<div>
 					<label for="event-end" class="mb-1.5 block text-sm font-medium text-gray-700"
 						>End Date</label
 					>
-					<Input id="event-end" type="date" bind:value={endDate} />
+					<Input
+						id="event-end"
+						type="date"
+						bind:value={endDate}
+						testId="houses.event-dialog.end-date"
+					/>
 				</div>
 			</div>
 
@@ -322,7 +347,13 @@
 							<label for={`points-${h}`} class="mb-1 block text-xs font-semibold {colors.text}">
 								{h}
 							</label>
-							<Input id={`points-${h}`} type="number" bind:value={housePoints[h]} placeholder="0" />
+							<Input
+								id={`points-${h}`}
+								type="number"
+								bind:value={housePoints[h]}
+								placeholder="0"
+								testId={`houses.event-dialog.points-${h}`}
+							/>
 						</div>
 					{/each}
 				</div>
@@ -330,8 +361,18 @@
 		</div>
 
 		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (eventDialogOpen = false)}>Cancel</Button>
-			<Button disabled={isSubmitting} onclick={handleEventSubmit}>
+			<Button
+				variant="outline"
+				onclick={() => (eventDialogOpen = false)}
+				testId="houses.event-dialog.cancel"
+			>
+				Cancel
+			</Button>
+			<Button
+				disabled={isSubmitting}
+				onclick={handleEventSubmit}
+				testId="houses.event-dialog.submit"
+			>
 				{isSubmitting ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Event'}
 			</Button>
 		</Dialog.Footer>
@@ -340,7 +381,7 @@
 
 <!-- Delete Confirmation Dialog -->
 <Dialog.Root bind:open={deleteDialogOpen}>
-	<Dialog.Content class="max-w-md">
+	<Dialog.Content class="max-w-md" testId="houses.delete-dialog">
 		<Dialog.Header>
 			<Dialog.Title>Delete Event</Dialog.Title>
 			<Dialog.Description>
@@ -372,10 +413,20 @@
 		{/if}
 
 		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (deleteDialogOpen = false)} disabled={isDeleting}>
+			<Button
+				variant="outline"
+				onclick={() => (deleteDialogOpen = false)}
+				disabled={isDeleting}
+				testId="houses.delete-dialog.cancel"
+			>
 				Cancel
 			</Button>
-			<Button variant="destructive" disabled={isDeleting} onclick={handleDelete}>
+			<Button
+				variant="destructive"
+				disabled={isDeleting}
+				onclick={handleDelete}
+				testId="houses.delete-dialog.delete"
+			>
 				{isDeleting ? 'Deleting…' : 'Delete Event'}
 			</Button>
 		</Dialog.Footer>

@@ -6,14 +6,17 @@ import {
 	createStudent,
 	createCategory
 } from '../convex-client';
+import { HousesEventsPage } from '../pages';
 
 test.describe('House Events Management - E2E @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;
 	let e2eTag: string;
+	let eventsPage: HousesEventsPage;
 
 	test.beforeEach(async ({ page }) => {
+		eventsPage = new HousesEventsPage(page);
 		suffix = getTestSuffix('events');
 		e2eTag = `e2e-events-${suffix}`;
 
@@ -32,8 +35,7 @@ test.describe('House Events Management - E2E @sequential', () => {
 			e2eTag
 		});
 
-		await page.goto('/houses');
-		await page.waitForSelector('body.hydrated');
+		await eventsPage.goto();
 	});
 
 	test.afterEach(async () => {
@@ -41,101 +43,70 @@ test.describe('House Events Management - E2E @sequential', () => {
 		await cleanupByTag('all', e2eTag);
 	});
 
-	test('can create new event with house points', async ({ page }) => {
-		await page.goto('/houses');
-		await page.waitForSelector('body.hydrated');
+	test('can create new event with house points', async () => {
+		await eventsPage.startAddEvent();
 
-		// Click New Event
-		await page.getByRole('button', { name: 'New Event' }).click();
-
-		// Wait for dialog
-		await expect(page.getByRole('dialog')).toBeVisible();
-
-		// Fill form with unique title
 		const eventTitle = `Test Event ${suffix}`;
-		await page.getByLabel('Event Title').fill(eventTitle);
-		await page.getByLabel('Start Date').fill('2024-01-01');
-		await page.getByLabel('End Date').fill('2024-01-15');
+		await eventsPage.fillEventForm({
+			title: eventTitle,
+			startDate: '2024-01-01',
+			endDate: '2024-01-15',
+			points: { Heracles: '10', Wukong: '5' }
+		});
+		await eventsPage.submitEvent();
 
-		// Add house points
-		await page.getByLabel('Heracles').fill('10');
-		await page.getByLabel('Wukong').fill('5');
-
-		// Submit
-		await page.getByRole('button', { name: 'Create Event' }).click();
-
-		// Wait for dialog to close
-		await expect(page.getByRole('dialog')).not.toBeVisible();
-
-		// Verify event appears
-		await expect(page.getByText(eventTitle)).toBeVisible();
+		await eventsPage.expectEventVisible(eventTitle);
 	});
 
-	test('can edit existing event', async ({ page }) => {
-		await page.goto('/houses');
-		await page.waitForSelector('body.hydrated');
-
+	test('can edit existing event', async () => {
 		// First create an event
 		const originalTitle = `Original Event ${suffix}`;
 		const updatedTitle = `Updated Event ${suffix}`;
-		await page.getByRole('button', { name: 'New Event' }).click();
-		await expect(page.getByRole('dialog')).toBeVisible();
-		await page.getByLabel('Event Title').fill(originalTitle);
-		await page.getByLabel('Start Date').fill('2024-01-01');
-		await page.getByLabel('End Date').fill('2024-01-10');
-		await page.getByRole('button', { name: 'Create Event' }).click();
-		await expect(page.getByRole('dialog')).not.toBeVisible();
+		await eventsPage.startAddEvent();
+		await eventsPage.fillEventForm({
+			title: originalTitle,
+			startDate: '2024-01-01',
+			endDate: '2024-01-10'
+		});
+		await eventsPage.submitEvent();
 
-		// Wait for event to appear
-		await expect(page.getByText(originalTitle)).toBeVisible();
+		await eventsPage.expectEventVisible(originalTitle);
 
-		// Now edit it — scope to the event we just created
-		await page
-			.locator('[data-slot="card"]')
-			.filter({ hasText: originalTitle })
-			.getByRole('button', { name: 'Edit' })
-			.click();
-		await expect(page.getByRole('dialog')).toBeVisible();
-		await page.getByLabel('Event Title').fill(updatedTitle);
-		await page.getByRole('button', { name: 'Save Changes' }).click();
-		await expect(page.getByRole('dialog', { name: 'Edit Event' })).not.toBeVisible();
+		// Edit the event
+		await eventsPage.editEvent(originalTitle);
+		await eventsPage.fillEventForm({
+			title: updatedTitle,
+			startDate: '2024-01-01',
+			endDate: '2024-01-10'
+		});
+		await eventsPage.submitEvent();
 
-		// Verify update - the new title should be visible
-		await expect(page.getByText(updatedTitle)).toBeVisible();
+		// Verify update
+		await eventsPage.expectEventVisible(updatedTitle);
 	});
 
-	test('can delete event', async ({ page }) => {
-		await page.goto('/houses');
-		await page.waitForSelector('body.hydrated');
-
+	test('can delete event', async () => {
 		// Create event
 		const deleteTitle = `ToDelete Event ${suffix}`;
-		await page.getByRole('button', { name: 'New Event' }).click();
-		await expect(page.getByRole('dialog')).toBeVisible();
-		await page.getByLabel('Event Title').fill(deleteTitle);
-		await page.getByLabel('Start Date').fill('2024-01-01');
-		await page.getByLabel('End Date').fill('2024-01-10');
-		await page.getByRole('button', { name: 'Create Event' }).click();
-		await expect(page.getByRole('dialog')).not.toBeVisible();
+		await eventsPage.startAddEvent();
+		await eventsPage.fillEventForm({
+			title: deleteTitle,
+			startDate: '2024-01-01',
+			endDate: '2024-01-10'
+		});
+		await eventsPage.submitEvent();
 
-		// Wait for event to appear
-		await expect(page.getByText(deleteTitle)).toBeVisible();
+		await eventsPage.expectEventVisible(deleteTitle);
 
-		// Delete — scope to the event we just created
-		await page
-			.locator('[data-slot="card"]')
-			.filter({ hasText: deleteTitle })
-			.getByRole('button', { name: 'Delete' })
-			.click();
-		await expect(page.getByRole('dialog')).toBeVisible();
-		await page.getByRole('button', { name: 'Delete Event' }).click();
-		await expect(page.getByRole('dialog')).not.toBeVisible();
+		// Delete the event
+		await eventsPage.deleteEvent(deleteTitle);
 
 		// Reload to ensure data is refreshed
-		await page.reload();
-		await page.waitForSelector('body.hydrated');
+		await eventsPage.page.reload();
+		await eventsPage.page.waitForSelector('body.hydrated');
+		await expect(eventsPage.page.getByTestId('houses.new-event-button')).toBeVisible();
 
 		// Verify deleted
-		await expect(page.getByText(deleteTitle)).not.toBeVisible();
+		await eventsPage.expectEventNotVisible(deleteTitle);
 	});
 });
