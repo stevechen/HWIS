@@ -7,3 +7,4 @@ export * from './AdminClassesPage';
 export * from './AdminHousesPage';
 export * from './AdminUsersPage';
 export * from './AdminAuditPage';
+export * from './AdminWeeklyReportsPage';
