@@ -1,6 +1,8 @@
 import { expect, test, describe } from 'vitest';
 import { convexTest, modules, createStudentWithClass } from './test.setup';
 import schema from './schema';
+import { api } from './_generated/api';
+import type { Id } from './_generated/dataModel';
 
 describe('audit logs (database operations)', () => {
 	test('audit.list returns empty array when no logs exist', async () => {
@@ -438,5 +440,232 @@ describe('audit action labels', () => {
 		];
 
 		expect(expectedLabels).toHaveLength(8);
+	});
+});
+
+// --- Enrichment tests ---
+
+describe('audit.list enrichment', () => {
+	async function createAuditChain(t: ReturnType<typeof convexTest>) {
+		const teacher = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'audit-teacher',
+				name: 'Audit Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const { classId, studentId } = await createStudentWithClass(t, {
+			englishName: 'Audit Student',
+			chineseName: '審計學生',
+			studentId: '7001001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const categoryId = await t.run(async (ctx) => {
+			return await ctx.db.insert('point_categories', {
+				name: 'Creativity',
+				casAlignment: ['Creativity']
+			});
+		});
+
+		const evaluationId = await t.run(async (ctx) => {
+			return await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId: teacher,
+				value: 2,
+				categoryId,
+				details: 'Good work',
+				timestamp: Date.now(),
+				semesterId: 'sem-1'
+			});
+		});
+
+		const auditLogId = await t.run(async (ctx) => {
+			return await ctx.db.insert('audit_logs', {
+				action: 'create_evaluation',
+				performerId: teacher,
+				targetTable: 'evaluations',
+				targetId: evaluationId,
+				oldValue: null,
+				newValue: {
+					studentId,
+					value: 2,
+					category: 'Creativity'
+				},
+				timestamp: Date.now()
+			});
+		});
+
+		return { teacher, classId, studentId, categoryId, evaluationId, auditLogId };
+	}
+
+	test('audit.list returns fully enriched entries', async () => {
+		const t = convexTest(schema, modules);
+
+		const { teacher } = await createAuditChain(t);
+
+		const tAuthed = t.withIdentity({ authId: 'test-token-admin-mock' });
+
+		const results = await tAuthed.query(api.audit.list, {});
+
+		expect(results).toHaveLength(1);
+		const entry = results[0];
+
+		expect(entry.performerId).toBe(teacher.toString());
+		expect(entry.performerName).toBe('Audit Teacher');
+		expect(entry.actionLabel).toBe('Created');
+		expect(entry.studentName).toBe('Audit Student');
+		expect(entry.studentId).toBe('7001001');
+		expect(entry.studentGrade).toBe(10);
+		expect(entry.studentGradeDisplay).toBe('10-1');
+		expect(entry.category).toBe('Creativity');
+		expect(entry.points).toBe(2);
+		expect(entry.details).toBe('Good work');
+	});
+
+	test('audit.list falls back when student is deleted', async () => {
+		const t = convexTest(schema, modules);
+
+		const { studentId } = await createAuditChain(t);
+
+		await t.run(async (ctx) => {
+			await ctx.db.delete(studentId as Id<'students'>);
+		});
+
+		const tAuthed = t.withIdentity({ authId: 'test-token-admin-mock' });
+
+		const results = await tAuthed.query(api.audit.list, {});
+
+		expect(results).toHaveLength(1);
+		const entry = results[0];
+
+		expect(entry.studentName).toBeNull();
+		expect(entry.studentId).toBeNull();
+		expect(entry.studentGrade).toBeNull();
+		expect(entry.studentGradeDisplay).toBeNull();
+	});
+
+	test('audit.list respects limit and returns correct order', async () => {
+		const t = convexTest(schema, modules);
+
+		const teacher = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'audit-teacher-pagination',
+				name: 'Pagination Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'Pagination Student',
+			chineseName: '分頁學生',
+			studentId: '7001002',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const categoryId = await t.run(async (ctx) => {
+			return await ctx.db.insert('point_categories', {
+				name: 'Creativity',
+				casAlignment: ['Creativity']
+			});
+		});
+
+		for (let i = 0; i < 3; i++) {
+			const evalId = await t.run(async (ctx) => {
+				return await ctx.db.insert('evaluations', {
+					studentId,
+					teacherId: teacher,
+					value: i + 1,
+					categoryId,
+					details: `Eval ${i}`,
+					timestamp: Date.now() + i,
+					semesterId: 'sem-1'
+				});
+			});
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('audit_logs', {
+					action: 'create_evaluation',
+					performerId: teacher,
+					targetTable: 'evaluations',
+					targetId: evalId,
+					oldValue: null,
+					newValue: {
+						studentId,
+						value: i + 1,
+						category: 'Creativity'
+					},
+					timestamp: Date.now() + i
+				});
+			});
+		}
+
+		const tAuthed = t.withIdentity({ authId: 'test-token-admin-mock' });
+
+		const limited = await tAuthed.query(api.audit.list, { limit: 2 });
+
+		expect(limited).toHaveLength(2);
+		expect(limited[0].points).toBe(3);
+		expect(limited[1].points).toBe(2);
+
+		const allResults = await tAuthed.query(api.audit.list, {});
+		expect(allResults).toHaveLength(3);
+		expect(allResults[0].points).toBe(3);
+		expect(allResults[1].points).toBe(2);
+		expect(allResults[2].points).toBe(1);
+	});
+
+	test('audit.list action labels map correctly', async () => {
+		const t = convexTest(schema, modules);
+
+		const admin = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'audit-admin-labels',
+				name: 'Label Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('audit_logs', {
+				action: 'update_user_role',
+				performerId: admin,
+				targetTable: 'users',
+				targetId: 'target-user',
+				oldValue: { role: 'teacher' },
+				newValue: { role: 'admin' },
+				timestamp: Date.now()
+			});
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('audit_logs', {
+				action: 'delete_student',
+				performerId: admin,
+				targetTable: 'students',
+				targetId: 'deleted-student',
+				oldValue: { englishName: 'Deleted' },
+				newValue: null,
+				timestamp: Date.now()
+			});
+		});
+
+		const tAuthed = t.withIdentity({ authId: 'test-token-admin-mock' });
+
+		const results = await tAuthed.query(api.audit.list, {});
+
+		const roleUpdate = results.find((r) => r.action === 'update_user_role');
+		const studentDelete = results.find((r) => r.action === 'delete_student');
+
+		expect(roleUpdate?.actionLabel).toBe('Role Updated');
+		expect(studentDelete?.actionLabel).toBe('Student Deleted');
 	});
 });

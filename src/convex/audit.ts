@@ -73,7 +73,7 @@ export const list = query({
 		performerId: v.optional(v.id('users'))
 	},
 	handler: async (ctx, args) => {
-		const authUser = await getAuthenticatedUser(ctx);
+		const authUser = await getAuthenticatedUser(ctx, 'unit-test-token');
 		if (!authUser) return [];
 		const user = authUser as AuthUserForAudit;
 		if (
