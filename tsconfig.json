@@ -29,7 +29,8 @@
 		"tests/**/*.js",
 		"tests/**/*.ts",
 		"tests/**/*.svelte",
-		"scripts/**/*.ts"
+		"scripts/**/*.ts",
+		"e2e/**/*.ts"
 	],
 	"exclude": ["node_modules/**", "src/convex/*.test.ts"]
 }

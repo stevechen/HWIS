@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 export class AdminHousesPage {
 	constructor(public page: Page) {}
@@ -9,11 +9,11 @@ export class AdminHousesPage {
 		await expect(this.page.getByTestId('admin-houses.root')).toBeVisible();
 	}
 
-	async getHouseColumn(house: 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna') {
+	getHouseColumn(house: 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna') {
 		return this.page.getByTestId(`admin-houses.house-${house}`);
 	}
 
-	async getOrphanedColumn() {
+	getOrphanedColumn() {
 		return this.page.getByTestId('admin-houses.orphaned');
 	}
 

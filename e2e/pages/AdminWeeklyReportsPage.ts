@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { NewEvaluationPage } from './NewEvaluationPage';
 
 export class AdminWeeklyReportsPage {

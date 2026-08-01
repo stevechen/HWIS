@@ -152,7 +152,13 @@ export async function setE2eTag(
 	return await utils.setE2eTag(dataType, dataId, e2eTag);
 }
 
-export async function createCategory(opts: { name?: string; e2eTag?: string }) {
+export async function createCategory(opts: {
+	name?: string;
+	e2eTag?: string;
+	casAlignment?: ('Creativity' | 'Activity' | 'Service')[];
+	meritCriteria?: string[];
+	demeritCriteria?: string[];
+}) {
 	const utils = getUtils();
 	return await utils.createCategory(opts);
 }
@@ -267,7 +273,7 @@ export async function createWeeklyReportTestData(tag?: string) {
 
 export async function cleanupAllHouseEvents() {
 	const utils = getUtils();
-	return await utils.cleanupAllHouseEvents({});
+	return await utils.cleanupAllHouseEvents();
 }
 
 export async function cleanupWeeklyReportTestData(tag?: string) {
