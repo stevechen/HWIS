@@ -96,7 +96,7 @@ export function createMockQueryResult<T>(
 		isLoading: overrides?.isLoading ?? false,
 		error: overrides?.error ?? undefined,
 		isStale: overrides?.isStale ?? false
-	} as any;
+	};
 }
 
 export function createMockAuthResult(

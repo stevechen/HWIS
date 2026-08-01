@@ -87,7 +87,7 @@ test.describe('Session Management @session @auth-sequential', () => {
 			await cleanupByTag('students', testE2eTag);
 		});
 
-		test.skip('deactivating user invalidates their sessions (server-side)', async ({ page }) => {
+		test.skip('deactivating user invalidates their sessions (server-side)', async () => {
 			// This test verifies that when an admin deactivates a user,
 			// the server-side session invalidation occurs (verified in server tests)
 			// and the user is redirected to login.
