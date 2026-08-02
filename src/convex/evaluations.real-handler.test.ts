@@ -1,31 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { convexTest, modules } from './test.setup';
+import { convexTest, modules, mockAuthUser, seedUser } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
-import { authComponent } from './auth';
 import type { Id } from './_generated/dataModel';
 
 type TestCtx = ReturnType<typeof convexTest>;
-
-function mockAuthenticatedUser(authUser: { authId: string } | null) {
-	vi.spyOn(authComponent, 'getAuthUser').mockResolvedValue(authUser as never);
-}
-
-async function seedUser(
-	t: TestCtx,
-	overrides: { authId: string; name?: string; role?: string; status?: string } = {
-		authId: 'admin-1'
-	}
-): Promise<Id<'users'>> {
-	return t.run((ctx) =>
-		ctx.db.insert('users', {
-			authId: overrides.authId,
-			name: overrides.name ?? 'Test User',
-			role: (overrides.role ?? 'admin') as 'admin',
-			status: (overrides.status ?? 'active') as 'active'
-		})
-	);
-}
 
 async function seedStudent(t: TestCtx, studentIdCode: string): Promise<Id<'students'>> {
 	const classId = await t.run((ctx) => ctx.db.insert('classes', { grade: 10, class: '1' }));
@@ -63,7 +42,7 @@ async function seedEvaluation(
 
 describe('evaluations.create (real handler)', () => {
 	beforeEach(() => {
-		mockAuthenticatedUser({ authId: 'admin-1' });
+		mockAuthUser({ authId: 'admin-1' });
 	});
 	afterEach(() => vi.restoreAllMocks());
 
@@ -120,7 +99,7 @@ describe('evaluations.create (real handler)', () => {
 
 describe('evaluations.update (real handler)', () => {
 	beforeEach(() => {
-		mockAuthenticatedUser({ authId: 'admin-1' });
+		mockAuthUser({ authId: 'admin-1' });
 	});
 	afterEach(() => vi.restoreAllMocks());
 
@@ -176,7 +155,7 @@ describe('evaluations.update (real handler)', () => {
 
 describe('evaluations.remove (real handler)', () => {
 	beforeEach(() => {
-		mockAuthenticatedUser({ authId: 'admin-1' });
+		mockAuthUser({ authId: 'admin-1' });
 	});
 	afterEach(() => vi.restoreAllMocks());
 
@@ -250,7 +229,7 @@ describe('evaluations.listRecent (real handler)', () => {
 
 	it('returns only evaluations from the authenticated user', async () => {
 		const t = convexTest(schema, modules);
-		mockAuthenticatedUser({ authId: 'admin-1' });
+		mockAuthUser({ authId: 'admin-1' });
 
 		const teacherId = await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
 		const studentId = await seedStudent(t, 'STU-RECENT-001');
@@ -266,7 +245,7 @@ describe('evaluations.listRecent (real handler)', () => {
 
 	it('returns empty list when not authenticated', async () => {
 		const t = convexTest(schema, modules);
-		mockAuthenticatedUser(null);
+		mockAuthUser(null);
 
 		const result = await t.query(api.evaluations.listRecent, {});
 
@@ -275,7 +254,7 @@ describe('evaluations.listRecent (real handler)', () => {
 
 	it('filters out unenrolled students for non-admin users', async () => {
 		const t = convexTest(schema, modules);
-		mockAuthenticatedUser({ authId: 'teacher-1' });
+		mockAuthUser({ authId: 'teacher-1' });
 
 		const teacherId = await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
 		const classId = await t.run((ctx) => ctx.db.insert('classes', { grade: 10, class: '1' }));
@@ -308,7 +287,7 @@ describe('evaluations.getUserByAuthId (real handler)', () => {
 
 	it('returns the matching user role and status', async () => {
 		const t = convexTest(schema, modules);
-		mockAuthenticatedUser({ authId: 'admin-1' });
+		mockAuthUser({ authId: 'admin-1' });
 
 		await seedUser(t, { authId: 'target-user', name: 'Target', role: 'teacher' });
 
@@ -321,7 +300,7 @@ describe('evaluations.getUserByAuthId (real handler)', () => {
 
 	it('returns null when not authenticated', async () => {
 		const t = convexTest(schema, modules);
-		mockAuthenticatedUser(null);
+		mockAuthUser(null);
 
 		const result = await t.query(api.evaluations.getUserByAuthId, {
 			authId: 'target-user'
@@ -336,7 +315,7 @@ describe('evaluations.getStudentByStudentIdCode (real handler)', () => {
 
 	it('returns student by studentId code for non-student users', async () => {
 		const t = convexTest(schema, modules);
-		mockAuthenticatedUser({ authId: 'admin-1' });
+		mockAuthUser({ authId: 'admin-1' });
 		await seedUser(t, { authId: 'admin-1', role: 'admin' });
 
 		const studentId = await seedStudent(t, 'S1001');
@@ -351,7 +330,7 @@ describe('evaluations.getStudentByStudentIdCode (real handler)', () => {
 
 	it('throws when not authenticated', async () => {
 		const t = convexTest(schema, modules);
-		mockAuthenticatedUser(null);
+		mockAuthUser(null);
 
 		await expect(
 			t.query(api.evaluations.getStudentByStudentIdCode, {
@@ -363,7 +342,7 @@ describe('evaluations.getStudentByStudentIdCode (real handler)', () => {
 
 describe('evaluations.getStudentEvaluationsAll (real handler)', () => {
 	beforeEach(() => {
-		mockAuthenticatedUser({ authId: 'admin-1' });
+		mockAuthUser({ authId: 'admin-1' });
 	});
 	afterEach(() => vi.restoreAllMocks());
 
@@ -384,7 +363,7 @@ describe('evaluations.getStudentEvaluationsAll (real handler)', () => {
 
 describe('evaluations.listAllEvaluations (real handler)', () => {
 	beforeEach(() => {
-		mockAuthenticatedUser({ authId: 'admin-1' });
+		mockAuthUser({ authId: 'admin-1' });
 	});
 	afterEach(() => vi.restoreAllMocks());
 
@@ -450,7 +429,7 @@ describe('evaluations.listAllEvaluations (real handler)', () => {
 
 describe('evaluations.getWeeklyReportDetail (real handler)', () => {
 	beforeEach(() => {
-		mockAuthenticatedUser({ authId: 'admin-1' });
+		mockAuthUser({ authId: 'admin-1' });
 	});
 	afterEach(() => vi.restoreAllMocks());
 
@@ -509,7 +488,7 @@ describe('evaluations.getStudentEvaluationsAnonymous (real handler)', () => {
 		const categoryId = await seedCategory(t);
 
 		// Authenticated as the student whose record is linked
-		mockAuthenticatedUser({ authId: 'student-1' });
+		mockAuthUser({ authId: 'student-1' });
 		await t.run((ctx) =>
 			ctx.db.insert('users', {
 				authId: 'student-1',
@@ -531,7 +510,7 @@ describe('evaluations.getStudentEvaluationsAnonymous (real handler)', () => {
 
 	it('throws for non-student users', async () => {
 		const t = convexTest(schema, modules);
-		mockAuthenticatedUser({ authId: 'admin-1' });
+		mockAuthUser({ authId: 'admin-1' });
 		await seedUser(t, { authId: 'admin-1', role: 'admin' });
 
 		await expect(t.query(api.evaluations.getStudentEvaluationsAnonymous, {})).rejects.toThrow(
