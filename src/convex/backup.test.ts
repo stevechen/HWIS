@@ -1267,3 +1267,311 @@ describe('backup clearing logic', () => {
 		expect(students.find((s) => s.studentId === 'STU_G12_NE')).toBeUndefined();
 	});
 });
+
+describe('restoreFromBackupPayload', () => {
+	test('restores data from raw backup payload with proper ID remapping', async () => {
+		const t = convexTest(schema, modules);
+
+		// Create initial data to be cleared by restore
+		await createStudentWithClass(t, {
+			englishName: 'Original Student',
+			chineseName: '原始學生',
+			studentId: 'STU_ORIG',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const teacherIdOld = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'old-teacher',
+				name: 'Old Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const categoryIdOld = await t.mutation(api.categories.create, {
+			name: 'Old Category'
+		});
+
+		const classIdOld = await t.run(async (ctx) => {
+			return await ctx.db.insert('classes', { grade: 11, class: '2' });
+		});
+
+		const studentIdOld = await t.run(async (ctx) => {
+			return await ctx.db.insert('students', {
+				englishName: 'Backup Student',
+				chineseName: '備份學生',
+				studentId: 'STU_BACKUP',
+				classId: classIdOld,
+				status: 'Enrolled'
+			});
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId: studentIdOld,
+				teacherId: teacherIdOld,
+				value: 1,
+				categoryId: categoryIdOld,
+				details: 'Backup evaluation',
+				timestamp: Date.now(),
+				semesterId: '2025-H1'
+			});
+		});
+
+		// Build a backup payload with old-style IDs
+		const backupPayload = {
+			exportedAt: new Date().toISOString(),
+			version: '1.0',
+			students: [
+				{
+					_id: 'old_student_id',
+					englishName: 'Restored Student',
+					chineseName: '恢復學生',
+					studentId: 'STU001',
+					classId: 'old_class_id',
+					status: 'Enrolled',
+					note: 'Restored note',
+					house: 'Heracles'
+				}
+			],
+			evaluations: [
+				{
+					_id: 'old_eval_id',
+					studentId: 'old_student_id',
+					teacherId: 'old_teacher_id',
+					value: 1,
+					categoryId: 'old_category_id',
+					details: 'Restored assessment',
+					timestamp: Date.now(),
+					semesterId: '2025-H1'
+				}
+			],
+			users: [
+				{
+					_id: 'old_teacher_id',
+					authId: 'restored-teacher',
+					name: 'Restored Teacher',
+					role: 'teacher',
+					status: 'active'
+				}
+			],
+			categories: [
+				{
+					_id: 'old_category_id',
+					name: 'Restored Category',
+					meritCriteria: ['Good behavior'],
+					demeritCriteria: ['Bad behavior'],
+					casAlignment: ['Service']
+				}
+			],
+			classes: [
+				{
+					_id: 'old_class_id',
+					grade: 10,
+					class: '1'
+				}
+			],
+			houseEvents: [
+				{
+					title: 'Restored Event',
+					startDate: Date.now(),
+					endDate: Date.now() + 86400000,
+					housePoints: { Heracles: 100 }
+				}
+			]
+		};
+
+		await t.mutation(api.backup.restoreFromBackupPayload, { backupData: backupPayload });
+
+		// Verify old data was cleared
+		const originalStudent = await t.run(async (ctx) => {
+			return await ctx.db
+				.query('students')
+				.filter((q) => q.eq(q.field('studentId'), 'STU_ORIG'))
+				.first();
+		});
+		expect(originalStudent ?? null).toBeNull();
+
+		// Verify restored data
+		const students = await t.run(async (ctx) => await ctx.db.query('students').collect());
+		expect(students).toHaveLength(1);
+		expect(students[0].englishName).toBe('Restored Student');
+		expect(students[0].studentId).toBe('STU001');
+		expect(students[0].house).toBe('Heracles');
+		expect(students[0].note).toBe('Restored note');
+
+		const classes = await t.run(async (ctx) => await ctx.db.query('classes').collect());
+		expect(classes).toHaveLength(1);
+		expect(classes[0].grade).toBe(10);
+		expect(classes[0].class).toBe('1');
+
+		const users = await t.run(async (ctx) => await ctx.db.query('users').collect());
+		// Users are preserved (not cleared) by restore, so we have the original teacher + restored teacher
+		expect(users).toHaveLength(2);
+		const restoredTeacher = users.find((u) => u.authId === 'restored-teacher');
+		expect(restoredTeacher).toBeDefined();
+		expect(restoredTeacher?.name).toBe('Restored Teacher');
+
+		const categories = await t.run(async (ctx) => await ctx.db.query('point_categories').collect());
+		expect(categories).toHaveLength(1);
+		expect(categories[0].name).toBe('Restored Category');
+
+		const evaluations = await t.run(async (ctx) => await ctx.db.query('evaluations').collect());
+		expect(evaluations).toHaveLength(1);
+		expect(evaluations[0].details).toBe('Restored assessment');
+
+		// Verify evaluation IDs were remapped correctly
+		const evalStudent = await t.run(async (ctx) => ctx.db.get(evaluations[0].studentId));
+		expect(evalStudent?.englishName).toBe('Restored Student');
+
+		const evalTeacher = await t.run(async (ctx) => ctx.db.get(evaluations[0].teacherId));
+		expect(evalTeacher?.name).toBe('Restored Teacher');
+
+		const evalCategory = await t.run(async (ctx) => ctx.db.get(evaluations[0].categoryId));
+		expect(evalCategory?.name).toBe('Restored Category');
+
+		const houseEvents = await t.run(async (ctx) => await ctx.db.query('house_events').collect());
+		expect(houseEvents).toHaveLength(1);
+		expect(houseEvents[0].title).toBe('Restored Event');
+		expect(houseEvents[0].housePoints?.Heracles).toBe(100);
+	});
+
+	test('restoreFromBackupPayload restores classes with grade and name', async () => {
+		const t = convexTest(schema, modules);
+
+		const backupPayload = {
+			exportedAt: new Date().toISOString(),
+			version: '1.0',
+			students: [],
+			evaluations: [],
+			users: [],
+			categories: [],
+			classes: [
+				{
+					_id: 'old_class',
+					grade: 10,
+					class: '1'
+				}
+			],
+			houseEvents: []
+		};
+
+		await t.mutation(api.backup.restoreFromBackupPayload, { backupData: backupPayload });
+
+		const classes = await t.run(async (ctx) => await ctx.db.query('classes').collect());
+		expect(classes).toHaveLength(1);
+		expect(classes[0].grade).toBe(10);
+		expect(classes[0].class).toBe('1');
+	});
+
+	test('restoreFromBackupPayload deduplicates classes with same grade and name within payload', async () => {
+		const t = convexTest(schema, modules);
+
+		const backupPayload = {
+			exportedAt: new Date().toISOString(),
+			version: '1.0',
+			students: [],
+			evaluations: [],
+			users: [],
+			categories: [],
+			classes: [
+				{
+					_id: 'class_a',
+					grade: 10,
+					class: '1'
+				},
+				{
+					_id: 'class_b',
+					grade: 10,
+					class: '1'
+				}
+			],
+			houseEvents: []
+		};
+
+		await t.mutation(api.backup.restoreFromBackupPayload, { backupData: backupPayload });
+
+		const classes = await t.run(async (ctx) => await ctx.db.query('classes').collect());
+		expect(classes).toHaveLength(1);
+	});
+
+	test('restoreFromBackupPayload deduplicates categories with same name within payload', async () => {
+		const t = convexTest(schema, modules);
+
+		const backupPayload = {
+			exportedAt: new Date().toISOString(),
+			version: '1.0',
+			students: [],
+			evaluations: [],
+			users: [],
+			categories: [
+				{
+					_id: 'cat_a',
+					name: 'Same Category',
+					meritCriteria: ['criteria A'],
+					demeritCriteria: ['demerit A'],
+					casAlignment: []
+				},
+				{
+					_id: 'cat_b',
+					name: 'Same Category',
+					meritCriteria: ['criteria B'],
+					demeritCriteria: ['demerit B'],
+					casAlignment: []
+				}
+			],
+			classes: [],
+			houseEvents: []
+		};
+
+		await t.mutation(api.backup.restoreFromBackupPayload, { backupData: backupPayload });
+
+		const categories = await t.run(async (ctx) => await ctx.db.query('point_categories').collect());
+		expect(categories).toHaveLength(1);
+		expect(categories[0].name).toBe('Same Category');
+	});
+
+	test('restoreFromBackupPayload reuses existing users by authId', async () => {
+		const t = convexTest(schema, modules);
+
+		// Create an existing user with the same authId
+		const existingUserId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'same-auth-id',
+				name: 'Old Name',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const backupPayload = {
+			exportedAt: new Date().toISOString(),
+			version: '1.0',
+			students: [],
+			evaluations: [],
+			users: [
+				{
+					_id: 'old_user',
+					authId: 'same-auth-id',
+					name: 'Updated Name',
+					role: 'admin',
+					status: 'active'
+				}
+			],
+			categories: [],
+			classes: [],
+			houseEvents: []
+		};
+
+		await t.mutation(api.backup.restoreFromBackupPayload, { backupData: backupPayload });
+
+		const users = await t.run(async (ctx) => await ctx.db.query('users').collect());
+		expect(users).toHaveLength(1);
+		expect(users[0]._id).toBe(existingUserId);
+		expect(users[0].name).toBe('Updated Name');
+		expect(users[0].role).toBe('admin');
+	});
+});

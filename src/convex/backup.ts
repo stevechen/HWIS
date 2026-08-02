@@ -93,12 +93,22 @@ type BackupPayload = {
 	evaluations: Array<
 		Pick<
 			Doc<'evaluations'>,
-			'studentId' | 'teacherId' | 'value' | 'categoryId' | 'details' | 'timestamp' | 'semesterId'
+			| '_id'
+			| 'studentId'
+			| 'teacherId'
+			| 'value'
+			| 'categoryId'
+			| 'details'
+			| 'timestamp'
+			| 'semesterId'
 		>
 	>;
-	users: Array<Pick<Doc<'users'>, 'authId' | 'name' | 'role' | 'status'>>;
+	users: Array<Pick<Doc<'users'>, '_id' | 'authId' | 'name' | 'role' | 'status'>>;
 	categories: Array<
-		Pick<Doc<'point_categories'>, 'name' | 'meritCriteria' | 'demeritCriteria' | 'casAlignment'>
+		Pick<
+			Doc<'point_categories'>,
+			'_id' | 'name' | 'meritCriteria' | 'demeritCriteria' | 'casAlignment'
+		>
 	>;
 	classes: Array<Pick<Doc<'classes'>, '_id' | 'grade' | 'class' | 'homeroomTeacherId'>>;
 	houseEvents: Array<
@@ -117,7 +127,6 @@ export const restoreFromBackup = mutation({
 
 		const data = backup.data as BackupPayload;
 
-		// Clear all existing data before restoring
 		const existingStudents = await ctx.db.query('students').collect();
 		const existingEvaluations = await ctx.db.query('evaluations').collect();
 		const existingCategories = await ctx.db.query('point_categories').collect();
@@ -143,61 +152,26 @@ export const restoreFromBackup = mutation({
 			}
 		}
 
-		// Create a mapping from old class IDs to new/existing class IDs
 		const classIdMapping = new Map<string, Id<'classes'>>();
-
-		// Restore classes first (before students that reference them)
-		// Use get-or-create pattern to avoid duplicates
 		for (const cls of data.classes) {
-			// Check if a class with the same grade and class name already exists
 			const existingClass = await ctx.db
 				.query('classes')
 				.withIndex('by_grade_class', (q) => q.eq('grade', cls.grade).eq('class', cls.class))
 				.first();
 
 			if (existingClass) {
-				// Use existing class
 				classIdMapping.set(cls._id, existingClass._id);
 			} else {
-				// Create new class
 				const newClassId = await ctx.db.insert('classes', {
 					grade: cls.grade,
 					class: cls.class,
-					homeroomTeacherId: cls.homeroomTeacherId
+					homeroomTeacherId: cls.homeroomTeacherId ?? undefined
 				});
 				classIdMapping.set(cls._id, newClassId);
 			}
 		}
 
-		// Restore students with updated classId references
-		for (const student of data.students) {
-			// Map the old classId to the new/existing classId
-			const newClassId = classIdMapping.get(student.classId);
-			if (!newClassId) {
-				throw new Error(`Class not found for student ${student.studentId}: ${student.classId}`);
-			}
-
-			await ctx.db.insert('students', {
-				englishName: student.englishName,
-				chineseName: student.chineseName,
-				studentId: student.studentId,
-				classId: newClassId,
-				status: student.status,
-				note: student.note ?? '',
-				house: student.house
-			});
-		}
-		for (const evaluation of data.evaluations) {
-			await ctx.db.insert('evaluations', {
-				studentId: evaluation.studentId as Id<'students'>,
-				teacherId: evaluation.teacherId as Id<'users'>,
-				value: evaluation.value,
-				categoryId: evaluation.categoryId as Id<'point_categories'>,
-				details: evaluation.details,
-				timestamp: evaluation.timestamp,
-				semesterId: evaluation.semesterId
-			});
-		}
+		const userIdMapping = new Map<string, Id<'users'>>();
 		for (const user of data.users) {
 			const existingUser = user.authId
 				? await ctx.db
@@ -212,23 +186,98 @@ export const restoreFromBackup = mutation({
 					role: user.role ?? existingUser.role,
 					status: user.status ?? existingUser.status
 				});
+				userIdMapping.set(user._id, existingUser._id);
 			} else {
-				await ctx.db.insert('users', {
+				const newUserId = await ctx.db.insert('users', {
 					authId: user.authId ?? undefined,
 					name: user.name ?? undefined,
 					role: user.role ?? 'teacher',
 					status: user.status ?? 'active'
 				});
+				userIdMapping.set(user._id, newUserId);
 			}
 		}
+
+		const categoryIdMapping = new Map<string, Id<'point_categories'>>();
 		for (const category of data.categories) {
-			await ctx.db.insert('point_categories', {
-				name: category.name,
-				meritCriteria: category.meritCriteria,
-				demeritCriteria: category.demeritCriteria,
-				casAlignment: category.casAlignment
+			const existingCategory = await ctx.db
+				.query('point_categories')
+				.filter((q) => q.eq(q.field('name'), category.name))
+				.first();
+			if (existingCategory) {
+				await ctx.db.patch(existingCategory._id, {
+					meritCriteria: category.meritCriteria,
+					demeritCriteria: category.demeritCriteria,
+					casAlignment: category.casAlignment
+				});
+				categoryIdMapping.set(category._id, existingCategory._id);
+			} else {
+				const newCategoryId = await ctx.db.insert('point_categories', {
+					name: category.name,
+					meritCriteria: category.meritCriteria,
+					demeritCriteria: category.demeritCriteria,
+					casAlignment: category.casAlignment
+				});
+				categoryIdMapping.set(category._id, newCategoryId);
+			}
+		}
+
+		const studentIdMapping = new Map<string, Id<'students'>>();
+		for (const student of data.students) {
+			const newClassId = classIdMapping.get(student.classId);
+			if (!newClassId) {
+				throw new Error(`Class not found for student ${student.studentId}: ${student.classId}`);
+			}
+
+			const newStudentId = await ctx.db.insert('students', {
+				englishName: student.englishName,
+				chineseName: student.chineseName,
+				studentId: student.studentId,
+				classId: newClassId,
+				status: student.status,
+				note: student.note ?? '',
+				house: student.house
+			});
+			studentIdMapping.set(student._id, newStudentId);
+		}
+
+		const skippedEvaluations: string[] = [];
+		for (const evaluation of data.evaluations) {
+			const newStudentId = studentIdMapping.get(evaluation.studentId);
+			if (!newStudentId) {
+				skippedEvaluations.push(
+					`Evaluation ${evaluation._id}: student not found (${evaluation.studentId})`
+				);
+				continue;
+			}
+
+			const newTeacherId = userIdMapping.get(evaluation.teacherId);
+			if (!newTeacherId) {
+				skippedEvaluations.push(
+					`Evaluation ${evaluation._id}: teacher not found (${evaluation.teacherId})`
+				);
+				continue;
+			}
+
+			const newCategoryId = categoryIdMapping.get(evaluation.categoryId);
+			if (!newCategoryId) {
+				skippedEvaluations.push(
+					`Evaluation ${evaluation._id}: category not found (${evaluation.categoryId})`
+				);
+				continue;
+			}
+
+			await ctx.db.insert('evaluations', {
+				studentId: newStudentId,
+				teacherId: newTeacherId,
+				value: evaluation.value,
+				categoryId: newCategoryId,
+				details: evaluation.details,
+				timestamp: evaluation.timestamp,
+				semesterId: evaluation.semesterId
 			});
 		}
+
 		if (data.houseEvents) {
 			for (const event of data.houseEvents) {
 				await ctx.db.insert('house_events', {
@@ -240,7 +289,184 @@ export const restoreFromBackup = mutation({
 				});
 			}
 		}
-		return { message: `Restored data` };
+
+		return {
+			message: `Restored data: ${data.students.length} students, ${data.evaluations.length - skippedEvaluations.length} evaluations (${skippedEvaluations.length} skipped), ${data.users.length} users, ${data.categories.length} categories, ${data.classes.length} classes`,
+			skippedEvaluations: skippedEvaluations.length > 0 ? skippedEvaluations : undefined
+		};
+	}
+});
+
+export const restoreFromBackupPayload = mutation({
+	args: {
+		backupData: v.any()
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const data = args.backupData as BackupPayload;
+
+		const existingStudents = await ctx.db.query('students').collect();
+		const existingEvaluations = await ctx.db.query('evaluations').collect();
+		const existingCategories = await ctx.db.query('point_categories').collect();
+		const existingClasses = await ctx.db.query('classes').collect();
+		const existingHouseEvents = await ctx.db.query('house_events').collect();
+
+		for (const s of existingStudents) await ctx.db.delete(s._id);
+		for (const e of existingEvaluations) await ctx.db.delete(e._id);
+		for (const c of existingCategories) await ctx.db.delete(c._id);
+		for (const c of existingClasses) await ctx.db.delete(c._id);
+		for (const e of existingHouseEvents) await ctx.db.delete(e._id);
+
+		const auditLogs = await ctx.db.query('audit_logs').collect();
+		for (const log of auditLogs) {
+			if (
+				log.targetTable === 'students' ||
+				log.targetTable === 'evaluations' ||
+				log.targetTable === 'classes' ||
+				log.targetTable === 'house_events' ||
+				log.targetTable === 'point_categories'
+			) {
+				await ctx.db.delete(log._id);
+			}
+		}
+
+		const classIdMapping = new Map<string, Id<'classes'>>();
+		for (const cls of data.classes) {
+			const existingClass = await ctx.db
+				.query('classes')
+				.withIndex('by_grade_class', (q) => q.eq('grade', cls.grade).eq('class', cls.class))
+				.first();
+
+			if (existingClass) {
+				classIdMapping.set(cls._id, existingClass._id);
+			} else {
+				const newClassId = await ctx.db.insert('classes', {
+					grade: cls.grade,
+					class: cls.class,
+					homeroomTeacherId: cls.homeroomTeacherId ?? undefined
+				});
+				classIdMapping.set(cls._id, newClassId);
+			}
+		}
+
+		const userIdMapping = new Map<string, Id<'users'>>();
+		for (const user of data.users) {
+			const existingUser = user.authId
+				? await ctx.db
+						.query('users')
+						.withIndex('by_authId', (q) => q.eq('authId', user.authId))
+						.first()
+				: null;
+
+			if (existingUser) {
+				await ctx.db.patch(existingUser._id, {
+					name: user.name ?? undefined,
+					role: user.role ?? existingUser.role,
+					status: user.status ?? existingUser.status
+				});
+				userIdMapping.set(user._id, existingUser._id);
+			} else {
+				const newUserId = await ctx.db.insert('users', {
+					authId: user.authId ?? undefined,
+					name: user.name ?? undefined,
+					role: user.role ?? 'teacher',
+					status: user.status ?? 'active'
+				});
+				userIdMapping.set(user._id, newUserId);
+			}
+		}
+
+		const categoryIdMapping = new Map<string, Id<'point_categories'>>();
+		for (const category of data.categories) {
+			const existingCategory = await ctx.db
+				.query('point_categories')
+				.filter((q) => q.eq(q.field('name'), category.name))
+				.first();
+			if (existingCategory) {
+				categoryIdMapping.set(category._id, existingCategory._id);
+			} else {
+				const newCategoryId = await ctx.db.insert('point_categories', {
+					name: category.name,
+					meritCriteria: category.meritCriteria,
+					demeritCriteria: category.demeritCriteria,
+					casAlignment: category.casAlignment
+				});
+				categoryIdMapping.set(category._id, newCategoryId);
+			}
+		}
+
+		const studentIdMapping = new Map<string, Id<'students'>>();
+		for (const student of data.students) {
+			const newClassId = classIdMapping.get(student.classId);
+			if (!newClassId) {
+				throw new Error(`Class not found for student ${student.studentId}: ${student.classId}`);
+			}
+
+			const newStudentId = await ctx.db.insert('students', {
+				englishName: student.englishName,
+				chineseName: student.chineseName,
+				studentId: student.studentId,
+				classId: newClassId,
+				status: student.status,
+				note: student.note ?? '',
+				house: student.house
+			});
+			studentIdMapping.set(student._id, newStudentId);
+		}
+
+		const skippedEvaluations: string[] = [];
+		for (const evaluation of data.evaluations) {
+			const newStudentId = studentIdMapping.get(evaluation.studentId);
+			if (!newStudentId) {
+				skippedEvaluations.push(
+					`Evaluation ${evaluation._id}: student not found (${evaluation.studentId})`
+				);
+				continue;
+			}
+
+			const newTeacherId = userIdMapping.get(evaluation.teacherId);
+			if (!newTeacherId) {
+				skippedEvaluations.push(
+					`Evaluation ${evaluation._id}: teacher not found (${evaluation.teacherId})`
+				);
+				continue;
+			}
+
+			const newCategoryId = categoryIdMapping.get(evaluation.categoryId);
+			if (!newCategoryId) {
+				skippedEvaluations.push(
+					`Evaluation ${evaluation._id}: category not found (${evaluation.categoryId})`
+				);
+				continue;
+			}
+
+			await ctx.db.insert('evaluations', {
+				studentId: newStudentId,
+				teacherId: newTeacherId,
+				value: evaluation.value,
+				categoryId: newCategoryId,
+				details: evaluation.details,
+				timestamp: evaluation.timestamp,
+				semesterId: evaluation.semesterId
+			});
+		}
+
+		if (data.houseEvents) {
+			for (const event of data.houseEvents) {
+				await ctx.db.insert('house_events', {
+					title: event.title,
+					startDate: event.startDate,
+					endDate: event.endDate,
+					housePoints: event.housePoints ?? undefined,
+					e2eTag: event.e2eTag
+				});
+			}
+		}
+
+		return {
+			message: `Restored data: ${data.students.length} students, ${data.evaluations.length - skippedEvaluations.length} evaluations (${skippedEvaluations.length} skipped), ${data.users.length} users, ${data.categories.length} categories, ${data.classes.length} classes`,
+			skippedEvaluations: skippedEvaluations.length > 0 ? skippedEvaluations : undefined
+		};
 	}
 });
 
