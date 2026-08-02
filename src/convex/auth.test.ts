@@ -7,6 +7,7 @@ import {
 	requireUserProfile,
 	requireAuthenticatedUser,
 	requireAdminRole,
+	requireSuperRole,
 	authComponent
 } from './auth';
 import { convexTest, modules } from './test.setup';
@@ -174,5 +175,84 @@ describe('resolveAuthId resolution via getAuthenticatedUser', () => {
 		const user = await t.run((ctx) => getAuthenticatedUser(ctx));
 
 		expect(user).toBeNull();
+	});
+});
+
+describe('role-gate denial paths', () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	function mockAuthUser(user: { authId?: string; name?: string } | null) {
+		vi.spyOn(authComponent, 'getAuthUser').mockResolvedValue(user as never);
+	}
+
+	it('requireAdminRole throws for a teacher profile', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run((ctx) =>
+			ctx.db.insert('users', {
+				authId: 'teacher-role-test',
+				name: 'Plain Teacher',
+				role: 'teacher',
+				status: 'active'
+			})
+		);
+		mockAuthUser({ authId: 'teacher-role-test', name: 'Plain Teacher' });
+
+		await expect(t.run((ctx) => requireAdminRole(ctx))).rejects.toThrow(
+			'Forbidden: Admin or super role required'
+		);
+	});
+
+	it('requireSuperRole throws for an admin profile', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run((ctx) =>
+			ctx.db.insert('users', {
+				authId: 'admin-role-test',
+				name: 'Plain Admin',
+				role: 'admin',
+				status: 'active'
+			})
+		);
+		mockAuthUser({ authId: 'admin-role-test', name: 'Plain Admin' });
+
+		await expect(t.run((ctx) => requireSuperRole(ctx))).rejects.toThrow(
+			'Forbidden: Super role required'
+		);
+	});
+
+	it('requireSuperRole throws for a teacher profile', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run((ctx) =>
+			ctx.db.insert('users', {
+				authId: 'teacher-super-test',
+				name: 'Plain Teacher',
+				role: 'teacher',
+				status: 'active'
+			})
+		);
+		mockAuthUser({ authId: 'teacher-super-test', name: 'Plain Teacher' });
+
+		await expect(t.run((ctx) => requireSuperRole(ctx))).rejects.toThrow(
+			'Forbidden: Super role required'
+		);
+	});
+
+	it('requireAdminRole passes for an admin profile', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run((ctx) =>
+			ctx.db.insert('users', {
+				authId: 'admin-pass-test',
+				name: 'Real Admin',
+				role: 'admin',
+				status: 'active'
+			})
+		);
+		mockAuthUser({ authId: 'admin-pass-test', name: 'Real Admin' });
+
+		const user = await t.run((ctx) => requireAdminRole(ctx));
+		expect(user).toMatchObject({ authId: 'admin-pass-test', role: 'admin' });
 	});
 });
