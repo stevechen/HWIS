@@ -21,6 +21,14 @@ export default defineConfig({
 			},
 			provider: playwright(),
 			instances: [{ browser: 'chromium', headless: true }]
+		},
+
+		coverage: {
+			provider: 'istanbul',
+			all: true,
+			include: ['src/lib/**/*.{ts,svelte,js}'],
+			exclude: ['src/lib/components/ui/**', 'tests/**', 'node_modules/**', '.svelte-kit/**'],
+			reportsDirectory: 'coverage/component'
 		}
 	},
 	resolve: {

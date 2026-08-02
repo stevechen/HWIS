@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { useRole } from './convex-client';
 
 test.describe('Permission Tests @smoke', () => {

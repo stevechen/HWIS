@@ -19,7 +19,7 @@
  * ```
  */
 
-import { test } from '@playwright/test';
+import { test } from './fixtures';
 import { cleanupAllE2eTaggedData } from './convex-client';
 
 /**

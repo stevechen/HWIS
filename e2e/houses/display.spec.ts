@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
 import { getTestSuffix } from '../helpers';
 import { cleanupByTag, createStudent, createCategory, getE2EUtilsClient } from '../convex-client';
 import { HousesDisplayPage } from '../pages';

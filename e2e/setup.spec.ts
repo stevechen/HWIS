@@ -1,4 +1,4 @@
-import { test as setup, expect } from '@playwright/test';
+import { test as setup, expect } from './fixtures';
 import { setupTestUsers, cleanupTestUsers, resetAll, seedBaseline } from './convex-client';
 import { mkdir, writeFile } from 'fs/promises';
 import { readFileSync } from 'fs';

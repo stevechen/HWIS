@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test } from '../fixtures';
 import { AdminStudentsPage } from '../pages';
 import { getTestSuffix, getTestStudentId } from '../helpers';
 import { createCategory, useRole } from '../convex-client';

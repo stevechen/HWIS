@@ -1,12 +1,29 @@
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
+import IstanbulPlugin from 'vite-plugin-istanbul';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { resolve } from 'path';
+import type { PluginOption } from 'vite';
+
+const enableIstanbul = process.env.VITE_COVERAGE === 'true';
+
+const plugins: PluginOption[] = [tailwindcss(), sveltekit(), devtoolsJson()];
+
+if (enableIstanbul) {
+	plugins.push(
+		IstanbulPlugin({
+			cwd: resolve(__dirname),
+			include: 'src/**',
+			exclude: ['node_modules', '.svelte-kit', 'tests', 'scripts', 'src/lib/components/ui/**'],
+			extension: ['.js', '.ts', '.svelte']
+		})
+	);
+}
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit(), devtoolsJson()],
+	plugins,
 
 	resolve: {
 		alias: {

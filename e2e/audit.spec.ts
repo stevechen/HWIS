@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { cleanupAuditLogs, seedAuditLogs } from './convex-client';
 import { AdminAuditPage } from './pages';
 

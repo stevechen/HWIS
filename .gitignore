@@ -3,6 +3,7 @@ playwright-report
 node_modules
 
 # Output
+coverage
 .output
 .vercel
 .netlify

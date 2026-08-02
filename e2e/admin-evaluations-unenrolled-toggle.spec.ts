@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from '@playwright/test';
+import { test, expect, type Locator } from './fixtures';
 import { getTestSuffix } from './helpers';
 import { createStudentWithEvaluations, cleanupByTag, useRole } from './convex-client';
 import { AdminEvaluationsPage } from './pages';

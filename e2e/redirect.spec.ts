@@ -1,5 +1,5 @@
-import { test } from '@playwright/test';
-import { expect } from '@playwright/test';
+import { test } from './fixtures';
+import { expect } from './fixtures';
 
 test.describe('Authenticated Redirects @smoke', () => {
 	test.use({ storageState: 'e2e/.auth/teacher.json' });

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
 import { getTestSuffix, getUniqueTag } from '../helpers';
 import { cleanupByTag, useRole, createStudent, createClass } from '../convex-client';
 import { AdminClassesPage } from '../pages';
