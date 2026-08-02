@@ -27,6 +27,10 @@ describe('driveBackup.backupToDrive auth and config guards', () => {
 	beforeEach(() => {
 		vi.unstubAllEnvs();
 		vi.stubEnv('CRON_SECRET', undefined);
+		vi.stubEnv('GOOGLE_CLIENT_ID', undefined);
+		vi.stubEnv('GOOGLE_CLIENT_SECRET', undefined);
+		vi.stubEnv('GOOGLE_REFRESH_TOKEN', undefined);
+		vi.stubEnv('GOOGLE_DRIVE_FOLDER_ID', undefined);
 	});
 	afterEach(() => {
 		vi.restoreAllMocks();
