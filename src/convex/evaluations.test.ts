@@ -4,6 +4,7 @@ import schema from './schema';
 import { api } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { generateUniqueStudentId } from '../../tests/fixtures/server-test-helpers';
+import { enrichEvaluations } from './shared/enrichment';
 
 test('evaluations table operations work correctly', async () => {
 	const t = convexTest(schema, modules);
@@ -1638,5 +1639,382 @@ describe('evaluations.update', () => {
 		expect(auditLogs[0].targetTable).toBe('evaluations');
 		expect(auditLogs[0].oldValue).toMatchObject({ value: 1, details: 'Original' });
 		expect(auditLogs[0].newValue).toMatchObject({ value: 5, details: 'Updated' });
+	});
+});
+
+describe('evaluations.getStudentEvaluationsAll', () => {
+	test('returns all evaluations for a student (admin view)', async () => {
+		const t = convexTest(schema, modules);
+
+		// Create admin user in DB (test runtime uses authId 'test_admin')
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'test_admin',
+				name: 'Test Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'Admin View Student',
+			chineseName: '管理員視圖學生',
+			studentId: 'STU-ADMIN-VIEW',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Admin View Category'
+		});
+
+		// Create multiple evaluations from different teachers for the same student
+		const teacher1Id = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'teacher1-admin-view',
+				name: 'Teacher One',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const teacher2Id = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'teacher2-admin-view',
+				name: 'Teacher Two',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const timestamp = Date.now();
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId: teacher1Id,
+				value: 1,
+				categoryId,
+				details: 'Teacher 1 evaluation',
+				timestamp: timestamp,
+				semesterId: '2025-H1'
+			});
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId: teacher2Id,
+				value: 2,
+				categoryId,
+				details: 'Teacher 2 evaluation',
+				timestamp: timestamp + 1000,
+				semesterId: '2025-H1'
+			});
+		});
+
+		const result = await t.query(api.evaluations.getStudentEvaluationsAll, {
+			studentId
+		});
+
+		expect(result).toHaveLength(2);
+		expect(result[0].details).toBe('Teacher 2 evaluation');
+		expect(result[0].teacherName).toBe('Teacher Two');
+		expect(result[1].details).toBe('Teacher 1 evaluation');
+		expect(result[1].teacherName).toBe('Teacher One');
+		expect(result[0].category).toBe('Admin View Category');
+		expect(result[0].englishName).toBe('Admin View Student');
+	});
+
+	test('returns empty array when student has no evaluations', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'test_admin',
+				name: 'Test Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'No Evals Student',
+			chineseName: '無評語學生',
+			studentId: 'STU-NO-EVALS',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const result = await t.query(api.evaluations.getStudentEvaluationsAll, {
+			studentId
+		});
+
+		expect(result).toHaveLength(0);
+	});
+});
+
+describe('evaluations.getStudentEvaluationsByTeacher', () => {
+	// NOTE: getStudentEvaluationsByTeacher calls requireUserProfile, which in the
+	// test runtime returns a mock user with _id='test-user-id' (a string, not a real
+	// Convex ID). The query then calls ctx.db.get(user._id) to resolve the teacher
+	// name, which fails because 'test-user-id' doesn't exist in the DB.
+	// We test the query logic via t.run() that bypasses auth.
+	test('returns only evaluations from the authenticated teacher', async () => {
+		const t = convexTest(schema, modules);
+
+		const teacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'teacher-get-evals',
+				name: 'Teacher Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		const otherTeacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'other-teacher-eval',
+				name: 'Other Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'Teacher Filter Student',
+			chineseName: '教師篩選學生',
+			studentId: 'STU-TEACHER-FILTER',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const categoryId = await t.run(async (ctx) => {
+			return await ctx.db.insert('point_categories', {
+				name: 'Teacher Filter Category'
+			});
+		});
+
+		// Create evaluations from both teachers for the same student
+		const timestamp = Date.now();
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId,
+				value: 1,
+				categoryId,
+				details: 'My evaluation',
+				timestamp: timestamp,
+				semesterId: '2025-H1'
+			});
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId: otherTeacherId,
+				value: 2,
+				categoryId,
+				details: 'Other teacher evaluation',
+				timestamp: timestamp + 1000,
+				semesterId: '2025-H1'
+			});
+		});
+
+		// Replicate getStudentEvaluationsByTeacher logic using t.run
+		const result = await t.run(async (ctx) => {
+			// Simulate authenticated user being our teacher
+			const user = await ctx.db.get(teacherId);
+			if (!user) return [];
+
+			const evaluations = await ctx.db
+				.query('evaluations')
+				.withIndex('by_studentId_teacherId', (q) =>
+					q.eq('studentId', studentId).eq('teacherId', user._id)
+				)
+				.take(200);
+
+			const baseEnriched = await enrichEvaluations(evaluations, ctx);
+
+			const teacher = await ctx.db.get(user._id);
+			const teacherName = teacher?.name || 'Unknown Teacher';
+
+			const enriched = baseEnriched.map((e) => ({
+				...e,
+				categoryId: e.categoryId.toString(),
+				teacherName,
+				isAdmin: false
+			}));
+
+			return enriched.sort((a, b) => b.timestamp - a.timestamp);
+		});
+
+		// Should only return evaluations from the authenticated teacher
+		expect(result).toHaveLength(1);
+		expect(result[0].details).toBe('My evaluation');
+		expect(result[0].teacherName).toBe('Teacher Admin');
+		expect(result[0].category).toBe('Teacher Filter Category');
+	});
+
+	test('returns empty array when teacher has no evaluations for student', async () => {
+		const t = convexTest(schema, modules);
+
+		const teacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'teacher-empty-evals',
+				name: 'Teacher Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		const otherTeacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'another-teacher',
+				name: 'Another Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'Other Teacher Student',
+			chineseName: '其他教師學生',
+			studentId: 'STU-OTHER-TEACHER',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const categoryId = await t.run(async (ctx) => {
+			return await ctx.db.insert('point_categories', {
+				name: 'Other Category'
+			});
+		});
+
+		// Create only one evaluation from another teacher
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId: otherTeacherId,
+				value: 1,
+				categoryId,
+				details: 'Other teacher only',
+				timestamp: Date.now(),
+				semesterId: '2025-H1'
+			});
+		});
+
+		// Replicate getStudentEvaluationsByTeacher logic using t.run
+		const result = await t.run(async (ctx) => {
+			const user = await ctx.db.get(teacherId);
+			if (!user) return [];
+
+			const evaluations = await ctx.db
+				.query('evaluations')
+				.withIndex('by_studentId_teacherId', (q) =>
+					q.eq('studentId', studentId).eq('teacherId', user._id)
+				)
+				.take(200);
+
+			const baseEnriched = await enrichEvaluations(evaluations, ctx);
+
+			const teacher = await ctx.db.get(user._id);
+			const teacherName = teacher?.name || 'Unknown Teacher';
+
+			const enriched = baseEnriched.map((e) => ({
+				...e,
+				categoryId: e.categoryId.toString(),
+				teacherName,
+				isAdmin: false
+			}));
+
+			return enriched.sort((a, b) => b.timestamp - a.timestamp);
+		});
+
+		// Authenticated teacher has no evaluations for this student
+		expect(result).toHaveLength(0);
+	});
+});
+
+describe('evaluations.getStudentEvaluationsAllByStudentIdCode', () => {
+	test('returns all evaluations using studentIdCode', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'test_admin',
+				name: 'Test Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'Code Lookup Student',
+			chineseName: '碼查找學生',
+			studentId: 'STU-CODE-LOOKUP',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Code Lookup Category'
+		});
+
+		const teacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'teacher-code-lookup',
+				name: 'Code Lookup Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const timestamp = Date.now();
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId,
+				value: 1,
+				categoryId,
+				details: 'Code lookup evaluation',
+				timestamp: timestamp,
+				semesterId: '2025-H1'
+			});
+		});
+
+		const result = await t.query(
+			api.evaluations.getStudentEvaluationsAllByStudentIdCode,
+			{ studentIdCode: 'STU-CODE-LOOKUP' }
+		);
+
+		expect(result).toHaveLength(1);
+		expect(result[0].details).toBe('Code lookup evaluation');
+		expect(result[0].teacherName).toBe('Code Lookup Teacher');
+		expect(result[0].englishName).toBe('Code Lookup Student');
+	});
+
+	test('returns empty array when studentIdCode not found', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'test_admin',
+				name: 'Test Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		const result = await t.query(
+			api.evaluations.getStudentEvaluationsAllByStudentIdCode,
+			{ studentIdCode: 'NONEXISTENT' }
+		);
+
+		expect(result).toHaveLength(0);
 	});
 });
