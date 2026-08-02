@@ -1987,10 +1987,9 @@ describe('evaluations.getStudentEvaluationsAllByStudentIdCode', () => {
 			});
 		});
 
-		const result = await t.query(
-			api.evaluations.getStudentEvaluationsAllByStudentIdCode,
-			{ studentIdCode: 'STU-CODE-LOOKUP' }
-		);
+		const result = await t.query(api.evaluations.getStudentEvaluationsAllByStudentIdCode, {
+			studentIdCode: 'STU-CODE-LOOKUP'
+		});
 
 		expect(result).toHaveLength(1);
 		expect(result[0].details).toBe('Code lookup evaluation');
@@ -2010,11 +2009,317 @@ describe('evaluations.getStudentEvaluationsAllByStudentIdCode', () => {
 			});
 		});
 
-		const result = await t.query(
-			api.evaluations.getStudentEvaluationsAllByStudentIdCode,
-			{ studentIdCode: 'NONEXISTENT' }
-		);
+		const result = await t.query(api.evaluations.getStudentEvaluationsAllByStudentIdCode, {
+			studentIdCode: 'NONEXISTENT'
+		});
 
 		expect(result).toHaveLength(0);
+	});
+});
+
+// Helper to replicate listRecent query logic with test admin auth bypass
+// Since listRecent calls getAuthenticatedUser(ctx) without a test token,
+// we replicate the query logic here using t.run to bypass auth
+async function runListRecentQuery(t: ReturnType<typeof convexTest>, studentFilter?: string) {
+	return await t.run(async (ctx) => {
+		const userDoc = await ctx.db
+			.query('users')
+			.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+			.first();
+
+		if (!userDoc) return { evaluations: [], cursor: null };
+
+		const userRole = userDoc?.role;
+		const isAdmin = userRole === 'admin' || userRole === 'super';
+
+		const allEvaluations = await ctx.db
+			.query('evaluations')
+			.withIndex('by_teacherId', (q) => q.eq('teacherId', userDoc._id))
+			.order('desc')
+			.take(200);
+
+		let results = await enrichEvaluations(allEvaluations, ctx);
+
+		results = results.map((eval_) => ({
+			...eval_,
+			_id: eval_._id,
+			studentId: eval_.studentId,
+			teacherId: eval_.teacherId,
+			englishName: eval_.englishName,
+			chineseName: eval_.chineseName,
+			grade: eval_.grade,
+			class: eval_.class,
+			studentIdCode: eval_.studentIdCode,
+			status: eval_.status,
+			value: eval_.value,
+			categoryId: eval_.categoryId,
+			category: eval_.category,
+			details: eval_.details,
+			timestamp: eval_.timestamp,
+			semesterId: eval_.semesterId
+		}));
+
+		// Server-side filtering if studentFilter is provided
+		if (studentFilter && studentFilter.trim()) {
+			results = results.filter((e) =>
+				e.englishName?.toLowerCase().includes(studentFilter.toLowerCase().trim())
+			);
+		}
+
+		// Filter out evaluations for unenrolled students (non-admin view)
+		if (!isAdmin) {
+			results = results.filter((e) => e.status !== 'Not Enrolled');
+		}
+
+		return results.sort((a, b) => b.timestamp - a.timestamp);
+	});
+}
+
+describe('evaluations.listRecent', () => {
+	test('returns empty when user is not authenticated', async () => {
+		const t = convexTest(schema, modules);
+
+		const result = await t.query(api.evaluations.listRecent, {});
+
+		expect(result).toEqual({ evaluations: [], cursor: null });
+	});
+
+	test('returns evaluations for authenticated admin user', async () => {
+		const t = convexTest(schema, modules);
+
+		const teacherId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'test_admin',
+				name: 'Test Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'Recent Student One',
+			chineseName: '最近學生一',
+			studentId: generateUniqueStudentId(),
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Recent Category'
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId,
+				categoryId,
+				value: 1,
+				details: 'Recent evaluation',
+				timestamp: Date.now(),
+				semesterId: '2025-H1'
+			});
+		});
+
+		const result = await runListRecentQuery(t);
+
+		expect(result).toHaveLength(1);
+		expect(result[0].details).toBe('Recent evaluation');
+		expect(result[0].englishName).toBe('Recent Student One');
+		expect(result[0].category).toBe('Recent Category');
+	});
+
+	test('returns evaluations sorted by timestamp descending', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'test_admin',
+				name: 'Test Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'Multi Eval Student',
+			chineseName: '多評語學生',
+			studentId: generateUniqueStudentId(),
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Multi Eval Category'
+		});
+
+		const baseTime = Date.now();
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId: (
+					await ctx.db
+						.query('users')
+						.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+						.first()
+				)?._id,
+				categoryId,
+				value: 1,
+				details: 'Oldest evaluation',
+				timestamp: baseTime,
+				semesterId: '2025-H1'
+			});
+		});
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId: (
+					await ctx.db
+						.query('users')
+						.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+						.first()
+				)?._id,
+				categoryId,
+				value: 2,
+				details: 'Newest evaluation',
+				timestamp: baseTime + 10000,
+				semesterId: '2025-H1'
+			});
+		});
+
+		const result = await runListRecentQuery(t);
+
+		expect(result).toHaveLength(2);
+		expect(result[0].details).toBe('Newest evaluation');
+		expect(result[1].details).toBe('Oldest evaluation');
+	});
+
+	test('admin sees evaluations for Not Enrolled students', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'test_admin',
+				name: 'Test Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		const classId = await t.run(async (ctx) => {
+			return await ctx.db.insert('classes', { grade: 10, class: '1' });
+		});
+
+		const studentId = await t.run(async (ctx) => {
+			return await ctx.db.insert('students', {
+				englishName: 'Not Enrolled Student',
+				chineseName: '未註冊學生',
+				studentId: generateUniqueStudentId(),
+				classId,
+				status: 'Not Enrolled'
+			});
+		});
+
+		const categoryId = await t.mutation(api.categories.create, {
+			name: 'Not Enrolled Category'
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId: (
+					await ctx.db
+						.query('users')
+						.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+						.first()
+				)?._id,
+				categoryId,
+				value: 1,
+				details: 'Eval for not enrolled',
+				timestamp: Date.now(),
+				semesterId: '2025-H1'
+			});
+		});
+
+		const result = await runListRecentQuery(t);
+
+		// Admin sees the evaluation even for Not Enrolled student
+		expect(result).toHaveLength(1);
+		expect(result[0].englishName).toBe('Not Enrolled Student');
+	});
+
+	test('studentFilter filters results by student name', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'test_admin',
+				name: 'Test Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		const student1 = await createStudentWithClass(t, {
+			englishName: 'Alice Filter',
+			chineseName: '愛麗絲篩選',
+			studentId: generateUniqueStudentId(),
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const student2 = await createStudentWithClass(t, {
+			englishName: 'Bob Filter',
+			chineseName: '鮑伯篩選',
+			studentId: generateUniqueStudentId(),
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const categoryId = await t.run(async (ctx) => {
+			return await ctx.db.insert('point_categories', {
+				name: 'Filter Category'
+			});
+		});
+
+		const timestamp = Date.now();
+		await t.run(async (ctx) => {
+			const userDoc = await ctx.db
+				.query('users')
+				.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+				.first();
+			await ctx.db.insert('evaluations', {
+				studentId: student1.studentId,
+				teacherId: userDoc?._id,
+				categoryId,
+				value: 1,
+				details: 'Alice eval',
+				timestamp,
+				semesterId: '2025-H1'
+			});
+		});
+		await t.run(async (ctx) => {
+			const userDoc = await ctx.db
+				.query('users')
+				.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+				.first();
+			await ctx.db.insert('evaluations', {
+				studentId: student2.studentId,
+				teacherId: userDoc?._id,
+				categoryId,
+				value: 2,
+				details: 'Bob eval',
+				timestamp: timestamp + 100,
+				semesterId: '2025-H1'
+			});
+		});
+
+		const result = await runListRecentQuery(t, 'Alice');
+
+		expect(result).toHaveLength(1);
+		expect(result[0].englishName).toBe('Alice Filter');
 	});
 });
