@@ -117,4 +117,20 @@ describe('House Events Page', () => {
 			await expect.element(page.getByText('No Events Yet')).toBeInTheDocument();
 		});
 	});
+
+	describe('Error State', () => {
+		it('renders error state when the events query fails', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValueOnce({
+				data: null,
+				isLoading: false,
+				isStale: false,
+				error: new Error('Failed to load')
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any);
+
+			render(EventsPage);
+			await expect.element(page.getByText('Failed to load events')).toBeInTheDocument();
+		});
+	});
 });

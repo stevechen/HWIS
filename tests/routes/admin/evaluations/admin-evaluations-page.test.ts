@@ -123,6 +123,26 @@ describe('Admin Evaluations Page', () => {
 		});
 	});
 
+	describe('Error State', () => {
+		it('renders error state when the paginated query fails', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery)
+				.mockReturnValueOnce({
+					data: createMockQueryData(),
+					isLoading: false,
+					error: null
+				} as unknown as ReturnType<typeof useQuery>)
+				.mockReturnValueOnce({
+					data: null,
+					isLoading: false,
+					error: new Error('Failed to load')
+				} as unknown as ReturnType<typeof useQuery>);
+
+			render(AdminEvaluationsPage);
+			await expect.element(page.getByText(/Error loading evaluations/)).toBeInTheDocument();
+		});
+	});
+
 	describe('Accessibility', () => {
 		it('all filter inputs have accessible labels', async () => {
 			render(AdminEvaluationsPage);

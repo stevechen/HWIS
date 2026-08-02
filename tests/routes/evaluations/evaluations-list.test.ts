@@ -25,4 +25,22 @@ describe('Evaluations List', () => {
 		render(EvaluationsPage);
 		await expect.element(page.getByText('No evaluations found')).toBeInTheDocument();
 	});
+
+	it('renders error state when the evaluations query fails', async () => {
+		const { useQuery } = await import('convex-svelte');
+		vi.mocked(useQuery)
+			.mockReturnValueOnce({
+				data: null,
+				isLoading: false,
+				error: null
+			} as unknown as ReturnType<typeof useQuery>)
+			.mockReturnValueOnce({
+				data: null,
+				isLoading: false,
+				error: new Error('Failed to load')
+			} as unknown as ReturnType<typeof useQuery>);
+
+		render(EvaluationsPage);
+		await expect.element(page.getByText(/Error loading evaluations/)).toBeInTheDocument();
+	});
 });

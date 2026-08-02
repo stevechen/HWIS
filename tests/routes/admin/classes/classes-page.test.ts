@@ -123,6 +123,20 @@ describe('Classes Page', () => {
 		});
 	});
 
+	describe('Error State', () => {
+		it('renders error message when classes query fails', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValueOnce({
+				data: null,
+				isLoading: false,
+				error: new Error('Failed to load')
+			} as unknown as ReturnType<typeof useQuery>);
+
+			render(ClassesPage);
+			await expect.element(page.getByText('Error loading classes')).toBeInTheDocument();
+		});
+	});
+
 	describe('Accordion', () => {
 		it('collapses and expands student list when class header is clicked', async () => {
 			const { useQuery } = await import('convex-svelte');

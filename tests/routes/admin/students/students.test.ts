@@ -65,4 +65,16 @@ describe('Students Page', () => {
 		await searchInput.fill('nonexistent');
 		await expect.element(page.getByText('No students match your filters')).toBeInTheDocument();
 	});
+
+	it('renders error state when the students query fails', async () => {
+		const { useQuery } = await import('convex-svelte');
+		vi.mocked(useQuery).mockReturnValueOnce({
+			data: null,
+			isLoading: false,
+			error: new Error('Failed to load')
+		} as unknown as ReturnType<typeof useQuery>);
+
+		render(StudentsPage);
+		await expect.element(page.getByText(/Error loading students/)).toBeInTheDocument();
+	});
 });
