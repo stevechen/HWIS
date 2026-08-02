@@ -677,6 +677,60 @@ describe('students edge cases', () => {
 	});
 });
 
+describe('disableStudent', () => {
+	it('sets student status to Not Enrolled', async () => {
+		const t = convexTest(schema, modules);
+
+		const studentId = await t.mutation(api.students.create, {
+			englishName: 'Disable Test Student',
+			chineseName: '停用測試學生',
+			studentId: 'S_DISABLE01',
+			grade: 10,
+			status: 'Enrolled'
+		});
+
+		await t.mutation(api.students.disableStudent, { id: studentId });
+
+		const student = (await t.query(api.students.list, {}))[0];
+		expect(student.status).toBe('Not Enrolled');
+	});
+
+	it('does not delete the student record', async () => {
+		const t = convexTest(schema, modules);
+
+		const studentId = await t.mutation(api.students.create, {
+			englishName: 'Keep Record Student',
+			chineseName: '保留紀錄學生',
+			studentId: 'S_KEEP01',
+			grade: 11,
+			status: 'Enrolled'
+		});
+
+		await t.mutation(api.students.disableStudent, { id: studentId });
+
+		const students = await t.query(api.students.list, {});
+		expect(students).toHaveLength(1);
+		expect(students[0].studentId).toBe('S_KEEP01');
+	});
+
+	it('disableStudent is idempotent on already disabled student', async () => {
+		const t = convexTest(schema, modules);
+
+		const studentId = await t.mutation(api.students.create, {
+			englishName: 'Already Disabled Student',
+			chineseName: '已停用學生',
+			studentId: 'S_ALREADY01',
+			grade: 10,
+			status: 'Not Enrolled'
+		});
+
+		await t.mutation(api.students.disableStudent, { id: studentId });
+
+		const student = (await t.query(api.students.list, {}))[0];
+		expect(student.status).toBe('Not Enrolled');
+	});
+});
+
 describe('students.importFromExcel (bulk create/update)', () => {
 	it('creates multiple students in a single call', async () => {
 		const t = convexTest(schema, modules);
@@ -864,5 +918,121 @@ describe('students.importFromExcel (bulk create/update)', () => {
 		// The student should have the last update's grade
 		expect(students[0].classInfo?.grade).toBe(10);
 		expect(students[0].englishName).toBe('Second');
+	});
+});
+
+describe('students.bulkAssignHouses', () => {
+	it('assigns houses to matched students by name', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.students.create, {
+			englishName: 'Alice House',
+			chineseName: '愛麗絲',
+			studentId: 'S_HOUSE01',
+			grade: 10,
+			status: 'Enrolled' as const
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'Bob House',
+			chineseName: '鮑伯',
+			studentId: 'S_HOUSE02',
+			grade: 10,
+			status: 'Enrolled' as const
+		});
+
+		const result = await t.mutation(api.students.bulkAssignHouses, {
+			assignments: [
+				{ englishName: 'Alice House', house: 'Heracles' },
+				{ englishName: 'Bob House', house: 'Wukong' }
+			]
+		});
+
+		expect(result.assigned).toBe(2);
+		expect(result.total).toBe(2);
+
+		const students = await t.query(api.students.list, {});
+		const alice = students.find((s) => s.englishName === 'Alice House');
+		const bob = students.find((s) => s.englishName === 'Bob House');
+		expect(alice?.house).toBe('Heracles');
+		expect(bob?.house).toBe('Wukong');
+	});
+
+	it('skips students not found by name', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.students.create, {
+			englishName: 'Found Student',
+			chineseName: '找到學生',
+			studentId: 'S_FOUND01',
+			grade: 9,
+			status: 'Enrolled' as const
+		});
+
+		const result = await t.mutation(api.students.bulkAssignHouses, {
+			assignments: [
+				{ englishName: 'Found Student', house: 'Ixbalam' },
+				{ englishName: 'Missing Student', house: 'Setna' }
+			]
+		});
+
+		expect(result.assigned).toBe(1);
+		expect(result.total).toBe(2);
+
+		const students = await t.query(api.students.list, {});
+		expect(students).toHaveLength(1);
+		expect(students[0].house).toBe('Ixbalam');
+	});
+
+	it('handles empty assignment list', async () => {
+		const t = convexTest(schema, modules);
+
+		const result = await t.mutation(api.students.bulkAssignHouses, {
+			assignments: []
+		});
+
+		expect(result.assigned).toBe(0);
+		expect(result.total).toBe(0);
+	});
+
+	it('matches names case-insensitively', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.students.create, {
+			englishName: 'Case Test Student',
+			chineseName: '大小寫測試',
+			studentId: 'S_CASE01',
+			grade: 10,
+			status: 'Enrolled' as const
+		});
+
+		const result = await t.mutation(api.students.bulkAssignHouses, {
+			assignments: [{ englishName: 'CASE TEST STUDENT', house: 'Setna' }]
+		});
+
+		expect(result.assigned).toBe(1);
+
+		const students = await t.query(api.students.list, {});
+		expect(students[0].house).toBe('Setna');
+	});
+
+	it('overwrites existing house assignment', async () => {
+		const t = convexTest(schema, modules);
+
+		const studentId = await t.mutation(api.students.create, {
+			englishName: 'Overwrite Student',
+			chineseName: '覆寫學生',
+			studentId: 'S_OVERWRITE01',
+			grade: 10,
+			status: 'Enrolled' as const
+		});
+
+		await t.mutation(api.students.assignHouse, { studentId, house: 'Heracles' });
+
+		await t.mutation(api.students.bulkAssignHouses, {
+			assignments: [{ englishName: 'Overwrite Student', house: 'Wukong' }]
+		});
+
+		const students = await t.query(api.students.list, {});
+		expect(students[0].house).toBe('Wukong');
 	});
 });

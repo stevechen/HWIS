@@ -887,4 +887,113 @@ describe('classes', () => {
 			expect(studentsInB[0].status).toBe('Not Enrolled');
 		});
 	});
+
+	describe('assignStudent', () => {
+		it('should throw error instructing to use student edit form', async () => {
+			const t = convexTest(schema, modules);
+
+			const classA = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'A'
+			});
+
+			const studentId = await t.run(async (ctx) => {
+				return await ctx.db.insert('students', {
+					englishName: 'Test Student',
+					chineseName: '測試學生',
+					studentId: '7001001',
+					classId: classA,
+					status: 'Enrolled'
+				});
+			});
+
+			await expect(t.mutation(api.classes.assignStudent, { studentId })).rejects.toThrow(
+				'Use student edit form to assign class'
+			);
+		});
+
+		it('should throw "Student not found" when student does not exist', async () => {
+			const t = convexTest(schema, modules);
+
+			const classA = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'C'
+			});
+
+			const studentId = await t.run(async (ctx) => {
+				return await ctx.db.insert('students', {
+					englishName: 'Non-existent Student',
+					chineseName: '不存在學生',
+					studentId: '7001003',
+					classId: classA,
+					status: 'Enrolled'
+				});
+			});
+
+			await t.run(async (ctx) => {
+				await ctx.db.delete(studentId);
+			});
+
+			await expect(
+				t.mutation(api.classes.assignStudent, { studentId: studentId as Id<'students'> })
+			).rejects.toThrow('Student not found');
+		});
+
+		it('should not modify student classId when mutation throws', async () => {
+			const t = convexTest(schema, modules);
+
+			const classA = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'D'
+			});
+
+			const studentId = await t.run(async (ctx) => {
+				return await ctx.db.insert('students', {
+					englishName: 'Unmodified Student',
+					chineseName: '未修改學生',
+					studentId: '7001004',
+					classId: classA,
+					status: 'Enrolled'
+				});
+			});
+
+			try {
+				await t.mutation(api.classes.assignStudent, { studentId });
+			} catch {
+				// Expected to throw
+			}
+
+			const student = await t.query(api.students.getById, { id: studentId });
+			expect(student?.classId).toBe(classA);
+		});
+
+		it('should still throw for non-existent student after create-delete cycle', async () => {
+			const t = convexTest(schema, modules);
+
+			const classA = await t.mutation(api.classes.create, {
+				grade: 7,
+				class: 'E'
+			});
+
+			const studentId = await t.run(async (ctx) => {
+				return await ctx.db.insert('students', {
+					englishName: 'Fake Student',
+					chineseName: '假學生',
+					studentId: '7001005',
+					classId: classA,
+					status: 'Enrolled'
+				});
+			});
+
+			await t.run(async (ctx) => {
+				await ctx.db.delete(studentId);
+			});
+
+			// The mutation checks student existence then throws "Use student edit form"
+			// For non-existent students, it throws "Student not found" first
+			await expect(
+				t.mutation(api.classes.assignStudent, { studentId: studentId as Id<'students'> })
+			).rejects.toThrow('Student not found');
+		});
+	});
 });
