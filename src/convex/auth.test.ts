@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
 	isAllowedDomain,
 	isExceptionEmail,
@@ -6,8 +6,12 @@ import {
 	getAuthenticatedUser,
 	requireUserProfile,
 	requireAuthenticatedUser,
-	requireAdminRole
+	requireAdminRole,
+	authComponent
 } from './auth';
+import { convexTest, modules } from './test.setup';
+import schema from './schema';
+import type { Id } from './_generated/dataModel';
 
 describe('auth helpers', () => {
 	it('isExceptionEmail returns true for configured exception', () => {
@@ -67,5 +71,108 @@ describe('auth context helpers', () => {
 
 	it('requireAdminRole throws unauthorized without auth', async () => {
 		await expect(requireAdminRole({} as never)).rejects.toThrowError('Unauthorized');
+	});
+});
+
+type AuthUserLike = {
+	_id?: string | Id<'users'>;
+	id?: string;
+	authId?: string;
+	name?: string;
+	email?: string;
+};
+
+describe('resolveAuthId resolution via getAuthenticatedUser', () => {
+	let t: ReturnType<typeof convexTest>;
+
+	beforeEach(() => {
+		t = convexTest(schema, modules);
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	function mockAuthUser(user: AuthUserLike | null) {
+		vi.spyOn(authComponent, 'getAuthUser').mockResolvedValue(user as never);
+	}
+
+	it('resolves authId from the authId field when present', async () => {
+		mockAuthUser({ authId: 'resolve-authid', name: 'AuthId User' });
+
+		const user = await t.run((ctx) => getAuthenticatedUser(ctx));
+
+		expect(user).toMatchObject({ authId: 'resolve-authid' });
+	});
+
+	it('falls back to the id field when authId is missing', async () => {
+		const existingId = await t.run((ctx) =>
+			ctx.db.insert('users', {
+				authId: 'resolve-id',
+				name: 'Id User',
+				role: 'admin',
+				status: 'active'
+			})
+		);
+
+		mockAuthUser({ id: 'resolve-id', name: 'Id User' });
+
+		const user = await t.run((ctx) => getAuthenticatedUser(ctx));
+
+		expect(user).toMatchObject({ _id: existingId, role: 'admin' });
+	});
+
+	it('falls back to a string _id when authId and id are missing', async () => {
+		const existingId = await t.run((ctx) =>
+			ctx.db.insert('users', {
+				authId: 'resolve-string-id',
+				name: 'StringId User',
+				role: 'admin',
+				status: 'active'
+			})
+		);
+
+		mockAuthUser({ _id: 'resolve-string-id', name: 'StringId User' });
+
+		const user = await t.run((ctx) => getAuthenticatedUser(ctx));
+
+		expect(user).toMatchObject({ _id: existingId, role: 'admin' });
+	});
+
+	it('returns the DB profile when an authId matches an existing user', async () => {
+		const existingId = await t.run((ctx) =>
+			ctx.db.insert('users', {
+				authId: 'resolve-profile',
+				name: 'Profile User',
+				role: 'admin',
+				status: 'active'
+			})
+		);
+
+		mockAuthUser({ authId: 'resolve-profile', name: 'Profile User' });
+
+		const user = await t.run((ctx) => getAuthenticatedUser(ctx));
+
+		expect(user).toMatchObject({
+			_id: existingId,
+			role: 'admin',
+			status: 'active'
+		});
+	});
+
+	it('returns the raw user object when no DB profile matches', async () => {
+		mockAuthUser({ email: 'someone@example.com' });
+
+		const user = await t.run((ctx) => getAuthenticatedUser(ctx));
+
+		expect(user).toMatchObject({ email: 'someone@example.com' });
+	});
+
+	it('returns null when getAuthUser yields no user', async () => {
+		mockAuthUser(null);
+
+		const user = await t.run((ctx) => getAuthenticatedUser(ctx));
+
+		expect(user).toBeNull();
 	});
 });
