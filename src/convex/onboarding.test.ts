@@ -8,6 +8,20 @@ function mockAuthUser(user: { authId?: string; name?: string; email?: string } |
 	vi.spyOn(authComponent, 'getAuthUser').mockResolvedValue(user as never);
 }
 
+async function seedUser(
+	t: ReturnType<typeof convexTest>,
+	overrides: { authId: string; name?: string; role?: string; status?: string } = { authId: 'u-1' }
+) {
+	return t.run((ctx) =>
+		ctx.db.insert('users', {
+			authId: overrides.authId,
+			name: overrides.name ?? 'Test User',
+			role: (overrides.role ?? 'teacher') as 'teacher',
+			status: (overrides.status ?? 'active') as 'active'
+		})
+	);
+}
+
 describe('onboarding.ensureUserProfile', () => {
 	afterEach(() => vi.restoreAllMocks());
 
@@ -184,5 +198,118 @@ describe('onboarding.deleteAllUserProfiles', () => {
 
 		const users = await t.run((ctx) => ctx.db.query('users').collect());
 		expect(users).toHaveLength(0);
+	});
+});
+
+describe('onboarding.setMyRole bootstrap', () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	it('rejects bootstrap for a non-allowlisted email', async () => {
+		const t = convexTest(schema, modules);
+
+		await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
+		mockAuthUser({ authId: 'teacher-1', name: 'Teacher', email: 'someone@example.com' });
+
+		await expect(t.mutation(api.onboarding.setMyRole, { role: 'admin' })).rejects.toThrow(
+			'Bootstrap is restricted to allowlisted owner emails.'
+		);
+	});
+
+	it('rejects a non-privileged desired role during bootstrap', async () => {
+		const t = convexTest(schema, modules);
+
+		await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
+		mockAuthUser({
+			authId: 'teacher-1',
+			name: 'Teacher',
+			email: 'steve.stevechen@gmail.com'
+		});
+
+		await expect(t.mutation(api.onboarding.setMyRole, { role: 'teacher' })).rejects.toThrow(
+			'Initial bootstrap role must be admin or super.'
+		);
+	});
+
+	it('rejects bootstrap for an allowlisted teacher email', async () => {
+		const t = convexTest(schema, modules);
+
+		await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
+		mockAuthUser({
+			authId: 'teacher-1',
+			name: 'Teacher',
+			email: 'steve.homecook@gmail.com'
+		});
+
+		await expect(t.mutation(api.onboarding.setMyRole, { role: 'admin' })).rejects.toThrow(
+			'This allowlisted user cannot bootstrap privileged roles.'
+		);
+	});
+
+	it('rejects an admin allowlisted email from bootstrapping super', async () => {
+		const t = convexTest(schema, modules);
+
+		await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
+		mockAuthUser({ authId: 'teacher-1', name: 'Teacher', email: 'steve@hwhs.tc.edu.tw' });
+
+		await expect(t.mutation(api.onboarding.setMyRole, { role: 'super' })).rejects.toThrow(
+			'This allowlisted user can bootstrap admin but not super.'
+		);
+	});
+
+	it('bootstraps an allowlisted super email to super role', async () => {
+		const t = convexTest(schema, modules);
+
+		const userId = await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
+		mockAuthUser({
+			authId: 'teacher-1',
+			name: 'Super Owner',
+			email: 'steve.stevechen@gmail.com'
+		});
+
+		const result = await t.mutation(api.onboarding.setMyRole, {
+			role: 'super',
+			status: 'active'
+		});
+
+		expect(result).toEqual({ created: false, bootstrap: true });
+
+		const user = await t.run((ctx) => ctx.db.get(userId));
+		expect(user).toMatchObject({ role: 'super', status: 'active' });
+	});
+
+	it('bootstraps an allowlisted admin email to admin role', async () => {
+		const t = convexTest(schema, modules);
+
+		const userId = await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
+		mockAuthUser({ authId: 'teacher-1', name: 'Admin Owner', email: 'steve@hwhs.tc.edu.tw' });
+
+		const result = await t.mutation(api.onboarding.setMyRole, {
+			role: 'admin',
+			status: 'active'
+		});
+
+		expect(result).toEqual({ created: false, bootstrap: true });
+
+		const user = await t.run((ctx) => ctx.db.get(userId));
+		expect(user).toMatchObject({ role: 'admin', status: 'active' });
+	});
+
+	it('updates own role when a privileged user already exists', async () => {
+		const t = convexTest(schema, modules);
+
+		// Another admin already exists, so bootstrap is not allowed
+		await seedUser(t, { authId: 'existing-admin', role: 'admin' });
+		const userId = await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
+		mockAuthUser({ authId: 'teacher-1', name: 'Teacher', email: 'someone@example.com' });
+
+		const result = await t.mutation(api.onboarding.setMyRole, {
+			role: 'teacher',
+			status: 'active'
+		});
+
+		expect(result).toEqual({ created: false });
+
+		const user = await t.run((ctx) => ctx.db.get(userId));
+		expect(user).toMatchObject({ role: 'teacher', status: 'active' });
 	});
 });
