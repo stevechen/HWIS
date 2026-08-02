@@ -7,12 +7,10 @@ import {
 	requireUserProfile,
 	requireAuthenticatedUser,
 	requireAdminRole,
-	requireSuperRole,
-	authComponent
+	requireSuperRole
 } from './auth';
-import { convexTest, modules } from './test.setup';
+import { convexTest, modules, mockAuthUser, seedUser } from './test.setup';
 import schema from './schema';
-import type { Id } from './_generated/dataModel';
 
 describe('auth helpers', () => {
 	it('isExceptionEmail returns true for configured exception', () => {
@@ -75,14 +73,6 @@ describe('auth context helpers', () => {
 	});
 });
 
-type AuthUserLike = {
-	_id?: string | Id<'users'>;
-	id?: string;
-	authId?: string;
-	name?: string;
-	email?: string;
-};
-
 describe('resolveAuthId resolution via getAuthenticatedUser', () => {
 	let t: ReturnType<typeof convexTest>;
 
@@ -94,10 +84,6 @@ describe('resolveAuthId resolution via getAuthenticatedUser', () => {
 		vi.restoreAllMocks();
 	});
 
-	function mockAuthUser(user: AuthUserLike | null) {
-		vi.spyOn(authComponent, 'getAuthUser').mockResolvedValue(user as never);
-	}
-
 	it('resolves authId from the authId field when present', async () => {
 		mockAuthUser({ authId: 'resolve-authid', name: 'AuthId User' });
 
@@ -107,14 +93,11 @@ describe('resolveAuthId resolution via getAuthenticatedUser', () => {
 	});
 
 	it('falls back to the id field when authId is missing', async () => {
-		const existingId = await t.run((ctx) =>
-			ctx.db.insert('users', {
-				authId: 'resolve-id',
-				name: 'Id User',
-				role: 'admin',
-				status: 'active'
-			})
-		);
+		const existingId = await seedUser(t, {
+			authId: 'resolve-id',
+			name: 'Id User',
+			role: 'admin'
+		});
 
 		mockAuthUser({ id: 'resolve-id', name: 'Id User' });
 
@@ -124,14 +107,11 @@ describe('resolveAuthId resolution via getAuthenticatedUser', () => {
 	});
 
 	it('falls back to a string _id when authId and id are missing', async () => {
-		const existingId = await t.run((ctx) =>
-			ctx.db.insert('users', {
-				authId: 'resolve-string-id',
-				name: 'StringId User',
-				role: 'admin',
-				status: 'active'
-			})
-		);
+		const existingId = await seedUser(t, {
+			authId: 'resolve-string-id',
+			name: 'StringId User',
+			role: 'admin'
+		});
 
 		mockAuthUser({ _id: 'resolve-string-id', name: 'StringId User' });
 
@@ -141,14 +121,11 @@ describe('resolveAuthId resolution via getAuthenticatedUser', () => {
 	});
 
 	it('returns the DB profile when an authId matches an existing user', async () => {
-		const existingId = await t.run((ctx) =>
-			ctx.db.insert('users', {
-				authId: 'resolve-profile',
-				name: 'Profile User',
-				role: 'admin',
-				status: 'active'
-			})
-		);
+		const existingId = await seedUser(t, {
+			authId: 'resolve-profile',
+			name: 'Profile User',
+			role: 'admin'
+		});
 
 		mockAuthUser({ authId: 'resolve-profile', name: 'Profile User' });
 
@@ -181,21 +158,10 @@ describe('resolveAuthId resolution via getAuthenticatedUser', () => {
 describe('role-gate denial paths', () => {
 	afterEach(() => vi.restoreAllMocks());
 
-	function mockAuthUser(user: { authId?: string; name?: string } | null) {
-		vi.spyOn(authComponent, 'getAuthUser').mockResolvedValue(user as never);
-	}
-
 	it('requireAdminRole throws for a teacher profile', async () => {
 		const t = convexTest(schema, modules);
 
-		await t.run((ctx) =>
-			ctx.db.insert('users', {
-				authId: 'teacher-role-test',
-				name: 'Plain Teacher',
-				role: 'teacher',
-				status: 'active'
-			})
-		);
+		await seedUser(t, { authId: 'teacher-role-test', name: 'Plain Teacher' });
 		mockAuthUser({ authId: 'teacher-role-test', name: 'Plain Teacher' });
 
 		await expect(t.run((ctx) => requireAdminRole(ctx))).rejects.toThrow(
@@ -206,14 +172,7 @@ describe('role-gate denial paths', () => {
 	it('requireSuperRole throws for an admin profile', async () => {
 		const t = convexTest(schema, modules);
 
-		await t.run((ctx) =>
-			ctx.db.insert('users', {
-				authId: 'admin-role-test',
-				name: 'Plain Admin',
-				role: 'admin',
-				status: 'active'
-			})
-		);
+		await seedUser(t, { authId: 'admin-role-test', name: 'Plain Admin', role: 'admin' });
 		mockAuthUser({ authId: 'admin-role-test', name: 'Plain Admin' });
 
 		await expect(t.run((ctx) => requireSuperRole(ctx))).rejects.toThrow(
@@ -224,14 +183,7 @@ describe('role-gate denial paths', () => {
 	it('requireSuperRole throws for a teacher profile', async () => {
 		const t = convexTest(schema, modules);
 
-		await t.run((ctx) =>
-			ctx.db.insert('users', {
-				authId: 'teacher-super-test',
-				name: 'Plain Teacher',
-				role: 'teacher',
-				status: 'active'
-			})
-		);
+		await seedUser(t, { authId: 'teacher-super-test', name: 'Plain Teacher' });
 		mockAuthUser({ authId: 'teacher-super-test', name: 'Plain Teacher' });
 
 		await expect(t.run((ctx) => requireSuperRole(ctx))).rejects.toThrow(
@@ -242,14 +194,7 @@ describe('role-gate denial paths', () => {
 	it('requireAdminRole passes for an admin profile', async () => {
 		const t = convexTest(schema, modules);
 
-		await t.run((ctx) =>
-			ctx.db.insert('users', {
-				authId: 'admin-pass-test',
-				name: 'Real Admin',
-				role: 'admin',
-				status: 'active'
-			})
-		);
+		await seedUser(t, { authId: 'admin-pass-test', name: 'Real Admin', role: 'admin' });
 		mockAuthUser({ authId: 'admin-pass-test', name: 'Real Admin' });
 
 		const user = await t.run((ctx) => requireAdminRole(ctx));

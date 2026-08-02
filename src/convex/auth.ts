@@ -142,7 +142,7 @@ export function extractStudentIdFromEmail(email: string): string | null {
 // as well as helper methods for general use.
 export const authComponent = createClient<DataModel>(components.betterAuth);
 type AuthCtx = QueryCtx | MutationCtx;
-type AuthenticatedUserLike = {
+export type AuthenticatedUserLike = {
 	_id?: Id<'users'> | string;
 	id?: string;
 	authId?: string;

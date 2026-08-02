@@ -1,26 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { convexTest, modules } from './test.setup';
+import { convexTest, modules, mockAuthUser, seedUser } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
-import { authComponent } from './auth';
-
-function mockAuthUser(user: { authId?: string; name?: string; email?: string } | null) {
-	vi.spyOn(authComponent, 'getAuthUser').mockResolvedValue(user as never);
-}
-
-async function seedUser(
-	t: ReturnType<typeof convexTest>,
-	overrides: { authId: string; name?: string; role?: string; status?: string } = { authId: 'u-1' }
-) {
-	return t.run((ctx) =>
-		ctx.db.insert('users', {
-			authId: overrides.authId,
-			name: overrides.name ?? 'Test User',
-			role: (overrides.role ?? 'teacher') as 'teacher',
-			status: (overrides.status ?? 'active') as 'active'
-		})
-	);
-}
 
 describe('onboarding.ensureUserProfile', () => {
 	afterEach(() => vi.restoreAllMocks());

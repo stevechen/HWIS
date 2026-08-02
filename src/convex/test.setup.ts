@@ -1,9 +1,43 @@
 /// <reference types="vite/client" />
+import { vi } from 'vitest';
 import { convexTest as originalConvexTest } from 'convex-test';
+import type { Id } from './_generated/dataModel';
+import { authComponent, type AuthenticatedUserLike } from './auth';
 
 export const modules = import.meta.glob('./**/*.ts');
 type ConvexTestSchema = Parameters<typeof originalConvexTest>[0];
 type ConvexTestModules = Parameters<typeof originalConvexTest>[1];
+
+/**
+ * Mocks the better-auth getAuthUser query for a test.
+ * Pass null to simulate an unauthenticated caller.
+ */
+export function mockAuthUser(user: AuthenticatedUserLike | null) {
+	vi.spyOn(authComponent, 'getAuthUser').mockResolvedValue(user as never);
+}
+
+/**
+ * Seeds a users row and returns its Id.
+ * Only authId is required; the rest default to a plain active teacher.
+ */
+export async function seedUser(
+	t: ReturnType<typeof convexTest>,
+	overrides: {
+		authId: string;
+		name?: string;
+		role?: 'super' | 'admin' | 'teacher' | 'student';
+		status?: 'pending' | 'active';
+	}
+): Promise<Id<'users'>> {
+	return t.run((ctx) =>
+		ctx.db.insert('users', {
+			authId: overrides.authId,
+			name: overrides.name ?? 'Test User',
+			role: overrides.role ?? 'teacher',
+			status: overrides.status ?? 'active'
+		})
+	);
+}
 
 /**
  * Helper to create a student with a class in unit tests.
