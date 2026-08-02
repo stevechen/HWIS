@@ -951,8 +951,12 @@ describe('students.bulkAssignHouses', () => {
 		expect(result.total).toBe(2);
 
 		const students = await t.query(api.students.list, {});
-		const alice = students.find((s) => s.englishName === 'Alice House');
-		const bob = students.find((s) => s.englishName === 'Bob House');
+		const alice = students.find(
+			(s: { englishName?: string; house?: string }) => s.englishName === 'Alice House'
+		);
+		const bob = students.find(
+			(s: { englishName?: string; house?: string }) => s.englishName === 'Bob House'
+		);
 		expect(alice?.house).toBe('Heracles');
 		expect(bob?.house).toBe('Wukong');
 	});

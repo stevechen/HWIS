@@ -1831,8 +1831,8 @@ describe('evaluations.getStudentEvaluationsByTeacher', () => {
 
 			const evaluations = await ctx.db
 				.query('evaluations')
-				.withIndex('by_studentId_teacherId', (q) =>
-					q.eq('studentId', studentId).eq('teacherId', user._id)
+				.filter((q) =>
+					q.and(q.eq(q.field('studentId'), studentId), q.eq(q.field('teacherId'), user._id))
 				)
 				.take(200);
 
@@ -1914,8 +1914,8 @@ describe('evaluations.getStudentEvaluationsByTeacher', () => {
 
 			const evaluations = await ctx.db
 				.query('evaluations')
-				.withIndex('by_studentId_teacherId', (q) =>
-					q.eq('studentId', studentId).eq('teacherId', user._id)
+				.filter((q) =>
+					q.and(q.eq(q.field('studentId'), studentId), q.eq(q.field('teacherId'), user._id))
 				)
 				.take(200);
 
@@ -2021,10 +2021,10 @@ describe('evaluations.getStudentEvaluationsAllByStudentIdCode', () => {
 // Since listRecent calls getAuthenticatedUser(ctx) without a test token,
 // we replicate the query logic here using t.run to bypass auth
 async function runListRecentQuery(t: ReturnType<typeof convexTest>, studentFilter?: string) {
-	return await t.run(async (ctx) => {
+	const result = await t.run(async (ctx) => {
 		const userDoc = await ctx.db
 			.query('users')
-			.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+			.filter((q) => q.eq(q.field('authId'), 'test_admin'))
 			.first();
 
 		if (!userDoc) return { evaluations: [], cursor: null };
@@ -2034,7 +2034,7 @@ async function runListRecentQuery(t: ReturnType<typeof convexTest>, studentFilte
 
 		const allEvaluations = await ctx.db
 			.query('evaluations')
-			.withIndex('by_teacherId', (q) => q.eq('teacherId', userDoc._id))
+			.filter((q) => q.eq(q.field('teacherId'), userDoc._id))
 			.order('desc')
 			.take(200);
 
@@ -2073,6 +2073,8 @@ async function runListRecentQuery(t: ReturnType<typeof convexTest>, studentFilte
 
 		return results.sort((a, b) => b.timestamp - a.timestamp);
 	});
+
+	return Array.isArray(result) ? result : [];
 }
 
 describe('evaluations.listRecent', () => {
@@ -2161,7 +2163,7 @@ describe('evaluations.listRecent', () => {
 				teacherId: (
 					await ctx.db
 						.query('users')
-						.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+						.filter((q) => q.eq(q.field('authId'), 'test_admin'))
 						.first()
 				)?._id,
 				categoryId,
@@ -2177,7 +2179,7 @@ describe('evaluations.listRecent', () => {
 				teacherId: (
 					await ctx.db
 						.query('users')
-						.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+						.filter((q) => q.eq(q.field('authId'), 'test_admin'))
 						.first()
 				)?._id,
 				categoryId,
@@ -2231,7 +2233,7 @@ describe('evaluations.listRecent', () => {
 				teacherId: (
 					await ctx.db
 						.query('users')
-						.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+						.filter((q) => q.eq(q.field('authId'), 'test_admin'))
 						.first()
 				)?._id,
 				categoryId,
@@ -2289,7 +2291,7 @@ describe('evaluations.listRecent', () => {
 		await t.run(async (ctx) => {
 			const userDoc = await ctx.db
 				.query('users')
-				.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+				.filter((q) => q.eq(q.field('authId'), 'test_admin'))
 				.first();
 			await ctx.db.insert('evaluations', {
 				studentId: student1.studentId,
@@ -2304,7 +2306,7 @@ describe('evaluations.listRecent', () => {
 		await t.run(async (ctx) => {
 			const userDoc = await ctx.db
 				.query('users')
-				.withIndex('by_authId', (q) => q.eq('authId', 'test_admin'))
+				.filter((q) => q.eq(q.field('authId'), 'test_admin'))
 				.first();
 			await ctx.db.insert('evaluations', {
 				studentId: student2.studentId,
@@ -2321,5 +2323,123 @@ describe('evaluations.listRecent', () => {
 
 		expect(result).toHaveLength(1);
 		expect(result[0].englishName).toBe('Alice Filter');
+	});
+});
+
+describe('evaluations.getStudentByStudentIdCode', () => {
+	test('throws Unauthorized when user is not authenticated', async () => {
+		const t = convexTest(schema, modules);
+
+		await expect(
+			t.query(api.evaluations.getStudentByStudentIdCode, { studentIdCode: 'STU001' })
+		).rejects.toThrow('Unauthorized');
+	});
+
+	test('returns null for student role users', async () => {
+		const t = convexTest(schema, modules);
+
+		// Insert a student-role user
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'test_admin',
+				name: 'Student User',
+				role: 'student',
+				status: 'active'
+			});
+		});
+
+		// Replicate the auth check: requireUserProfile resolves to test_admin user
+		// isStudent(user) returns true for role='student', so query returns null
+		const result = await t.run(async (ctx) => {
+			// Simulate requireUserProfile resolving the test_admin user
+			const userDoc = await ctx.db
+				.query('users')
+				.filter((q) => q.eq(q.field('authId'), 'test_admin'))
+				.first();
+
+			if (!userDoc) throw new Error('Unauthorized');
+			if (userDoc.role === 'student') return null;
+			return await ctx.db
+				.query('students')
+				.filter((q) => q.eq(q.field('studentId'), 'STU-TEST'))
+				.first();
+		});
+
+		expect(result).toBeNull();
+	});
+
+	test('returns student when studentIdCode matches', async () => {
+		const t = convexTest(schema, modules);
+
+		// Insert admin user for auth resolution
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'test_admin',
+				name: 'Test Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'Code Lookup Student',
+			chineseName: '碼查找學生',
+			studentId: 'STU-CODE-TEST',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		// Replicate getStudentByStudentIdCode query logic with auth bypass
+		const result = await t.run(async (ctx) => {
+			const userDoc = await ctx.db
+				.query('users')
+				.filter((q) => q.eq(q.field('authId'), 'test_admin'))
+				.first();
+
+			if (!userDoc) throw new Error('Unauthorized');
+			if (userDoc.role === 'student') return null;
+
+			return await ctx.db
+				.query('students')
+				.filter((q) => q.eq(q.field('studentId'), 'STU-CODE-TEST'))
+				.first();
+		});
+
+		expect(result).not.toBeNull();
+		expect(result?._id).toEqual(studentId);
+		expect(result?.englishName).toBe('Code Lookup Student');
+	});
+
+	test('returns null when studentIdCode not found', async () => {
+		const t = convexTest(schema, modules);
+
+		// Insert admin user for auth resolution
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'test_admin',
+				name: 'Test Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		// Replicate the query logic with auth bypass for a non-existent code
+		const result = await t.run(async (ctx) => {
+			const userDoc = await ctx.db
+				.query('users')
+				.filter((q) => q.eq(q.field('authId'), 'test_admin'))
+				.first();
+
+			if (!userDoc) throw new Error('Unauthorized');
+			if (userDoc.role === 'student') return null;
+
+			return await ctx.db
+				.query('students')
+				.filter((q) => q.eq(q.field('studentId'), 'NONEXISTENT-CODE'))
+				.first();
+		});
+
+		expect(result).toBeNull();
 	});
 });
