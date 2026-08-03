@@ -10,9 +10,7 @@
 	import {
 		FilterInput,
 		FilterSummaryToast,
-		EvaluationsLoadingState,
-		EvaluationsErrorState,
-		EvaluationsEmptyState,
+		EvaluationStates,
 		EvaluationsControls
 	} from '$lib/evaluations/components';
 	import { Button } from '$lib/components/ui/button';
@@ -256,15 +254,17 @@
 	</EvaluationsControls>
 
 	{#if (hasActiveFilters ? nonPaginatedQuery.isLoading : paginatedQuery.isLoading) && cursor === null}
-		<EvaluationsLoadingState testId="admin-evaluations.loading" />
+		<EvaluationStates state="loading" testId="admin-evaluations.loading" />
 	{:else if hasActiveFilters ? nonPaginatedQuery.error : paginatedQuery.error}
-		<EvaluationsErrorState
+		<EvaluationStates
+			state="error"
 			testId="admin-evaluations.error"
-			message={(hasActiveFilters ? nonPaginatedQuery.error : paginatedQuery.error)?.message ||
+			errorMessage={(hasActiveFilters ? nonPaginatedQuery.error : paginatedQuery.error)?.message ||
 				'An error occurred'}
 		/>
 	{:else if accumulatedEvaluations.length === 0}
-		<EvaluationsEmptyState
+		<EvaluationStates
+			state="empty"
 			testId="admin-evaluations.empty"
 			message={hasActiveFilters
 				? 'No evaluations match your search criteria.'

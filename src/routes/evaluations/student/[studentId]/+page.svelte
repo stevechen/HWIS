@@ -21,7 +21,7 @@
 	import {
 		FilterInput,
 		FilterSummaryToast,
-		EvaluationsLoadingState,
+		EvaluationStates,
 		EditEvaluationDialog,
 		DeleteEvaluationDialog
 	} from '$lib/evaluations/components';
@@ -380,7 +380,11 @@
 >
 	<!-- Loading State -->
 	{#if isLoading}
-		<EvaluationsLoadingState testId="evaluations-student.loading" message={loadingMessage} />
+		<EvaluationStates
+			state="loading"
+			testId="evaluations-student.loading"
+			message={loadingMessage}
+		/>
 	{:else if isStudent && !isEnrolled}
 		<!-- Access Denied for Not Enrolled Students -->
 		<div class="flex flex-col items-center justify-center px-4 py-16 text-center">

@@ -10,7 +10,6 @@ const TEST_AUTH_ID_PREFIXES = ['e2e_', 'e2e-', 'test_', 'eval_', 'e2e-test_'];
 
 export const cleanupAllTestUsers = mutation({
 	args: {},
-	timeout: 30000,
 	handler: async (ctx) => {
 		await requireAdminForSensitiveOperation(ctx);
 		const adapter = await authComponent.adapter(ctx)({
@@ -58,7 +57,6 @@ export const cleanupAuditLogs = mutation({
 		authId: v.optional(v.id('users')),
 		authIdString: v.optional(v.string())
 	},
-	timeout: 30000,
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
 		const auditLogs = await ctx.db.query('audit_logs').collect();
@@ -122,7 +120,6 @@ export const cleanupAuditLogs = mutation({
 
 export const cleanupAllTestData = mutation({
 	args: {},
-	timeout: 30000,
 	handler: async (ctx) => {
 		await requireAdminForSensitiveOperation(ctx);
 		let totalDeleted = 0;
@@ -245,7 +242,6 @@ export const cleanupAllTestData = mutation({
 
 export const cleanupAll = mutation({
 	args: {},
-	timeout: 30000,
 	handler: async (ctx) => {
 		await requireAdminForSensitiveOperation(ctx);
 		const adapter = await authComponent.adapter(ctx)({
@@ -354,7 +350,6 @@ export const cleanupByTag = mutation({
 		),
 		e2eTag: v.optional(v.string())
 	},
-	timeout: 30000,
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
 
@@ -464,7 +459,6 @@ export const cleanupByTag = mutation({
 
 export const cleanupAllE2eTaggedData = mutation({
 	args: {},
-	timeout: 30000,
 	handler: async (ctx) => {
 		await requireAdminForSensitiveOperation(ctx);
 

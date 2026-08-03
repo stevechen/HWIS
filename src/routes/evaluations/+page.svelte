@@ -15,9 +15,7 @@
 	import {
 		FilterInput,
 		FilterSummaryToast,
-		EvaluationsLoadingState,
-		EvaluationsErrorState,
-		EvaluationsEmptyState,
+		EvaluationStates,
 		EvaluationsControls,
 		EditEvaluationDialog,
 		DeleteEvaluationDialog
@@ -149,11 +147,16 @@
 	</EvaluationsControls>
 
 	{#if evaluationsQuery.isLoading && cursor === null}
-		<EvaluationsLoadingState testId="evaluations.loading" message="Loading history..." />
+		<EvaluationStates state="loading" testId="evaluations.loading" message="Loading history..." />
 	{:else if evaluationsQuery.error}
-		<EvaluationsErrorState testId="evaluations.error" message={evaluationsQuery.error.message} />
+		<EvaluationStates
+			state="error"
+			testId="evaluations.error"
+			errorMessage={evaluationsQuery.error.message}
+		/>
 	{:else if accumulatedEvaluations.length === 0}
-		<EvaluationsEmptyState
+		<EvaluationStates
+			state="empty"
 			testId="evaluations.empty"
 			message={studentFilter
 				? "No evaluations found for '" +
@@ -167,7 +170,7 @@
 					onclick={() => void goto('/evaluations/new')}>Give Points</Button
 				>
 			{/if}
-		</EvaluationsEmptyState>
+		</EvaluationStates>
 	{:else}
 		<EvaluationsTimeline
 			regionTestId="evaluations.timeline"
