@@ -18,7 +18,7 @@ VITE_PID=""
 LOCAL_CONVEX_URL="${CONVEX_URL:-http://127.0.0.1:3210}"
 export CONVEX_URL="$LOCAL_CONVEX_URL"
 export PUBLIC_CONVEX_URL="${PUBLIC_CONVEX_URL:-$LOCAL_CONVEX_URL}"
-export CONVEX_DEPLOYMENT="${CONVEX_DEPLOYMENT:-local:local-steve_stevechen-hwis_31a3d-3}"
+export CONVEX_DEPLOYMENT="${CONVEX_DEPLOYMENT:-local:local-steve_chen-hwis_31a3d}"
 unset CONVEX_AUTH_TOKEN
 
 # Cleanup function to kill background processes

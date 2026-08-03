@@ -55,8 +55,8 @@
 		"@types/istanbul-lib-report": "3.0.3",
 		"@types/istanbul-reports": "3.0.4",
 		"@types/node": "^26.1.1",
-		"@vitest/browser": "^4.1.7",
-		"@vitest/browser-playwright": "^4.1.7",
+		"@vitest/browser": "4.1.10",
+		"@vitest/browser-playwright": "4.1.10",
 		"@vitest/coverage-istanbul": "4.1.10",
 		"bits-ui": "^2.18.1",
 		"clsx": "^2.1.1",
@@ -85,7 +85,7 @@
 		"vite": "^7.3.3",
 		"vite-plugin-devtools-json": "^1.0.0",
 		"vite-plugin-istanbul": "9.0.1",
-		"vitest": "^4.1.7",
+		"vitest": "4.1.10",
 		"vitest-browser-svelte": "^2.1.1"
 	},
 	"dependencies": {

@@ -48,7 +48,7 @@ fi
 # Force local Convex for the run (same as scripts/start-dev-servers.sh).
 export CONVEX_URL="${CONVEX_URL:-http://127.0.0.1:3210}"
 export PUBLIC_CONVEX_URL="${PUBLIC_CONVEX_URL:-$CONVEX_URL}"
-export CONVEX_DEPLOYMENT="${CONVEX_DEPLOYMENT:-local:local-steve_stevechen-hwis_31a3d-3}"
+export CONVEX_DEPLOYMENT="${CONVEX_DEPLOYMENT:-local:local-steve_chen-hwis_31a3d}"
 unset CONVEX_AUTH_TOKEN
 
 if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:3211 >/dev/null 2>&1; then
