@@ -15,6 +15,13 @@ const categoryWithCas = {
 	casAlignment: ['Creativity', 'Activity'] as ('Creativity' | 'Activity' | 'Service')[]
 };
 
+async function clickButton(name: string | RegExp) {
+	const button = page.getByRole('button', { name });
+	await expect.element(button).toBeVisible();
+	const element = await button.element();
+	await element.click();
+}
+
 describe('CategoryInfoCard', () => {
 	describe('Basic Rendering', () => {
 		it('renders the category name', async () => {
@@ -73,7 +80,7 @@ describe('CategoryInfoCard', () => {
 			const oncriterionclick = vi.fn();
 			render(CategoryInfoCard, { category: defaultCategory, oncriterionclick });
 
-			await page.getByRole('button', { name: 'Completed all assignments on time' }).click();
+			await clickButton('Completed all assignments on time');
 
 			expect(oncriterionclick).toHaveBeenCalledWith('Completed all assignments on time');
 		});
@@ -82,7 +89,7 @@ describe('CategoryInfoCard', () => {
 			const oncriterionclick = vi.fn();
 			render(CategoryInfoCard, { category: defaultCategory, oncriterionclick });
 
-			await page.getByRole('button', { name: 'Late submissions without valid reason' }).click();
+			await clickButton('Late submissions without valid reason');
 
 			expect(oncriterionclick).toHaveBeenCalledWith('Late submissions without valid reason');
 		});
@@ -94,10 +101,7 @@ describe('CategoryInfoCard', () => {
 				oncriterionclick
 			});
 
-			const button = page.getByRole('button', {
-				name: 'Active participation in class discussions'
-			});
-			await button.click();
+			await clickButton('Active participation in class discussions');
 
 			const element = container.querySelector('[role="button"]');
 			if (element) {

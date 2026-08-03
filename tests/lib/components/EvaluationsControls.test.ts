@@ -3,6 +3,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import EvaluationsControls from '$lib/evaluations/components/EvaluationsControls.svelte';
 
+async function clickButton(name: string | RegExp) {
+	const button = page.getByRole('button', { name });
+	await expect.element(button).toBeVisible();
+	const element = await button.element();
+	await element.click();
+}
+
 describe('EvaluationsControls', () => {
 	describe('Sort Button', () => {
 		it('renders the sort button', async () => {
@@ -32,7 +39,7 @@ describe('EvaluationsControls', () => {
 			render(EvaluationsControls, {
 				onToggleSort
 			});
-			await page.getByRole('button', { name: 'Newest First' }).click();
+			await clickButton('Newest First');
 			expect(onToggleSort).toHaveBeenCalled();
 		});
 	});
@@ -84,7 +91,7 @@ describe('EvaluationsControls', () => {
 				onToggleSort: vi.fn(),
 				onToggleShowUnenrolled
 			});
-			await page.getByRole('button', { name: 'Show unenrolled students' }).click();
+			await clickButton('Show unenrolled students');
 			expect(onToggleShowUnenrolled).toHaveBeenCalled();
 		});
 	});
@@ -130,7 +137,7 @@ describe('EvaluationsControls', () => {
 				onToggleSort: vi.fn(),
 				onToggleShowDetails
 			});
-			await page.getByRole('button', { name: 'Show Details' }).click();
+			await clickButton('Show Details');
 			expect(onToggleShowDetails).toHaveBeenCalled();
 		});
 	});

@@ -16,6 +16,7 @@ export const setupTestUsers = mutation({
 	args: {
 		testToken: v.optional(v.string())
 	},
+	timeout: 30000,
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const adapter = await authComponent.adapter(ctx)({
@@ -176,6 +177,7 @@ export const cleanupTestUsers = mutation({
 	args: {
 		testToken: v.optional(v.string())
 	},
+	timeout: 30000,
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx, args.testToken);
 		const adapter = await authComponent.adapter(ctx)({

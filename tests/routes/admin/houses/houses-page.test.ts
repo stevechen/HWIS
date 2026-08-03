@@ -276,11 +276,18 @@ describe('Houses Page', () => {
 
 			render(HousesPage);
 
-			await page.getByRole('button', { name: 'Select' }).click();
-			await page.getByRole('button', { name: /Select Alice/ }).click();
+			const selectButton = page.getByRole('button', { name: 'Select' });
+			await expect.element(selectButton).toBeVisible();
+			await selectButton.click();
+
+			const aliceButton = page.getByRole('button', { name: /Select Alice/ });
+			await expect.element(aliceButton).toBeVisible();
+			await aliceButton.click();
 
 			// In multi-select mode with students selected, clicking another student should not open dialog
-			await page.getByRole('button', { name: /Select Bob/ }).click();
+			const bobButton = page.getByRole('button', { name: /Select Bob/ });
+			await expect.element(bobButton).toBeVisible();
+			await bobButton.click();
 
 			// No dialog should be visible - check for dialog-specific elements
 			await expect.element(page.getByText('Currently in')).not.toBeInTheDocument();

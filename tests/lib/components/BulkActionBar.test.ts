@@ -3,6 +3,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import BulkActionBar from '$lib/components/BulkActionBar.svelte';
 
+async function clickButton(name: string | RegExp) {
+	const button = page.getByRole('button', { name });
+	await expect.element(button).toBeVisible();
+	const element = await button.element();
+	await element.click();
+}
+
 describe('BulkActionBar', () => {
 	it('does not render when selectedCount is 0', async () => {
 		render(BulkActionBar, {
@@ -62,7 +69,7 @@ describe('BulkActionBar', () => {
 			actions: [],
 			onDone
 		});
-		await page.getByRole('button', { name: 'Done' }).click();
+		await clickButton('Done');
 		expect(onDone).toHaveBeenCalledOnce();
 	});
 
@@ -73,7 +80,7 @@ describe('BulkActionBar', () => {
 			actions: [{ label: 'Archive', action }],
 			onDone: vi.fn()
 		});
-		await page.getByRole('button', { name: 'Archive' }).click();
+		await clickButton('Archive');
 		expect(action).toHaveBeenCalledOnce();
 	});
 });

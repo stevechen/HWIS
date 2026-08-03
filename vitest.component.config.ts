@@ -14,6 +14,12 @@ export default defineConfig({
 		exclude: ['**/node_modules/**'],
 		setupFiles: ['./vitest-setup-client.ts'],
 
+		// Increase timeout for browser tests with coverage instrumentation
+		testTimeout: 30000,
+
+		// Limit concurrency for browser tests to prevent resource contention
+		maxConcurrency: 4,
+
 		browser: {
 			enabled: true,
 			api: {
