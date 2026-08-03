@@ -19,6 +19,16 @@ describe('Evaluation States', () => {
 					.element(page.getByText('No evaluations match your search criteria.'))
 					.toBeInTheDocument();
 			});
+
+			it('renders children when provided', async () => {
+				render(EvaluationsEmptyState, { message: 'Empty' });
+				await expect.element(page.getByText('Empty')).toBeInTheDocument();
+			});
+
+			it('passes testId to container', async () => {
+				render(EvaluationsEmptyState, { testId: 'empty-state' });
+				await expect.element(page.getByTestId('empty-state')).toBeInTheDocument();
+			});
 		});
 	});
 
@@ -33,6 +43,11 @@ describe('Evaluation States', () => {
 				render(EvaluationsErrorState, { message: 'Test error' });
 				await expect.element(page.getByText(/Error loading evaluations:/)).toBeInTheDocument();
 			});
+
+			it('passes testId to container', async () => {
+				render(EvaluationsErrorState, { message: 'err', testId: 'error-state' });
+				await expect.element(page.getByTestId('error-state')).toBeInTheDocument();
+			});
 		});
 	});
 
@@ -46,6 +61,11 @@ describe('Evaluation States', () => {
 			it('shows custom message when provided', async () => {
 				render(EvaluationsLoadingState, { message: 'Loading history...' });
 				await expect.element(page.getByText('Loading history...')).toBeInTheDocument();
+			});
+
+			it('passes testId to container', async () => {
+				render(EvaluationsLoadingState, { testId: 'loading-state' });
+				await expect.element(page.getByTestId('loading-state')).toBeInTheDocument();
 			});
 		});
 	});

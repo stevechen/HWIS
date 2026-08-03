@@ -71,5 +71,32 @@ describe('FilterSummaryToast Component', () => {
 			});
 			await expect.element(page.getByText(/for student "Bob"/)).toBeInTheDocument();
 		});
+
+		it('uses default filterLabel when not provided', async () => {
+			render(FilterSummaryToast, { show: true, count: 5, filterValue: 'test' });
+			await expect.element(page.getByText(/matching evaluations "test"/)).toBeInTheDocument();
+		});
+	});
+
+	describe('Edge Cases', () => {
+		it('shows count of 0', async () => {
+			render(FilterSummaryToast, { show: true, count: 0 });
+			await expect.element(page.getByText('Showing 0 evaluations')).toBeInTheDocument();
+		});
+
+		it('shows total of 0', async () => {
+			render(FilterSummaryToast, { show: true, count: 0, total: 0 });
+			await expect.element(page.getByText('Showing 0 of 0 evaluations')).toBeInTheDocument();
+		});
+
+		it('shows singular with filter value', async () => {
+			render(FilterSummaryToast, { show: true, count: 1, filterValue: 'Alice' });
+			await expect.element(page.getByText(/matching.*"Alice"/)).toBeInTheDocument();
+		});
+
+		it('passes testId to container', async () => {
+			render(FilterSummaryToast, { show: true, count: 1, testId: 'toast' });
+			await expect.element(page.getByTestId('toast')).toBeInTheDocument();
+		});
 	});
 });

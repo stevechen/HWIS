@@ -44,4 +44,19 @@ describe('FilterInput Component', () => {
 			await expect.element(input).toHaveValue('test value');
 		});
 	});
+
+	describe('Styling', () => {
+		it('applies custom class to wrapper', async () => {
+			render(FilterInput, { value: '', class: 'my-custom-class' });
+			const wrapper = page.getByRole('textbox').element().closest('.relative');
+			expect(wrapper?.classList.contains('my-custom-class')).toBe(true);
+		});
+	});
+
+	describe('testId', () => {
+		it('passes testId to input element', async () => {
+			render(FilterInput, { value: '', testId: 'filter-input' });
+			await expect.element(page.getByTestId('filter-input')).toBeInTheDocument();
+		});
+	});
 });

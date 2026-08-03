@@ -108,6 +108,30 @@ describe('Evaluation Dialogs', () => {
 				await expect.element(deleteButton).toBeInTheDocument();
 			});
 		});
+
+		describe('onDelete Callback', () => {
+			it('calls onDelete after successful delete', async () => {
+				const onDelete = vi.fn();
+				render(DeleteEvaluationDialog, {
+					open: true,
+					evaluation: mockEvaluation,
+					onDelete
+				});
+				await page.getByRole('button', { name: 'Delete' }).click();
+				expect(onDelete).toHaveBeenCalled();
+			});
+		});
+
+		describe('Null Evaluation Guard', () => {
+			it('does not call mutation when evaluation is null', async () => {
+				render(DeleteEvaluationDialog, {
+					open: true,
+					evaluation: null
+				});
+				await page.getByRole('button', { name: 'Delete' }).click();
+				expect(mockMutation).not.toHaveBeenCalled();
+			});
+		});
 	});
 
 	describe('EditEvaluationDialog', () => {
@@ -311,6 +335,150 @@ describe('Evaluation Dialogs', () => {
 				await expect
 					.element(page.getByRole('button', { name: 'Deduct 1 points' }))
 					.toHaveClass(/bg-red-600/);
+			});
+
+			it('supports + key shortcut for +1', async () => {
+				render(EditEvaluationDialog, {
+					open: true,
+					evaluation: mockEvaluation,
+					onClose: vi.fn(),
+					onDelete: vi.fn()
+				});
+
+				const dialogElement = document.querySelector('[role="dialog"]');
+				if (dialogElement) {
+					dialogElement.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true }));
+				}
+
+				await expect
+					.element(page.getByRole('button', { name: 'Award 1 points' }))
+					.toHaveClass(/bg-emerald-600/);
+			});
+
+			it('supports Shift+1 shortcut for -1', async () => {
+				render(EditEvaluationDialog, {
+					open: true,
+					evaluation: mockEvaluation,
+					onClose: vi.fn(),
+					onDelete: vi.fn()
+				});
+
+				const dialogElement = document.querySelector('[role="dialog"]');
+				if (dialogElement) {
+					dialogElement.dispatchEvent(
+						new KeyboardEvent('keydown', { key: '!', shiftKey: true, bubbles: true })
+					);
+				}
+
+				await expect
+					.element(page.getByRole('button', { name: 'Deduct 1 points' }))
+					.toHaveClass(/bg-red-600/);
+			});
+
+			it('supports Shift+2 shortcut for -2', async () => {
+				render(EditEvaluationDialog, {
+					open: true,
+					evaluation: mockEvaluation,
+					onClose: vi.fn(),
+					onDelete: vi.fn()
+				});
+
+				const dialogElement = document.querySelector('[role="dialog"]');
+				if (dialogElement) {
+					dialogElement.dispatchEvent(
+						new KeyboardEvent('keydown', { key: '@', shiftKey: true, bubbles: true })
+					);
+				}
+
+				await expect
+					.element(page.getByRole('button', { name: 'Deduct 2 points' }))
+					.toHaveClass(/bg-red-600/);
+			});
+
+			it('ignores shortcuts when textarea is focused', async () => {
+				render(EditEvaluationDialog, {
+					open: true,
+					evaluation: mockEvaluation,
+					onClose: vi.fn(),
+					onDelete: vi.fn()
+				});
+
+				const textarea = page.getByPlaceholder('Enter specific details...');
+				await textarea.click();
+
+				await textarea
+					.element()
+					.dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true }));
+
+				await expect
+					.element(page.getByRole('button', { name: 'Award 2 points' }))
+					.not.toHaveClass(/bg-emerald-600/);
+			});
+		});
+
+		describe('Save Button State', () => {
+			it('shows Saving... text and is disabled during save', async () => {
+				let resolveMutation: () => void;
+				mockMutation.mockReturnValueOnce(
+					new Promise<void>((resolve) => {
+						resolveMutation = resolve;
+					})
+				);
+
+				render(EditEvaluationDialog, {
+					open: true,
+					evaluation: mockEvaluation,
+					onClose: vi.fn(),
+					onDelete: vi.fn()
+				});
+
+				await page.getByRole('button', { name: 'Save Changes' }).click();
+
+				await expect.element(page.getByRole('button', { name: 'Saving...' })).toBeInTheDocument();
+				await expect.element(page.getByRole('button', { name: 'Saving...' })).toBeDisabled();
+
+				resolveMutation!();
+			});
+		});
+
+		describe('Save Mutation Arguments', () => {
+			it('calls mutation with correct arguments', async () => {
+				render(EditEvaluationDialog, {
+					open: true,
+					evaluation: mockEvaluation,
+					onClose: vi.fn(),
+					onDelete: vi.fn()
+				});
+
+				await page.getByRole('button', { name: 'Save Changes' }).click();
+
+				expect(mockMutation).toHaveBeenCalledWith(
+					expect.anything(),
+					expect.objectContaining({
+						id: 'eval-test-1',
+						value: 5,
+						categoryId: 'cat-academic-001',
+						details: 'Test details'
+					})
+				);
+			});
+		});
+
+		describe('Null Evaluation Guard', () => {
+			it('does not call mutation when evaluation is null', async () => {
+				render(EditEvaluationDialog, {
+					open: true,
+					evaluation: null,
+					onClose: vi.fn(),
+					onDelete: vi.fn()
+				});
+
+				const dialogElement = document.querySelector('[role="dialog"]');
+				if (dialogElement) {
+					dialogElement.dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true }));
+				}
+
+				expect(mockMutation).not.toHaveBeenCalled();
 			});
 		});
 	});
