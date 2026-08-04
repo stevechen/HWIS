@@ -2,7 +2,7 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
-	import BatchApproval from './BatchApproval.svelte';
+	import UserManagement from './UserManagement.svelte';
 
 	const client = useConvexClient();
 
@@ -58,7 +58,7 @@
 			<p>Loading user records...</p>
 		</div>
 	{:else if usersQuery.data}
-		<BatchApproval
+		<UserManagement
 			users={usersQuery.data}
 			{approvedIds}
 			{approve}

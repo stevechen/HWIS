@@ -48,12 +48,7 @@ export class AdminUsersPage {
 	}
 
 	async expectUserStatus(userId: string, status: 'active' | 'pending') {
-		if (status === 'active') {
-			await this.goToTab('Active');
-			await expect(this.page.getByTestId(`admin-users.card-${userId}`)).toContainText('active');
-		} else {
-			await this.goToTab('Pending');
-			await expect(this.page.getByTestId(`admin-users.card-${userId}`)).toContainText(status);
-		}
+		await this.goToTab(status === 'active' ? 'Active' : 'Pending');
+		await expect(this.page.getByTestId(`admin-users.card-${userId}`)).toBeVisible();
 	}
 }

@@ -9,7 +9,7 @@ test.describe('Users Page @users', () => {
 	test.beforeEach(async ({ page }) => {
 		usersPage = new AdminUsersPage(page);
 		await usersPage.goto();
-		await expect(usersPage.page.getByRole('tab', { name: /Pending/i }).first()).toBeVisible();
+		await expect(usersPage.page.getByRole('tab', { name: /Active/i }).first()).toBeVisible();
 	});
 
 	test('can open role dropdown', async () => {
@@ -42,7 +42,7 @@ test.describe('Users Page - Super User @users', () => {
 	test.beforeEach(async ({ page }) => {
 		usersPage = new AdminUsersPage(page);
 		await usersPage.goto();
-		await expect(usersPage.page.getByRole('tab', { name: /Pending/i }).first()).toBeVisible();
+		await expect(usersPage.page.getByRole('tab', { name: /Active/i }).first()).toBeVisible();
 	});
 
 	test('super option is visible for super users', async () => {

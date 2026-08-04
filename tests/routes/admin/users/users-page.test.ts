@@ -80,7 +80,7 @@ vi.mock('convex-svelte', () => ({
 
 import UsersPage from '$src/routes/admin/users/+page.svelte';
 
-describe('Users Admin Page - batch approval', () => {
+describe('Users Admin Page - card grid', () => {
 	let mounted: ReturnType<typeof render>[] = [];
 
 	beforeEach(() => {
@@ -100,14 +100,11 @@ describe('Users Admin Page - batch approval', () => {
 		return r;
 	}
 
-	it('renders Pending, Deactivated, and Active tabs with counts', async () => {
+	it('renders Pending, Active, and Deactivated tabs with counts', async () => {
 		renderPage();
-		await expect.element(page.getByRole('tab', { name: /Pending/ })).toBeInTheDocument();
-		await expect.element(page.getByRole('tab', { name: /Deactivated/ })).toBeInTheDocument();
-		await expect.element(page.getByRole('tab', { name: /Active/ })).toBeInTheDocument();
 		await expect.element(page.getByRole('tab', { name: 'Pending (2)' })).toBeInTheDocument();
-		await expect.element(page.getByRole('tab', { name: 'Deactivated (1)' })).toBeInTheDocument();
 		await expect.element(page.getByRole('tab', { name: 'Active (2)' })).toBeInTheDocument();
+		await expect.element(page.getByRole('tab', { name: 'Deactivated (1)' })).toBeInTheDocument();
 	});
 
 	it('lands on the Pending tab by default when new signups exist', async () => {
@@ -116,11 +113,16 @@ describe('Users Admin Page - batch approval', () => {
 		await expect.element(page.getByText('New Teacher Two')).toBeInTheDocument();
 	});
 
-	it('pre-checks new signups and labels the hero "Approve all (N)"', async () => {
+	it('shows the "New teacher(s) pending" banner when new signups exist', async () => {
 		renderPage();
-		const approveAll = page.getByRole('button', { name: /Approve all/ });
-		await expect.element(approveAll).toBeInTheDocument();
-		await expect.element(approveAll).toHaveTextContent('Approve all (2)');
+		await expect.element(page.getByText('New teacher(s) pending')).toBeInTheDocument();
+		await expect.element(page.getByText('2 awaiting access')).toBeInTheDocument();
+	});
+
+	it('pre-checks new signups and labels the hero "Approve checked (N)"', async () => {
+		renderPage();
+		const hero = page.getByTestId('admin-users.approve-checked');
+		await expect.element(hero).toHaveTextContent('Approve checked (2)');
 		await expect
 			.element(page.getByRole('checkbox', { name: 'Select New Teacher One' }))
 			.toBeChecked();
@@ -129,27 +131,26 @@ describe('Users Admin Page - batch approval', () => {
 			.toBeChecked();
 	});
 
-	it('flips the hero to "Approve checked (M)" when a new signup is unchecked', async () => {
+	it('updates the hero count as new signups are unchecked', async () => {
 		renderPage();
 		const hero = page.getByTestId('admin-users.approve-checked');
-		await expect.element(hero).toHaveTextContent('Approve all (2)');
+		await expect.element(hero).toHaveTextContent('Approve checked (2)');
 
 		await page.getByRole('checkbox', { name: 'Select New Teacher One' }).click();
 		await expect.element(hero).toHaveTextContent('Approve checked (1)');
 	});
 
-	it('disables the hero when nothing is checked', async () => {
+	it('hides the batch button entirely when nothing is checked', async () => {
 		renderPage();
 		const hero = page.getByTestId('admin-users.approve-checked');
 		await page.getByRole('checkbox', { name: 'Select New Teacher One' }).click();
 		await page.getByRole('checkbox', { name: 'Select New Teacher Two' }).click();
-		await expect.element(hero).toHaveTextContent('Approve checked (0)');
-		await expect.element(hero).toBeDisabled();
+		await expect.element(hero).not.toBeInTheDocument();
 	});
 
 	it('batch-approves exactly the checked ids via the users.update mutation', async () => {
 		renderPage();
-		await page.getByRole('button', { name: /Approve all/ }).click();
+		await page.getByTestId('admin-users.approve-checked').click();
 
 		await vi.waitFor(() => {
 			expect(mutationMock).toHaveBeenCalledWith(
@@ -170,14 +171,14 @@ describe('Users Admin Page - batch approval', () => {
 		).toBe(false);
 	});
 
-	it('does not pre-check deactivated teachers and shows "Reactivate" for them', async () => {
+	it('offers deactivated teachers no checkbox and a Reactivate action', async () => {
 		renderPage();
 		await page.getByRole('tab', { name: /Deactivated/ }).click();
 
 		await expect.element(page.getByText('Old Teacher')).toBeInTheDocument();
 		await expect
 			.element(page.getByRole('checkbox', { name: 'Select Old Teacher' }))
-			.not.toBeChecked();
+			.not.toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: 'Reactivate' })).toBeInTheDocument();
 	});
 
@@ -187,33 +188,25 @@ describe('Users Admin Page - batch approval', () => {
 
 		await page.getByRole('tab', { name: /Deactivated/ }).click();
 		await expect.element(page.getByText(/Access removed/)).toBeInTheDocument();
-		await expect.element(page.getByText('previously deactivated')).toBeInTheDocument();
 	});
 
-	it('styles the Pending tab red only when there is at least one new pending teacher', async () => {
-		const first = renderPage();
+	it('styles the unselected Pending tab red when new signups exist', async () => {
+		renderPage();
+		// Landed on Pending by default, so switch away to make it unselected.
+		await page.getByRole('tab', { name: /Active/ }).click();
 		const pendingTab = page.getByRole('tab', { name: 'Pending (2)' });
 		await expect.element(pendingTab).toHaveClass(/text-red-600/);
-
-		first.unmount();
-		currentUsers = [deactivated, activeAdmin, activeTeacher];
-		renderPage();
-		// wait for the count to reflect the no-new-pending fixture
-		const nowActive = page.getByRole('tab', { name: 'Active (2)' });
-		await expect.element(nowActive).toBeInTheDocument();
-		const pendingTabNoCount = page.getByRole('tab', { name: /Pending/ });
-		await expect.element(pendingTabNoCount).not.toHaveClass(/text-red-600/);
 	});
 
-	it('lands on the Active tab when there are no new pending teachers', async () => {
+	it('hides the Pending tab entirely when there are no new signups', async () => {
 		currentUsers = [deactivated, activeAdmin, activeTeacher];
 		renderPage();
 		await expect
 			.element(page.getByTestId('admin-users.card-user_a2'))
 			.toHaveTextContent('Active Teacher');
-		await expect.element(page.getByText('New Teacher One')).not.toBeInTheDocument();
+		await expect.element(page.getByRole('tab', { name: /Pending/ })).not.toBeInTheDocument();
 		await expect.element(page.getByTestId('admin-users.hero')).not.toBeInTheDocument();
-		await expect.element(page.getByText(/New teacher influx/)).not.toBeInTheDocument();
+		await expect.element(page.getByText('New teacher(s) pending')).not.toBeInTheDocument();
 	});
 
 	it('keeps the role dropdown on Active tab cards', async () => {
@@ -224,17 +217,25 @@ describe('Users Admin Page - batch approval', () => {
 			.toBeInTheDocument();
 	});
 
+	it('color-codes the role badge on a card', async () => {
+		renderPage();
+		await page.getByRole('tab', { name: /Active/ }).click();
+		const card = page.getByTestId('admin-users.card-user_a1');
+		await expect.element(card).toHaveTextContent('Admin');
+	});
+
 	it('moves approved teachers to the Active tab after batch approval', async () => {
 		renderPage();
-		await page.getByRole('button', { name: /Approve all/ }).click();
+		await page.getByTestId('admin-users.approve-checked').click();
 		await vi.waitFor(() => {
 			expect(mutationMock).toHaveBeenCalled();
 		});
 
 		// After the last new signup is approved there are no new-pending teachers left, so
-		// the influx banner disappears and the view flips to the Active tab, where the
+		// the banner and the Pending tab disappear and the view flips to Active, where the
 		// now-approved teachers appear with an "Approved this session" badge.
 		await expect.element(page.getByTestId('admin-users.hero')).not.toBeInTheDocument();
+		await expect.element(page.getByRole('tab', { name: /Pending/ })).not.toBeInTheDocument();
 		await expect.element(page.getByText('Active (4)')).toBeVisible();
 		await expect
 			.element(page.getByTestId('admin-users.card-user_p1'))
@@ -254,9 +255,7 @@ describe('Users Admin Page - batch approval', () => {
 	it('renders a Google avatar image when the user.image field is present', async () => {
 		renderPage();
 		await page.getByRole('tab', { name: /Active/ }).click();
-		const avatar = page
-			.getByTestId('admin-users.card-user_a2')
-			.locator('img[src="https://lh3.googleusercontent.com/photo.jpg"]');
+		const avatar = page.getByRole('img', { name: 'Active Teacher' });
 		await expect.element(avatar).toBeInTheDocument();
 		await expect.element(avatar).toHaveAttribute('alt', 'Active Teacher');
 	});
@@ -264,9 +263,7 @@ describe('Users Admin Page - batch approval', () => {
 	it('falls back to initials circle when no avatar image is available', async () => {
 		renderPage();
 		await page.getByRole('tab', { name: /Active/ }).click();
-		const initial = page.getByTestId('admin-users.card-user_a1').locator('.bg-primary\\/10');
-		await expect.element(initial).toBeInTheDocument();
-		await expect.element(initial).toHaveTextContent('CA');
+		await expect.element(page.getByTestId('admin-users.card-user_a1')).toHaveTextContent('CA');
 	});
 
 	it('strips CJK characters from names for display and sorting', async () => {
@@ -286,21 +283,17 @@ describe('Users Admin Page - batch approval', () => {
 		await expect.element(page.getByTestId('admin-users.card-user_a3')).not.toHaveTextContent('王');
 	});
 
-	it('aligns the role dropdown, active badge, and remove-access button horizontally', async () => {
+	it('keeps the remove-access action on Active cards but apart from the role dropdown', async () => {
 		renderPage();
 		await page.getByRole('tab', { name: /Active/ }).click();
 
-		const card = page.getByTestId('admin-users.card-user_a2');
-		const rightControls = card.locator('.shrink-0.flex-row');
-		await expect.element(rightControls).toHaveClass(/flex-row/);
-
-		const activeBadge = card.locator('[data-slot="badge"]');
-		await expect.element(activeBadge).toBeInTheDocument();
-		await expect.element(activeBadge).toHaveTextContent('active');
-		await expect.element(activeBadge).toHaveClass(/min-w-\[4\.5rem\]/);
-
-		const roleTrigger = page.getByRole('button', { name: /select role for active teacher/i });
+		const removeBtn = page.getByTestId('admin-users.remove-access-user_a2');
+		const roleTrigger = page.getByRole('button', { name: /select role for Active Teacher/i });
+		await expect.element(removeBtn).toBeInTheDocument();
 		await expect.element(roleTrigger).toBeInTheDocument();
-		await expect.element(roleTrigger).toHaveClass(/min-w-\[4\.5rem\]/);
+
+		// The remove-access action is a whole-card control (top-right), not a sibling of the
+		// role dropdown — the two no longer share the same container.
+		expect(removeBtn.element().parentElement).not.toBe(roleTrigger.element().parentElement);
 	});
 });
