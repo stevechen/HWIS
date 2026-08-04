@@ -3,11 +3,8 @@ import type { Doc, Id } from './_generated/dataModel';
 import {
 	isAdmin,
 	isStudent,
-	canReadStudent,
-	requireStudentDataAccess,
 	canReadEvaluation,
-	requireEvaluationAccess,
-	requireStudentRole
+	requireEvaluationAccess
 } from './shared/authorization';
 
 function makeUser(overrides: Partial<Doc<'users'>> = {}): Doc<'users'> {
@@ -64,64 +61,9 @@ describe('isStudent', () => {
 	});
 });
 
-describe('canReadStudent', () => {
-	it('returns true for admins regardless of target', () => {
-		expect(canReadStudent(makeUser({ role: 'admin' }), studentId)).toBe(true);
-	});
-
-	it('returns true when student user owns the record', () => {
-		const studentUser = makeUser({ role: 'student', studentRecordId: studentId });
-		expect(canReadStudent(studentUser, studentId)).toBe(true);
-	});
-
-	it('returns false when student user targets a different record', () => {
-		const studentUser = makeUser({
-			role: 'student',
-			studentRecordId: 'students-other' as Id<'students'>
-		});
-		expect(canReadStudent(studentUser, studentId)).toBe(false);
-	});
-
-	it('returns true for teachers', () => {
-		expect(canReadStudent(makeUser({ role: 'teacher' }), studentId)).toBe(true);
-	});
-});
-
-describe('requireStudentDataAccess', () => {
-	it('does not throw for admin', () => {
-		expect(() => requireStudentDataAccess(makeUser({ role: 'admin' }), studentId)).not.toThrow();
-	});
-
-	it('does not throw for student who owns the record', () => {
-		const studentUser = makeUser({ role: 'student', studentRecordId: studentId });
-		expect(() => requireStudentDataAccess(studentUser, studentId)).not.toThrow();
-	});
-
-	it('throws Forbidden for student targeting another record', () => {
-		const studentUser = makeUser({
-			role: 'student',
-			studentRecordId: 'students-other' as Id<'students'>
-		});
-		expect(() => requireStudentDataAccess(studentUser, studentId)).toThrow('Forbidden');
-	});
-});
-
 describe('canReadEvaluation', () => {
 	it('returns true for admins', () => {
 		expect(canReadEvaluation(makeUser({ role: 'admin' }), evaluation)).toBe(true);
-	});
-
-	it('returns true when student owns the evaluated record', () => {
-		const studentUser = makeUser({ role: 'student', studentRecordId: studentId });
-		expect(canReadEvaluation(studentUser, evaluation)).toBe(true);
-	});
-
-	it('returns false when student does not own the record', () => {
-		const studentUser = makeUser({
-			role: 'student',
-			studentRecordId: 'students-other' as Id<'students'>
-		});
-		expect(canReadEvaluation(studentUser, evaluation)).toBe(false);
 	});
 
 	it('returns true when teacher is the evaluator', () => {
@@ -143,26 +85,5 @@ describe('requireEvaluationAccess', () => {
 	it('throws Forbidden for non-evaluator teacher', () => {
 		const otherTeacher = makeUser({ role: 'teacher', _id: 'users-other' as Id<'users'> });
 		expect(() => requireEvaluationAccess(otherTeacher, evaluation)).toThrow('Forbidden');
-	});
-});
-
-describe('requireStudentRole', () => {
-	it('does not throw for student with a linked record', () => {
-		const studentUser = makeUser({ role: 'student', studentRecordId: studentId });
-		expect(() => requireStudentRole(studentUser)).not.toThrow();
-	});
-
-	it('throws for non-student roles', () => {
-		expect(() => requireStudentRole(makeUser({ role: 'teacher' }))).toThrow(
-			'Only students can access this endpoint'
-		);
-		expect(() => requireStudentRole(makeUser({ role: 'admin' }))).toThrow(
-			'Only students can access this endpoint'
-		);
-	});
-
-	it('throws when student has no linked record', () => {
-		const studentUser = makeUser({ role: 'student' });
-		expect(() => requireStudentRole(studentUser)).toThrow('Student record not linked');
 	});
 });

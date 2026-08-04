@@ -61,7 +61,7 @@
 ## Relationships
 
 - A **User** has exactly one **Role** (super, admin, teacher, or student)
-- A **Student**-role **User** links to exactly one **Student** record via `studentRecordId`
+- A **Student** is identified from a student-domain Google email (`s{studentId}@std.hwhs.tc.edu.tw`); they have no **User** record
 - A **Student** belongs to exactly one **Class**
 - A **Class** has exactly one **Grade** and one **Class** name
 - A **Class** may have at most one **Homeroom Teacher**

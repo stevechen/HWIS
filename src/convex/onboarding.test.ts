@@ -78,6 +78,22 @@ describe('onboarding.ensureUserProfile', () => {
 		const users = await t.run((ctx) => ctx.db.query('users').collect());
 		expect(users[0]).toMatchObject({ role: 'admin', status: 'active' });
 	});
+
+	it('does not create a user profile for a student-domain email', async () => {
+		const t = convexTest(schema, modules);
+		mockAuthUser({
+			authId: 'student-1',
+			name: 'Student One',
+			email: 's888001@std.hwhs.tc.edu.tw'
+		});
+
+		const result = await t.mutation(api.onboarding.ensureUserProfile, {});
+
+		expect(result).toEqual({ created: false, role: 'student', status: 'active' });
+
+		const users = await t.run((ctx) => ctx.db.query('users').collect());
+		expect(users).toHaveLength(0);
+	});
 });
 
 describe('onboarding.createUserProfile', () => {

@@ -13,11 +13,8 @@ export default defineSchema({
 		createdAt: v.optional(v.number()),
 		/** Set when an active user's access is removed (status -> 'pending'); cleared on restore. */
 		deactivatedAt: v.optional(v.number()),
-		studentRecordId: v.optional(v.id('students')),
 		e2eTag: v.optional(v.string())
-	})
-		.index('by_authId', ['authId'])
-		.index('by_studentRecordId', ['studentRecordId']),
+	}).index('by_authId', ['authId']),
 
 	sessions: defineTable({
 		userId: v.id('users'),

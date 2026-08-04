@@ -16,12 +16,8 @@ import {
 	matchesMultiSearch
 } from './shared/evaluation_utils';
 import { enrichEvaluations } from './shared/enrichment';
-import {
-	canReadStudent,
-	canReadEvaluation,
-	isStudent,
-	requireStudentRole
-} from './shared/authorization';
+import { resolveStudentFromEmail, isStudentEmailAddress } from './shared/student';
+import { canReadEvaluation, isStudent } from './shared/authorization';
 
 export const getUserByAuthId = query({
 	args: { authId: v.string() },
@@ -312,10 +308,7 @@ export const getWeeklyReportDetail = query({
 export const getStudent = query({
 	args: { studentId: v.id('students') },
 	handler: async (ctx, args) => {
-		const user = await requireUserProfile(ctx);
-		if (!canReadStudent(user, args.studentId)) {
-			return null;
-		}
+		await requireUserProfile(ctx);
 		return await ctx.db.get(args.studentId);
 	}
 });
@@ -690,15 +683,24 @@ export const getEvaluation = query({
 export const getStudentEvaluationsAnonymous = query({
 	args: {},
 	handler: async (ctx) => {
-		const user = await requireUserProfile(ctx);
+		const authUser = await getAuthenticatedUser(ctx);
+		if (!authUser) {
+			throw new Error('Unauthorized');
+		}
 
-		requireStudentRole(user);
+		const email = (authUser as { email?: string }).email?.toLowerCase();
+		if (!isStudentEmailAddress(email)) {
+			throw new Error('Only students can access this endpoint');
+		}
 
-		const studentRecordId = user.studentRecordId;
+		const student = await resolveStudentFromEmail(email, ctx);
+		if (!student || student.status !== 'Enrolled') {
+			return [];
+		}
 
 		const evaluations = await ctx.db
 			.query('evaluations')
-			.withIndex('by_studentId', (q) => q.eq('studentId', studentRecordId))
+			.withIndex('by_studentId', (q) => q.eq('studentId', student._id))
 			.take(200);
 
 		const baseEnriched = await enrichEvaluations(evaluations, ctx);

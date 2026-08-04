@@ -1,5 +1,7 @@
 ## Why
 
+> **Superseded**: This change described the pre-registration (student user profile) approach. The shipped design (GitHub issue #56, labels `spec` + `ready-for-agent`) derives student identity from the student-domain email on every read and creates **no user profile**. See https://github.com/stevechen/HWIS/issues/56.
+
 Currently, only teachers and administrators can view student evaluation records through the platform. Students have no visibility into their own evaluation history, which limits their ability to track their progress and understand feedback. Enrolled students should be able to access their own evaluation timeline in a read-only manner to promote transparency and student engagement.
 
 ## What Changes

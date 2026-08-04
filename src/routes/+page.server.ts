@@ -38,5 +38,11 @@ export const load = async ({ locals }: { locals: { token?: string } }) => {
 	if (!isApproved) return {};
 
 	const isAdmin = viewer.role === 'admin' || viewer.role === 'super';
+	if ('studentId' in viewer) {
+		throw redirect(
+			302,
+			viewer.studentId ? `/evaluations/student/${viewer.studentId}` : '/evaluations'
+		);
+	}
 	throw redirect(302, isAdmin ? '/admin' : '/evaluations');
 };

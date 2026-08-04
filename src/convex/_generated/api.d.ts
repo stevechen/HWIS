@@ -31,6 +31,7 @@ import type * as shared_authorization from "../shared/authorization.js";
 import type * as shared_enrichment from "../shared/enrichment.js";
 import type * as shared_evaluation_utils from "../shared/evaluation_utils.js";
 import type * as shared_houses from "../shared/houses.js";
+import type * as shared_student from "../shared/student.js";
 import type * as students from "../students.js";
 import type * as testAuth from "../testAuth.js";
 import type * as testCleanup from "../testCleanup.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   "shared/enrichment": typeof shared_enrichment;
   "shared/evaluation_utils": typeof shared_evaluation_utils;
   "shared/houses": typeof shared_houses;
+  "shared/student": typeof shared_student;
   students: typeof students;
   testAuth: typeof testAuth;
   testCleanup: typeof testCleanup;

@@ -7,6 +7,7 @@ import {
 	authComponent,
 	requireAdminForSensitiveOperation
 } from './auth';
+import { isStudentEmailAddress } from './shared/student';
 
 type BetterAuthUser = {
 	email?: string;
@@ -29,6 +30,12 @@ export const ensureUserProfile = mutation({
 		// Get email directly from Better Auth (not from profile, which doesn't have email field)
 		const betterAuthUser = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
 		const userEmail = betterAuthUser?.email?.toLowerCase();
+
+		// Students never get a user profile — their identity is email-derived.
+		if (isStudentEmailAddress(userEmail)) {
+			return { created: false, role: 'student' as const, status: 'active' as const };
+		}
+
 		const allowlistedRole = getAllowlistedRole(userEmail);
 
 		const existing = await ctx.db

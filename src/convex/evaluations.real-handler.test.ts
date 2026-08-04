@@ -480,24 +480,15 @@ describe('evaluations.getWeeklyReportDetail (real handler)', () => {
 describe('evaluations.getStudentEvaluationsAnonymous (real handler)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
-	it('returns anonymous evaluations for the linked student record', async () => {
+	it('returns anonymous evaluations for the Enrolled student matched by email', async () => {
 		const t = convexTest(schema, modules);
 
 		const teacherId = await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
-		const studentId = await seedStudent(t, 'STU-ANON-001');
+		const studentId = await seedStudent(t, '999001');
 		const categoryId = await seedCategory(t);
 
-		// Authenticated as the student whose record is linked
-		mockAuthUser({ authId: 'student-1' });
-		await t.run((ctx) =>
-			ctx.db.insert('users', {
-				authId: 'student-1',
-				name: 'Student One',
-				role: 'student',
-				status: 'active',
-				studentRecordId: studentId
-			})
-		);
+		// Authenticated via a student-domain Google email; no users profile row exists
+		mockAuthUser({ authId: 'student-1', email: 's999001@std.hwhs.tc.edu.tw' });
 
 		await seedEvaluation(t, { studentId, teacherId, categoryId });
 
@@ -506,6 +497,30 @@ describe('evaluations.getStudentEvaluationsAnonymous (real handler)', () => {
 		expect(result).toHaveLength(1);
 		expect(result[0]).toMatchObject({ value: 2, details: 'Seed evaluation' });
 		expect(result[0]).not.toHaveProperty('teacherId');
+		expect(result[0]).not.toHaveProperty('teacherName');
+	});
+
+	it('returns no evaluations for a Not Enrolled student record', async () => {
+		const t = convexTest(schema, modules);
+
+		const studentId = await seedStudent(t, '999002');
+		await t.run((ctx) => ctx.db.patch(studentId, { status: 'Not Enrolled' }));
+
+		mockAuthUser({ authId: 'student-2', email: 's999002@std.hwhs.tc.edu.tw' });
+
+		const result = await t.query(api.evaluations.getStudentEvaluationsAnonymous, {});
+
+		expect(result).toEqual([]);
+	});
+
+	it('returns no evaluations when the email matches no student record', async () => {
+		const t = convexTest(schema, modules);
+
+		mockAuthUser({ authId: 'student-3', email: 's999999@std.hwhs.tc.edu.tw' });
+
+		const result = await t.query(api.evaluations.getStudentEvaluationsAnonymous, {});
+
+		expect(result).toEqual([]);
 	});
 
 	it('throws for non-student users', async () => {

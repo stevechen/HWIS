@@ -17,7 +17,7 @@ vi.mock('convex-svelte', () => ({
 		data: mockEvalData,
 		isLoading: false,
 		isStale: false,
-		error: null
+		error: undefined
 	})),
 	useConvexClient: vi.fn(() => ({
 		mutation: vi.fn().mockResolvedValue(undefined),
@@ -48,7 +48,7 @@ describe('Student Evaluations Page', () => {
 			data: mockAdminUser,
 			isLoading: false,
 			isStale: false,
-			error: null
+			error: undefined
 		});
 	});
 
@@ -87,5 +87,49 @@ describe('Student Evaluations Page', () => {
 			render(StudentEvaluationsPage, { data: { studentId: 'test-student' } });
 			await expect.element(page.getByRole('region', { name: 'Evaluations' })).toBeInTheDocument();
 		});
+	});
+});
+
+describe('Student Evaluations Page — student branch', () => {
+	const mockStudentUser = {
+		_id: 'student-001',
+		name: 'Student One',
+		email: 's888001@std.hwhs.tc.edu.tw',
+		role: 'student',
+		status: 'active',
+		studentId: '888001',
+		enrollmentStatus: 'Enrolled',
+		englishName: 'Student One',
+		house: 'Wukong'
+	};
+
+	async function mockViewer(viewer: object) {
+		const { useQuery } = await import('convex-svelte');
+		vi.mocked(useQuery).mockReturnValueOnce({
+			data: viewer,
+			isLoading: false,
+			isStale: false,
+			error: undefined
+		});
+	}
+
+	it('renders the timeline for an enrolled student', async () => {
+		await mockViewer(mockStudentUser);
+		render(StudentEvaluationsPage, { data: { studentId: 'ignored' } });
+		await expect.element(page.getByRole('region', { name: 'Evaluations' })).toBeInTheDocument();
+	});
+
+	it('hides the teacher filter for students', async () => {
+		await mockViewer(mockStudentUser);
+		render(StudentEvaluationsPage, { data: { studentId: 'ignored' } });
+		await expect
+			.element(page.getByRole('textbox', { name: 'Filter by teacher' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('shows the access denied screen for a not-enrolled student', async () => {
+		await mockViewer({ ...mockStudentUser, enrollmentStatus: 'Not Enrolled' });
+		render(StudentEvaluationsPage, { data: { studentId: 'ignored' } });
+		await expect.element(page.getByText('Access Denied')).toBeInTheDocument();
 	});
 });

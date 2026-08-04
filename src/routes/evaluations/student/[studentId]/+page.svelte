@@ -109,19 +109,22 @@
 
 	// Real Convex queries - support both Convex ID and custom studentId code
 	// Use 'skip' pattern for conditional queries - always call useQuery at top level
+	// Students derive their own record from auth and never query by URL parameter.
 	const studentQueryById = useQuery(api.evaluations.getStudent, () =>
-		!useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
+		isStudent || !useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
 	);
 	const studentQueryByCode = useQuery(api.evaluations.getStudentByStudentIdCode, () =>
-		useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId }
+		isStudent || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId }
 	);
 
 	const teacherEvalsQueryById = useQuery(api.evaluations.getStudentEvaluationsByTeacher, () =>
-		isAdmin || !useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
+		isAdmin || isStudent || !useConvexIdQuery
+			? 'skip'
+			: { studentId: urlStudentId as Id<'students'> }
 	);
 	const teacherEvalsQueryByCode = useQuery(
 		api.evaluations.getStudentEvaluationsByTeacherByStudentIdCode,
-		() => (isAdmin || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId })
+		() => (isAdmin || isStudent || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId })
 	);
 
 	const allEvalsQueryById = useQuery(api.evaluations.getStudentEvaluationsAll, () =>
@@ -144,7 +147,7 @@
 	);
 	const allEvalsQuery = $derived(useConvexIdQuery ? allEvalsQueryById : allEvalsQueryByCode);
 
-	const student = $derived(studentQuery.data);
+	const student = $derived(isStudent ? userQuery.data : studentQuery.data);
 
 	// Get evaluations data
 	const evaluations = $derived.by(() => {
@@ -464,7 +467,7 @@
 						onLongPress={handleLongPress}
 						canEditEntry={isStudent ? () => false : canEditEntry}
 					>
-						{#if !isTeacher}
+						{#if isAdmin}
 							<FilterInput
 								testId="evaluations-student.filter-teacher"
 								bind:value={teacherFilter}
