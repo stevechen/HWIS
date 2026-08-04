@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { convexTest, modules } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
 import type { Id } from './_generated/dataModel';
 import { setTestAuthRole } from './testAuth';
+import { authComponent } from './auth';
 
 describe('users.update', () => {
 	it('updates user status to active', async () => {
@@ -364,5 +365,131 @@ describe('Role promotion constraint - super role requires super user', () => {
 
 			expect(user?.role).toBe('super');
 		});
+	});
+});
+
+describe('users.list', () => {
+	it('includes email and image from Better Auth when available', async () => {
+		const t = convexTest(schema, modules);
+
+		const adapterMock = {
+			findMany: vi.fn().mockResolvedValue([
+				{
+					id: 'ba-teacher-1',
+					email: 'teacher@hwhs.tc.edu.tw',
+					name: 'Test Teacher',
+					image: 'https://lh3.googleusercontent.com/photo.jpg'
+				}
+			])
+		};
+
+		vi.spyOn(authComponent, 'adapter').mockImplementation(() => {
+			return (() => Promise.resolve(adapterMock)) as never;
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'ba-teacher-1',
+				name: 'Test Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const users = await t.query(api.users.list, {});
+		const user = users.find((u: { name?: string }) => u.name === 'Test Teacher');
+		expect(user).toBeDefined();
+		expect(user?.email).toBe('teacher@hwhs.tc.edu.tw');
+		expect(user?.image).toBe('https://lh3.googleusercontent.com/photo.jpg');
+
+		vi.restoreAllMocks();
+	});
+
+	it('returns undefined email/image when Better Auth user is not found', async () => {
+		const t = convexTest(schema, modules);
+
+		const adapterMock = {
+			findMany: vi.fn().mockResolvedValue([])
+		};
+
+		vi.spyOn(authComponent, 'adapter').mockImplementation(() => {
+			return (() => Promise.resolve(adapterMock)) as never;
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'orphan-auth-id',
+				name: 'Orphan User',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const users = await t.query(api.users.list, {});
+		const user = users.find((u: { name?: string }) => u.name === 'Orphan User');
+		expect(user).toBeDefined();
+		expect(user?.email).toBeUndefined();
+		expect(user?.image).toBeUndefined();
+
+		vi.restoreAllMocks();
+	});
+
+	it('sorts users by name with CJK characters stripped from the sort key', async () => {
+		const t = convexTest(schema, modules);
+
+		vi.spyOn(authComponent, 'adapter').mockImplementation(() => {
+			const adapterMock = { findMany: vi.fn().mockResolvedValue([]) };
+			return (() => Promise.resolve(adapterMock)) as never;
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'z-user',
+				name: 'Zoe Zhang 張',
+				role: 'teacher',
+				status: 'active'
+			});
+			await ctx.db.insert('users', {
+				authId: 'a-user',
+				name: 'Amy Wang 王',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const users = await t.query(api.users.list, {});
+		expect(users.map((u: { name?: string }) => u.name)).toEqual(['Amy Wang 王', 'Zoe Zhang 張']);
+
+		vi.restoreAllMocks();
+	});
+
+	it('does not include students in the list', async () => {
+		const t = convexTest(schema, modules);
+
+		vi.spyOn(authComponent, 'adapter').mockImplementation(() => {
+			const adapterMock = { findMany: vi.fn().mockResolvedValue([]) };
+			return (() => Promise.resolve(adapterMock)) as never;
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'teacher-1',
+				name: 'Teacher One',
+				role: 'teacher',
+				status: 'active'
+			});
+			await ctx.db.insert('users', {
+				authId: 'student-1',
+				name: 'Student One',
+				role: 'student',
+				status: 'active'
+			});
+		});
+
+		const users = await t.query(api.users.list, {});
+		expect(users).toHaveLength(1);
+		expect(users[0]?.role).toBe('teacher');
+
+		vi.restoreAllMocks();
 	});
 });

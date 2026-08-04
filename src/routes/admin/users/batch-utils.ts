@@ -1,10 +1,16 @@
+export function cleanName(name?: string): string {
+	if (!name) return '';
+	return name.replace(/[\u3400-\u4DB5\u4E00-\u9FFF\uF900-\uFAFF\u3000-\u303F]/g, '').trim();
+}
+
 export function initials(name?: string): string {
-	return (name || '?')
-		.trim()
-		.split(/\s+/)
-		.map((part) => part[0]?.toUpperCase())
-		.join('')
-		.slice(0, 2);
+	return (
+		cleanName(name)
+			.split(/\s+/)
+			.map((part) => part[0]?.toUpperCase())
+			.join('')
+			.slice(0, 2) || '?'
+	);
 }
 
 export function isNewPending(u: { status?: string; deactivatedAt?: number }): boolean {

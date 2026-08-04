@@ -5,10 +5,23 @@ import { verifyJWT } from 'better-auth/crypto';
 import {
 	requireAdminForSensitiveOperation,
 	requireSuperForSensitiveOperation,
-	getAuthenticatedUser
+	getAuthenticatedUser,
+	authComponent
 } from './auth';
 import { extractStudentIdFromEmail, isStudentEmail } from './auth';
 import type { Id } from './_generated/dataModel';
+
+type BetterAuthUser = {
+	_id?: string;
+	id?: string;
+	email?: string;
+	name?: string;
+	image?: string | null;
+};
+
+function stripCJK(name: string): string {
+	return name.replace(/[\u3400-\u4DB5\u4E00-\u9FFF\uF900-\uFAFF\u3000-\u303F]/g, '');
+}
 
 async function invalidateUserSessions(ctx: MutationCtx, userId: Id<'users'>): Promise<void> {
 	const sessions = await ctx.db
@@ -102,14 +115,38 @@ export const list = query({
 		await requireAdminForSensitiveOperation(ctx);
 
 		const allUsers = await ctx.db.query('users').take(200);
+
+		// Enrich with email and avatar image from Better Auth (Google profile picture)
+		const baUserLookup: Record<string, { email?: string; image?: string | null }> = {};
+		try {
+			const adapter = await authComponent.adapter(ctx)({
+				user: { fields: undefined }
+			});
+			const baUsers = (await adapter.findMany({ model: 'user', where: [] })) as BetterAuthUser[];
+			for (const u of baUsers) {
+				const key = u._id || u.id;
+				if (key) {
+					baUserLookup[key] = { email: u.email, image: u.image };
+				}
+			}
+		} catch {
+			// Better Auth adapter unavailable (e.g. test environment without mocking)
+		}
+
 		// Filter out students - only show staff (teachers, admins, super)
 		return allUsers
 			.filter((u) => u.role !== 'student')
-			.map((u) => ({
-				...u,
-				role: u.role ?? 'teacher',
-				status: u.status ?? 'active'
-			}));
+			.map((u) => {
+				const ba = u.authId ? baUserLookup[u.authId] : undefined;
+				return {
+					...u,
+					role: u.role ?? 'teacher',
+					status: u.status ?? 'active',
+					email: ba?.email,
+					image: ba?.image
+				};
+			})
+			.sort((a, b) => stripCJK(a.name || '').localeCompare(stripCJK(b.name || '')));
 	}
 });
 

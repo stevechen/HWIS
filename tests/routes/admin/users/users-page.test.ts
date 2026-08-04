@@ -10,7 +10,8 @@ const viewer = { _id: 'user_a1', name: 'Current Admin', role: 'admin', status: '
 const newOne = {
 	_id: 'user_p1',
 	name: 'New Teacher One',
-	authId: 'one@hwhs.tc.edu.tw',
+	authId: 'auth-one',
+	email: 'one@hwhs.tc.edu.tw',
 	role: 'teacher',
 	status: 'pending',
 	createdAt: now - day
@@ -18,7 +19,8 @@ const newOne = {
 const newTwo = {
 	_id: 'user_p2',
 	name: 'New Teacher Two',
-	authId: 'two@hwhs.tc.edu.tw',
+	authId: 'auth-two',
+	email: 'two@hwhs.tc.edu.tw',
 	role: 'teacher',
 	status: 'pending',
 	createdAt: now - 2 * day
@@ -26,7 +28,8 @@ const newTwo = {
 const deactivated = {
 	_id: 'user_p3',
 	name: 'Old Teacher',
-	authId: 'old@hwhs.tc.edu.tw',
+	authId: 'auth-old',
+	email: 'old@hwhs.tc.edu.tw',
 	role: 'teacher',
 	status: 'pending',
 	createdAt: now - 400 * day,
@@ -35,7 +38,8 @@ const deactivated = {
 const activeAdmin = {
 	_id: 'user_a1',
 	name: 'Current Admin',
-	authId: 'a1@hwhs.tc.edu.tw',
+	authId: 'auth-a1',
+	email: 'a1@hwhs.tc.edu.tw',
 	role: 'admin',
 	status: 'active',
 	createdAt: now - 500 * day
@@ -43,7 +47,9 @@ const activeAdmin = {
 const activeTeacher = {
 	_id: 'user_a2',
 	name: 'Active Teacher',
-	authId: 'a2@hwhs.tc.edu.tw',
+	authId: 'auth-a2',
+	email: 'a2@hwhs.tc.edu.tw',
+	image: 'https://lh3.googleusercontent.com/photo.jpg',
 	role: 'teacher',
 	status: 'active',
 	createdAt: now - 300 * day
@@ -202,7 +208,9 @@ describe('Users Admin Page - batch approval', () => {
 	it('lands on the Active tab when there are no new pending teachers', async () => {
 		currentUsers = [deactivated, activeAdmin, activeTeacher];
 		renderPage();
-		await expect.element(page.getByText('Active Teacher')).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId('admin-users.card-user_a2'))
+			.toHaveTextContent('Active Teacher');
 		await expect.element(page.getByText('New Teacher One')).not.toBeInTheDocument();
 		await expect.element(page.getByTestId('admin-users.hero')).not.toBeInTheDocument();
 		await expect.element(page.getByText(/New teacher influx/)).not.toBeInTheDocument();
@@ -234,5 +242,63 @@ describe('Users Admin Page - batch approval', () => {
 		await expect
 			.element(page.getByTestId('admin-users.card-user_p2'))
 			.toHaveTextContent('Approved this session');
+	});
+
+	it('displays the email below the user name instead of authId', async () => {
+		renderPage();
+		await page.getByRole('tab', { name: /Active/ }).click();
+		await expect.element(page.getByText('a2@hwhs.tc.edu.tw')).toBeInTheDocument();
+		await expect.element(page.getByText('auth-a2')).not.toBeInTheDocument();
+	});
+
+	it('renders a Google avatar image when the user.image field is present', async () => {
+		renderPage();
+		await page.getByRole('tab', { name: /Active/ }).click();
+		const avatar = page
+			.getByTestId('admin-users.card-user_a2')
+			.locator('img[src="https://lh3.googleusercontent.com/photo.jpg"]');
+		await expect.element(avatar).toBeInTheDocument();
+		await expect.element(avatar).toHaveAttribute('alt', 'Active Teacher');
+	});
+
+	it('falls back to initials circle when no avatar image is available', async () => {
+		renderPage();
+		await page.getByRole('tab', { name: /Active/ }).click();
+		const initial = page.getByTestId('admin-users.card-user_a1').locator('.bg-primary\\/10');
+		await expect.element(initial).toBeInTheDocument();
+		await expect.element(initial).toHaveTextContent('CA');
+	});
+
+	it('strips CJK characters from names for display and sorting', async () => {
+		const cjkUser = {
+			_id: 'user_a3',
+			name: 'Amy 王',
+			authId: 'auth-a3',
+			email: 'amy@hwhs.tc.edu.tw',
+			role: 'teacher',
+			status: 'active',
+			createdAt: now - 100 * day
+		};
+		currentUsers = [activeAdmin, cjkUser, activeTeacher];
+		renderPage();
+		await page.getByRole('tab', { name: /Active/ }).click();
+		await expect.element(page.getByTestId('admin-users.card-user_a3')).toHaveTextContent('Amy');
+		await expect.element(page.getByTestId('admin-users.card-user_a3')).not.toHaveTextContent('王');
+	});
+
+	it('aligns the active badge and role dropdown vertically with uniform width', async () => {
+		renderPage();
+		await page.getByRole('tab', { name: /Active/ }).click();
+
+		const card = page.getByTestId('admin-users.card-user_a2');
+		const activeBadge = card.locator('[data-slot="badge"]');
+		await expect.element(activeBadge).toBeInTheDocument();
+		await expect.element(activeBadge).toHaveTextContent('active');
+
+		const roleTrigger = page.getByRole('button', { name: /select role for active teacher/i });
+		await expect.element(roleTrigger).toBeInTheDocument();
+
+		await expect.element(activeBadge).toHaveClass(/min-w-\[4\.5rem\]/);
+		await expect.element(roleTrigger).toHaveClass(/min-w-\[4\.5rem\]/);
 	});
 });
