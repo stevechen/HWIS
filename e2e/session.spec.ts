@@ -36,8 +36,9 @@ test.describe('Session Management @session @auth-sequential', () => {
 			await page.goto('/admin/users');
 			await page.waitForSelector('body.hydrated');
 
-			// Verify still authenticated - should see user table
-			await expect(page.getByRole('table', { name: 'users' })).toBeVisible();
+			// Verify still authenticated - should see the admin users view
+			await expect(page.getByTestId('admin-users.root')).toBeVisible();
+			await expect(page.getByRole('heading', { name: 'Manage Users' })).toBeVisible();
 		});
 
 		test('teacher session persists across page navigation', async ({ page }) => {
