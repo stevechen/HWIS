@@ -34,6 +34,7 @@ describe('onboarding.ensureUserProfile', () => {
 			role: 'teacher',
 			status: 'pending'
 		});
+		expect(typeof users[0].createdAt).toBe('number');
 	});
 
 	it('creates an active super profile for an allowlisted email', async () => {

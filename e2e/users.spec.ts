@@ -9,16 +9,12 @@ test.describe('Users Page @users', () => {
 	test.beforeEach(async ({ page }) => {
 		usersPage = new AdminUsersPage(page);
 		await usersPage.goto();
-		await expect(
-			usersPage.page
-				.getByRole('row')
-				.filter({ hasNot: usersPage.page.getByRole('columnheader') })
-				.first()
-		).toBeVisible();
+		await expect(usersPage.page.getByRole('tab', { name: /Pending/i }).first()).toBeVisible();
 	});
 
 	test('can open role dropdown', async () => {
-		const roleDropdown = usersPage.page.getByRole('button', { name: /select role for/i }).nth(1);
+		await usersPage.goToTab('Active');
+		const roleDropdown = usersPage.enabledRoleDropdowns().first();
 		await expect(roleDropdown).toBeVisible();
 
 		await roleDropdown.click();
@@ -28,7 +24,8 @@ test.describe('Users Page @users', () => {
 	});
 
 	test('super option is hidden for admin users', async () => {
-		const roleDropdown = usersPage.page.getByRole('button', { name: /select role for/i }).nth(1);
+		await usersPage.goToTab('Active');
+		const roleDropdown = usersPage.enabledRoleDropdowns().first();
 		await expect(roleDropdown).toBeVisible();
 
 		await roleDropdown.click();
@@ -45,32 +42,14 @@ test.describe('Users Page - Super User @users', () => {
 	test.beforeEach(async ({ page }) => {
 		usersPage = new AdminUsersPage(page);
 		await usersPage.goto();
-		await expect(
-			usersPage.page
-				.getByRole('row')
-				.filter({ hasNot: usersPage.page.getByRole('columnheader') })
-				.first()
-		).toBeVisible();
+		await expect(usersPage.page.getByRole('tab', { name: /Pending/i }).first()).toBeVisible();
 	});
 
 	test('super option is visible for super users', async () => {
-		const roleDropdowns = usersPage.page.getByRole('button', {
-			name: /select role for/i
-		});
+		await usersPage.goToTab('Active');
+		const targetDropdown = usersPage.enabledRoleDropdowns().first();
 
-		const count = await roleDropdowns.count();
-		let targetDropdown = null;
-
-		for (let i = 0; i < count; i++) {
-			const dropdown = roleDropdowns.nth(i);
-			const isDisabled = await dropdown.isDisabled();
-			if (!isDisabled) {
-				targetDropdown = dropdown;
-				break;
-			}
-		}
-
-		if (!targetDropdown) {
+		if ((await targetDropdown.count()) === 0) {
 			test.skip();
 			return;
 		}

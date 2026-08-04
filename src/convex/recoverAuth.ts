@@ -47,7 +47,8 @@ export const forceCreateUser = mutation({
 					authId: authId,
 					name: u.name || email.split('@')[0],
 					role: getAllowlistedRole(email) ?? 'teacher',
-					status: 'active'
+					status: 'active',
+					createdAt: Date.now()
 				});
 				results.push({ email, action: 'created', authId });
 			}

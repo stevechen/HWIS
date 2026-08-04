@@ -20,6 +20,22 @@ async function invalidateUserSessions(ctx: MutationCtx, userId: Id<'users'>): Pr
 	}
 }
 
+type Status = 'pending' | 'active';
+
+/**
+ * Returns the partial row update that keeps the deactivation timestamp in sync with a
+ * status transition: active->pending stamps `deactivatedAt`; any transition to active
+ * clears it. Non-status changes yield no timestamp update.
+ */
+function statusTimestampUpdates(
+	nextStatus: Status | undefined,
+	currentStatus: Status | undefined
+): Partial<Record<'deactivatedAt', number | undefined>> {
+	if (nextStatus === 'pending' && currentStatus !== 'pending') return { deactivatedAt: Date.now() };
+	if (nextStatus === 'active') return { deactivatedAt: undefined };
+	return {};
+}
+
 export const viewer = query({
 	args: {},
 	handler: async (ctx) => {
@@ -137,7 +153,9 @@ export const update = mutation({
 
 		const { id, ...updates } = args;
 
-		await ctx.db.patch(id, updates);
+		const timestampUpdates = statusTimestampUpdates(args.status, targetUser.status);
+
+		await ctx.db.patch(id, { ...updates, ...timestampUpdates });
 
 		if (args.status === 'pending' || args.role !== undefined) {
 			await invalidateUserSessions(ctx, id);
@@ -184,7 +202,8 @@ export const seedTestAdmin = mutation({
 		if (!existing) {
 			await ctx.db.insert('users', {
 				role: 'admin',
-				status: 'active'
+				status: 'active',
+				createdAt: Date.now()
 			});
 		} else {
 			await ctx.db.patch(args.userId, {
@@ -383,7 +402,8 @@ export const setupStudentUser = mutation({
 			role: 'student',
 			status: 'active',
 			studentRecordId: studentRecord._id,
-			name: args.name
+			name: args.name,
+			createdAt: Date.now()
 		});
 
 		return {

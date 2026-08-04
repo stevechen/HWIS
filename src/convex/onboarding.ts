@@ -59,7 +59,8 @@ export const ensureUserProfile = mutation({
 			authId: authId,
 			name: authUser.name,
 			role,
-			status
+			status,
+			createdAt: Date.now()
 		});
 		return { created: true, role, status };
 	}
@@ -131,7 +132,8 @@ export const createUserProfile = mutation({
 			await ctx.db.insert('users', {
 				authId: args.authId,
 				role: args.role ?? 'teacher',
-				status: args.status ?? 'active'
+				status: args.status ?? 'active',
+				createdAt: Date.now()
 			});
 			return { created: true };
 		}
@@ -172,7 +174,8 @@ export const updateUserName = mutation({
 				authId: args.authId,
 				name: args.name,
 				role: 'teacher',
-				status: 'active'
+				status: 'active',
+				createdAt: Date.now()
 			});
 			return { created: true };
 		}

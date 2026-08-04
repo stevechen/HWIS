@@ -50,7 +50,8 @@ export const createUserByEmail = mutation({
 			authId: authId,
 			name: baUser.name || args.email.split('@')[0],
 			role: args.role ?? 'teacher',
-			status: args.status ?? 'active'
+			status: args.status ?? 'active',
+			createdAt: Date.now()
 		});
 		return { created: true, authId };
 	}

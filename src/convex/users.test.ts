@@ -53,6 +53,80 @@ describe('users.update', () => {
 	});
 });
 
+describe('users.update access-removal / restore timestamps', () => {
+	it('stamps deactivatedAt when an active user is moved to pending', async () => {
+		const t = convexTest(schema, modules);
+
+		const userId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				name: 'Active Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		await t.mutation(api.users.update, {
+			id: userId as Id<'users'>,
+			status: 'pending'
+		});
+
+		const user = await t.run(async (ctx) => {
+			return await ctx.db.get(userId as Id<'users'>);
+		});
+
+		expect(user?.status).toBe('pending');
+		expect(typeof user?.deactivatedAt).toBe('number');
+	});
+
+	it('clears deactivatedAt when a pending user is restored to active', async () => {
+		const t = convexTest(schema, modules);
+
+		const userId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				name: 'Deactivated Teacher',
+				role: 'teacher',
+				status: 'pending',
+				deactivatedAt: 12345
+			});
+		});
+
+		await t.mutation(api.users.update, {
+			id: userId as Id<'users'>,
+			status: 'active'
+		});
+
+		const user = await t.run(async (ctx) => {
+			return await ctx.db.get(userId as Id<'users'>);
+		});
+
+		expect(user?.status).toBe('active');
+		expect(user?.deactivatedAt).toBeUndefined();
+	});
+
+	it('does not stamp deactivatedAt for a role-only update', async () => {
+		const t = convexTest(schema, modules);
+
+		const userId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				name: 'Active Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		await t.mutation(api.users.update, {
+			id: userId as Id<'users'>,
+			role: 'admin'
+		});
+
+		const user = await t.run(async (ctx) => {
+			return await ctx.db.get(userId as Id<'users'>);
+		});
+
+		expect(user?.deactivatedAt).toBeUndefined();
+	});
+});
+
 describe('users.setUserRole', () => {
 	it('sets user role to teacher', async () => {
 		const t = convexTest(schema, modules);

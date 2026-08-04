@@ -1,29 +1,36 @@
 <script lang="ts">
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import { CheckCircle2, XCircle } from '@lucide/svelte';
-	import { Button } from '$lib/components/ui/button';
-	import * as Table from '$lib/components/ui/table';
-	import { Badge } from '$lib/components/ui/badge';
-	import * as Select from '$lib/components/ui/select';
-
 	import type { Id } from '$convex/_generated/dataModel';
+	import BatchApproval from './BatchApproval.svelte';
 
 	const client = useConvexClient();
 
 	const currentUser = useQuery(api.users.viewer, () => ({}));
 	const usersQuery = useQuery(api.users.list, () => ({}));
 
+	// Transient per-session record of users approved during this visit. The DB write is
+	// what persists; this set drives the "Approved this session" state until Convex
+	// reactivity catches up (a refresh reflects only server truth). Object-record rather
+	// than a Set: in-place Set mutations don't invalidate `$derived`s in this env.
+	const approvedIds = $state<Record<string, boolean>>({});
+
 	let updatingId = $state<Id<'users'> | null>(null);
 	let roleStates = $state<Record<string, string>>({});
+
+	async function approve(ids: string[]) {
+		await Promise.all(
+			ids.map((id) =>
+				client.mutation(api.users.update, { id: id as Id<'users'>, status: 'active' })
+			)
+		);
+		for (const id of ids) approvedIds[id] = true;
+	}
 
 	async function updateUserRole(id: Id<'users'>, role: 'super' | 'admin' | 'teacher') {
 		updatingId = id;
 		try {
-			await client.mutation(api.users.update, {
-				id,
-				role
-			});
+			await client.mutation(api.users.update, { id, role });
 			roleStates[id as string] = role;
 		} catch {
 			roleStates[id as string] = usersQuery.data?.find((u) => u._id === id)?.role || 'teacher';
@@ -35,31 +42,11 @@
 	async function updateUserStatus(id: Id<'users'>, status: 'pending' | 'active') {
 		updatingId = id;
 		try {
-			await client.mutation(api.users.update, {
-				id,
-				status
-			});
+			await client.mutation(api.users.update, { id, status });
 		} catch {
 			// Error handled silently
 		} finally {
 			updatingId = null;
-		}
-	}
-
-	const roles = [
-		{ value: 'teacher', label: 'Teacher' },
-		{ value: 'admin', label: 'Admin' },
-		{ value: 'super', label: 'Super User' }
-	];
-
-	function getStatusVariant(
-		status: string | undefined
-	): 'default' | 'secondary' | 'destructive' | 'outline' {
-		switch (status) {
-			case 'active':
-				return 'default';
-			default:
-				return 'secondary';
 		}
 	}
 </script>
@@ -67,90 +54,20 @@
 <div class="py-6" data-testid="admin-users.root">
 	{#if usersQuery.isLoading}
 		<div class="text-muted-foreground flex flex-col items-center justify-center gap-4 p-16">
-			<div class="border-muted border-t-primary h-8 w-8 animate-spin rounded-full border-3"></div>
+			<div class="border-muted border-t-primary size-8 animate-spin rounded-full border-3"></div>
 			<p>Loading user records...</p>
 		</div>
 	{:else if usersQuery.data}
-		<Table.Root aria-label="users" data-testid="admin-users.table">
-			<Table.Header>
-				<Table.Row>
-					<Table.Head>Name</Table.Head>
-					<Table.Head>Role</Table.Head>
-					<Table.Head>Status</Table.Head>
-					<Table.Head class="text-right">Active</Table.Head>
-				</Table.Row>
-			</Table.Header>
-			<Table.Body>
-				{#each usersQuery.data as user (user._id)}
-					<Table.Row data-testid={`admin-users.row-${user._id}`}>
-						<Table.Cell class="max-w-[160px] truncate sm:max-w-none">
-							<span class="font-medium">{user.name || 'Unknown'}</span>
-						</Table.Cell>
-						<Table.Cell>
-							<Select.Root
-								type="single"
-								value={roleStates[user._id] ?? user.role}
-								onValueChange={(val) =>
-									updateUserRole(user._id, val as 'super' | 'admin' | 'teacher')}
-								disabled={updatingId === user._id ||
-									user._id === (currentUser.data?._id as Id<'users'> | undefined) ||
-									user.role === 'super'}
-								testId={`admin-users.role-select-${user._id}`}
-							>
-								<Select.Trigger
-									class="h-8 w-20 text-sm sm:w-auto"
-									placeholder="Select role"
-									aria-label="Select role for {user.name || 'user'}"
-								>
-									{roles.find((r) => r.value === (roleStates[user._id] ?? user.role))?.label ||
-										'Select role'}
-								</Select.Trigger>
-								<Select.Content>
-									{#each roles as role (role.value)}
-										{#if role.value !== 'super' || currentUser.data?.role === 'super'}
-											<Select.Item value={role.value}>{role.label}</Select.Item>
-										{/if}
-									{/each}
-								</Select.Content>
-							</Select.Root>
-						</Table.Cell>
-						<Table.Cell>
-							<Badge variant={getStatusVariant(user.status)} class="capitalize">
-								{user.status || 'pending'}
-							</Badge>
-						</Table.Cell>
-						<Table.Cell>
-							<div class="flex justify-end gap-2" data-testid={`admin-users.actions-${user._id}`}>
-								{#if user.status !== 'active'}
-									<Button
-										variant="ghost"
-										size="icon"
-										onclick={() => updateUserStatus(user._id, 'active')}
-										disabled={updatingId === user._id}
-										title="Approve User"
-										testId={`admin-users.approve-${user._id}`}
-									>
-										<CheckCircle2 class="size-4 text-emerald-600" />
-									</Button>
-								{/if}
-								{#if user.status === 'active'}
-									<Button
-										variant="ghost"
-										size="icon"
-										onclick={() => updateUserStatus(user._id, 'pending')}
-										disabled={updatingId === user._id ||
-											user._id === (currentUser.data?._id as Id<'users'> | undefined)}
-										title="Remove Access"
-										testId={`admin-users.remove-access-${user._id}`}
-									>
-										<XCircle class="size-4 text-red-600" />
-									</Button>
-								{/if}
-							</div>
-						</Table.Cell>
-					</Table.Row>
-				{/each}
-			</Table.Body>
-		</Table.Root>
+		<BatchApproval
+			users={usersQuery.data}
+			{approvedIds}
+			{approve}
+			updateRole={updateUserRole}
+			updateStatus={updateUserStatus}
+			{updatingId}
+			currentUserId={currentUser.data?._id as Id<'users'> | undefined}
+			currentUserIsSuper={currentUser.data?.role === 'super'}
+			{roleStates}
+		/>
 	{/if}
 </div>
