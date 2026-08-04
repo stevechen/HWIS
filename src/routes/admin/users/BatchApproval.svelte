@@ -210,7 +210,7 @@
 								<Card.Description class="truncate text-xs">{user.email}</Card.Description>
 							{/if}
 						</div>
-						<div class="flex shrink-0 flex-col items-end gap-1.5">
+						<div class="flex shrink-0 flex-row items-center gap-1.5">
 							{#if isApproved}
 								<span class="text-xs font-medium text-emerald-600">Approved this session</span>
 							{:else if user.status === 'pending' && isNew}
@@ -222,6 +222,33 @@
 									Access removed {formatDate(user.deactivatedAt ?? Date.now())}
 								</span>
 							{/if}
+							{#if user.status === 'active'}
+								<Select.Root
+									type="single"
+									value={roleStates[user._id] ?? user.role}
+									onValueChange={(val) => updateRole(user._id, val as Role)}
+									disabled={updatingId === user._id ||
+										user._id === currentUserId ||
+										user.role === 'super'}
+								>
+									<Select.Trigger
+										class="h-8 min-w-[4.5rem] text-sm"
+										placeholder="Select role"
+										aria-label="Select role for {cleanName(user.name) || 'user'}"
+										testId={`admin-users.role-select-${user._id}`}
+									>
+										{roles.find((r) => r.value === (roleStates[user._id] ?? user.role))?.label ||
+											'Select role'}
+									</Select.Trigger>
+									<Select.Content>
+										{#each roles as role (role.value)}
+											{#if role.value !== 'super' || currentUserIsSuper}
+												<Select.Item value={role.value}>{role.label}</Select.Item>
+											{/if}
+										{/each}
+									</Select.Content>
+								</Select.Root>
+							{/if}
 							{#if user.status === 'pending' && !isNew && !isApproved}
 								<Badge variant="destructive" class="min-w-[4.5rem] justify-center text-[10px]"
 									>previously deactivated</Badge
@@ -232,55 +259,26 @@
 								>
 							{/if}
 							{#if user.status === 'active'}
-								<div class="flex items-center gap-1.5">
-									<Select.Root
-										type="single"
-										value={roleStates[user._id] ?? user.role}
-										onValueChange={(val) => updateRole(user._id, val as Role)}
-										disabled={updatingId === user._id ||
-											user._id === currentUserId ||
-											user.role === 'super'}
-									>
-										<Select.Trigger
-											class="h-8 min-w-[4.5rem] text-sm"
-											placeholder="Select role"
-											aria-label="Select role for {cleanName(user.name) || 'user'}"
-											testId={`admin-users.role-select-${user._id}`}
-										>
-											{roles.find((r) => r.value === (roleStates[user._id] ?? user.role))?.label ||
-												'Select role'}
-										</Select.Trigger>
-										<Select.Content>
-											{#each roles as role (role.value)}
-												{#if role.value !== 'super' || currentUserIsSuper}
-													<Select.Item value={role.value}>{role.label}</Select.Item>
-												{/if}
-											{/each}
-										</Select.Content>
-									</Select.Root>
-									<Button
-										variant="ghost"
-										size="icon"
-										class="size-8"
-										onclick={() => updateStatus(user._id, 'pending')}
-										disabled={updatingId === user._id || user._id === currentUserId}
-										title="Remove Access"
-										data-testid={`admin-users.remove-access-${user._id}`}
-									>
-										<XCircle class="size-4 text-red-600" />
-									</Button>
-								</div>
+								<Button
+									variant="ghost"
+									size="icon"
+									class="size-8"
+									onclick={() => updateStatus(user._id, 'pending')}
+									disabled={updatingId === user._id || user._id === currentUserId}
+									title="Remove Access"
+									data-testid={`admin-users.remove-access-${user._id}`}
+								>
+									<XCircle class="size-4 text-red-600" />
+								</Button>
 							{:else if !isApproved}
-								<div class="flex shrink-0 items-center gap-1.5">
-									<Button
-										size="sm"
-										variant="secondary"
-										onclick={() => approve([user._id])}
-										data-testid={`admin-users.approve-${user._id}`}
-									>
-										{isNew ? 'Approve' : 'Reactivate'}
-									</Button>
-								</div>
+								<Button
+									size="sm"
+									variant="secondary"
+									onclick={() => approve([user._id])}
+									data-testid={`admin-users.approve-${user._id}`}
+								>
+									{isNew ? 'Approve' : 'Reactivate'}
+								</Button>
 							{:else}
 								<CheckCircle2 class="size-5 shrink-0 text-emerald-600" />
 							{/if}

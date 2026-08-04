@@ -286,19 +286,21 @@ describe('Users Admin Page - batch approval', () => {
 		await expect.element(page.getByTestId('admin-users.card-user_a3')).not.toHaveTextContent('王');
 	});
 
-	it('aligns the active badge and role dropdown vertically with uniform width', async () => {
+	it('aligns the role dropdown, active badge, and remove-access button horizontally', async () => {
 		renderPage();
 		await page.getByRole('tab', { name: /Active/ }).click();
 
 		const card = page.getByTestId('admin-users.card-user_a2');
+		const rightControls = card.locator('.shrink-0.flex-row');
+		await expect.element(rightControls).toHaveClass(/flex-row/);
+
 		const activeBadge = card.locator('[data-slot="badge"]');
 		await expect.element(activeBadge).toBeInTheDocument();
 		await expect.element(activeBadge).toHaveTextContent('active');
+		await expect.element(activeBadge).toHaveClass(/min-w-\[4\.5rem\]/);
 
 		const roleTrigger = page.getByRole('button', { name: /select role for active teacher/i });
 		await expect.element(roleTrigger).toBeInTheDocument();
-
-		await expect.element(activeBadge).toHaveClass(/min-w-\[4\.5rem\]/);
 		await expect.element(roleTrigger).toHaveClass(/min-w-\[4\.5rem\]/);
 	});
 });
