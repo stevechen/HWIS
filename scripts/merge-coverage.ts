@@ -67,6 +67,7 @@ function normalizeKey(key: string): string | null {
 	}
 
 	if (!scopeIncludes(rel) || scopeExcludes(rel)) return null;
+	if (!existsSync(path.join(repoRoot, rel))) return null;
 	return rel;
 }
 
