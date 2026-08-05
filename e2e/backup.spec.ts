@@ -1,6 +1,11 @@
 import { test, expect } from './fixtures';
 import { getTestSuffix } from './helpers';
-import { createStudentWithEvaluations, cleanupByTag, useRole } from './convex-client';
+import {
+	createStudentWithEvaluations,
+	cleanupByTag,
+	cleanupTestBackupsByTimestamp,
+	useRole
+} from './convex-client';
 
 test.describe('Backup Management @backup @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
@@ -8,7 +13,10 @@ test.describe('Backup Management @backup @sequential', () => {
 	const suffix = getTestSuffix('backup');
 	const e2eTag = `e2e-test_${suffix}`;
 
+	let testStartTime: number;
+
 	test.beforeEach(async ({ page }) => {
+		testStartTime = Date.now();
 		useRole('admin');
 		await createStudentWithEvaluations({
 			studentId: `7${suffix.slice(0, 5)}`,
@@ -24,6 +32,7 @@ test.describe('Backup Management @backup @sequential', () => {
 
 	test.afterEach(async () => {
 		await cleanupByTag('students', e2eTag);
+		await cleanupTestBackupsByTimestamp(testStartTime);
 	});
 
 	test('creates a backup and displays it in history', async ({ page }) => {

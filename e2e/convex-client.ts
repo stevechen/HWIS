@@ -83,7 +83,7 @@ export async function cleanupAuditLogs(authIdString?: string) {
 }
 
 export async function cleanupByTag(
-	dataType: 'students' | 'categories' | 'evaluations' | 'houseEvents' | 'all',
+	dataType: 'students' | 'categories' | 'evaluations' | 'houseEvents' | 'backups' | 'all',
 	e2eTag: string,
 	maxRetries = 3
 ) {
@@ -264,6 +264,11 @@ export async function setMyRole(role: string) {
 export async function setRoleByToken(token: string, role: string) {
 	const utils = getUtils();
 	return await utils.setRoleByToken(token, role);
+}
+
+export async function cleanupTestBackupsByTimestamp(since: number) {
+	const utils = getUtils();
+	return await utils.cleanupTestBackupsByTimestamp(since);
 }
 
 export async function createWeeklyReportTestData(tag?: string) {

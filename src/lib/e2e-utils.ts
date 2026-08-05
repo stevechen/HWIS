@@ -112,14 +112,16 @@ export interface E2EUtils {
 	cleanupTestData: (tag: string) => Promise<CleanupResult>;
 	cleanupAllE2eTaggedData: () => Promise<CleanupResult>;
 	cleanupByTag: (
-		dataType: 'students' | 'categories' | 'evaluations' | 'houseEvents' | 'all',
-		e2eTag: string
+		dataType: 'students' | 'categories' | 'evaluations' | 'houseEvents' | 'backups' | 'all',
+		e2eTag: string,
+		maxRetries?: number
 	) => Promise<CleanupResult>;
 	cleanupAllHouseEvents: () => Promise<CleanupResult>;
 	seedBaseline: () => Promise<SeedBaselineResult>;
 	cleanupTestUsers: () => Promise<CleanupResult>;
 	cleanupAuditLogs: (authIdString?: string) => Promise<CleanupResult>;
 	setupTestUsers: () => Promise<SetupTestUsersResult>;
+	cleanupTestBackupsByTimestamp: (since: number) => Promise<CleanupResult>;
 	createStudent: (opts: CreateStudentOptions) => Promise<unknown>;
 	createStudentWithId: (opts: CreateStudentOptions) => Promise<unknown>;
 	createClass: (opts: CreateClassOptions) => Promise<unknown>;
@@ -240,7 +242,7 @@ export function getE2EUtils(): E2EUtils {
 		},
 
 		async cleanupByTag(
-			dataType: 'students' | 'categories' | 'evaluations' | 'houseEvents' | 'all',
+			dataType: 'students' | 'categories' | 'evaluations' | 'houseEvents' | 'backups' | 'all',
 			e2eTag: string
 		): Promise<CleanupResult> {
 			try {
@@ -310,6 +312,19 @@ export function getE2EUtils(): E2EUtils {
 				return result as SetupTestUsersResult;
 			} catch (e) {
 				console.error('Setup test users error:', e);
+				return { error: 'Error' };
+			}
+		},
+
+		async cleanupTestBackupsByTimestamp(since: number): Promise<CleanupResult> {
+			try {
+				const result = await c.mutation(api.testCleanup.cleanupTestBackupsByTimestamp, {
+					since
+				});
+				console.log('Cleanup test backups result:', result);
+				return result;
+			} catch (e) {
+				console.error('Cleanup test backups error:', e);
 				return { error: 'Error' };
 			}
 		},

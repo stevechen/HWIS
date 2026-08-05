@@ -181,6 +181,20 @@ export const cleanupAllTestData = mutation({
 			console.log('audit_logs table error:', e);
 		}
 
+		// Clean up backups with e2eTag
+		try {
+			const backups = await ctx.db
+				.query('backups')
+				.filter((q) => q.neq(q.field('e2eTag'), undefined))
+				.collect();
+			for (const backup of backups) {
+				await ctx.db.delete(backup._id);
+				totalDeleted++;
+			}
+		} catch (e) {
+			console.log('backups table error:', e);
+		}
+
 		const TEST_USERS_REQUIRING_AUTHENTICATION = [
 			'test-user-id',
 			'test_admin',
@@ -305,6 +319,16 @@ export const cleanupAll = mutation({
 			}
 		}
 
+		// Clean up backups with e2eTag
+		const backups = await ctx.db
+			.query('backups')
+			.filter((q) => q.neq(q.field('e2eTag'), undefined))
+			.collect();
+		for (const backup of backups) {
+			await ctx.db.delete(backup._id);
+			totalDeleted++;
+		}
+
 		// Clean up Convex users with test authIds
 		const convexUsers = await ctx.db.query('users').collect();
 		for (const user of convexUsers) {
@@ -346,6 +370,7 @@ export const cleanupByTag = mutation({
 			v.literal('categories'),
 			v.literal('evaluations'),
 			v.literal('houseEvents'),
+			v.literal('backups'),
 			v.literal('all')
 		),
 		e2eTag: v.optional(v.string())
@@ -453,6 +478,17 @@ export const cleanupByTag = mutation({
 			}
 		}
 
+		if (args.dataType === 'backups' || args.dataType === 'all') {
+			const backups = await ctx.db
+				.query('backups')
+				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', args.e2eTag))
+				.collect();
+			for (const backup of backups) {
+				await ctx.db.delete(backup._id);
+				totalDeleted++;
+			}
+		}
+
 		return { deleted: totalDeleted };
 	}
 });
@@ -532,6 +568,16 @@ export const cleanupAllE2eTaggedData = mutation({
 			}
 		}
 
+		// Remove backups with any e2eTag (test-created backups only; real backups have no tag)
+		const taggedBackups = await ctx.db
+			.query('backups')
+			.filter((q) => q.neq(q.field('e2eTag'), undefined))
+			.collect();
+		for (const backup of taggedBackups) {
+			await ctx.db.delete(backup._id);
+			totalDeleted++;
+		}
+
 		// Clean up orphaned classes (classes with no students)
 		const classes = await ctx.db.query('classes').collect();
 		for (const cls of classes) {
@@ -543,6 +589,33 @@ export const cleanupAllE2eTaggedData = mutation({
 				await ctx.db.delete(cls._id);
 				totalDeleted++;
 			}
+		}
+
+		return { deleted: totalDeleted };
+	}
+});
+
+export const cleanupTestBackupsByTimestamp = mutation({
+	args: {
+		since: v.number()
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+
+		let totalDeleted = 0;
+
+		// Delete backups created at or after the given timestamp.
+		// Only affects test-created backups — production backups created
+		// outside the test window are left untouched.
+		const backups = await ctx.db
+			.query('backups')
+			.withIndex('by_createdAt')
+			.filter((q) => q.gte(q.field('createdAt'), args.since))
+			.collect();
+
+		for (const backup of backups) {
+			await ctx.db.delete(backup._id);
+			totalDeleted++;
 		}
 
 		return { deleted: totalDeleted };

@@ -41,8 +41,8 @@ export const exportDataForCron = query({
 });
 
 export const createBackup = mutation({
-	args: {},
-	handler: async (ctx) => {
+	args: { e2eTag: v.optional(v.string()) },
+	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
 		const students = await ctx.db.query('students').collect();
 		const evaluations = await ctx.db.query('evaluations').collect();
@@ -65,7 +65,8 @@ export const createBackup = mutation({
 		const backupId = await ctx.db.insert('backups', {
 			filename: `backup-${Date.now()}.json`,
 			data: backup as object,
-			createdAt: Date.now()
+			createdAt: Date.now(),
+			e2eTag: args.e2eTag
 		});
 
 		return {
@@ -549,8 +550,8 @@ export const clearEvaluations = mutation({
 });
 
 export const advanceGradesAndClearEvaluations = mutation({
-	args: {},
-	handler: async (ctx) => {
+	args: { e2eTag: v.optional(v.string()) },
+	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
 		const students = await ctx.db.query('students').collect();
 		const evaluations = await ctx.db.query('evaluations').collect();
@@ -573,7 +574,8 @@ export const advanceGradesAndClearEvaluations = mutation({
 		await ctx.db.insert('backups', {
 			filename: `backup-${Date.now()}.json`,
 			data: backup as object,
-			createdAt: Date.now()
+			createdAt: Date.now(),
+			e2eTag: args.e2eTag
 		});
 
 		const allEvaluations = await ctx.db.query('evaluations').collect();

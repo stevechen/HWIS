@@ -117,8 +117,11 @@ export default defineSchema({
 	backups: defineTable({
 		filename: v.string(),
 		data: v.any(),
-		createdAt: v.number()
-	}).index('by_createdAt', ['createdAt']),
+		createdAt: v.number(),
+		e2eTag: v.optional(v.string())
+	})
+		.index('by_createdAt', ['createdAt'])
+		.index('by_e2eTag', ['e2eTag']),
 
 	settings: defineTable({
 		key: v.string(),
