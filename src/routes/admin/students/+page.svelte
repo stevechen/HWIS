@@ -380,8 +380,8 @@
 	);
 </script>
 
-<div class="bg-background min-h-screen">
-	<header class="bg-card border-b shadow-sm">
+<div class="bg-background flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden">
+	<header class="bg-card shrink-0 border-b shadow-sm">
 		<div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
 			<div class="flex items-center justify-end">
 				<div class="flex items-center gap-2">
@@ -413,7 +413,7 @@
 		</div>
 	</header>
 
-	<main class="px-4 py-6 sm:px-6 lg:px-8">
+	<main class="flex min-h-0 flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8">
 		<div
 			data-testid="admin-students"
 			class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
@@ -453,105 +453,112 @@
 		</div>
 
 		{#if studentsQuery.isLoading}
-			<div class="text-muted-foreground py-8 text-center">Loading students...</div>
+			<div class="text-muted-foreground flex flex-1 items-center justify-center text-center">
+				Loading students...
+			</div>
 		{:else if studentsQuery.error}
-			<div class="py-8 text-center text-red-500">
+			<div class="flex flex-1 items-center justify-center py-8 text-center text-red-500">
 				Error loading students: {import.meta.env.DEV
 					? studentsQuery.error.message
 					: 'An error occurred'}
 			</div>
 		{:else if filteredStudents.length === 0}
-			<div class="text-muted-foreground py-8 text-center">
+			<div class="text-muted-foreground flex flex-1 items-center justify-center text-center">
 				{searchQuery || selectedGrade || selectedStatus
 					? 'No students match your filters'
 					: 'No students yet. Add one or import from Excel!'}
 			</div>
 		{:else}
-			<Table.Root aria-label="Student table">
-				<Table.Header>
-					<Table.Row>
-						<Table.Head class="hidden text-center sm:table-cell">Student ID</Table.Head>
-						<Table.Head class="whitespace-normal sm:whitespace-nowrap">English Name</Table.Head>
-						<Table.Head class="hidden sm:table-cell">Chinese Name</Table.Head>
-						<Table.Head class="px-1 text-center sm:px-2">Grade</Table.Head>
-						<Table.Head class="px-1 text-center sm:px-2">Status</Table.Head>
-						<Table.Head class="hidden sm:table-cell">Note</Table.Head>
-						<Table.Head class="px-1 text-center sm:px-2">Actions</Table.Head>
-					</Table.Row>
-				</Table.Header>
-				<Table.Body>
-					{#each filteredStudents as student (student._id)}
-						<Table.Row
-							data-testid={`admin-students.student-row-${student._id}`}
-							data-student-id={student.studentId}
-							data-student-name={student.englishName}
-							class={`${student.status === 'Not Enrolled' && 'bg-muted-foreground opacity-60'}`}
-						>
-							<Table.Cell class="hidden text-center sm:table-cell">{student.studentId}</Table.Cell>
-							<Table.Cell class="max-w-20 truncate px-1 sm:max-w-none sm:px-2"
-								>{student.englishName}</Table.Cell
-							>
-							<Table.Cell class="hidden sm:table-cell">{student.chineseName}</Table.Cell>
-							<Table.Cell class="px-1 text-center sm:px-2">
-								{student.classInfo
-									? getDisplayName(student.classInfo.grade, student.classInfo.class)
-									: '-'}
-							</Table.Cell>
-							<Table.Cell
-								class="cursor-pointer px-1 text-center sm:px-2"
-								data-testid={`admin-students.student-row-${student.studentId}.status`}
-								onclick={() =>
-									client.mutation(studentsApi.changeStatus, {
-										id: student._id,
-										status: student.status === 'Enrolled' ? 'Not Enrolled' : 'Enrolled'
-									})}
-							>
-								<Badge
-									variant={student.status === 'Enrolled' ? 'default' : 'outline'}
-									class="hover:ring-primary/50 pointer-events-none hover:ring-2 hover:ring-offset-1"
-								>
-									{student.status}
-								</Badge>
-							</Table.Cell>
-							<Table.Cell
-								class="text-muted-foreground hidden max-w-xs truncate text-sm sm:table-cell"
-							>
-								{student.note || '-'}
-							</Table.Cell>
-							<Table.Cell class="px-1 text-center sm:px-2">
-								<div class="flex justify-center gap-0 sm:gap-1">
-									<Button
-										variant="ghost"
-										size="icon"
-										testId={`admin-students.student-row-${student.studentId}.edit`}
-										onclick={() => {
-											startEdit(student);
-											showForm = true;
-										}}
-										aria-label="Edit {student.studentId}"
-										class="hover:ring-primary/50 size-8 cursor-pointer hover:ring-2 hover:ring-offset-1 sm:size-10"
-									>
-										<Pencil class="size-4" />
-									</Button>
-									<Button
-										variant="ghost"
-										size="icon"
-										testId={`admin-students.student-row-${student.studentId}.delete`}
-										onclick={() => {
-											confirmDelete(student);
-											showDelete = true;
-										}}
-										aria-label="Delete {student.studentId}"
-										class="hover:ring-destructive/50 size-8 cursor-pointer hover:ring-2 hover:ring-offset-1 sm:size-10"
-									>
-										<Trash2 class="size-4 text-red-500" />
-									</Button>
-								</div>
-							</Table.Cell>
+			<div class="students-scroll min-h-0 flex-1 overflow-auto rounded-lg border">
+				<Table.Root aria-label="Student table">
+					<Table.Header class="bg-background/80 sticky top-0 z-10 backdrop-blur">
+						<Table.Row>
+							<Table.Head class="hidden text-center sm:table-cell">Student ID</Table.Head>
+							<Table.Head class="whitespace-normal sm:whitespace-nowrap">English Name</Table.Head>
+							<Table.Head class="hidden sm:table-cell">Chinese Name</Table.Head>
+							<Table.Head class="px-1 text-center sm:px-2">Grade</Table.Head>
+							<Table.Head class="px-1 text-center sm:px-2">Status</Table.Head>
+							<Table.Head class="hidden sm:table-cell">Note</Table.Head>
+							<Table.Head class="px-1 text-center sm:px-2">Actions</Table.Head>
 						</Table.Row>
-					{/each}
-				</Table.Body>
-			</Table.Root>
+					</Table.Header>
+					<Table.Body>
+						{#each filteredStudents as student (student._id)}
+							<Table.Row
+								data-testid={`admin-students.student-row-${student._id}`}
+								data-student-id={student.studentId}
+								data-student-name={student.englishName}
+								class={student.status === 'Not Enrolled'
+									? 'bg-muted-foreground opacity-50'
+									: 'odd:bg-muted/40'}
+							>
+								<Table.Cell class="hidden text-center sm:table-cell">{student.studentId}</Table.Cell
+								>
+								<Table.Cell class="max-w-20 truncate px-1 sm:max-w-none sm:px-2"
+									>{student.englishName}</Table.Cell
+								>
+								<Table.Cell class="hidden sm:table-cell">{student.chineseName}</Table.Cell>
+								<Table.Cell class="px-1 text-center sm:px-2">
+									{student.classInfo
+										? getDisplayName(student.classInfo.grade, student.classInfo.class)
+										: '-'}
+								</Table.Cell>
+								<Table.Cell
+									class="cursor-pointer px-1 text-center sm:px-2"
+									data-testid={`admin-students.student-row-${student.studentId}.status`}
+									onclick={() =>
+										client.mutation(studentsApi.changeStatus, {
+											id: student._id,
+											status: student.status === 'Enrolled' ? 'Not Enrolled' : 'Enrolled'
+										})}
+								>
+									<Badge
+										variant={student.status === 'Enrolled' ? 'default' : 'outline'}
+										class="hover:ring-primary/50 pointer-events-none hover:ring-2 hover:ring-offset-1"
+									>
+										{student.status}
+									</Badge>
+								</Table.Cell>
+								<Table.Cell
+									class="text-muted-foreground hidden max-w-xs truncate text-sm sm:table-cell"
+								>
+									{student.note || '-'}
+								</Table.Cell>
+								<Table.Cell class="px-1 text-center sm:px-2">
+									<div class="flex justify-center gap-0 sm:gap-1">
+										<Button
+											variant="ghost"
+											size="icon"
+											testId={`admin-students.student-row-${student.studentId}.edit`}
+											onclick={() => {
+												startEdit(student);
+												showForm = true;
+											}}
+											aria-label="Edit {student.studentId}"
+											class="hover:ring-primary/50 size-8 cursor-pointer hover:ring-2 hover:ring-offset-1 sm:size-10"
+										>
+											<Pencil class="size-4" />
+										</Button>
+										<Button
+											variant="ghost"
+											size="icon"
+											testId={`admin-students.student-row-${student.studentId}.delete`}
+											onclick={() => {
+												confirmDelete(student);
+												showDelete = true;
+											}}
+											aria-label="Delete {student.studentId}"
+											class="hover:ring-destructive/50 size-8 cursor-pointer hover:ring-2 hover:ring-offset-1 sm:size-10"
+										>
+											<Trash2 class="size-4 text-red-500" />
+										</Button>
+									</div>
+								</Table.Cell>
+							</Table.Row>
+						{/each}
+					</Table.Body>
+				</Table.Root>
+			</div>
 		{/if}
 	</main>
 </div>
@@ -883,6 +890,7 @@
 							</div>
 						</div>
 					{/if}
+
 					{#if importResult}
 						<div
 							class="rounded p-3 text-sm"
@@ -987,3 +995,9 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.students-scroll :global([data-slot='table-container']) {
+		overflow-x: clip;
+	}
+</style>
