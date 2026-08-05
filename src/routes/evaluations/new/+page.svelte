@@ -445,7 +445,7 @@
 					{/if}
 				</Button>
 
-				<p class="text-muted-foreground mt-3 text-center text-xs">
+				<p class="mt-3 text-center text-xs text-red-400">
 					* This evaluation locks for edits on {lockDateStr} (Monday 00:00)
 				</p>
 			</Card.Content>
