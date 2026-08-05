@@ -32,6 +32,15 @@ test.describe('Users Page @users', () => {
 
 		await expect(usersPage.page.getByRole('option', { name: 'Super User' })).not.toBeVisible();
 	});
+
+	test('renders staff emails instead of "No email" fallback', async () => {
+		await usersPage.goToTab('Active');
+		// Seeded staff users (setup-test-users.sh) carry BetterAuth emails; the Admin
+		// Users page should enrich and render them rather than falling back to "No email".
+		// Regression guard for #57 (email BA-join keyed only on id).
+		await expect(usersPage.page.getByText('super@hwis.test')).toBeVisible();
+		await expect(usersPage.page.getByText('No email')).toHaveCount(0);
+	});
 });
 
 test.describe('Users Page - Super User @users', () => {

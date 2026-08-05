@@ -492,4 +492,43 @@ describe('users.list', () => {
 
 		vi.restoreAllMocks();
 	});
+
+	it('resolves email when authId is stored as a bare email (BA id differs from authId)', async () => {
+		const t = convexTest(schema, modules);
+
+		// BA user has its own Convex-generated id; the app's `authId` was written
+		// as the bare email (the #57 regression). Only the email-keyed lookup resolves it.
+		const adapterMock = {
+			findMany: vi.fn().mockResolvedValue([
+				{
+					id: 'ba-generated-id-xyz',
+					email: 'staff@hwis.test',
+					name: 'Staff Member',
+					image: 'https://lh3.googleusercontent.com/staff.jpg'
+				}
+			])
+		};
+
+		vi.spyOn(authComponent, 'adapter').mockImplementation(() => {
+			return (() => Promise.resolve(adapterMock)) as never;
+		});
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'staff@hwis.test',
+				name: 'Staff Member',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const users = await t.query(api.users.list, {});
+		const user = users.find((u: { name?: string }) => u.name === 'Staff Member');
+		expect(user).toBeDefined();
+		expect(user?.authId).toBe('staff@hwis.test');
+		expect(user?.email).toBe('staff@hwis.test');
+		expect(user?.image).toBe('https://lh3.googleusercontent.com/staff.jpg');
+
+		vi.restoreAllMocks();
+	});
 });
