@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/convex/_generated/api.js';
+import type { House } from '../src/lib/constants/houses';
 
 const convex = new ConvexHttpClient(process.env.CONVEX_URL!);
 
@@ -77,7 +78,7 @@ function parseData(input: string) {
 	const headers = lines[0].split('\t');
 	const columns = headers.length;
 
-	const assignments: { englishName: string; house: string }[] = [];
+	const assignments: { englishName: string; house: House }[] = [];
 
 	for (let i = 1; i < lines.length; i++) {
 		const cells = lines[i].split('\t');
@@ -86,7 +87,7 @@ function parseData(input: string) {
 			if (!entry) continue;
 			const parts = entry.split(' ');
 			const englishName = parts.slice(1).join(' ');
-			assignments.push({ englishName, house: headers[j] });
+			assignments.push({ englishName, house: headers[j] as House });
 		}
 	}
 

@@ -24,23 +24,23 @@
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="move-dialog-title"
-		testId="admin-houses.move-dialog.root"
+		data-testid="admin-houses.move-dialog.root"
 	>
 		<div class="fixed inset-0 bg-black/50 md:hidden" onclick={onClose} aria-hidden="true"></div>
 		<div
 			class="animate-slide-up fixed inset-x-0 bottom-0 z-50 border-t bg-white px-4 py-3 shadow-lg md:fixed md:inset-auto md:top-1/2 md:left-1/2 md:w-full md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-lg md:border md:border-none md:bg-white md:p-4 md:shadow-xl"
-			testId="admin-houses.move-dialog.content"
+			data-testid="admin-houses.move-dialog.content"
 		>
 			<div class="mx-auto flex max-w-2xl flex-col gap-3">
 				<h3
 					id="move-dialog-title"
 					class="text-sm font-medium"
-					testId="admin-houses.move-dialog.title"
+					data-testid="admin-houses.move-dialog.title"
 				>
 					{title}
 				</h3>
 				{#if subtitle}
-					<p class="text-muted-foreground text-sm" testId="admin-houses.move-dialog.subtitle">
+					<p class="text-muted-foreground text-sm" data-testid="admin-houses.move-dialog.subtitle">
 						{subtitle}
 					</p>
 				{/if}

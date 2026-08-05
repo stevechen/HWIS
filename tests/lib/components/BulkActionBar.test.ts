@@ -6,8 +6,7 @@ import BulkActionBar from '$lib/components/BulkActionBar.svelte';
 async function clickButton(name: string | RegExp) {
 	const button = page.getByRole('button', { name });
 	await expect.element(button).toBeVisible();
-	const element = await button.element();
-	await element.click();
+	await button.click();
 }
 
 describe('BulkActionBar', () => {

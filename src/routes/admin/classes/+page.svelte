@@ -501,7 +501,7 @@
 										]}
 										role="region"
 										aria-label="Class {getDisplayName(cls.grade, cls.class)}"
-										testId={`admin-classes.grade-${cls.grade}.class-${cls.class}`}
+										data-testid={`admin-classes.grade-${cls.grade}.class-${cls.class}`}
 										use:dropZone={{
 											id: cls._id,
 											accept: (data: DragData) => {
@@ -638,7 +638,7 @@
 															{@const enrolled = student.status !== 'Not Enrolled'}
 															{@const isSelected = multiSelect.selectedIds.has(student._id)}
 															<div
-																testId={`admin-classes.grade-${cls.grade}.class-${cls.class}.student-${student.studentId}`}
+																data-testid={`admin-classes.grade-${cls.grade}.class-${cls.class}.student-${student.studentId}`}
 																class={[
 																	!enrolled &&
 																		'text-muted-foreground bg-black/10 max-md:bg-gray-100',
@@ -669,7 +669,7 @@
 																			crossGradeDialogRef?.showModal();
 																		}
 																	}}
-																	testId={`admin-classes.grade-${cls.grade}.class-${cls.class}.student-${student.studentId}.drag-handle`}
+																	data-testid={`admin-classes.grade-${cls.grade}.class-${cls.class}.student-${student.studentId}.drag-handle`}
 																	class={[
 																		'flex flex-1 items-center gap-1 truncate',
 																		selectedSelectGrade !== null ? 'cursor-pointer' : 'cursor-grab'
@@ -708,11 +708,11 @@
 																			class="size-3 shrink-0 max-md:size-4"
 																			onclick={(e) => e.stopPropagation()}
 																			onchange={() => multiSelect.toggleSelect(student._id)}
-																			testId={`admin-classes.grade-${cls.grade}.class-${cls.class}.student-${student.studentId}.checkbox`}
+																			data-testid={`admin-classes.grade-${cls.grade}.class-${cls.class}.student-${student.studentId}.checkbox`}
 																		/>
 																	{/if}
 																	<GripVertical
-																		testId={`admin-classes.grade-${cls.grade}.class-${cls.class}.student-${student.studentId}.grip`}
+																		data-testid={`admin-classes.grade-${cls.grade}.class-${cls.class}.student-${student.studentId}.grip`}
 																		class={[
 																			'size-2.5 shrink-0 opacity-40 max-md:hidden',
 																			selectedSelectGrade === cls.grade && 'hidden'
@@ -759,14 +759,14 @@
 			closeAddDialog();
 		}
 	}}
-	testId="admin-classes.add-dialog"
+	data-testid="admin-classes.add-dialog"
 >
 	<h3 class="mb-4 text-lg font-semibold">Add Class - Grade {addGrade}</h3>
 
 	{#if addError}
 		<div
 			class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600"
-			testId="admin-classes.add-dialog.error"
+			data-testid="admin-classes.add-dialog.error"
 		>
 			{addError}
 		</div>
@@ -806,7 +806,7 @@
 			warningDialogRef?.close();
 		}
 	}}
-	testId="admin-classes.warning-dialog"
+	data-testid="admin-classes.warning-dialog"
 >
 	{#if warningClass && warningClass.studentCount > 0}
 		<!-- Warning: students assigned -->
@@ -855,7 +855,7 @@
 			crossGradeDialogRef?.close();
 		}
 	}}
-	testId="admin-classes.cross-grade-dialog"
+	data-testid="admin-classes.cross-grade-dialog"
 >
 	<h3 class="mb-2 text-lg font-semibold text-red-600">Cannot Move Student</h3>
 	<p class="text-muted-foreground mb-4 text-sm">

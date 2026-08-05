@@ -29,7 +29,7 @@ vi.mock('convex-svelte', () => ({
 		data: [],
 		isLoading: false,
 		isStale: false,
-		error: null
+		error: undefined
 	})),
 	useConvexClient: vi.fn(() => ({
 		mutation: vi.fn().mockResolvedValue(undefined),
@@ -48,14 +48,14 @@ describe('Evaluation Form', () => {
 			data: mockCategories,
 			isLoading: false,
 			isStale: false,
-			error: null
+			error: undefined
 		});
 		// Second query: students
 		vi.mocked(useQuery).mockReturnValueOnce({
 			data: mockStudents,
 			isLoading: false,
 			isStale: false,
-			error: null
+			error: undefined
 		});
 	});
 

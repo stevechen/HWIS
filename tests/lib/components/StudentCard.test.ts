@@ -3,19 +3,21 @@ import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import StudentCard from '$lib/components/StudentCard.svelte';
 import type { MultiSelectState } from '$lib/utils/multiSelect.svelte';
+import type { Id } from '$convex/_generated/dataModel';
 
 const mockStudent = {
-	_id: 'test-student-id',
+	_id: 'test-student-id' as Id<'students'>,
 	englishName: 'Test Student',
 	chineseName: '測試學生',
 	studentId: 'STU001',
-	status: 'Enrolled',
-	classDisplay: '10-1'
+	status: 'Enrolled' as const,
+	classDisplay: '10-1',
+	house: 'Heracles' as const
 };
 
 const mockNotEnrolledStudent = {
 	...mockStudent,
-	status: 'Not Enrolled'
+	status: 'Not Enrolled' as const
 };
 
 const mockMultiSelect = {

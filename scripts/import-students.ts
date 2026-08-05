@@ -83,8 +83,7 @@ for (let i = 0; i < students.length; i += BATCH_SIZE) {
 		`Importing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(students.length / BATCH_SIZE)}...`
 	);
 	const results = await convex.mutation(api.students.importFromExcel, {
-		students: batch,
-		testToken: 'unit-test-token'
+		students: batch
 	});
 	for (const r of results) {
 		if (r.success) {

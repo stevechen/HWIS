@@ -1,12 +1,7 @@
 import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import {
-	setupConvexMocks,
-	setupAuthMocks,
-	resetMockOptions,
-	createMockQueryResult
-} from '../../../mocks/convex-mocks';
+import { setupConvexMocks, setupAuthMocks, resetMockOptions } from '../../../mocks/convex-mocks';
 
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
@@ -53,9 +48,8 @@ describe('Houses Page', () => {
 
 	describe('Accordion', () => {
 		it('collapses and expands student list when house header is clicked', async () => {
-			const { useQuery } = await import('convex-svelte');
-			vi.mocked(useQuery).mockReturnValue(
-				createMockQueryResult({
+			setupConvexMocks({
+				data: {
 					houses: {
 						Heracles: [
 							{
@@ -73,8 +67,8 @@ describe('Houses Page', () => {
 						Setna: []
 					},
 					orphaned: []
-				})
-			);
+				}
+			});
 
 			render(HousesPage);
 
@@ -90,9 +84,8 @@ describe('Houses Page', () => {
 		});
 
 		it('collapses and expands orphaned section when unassigned header is clicked', async () => {
-			const { useQuery } = await import('convex-svelte');
-			vi.mocked(useQuery).mockReturnValue(
-				createMockQueryResult({
+			setupConvexMocks({
+				data: {
 					houses: { Heracles: [], Wukong: [], Ixbalam: [], Setna: [] },
 					orphaned: [
 						{
@@ -104,8 +97,8 @@ describe('Houses Page', () => {
 							classDisplay: '7-1'
 						}
 					]
-				})
-			);
+				}
+			});
 
 			render(HousesPage);
 
@@ -123,9 +116,8 @@ describe('Houses Page', () => {
 
 	describe('Move Dialog', () => {
 		it('opens dialog when student is clicked and closes on Cancel', async () => {
-			const { useQuery } = await import('convex-svelte');
-			vi.mocked(useQuery).mockReturnValue(
-				createMockQueryResult({
+			setupConvexMocks({
+				data: {
 					houses: {
 						Heracles: [
 							{
@@ -143,8 +135,8 @@ describe('Houses Page', () => {
 						Setna: []
 					},
 					orphaned: []
-				})
-			);
+				}
+			});
 
 			render(HousesPage);
 
@@ -158,9 +150,8 @@ describe('Houses Page', () => {
 		});
 
 		it('opens dialog for unassigned students', async () => {
-			const { useQuery } = await import('convex-svelte');
-			vi.mocked(useQuery).mockReturnValue(
-				createMockQueryResult({
+			setupConvexMocks({
+				data: {
 					houses: { Heracles: [], Wukong: [], Ixbalam: [], Setna: [] },
 					orphaned: [
 						{
@@ -172,8 +163,8 @@ describe('Houses Page', () => {
 							classDisplay: '7-1'
 						}
 					]
-				})
-			);
+				}
+			});
 
 			render(HousesPage);
 
@@ -202,9 +193,8 @@ describe('Houses Page', () => {
 		});
 
 		it('selects and deselects a student in selection mode', async () => {
-			const { useQuery } = await import('convex-svelte');
-			vi.mocked(useQuery).mockReturnValue(
-				createMockQueryResult({
+			setupConvexMocks({
+				data: {
 					houses: {
 						Heracles: [
 							{
@@ -222,8 +212,8 @@ describe('Houses Page', () => {
 						Setna: []
 					},
 					orphaned: []
-				})
-			);
+				}
+			});
 
 			render(HousesPage);
 
@@ -242,9 +232,8 @@ describe('Houses Page', () => {
 		});
 
 		it('does not show move dialog when clicking student in multi-select mode', async () => {
-			const { useQuery } = await import('convex-svelte');
-			vi.mocked(useQuery).mockReturnValue(
-				createMockQueryResult({
+			setupConvexMocks({
+				data: {
 					houses: {
 						Heracles: [
 							{
@@ -271,8 +260,8 @@ describe('Houses Page', () => {
 						Setna: []
 					},
 					orphaned: []
-				})
-			);
+				}
+			});
 
 			render(HousesPage);
 
@@ -298,9 +287,8 @@ describe('Houses Page', () => {
 		});
 
 		it('renders house action buttons in BulkActionBar when students are selected', async () => {
-			const { useQuery } = await import('convex-svelte');
-			vi.mocked(useQuery).mockReturnValue(
-				createMockQueryResult({
+			setupConvexMocks({
+				data: {
 					houses: {
 						Heracles: [
 							{
@@ -318,8 +306,8 @@ describe('Houses Page', () => {
 						Setna: []
 					},
 					orphaned: []
-				})
-			);
+				}
+			});
 
 			render(HousesPage);
 
@@ -351,9 +339,8 @@ describe('Houses Page', () => {
 		});
 
 		it('shows all house buttons when students from multiple houses are selected', async () => {
-			const { useQuery } = await import('convex-svelte');
-			vi.mocked(useQuery).mockReturnValue(
-				createMockQueryResult({
+			setupConvexMocks({
+				data: {
 					houses: {
 						Heracles: [
 							{
@@ -381,8 +368,8 @@ describe('Houses Page', () => {
 						Setna: []
 					},
 					orphaned: []
-				})
-			);
+				}
+			});
 
 			render(HousesPage);
 
@@ -410,9 +397,8 @@ describe('Houses Page', () => {
 		});
 
 		it('does not show Unassigned button when all selected students are orphaned', async () => {
-			const { useQuery } = await import('convex-svelte');
-			vi.mocked(useQuery).mockReturnValue(
-				createMockQueryResult({
+			setupConvexMocks({
+				data: {
 					houses: { Heracles: [], Wukong: [], Ixbalam: [], Setna: [] },
 					orphaned: [
 						{
@@ -424,8 +410,8 @@ describe('Houses Page', () => {
 							classDisplay: '7-1'
 						}
 					]
-				})
-			);
+				}
+			});
 
 			render(HousesPage);
 
@@ -456,8 +442,7 @@ describe('Houses Page', () => {
 
 	describe('Loading State', () => {
 		it('renders loading message when data is loading', async () => {
-			const { useQuery } = await import('convex-svelte');
-			vi.mocked(useQuery).mockReturnValue(createMockQueryResult(null, { isLoading: true }));
+			setupConvexMocks({ data: null, isLoading: true });
 
 			render(HousesPage);
 
@@ -467,10 +452,7 @@ describe('Houses Page', () => {
 
 	describe('Error State', () => {
 		it('renders error message when query fails', async () => {
-			const { useQuery } = await import('convex-svelte');
-			vi.mocked(useQuery).mockReturnValue(
-				createMockQueryResult(null, { error: new Error('Failed to load') })
-			);
+			setupConvexMocks({ data: null, error: new Error('Failed to load') });
 
 			render(HousesPage);
 
