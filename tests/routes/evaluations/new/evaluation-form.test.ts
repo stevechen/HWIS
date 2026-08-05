@@ -11,6 +11,14 @@ const mockStudents = [
 		chineseName: '張三',
 		classInfo: null,
 		status: 'Enrolled' as const
+	},
+	{
+		_id: 'student-002' as Id<'students'>,
+		studentId: 'SE2024002',
+		englishName: 'Jane Smith',
+		chineseName: '李四',
+		classInfo: null,
+		status: 'Enrolled' as const
 	}
 ];
 
@@ -75,7 +83,7 @@ describe('Evaluation Form', () => {
 
 	it('shows student count indicator', async () => {
 		render(EvaluationFormPage);
-		await expect.element(page.getByText('0 student(s) selected')).toBeInTheDocument();
+		await expect.element(page.getByText('Select 0/2 students')).toBeInTheDocument();
 	});
 
 	describe('Submit Behavior', () => {

@@ -62,7 +62,7 @@ test.describe('Evaluations - Select Student', () => {
 
 		await studentRow.click();
 
-		await expect(evalsPage.page.getByText(/student.*selected/i)).toBeVisible();
+		await expect(studentRow.getByRole('checkbox')).toBeChecked();
 	});
 });
 
@@ -175,7 +175,7 @@ test.describe('Evaluations - Submit Success', () => {
 	test('successfully submits evaluation', async () => {
 		const studentRow = evalsPage.page.getByRole('button', { name: studentName });
 		await studentRow.click();
-		await expect(evalsPage.page.getByText(/student.*selected/i)).toBeVisible();
+		await expect(studentRow.getByRole('checkbox')).toBeChecked();
 
 		await evalsPage.page.getByRole('button', { name: 'Select category' }).click();
 

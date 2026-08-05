@@ -197,13 +197,13 @@
 	});
 </script>
 
-<div class="mx-auto max-w-5xl p-8">
-	<div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
+<div class="mx-auto max-w-5xl p-8 lg:h-[calc(100vh-7.5rem)]">
+	<div class="grid grid-cols-1 gap-8 lg:h-full lg:grid-cols-2 lg:grid-rows-1">
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>1. Select Students</Card.Title>
 			</Card.Header>
-			<Card.Content>
+			<Card.Content class="flex min-h-0 flex-1 flex-col">
 				<div class="relative mb-4">
 					<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 					<Input
@@ -217,7 +217,7 @@
 				</div>
 
 				<div
-					class="bg-muted max-h-72 overflow-y-auto rounded-md border"
+					class="bg-muted max-h-72 min-h-0 flex-1 overflow-y-auto rounded-md border lg:max-h-none"
 					role="list"
 					aria-label="Students"
 				>
@@ -229,7 +229,7 @@
 						{#if filteredStudents.length > 1}
 							<div
 								data-testid="evaluations-new.select-all"
-								class="bg-background hover:bg-accent cursor-pointer border-b transition-colors"
+								class="bg-background/90 hover:bg-accent/90 sticky top-0 z-10 cursor-pointer border-b backdrop-blur-sm transition-colors"
 								onclick={toggleAllFiltered}
 								onkeydown={(e) => e.key === 'Enter' && toggleAllFiltered()}
 								role="button"
@@ -250,14 +250,17 @@
 											toggleAllFiltered();
 										}}
 									/>
-									<span class="text-sm font-medium">Select all ({filteredStudents.length})</span>
+									<span class="text-sm font-medium"
+										>Select {selectedStudentIds.size}/{filteredStudents.length}
+										{selectedStudentIds.size === 1 ? 'student' : 'students'}
+									</span>
 								</div>
 							</div>
 						{/if}
 						{#each filteredStudents as student (student._id)}
 							<div
 								data-testid="evaluations-new.student-row-{student.englishName}"
-								class="bg-background hover:bg-accent cursor-pointer border-b transition-colors last:border-b-0"
+								class="bg-background hover:bg-accent even:bg-muted/50 cursor-pointer border-b transition-colors last:border-b-0"
 								class:bg-accent={selectedStudentIds.has(student._id)}
 								onclick={() => toggleStudent(student._id)}
 								onkeydown={(e) => e.key === 'Enter' && toggleStudent(student._id)}
@@ -293,13 +296,6 @@
 						{/each}
 					{/if}
 				</div>
-
-				<p
-					class="text-primary mt-4 text-sm font-medium"
-					data-testid="evaluations-new.selected-count"
-				>
-					{selectedStudentIds.size} student(s) selected
-				</p>
 			</Card.Content>
 		</Card.Root>
 
@@ -307,7 +303,7 @@
 			<Card.Header>
 				<Card.Title>2. Evaluation Details</Card.Title>
 			</Card.Header>
-			<Card.Content>
+			<Card.Content class="flex min-h-0 flex-1 flex-col overflow-y-auto">
 				<div class="mb-5">
 					<label class="mb-2 block text-sm font-medium">
 						Category
@@ -327,15 +323,13 @@
 						</Select.Root>
 					</label>
 
-					<!-- Show criteria when category selected -->
-					{#if selectedCategory?.meritCriteria || selectedCategory?.demeritCriteria}
-						<CategoryInfoCard
-							category={selectedCategory}
-							oncriterionclick={(criterion) => {
-								details = details + (details ? '\n' : '') + criterion;
-							}}
-						/>
-					{/if}
+					<CategoryInfoCard
+						category={selectedCategory}
+						placeholder={!selectedCategory}
+						oncriterionclick={(criterion) => {
+							details = details + (details ? '\n' : '') + criterion;
+						}}
+					/>
 				</div>
 
 				<fieldset class="mb-5">
@@ -404,15 +398,15 @@
 					</div>
 				</fieldset>
 
-				<div class="mb-5">
-					<label class="mb-2 block text-sm font-medium">
+				<div class="mb-5 flex flex-1 flex-col">
+					<label class="mb-2 flex flex-1 flex-col text-sm font-medium">
 						Details / Comments
 						<textarea
 							id="evaluation-details"
 							data-testid="evaluations-new.details"
 							bind:value={details}
 							placeholder="Enter specific details about the behavior..."
-							class="bg-background border-input focus-visible:ring-ring ring-offset-background placeholder:text-muted-foreground mt-1 flex min-h-20 w-full resize-none rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+							class="bg-background border-input focus-visible:ring-ring ring-offset-background placeholder:text-muted-foreground mt-1 min-h-20 w-full flex-1 resize-none rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
 							rows="4"
 						></textarea>
 					</label>

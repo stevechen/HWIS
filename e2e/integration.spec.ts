@@ -108,7 +108,8 @@ test.describe('Evaluation Persistence @integration', () => {
 		await expect(studentRow).toBeVisible();
 
 		await studentRow.click();
-		await expect(page.getByTestId('evaluations-new.selected-count')).toBeVisible();
+		const checkbox = studentRow.locator('input[type="checkbox"]');
+		await expect(checkbox).toBeChecked();
 	});
 });
 

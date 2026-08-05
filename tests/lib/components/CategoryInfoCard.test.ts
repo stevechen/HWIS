@@ -159,4 +159,38 @@ describe('CategoryInfoCard', () => {
 			await expect.element(page.getByText('Demerit (-)')).not.toBeInTheDocument();
 		});
 	});
+
+	describe('Placeholder Mode', () => {
+		it('renders section headings when no category is provided', async () => {
+			render(CategoryInfoCard, { placeholder: true });
+			await expect.element(page.getByText('Merit (+)')).toBeInTheDocument();
+			await expect.element(page.getByText('Demerit (-)')).toBeInTheDocument();
+		});
+
+		it('renders section headings when category has no criteria', async () => {
+			render(CategoryInfoCard, {
+				category: { ...defaultCategory, meritCriteria: [], demeritCriteria: [] },
+				placeholder: true
+			});
+			await expect.element(page.getByText('Merit (+)')).toBeInTheDocument();
+			await expect.element(page.getByText('Demerit (-)')).toBeInTheDocument();
+		});
+
+		it('renders real criteria for a column that has data', async () => {
+			render(CategoryInfoCard, {
+				category: { ...defaultCategory, demeritCriteria: [] },
+				placeholder: true
+			});
+			await expect.element(page.getByText('Completed all assignments on time')).toBeInTheDocument();
+			await expect.element(page.getByText('Demerit (-)')).toBeInTheDocument();
+		});
+
+		it('does not render placeholder blocks when placeholder is false', async () => {
+			render(CategoryInfoCard, {
+				category: { ...defaultCategory, meritCriteria: [], demeritCriteria: [] }
+			});
+			await expect.element(page.getByText('Merit (+)')).not.toBeInTheDocument();
+			await expect.element(page.getByText('Demerit (-)')).not.toBeInTheDocument();
+		});
+	});
 });
