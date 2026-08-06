@@ -1,17 +1,17 @@
 import { test, expect } from '../fixtures';
 import { getTestSuffix } from '../helpers';
 import { cleanupByTag, createStudent, createCategory, getE2EUtilsClient } from '../convex-client';
-import { HousesDisplayPage } from '../pages';
+import { HouseEventsDisplayPage } from '../pages';
 
 test.describe('House Display Page - E2E', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;
 	let e2eTag: string;
-	let displayPage: HousesDisplayPage;
+	let displayPage: HouseEventsDisplayPage;
 
 	test.beforeEach(async ({ page }) => {
-		displayPage = new HousesDisplayPage(page);
+		displayPage = new HouseEventsDisplayPage(page);
 		suffix = getTestSuffix('display');
 		e2eTag = `e2e-display-${suffix}`;
 

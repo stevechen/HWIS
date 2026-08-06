@@ -19,6 +19,12 @@
 		testId,
 		...restProps
 	}: Props = $props();
+
+	// Empty `type="date"` inputs show a native "mm/dd/yyyy" placeholder that
+	// renders in the input's text color (Chrome ignores ::placeholder for date
+	// fields). Tone it down to the muted color so empty fields read as
+	// placeholders, not populated values.
+	const isEmptyDate = $derived(type === 'date' && (value === '' || value == null));
 </script>
 
 {#if type === 'file'}
@@ -46,6 +52,7 @@
 			'border-input bg-background selection:bg-primary dark:bg-input/30 selection:text-primary-foreground ring-offset-background placeholder:text-muted-foreground flex h-9 w-full min-w-0 rounded-md border px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
 			'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
 			'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive',
+			isEmptyDate && 'text-muted-foreground',
 			className
 		)}
 		{type}

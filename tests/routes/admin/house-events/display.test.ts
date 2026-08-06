@@ -64,29 +64,29 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 
 // Mock RadarChart since D3 doesn't work in jsdom - use a simple SVG with role="img"
 vi.mock('$lib/components/RadarChart.svelte', async () => {
-	const Mock = await import('../../mocks/MockRadarChart.svelte');
+	const Mock = await import('../../../mocks/MockRadarChart.svelte');
 	return { default: Mock.default };
 });
 
 // Mock logos to render the house name as text for testing
 vi.mock('$lib/components/LogoHeracles.svelte', async () => {
-	const Mock = await import('../../mocks/MockLogoHeracles.svelte');
+	const Mock = await import('../../../mocks/MockLogoHeracles.svelte');
 	return { default: Mock.default };
 });
 vi.mock('$lib/components/LogoWukong.svelte', async () => {
-	const Mock = await import('../../mocks/MockLogoWukong.svelte');
+	const Mock = await import('../../../mocks/MockLogoWukong.svelte');
 	return { default: Mock.default };
 });
 vi.mock('$lib/components/LogoIxbalam.svelte', async () => {
-	const Mock = await import('../../mocks/MockLogoIxbalam.svelte');
+	const Mock = await import('../../../mocks/MockLogoIxbalam.svelte');
 	return { default: Mock.default };
 });
 vi.mock('$lib/components/LogoSetna.svelte', async () => {
-	const Mock = await import('../../mocks/MockLogoSetna.svelte');
+	const Mock = await import('../../../mocks/MockLogoSetna.svelte');
 	return { default: Mock.default };
 });
 
-import DisplayPage from '$src/routes/houses/display/+page.svelte';
+import DisplayPage from '$src/routes/admin/house-events/display/+page.svelte';
 
 describe('House Display Page', () => {
 	describe('Structure', () => {

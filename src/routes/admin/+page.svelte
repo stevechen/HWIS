@@ -80,16 +80,16 @@
 			</Card.Root>
 		</a>
 
-		<!-- Houses Competition (Public View) -->
-		<a href="/houses" class="block">
+		<!-- House Events -->
+		<a href="/admin/house-events" class="block">
 			<Card.Root class="hover:border-primary/50 cursor-pointer transition-all hover:shadow-md">
 				<Card.Header>
 					<div class="text-primary mb-2 flex items-center gap-3">
 						<Trophy class="h-5 w-5" />
-						<Card.Title class="text-lg">Houses Competition</Card.Title>
+						<Card.Title class="text-lg">House Events</Card.Title>
 					</div>
 					<Card.Description
-						>View house rankings, top contributors, and competition stats.</Card.Description
+						>Manage house competition events and award event points.</Card.Description
 					>
 				</Card.Header>
 			</Card.Root>

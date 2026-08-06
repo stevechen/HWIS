@@ -33,7 +33,7 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 	}))
 }));
 
-import EventsPage from '$src/routes/houses/+page.svelte';
+import EventsPage from '$src/routes/admin/house-events/+page.svelte';
 
 describe('House Events Page', () => {
 	afterEach(() => {
@@ -99,6 +99,18 @@ describe('House Events Page', () => {
 			await deleteBtn.click();
 			await expect.element(page.getByRole('dialog')).toBeInTheDocument();
 			await expect.element(page.getByRole('heading', { name: 'Delete Event' })).toBeInTheDocument();
+		});
+
+		it('renders empty date fields as muted placeholders, dark once a date is entered', async () => {
+			render(EventsPage);
+			await page.getByRole('button', { name: 'New Event' }).click();
+
+			const startDate = page.getByTestId('house-events.event-dialog.start-date');
+			await expect.element(startDate).toBeInTheDocument();
+			await expect.element(startDate).toHaveClass(/(^|\s)text-muted-foreground(\s|$)/);
+
+			await startDate.fill('2024-01-01');
+			await expect.element(startDate).not.toHaveClass(/(^|\s)text-muted-foreground(\s|$)/);
 		});
 	});
 
