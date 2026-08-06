@@ -25,20 +25,21 @@
 > `src/routes/+page.server.ts`), so no manual navigation is needed.
 
 ### Role → sign-in map
-| Email domain | Role |
-|---|---|
-| `@hwhs.tc.edu.tw` | Teacher (or admin, if allowlisted) |
-| `@std.hwhs.tc.edu.tw` | Student |
+
+| Email domain          | Role                               |
+| --------------------- | ---------------------------------- |
+| `@hwhs.tc.edu.tw`     | Teacher (or admin, if allowlisted) |
+| `@std.hwhs.tc.edu.tw` | Student                            |
 
 ---
 
 ## 1. The three sessions at a glance
 
-| # | Session | When | Who | ~Time |
-|---|---|---|---|---|
-| 1 | **Teacher Day** | Mon Aug 10 | Teachers (+ admin for account setup) | 60 min |
-| 2 | **Student Day** | Tue Aug 11 | Students + facilitators + admin | 30 min |
-| 3 | **Admin block** | Wed Aug 12 (or convenient) | Admins | 45–60 min |
+| #   | Session         | When                       | Who                                  | ~Time     |
+| --- | --------------- | -------------------------- | ------------------------------------ | --------- |
+| 1   | **Teacher Day** | Mon Aug 10                 | Teachers (+ admin for account setup) | 60 min    |
+| 2   | **Student Day** | Tue Aug 11                 | Students + facilitators + admin      | 30 min    |
+| 3   | **Admin block** | Wed Aug 12 (or convenient) | Admins                               | 45–60 min |
 
 Rough-edges recap at the top of Sessions 2 & 3 (5 min). Session 1's brief is the orientation.
 
@@ -47,6 +48,7 @@ Rough-edges recap at the top of Sessions 2 & 3 (5 min). Session 1's brief is the
 ## 2. Session 1 — Teacher Day (Mon Aug 10, ~60 min)
 
 ### Orientation (10–15 min)
+
 1. Open https://hwis.vercel.app → **Sign in with Google**.
 2. Email domain = role: `@hwhs.tc.edu.tw` → Teacher; students use `@std.hwhs.tc.edu.tw`.
 3. Where things live: this session doc + the **feedback form** (link). Log everything.
@@ -57,13 +59,14 @@ Rough-edges recap at the top of Sessions 2 & 3 (5 min). Session 1's brief is the
 5. **One live demo eval** so the pattern is clear before everyone plays.
 
 ### Tasks (all manual)
+
 - [ ] Log in / log out
 - [ ] Give an evaluation with a **preset category + criteria**
 - [ ] Give an evaluation with a **preset category + custom criteria**
 - [ ] Choose points with **keyboard shortcuts**
 - [ ] Give an evaluation to **multiple students by name**
-- [ ] **Edit / delete** a given evaluation *(still in-week → editable)*
-- [ ] Understand the **weekly lock** *(explained verbally: evals lock Mon 00:00 of the week after)*
+- [ ] **Edit / delete** a given evaluation _(still in-week → editable)_
+- [ ] Understand the **weekly lock** _(explained verbally: evals lock Mon 00:00 of the week after)_
 - [ ] View a student's evaluation history (timeline view)
 - [ ] **Filter by student** in the evaluations timeline
 - [ ] **Sort** existing evaluations
@@ -76,12 +79,14 @@ After play: teachers have awarded real points → **student data now exists.**
 ## 3. Session 2 — Student Day (Tue Aug 11, ~30 min)
 
 ### Brief (5 min)
+
 - Today's tasks (below) + known rough edges:
   1. `/houses/display` may error for non-admins despite being a "public" screen — known.
   2. Weekly lock: edits only within the Mon–Sun week.
   3. Category delete blocked when referenced by evals — expected.
 
 ### Tasks (facilitator-led; kids do NOT touch the form)
+
 - [ ] Student **logs in / out** with `@std.hwhs.tc.edu.tw`
 - [ ] Student **views their own evaluations** (scores exist from Session 1)
 
@@ -92,11 +97,13 @@ Facilitators log every student issue on the feedback form with **role = Student*
 ## 4. Session 3 — Admin block (Wed Aug 12, ~45–60 min)
 
 ### Brief (5 min)
+
 - Today's tasks (below) + the same known rough-edges list.
 - **Deferred items are listed for awareness — do NOT test them:** restore backup ·
   advance year · clear-all data · large bulk moves. These get post-pilot admin training.
 
 ### Tasks — keep manual
+
 - [ ] Approve / revoke an account
 - [ ] Add / edit a student
 - [ ] Import students (CSV)
@@ -105,7 +112,7 @@ Facilitators log every student issue on the feedback form with **role = Student*
 - [ ] Move a student / multiple students to a different house
 - [ ] Disable a student
 - [ ] Add a category + criteria; remove a category (in use + not in use)
-- [ ] Download a weekly report *(available now — reports don't wait for the lock)*
+- [ ] Download a weekly report _(available now — reports don't wait for the lock)_
 - [ ] View all teachers' evaluations
 - [ ] Show/hide teachers' names in the evaluations timeline
 - [ ] Show/hide Unenrolled students
@@ -114,6 +121,7 @@ Facilitators log every student issue on the feedback form with **role = Student*
 - [ ] House display check (`/houses/display` renders)
 
 ### Tasks — feature tours (~30s each, auto-covered by e2e)
+
 - [ ] Class CRUD + drag-and-drop
 - [ ] Student CRUD + bulk moves
 - [ ] Backup create / download
