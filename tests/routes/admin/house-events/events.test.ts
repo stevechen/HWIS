@@ -33,7 +33,7 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 	}))
 }));
 
-import EventsPage from '$src/routes/houses/+page.svelte';
+import EventsPage from '$src/routes/admin/house-events/+page.svelte';
 
 describe('House Events Page', () => {
 	afterEach(() => {

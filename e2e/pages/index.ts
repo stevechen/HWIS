@@ -8,6 +8,6 @@ export * from './AdminHousesPage';
 export * from './AdminUsersPage';
 export * from './AdminAuditPage';
 export * from './AdminWeeklyReportsPage';
-export * from './HousesEventsPage';
+export * from './HouseEventsPage';
 export * from './StudentTimelinePage';
-export * from './HousesDisplayPage';
+export * from './HouseEventsDisplayPage';

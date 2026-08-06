@@ -6,17 +6,17 @@ import {
 	createStudent,
 	createCategory
 } from '../convex-client';
-import { HousesEventsPage } from '../pages';
+import { HouseEventsPage } from '../pages';
 
 test.describe('House Events Management - E2E @sequential', () => {
 	test.use({ storageState: 'e2e/.auth/admin.json' });
 
 	let suffix: string;
 	let e2eTag: string;
-	let eventsPage: HousesEventsPage;
+	let eventsPage: HouseEventsPage;
 
 	test.beforeEach(async ({ page }) => {
-		eventsPage = new HousesEventsPage(page);
+		eventsPage = new HouseEventsPage(page);
 		suffix = getTestSuffix('events');
 		e2eTag = `e2e-events-${suffix}`;
 
@@ -85,6 +85,39 @@ test.describe('House Events Management - E2E @sequential', () => {
 		await eventsPage.expectEventVisible(updatedTitle);
 	});
 
+	test('New Event opens a blank create form after an edit', async () => {
+		// Create event A
+		const firstTitle = `First Event ${suffix}`;
+		await eventsPage.startAddEvent();
+		await eventsPage.fillEventForm({
+			title: firstTitle,
+			startDate: '2024-01-01',
+			endDate: '2024-01-10'
+		});
+		await eventsPage.submitEvent();
+		await eventsPage.expectEventVisible(firstTitle);
+
+		// Edit event A so edit-mode state is set
+		await eventsPage.editEvent(firstTitle);
+		await eventsPage.cancelEvent();
+
+		// New Event must open a blank create form, not the edited event
+		await eventsPage.startAddEvent();
+		await eventsPage.expectCreateMode();
+
+		// Create event B back-to-back; both must exist
+		const secondTitle = `Second Event ${suffix}`;
+		await eventsPage.fillEventForm({
+			title: secondTitle,
+			startDate: '2024-02-01',
+			endDate: '2024-02-10'
+		});
+		await eventsPage.submitEvent();
+
+		await eventsPage.expectEventVisible(firstTitle);
+		await eventsPage.expectEventVisible(secondTitle);
+	});
+
 	test('can delete event', async () => {
 		// Create event
 		const deleteTitle = `ToDelete Event ${suffix}`;
@@ -104,7 +137,7 @@ test.describe('House Events Management - E2E @sequential', () => {
 		// Reload to ensure data is refreshed
 		await eventsPage.page.reload();
 		await eventsPage.page.waitForSelector('body.hydrated');
-		await expect(eventsPage.page.getByTestId('houses.new-event-button')).toBeVisible();
+		await expect(eventsPage.page.getByTestId('house-events.new-event-button')).toBeVisible();
 
 		// Verify deleted
 		await eventsPage.expectEventNotVisible(deleteTitle);

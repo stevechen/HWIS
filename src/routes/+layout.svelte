@@ -139,7 +139,7 @@
 		if (path === '/admin/students') return 'Student Management';
 		if (path === '/admin/classes') return 'Class Management';
 		if (path === '/admin/houses') return 'House Management';
-		if (path === '/houses') return 'Houses Competition';
+		if (path === '/admin/house-events') return 'House Events';
 		if (path === '/admin/audit') return 'Audit Log';
 		if (path === '/admin/categories') return 'Categories';
 		if (path === '/admin/users') return 'Manage Users';
@@ -154,7 +154,7 @@
 	});
 
 	const headerTitle = $derived.by(() => $headerTitleOverride || titleFromPath);
-	const isDisplayPage = $derived($page.url.pathname === '/houses/display');
+	const isDisplayPage = $derived($page.url.pathname === '/admin/house-events/display');
 
 	function handleBack() {
 		if (backTarget) {

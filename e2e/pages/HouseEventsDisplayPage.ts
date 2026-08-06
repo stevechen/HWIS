@@ -1,10 +1,10 @@
 import { expect, type Page } from '@playwright/test';
 
-export class HousesDisplayPage {
+export class HouseEventsDisplayPage {
 	constructor(public page: Page) {}
 
 	async goto() {
-		await this.page.goto('/houses/display');
+		await this.page.goto('/admin/house-events/display');
 		await this.page.waitForSelector('body.hydrated');
 	}
 
