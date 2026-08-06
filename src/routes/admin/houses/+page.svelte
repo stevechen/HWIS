@@ -31,7 +31,7 @@
 	// Get students data - sorted by class then name
 	const housesData = $derived.by(() => {
 		const data = housesQuery.data;
-		if (!data) {
+		if (!data || !data.houses) {
 			return {
 				Heracles: [] as Student[],
 				Wukong: [] as Student[],
@@ -40,9 +40,15 @@
 				orphaned: [] as Student[]
 			};
 		}
+		// Only show Enrolled students — hide "Not Enrolled"
+		const onlyEnrolled = (students: Student[]): Student[] =>
+			students.filter((s) => s.status !== 'Not Enrolled');
 		return {
-			...data.houses,
-			orphaned: data.orphaned
+			Heracles: onlyEnrolled(data.houses.Heracles || []),
+			Wukong: onlyEnrolled(data.houses.Wukong || []),
+			Ixbalam: onlyEnrolled(data.houses.Ixbalam || []),
+			Setna: onlyEnrolled(data.houses.Setna || []),
+			orphaned: onlyEnrolled(data.orphaned || [])
 		} as Record<House | 'orphaned', Student[]>;
 	});
 

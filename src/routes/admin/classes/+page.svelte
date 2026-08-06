@@ -241,17 +241,23 @@
 		const grouped: Record<number, ClassRecord[]> = {};
 		for (const grade of grades) {
 			const gradeClasses = classes.filter((c) => c.grade === grade);
-			grouped[grade] = gradeClasses.sort((a, b) => {
-				// Gradient sort: 1, 2, 3... first (brightest to lighter), IB last (lightest)
-				// default class comes after IB but before numbered classes
-				const getSortPriority = (className: string): number => {
-					if (className === 'IB') return 999; // Last (lightest color)
-					if (className === 'default') return 0;
-					const num = parseInt(className, 10);
-					return isNaN(num) ? 998 : num; // 1 -> 1, 2 -> 2, etc.
-				};
-				return getSortPriority(a.class) - getSortPriority(b.class);
-			});
+			grouped[grade] = gradeClasses
+				.map((c) => ({
+					...c,
+					// Only display Enrolled students
+					students: c.students.filter((s) => s.status !== 'Not Enrolled')
+				}))
+				.sort((a, b) => {
+					// Gradient sort: 1, 2, 3... first (brightest to lighter), IB last (lightest)
+					// default class comes after IB but before numbered classes
+					const getSortPriority = (className: string): number => {
+						if (className === 'IB') return 999; // Last (lightest color)
+						if (className === 'default') return 0;
+						const num = parseInt(className, 10);
+						return isNaN(num) ? 998 : num; // 1 -> 1, 2 -> 2, etc.
+					};
+					return getSortPriority(a.class) - getSortPriority(b.class);
+				});
 		}
 		return grouped;
 	});
@@ -408,7 +414,7 @@
 		<div class="flex flex-col gap-2 md:flex-row md:flex-wrap md:gap-0">
 			{#each grades as grade (grade)}
 				{@const gradeClasses = classesByGrade[grade] || []}
-				{@const totalStudents = gradeClasses.reduce((sum, c) => sum + c.studentCount, 0)}
+				{@const totalStudents = gradeClasses.reduce((sum, c) => sum + c.students.length, 0)}
 				{@const isGradeVisible = visibleGrades.has(grade)}
 				{@const ibHasStudents = hasIBStudents(grade)}
 				{@const shouldShowIB = ibHasStudents || ibVisibleGrades.has(grade)}
@@ -578,7 +584,7 @@
 													<!-- Student Count (inline with class name) -->
 													<Users class="ml-1 size-3 max-md:size-4" /><span
 														class="text-muted-foreground text-xs max-md:text-sm"
-														>{cls.studentCount}</span
+														>{cls.students.length}</span
 													>
 												</div>
 

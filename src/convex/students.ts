@@ -1,6 +1,6 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import type { Id } from './_generated/dataModel';
+import type { Id, Doc } from './_generated/dataModel';
 import { requireAdminForSensitiveOperation, isTestRuntime } from './auth';
 import type { MutationCtx } from './_generated/server';
 
@@ -125,6 +125,9 @@ export const create = mutation({
 		class: v.optional(v.string()), // Class number (e.g., "1", "2"), defaults to "1"
 		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
 		note: v.optional(v.string()),
+		house: v.optional(
+			v.union(v.literal('Heracles'), v.literal('Wukong'), v.literal('Ixbalam'), v.literal('Setna'))
+		),
 		upsert: v.optional(v.boolean())
 	},
 	handler: async (ctx, args) => {
@@ -147,7 +150,8 @@ export const create = mutation({
 					chineseName: args.chineseName,
 					classId,
 					status: args.status,
-					note: args.note ?? ''
+					note: args.note ?? '',
+					house: args.house
 				});
 				return existing._id;
 			}
@@ -160,7 +164,8 @@ export const create = mutation({
 			studentId: args.studentId,
 			classId,
 			status: args.status,
-			note: args.note ?? ''
+			note: args.note ?? '',
+			house: args.house
 		});
 		return id;
 	}
@@ -175,7 +180,10 @@ export const update = mutation({
 		grade: v.number(), // Grade (7-12) - will get or create class
 		class: v.optional(v.string()), // Class name: "default", "IB", "1", "2", etc. - defaults to "default"
 		status: v.union(v.literal('Enrolled'), v.literal('Not Enrolled')),
-		note: v.optional(v.string())
+		note: v.optional(v.string()),
+		house: v.optional(
+			v.union(v.literal('Heracles'), v.literal('Wukong'), v.literal('Ixbalam'), v.literal('Setna'))
+		)
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
@@ -204,6 +212,7 @@ export const update = mutation({
 			classId: Id<'classes'>;
 			status: 'Enrolled' | 'Not Enrolled';
 			note?: string;
+			house?: Doc<'students'>['house'];
 		} = {
 			englishName: args.englishName,
 			chineseName: args.chineseName,
@@ -214,6 +223,10 @@ export const update = mutation({
 
 		if (args.note !== undefined) {
 			updateData.note = args.note ?? '';
+		}
+
+		if (args.house !== undefined) {
+			updateData.house = args.house;
 		}
 
 		await ctx.db.patch(args.id, updateData);

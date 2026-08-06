@@ -14,12 +14,13 @@
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Table from '$lib/components/ui/table';
-	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import { onMount } from 'svelte';
 	import { parseCsv, mapCsvRowToStudent } from './import-utils';
+	import { HOUSES, HOUSE_COLORS, type House } from '$lib/constants/houses';
+	import { cn } from '$lib/utils.js';
 
 	type Student = {
 		_id: Id<'students'>;
@@ -38,6 +39,7 @@
 			homeroomTeacherName: string | null;
 		} | null;
 		status: 'Enrolled' | 'Not Enrolled';
+		house?: House;
 		note?: string;
 	};
 
@@ -58,6 +60,7 @@
 
 	let searchQuery = $state('');
 	let selectedGrade = $state<string>('');
+	let selectedHouse = $state<string>('');
 	let selectedStatus = $state<string>('');
 	let selectedClass = $state<string>('');
 
@@ -77,6 +80,7 @@
 	let formClass = $state<string>('');
 	let formGradeClass = $state<string>(''); // Combined grade-class selection
 	let formStatus = $state<'Enrolled' | 'Not Enrolled'>('Enrolled');
+	let formHouse = $state<House | ''>('');
 	let formNote = $state('');
 	let isSubmitting = $state(false);
 	let formErrors = $state<string[]>([]);
@@ -137,6 +141,7 @@
 		formClass = '';
 		formGradeClass = '7-default'; // Default to grade 7 default class
 		formStatus = 'Enrolled';
+		formHouse = '';
 		formNote = '';
 		editingId = null;
 		formErrors = [];
@@ -168,6 +173,7 @@
 			formClass = parts[1];
 		}
 		formStatus = student.status || 'Enrolled';
+		formHouse = student.house ?? '';
 		formNote = student.note || '';
 		originalStatus = student.status;
 		editingId = student._id;
@@ -240,6 +246,7 @@
 					grade: formGrade,
 					class: formClass || 'default',
 					status: formStatus,
+					house: formHouse || undefined,
 					note: formNote.trim()
 				});
 			} else {
@@ -250,6 +257,7 @@
 					grade: formGrade,
 					class: formClass || 'default',
 					status: formStatus,
+					house: formHouse || undefined,
 					note: formNote.trim()
 				});
 			}
@@ -365,6 +373,13 @@
 	const filteredStudents = $derived(
 		studentsQuery.data?.filter((s: Student) => {
 			if (selectedStatus && s.status !== selectedStatus) return false;
+			if (selectedHouse) {
+				if (selectedHouse === '__unassigned') {
+					if (s.house) return false;
+				} else if (s.house !== selectedHouse) {
+					return false;
+				}
+			}
 			if (selectedGrade && s.classInfo?.grade !== parseInt(selectedGrade)) return false;
 			if (selectedClass && s.classInfo?.class !== selectedClass) return false;
 			if (searchQuery) {
@@ -440,6 +455,17 @@
 					{/each}
 				</NativeSelect.Root>
 				<NativeSelect.Root
+					bind:value={selectedHouse}
+					aria-label="Filter by house"
+					data-testid="admin-students.filter-house"
+				>
+					<NativeSelect.Option value="">All Houses</NativeSelect.Option>
+					{#each HOUSES as house (house)}
+						<NativeSelect.Option value={house}>{house}</NativeSelect.Option>
+					{/each}
+					<NativeSelect.Option value="__unassigned">Unassigned</NativeSelect.Option>
+				</NativeSelect.Root>
+				<NativeSelect.Root
 					bind:value={selectedStatus}
 					aria-label="Filter by status"
 					data-testid="admin-students.filter-status"
@@ -473,11 +499,12 @@
 				<Table.Root aria-label="Student table">
 					<Table.Header class="bg-background/80 sticky top-0 z-10 backdrop-blur">
 						<Table.Row>
+							<Table.Head class="w-7" />
 							<Table.Head class="hidden text-center sm:table-cell">Student ID</Table.Head>
 							<Table.Head class="whitespace-normal sm:whitespace-nowrap">English Name</Table.Head>
 							<Table.Head class="hidden sm:table-cell">Chinese Name</Table.Head>
 							<Table.Head class="px-1 text-center sm:px-2">Grade</Table.Head>
-							<Table.Head class="px-1 text-center sm:px-2">Status</Table.Head>
+							<Table.Head class="px-1 text-center sm:px-2">House</Table.Head>
 							<Table.Head class="hidden sm:table-cell">Note</Table.Head>
 							<Table.Head class="px-1 text-center sm:px-2">Actions</Table.Head>
 						</Table.Row>
@@ -492,7 +519,28 @@
 									? 'bg-muted-foreground opacity-50'
 									: 'odd:bg-muted/40'}
 							>
-								<Table.Cell class="hidden text-center sm:table-cell">{student.studentId}</Table.Cell
+								<!-- Status (far left, always visible, light) -->
+								<Table.Cell
+									class="cursor-pointer px-0.5 text-center"
+									data-testid={`admin-students.student-row-${student.studentId}.status`}
+									aria-label={student.status}
+									onclick={() =>
+										client.mutation(studentsApi.changeStatus, {
+											id: student._id,
+											status: student.status === 'Enrolled' ? 'Not Enrolled' : 'Enrolled'
+										})}
+								>
+									<span
+										class={cn(
+											'ms-auto block size-3 rounded-full',
+											student.status === 'Enrolled'
+												? 'bg-green-500 shadow shadow-green-500/70'
+												: 'bg-gray-400 opacity-30'
+										)}
+									></span>
+								</Table.Cell>
+								<Table.Cell class="hidden text-center sm:table-cell sm:w-32 sm:ps-0.5"
+									>{student.studentId}</Table.Cell
 								>
 								<Table.Cell class="max-w-20 truncate px-1 sm:max-w-none sm:px-2"
 									>{student.englishName}</Table.Cell
@@ -503,21 +551,17 @@
 										? getDisplayName(student.classInfo.grade, student.classInfo.class)
 										: '-'}
 								</Table.Cell>
-								<Table.Cell
-									class="cursor-pointer px-1 text-center sm:px-2"
-									data-testid={`admin-students.student-row-${student.studentId}.status`}
-									onclick={() =>
-										client.mutation(studentsApi.changeStatus, {
-											id: student._id,
-											status: student.status === 'Enrolled' ? 'Not Enrolled' : 'Enrolled'
-										})}
-								>
-									<Badge
-										variant={student.status === 'Enrolled' ? 'default' : 'outline'}
-										class="hover:ring-primary/50 pointer-events-none hover:ring-2 hover:ring-offset-1"
-									>
-										{student.status}
-									</Badge>
+								<Table.Cell class="px-1 text-center sm:px-2">
+									{#if student.house}
+										<span class="inline-flex items-center justify-center gap-1">
+											<span class={`size-2 rounded-full ${HOUSE_COLORS[student.house].bg}`}></span>
+											<span class={`text-xs font-medium ${HOUSE_COLORS[student.house].text}`}
+												>{student.house}</span
+											>
+										</span>
+									{:else}
+										<span class="text-muted-foreground text-xs">-</span>
+									{/if}
 								</Table.Cell>
 								<Table.Cell
 									class="text-muted-foreground hidden max-w-xs truncate text-sm sm:table-cell"
@@ -656,6 +700,19 @@
 							{#each gradeClassOptions as option (option.classId)}<NativeSelect.Option
 									value={option.value}>{option.label}</NativeSelect.Option
 								>{/each}
+						</NativeSelect.Root>
+					</div>
+					<div class="space-y-2">
+						<Label for="house">House</Label>
+						<NativeSelect.Root
+							bind:value={formHouse}
+							aria-label="Student house"
+							testId="admin-students.dialog.house"
+						>
+							<NativeSelect.Option value="">No House</NativeSelect.Option>
+							{#each HOUSES as house (house)}
+								<NativeSelect.Option value={house}>{house}</NativeSelect.Option>
+							{/each}
 						</NativeSelect.Root>
 					</div>
 					<div class="space-y-2">

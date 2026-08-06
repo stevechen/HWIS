@@ -347,9 +347,7 @@ test.describe('Delete - Set Not Enrolled @sequential', () => {
 		await studentsPage.fillSearch('');
 
 		// Verify status changed
-		await expect(
-			studentsPage.page.locator(`[data-student-id="${studentId}"]`).getByText('Not Enrolled')
-		).toBeVisible();
+		await studentsPage.expectStudentStatus(studentId, 'Not Enrolled');
 
 		// Student and category still exist, evaluation was used but should be cleaned up
 		// (testEvaluation remains true for cleanup)

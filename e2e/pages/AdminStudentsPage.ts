@@ -123,6 +123,14 @@ export class AdminStudentsPage {
 	}
 
 	async clearFilters() {
+		const gradeFilter = this.page.getByTestId('admin-students.filter-grade');
+		if (await gradeFilter.isVisible()) {
+			await gradeFilter.selectOption('');
+		}
+		const houseFilter = this.page.getByTestId('admin-students.filter-house');
+		if (await houseFilter.isVisible()) {
+			await houseFilter.selectOption('');
+		}
 		const statusFilter = this.page.getByTestId('admin-students.filter-status');
 		if (await statusFilter.isVisible()) {
 			await statusFilter.selectOption('');
@@ -172,8 +180,8 @@ export class AdminStudentsPage {
 
 	async expectStudentStatus(studentId: string, status: string) {
 		await expect(
-			this.page.locator(`[data-student-id="${studentId}"]`).getByText(status)
-		).toBeVisible();
+			this.page.getByTestId(`admin-students.student-row-${studentId}.status`)
+		).toHaveAttribute('aria-label', status);
 	}
 
 	async filterByStatus(status: string) {
