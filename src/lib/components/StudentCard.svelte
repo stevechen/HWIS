@@ -40,7 +40,7 @@
 	data-testid={`admin-houses.student-${student.studentId}`}
 	class={[
 		'flex items-center gap-2 rounded border bg-white px-2 py-1 text-sm shadow-sm transition-colors hover:bg-gray-50 max-md:gap-3 max-md:py-3',
-		!enrolled && 'text-muted-foreground bg-gray-100',
+		!enrolled && 'bg-gray-100 text-gray-500',
 		isSelected && 'ring-2 ring-blue-500 ring-offset-1',
 		multiSelect.selectionMode && 'cursor-pointer'
 	]}
@@ -100,9 +100,9 @@
 			class={['size-3 shrink-0 text-gray-400 max-md:hidden', multiSelect.selectionMode && 'hidden']}
 		/>
 		<div class="flex min-w-0 flex-1 flex-col">
-			<span class="truncate font-medium">{student.englishName}</span>
+			<span class="truncate font-medium text-gray-900">{student.englishName}</span>
 			{#if !enrolled}
-				<span class="text-muted-foreground text-xs">Not Enrolled</span>
+				<span class="text-xs text-gray-500">Not Enrolled</span>
 			{/if}
 		</div>
 	</div>

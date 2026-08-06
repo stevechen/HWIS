@@ -34,13 +34,13 @@
 			<div class="mx-auto flex max-w-2xl flex-col gap-3">
 				<h3
 					id="move-dialog-title"
-					class="text-sm font-medium"
+					class="text-sm font-medium text-gray-900"
 					data-testid="admin-houses.move-dialog.title"
 				>
 					{title}
 				</h3>
 				{#if subtitle}
-					<p class="text-muted-foreground text-sm" data-testid="admin-houses.move-dialog.subtitle">
+					<p class="text-sm text-gray-500" data-testid="admin-houses.move-dialog.subtitle">
 						{subtitle}
 					</p>
 				{/if}

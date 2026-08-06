@@ -21,7 +21,7 @@
 		aria-label="Bulk actions"
 	>
 		<div class="mx-auto flex max-w-2xl flex-col gap-3">
-			<span class="text-sm font-medium"
+			<span class="text-sm font-medium text-gray-900"
 				>Move {selectedCount} student{selectedCount !== 1 ? 's' : ''} to:</span
 			>
 			<div class="flex flex-col gap-2">

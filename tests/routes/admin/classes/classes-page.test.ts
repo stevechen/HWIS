@@ -161,6 +161,23 @@ describe('Classes Page', () => {
 		});
 	});
 
+	describe('Dark Theme Readability', () => {
+		it('renders enrolled student names with an explicit readable color class', async () => {
+			const { useQuery } = await import('convex-svelte');
+			vi.mocked(useQuery).mockReturnValue({
+				data: mockClassWithStudents,
+				isLoading: false,
+				error: null
+			} as unknown as ReturnType<typeof useQuery>);
+
+			render(ClassesPage);
+
+			const name = page.getByText('Alice');
+			await expect.element(name).toBeInTheDocument();
+			expect(name.element().classList.contains('text-gray-900')).toBe(true);
+		});
+	});
+
 	describe('Move Dialog', () => {
 		it('does not open dialog when student is clicked outside select mode', async () => {
 			const { useQuery } = await import('convex-svelte');

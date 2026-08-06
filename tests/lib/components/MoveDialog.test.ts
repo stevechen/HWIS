@@ -34,6 +34,18 @@ describe('MoveDialog', () => {
 		await expect.element(page.getByRole('heading', { name: 'Move Student' })).toBeInTheDocument();
 	});
 
+	it('renders the title with an explicit readable color class', async () => {
+		render(MoveDialog, {
+			open: true,
+			onClose: vi.fn(),
+			title: 'Move Student',
+			targets: []
+		});
+		const title = page.getByRole('heading', { name: 'Move Student' });
+		await expect.element(title).toBeInTheDocument();
+		expect(title.element().classList.contains('text-gray-900')).toBe(true);
+	});
+
 	it('renders the subtitle when provided', async () => {
 		render(MoveDialog, {
 			open: true,

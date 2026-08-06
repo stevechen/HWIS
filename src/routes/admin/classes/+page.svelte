@@ -640,8 +640,7 @@
 															<div
 																data-testid={`admin-classes.grade-${cls.grade}.class-${cls.class}.student-${student.studentId}`}
 																class={[
-																	!enrolled &&
-																		'text-muted-foreground bg-black/10 max-md:bg-gray-100',
+																	!enrolled && 'bg-black/10 text-gray-500 max-md:bg-gray-100',
 																	enrolled && 'max-md:bg-white',
 																	'flex items-center gap-1 truncate px-1 py-1 text-xs leading-tight hover:bg-black/5',
 																	'max-md:gap-3 max-md:rounded max-md:border max-md:px-3 max-md:py-3 max-md:text-sm max-md:shadow-sm hover:max-md:bg-gray-50',
@@ -718,7 +717,11 @@
 																			selectedSelectGrade === cls.grade && 'hidden'
 																		]}
 																	/>
-																	<span class="truncate max-md:text-base">{student.name}</span>
+																	<span
+																		class="truncate max-md:text-base {enrolled
+																			? 'text-gray-900'
+																			: 'text-gray-500'}">{student.name}</span
+																	>
 																</div>
 															</div>
 														{/each}

@@ -59,6 +59,34 @@ describe('StudentCard', () => {
 		});
 	});
 
+	describe('Dark Theme Readability', () => {
+		it('renders the student name with an explicit readable color class', async () => {
+			render(StudentCard, {
+				student: mockStudent,
+				sourceHouse: 'Heracles',
+				multiSelect: mockMultiSelect,
+				onOpenDialog: vi.fn()
+			});
+
+			const name = page.getByText('Test Student');
+			await expect.element(name).toBeInTheDocument();
+			expect(name.element().classList.contains('text-gray-900')).toBe(true);
+		});
+
+		it('renders the Not Enrolled badge with a readable muted color class', async () => {
+			render(StudentCard, {
+				student: mockNotEnrolledStudent,
+				sourceHouse: 'Heracles',
+				multiSelect: mockMultiSelect,
+				onOpenDialog: vi.fn()
+			});
+
+			const badge = page.getByText('Not Enrolled');
+			await expect.element(badge).toBeInTheDocument();
+			expect(badge.element().classList.contains('text-gray-500')).toBe(true);
+		});
+	});
+
 	describe('Selection Mode', () => {
 		it('shows checkbox when in selection mode', async () => {
 			const multiSelect = {
