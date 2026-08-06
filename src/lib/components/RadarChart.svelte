@@ -15,6 +15,7 @@
 		colors?: string[];
 		minValue?: number;
 		maxValue?: number;
+		labelAxis?: number;
 	}
 
 	let {
@@ -24,7 +25,8 @@
 		size = 400,
 		colors = Array.from({ length: 10 }, (_, i) => schemeTableau10[i]),
 		minValue = 0,
-		maxValue = 10
+		maxValue = 10,
+		labelAxis = 0
 	}: Props = $props();
 
 	const center = $derived(size / 2);
@@ -74,6 +76,33 @@
 			};
 		})
 	);
+
+	// Axis that carries the ring-value labels (default: top / 12 o'clock).
+	const labelAxisAngle = $derived(featureData[labelAxis]?.angle ?? Math.PI / 2);
+
+	// Ring-value labels drawn along a single axis, deduplicated so the same
+	// value isn't printed twice, and compressed along the axis so labels that
+	// would land within `1.2 * tickFontSize` of each other (measured along the
+	// axis direction) are not both drawn. This keeps the center point readable.
+	const placedTickLabels = $derived.by(() => {
+		if (features.length === 0) return [];
+		const angle = labelAxisAngle;
+		const collisionThreshold = 1.2 * tickFontSize;
+		// Unit vector along the axis direction (away from center at top).
+		const ux = Math.cos(angle);
+		const uy = -Math.sin(angle);
+		const result: { tick: number; x: number; y: number }[] = [];
+		const placedProj: number[] = [];
+		for (const tick of uniqueTicks) {
+			const coord = getTickLabelCoordinate(angle, tick, radialScale);
+			// Project onto the axis direction to compare along-axis spacing.
+			const proj = coord.x * ux + coord.y * uy;
+			if (placedProj.some((p) => Math.abs(p - proj) < collisionThreshold)) continue;
+			placedProj.push(proj);
+			result.push({ tick, x: coord.x, y: coord.y });
+		}
+		return result;
+	});
 
 	function angleToCoordinate(angle: number, value: number, scale: d3.ScaleLinear<number, number>) {
 		const radius = scale(value);
@@ -153,23 +182,18 @@
 			/>
 		{/each}
 
-		<!-- Draw tick labels -->
-		{#each uniqueTicks as tick (tick)}
-			{#each featureData as feature (feature.name)}
-				{#if tick !== 0}
-					{@const labelCoord = getTickLabelCoordinate(feature.angle, tick, radialScale)}
-					<text
-						x={labelCoord.x}
-						y={labelCoord.y}
-						text-anchor="middle"
-						dominant-baseline={getTickBaseline(feature.angle)}
-						font-size={tickFontSize}
-						fill="#9ca3af"
-					>
-						{tick}
-					</text>
-				{/if}
-			{/each}
+		<!-- Draw tick labels along a single axis to avoid center pile-up -->
+		{#each placedTickLabels as item (item.tick)}
+			<text
+				x={item.x}
+				y={item.y}
+				text-anchor="middle"
+				dominant-baseline={getTickBaseline(labelAxisAngle)}
+				font-size={tickFontSize}
+				fill="#9ca3af"
+			>
+				{item.tick}
+			</text>
 		{/each}
 
 		<!-- Draw data paths -->
