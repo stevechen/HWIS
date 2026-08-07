@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
+	import { lockCutoffFor } from '$convex/shared/evaluation_week';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
@@ -23,21 +24,7 @@
 		return `${semesterYear}-${half}`;
 	}
 
-	function getFridayOfWeek(timestamp: number): number {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const date = new Date(timestamp);
-		const day = date.getDay();
-		const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const monday = new Date(date.setDate(diff));
-		monday.setHours(0, 0, 0, 0);
-		return monday.getTime();
-	}
-
-	const now = Date.now();
-	const evalMonday = getFridayOfWeek(now);
-	const lockTime = evalMonday + 7 * 24 * 60 * 60 * 1000;
-	const lockDate = new Date(lockTime);
+	const lockDate = new Date(lockCutoffFor(Date.now()));
 	const lockDateStr = lockDate.toLocaleDateString('en-US', {
 		weekday: 'short',
 		month: 'short',

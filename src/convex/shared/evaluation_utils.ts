@@ -1,12 +1,3 @@
-export function getFridayOfWeek(timestamp: number): number {
-	const date = new Date(timestamp);
-	const day = date.getDay();
-	const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-	const monday = new Date(date.setDate(diff));
-	monday.setHours(0, 0, 0, 0);
-	return monday.getTime();
-}
-
 export function getWeekNumber(timestamp: number): number {
 	const date = new Date(timestamp);
 	const start = new Date(date.getFullYear(), 0, 1);

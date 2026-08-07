@@ -5,6 +5,7 @@ import { api } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { generateUniqueStudentId } from '../../tests/fixtures/server-test-helpers';
 import { enrichEvaluations } from './shared/enrichment';
+import { lockCutoffFor } from './shared/evaluation_week';
 
 test('evaluations table operations work correctly', async () => {
 	const t = convexTest(schema, modules);
@@ -1318,8 +1319,8 @@ describe('evaluations.remove', () => {
 			});
 		});
 
-		// Create evaluation on Wednesday June 10, 2026
-		const wednesdayJune10 = new Date(2026, 5, 10, 12, 0, 0).getTime();
+		// Create evaluation on Wednesday June 10, 2026 (Taiwan time)
+		const wednesdayJune10 = new Date('2026-06-10T12:00:00+08:00').getTime();
 
 		const evaluationId = await t.run(async (ctx) => {
 			return ctx.db.insert('evaluations', {
@@ -1340,11 +1341,10 @@ describe('evaluations.remove', () => {
 		expect(evaluation).toBeDefined();
 		expect(evaluation!.timestamp).toBe(wednesdayJune10);
 
-		// The lock time should be Monday June 15, 2026 00:00
-		// (Monday of the week after the evaluation's week)
-		const mondayJune8 = new Date(2026, 5, 8, 0, 0, 0).getTime(); // Monday of evaluation week
-		const expectedLockTime = mondayJune8 + 7 * 24 * 60 * 60 * 1000; // Monday June 15
-		expect(expectedLockTime).toBe(new Date(2026, 5, 15, 0, 0, 0).getTime());
+		// The lock cutoff should be Monday June 15, 2026 00:00 (Taiwan time),
+		// the Monday of the week after the evaluation's week
+		const expectedLockTime = lockCutoffFor(wednesdayJune10);
+		expect(expectedLockTime).toBe(new Date('2026-06-15T00:00:00+08:00').getTime());
 	});
 });
 

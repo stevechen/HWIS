@@ -9,12 +9,8 @@ import {
 	requireUserProfileForSensitiveOperation,
 	isTestRuntime
 } from './auth';
-import {
-	getFridayOfWeek,
-	getWeekNumber,
-	formatDateRange,
-	matchesMultiSearch
-} from './shared/evaluation_utils';
+import { getWeekNumber, formatDateRange, matchesMultiSearch } from './shared/evaluation_utils';
+import { weekStartOf, weekEndOf, isEditable } from './shared/evaluation_week';
 import { enrichEvaluations } from './shared/enrichment';
 import { resolveStudentFromEmail, isStudentEmailAddress } from './shared/student';
 import { canReadEvaluation, isStudent } from './shared/authorization';
@@ -108,9 +104,7 @@ export const remove = mutation({
 			throw new Error('Not authorized to delete this evaluation');
 		}
 
-		const evalMonday = getFridayOfWeek(evaluation.timestamp);
-		const lockTime = evalMonday + 7 * 24 * 60 * 60 * 1000;
-		if (Date.now() >= lockTime) {
+		if (!isEditable(evaluation.timestamp)) {
 			throw new Error(
 				'This evaluation can no longer be deleted. Evaluations are locked the Monday after the week ends (Mon 00:00). You can only edit evaluations within their Monday-to-Sunday week.'
 			);
@@ -219,18 +213,18 @@ export const getWeeklyReportsList = query({
 		const fridayMap = new Map<number, Set<string>>();
 
 		for (const eval_ of evaluations) {
-			const friday = getFridayOfWeek(eval_.timestamp);
-			if (!fridayMap.has(friday)) {
-				fridayMap.set(friday, new Set());
+			const weekStart = weekStartOf(eval_.timestamp);
+			if (!fridayMap.has(weekStart)) {
+				fridayMap.set(weekStart, new Set());
 			}
-			fridayMap.get(friday)!.add(eval_.studentId.toString());
+			fridayMap.get(weekStart)!.add(eval_.studentId.toString());
 		}
 
 		const reports = Array.from(fridayMap.entries())
-			.map(([friday, studentIds]) => ({
-				weekNumber: getWeekNumber(friday),
-				fridayDate: friday,
-				formattedDate: formatDateRange(friday),
+			.map(([weekStart, studentIds]) => ({
+				weekNumber: getWeekNumber(weekStart),
+				fridayDate: weekStart,
+				formattedDate: formatDateRange(weekStart),
 				studentCount: studentIds.size
 			}))
 			.sort((a, b) => b.fridayDate - a.fridayDate);
@@ -246,10 +240,11 @@ export const getWeeklyReportDetail = query({
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
 
-		// fridayDate is actually the Monday of the week (despite the name)
-		// Week runs from Monday to end of Friday (Monday + 6 days)
-		const startOfWeek = args.fridayDate;
-		const endOfWeek = args.fridayDate + 6 * 24 * 60 * 60 * 1000 + 24 * 60 * 60 * 1000 - 1;
+		// `fridayDate` is actually the Monday that starts the week (kept for the
+		// established query contract); the week spans Monday 00:00 through Sunday
+		// 23:59:59.999 of the same week.
+		const startOfWeek = weekStartOf(args.fridayDate);
+		const endOfWeek = weekEndOf(args.fridayDate);
 
 		const evaluations = await ctx.db
 			.query('evaluations')
@@ -626,9 +621,7 @@ export const update = mutation({
 			throw new Error('Not authorized to edit this evaluation');
 		}
 
-		const evalMonday = getFridayOfWeek(evaluation.timestamp);
-		const lockTime = evalMonday + 7 * 24 * 60 * 60 * 1000;
-		if (Date.now() >= lockTime) {
+		if (!isEditable(evaluation.timestamp)) {
 			throw new Error(
 				'This evaluation can no longer be edited. Evaluations are locked the Monday after the week ends (Mon 00:00). You can only edit evaluations within their Monday-to-Sunday week.'
 			);

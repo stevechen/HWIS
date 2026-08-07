@@ -233,7 +233,7 @@ export const createWeeklyReportTestData = mutation({
 					pointValue = Math.random() < 0.5 ? -1 : -2;
 				}
 
-				// Generate timestamp within the week (use local timezone to match getFridayOfWeek)
+				// Generate timestamp within the week (use local timezone to match weekStartOf)
 				const weekStart = new Date(week.start + 'T00:00:00').getTime();
 				const weekEnd = new Date(week.end + 'T23:59:59').getTime();
 				const timestamp = weekStart + Math.random() * (weekEnd - weekStart);

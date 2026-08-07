@@ -2,7 +2,8 @@ import { expect, test, describe } from 'vitest';
 import { convexTest, modules, createStudentWithClass } from './test.setup';
 import schema from './schema';
 import { api } from './_generated/api';
-import { getFridayOfWeek, getWeekNumber } from './shared/evaluation_utils';
+import { getWeekNumber } from './shared/evaluation_utils';
+import { weekStartOf } from './shared/evaluation_week';
 
 describe('Weekly Reports', () => {
 	test('getWeeklyReportsList returns empty when no evaluations exist', async () => {
@@ -52,7 +53,7 @@ describe('Weekly Reports', () => {
 			name: 'Responsibility'
 		});
 
-		const fridayJan17 = getFridayOfWeek(new Date('2025-01-17T10:00:00Z').getTime());
+		const weekStartJan17 = weekStartOf(new Date('2025-01-17T10:00:00Z').getTime());
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('evaluations', {
@@ -84,7 +85,7 @@ describe('Weekly Reports', () => {
 
 		expect(reports).toHaveLength(1);
 		expect(reports[0].studentCount).toBe(2);
-		expect(reports[0].weekNumber).toBe(getWeekNumber(fridayJan17));
+		expect(reports[0].weekNumber).toBe(getWeekNumber(weekStartJan17));
 	});
 
 	test('getWeeklyReportsList returns reports in reverse chronological order', async () => {
@@ -195,7 +196,7 @@ describe('Weekly Reports', () => {
 			name: 'Responsibility'
 		});
 
-		const friday = getFridayOfWeek(new Date('2025-01-17T10:00:00Z').getTime());
+		const weekStart = weekStartOf(new Date('2025-01-17T10:00:00Z').getTime());
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('evaluations', {
@@ -235,7 +236,7 @@ describe('Weekly Reports', () => {
 
 		const students = await t.run(async (ctx) => {
 			return await ctx.runQuery(api.evaluations.getWeeklyReportDetail, {
-				fridayDate: friday
+				fridayDate: weekStart
 			});
 		});
 
@@ -269,7 +270,7 @@ describe('Weekly Reports', () => {
 			name: 'Creativity'
 		});
 
-		const friday = getFridayOfWeek(new Date('2025-01-17T10:00:00Z').getTime());
+		const weekStart = weekStartOf(new Date('2025-01-17T10:00:00Z').getTime());
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('evaluations', {
@@ -297,7 +298,7 @@ describe('Weekly Reports', () => {
 
 		const students = await t.run(async (ctx) => {
 			return await ctx.runQuery(api.evaluations.getWeeklyReportDetail, {
-				fridayDate: friday
+				fridayDate: weekStart
 			});
 		});
 
@@ -331,7 +332,7 @@ describe('Weekly Reports', () => {
 			name: 'Creativity'
 		});
 
-		const friday = getFridayOfWeek(new Date('2025-01-17T10:00:00Z').getTime());
+		const weekStart = weekStartOf(new Date('2025-01-17T10:00:00Z').getTime());
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('evaluations', {
@@ -359,7 +360,7 @@ describe('Weekly Reports', () => {
 
 		const students = await t.run(async (ctx) => {
 			return await ctx.runQuery(api.evaluations.getWeeklyReportDetail, {
-				fridayDate: friday
+				fridayDate: weekStart
 			});
 		});
 

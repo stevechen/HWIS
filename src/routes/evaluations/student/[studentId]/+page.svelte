@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
+	import { isEditable } from '$convex/shared/evaluation_week';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
 	import RadarChart from '$lib/components/RadarChart.svelte';
@@ -312,7 +313,7 @@
 	});
 
 	function canEditEntry(entry: EvaluationEntry): boolean {
-		return entry.teacherId === currentUserId;
+		return entry.teacherId === currentUserId && isEditable(entry.timestamp);
 	}
 
 	function handleLongPress(entry: EvaluationEntry): void {

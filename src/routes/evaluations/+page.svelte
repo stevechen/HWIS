@@ -2,6 +2,7 @@
 	/* eslint-disable svelte/no-useless-children-snippet */
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
+	import { isEditable } from '$convex/shared/evaluation_week';
 	import { goto } from '$app/navigation';
 	import { Plus } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -102,7 +103,7 @@
 	let selectedEvaluation = $state<EvaluationEntry | null>(null);
 
 	function canEditEntry(entry: EvaluationEntry): boolean {
-		return entry.teacherId === currentUserId;
+		return entry.teacherId === currentUserId && isEditable(entry.timestamp);
 	}
 
 	function handleCardClick(_entry: EvaluationEntry): void {

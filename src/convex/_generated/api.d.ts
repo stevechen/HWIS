@@ -30,6 +30,7 @@ import type * as seedAdmin from "../seedAdmin.js";
 import type * as shared_authorization from "../shared/authorization.js";
 import type * as shared_enrichment from "../shared/enrichment.js";
 import type * as shared_evaluation_utils from "../shared/evaluation_utils.js";
+import type * as shared_evaluation_week from "../shared/evaluation_week.js";
 import type * as shared_houses from "../shared/houses.js";
 import type * as shared_student from "../shared/student.js";
 import type * as students from "../students.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   "shared/authorization": typeof shared_authorization;
   "shared/enrichment": typeof shared_enrichment;
   "shared/evaluation_utils": typeof shared_evaluation_utils;
+  "shared/evaluation_week": typeof shared_evaluation_week;
   "shared/houses": typeof shared_houses;
   "shared/student": typeof shared_student;
   students: typeof students;
