@@ -2,6 +2,7 @@ import { mutation } from './_generated/server';
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { authComponent, getAuthenticatedUser, requireAdminForSensitiveOperation } from './auth';
+import { GRADES } from './shared/class_roster';
 
 // Helper to get or create a class for e2e tests
 // className: "default", "IB", "1", "2", etc.
@@ -219,7 +220,7 @@ export const seedBaseline = mutation({
 			.first();
 		if (!existingClass7) {
 			// Create classes for grades 7-12
-			for (const grade of [7, 8, 9, 10, 11, 12]) {
+			for (const grade of GRADES) {
 				for (const classNum of ['1', '2', '3']) {
 					await ctx.db.insert('classes', {
 						grade,

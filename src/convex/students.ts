@@ -2,6 +2,7 @@ import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import type { Id, Doc } from './_generated/dataModel';
 import { requireAdminForSensitiveOperation, isTestRuntime } from './auth';
+import { GRADES, getDisplayName } from './shared/class_roster';
 import type { MutationCtx } from './_generated/server';
 
 // Validate studentId is a 6- or 7-digit number
@@ -368,7 +369,7 @@ export const seed = mutation({
 		if (existing) return { message: 'Students already seeded', count: 0 };
 
 		// First, seed default classes
-		const grades = [7, 8, 9, 10, 11, 12];
+		const grades = GRADES;
 		const classCounts = ['1', '2', '3'];
 		const classIdMap = new Map<string, Id<'classes'>>();
 
@@ -713,13 +714,7 @@ export const listByHouse = query({
 			let classDisplay = '';
 			if (classInfo) {
 				// Handle special class names like the classes page does
-				if (classInfo.class === 'default') {
-					classDisplay = `${classInfo.grade}`;
-				} else if (classInfo.class === 'IB') {
-					classDisplay = `${classInfo.grade}-IB`;
-				} else {
-					classDisplay = `${classInfo.grade}-${classInfo.class}`;
-				}
+				classDisplay = getDisplayName(classInfo.grade, classInfo.class);
 			}
 			return {
 				_id: s._id,

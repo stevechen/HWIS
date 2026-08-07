@@ -20,7 +20,18 @@
 	import BulkActionBar from '$lib/components/BulkActionBar.svelte';
 	import { draggable, dropZone, dragState } from '$lib/utils/dnd.svelte';
 	import type { DragData } from '$lib/utils/dnd.svelte';
-	import { getDisplayName, isProtectedClass } from '$lib/class-utils';
+	import {
+		GRADES,
+		buildMovePlan,
+		classGradientPosition,
+		eligibleTargetClasses,
+		getDisplayName,
+		groupClassesByGrade,
+		isEligibleMoveTarget,
+		isProtectedClass,
+		protectedClassErrorMessage
+	} from '$convex/shared/class_roster';
+	import type { MovePlan } from '$convex/shared/class_roster';
 
 	// Grade base hues (HSL) - G7=red, G8=orange, G9=yellow, G10=green, G11=blue, G12=purple
 	const gradeBaseHues: Record<number, number> = {
@@ -36,18 +47,7 @@
 	// 1, 2, 3... are brightest first, IB is last and lightest
 	function getClassColor(grade: number, className: string, totalClasses: number): string {
 		const baseHue = gradeBaseHues[grade] ?? 0;
-
-		// Determine position in gradient: 1 is first (0), then 2, 3..., IB is last
-		let position: number;
-		if (className === 'IB') {
-			position = totalClasses - 1; // Last position (lightest)
-		} else if (className === 'default') {
-			position = 0;
-		} else {
-			// Parse number from class name (e.g., "1", "2", "3")
-			const num = parseInt(className, 10);
-			position = isNaN(num) ? 0 : num - 1; // 1 -> 0, 2 -> 1, etc.
-		}
+		const position = classGradientPosition(className, totalClasses);
 
 		// Calculate lightness and chroma based on position
 		// Position 0 (class 1): 75% lightness, 0.15 chroma (brightest/most saturated)
@@ -70,16 +70,7 @@
 		totalClasses: number
 	): string {
 		const baseHue = gradeBaseHues[grade] ?? 0;
-
-		let position: number;
-		if (className === 'IB') {
-			position = totalClasses - 1; // Last position (lightest)
-		} else if (className === 'default') {
-			position = 0;
-		} else {
-			const num = parseInt(className, 10);
-			position = isNaN(num) ? 0 : num - 1; // 1 -> 0, 2 -> 1, etc.
-		}
+		const position = classGradientPosition(className, totalClasses);
 
 		// Student list is lighter than class card
 		const chroma = Math.max(0.03, 0.12 - position * 0.015);
@@ -146,6 +137,37 @@
 		}
 	}
 
+	// Execute a move plan, returning how many moves succeeded. Individual
+	// failures are caught so one bad move doesn't abort the rest.
+	async function executeMoves(plan: MovePlan): Promise<number> {
+		let moved = 0;
+		for (const move of plan.moves) {
+			try {
+				await moveStudent(move.studentId, move.toClassId);
+				moved++;
+			} catch {
+				// skip individual failures
+			}
+		}
+		return moved;
+	}
+
+	// Human-readable summary of the students a move plan skipped, by reason.
+	function skipSummary(skipped: MovePlan['skipped']): string {
+		const crossGrade = skipped.filter((s) => s.reason === 'cross-grade').length;
+		const noSource = skipped.length - crossGrade;
+		const parts: string[] = [];
+		if (crossGrade > 0) {
+			parts.push(
+				`${crossGrade} student${crossGrade !== 1 ? 's' : ''} from other grades were skipped`
+			);
+		}
+		if (noSource > 0) {
+			parts.push(`${noSource} student${noSource !== 1 ? 's' : ''} had no class`);
+		}
+		return parts.join(' and ');
+	}
+
 	let multiSelect = createMultiSelectState();
 
 	let bulkClassActions = $derived.by(() => {
@@ -153,44 +175,26 @@
 		const selected = multiSelect.selectedIds;
 		if (selected.size === 0) return [] as { label: string; action: () => void }[];
 
-		const sourceClassIds = new SvelteSet<string>();
-		for (const cls of classesQuery.data || []) {
-			for (const student of cls.students) {
-				if (selected.has(student._id)) {
-					sourceClassIds.add(cls._id);
-				}
-			}
-		}
-
-		const isSingleSource = sourceClassIds.size === 1;
-
 		const actions: { label: string; action: () => void }[] = [];
-		for (const cls of classesByGrade[selectedSelectGrade] || []) {
-			if (isSingleSource && sourceClassIds.has(cls._id)) continue;
-			if (cls.class === 'IB' && selectedSelectGrade < 11) continue;
-			const displayName = getDisplayName(cls.grade, cls.class);
+		const targets = eligibleTargetClasses({
+			grade: selectedSelectGrade,
+			classes: classesQuery.data || [],
+			selectedStudentIds: Array.from(selected) as Id<'students'>[]
+		});
+		for (const cls of targets) {
 			actions.push({
-				label: displayName,
+				label: getDisplayName(cls.grade, cls.class),
 				action: async () => {
-					const ids = Array.from(multiSelect.selectedIds) as Id<'students'>[];
-					let moved = 0;
-					for (const sId of ids) {
-						const studentClass = (classesQuery.data || []).find((c) =>
-							c.students.some((s) => s._id === sId)
-						);
-						if (studentClass && studentClass.grade === cls.grade) {
-							try {
-								await moveStudent(sId, cls._id as Id<'classes'>);
-								moved++;
-							} catch {
-								// skip individual failures
-							}
-						}
-					}
+					const plan = buildMovePlan({
+						studentIds: Array.from(multiSelect.selectedIds) as Id<'students'>[],
+						targetClass: cls,
+						classes: classesQuery.data || []
+					});
+					const moved = await executeMoves(plan);
 					exitGradeSelection();
-					if (moved < ids.length) {
+					if (plan.skipped.length > 0) {
 						window.alert(
-							`Moved ${moved} of ${ids.length} students. ${ids.length - moved} student${ids.length - moved !== 1 ? 's' : ''} from other grades were skipped.`
+							`Moved ${moved} of ${plan.moves.length + plan.skipped.length} students. ${skipSummary(plan.skipped)}.`
 						);
 					}
 				}
@@ -233,34 +237,10 @@
 	let crossGradeDialogRef = $state<HTMLDialogElement | null>(null);
 	let crossGradeErrorMessage = $state('');
 
-	const grades = [7, 8, 9, 10, 11, 12];
+	const grades = GRADES;
 
-	// Group classes by grade with IB-first gradient sorting
-	const classesByGrade = $derived.by(() => {
-		const classes = classesQuery.data || [];
-		const grouped: Record<number, ClassRecord[]> = {};
-		for (const grade of grades) {
-			const gradeClasses = classes.filter((c) => c.grade === grade);
-			grouped[grade] = gradeClasses
-				.map((c) => ({
-					...c,
-					// Only display Enrolled students
-					students: c.students.filter((s) => s.status !== 'Not Enrolled')
-				}))
-				.sort((a, b) => {
-					// Gradient sort: 1, 2, 3... first (brightest to lighter), IB last (lightest)
-					// default class comes after IB but before numbered classes
-					const getSortPriority = (className: string): number => {
-						if (className === 'IB') return 999; // Last (lightest color)
-						if (className === 'default') return 0;
-						const num = parseInt(className, 10);
-						return isNaN(num) ? 998 : num; // 1 -> 1, 2 -> 2, etc.
-					};
-					return getSortPriority(a.class) - getSortPriority(b.class);
-				});
-		}
-		return grouped;
-	});
+	// Group classes by grade with gradient-first sorting (enrolled students only)
+	const classesByGrade = $derived.by(() => groupClassesByGrade(classesQuery.data || []));
 
 	// Get teachers
 	const teachers = $derived.by(() => {
@@ -355,9 +335,7 @@
 
 	async function deleteClass(cls: ClassRecord) {
 		if (isProtectedClass(cls.class)) {
-			window.alert(
-				`Cannot delete protected class ${getDisplayName(cls.grade, cls.class)}: ${cls.class === 'default' ? 'default' : 'IB'} classes are required`
-			);
+			window.alert(protectedClassErrorMessage(cls.grade, cls.class));
 			return;
 		}
 
@@ -512,22 +490,25 @@
 											id: cls._id,
 											accept: (data: DragData) => {
 												const d = data as unknown as { sourceGrade: number; sourceClassId: string };
-												return d.sourceGrade === cls.grade;
+												return isEligibleMoveTarget(d.sourceGrade, cls);
 											},
 											onDrop: (data: DragData) => {
-												if (
+												const isMultiSelect =
 													selectedSelectGrade !== null &&
 													multiSelect.selectedIds.has(data.id) &&
-													multiSelect.selectedIds.size > 1
-												) {
-													const ids = Array.from(multiSelect.selectedIds) as Id<'students'>[];
+													multiSelect.selectedIds.size > 1;
+												const ids = isMultiSelect
+													? (Array.from(multiSelect.selectedIds) as Id<'students'>[])
+													: [data.id as Id<'students'>];
+												const plan = buildMovePlan({
+													studentIds: ids,
+													targetClass: cls,
+													classes: classesQuery.data || []
+												});
+												if (isMultiSelect) {
 													exitGradeSelection();
-													for (const sid of ids) {
-														moveStudent(sid, cls._id);
-													}
-												} else {
-													moveStudent(data.id as Id<'students'>, cls._id);
 												}
+												executeMoves(plan);
 											}
 										}}
 									>

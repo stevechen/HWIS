@@ -28,6 +28,7 @@ import type * as recoverAuth from "../recoverAuth.js";
 import type * as resetDb from "../resetDb.js";
 import type * as seedAdmin from "../seedAdmin.js";
 import type * as shared_authorization from "../shared/authorization.js";
+import type * as shared_class_roster from "../shared/class_roster.js";
 import type * as shared_enrichment from "../shared/enrichment.js";
 import type * as shared_evaluation_utils from "../shared/evaluation_utils.js";
 import type * as shared_evaluation_week from "../shared/evaluation_week.js";
@@ -68,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   resetDb: typeof resetDb;
   seedAdmin: typeof seedAdmin;
   "shared/authorization": typeof shared_authorization;
+  "shared/class_roster": typeof shared_class_roster;
   "shared/enrichment": typeof shared_enrichment;
   "shared/evaluation_utils": typeof shared_evaluation_utils;
   "shared/evaluation_week": typeof shared_evaluation_week;

@@ -111,10 +111,10 @@
 	let isCheckingId = $state(false);
 	let idAvailability = $state<'available' | 'taken' | 'unknown'>('unknown');
 
-	const grades = [7, 8, 9, 10, 11, 12];
+	const grades = GRADES;
 	const statuses = ['Enrolled', 'Not Enrolled'] as const;
 
-	import { getDisplayName } from '$lib/class-utils';
+	import { GRADES, getDisplayName } from '$convex/shared/class_roster';
 
 	// Combined grade-class options for the form dropdown
 	let gradeClassOptions = $derived.by(() => {

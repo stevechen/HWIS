@@ -16,6 +16,17 @@ HWIS runs grades 7–12. The IB Diploma Programme (IB-DP) is offered only at gra
 - The auto-increment logic for new classes excludes `"default"` and `"IB"` from the number pool.
 - Display uses `getDisplayName(grade, className)`: numeric classes render as `"7-1"`, IB renders as `"11-IB"`.
 
+## Implementation
+
+The class-roster rules live in one place, `src/convex/shared/class_roster.ts`, a pure module shared by Convex and the Svelte UI:
+
+- `GRADES`, `MIN_IB_GRADE` — the grade range and the IB threshold (grades 11–12).
+- `getDisplayName`, `isProtectedClass`, `protectedClassErrorMessage` — display naming and delete protection.
+- `classSortPriority`, `classGradientPosition`, `groupClassesByGrade` — display grouping and gradient ordering.
+- `isEligibleMoveTarget`, `moveRejectionReason`, `buildMovePlan`, `eligibleTargetClasses` — movement decisions: same-grade-only with the IB rule (with machine-readable rejection reasons), move plans including skipped students, and the bulk-move target list.
+
+Convex mutations (`seedDefaultClasses`, `remove`, `moveStudent`) remain the authoritative enforcer; the classes page imports the same functions so drag/drop and bulk movement share one decision path instead of reconstructing the rules in event handlers.
+
 ## Consequences
 
 - Prevents accidental deletion of the default "1" stream or IB classes at any grade.

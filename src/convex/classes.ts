@@ -2,7 +2,14 @@ import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { requireAdminForSensitiveOperation } from './auth';
 import type { Id } from './_generated/dataModel';
-import { getDisplayName, isProtectedClass } from '../lib/class-utils';
+import {
+	GRADES,
+	MIN_IB_GRADE,
+	getDisplayName,
+	isProtectedClass,
+	moveRejectionReason,
+	protectedClassErrorMessage
+} from './shared/class_roster';
 
 export const list = query({
 	args: {
@@ -285,9 +292,7 @@ export const remove = mutation({
 
 		// Check if this is a protected class (1 or IB) - cannot be deleted
 		if (isProtectedClass(classRecord.class)) {
-			throw new Error(
-				`Cannot delete protected class ${getDisplayName(classRecord.grade, classRecord.class)}: ${classRecord.class === '1' ? '1' : 'IB'} classes are required`
-			);
+			throw new Error(protectedClassErrorMessage(classRecord.grade, classRecord.class));
 		}
 
 		// Check if any students are assigned to this class using classId index
@@ -311,7 +316,7 @@ export const seedDefaultClasses = mutation({
 	handler: async (ctx) => {
 		await requireAdminForSensitiveOperation(ctx);
 
-		const grades = [7, 8, 9, 10, 11, 12];
+		const grades = GRADES;
 		const created = [];
 
 		for (const grade of grades) {
@@ -331,7 +336,7 @@ export const seedDefaultClasses = mutation({
 			}
 
 			// Create IB class only for grades 11-12 (IB-DP program)
-			if (grade >= 11) {
+			if (grade >= MIN_IB_GRADE) {
 				const existingIB = await ctx.db
 					.query('classes')
 					.withIndex('by_grade_class', (q) => q.eq('grade', grade).eq('class', 'IB'))
@@ -448,9 +453,13 @@ export const moveStudent = mutation({
 			throw new Error('Current class not found');
 		}
 
-		// Only allow moving within same grade
-		if (currentClass.grade !== targetClass.grade) {
+		// Only allow moving within same grade (and into IB only at grades 11-12)
+		const rejection = moveRejectionReason(currentClass.grade, targetClass);
+		if (rejection === 'cross-grade') {
 			throw new Error('Cannot move student to different grade');
+		}
+		if (rejection === 'ib-below-min') {
+			throw new Error(`IB classes are only available from grade ${MIN_IB_GRADE}`);
 		}
 
 		// Update student's classId
