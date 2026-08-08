@@ -31,10 +31,15 @@ export class TeacherEvaluationsPage {
 			return val && val !== 'undefined' && val !== '';
 		});
 
-		await card.dispatchEvent('mousedown');
-		await this.page.waitForTimeout(600);
-		await card.dispatchEvent('mouseup');
+		// Long-press the card by dispatching mousedown directly on the element.
+		// The timeline's onmouseleave cancels the long-press timer, and the
+		// reactive list re-sorts as parallel workers insert evaluations, so a
+		// pointer held at fixed coordinates can slide off the card mid-hold and
+		// cancel the gesture. Dispatching on the element is immune to re-ordering.
+		await card.dispatchEvent('mousedown', { button: 0 });
+		// The dialog assertion (not a fixed sleep) waits out the 500ms threshold.
 		await expect(this.page.getByTestId('evaluations.edit-dialog')).toBeVisible();
+		await card.dispatchEvent('mouseup').catch(() => undefined);
 	}
 
 	async deleteEvaluation() {

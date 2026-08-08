@@ -1,4 +1,9 @@
-import { getE2EUtils, type CreateStudentOptions, refreshClient } from '../src/lib/e2e-utils';
+import {
+	getE2EUtils,
+	type CleanupScope,
+	type CreateStudentOptions,
+	refreshClient
+} from '../src/lib/e2e-utils';
 import fs from 'fs';
 import path from 'path';
 
@@ -57,6 +62,30 @@ function getUtils(): ReturnType<typeof getE2EUtils> {
 	return e2eUtils;
 }
 
+/**
+ * Uniform retry-with-backoff for teardown calls. Parallel workers can trip
+ * OptimisticConcurrencyControlFailure; every teardown path gets the same
+ * protection. After the last attempt the error is re-thrown so a failed
+ * cleanup surfaces in the spec instead of silently leaking test data.
+ */
+async function withTeardownRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+	let lastError: unknown;
+	for (let attempt = 1; attempt <= 3; attempt++) {
+		try {
+			return await fn();
+		} catch (error) {
+			lastError = error;
+			if (attempt === 3) {
+				console.warn(`[e2e] ${label} failed after ${attempt} attempts:`, error);
+				throw error;
+			}
+			// Exponential backoff before retry
+			await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+		}
+	}
+	throw lastError;
+}
+
 export async function seedBaseline() {
 	const utils = getUtils();
 	return await utils.seedBaseline();
@@ -64,58 +93,39 @@ export async function seedBaseline() {
 
 export async function cleanupAll() {
 	const utils = getUtils();
-	return await utils.cleanupAll();
+	return await withTeardownRetry('cleanupAll', () => utils.cleanupAll());
 }
 
 export async function cleanupTestData(tag: string) {
 	const utils = getUtils();
-	return await utils.cleanupByTag('all', tag);
+	return await withTeardownRetry(`cleanupTestData(${tag})`, () => utils.cleanupTestData(tag));
 }
 
 export async function cleanupAllE2eTaggedData() {
 	const utils = getUtils();
-	return await utils.cleanupAllE2eTaggedData();
+	return await withTeardownRetry('cleanupAllE2eTaggedData', () => utils.cleanupAllE2eTaggedData());
 }
 
 export async function cleanupAuditLogs(authIdString?: string) {
 	const utils = getUtils();
-	return await utils.cleanupAuditLogs(authIdString);
+	return await withTeardownRetry('cleanupAuditLogs', () => utils.cleanupAuditLogs(authIdString));
 }
 
-export async function cleanupByTag(
-	dataType: 'students' | 'categories' | 'evaluations' | 'houseEvents' | 'backups' | 'all',
-	e2eTag: string,
-	maxRetries = 3
-) {
+export async function cleanupByTag(dataType: CleanupScope, e2eTag: string) {
 	const utils = getUtils();
-
-	for (let attempt = 1; attempt <= maxRetries; attempt++) {
-		try {
-			return await utils.cleanupByTag(dataType, e2eTag);
-		} catch (error) {
-			if (attempt === maxRetries) {
-				console.warn(`Cleanup failed after ${maxRetries} attempts:`, error);
-				return; // Don't fail the test for cleanup errors
-			}
-			// Wait before retry (exponential backoff)
-			await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
-		}
-	}
+	return await withTeardownRetry(`cleanupByTag(${dataType}, ${e2eTag})`, () =>
+		utils.cleanupByTag(dataType, e2eTag)
+	);
 }
 
 export async function cleanupTestUsers() {
 	const utils = getUtils();
-	return await utils.cleanupTestUsers();
+	return await withTeardownRetry('cleanupTestUsers', () => utils.cleanupTestUsers());
 }
 
 export async function setupTestUsers() {
 	const utils = getUtils();
 	return await utils.setupTestUsers();
-}
-
-export async function resetAll() {
-	const utils = getUtils();
-	return await utils.resetAll();
 }
 
 export async function seedCategoriesForDelete() {
@@ -268,7 +278,9 @@ export async function setRoleByToken(token: string, role: string) {
 
 export async function cleanupTestBackupsByTimestamp(since: number) {
 	const utils = getUtils();
-	return await utils.cleanupTestBackupsByTimestamp(since);
+	return await withTeardownRetry('cleanupTestBackupsByTimestamp', () =>
+		utils.cleanupTestBackupsByTimestamp(since)
+	);
 }
 
 export async function createWeeklyReportTestData(tag?: string) {
@@ -278,12 +290,14 @@ export async function createWeeklyReportTestData(tag?: string) {
 
 export async function cleanupAllHouseEvents() {
 	const utils = getUtils();
-	return await utils.cleanupAllHouseEvents();
+	return await withTeardownRetry('cleanupAllHouseEvents', () => utils.cleanupAllHouseEvents());
 }
 
 export async function cleanupWeeklyReportTestData(tag?: string) {
 	const utils = getUtils();
-	return await utils.cleanupWeeklyReportTestData(tag);
+	return await withTeardownRetry('cleanupWeeklyReportTestData', () =>
+		utils.cleanupWeeklyReportTestData(tag)
+	);
 }
 
 export function getE2EUtilsClient() {

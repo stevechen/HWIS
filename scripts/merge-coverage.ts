@@ -26,7 +26,7 @@ const testOnlyExcludes = [
 	'src/convex/dataFactory.ts',
 	'src/convex/test.setup.ts',
 	'src/convex/testAuth.ts',
-	'src/convex/testCleanup.ts',
+	'src/convex/testLifecycle.ts',
 	'src/convex/testE2E.ts',
 	'src/convex/testSetup.ts',
 	'src/convex/testData/',

@@ -36,9 +36,9 @@ import type * as shared_houses from "../shared/houses.js";
 import type * as shared_student from "../shared/student.js";
 import type * as students from "../students.js";
 import type * as testAuth from "../testAuth.js";
-import type * as testCleanup from "../testCleanup.js";
 import type * as testData_weeklyReports from "../testData/weeklyReports.js";
 import type * as testE2E from "../testE2E.js";
+import type * as testLifecycle from "../testLifecycle.js";
 import type * as testSetup from "../testSetup.js";
 import type * as users from "../users.js";
 
@@ -77,9 +77,9 @@ declare const fullApi: ApiFromModules<{
   "shared/student": typeof shared_student;
   students: typeof students;
   testAuth: typeof testAuth;
-  testCleanup: typeof testCleanup;
   "testData/weeklyReports": typeof testData_weeklyReports;
   testE2E: typeof testE2E;
+  testLifecycle: typeof testLifecycle;
   testSetup: typeof testSetup;
   users: typeof users;
 }>;

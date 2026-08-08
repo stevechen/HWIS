@@ -156,8 +156,8 @@ describe('class roster policy', () => {
 
 		it('moves students whose class shares the target grade', () => {
 			const plan = buildMovePlan({
-				studentIds: ['s1', 's2'],
-				targetClass: { _id: 'c7b', grade: 7, class: '2' },
+				studentIds: ['s1', 's2'] as Id<'students'>[],
+				targetClass: { _id: 'c7b' as Id<'classes'>, grade: 7, class: '2' },
 				classes
 			});
 
@@ -170,8 +170,8 @@ describe('class roster policy', () => {
 
 		it('skips students from other grades as cross-grade', () => {
 			const plan = buildMovePlan({
-				studentIds: ['s1', 's3'],
-				targetClass: { _id: 'c7b', grade: 7, class: '2' },
+				studentIds: ['s1', 's3'] as Id<'students'>[],
+				targetClass: { _id: 'c7b' as Id<'classes'>, grade: 7, class: '2' },
 				classes
 			});
 
@@ -181,8 +181,8 @@ describe('class roster policy', () => {
 
 		it('skips students not found in any class', () => {
 			const plan = buildMovePlan({
-				studentIds: ['s1', 'ghost'],
-				targetClass: { _id: 'c7b', grade: 7, class: '2' },
+				studentIds: ['s1', 'ghost'] as Id<'students'>[],
+				targetClass: { _id: 'c7b' as Id<'classes'>, grade: 7, class: '2' },
 				classes
 			});
 
@@ -191,9 +191,9 @@ describe('class roster policy', () => {
 		});
 
 		it('does not move students into an IB class below grade 11', () => {
-			const ibClass = { _id: 'c7ib', grade: 7, class: 'IB' };
+			const ibClass = { _id: 'c7ib' as Id<'classes'>, grade: 7, class: 'IB' };
 			const plan = buildMovePlan({
-				studentIds: ['s1'],
+				studentIds: ['s1'] as Id<'students'>[],
 				targetClass: ibClass,
 				classes: [...classes, makeClass('c7ib', 7, 'IB')]
 			});
@@ -215,7 +215,7 @@ describe('class roster policy', () => {
 			const targets = eligibleTargetClasses({
 				grade: 7,
 				classes,
-				selectedStudentIds: ['s1']
+				selectedStudentIds: ['s1'] as Id<'students'>[]
 			});
 
 			expect(targets.map((c) => c._id)).toEqual(['c2', 'c3']);
@@ -226,7 +226,7 @@ describe('class roster policy', () => {
 			const targets = eligibleTargetClasses({
 				grade: 7,
 				classes: multiSource,
-				selectedStudentIds: ['s1', 's2']
+				selectedStudentIds: ['s1', 's2'] as Id<'students'>[]
 			});
 
 			expect(targets.map((c) => c._id)).toEqual(['c1', 'c2', 'c3', 'c5']);
@@ -237,7 +237,7 @@ describe('class roster policy', () => {
 			const targets = eligibleTargetClasses({
 				grade: 7,
 				classes: withIB,
-				selectedStudentIds: ['s1']
+				selectedStudentIds: ['s1'] as Id<'students'>[]
 			});
 
 			expect(targets.map((c) => c._id)).toEqual(['c2', 'c3']);
@@ -248,7 +248,7 @@ describe('class roster policy', () => {
 			const targets = eligibleTargetClasses({
 				grade: 11,
 				classes: grade11,
-				selectedStudentIds: ['s1']
+				selectedStudentIds: ['s1'] as Id<'students'>[]
 			});
 
 			expect(targets.map((c) => c._id)).toEqual(['ib']);

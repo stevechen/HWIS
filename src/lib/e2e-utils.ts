@@ -83,15 +83,6 @@ export interface SeedBaselineResult {
 	timestamp: number;
 }
 
-export interface CleanupResult {
-	success?: boolean;
-	deleted?: number;
-	deletedOrphanedUsers?: number;
-	error?: string;
-	tag?: string;
-	timestamp?: number;
-}
-
 export interface SetupTestUsersResult {
 	teacherSessionToken?: string;
 	adminSessionToken?: string;
@@ -100,28 +91,31 @@ export interface SetupTestUsersResult {
 	error?: string;
 }
 
+// Data types a teardown call can be scoped to (mirrors the lifecycle module).
+export type CleanupScope =
+	| 'students'
+	| 'categories'
+	| 'evaluations'
+	| 'houseEvents'
+	| 'backups'
+	| 'auditLogs'
+	| 'all';
+
 export interface E2EUtils {
-	resetAll: () => Promise<void>;
-	resetCategoriesAndEvals: () => Promise<void>;
 	seedAll: () => Promise<void>;
-	clearAuditOnly: () => Promise<void>;
 	seedCategoriesForDelete: () => Promise<unknown>;
 	seedStudentsForDisable: () => Promise<void>;
 	seedAuditLogs: (authId?: string) => Promise<{ success: boolean; error?: string }>;
-	cleanupAll: () => Promise<CleanupResult>;
-	cleanupTestData: (tag: string) => Promise<CleanupResult>;
-	cleanupAllE2eTaggedData: () => Promise<CleanupResult>;
-	cleanupByTag: (
-		dataType: 'students' | 'categories' | 'evaluations' | 'houseEvents' | 'backups' | 'all',
-		e2eTag: string,
-		maxRetries?: number
-	) => Promise<CleanupResult>;
-	cleanupAllHouseEvents: () => Promise<CleanupResult>;
+	cleanupAll: () => Promise<unknown>;
+	cleanupTestData: (tag: string) => Promise<unknown>;
+	cleanupAllE2eTaggedData: () => Promise<unknown>;
+	cleanupByTag: (dataType: CleanupScope, e2eTag: string) => Promise<unknown>;
+	cleanupAllHouseEvents: () => Promise<unknown>;
 	seedBaseline: () => Promise<SeedBaselineResult>;
-	cleanupTestUsers: () => Promise<CleanupResult>;
-	cleanupAuditLogs: (authIdString?: string) => Promise<CleanupResult>;
+	cleanupTestUsers: () => Promise<unknown>;
+	cleanupAuditLogs: (authIdString?: string) => Promise<unknown>;
 	setupTestUsers: () => Promise<SetupTestUsersResult>;
-	cleanupTestBackupsByTimestamp: (since: number) => Promise<CleanupResult>;
+	cleanupTestBackupsByTimestamp: (since: number) => Promise<unknown>;
 	createStudent: (opts: CreateStudentOptions) => Promise<unknown>;
 	createStudentWithId: (opts: CreateStudentOptions) => Promise<unknown>;
 	createClass: (opts: CreateClassOptions) => Promise<unknown>;
@@ -145,35 +139,11 @@ export function getE2EUtils(): E2EUtils {
 	const c = getClient();
 
 	return {
-		async resetAll() {
-			try {
-				await c.mutation(api.testE2E.e2eResetAll, {});
-			} catch {
-				console.log('Reset all error');
-			}
-		},
-
-		async resetCategoriesAndEvals() {
-			try {
-				await c.mutation(api.testE2E.e2eResetCategoriesAndEvals, {});
-			} catch {
-				console.log('Reset categories and evals error');
-			}
-		},
-
 		async seedAll() {
 			try {
 				await c.mutation(api.testE2E.e2eSeedAll, {});
 			} catch {
 				console.log('Seed all error');
-			}
-		},
-
-		async clearAuditOnly() {
-			try {
-				await c.mutation(api.testE2E.e2eClearAuditOnly, {});
-			} catch {
-				console.log('Clear audit error');
 			}
 		},
 
@@ -206,57 +176,29 @@ export function getE2EUtils(): E2EUtils {
 			}
 		},
 
-		async cleanupAll(): Promise<CleanupResult> {
-			try {
-				const result = await c.mutation(api.dataFactory.cleanupAll, {});
-				console.log('Cleanup all result:', result);
-				return result;
-			} catch {
-				console.log('Cleanup all error');
-				return { error: 'Error' };
-			}
+		async cleanupAll() {
+			// Nuclear reset semantics collapse to the tagged sweep: the lifecycle
+			// module owns all teardown. Failures re-throw so they surface in specs.
+			return await c.mutation(api.testLifecycle.teardownAllTagged, {});
 		},
 
-		async cleanupTestData(tag: string): Promise<CleanupResult> {
-			try {
-				const result = await c.mutation(api.dataFactory.cleanupAll, {
-					tag
-				});
-				console.log('Cleanup test data result:', result);
-				return result;
-			} catch {
-				console.log('Cleanup test data error');
-				return { error: 'Error' };
-			}
+		async cleanupTestData(tag: string) {
+			return await c.mutation(api.testLifecycle.teardownByTag, { e2eTag: tag });
 		},
 
-		async cleanupAllE2eTaggedData(): Promise<CleanupResult> {
-			try {
-				const result = await c.mutation(api.testCleanup.cleanupAllE2eTaggedData, {});
-				console.log('Cleanup all e2e-tagged data result:', result);
-				return result;
-			} catch (e) {
-				console.log('Cleanup all e2e-tagged data error:', e);
-				return { error: 'Error' };
-			}
+		async cleanupAllE2eTaggedData() {
+			return await c.mutation(api.testLifecycle.teardownAllTagged, {});
 		},
 
-		async cleanupByTag(
-			dataType: 'students' | 'categories' | 'evaluations' | 'houseEvents' | 'backups' | 'all',
-			e2eTag: string
-		): Promise<CleanupResult> {
-			try {
-				const result = await c.mutation(api.testCleanup.cleanupByTag, {
-					dataType,
-					e2eTag
-				});
-				console.log('Cleanup by tag result:', result);
-				return result;
-			} catch (e) {
-				console.log('Cleanup by tag error:', e);
-				// Re-throw to make test failures visible
-				throw e;
-			}
+		async cleanupByTag(dataType: CleanupScope, e2eTag: string) {
+			return await c.mutation(api.testLifecycle.teardownByTag, {
+				scope: dataType,
+				e2eTag
+			});
+		},
+
+		async cleanupAllHouseEvents() {
+			return await c.mutation(api.testLifecycle.teardownAllHouseEvents, {});
 		},
 
 		async seedBaseline(): Promise<SeedBaselineResult> {
@@ -270,39 +212,18 @@ export function getE2EUtils(): E2EUtils {
 			}
 		},
 
-		async cleanupTestUsers(): Promise<CleanupResult> {
-			try {
-				const result = await c.mutation(api.testCleanup.cleanupAllTestUsers, {});
-				console.log('Cleanup test users result:', result);
-				return result;
-			} catch (e) {
-				console.error('Cleanup test users error:', e);
-				return { error: 'Error' };
-			}
+		async cleanupTestUsers() {
+			return await c.mutation(api.testLifecycle.teardownTestUsers, {});
 		},
 
-		async cleanupAuditLogs(authIdString?: string): Promise<CleanupResult> {
-			try {
-				const result = await c.mutation(api.testCleanup.cleanupAuditLogs, {
-					authIdString
-				});
-				console.log('Cleanup audit logs result:', result);
-				return result;
-			} catch {
-				console.log('Cleanup audit logs error');
-				return { error: 'Error' };
-			}
-		},
-
-		async cleanupAllHouseEvents(): Promise<CleanupResult> {
-			try {
-				const result = await c.mutation(api.dataFactory.cleanupAllHouseEvents, {});
-				console.log('Cleanup all house events result:', result);
-				return result;
-			} catch {
-				console.log('Cleanup all house events error');
-				return { error: 'Error' };
-			}
+		async cleanupAuditLogs(authIdString?: string) {
+			// Without an authIdString this hits the untagged-audit-log adapter
+			// (logs with no e2eTag plus default_user's). With one it scopes to
+			// that performer's tagged logs and removes the performer user.
+			return await c.mutation(api.testLifecycle.teardownByTag, {
+				scope: 'auditLogs',
+				...((authIdString && { e2eTag: authIdString }) ?? {})
+			});
 		},
 
 		async setupTestUsers(): Promise<SetupTestUsersResult> {
@@ -316,17 +237,8 @@ export function getE2EUtils(): E2EUtils {
 			}
 		},
 
-		async cleanupTestBackupsByTimestamp(since: number): Promise<CleanupResult> {
-			try {
-				const result = await c.mutation(api.testCleanup.cleanupTestBackupsByTimestamp, {
-					since
-				});
-				console.log('Cleanup test backups result:', result);
-				return result;
-			} catch (e) {
-				console.error('Cleanup test backups error:', e);
-				return { error: 'Error' };
-			}
+		async cleanupTestBackupsByTimestamp(since: number) {
+			return await c.mutation(api.testLifecycle.teardownBackupsByTimestamp, { since });
 		},
 
 		async createStudent(opts: CreateStudentOptions) {
@@ -484,16 +396,10 @@ export function getE2EUtils(): E2EUtils {
 		},
 
 		async cleanupWeeklyReportTestData(tag?: string) {
-			try {
-				const result = await c.mutation(api.testData.weeklyReports.cleanupWeeklyReportTestData, {
-					tag: tag || undefined
-				});
-				console.log('Cleanup weekly report test data result:', result);
-				return result;
-			} catch {
-				console.log('Cleanup weekly report test data error');
-				return { error: 'Error' };
-			}
+			return await c.mutation(api.testLifecycle.teardownByTag, {
+				scope: 'all',
+				e2eTag: tag || 'weekly-reports-test'
+			});
 		}
 	};
 }

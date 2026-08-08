@@ -3,62 +3,6 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { requireAdminForSensitiveOperation } from './auth';
 
-export const e2eResetAll = mutation({
-	args: {},
-	handler: async (ctx) => {
-		await requireAdminForSensitiveOperation(ctx);
-		const allStudents = await ctx.db.query('students').collect();
-		for (const s of allStudents) {
-			await ctx.db.delete(s._id);
-		}
-
-		const allCategories = await ctx.db.query('point_categories').collect();
-		for (const c of allCategories) {
-			await ctx.db.delete(c._id);
-		}
-
-		const allEvaluations = await ctx.db.query('evaluations').collect();
-		for (const e of allEvaluations) {
-			await ctx.db.delete(e._id);
-		}
-
-		const allAuditLogs = await ctx.db.query('audit_logs').collect();
-		for (const a of allAuditLogs) {
-			await ctx.db.delete(a._id);
-		}
-
-		const allClasses = await ctx.db.query('classes').collect();
-		for (const c of allClasses) {
-			await ctx.db.delete(c._id);
-		}
-
-		const allHouseEvents = await ctx.db.query('house_events').collect();
-		for (const h of allHouseEvents) {
-			await ctx.db.delete(h._id);
-		}
-
-		return { message: 'All test data cleaned' };
-	}
-});
-
-export const e2eResetCategoriesAndEvals = mutation({
-	args: {},
-	handler: async (ctx) => {
-		await requireAdminForSensitiveOperation(ctx);
-		const allCategories = await ctx.db.query('point_categories').collect();
-		for (const c of allCategories) {
-			await ctx.db.delete(c._id);
-		}
-
-		const allEvaluations = await ctx.db.query('evaluations').collect();
-		for (const e of allEvaluations) {
-			await ctx.db.delete(e._id);
-		}
-
-		return { message: 'Categories and evaluations cleaned' };
-	}
-});
-
 export const e2eSeedAll = mutation({
 	args: {},
 	handler: async (ctx) => {
@@ -263,18 +207,6 @@ export const e2eSeedAll = mutation({
 			evaluations: 2,
 			auditLogs: 3
 		};
-	}
-});
-
-export const e2eClearAuditOnly = mutation({
-	args: {},
-	handler: async (ctx) => {
-		await requireAdminForSensitiveOperation(ctx);
-		const allAuditLogs = await ctx.db.query('audit_logs').collect();
-		for (const a of allAuditLogs) {
-			await ctx.db.delete(a._id);
-		}
-		return { message: 'Audit logs cleared' };
 	}
 });
 

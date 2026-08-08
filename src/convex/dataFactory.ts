@@ -36,14 +36,6 @@ async function getOrCreateClass(
 type AuthUserInfo = { authId?: string; _id?: string };
 
 // Data factory helper functions for E2E testing
-const TABLES = [
-	'students',
-	'point_categories',
-	'evaluations',
-	'audit_logs',
-	'house_events'
-] as const;
-
 function getE2ETag(): string {
 	return `e2e-test_${Date.now().toString().slice(-6)}`;
 }
@@ -109,29 +101,6 @@ function generateChineseName(): string {
 	const givenName = givenNames[Math.floor(Math.random() * givenNames.length)];
 	return surname + givenName;
 }
-
-export const cleanupAll = mutation({
-	args: {
-		tag: v.optional(v.string())
-	},
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx);
-		const e2eTag = args.tag || getE2ETag();
-		let totalDeleted = 0;
-
-		for (const table of TABLES) {
-			const items = await ctx.db.query(table).collect();
-			for (const item of items) {
-				if ('e2eTag' in item && item.e2eTag === e2eTag) {
-					await ctx.db.delete(item._id);
-					totalDeleted++;
-				}
-			}
-		}
-
-		return { deleted: totalDeleted, tag: args.tag };
-	}
-});
 
 export const seedBaseline = mutation({
 	args: {},
@@ -559,35 +528,5 @@ export const setE2eTag = mutation({
 		}
 
 		throw new Error(`Unknown data type: ${args.dataType}`);
-	}
-});
-
-export const cleanupHouseEventsByTag = mutation({
-	args: {
-		tag: v.string()
-	},
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx);
-		let totalDeleted = 0;
-		const events = await ctx.db.query('house_events').collect();
-		for (const event of events) {
-			if (event.e2eTag === args.tag) {
-				await ctx.db.delete(event._id);
-				totalDeleted++;
-			}
-		}
-		return { deleted: totalDeleted };
-	}
-});
-
-export const cleanupAllHouseEvents = mutation({
-	args: {},
-	handler: async (ctx) => {
-		await requireAdminForSensitiveOperation(ctx);
-		const events = await ctx.db.query('house_events').collect();
-		for (const event of events) {
-			await ctx.db.delete(event._id);
-		}
-		return { deleted: events.length };
 	}
 });

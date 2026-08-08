@@ -171,39 +171,3 @@ export const setupTestUsers = mutation({
 		};
 	}
 });
-
-export const cleanupTestUsers = mutation({
-	args: {
-		testToken: v.optional(v.string())
-	},
-	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx, args.testToken);
-		const adapter = await authComponent.adapter(ctx)({
-			user: { fields: undefined }
-		});
-
-		const existingUsers = (await adapter.findMany({ model: 'user', where: [] })) as TestUser[];
-		let deleted = 0;
-		for (const u of existingUsers) {
-			if (
-				(u.email.includes('test') || u.email.includes('hwis.test')) &&
-				!PROTECTED_EMAILS.has(u.email)
-			) {
-				await adapter.deleteMany({ model: 'session', where: [{ field: 'userId', value: u.id }] });
-				await adapter.deleteMany({ model: 'account', where: [{ field: 'userId', value: u.id }] });
-				await adapter.deleteMany({ model: 'user', where: [{ field: 'id', value: u.id }] });
-
-				const hwisUser = await ctx.db
-					.query('users')
-					.withIndex('by_authId', (q) => q.eq('authId', u.id))
-					.first();
-				if (hwisUser) {
-					await ctx.db.delete(hwisUser._id);
-				}
-				deleted++;
-			}
-		}
-
-		return { deleted };
-	}
-});

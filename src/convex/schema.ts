@@ -143,5 +143,7 @@ export default defineSchema({
 			})
 		),
 		e2eTag: v.optional(v.string())
-	}).index('by_startDate', ['startDate'])
+	})
+		.index('by_startDate', ['startDate'])
+		.index('by_e2eTag', ['e2eTag'])
 });

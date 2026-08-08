@@ -1,7 +1,6 @@
 import { mutation } from '../_generated/server';
 import { v } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
-import type { MutationCtx } from '../_generated/server';
 
 // Weekly Reports Test Data Generator
 // Creates realistic 5 weeks of evaluation data for testing
@@ -282,111 +281,6 @@ export const createWeeklyReportTestData = mutation({
 				evaluations: w.evaluationCount,
 				students: w.studentCount
 			}))
-		};
-	}
-});
-
-type E2ETable = 'evaluations' | 'audit_logs' | 'students' | 'users' | 'point_categories';
-type TaggedDoc = { _id: Id<E2ETable>; e2eTag?: string };
-
-// Helper function to delete all tagged data
-async function deleteByTag(ctx: MutationCtx, table: E2ETable, tag: string): Promise<number> {
-	const docs = await ctx.db.query(table).collect();
-	const taggedDocs = docs.filter((doc) => (doc as TaggedDoc).e2eTag === tag);
-
-	for (const doc of taggedDocs) {
-		await ctx.db.delete(doc._id);
-	}
-
-	return taggedDocs.length;
-}
-
-// Helper function to verify complete cleanup
-async function verifyCompleteCleanup(
-	ctx: MutationCtx,
-	tag: string
-): Promise<Array<{ e2eTag: string }>> {
-	const tables: E2ETable[] = ['evaluations', 'audit_logs', 'students', 'users', 'point_categories'];
-	const remaining: Array<{ e2eTag: string }> = [];
-
-	for (const table of tables) {
-		const docs = await ctx.db.query(table).collect();
-		const tagged = docs.filter((doc) => (doc as TaggedDoc).e2eTag === tag);
-		remaining.push(...(tagged as Array<{ e2eTag: string }>));
-	}
-
-	return remaining;
-}
-
-export const cleanupWeeklyReportTestData = mutation({
-	args: { tag: v.optional(v.string()) },
-	handler: async (ctx, args) => {
-		const isProd = process.env.CONVEX_DEPLOYMENT?.startsWith('prod:') ?? false;
-		if (isProd) throw new Error('Not available in production');
-
-		const tag = args.tag || 'weekly-reports-test';
-
-		// First, find all students with this tag
-		const students = await ctx.db.query('students').collect();
-		const taggedStudents = students.filter((s) => s.e2eTag === tag);
-		const taggedStudentIds = new Set(taggedStudents.map((s) => s._id));
-
-		// Delete evaluations that reference tagged students (even if evaluation doesn't have the tag)
-		let deletedEvaluations = 0;
-		const evaluations = await ctx.db.query('evaluations').collect();
-		const evaluationIdsToDelete = new Set<Id<'evaluations'>>();
-		for (const evaluation of evaluations) {
-			if (taggedStudentIds.has(evaluation.studentId)) {
-				evaluationIdsToDelete.add(evaluation._id);
-			}
-		}
-		for (const evalId of evaluationIdsToDelete) {
-			await ctx.db.delete(evalId);
-			deletedEvaluations++;
-		}
-
-		// Delete audit logs that reference tagged students or deleted evaluations
-		let deletedAuditLogs = 0;
-		const auditLogs = await ctx.db.query('audit_logs').collect();
-		for (const audit of auditLogs) {
-			// Check if audit log references a tagged student or deleted evaluation
-			// audit.targetTable can be 'evaluations', 'students', etc.
-			// audit.targetId is the string ID of the affected record
-			const matchesEvaluation = audit.targetTable === 'evaluations';
-			const matchesStudent = audit.targetTable === 'students';
-
-			let shouldDelete = false;
-			if (matchesEvaluation && evaluationIdsToDelete.has(audit.targetId as Id<'evaluations'>)) {
-				shouldDelete = true;
-			} else if (matchesStudent && taggedStudentIds.has(audit.targetId as Id<'students'>)) {
-				shouldDelete = true;
-			}
-
-			if (shouldDelete) {
-				await ctx.db.delete(audit._id);
-				deletedAuditLogs++;
-			}
-		}
-
-		// Delete by tag for other tables
-		const deletedStudents = await deleteByTag(ctx, 'students', tag);
-		const deletedUsers = await deleteByTag(ctx, 'users', tag); // teachers
-		const deletedCategories = await deleteByTag(ctx, 'point_categories', tag);
-
-		// Verify complete cleanup
-		const remaining = await verifyCompleteCleanup(ctx, tag);
-
-		return {
-			success: true,
-			tag,
-			deletedCounts: {
-				evaluations: deletedEvaluations,
-				audit_logs: deletedAuditLogs,
-				students: deletedStudents,
-				users: deletedUsers,
-				point_categories: deletedCategories
-			},
-			remainingCount: remaining.length
 		};
 	}
 });
