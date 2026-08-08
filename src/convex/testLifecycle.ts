@@ -28,15 +28,15 @@ const SCOPE = v.union(
 	v.literal('all')
 );
 
-function getE2ETag(): string {
+function getE2ETag() {
 	return `e2e-test_${Date.now().toString().slice(-6)}`;
 }
 
-function isTestEmail(email?: string): boolean {
+function isTestEmail(email?: string) {
 	return Boolean(email && (email.includes('test') || email.includes('hwis.test')));
 }
 
-function bump(deleted: Record<string, number>, table: string, count: number): void {
+function bump(deleted: Record<string, number>, table: string, count: number) {
 	deleted[table] = (deleted[table] ?? 0) + count;
 }
 
@@ -44,7 +44,7 @@ async function deleteStudentsByTag(
 	ctx: MutationCtx,
 	e2eTag: string,
 	deleted: Record<string, number>
-): Promise<Id<'students'>[]> {
+) {
 	const students = await ctx.db
 		.query('students')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
@@ -62,7 +62,7 @@ async function deleteEvaluationsByTag(
 	e2eTag: string,
 	studentIds: Id<'students'>[],
 	deleted: Record<string, number>
-): Promise<Id<'evaluations'>[]> {
+) {
 	const ids = new Set<Id<'evaluations'>>();
 	const tagged = await ctx.db
 		.query('evaluations')
@@ -89,7 +89,7 @@ async function deleteAuditLogsByTag(
 	studentIds: Id<'students'>[],
 	evaluationIds: Id<'evaluations'>[],
 	deleted: Record<string, number>
-): Promise<void> {
+) {
 	const ids = new Set<Id<'audit_logs'>>();
 	const tagged = await ctx.db
 		.query('audit_logs')
@@ -122,7 +122,7 @@ async function deleteCategoriesByTag(
 	ctx: MutationCtx,
 	e2eTag: string,
 	deleted: Record<string, number>
-): Promise<void> {
+) {
 	const categories = await ctx.db
 		.query('point_categories')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
@@ -137,7 +137,7 @@ async function deleteHouseEventsByTag(
 	ctx: MutationCtx,
 	e2eTag: string,
 	deleted: Record<string, number>
-): Promise<void> {
+) {
 	const events = await ctx.db
 		.query('house_events')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
@@ -152,7 +152,7 @@ async function deleteBackupsByTag(
 	ctx: MutationCtx,
 	e2eTag: string,
 	deleted: Record<string, number>
-): Promise<void> {
+) {
 	const backups = await ctx.db
 		.query('backups')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
@@ -163,11 +163,7 @@ async function deleteBackupsByTag(
 	if (backups.length > 0) bump(deleted, 'backups', backups.length);
 }
 
-async function deleteUsersByTag(
-	ctx: MutationCtx,
-	e2eTag: string,
-	deleted: Record<string, number>
-): Promise<void> {
+async function deleteUsersByTag(ctx: MutationCtx, e2eTag: string, deleted: Record<string, number>) {
 	const users = await ctx.db.query('users').collect();
 	let count = 0;
 	for (const user of users) {
@@ -185,7 +181,7 @@ async function deleteOrphanedClasses(
 	deleted: Record<string, number>,
 	e2eTag?: string,
 	candidateClassIds?: Id<'classes'>[]
-): Promise<void> {
+) {
 	const classes = e2eTag
 		? await ctx.db
 				.query('classes')
@@ -209,10 +205,7 @@ async function deleteOrphanedClasses(
 }
 
 // Seeded audit logs (no e2eTag) or logs performed by the default_user test user.
-async function deleteUntaggedAuditLogs(
-	ctx: MutationCtx,
-	deleted: Record<string, number>
-): Promise<void> {
+async function deleteUntaggedAuditLogs(ctx: MutationCtx, deleted: Record<string, number>) {
 	const logs = await ctx.db.query('audit_logs').collect();
 	const defaultUser = await ctx.db
 		.query('users')
@@ -233,7 +226,7 @@ async function deleteTestPerformerUser(
 	ctx: MutationCtx,
 	e2eTag: string,
 	deleted: Record<string, number>
-): Promise<void> {
+) {
 	if (!TEST_AUTH_ID_PREFIXES.some((prefix) => e2eTag.startsWith(prefix))) return;
 	const user = await ctx.db
 		.query('users')

@@ -101,7 +101,7 @@ async function remapClasses(
 	ctx: { db: GenericDatabaseWriter<DataModel> },
 	classes: RestorePayload['classes'],
 	userIdMapping: Map<string, Id<'users'>>
-): Promise<Map<string, Id<'classes'>>> {
+) {
 	const mapping = new Map<string, Id<'classes'>>();
 	for (const cls of classes) {
 		const existingClass = await ctx.db
@@ -131,7 +131,7 @@ async function remapClasses(
 async function remapUsers(
 	ctx: { db: GenericDatabaseWriter<DataModel> },
 	users: RestorePayload['users']
-): Promise<Map<string, Id<'users'>>> {
+) {
 	const mapping = new Map<string, Id<'users'>>();
 	for (const user of users) {
 		const existingUser = user.authId
@@ -167,7 +167,7 @@ async function remapUsers(
 async function remapCategories(
 	ctx: { db: GenericDatabaseWriter<DataModel> },
 	categories: RestorePayload['categories']
-): Promise<Map<string, Id<'point_categories'>>> {
+) {
 	const mapping = new Map<string, Id<'point_categories'>>();
 	for (const category of categories) {
 		const existingCategory = await ctx.db
