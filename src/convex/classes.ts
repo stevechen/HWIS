@@ -163,7 +163,8 @@ export const create = mutation({
 	args: {
 		grade: v.number(),
 		class: v.optional(v.string()), // Optional - if not provided, auto-increment
-		homeroomTeacherId: v.optional(v.id('users'))
+		homeroomTeacherId: v.optional(v.id('users')),
+		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
@@ -214,7 +215,8 @@ export const create = mutation({
 		const id = await ctx.db.insert('classes', {
 			grade: args.grade,
 			class: className,
-			homeroomTeacherId: args.homeroomTeacherId ?? undefined
+			homeroomTeacherId: args.homeroomTeacherId ?? undefined,
+			e2eTag: args.e2eTag
 		});
 
 		return id;

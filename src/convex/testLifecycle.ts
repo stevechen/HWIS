@@ -182,11 +182,20 @@ async function deleteUsersByTag(
 // Removes classes that no longer reference any student after cascade teardown.
 async function deleteOrphanedClasses(
 	ctx: MutationCtx,
-	deleted: Record<string, number>
+	deleted: Record<string, number>,
+	e2eTag?: string,
+	candidateClassIds?: Id<'classes'>[]
 ): Promise<void> {
-	const classes = await ctx.db.query('classes').collect();
+	const classes = e2eTag
+		? await ctx.db
+				.query('classes')
+				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+				.collect()
+		: await ctx.db.query('classes').collect();
+	const candidates = candidateClassIds ? new Set(candidateClassIds) : undefined;
 	let count = 0;
 	for (const cls of classes) {
+		if (candidates && !candidates.has(cls._id)) continue;
 		const studentsInClass = await ctx.db
 			.query('students')
 			.withIndex('by_classId', (q) => q.eq('classId', cls._id))
@@ -263,8 +272,14 @@ export const teardownByTag = mutation({
 
 		let studentIds: Id<'students'>[] = [];
 		let evaluationIds: Id<'evaluations'>[] = [];
+		let studentClassIds: Id<'classes'>[] = [];
 
 		if (isAll || scope === 'students') {
+			const taggedStudents = await ctx.db
+				.query('students')
+				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+				.collect();
+			studentClassIds = taggedStudents.map((student) => student.classId);
 			studentIds = await deleteStudentsByTag(ctx, e2eTag, deleted);
 		}
 		if (isAll || scope === 'students' || scope === 'evaluations') {
@@ -287,7 +302,9 @@ export const teardownByTag = mutation({
 		}
 		if (isAll) {
 			await deleteUsersByTag(ctx, e2eTag, deleted);
-			await deleteOrphanedClasses(ctx, deleted);
+			await deleteOrphanedClasses(ctx, deleted, e2eTag);
+		} else if (scope === 'students') {
+			await deleteOrphanedClasses(ctx, deleted, e2eTag, studentClassIds);
 		}
 
 		return { deleted };

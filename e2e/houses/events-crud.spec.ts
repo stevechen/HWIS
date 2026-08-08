@@ -2,9 +2,9 @@ import { test, expect } from '../fixtures';
 import { getTestSuffix } from '../helpers';
 import {
 	cleanupByTag,
-	cleanupAllHouseEvents,
 	createStudent,
-	createCategory
+	createCategory,
+	tagHouseEventsByTitle
 } from '../convex-client';
 import { HouseEventsPage } from '../pages';
 
@@ -39,7 +39,7 @@ test.describe('House Events Management - E2E @sequential', () => {
 	});
 
 	test.afterEach(async () => {
-		await cleanupAllHouseEvents();
+		await tagHouseEventsByTitle(suffix, e2eTag);
 		await cleanupByTag('all', e2eTag);
 	});
 
