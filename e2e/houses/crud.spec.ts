@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures';
 import { getUniqueTag } from '../helpers';
-import { cleanupByTag, cleanupAll, useRole, createStudent } from '../convex-client';
+import { cleanupByTag, useRole, createStudent } from '../convex-client';
 import { AdminHousesPage } from '../pages';
 
 test.describe('House Management - Integration', () => {
@@ -12,8 +12,6 @@ test.describe('House Management - Integration', () => {
 	test.beforeEach(async ({ page }) => {
 		housesPage = new AdminHousesPage(page);
 		useRole('admin');
-
-		await cleanupAll();
 
 		await housesPage.goto();
 	});

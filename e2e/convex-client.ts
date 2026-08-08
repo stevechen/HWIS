@@ -91,11 +91,6 @@ export async function seedBaseline() {
 	return await utils.seedBaseline();
 }
 
-export async function cleanupAll() {
-	const utils = getUtils();
-	return await withTeardownRetry('cleanupAll', () => utils.cleanupAll());
-}
-
 export async function cleanupTestData(tag: string) {
 	const utils = getUtils();
 	return await withTeardownRetry(`cleanupTestData(${tag})`, () => utils.cleanupTestData(tag));

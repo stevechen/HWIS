@@ -106,7 +106,6 @@ export interface E2EUtils {
 	seedCategoriesForDelete: () => Promise<unknown>;
 	seedStudentsForDisable: () => Promise<void>;
 	seedAuditLogs: (authId?: string) => Promise<{ success: boolean; error?: string }>;
-	cleanupAll: () => Promise<unknown>;
 	cleanupTestData: (tag: string) => Promise<unknown>;
 	cleanupAllE2eTaggedData: () => Promise<unknown>;
 	cleanupByTag: (dataType: CleanupScope, e2eTag: string) => Promise<unknown>;
@@ -174,12 +173,6 @@ export function getE2EUtils(): E2EUtils {
 				console.log('Seed audit logs error:', e);
 				return { success: false, error: String(e) };
 			}
-		},
-
-		async cleanupAll() {
-			// Nuclear reset semantics collapse to the tagged sweep: the lifecycle
-			// module owns all teardown. Failures re-throw so they surface in specs.
-			return await c.mutation(api.testLifecycle.teardownAllTagged, {});
 		},
 
 		async cleanupTestData(tag: string) {
