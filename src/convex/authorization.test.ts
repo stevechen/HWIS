@@ -9,7 +9,9 @@ import {
 	canAccessAdminArea,
 	isEnrolledStudent,
 	hasApplicationAccess,
+	canReadTeacherHistory,
 	canReadEvaluation,
+	canEditEvaluation,
 	requireEvaluationAccess,
 	type AccessSubject,
 	type Role,
@@ -210,6 +212,35 @@ describe('canReadEvaluation', () => {
 				evaluation
 			)
 		).toBe(false);
+	});
+});
+
+describe('canReadTeacherHistory', () => {
+	it('allows active teachers', () => {
+		expect(canReadTeacherHistory(makeUser({ role: 'teacher', status: 'active' }))).toBe(true);
+	});
+
+	it('rejects admins and inactive teachers', () => {
+		expect(canReadTeacherHistory(makeUser({ role: 'admin' }))).toBe(false);
+		expect(canReadTeacherHistory(makeUser({ role: 'teacher', status: 'pending' }))).toBe(false);
+	});
+});
+
+describe('canEditEvaluation', () => {
+	it("allows Super to edit another teacher's evaluation", () => {
+		expect(canEditEvaluation(makeUser({ role: 'super' }), evaluation)).toBe(true);
+	});
+
+	it('allows an authoring teacher but not another teacher or admin', () => {
+		expect(canEditEvaluation(makeUser({ role: 'teacher', _id: teacherId }), evaluation)).toBe(true);
+		expect(canEditEvaluation(makeUser({ role: 'teacher' }), evaluation)).toBe(false);
+		expect(canEditEvaluation(makeUser({ role: 'admin' }), evaluation)).toBe(false);
+	});
+
+	it('rejects inactive Super', () => {
+		expect(canEditEvaluation(makeUser({ role: 'super', status: 'pending' }), evaluation)).toBe(
+			false
+		);
 	});
 });
 

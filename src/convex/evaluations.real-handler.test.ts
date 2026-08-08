@@ -151,6 +151,36 @@ describe('evaluations.update (real handler)', () => {
 			})
 		).rejects.toThrow('Not authorized to edit this evaluation');
 	});
+
+	it("allows an active Super to correct another teacher's evaluation", async () => {
+		const t = convexTest(schema, modules);
+		mockAuthUser({ authId: 'super-1' });
+		const superId = await seedUser(t, { authId: 'super-1', role: 'super' });
+		const otherTeacher = await seedUser(t, {
+			authId: 'other-teacher-super-test',
+			role: 'teacher'
+		});
+		const studentId = await seedStudent(t, 'STU-UPDATE-SUPER-001');
+		const categoryId = await seedCategory(t);
+		const evaluationId = await seedEvaluation(t, {
+			studentId,
+			teacherId: otherTeacher,
+			categoryId
+		});
+
+		const result = await t.mutation(api.evaluations.update, {
+			id: evaluationId,
+			details: 'Corrected by Super'
+		});
+
+		expect(result).toEqual({ success: true });
+		expect(superId).toBeDefined();
+		await expect(
+			t.query(api.evaluations.getEvaluation, { id: evaluationId })
+		).resolves.toMatchObject({
+			details: 'Corrected by Super'
+		});
+	});
 });
 
 describe('evaluations.remove (real handler)', () => {

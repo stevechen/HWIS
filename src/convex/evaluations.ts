@@ -14,7 +14,12 @@ import { getWeekNumber, formatDateRange, matchesMultiSearch } from './shared/eva
 import { weekStartOf, weekEndOf, isEditable } from './shared/evaluation_week';
 import { enrichEvaluations } from './shared/enrichment';
 import { resolveStudentFromEmail, isStudentEmailAddress } from './shared/student';
-import { canReadEvaluation, isAdmin as isAdminRole } from './shared/authorization';
+import {
+	canEditEvaluation,
+	canReadEvaluation,
+	canReadTeacherHistory,
+	isAdmin as isAdminRole
+} from './shared/authorization';
 
 export const getUserByAuthId = query({
 	args: { authId: v.string() },
@@ -327,6 +332,7 @@ export const getStudentEvaluationsByTeacher = query({
 	},
 	handler: async (ctx, args) => {
 		const user = await requireActiveStaff(ctx);
+		if (!canReadTeacherHistory(user)) throw new Error('Forbidden: Teacher history access required');
 
 		const evaluations = await ctx.db
 			.query('evaluations')
@@ -358,6 +364,7 @@ export const getStudentEvaluationsByTeacherByStudentIdCode = query({
 	},
 	handler: async (ctx, args) => {
 		const user = await requireActiveStaff(ctx);
+		if (!canReadTeacherHistory(user)) throw new Error('Forbidden: Teacher history access required');
 
 		// Look up student by custom studentId code to get the Convex ID
 		const student = await ctx.db
@@ -612,9 +619,7 @@ export const update = mutation({
 			throw new Error('Evaluation not found');
 		}
 
-		// Only allow editing own evaluations (admins are also teachers)
-		// Admins can only edit evaluations they created, same as regular teachers
-		if (evaluation.teacherId !== userDoc._id) {
+		if (!canEditEvaluation(userDoc, evaluation)) {
 			throw new Error('Not authorized to edit this evaluation');
 		}
 

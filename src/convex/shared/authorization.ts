@@ -60,6 +60,11 @@ export function hasApplicationAccess(subject: AccessSubject): boolean {
 	return isActiveStaff(subject) || isEnrolledStudent(subject);
 }
 
+/** True when an active Teacher may use the authored-evaluation history interface. */
+export function canReadTeacherHistory(subject: AccessSubject): boolean {
+	return isActiveStaff(subject) && subject.role === 'teacher';
+}
+
 /** True when active Admin/Super users or the active authoring Teacher may read an evaluation. */
 export function canReadEvaluation(
 	subject: AccessSubject & { _id?: Id<'users'> },
@@ -68,6 +73,15 @@ export function canReadEvaluation(
 	if (!isActiveStaff(subject)) return false;
 	if (isAdmin(subject)) return true;
 	return subject.role === 'teacher' && evaluation.teacherId === subject._id;
+}
+
+/** True when an active staff member may edit an evaluation before the calendar lock. */
+export function canEditEvaluation(
+	subject: AccessSubject & { _id?: Id<'users'> },
+	evaluation: { teacherId: Id<'users'> }
+): boolean {
+	if (!isActiveStaff(subject)) return false;
+	return isSuper(subject) || evaluation.teacherId === subject._id;
 }
 
 export function requireEvaluationAccess(
