@@ -338,6 +338,16 @@ describe('evaluations.getStudentByStudentIdCode (real handler)', () => {
 			})
 		).rejects.toThrow('Unauthorized');
 	});
+
+	it('rejects pending staff from student lookup', async () => {
+		const t = convexTest(schema, modules);
+		mockAuthUser({ authId: 'pending-teacher' });
+		await seedUser(t, { authId: 'pending-teacher', role: 'teacher', status: 'pending' });
+
+		await expect(
+			t.query(api.evaluations.getStudentByStudentIdCode, { studentIdCode: 'S1001' })
+		).rejects.toThrow('Active staff access required');
+	});
 });
 
 describe('evaluations.getStudentEvaluationsAll (real handler)', () => {
@@ -474,6 +484,42 @@ describe('evaluations.getWeeklyReportDetail (real handler)', () => {
 		expect(result[0].studentId).toBe('STU-WEEKLY-001');
 		expect(result[0].totalPoints).toBe(5);
 		expect(result[0].pointsByCategory).toEqual({ Participation: 5 });
+	});
+});
+
+describe('evaluation read authorization (real handlers)', () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	it('rejects pending teachers from teacher history reads', async () => {
+		const t = convexTest(schema, modules);
+		mockAuthUser({ authId: 'pending-teacher' });
+		await seedUser(t, { authId: 'pending-teacher', role: 'teacher', status: 'pending' });
+		const studentId = await seedStudent(t, 'PENDING-READ-001');
+
+		await expect(
+			t.query(api.evaluations.getStudentEvaluationsByTeacher, { studentId })
+		).rejects.toThrow('Active staff access required');
+	});
+
+	it('hides evaluations from inactive admins', async () => {
+		const t = convexTest(schema, modules);
+		mockAuthUser({ authId: 'inactive-admin' });
+		const adminId = await seedUser(t, {
+			authId: 'inactive-admin',
+			role: 'admin',
+			status: 'pending'
+		});
+		const studentId = await seedStudent(t, 'INACTIVE-READ-001');
+		const categoryId = await seedCategory(t);
+		const evaluationId = await seedEvaluation(t, {
+			studentId,
+			teacherId: adminId,
+			categoryId
+		});
+
+		const result = await t.query(api.evaluations.getEvaluation, { id: evaluationId });
+
+		expect(result).toBeNull();
 	});
 });
 

@@ -60,18 +60,19 @@ export function hasApplicationAccess(subject: AccessSubject): boolean {
 	return isActiveStaff(subject) || isEnrolledStudent(subject);
 }
 
-/** True when the subject may read an evaluation: Admin/Super, or the authoring teacher. */
+/** True when active Admin/Super users or the active authoring Teacher may read an evaluation. */
 export function canReadEvaluation(
 	subject: AccessSubject & { _id?: Id<'users'> },
-	evaluation: { studentId: Id<'students'>; teacherId: Id<'users'> }
+	evaluation: { teacherId: Id<'users'> }
 ): boolean {
+	if (!isActiveStaff(subject)) return false;
 	if (isAdmin(subject)) return true;
-	return evaluation.teacherId === subject._id;
+	return subject.role === 'teacher' && evaluation.teacherId === subject._id;
 }
 
 export function requireEvaluationAccess(
 	subject: AccessSubject & { _id?: Id<'users'> },
-	evaluation: { studentId: Id<'students'>; teacherId: Id<'users'> }
+	evaluation: { teacherId: Id<'users'> }
 ): void {
 	if (!canReadEvaluation(subject, evaluation)) {
 		throw new Error('Forbidden');

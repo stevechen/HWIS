@@ -198,6 +198,19 @@ describe('canReadEvaluation', () => {
 		const otherTeacher = makeUser({ role: 'teacher', _id: 'users-other' as Id<'users'> });
 		expect(canReadEvaluation(otherTeacher, evaluation)).toBe(false);
 	});
+
+	it.each(['pending', undefined] as const)('rejects non-active admin status %s', (status) => {
+		expect(canReadEvaluation(makeUser({ role: 'admin', status }), evaluation)).toBe(false);
+	});
+
+	it('rejects pending teacher even when they authored the evaluation', () => {
+		expect(
+			canReadEvaluation(
+				makeUser({ role: 'teacher', status: 'pending', _id: teacherId }),
+				evaluation
+			)
+		).toBe(false);
+	});
 });
 
 describe('requireEvaluationAccess', () => {

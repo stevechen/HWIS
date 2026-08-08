@@ -6,6 +6,7 @@ import {
 	requireAdminForSensitiveOperation,
 	getAuthenticatedUser,
 	requireUserProfile,
+	requireActiveStaff,
 	requireUserProfileForSensitiveOperation,
 	isTestRuntime
 } from './auth';
@@ -13,7 +14,7 @@ import { getWeekNumber, formatDateRange, matchesMultiSearch } from './shared/eva
 import { weekStartOf, weekEndOf, isEditable } from './shared/evaluation_week';
 import { enrichEvaluations } from './shared/enrichment';
 import { resolveStudentFromEmail, isStudentEmailAddress } from './shared/student';
-import { canReadEvaluation, isAdmin as isAdminRole, isStudent } from './shared/authorization';
+import { canReadEvaluation, isAdmin as isAdminRole } from './shared/authorization';
 
 export const getUserByAuthId = query({
 	args: { authId: v.string() },
@@ -302,7 +303,7 @@ export const getWeeklyReportDetail = query({
 export const getStudent = query({
 	args: { studentId: v.id('students') },
 	handler: async (ctx, args) => {
-		await requireUserProfile(ctx);
+		await requireActiveStaff(ctx);
 		return await ctx.db.get(args.studentId);
 	}
 });
@@ -311,8 +312,7 @@ export const getStudent = query({
 export const getStudentByStudentIdCode = query({
 	args: { studentIdCode: v.string() },
 	handler: async (ctx, args) => {
-		const user = await requireUserProfile(ctx);
-		if (isStudent(user)) return null;
+		await requireActiveStaff(ctx);
 		return await ctx.db
 			.query('students')
 			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentIdCode))
@@ -326,7 +326,7 @@ export const getStudentEvaluationsByTeacher = query({
 		studentId: v.id('students')
 	},
 	handler: async (ctx, args) => {
-		const user = await requireUserProfile(ctx);
+		const user = await requireActiveStaff(ctx);
 
 		const evaluations = await ctx.db
 			.query('evaluations')
@@ -357,7 +357,7 @@ export const getStudentEvaluationsByTeacherByStudentIdCode = query({
 		studentIdCode: v.string()
 	},
 	handler: async (ctx, args) => {
-		const user = await requireUserProfile(ctx);
+		const user = await requireActiveStaff(ctx);
 
 		// Look up student by custom studentId code to get the Convex ID
 		const student = await ctx.db
