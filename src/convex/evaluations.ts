@@ -13,7 +13,7 @@ import { getWeekNumber, formatDateRange, matchesMultiSearch } from './shared/eva
 import { weekStartOf, weekEndOf, isEditable } from './shared/evaluation_week';
 import { enrichEvaluations } from './shared/enrichment';
 import { resolveStudentFromEmail, isStudentEmailAddress } from './shared/student';
-import { canReadEvaluation, isStudent } from './shared/authorization';
+import { canReadEvaluation, isAdmin as isAdminRole, isStudent } from './shared/authorization';
 
 export const getUserByAuthId = query({
 	args: { authId: v.string() },
@@ -148,8 +148,7 @@ export const listRecent = query({
 
 		if (!userDoc) return [];
 
-		const userRole = userDoc?.role;
-		const isAdmin = userRole === 'admin' || userRole === 'super';
+		const isAdmin = isAdminRole(userDoc);
 
 		const allEvaluations = await ctx.db
 			.query('evaluations')
@@ -420,9 +419,7 @@ export const getStudentEvaluationsAll = query({
 			...eval_,
 			categoryId: eval_.categoryId.toString(),
 			teacherName: teacherMap.get(eval_.teacherId)?.name || 'Unknown Teacher',
-			isAdmin:
-				teacherMap.get(eval_.teacherId)?.role === 'admin' ||
-				teacherMap.get(eval_.teacherId)?.role === 'super'
+			isAdmin: isAdminRole(teacherMap.get(eval_.teacherId) ?? {})
 		}));
 
 		return enriched.sort((a, b) => b.timestamp - a.timestamp);
@@ -463,7 +460,7 @@ export const getStudentEvaluationsAllByStudentIdCode = query({
 		// Enrich evaluations with teacher data on top of base enrichment
 		const enriched = baseEnriched.map((eval_: EnrichedEvaluation) => {
 			const teacher = teacherMap.get(eval_.teacherId);
-			const isAdminUser = teacher?.role === 'admin' || teacher?.role === 'super';
+			const isAdminUser = isAdminRole(teacher ?? {});
 			return {
 				...eval_,
 				categoryId: eval_.categoryId.toString(),

@@ -9,6 +9,7 @@ import {
 	authComponent
 } from './auth';
 import { isStudentEmailAddress, resolveStudentFromEmail } from './shared/student';
+import { isStaff } from './shared/authorization';
 import type { Id } from './_generated/dataModel';
 
 type BetterAuthUser = {
@@ -170,7 +171,7 @@ export const getTeachers = query({
 		const allUsers = await ctx.db.query('users').take(200);
 		// Filter to only teachers, admins, and super users
 		const teachers = allUsers
-			.filter((u) => u.role === 'teacher' || u.role === 'admin' || u.role === 'super')
+			.filter((u) => isStaff(u))
 			.map((u) => ({
 				...u,
 				role: u.role ?? 'teacher',

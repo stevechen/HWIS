@@ -1,6 +1,7 @@
 import { query, mutation, type QueryCtx } from './_generated/server';
 import { v } from 'convex/values';
 import { requireAdminForSensitiveOperation, getAuthenticatedUser } from './auth';
+import { isAdmin, isSuper } from './shared/authorization';
 import { getDisplayName } from './shared/class_roster';
 import type { Doc, Id } from './_generated/dataModel';
 
@@ -78,8 +79,7 @@ export const list = query({
 		if (!authUser) return [];
 		const user = authUser as AuthUserForAudit;
 		if (
-			user.role !== 'admin' &&
-			user.role !== 'super' &&
+			!isAdmin(user) &&
 			user.email !== 'super@hwis.test' &&
 			user.authId !== 'test-token-admin-mock'
 		) {
@@ -332,7 +332,7 @@ export const seed = mutation({
 	handler: async (ctx) => {
 		const dbUser = await requireAdminForSensitiveOperation(ctx);
 
-		if (dbUser.role !== 'super') {
+		if (!isSuper(dbUser)) {
 			throw new Error('Unauthorized');
 		}
 

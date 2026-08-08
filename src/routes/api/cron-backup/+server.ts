@@ -2,6 +2,7 @@ import { google } from 'googleapis';
 import { env } from '$env/dynamic/private';
 import { createConvexHttpClient } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 import { api } from '$convex/_generated/api';
+import { canAccessAdminArea } from '$convex/shared/authorization';
 import { getConvexUrlFromToken } from '$lib/server/convex-url';
 import type { RequestEvent } from '@sveltejs/kit';
 
@@ -27,7 +28,7 @@ async function isAdminRequest(event: RequestEvent): Promise<boolean> {
 			convexUrl
 		});
 		const viewer = await client.query(api.users.viewer, {});
-		return viewer?.role === 'admin' || viewer?.role === 'super';
+		return viewer ? canAccessAdminArea(viewer) : false;
 	} catch {
 		return false;
 	}

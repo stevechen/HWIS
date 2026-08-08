@@ -7,7 +7,8 @@ const mockAdminUser = {
 	_id: 'admin-001',
 	name: 'Admin User',
 	email: 'admin@school.edu',
-	role: 'admin'
+	role: 'admin',
+	status: 'active'
 };
 
 const mockEvalData = createMockEvaluationSet();

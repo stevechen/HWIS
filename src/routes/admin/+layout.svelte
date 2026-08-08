@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
+	import { canAccessAdminArea } from '$convex/shared/authorization';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { setContext } from 'svelte';
@@ -10,7 +11,7 @@
 
 	const user = useQuery(api.users.viewer, () => ({}));
 
-	const isAdmin = $derived(user.data?.role === 'admin' || user.data?.role === 'super');
+	const isAdmin = $derived(user.data ? canAccessAdminArea(user.data) : false);
 	const loaded = $derived(!user.isLoading);
 
 	setContext('adminAuth', {

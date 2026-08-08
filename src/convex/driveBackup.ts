@@ -3,6 +3,7 @@
 import { action } from './_generated/server';
 import { anyApi } from 'convex/server';
 import type { Doc } from './_generated/dataModel';
+import { canAccessAdminArea, type AccessSubject } from './shared/authorization';
 
 async function getAccessToken(): Promise<string> {
 	const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -83,8 +84,8 @@ async function uploadToDrive(
 export const backupToDrive = action({
 	args: {},
 	handler: async (ctx) => {
-		const viewer = (await ctx.runQuery(anyApi.users.viewer, {})) as { role?: string } | null;
-		if (!viewer || (viewer.role !== 'admin' && viewer.role !== 'super')) {
+		const viewer = (await ctx.runQuery(anyApi.users.viewer, {})) as AccessSubject | null;
+		if (!viewer || !canAccessAdminArea(viewer)) {
 			throw new Error('Forbidden');
 		}
 

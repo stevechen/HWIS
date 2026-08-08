@@ -7,6 +7,7 @@ import { betterAuth } from 'better-auth/minimal';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import authConfig from './auth.config';
 import { resolveEffectiveTestToken } from './testAuth';
+import { canAccessAdminArea, isSuper } from './shared/authorization';
 
 function normalizeEnvValue(value?: string | null): string | undefined {
 	if (!value) return undefined;
@@ -308,18 +309,17 @@ export const requireAuthenticatedUser = async (ctx: AuthCtx, _testToken?: string
 	return await requireUserProfile(ctx, _testToken);
 };
 
-// Admin/Super role requirement
+// Admin/Super role requirement — delegates to the shared access policy.
 export const requireAdminRole = async (ctx: AuthCtx, _testToken?: string) => {
 	const user = await requireUserProfile(ctx, _testToken);
 
-	const role = user.role;
-	if (role !== 'admin' && role !== 'super') {
+	if (!canAccessAdminArea(user)) {
 		if (
 			_testToken &&
 			(_testToken === 'unit-test-token' || _testToken === 'super-unit-test-token') &&
 			(isTestRuntime || !isProdDeployment)
 		) {
-			return { ...user, role: 'admin' as const };
+			return { ...user, role: 'admin' as const, status: 'active' as const };
 		}
 		throw new Error('Forbidden: Admin or super role required');
 	}
@@ -330,9 +330,9 @@ export const requireAdminRole = async (ctx: AuthCtx, _testToken?: string) => {
 // Super role requirement (for promoting users to super)
 export const requireSuperRole = async (ctx: AuthCtx, _testToken?: string) => {
 	const user = await requireUserProfile(ctx, _testToken);
-	if (user.role !== 'super') {
+	if (!isSuper(user)) {
 		if (_testToken === 'super-unit-test-token' && (isTestRuntime || !isProdDeployment)) {
-			return { ...user, role: 'super' as const };
+			return { ...user, role: 'super' as const, status: 'active' as const };
 		}
 		throw new Error('Forbidden: Super role required');
 	}

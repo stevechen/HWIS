@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import { createConvexHttpClient } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 import { env } from '$env/dynamic/private';
 import { api } from '$convex/_generated/api';
+import { canAccessAdminArea, hasApplicationAccess, isStudent } from '$convex/shared/authorization';
 import { getConvexUrlFromToken } from '$lib/server/convex-url';
 
 export const load = async ({ locals }: { locals: { token?: string } }) => {
@@ -33,16 +34,13 @@ export const load = async ({ locals }: { locals: { token?: string } }) => {
 	const viewer = await fetchViewer();
 	if (!viewer) return {};
 
-	const isApproved =
-		viewer.status === 'active' || viewer.role === 'admin' || viewer.role === 'super';
-	if (!isApproved) return {};
+	if (!hasApplicationAccess(viewer)) return {};
 
-	const isAdmin = viewer.role === 'admin' || viewer.role === 'super';
-	if ('studentId' in viewer) {
+	if (isStudent(viewer) && 'studentId' in viewer) {
 		throw redirect(
 			302,
 			viewer.studentId ? `/evaluations/student/${viewer.studentId}` : '/evaluations'
 		);
 	}
-	throw redirect(302, isAdmin ? '/admin' : '/evaluations');
+	throw redirect(302, canAccessAdminArea(viewer) ? '/admin' : '/evaluations');
 };

@@ -8,6 +8,7 @@ import {
 	requireAdminForSensitiveOperation
 } from './auth';
 import { isStudentEmailAddress } from './shared/student';
+import { isAdmin } from './shared/authorization';
 
 type BetterAuthUser = {
 	email?: string;
@@ -84,9 +85,7 @@ export const setMyRole = mutation({
 		const desiredStatus = args.status ?? userDoc.status;
 
 		const allUsers = await ctx.db.query('users').collect();
-		const hasPrivilegedUser = allUsers.some(
-			(user) => user.role === 'admin' || user.role === 'super'
-		);
+		const hasPrivilegedUser = allUsers.some((user) => isAdmin(user));
 
 		if (!hasPrivilegedUser) {
 			const betterAuthUser = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;

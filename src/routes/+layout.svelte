@@ -13,6 +13,12 @@
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
 	import { api } from '$convex/_generated/api';
+	import {
+		canAccessAdminArea,
+		isActiveStaff,
+		isStudent,
+		isAdmin as isAdminRole
+	} from '$convex/shared/authorization';
 	import { headerTitleOverride, headerHouseBadge } from '$lib/stores/header';
 	import { theme } from '$lib/stores/theme';
 	import type { Snippet } from 'svelte';
@@ -82,27 +88,23 @@
 		if (user.isLoading || !user.data) {
 			return false;
 		}
-		const role = user.data.role;
-		const status = user.data.status;
-		const isNowAdmin = role === 'admin' || role === 'super';
-		const isActive = status === 'active';
 		const isAdminPage = $page.url.pathname.startsWith('/admin');
 		const isEvaluationsPage = $page.url.pathname.startsWith('/evaluations');
 
-		// /admin pages: only admins/super with active status
-		// /evaluations pages: any active user (teacher or admin)
+		// /admin pages: only active admins/super users
+		// /evaluations pages: active staff, except students (who reach only their own page)
 		if (isAdminPage) {
-			return !(isNowAdmin && isActive);
+			return !canAccessAdminArea(user.data);
 		}
 		if (isEvaluationsPage) {
-			return !isActive;
+			return !isActiveStaff(user.data) && !isStudent(user.data);
 		}
 		return false;
 	});
 
 	const isAdmin = $derived.by(() => {
-		if (!user.isLoading && user.data?.role) {
-			return user.data.role === 'admin' || user.data.role === 'super';
+		if (!user.isLoading && user.data) {
+			return isAdminRole(user.data);
 		}
 		return false;
 	});

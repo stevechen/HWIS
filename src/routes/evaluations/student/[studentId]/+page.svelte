@@ -3,6 +3,11 @@
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { isEditable } from '$convex/shared/evaluation_week';
+	import {
+		canAccessAdminArea,
+		isStudent as isStudentRole,
+		isEnrolledStudent
+	} from '$convex/shared/authorization';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
 	import RadarChart from '$lib/components/RadarChart.svelte';
@@ -41,43 +46,17 @@
 	// Fetch all categories for radar chart
 	const categoriesQuery = useQuery(api.categories.list, () => ({}));
 
-	// Determine if user is admin
-	const isAdmin = $derived.by(() => {
-		if (!userQuery.isLoading && userQuery.data?.role) {
-			return userQuery.data.role === 'admin' || userQuery.data.role === 'super';
-		}
-		return false;
-	});
+	// Determine if user is admin (Admin/Super role, Active status)
+	const isAdmin = $derived(userQuery.data ? canAccessAdminArea(userQuery.data) : false);
 
 	// Determine if user is a teacher (not admin, not super)
-	const isTeacher = $derived.by(() => {
-		if (!userQuery.isLoading && userQuery.data?.role) {
-			return userQuery.data.role === 'teacher';
-		}
-		return false;
-	});
+	const isTeacher = $derived(userQuery.data?.role === 'teacher');
 
 	// Determine if user is a student
-	const isStudent = $derived.by(() => {
-		if (!userQuery.isLoading && userQuery.data?.role) {
-			return userQuery.data.role === 'student';
-		}
-		return false;
-	});
+	const isStudent = $derived(userQuery.data ? isStudentRole(userQuery.data) : false);
 
-	// Get student's enrollment status
-	const enrollmentStatus = $derived.by(() => {
-		const data = userQuery.data as { enrollmentStatus?: string } | undefined;
-		if (data?.enrollmentStatus) {
-			return data.enrollmentStatus;
-		}
-		return null;
-	});
-
-	// Check if student is enrolled
-	const isEnrolled = $derived.by(() => {
-		return enrollmentStatus === 'Enrolled';
-	});
+	// Check if the student is enrolled
+	const isEnrolled = $derived(userQuery.data ? isEnrolledStudent(userQuery.data) : false);
 
 	// Current user ID for ownership check
 	const currentUserId = $derived(userQuery.data?._id);

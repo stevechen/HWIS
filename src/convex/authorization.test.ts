@@ -2,10 +2,21 @@ import { describe, it, expect } from 'vitest';
 import type { Doc, Id } from './_generated/dataModel';
 import {
 	isAdmin,
+	isSuper,
+	isStaff,
 	isStudent,
+	isActiveStaff,
+	canAccessAdminArea,
+	isEnrolledStudent,
+	hasApplicationAccess,
 	canReadEvaluation,
-	requireEvaluationAccess
+	requireEvaluationAccess,
+	type AccessSubject
 } from './shared/authorization';
+
+function subject(overrides: Partial<AccessSubject> = {}): AccessSubject {
+	return { role: 'teacher', status: 'active', ...overrides };
+}
 
 function makeUser(overrides: Partial<Doc<'users'>> = {}): Doc<'users'> {
 	return {
@@ -58,6 +69,116 @@ describe('isStudent', () => {
 		expect(isStudent(makeUser({ role: 'admin' }))).toBe(false);
 		expect(isStudent(makeUser({ role: 'teacher' }))).toBe(false);
 		expect(isStudent(makeUser({ role: 'super' }))).toBe(false);
+	});
+});
+
+describe('isSuper', () => {
+	it.each<[Role | undefined, boolean]>([
+		['super', true],
+		['admin', false],
+		['teacher', false],
+		['student', false],
+		[undefined, false]
+	])('isSuper(%s) -> %s', (role, expected) => {
+		expect(isSuper(subject({ role }))).toBe(expected);
+	});
+
+	it('does not depend on status', () => {
+		expect(isSuper(subject({ role: 'super', status: 'pending' }))).toBe(true);
+	});
+});
+
+describe('isStaff', () => {
+	it.each<[Role | undefined, boolean]>([
+		['super', true],
+		['admin', true],
+		['teacher', true],
+		['student', false],
+		[undefined, false]
+	])('isStaff(%s) -> %s', (role, expected) => {
+		expect(isStaff(subject({ role }))).toBe(expected);
+	});
+});
+
+describe('isActiveStaff', () => {
+	it.each<[Role | undefined, UserStatus | undefined, boolean]>([
+		['super', 'active', true],
+		['admin', 'active', true],
+		['teacher', 'active', true],
+		['student', 'active', false],
+		[undefined, 'active', false],
+		['super', 'pending', false],
+		['admin', 'pending', false],
+		['teacher', 'pending', false],
+		['student', 'pending', false],
+		[undefined, 'pending', false],
+		['super', undefined, false],
+		['admin', undefined, false],
+		['teacher', undefined, false],
+		['student', undefined, false],
+		[undefined, undefined, false]
+	])('isActiveStaff(%s, %s) -> %s', (role, status, expected) => {
+		expect(isActiveStaff(subject({ role, status }))).toBe(expected);
+	});
+});
+
+describe('canAccessAdminArea', () => {
+	it.each<[Role | undefined, UserStatus | undefined, boolean]>([
+		['super', 'active', true],
+		['admin', 'active', true],
+		['teacher', 'active', false],
+		['student', 'active', false],
+		[undefined, 'active', false],
+		['super', 'pending', false],
+		['admin', 'pending', false],
+		['teacher', 'pending', false],
+		['student', 'pending', false],
+		[undefined, 'pending', false],
+		['super', undefined, false],
+		['admin', undefined, false],
+		['teacher', undefined, false],
+		['student', undefined, false],
+		[undefined, undefined, false]
+	])('canAccessAdminArea(%s, %s) -> %s', (role, status, expected) => {
+		expect(canAccessAdminArea(subject({ role, status }))).toBe(expected);
+	});
+});
+
+describe('isEnrolledStudent', () => {
+	it.each<[Role | undefined, 'Enrolled' | 'Not Enrolled' | undefined, boolean]>([
+		['student', 'Enrolled', true],
+		['student', 'Not Enrolled', false],
+		['student', undefined, false],
+		['teacher', 'Enrolled', false],
+		['admin', 'Enrolled', false],
+		['super', 'Enrolled', false],
+		[undefined, 'Enrolled', false]
+	])('isEnrolledStudent(%s, %s) -> %s', (role, enrollmentStatus, expected) => {
+		expect(isEnrolledStudent(subject({ role, enrollmentStatus }))).toBe(expected);
+	});
+});
+
+describe('hasApplicationAccess', () => {
+	it.each<[Role | undefined, UserStatus | undefined, boolean]>([
+		['super', 'active', true],
+		['admin', 'active', true],
+		['teacher', 'active', true],
+		['super', 'pending', false],
+		['admin', 'pending', false],
+		['teacher', 'pending', false],
+		['super', undefined, false],
+		['admin', undefined, false],
+		['teacher', undefined, false]
+	])('hasApplicationAccess(staff %s, %s) -> %s', (role, status, expected) => {
+		expect(hasApplicationAccess(subject({ role, status }))).toBe(expected);
+	});
+
+	it.each<['Enrolled' | 'Not Enrolled' | undefined, boolean]>([
+		['Enrolled', true],
+		['Not Enrolled', false],
+		[undefined, false]
+	])('hasApplicationAccess(student, %s) -> %s', (enrollmentStatus, expected) => {
+		expect(hasApplicationAccess(subject({ role: 'student', enrollmentStatus }))).toBe(expected);
 	});
 });
 

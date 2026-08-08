@@ -4,6 +4,11 @@
 	import { browser } from '$app/environment';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
+	import {
+		canAccessAdminArea,
+		hasApplicationAccess,
+		isStudent
+	} from '$convex/shared/authorization';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
@@ -27,8 +32,7 @@
 	const serverAuthenticated = $derived(!!data.authState?.isAuthenticated);
 	const isLoggedIn = $derived(!auth.isLoading && (auth.isAuthenticated || serverAuthenticated));
 	const userName = $derived($session.data?.user.name);
-	const hasProfile = $derived(Boolean(dbUser.data?.role && dbUser.data?.status));
-	const isApproved = $derived(hasProfile && dbUser.data?.status === 'active');
+	const isApproved = $derived(dbUser.data ? hasApplicationAccess(dbUser.data) : false);
 	let hasEnsuredProfile = $state(false);
 
 	async function ensureProfile() {
@@ -52,10 +56,11 @@
 
 	$effect(() => {
 		if (isApproved && !dbUser.isLoading && dbUser.data) {
-			if (dbUser.data.role === 'admin' || dbUser.data.role === 'super') {
-				window.location.href = '/admin';
+			const viewer = dbUser.data;
+			if (isStudent(viewer) && 'studentId' in viewer && viewer.studentId) {
+				window.location.href = `/evaluations/student/${viewer.studentId}`;
 			} else {
-				window.location.href = '/evaluations';
+				window.location.href = canAccessAdminArea(viewer) ? '/admin' : '/evaluations';
 			}
 		}
 	});
