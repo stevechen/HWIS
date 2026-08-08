@@ -12,6 +12,8 @@ import {
 	canReadTeacherHistory,
 	canReadEvaluation,
 	canEditEvaluation,
+	getEvaluationCapabilities,
+	noEvaluationCapabilities,
 	requireEvaluationAccess,
 	type AccessSubject,
 	type Role,
@@ -41,6 +43,48 @@ const evaluation = {
 	studentId,
 	teacherId
 };
+
+describe('getEvaluationCapabilities', () => {
+	it('gives admins global view and own-edit capability', () => {
+		const capabilities = getEvaluationCapabilities({
+			kind: 'staff',
+			subject: makeUser({ role: 'admin' })
+		});
+		expect(capabilities).toEqual({
+			viewAnyEvaluation: true,
+			viewOwnEvaluation: true,
+			editOwnEvaluation: true,
+			editAnyEvaluation: false
+		});
+	});
+
+	it('gives Super global edit capability', () => {
+		const capabilities = getEvaluationCapabilities({
+			kind: 'staff',
+			subject: makeUser({ role: 'super' })
+		});
+		expect(capabilities.editAnyEvaluation).toBe(true);
+	});
+
+	it('gives enrolled students only own-view capability', () => {
+		const capabilities = getEvaluationCapabilities({
+			kind: 'student',
+			studentId,
+			enrollmentStatus: 'Enrolled'
+		});
+		expect(capabilities).toEqual({ ...noEvaluationCapabilities, viewOwnEvaluation: true });
+	});
+
+	it('denies inactive and anonymous actors', () => {
+		expect(
+			getEvaluationCapabilities({
+				kind: 'staff',
+				subject: makeUser({ role: 'teacher', status: 'pending' })
+			})
+		).toEqual(noEvaluationCapabilities);
+		expect(getEvaluationCapabilities({ kind: 'anonymous' })).toEqual(noEvaluationCapabilities);
+	});
+});
 
 describe('isAdmin', () => {
 	it('returns true for admin role', () => {

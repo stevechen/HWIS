@@ -202,6 +202,18 @@ export async function applyRestore(
 	ctx: { db: GenericDatabaseWriter<DataModel> },
 	payload: RestorePayload
 ): Promise<RestoreResult> {
+	const studentIds = new Set<string>();
+	const duplicateStudentIds = new Set<string>();
+	for (const student of payload.students) {
+		if (studentIds.has(student.studentId)) duplicateStudentIds.add(student.studentId);
+		studentIds.add(student.studentId);
+	}
+	if (duplicateStudentIds.size > 0) {
+		throw new Error(
+			`Restore contains duplicate student IDs: ${[...duplicateStudentIds].sort().join(', ')}`
+		);
+	}
+
 	await clearRestorableData(ctx);
 
 	const userIdMapping = await remapUsers(ctx, payload.users);

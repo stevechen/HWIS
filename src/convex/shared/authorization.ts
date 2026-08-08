@@ -4,6 +4,18 @@ export type Role = 'super' | 'admin' | 'teacher' | 'student';
 export type UserStatus = 'pending' | 'active';
 export type StudentStatus = 'Enrolled' | 'Not Enrolled';
 
+export type EvaluationCapabilities = {
+	viewAnyEvaluation: boolean;
+	viewOwnEvaluation: boolean;
+	editOwnEvaluation: boolean;
+	editAnyEvaluation: boolean;
+};
+
+export type AuthorizationActor =
+	| { kind: 'anonymous' }
+	| { kind: 'staff'; subject: AccessSubject & { _id?: Id<'users'> } }
+	| { kind: 'student'; studentId: Id<'students'>; enrollmentStatus: StudentStatus };
+
 /**
  * The minimal normalized identity input for access decisions. Both the Convex
  * user profile (`Doc<'users'>`) and the Svelte viewer shape are assignable to
@@ -15,6 +27,38 @@ export type AccessSubject = {
 	status?: UserStatus;
 	enrollmentStatus?: StudentStatus;
 };
+
+export const noEvaluationCapabilities: EvaluationCapabilities = {
+	viewAnyEvaluation: false,
+	viewOwnEvaluation: false,
+	editOwnEvaluation: false,
+	editAnyEvaluation: false
+};
+
+export function getEvaluationCapabilities(
+	actor: AuthorizationActor,
+	evaluation?: { teacherId: Id<'users'>; isUnlocked: boolean }
+): EvaluationCapabilities {
+	if (actor.kind === 'staff') {
+		const { subject } = actor;
+		const active = isActiveStaff(subject);
+		const own =
+			active &&
+			(subject.role === 'teacher' || isAdmin(subject)) &&
+			(evaluation === undefined || evaluation.teacherId === subject._id);
+		const unlocked = evaluation === undefined || evaluation.isUnlocked;
+		return {
+			viewAnyEvaluation: active && isAdmin(subject),
+			viewOwnEvaluation: active && (isAdmin(subject) || subject.role === 'teacher'),
+			editOwnEvaluation: own && unlocked,
+			editAnyEvaluation: active && isSuper(subject) && unlocked
+		};
+	}
+	if (actor.kind === 'student' && actor.enrollmentStatus === 'Enrolled') {
+		return { ...noEvaluationCapabilities, viewOwnEvaluation: true };
+	}
+	return noEvaluationCapabilities;
+}
 
 /** True when the subject's role is Admin or Super User. */
 export function isAdmin(subject: AccessSubject): boolean {

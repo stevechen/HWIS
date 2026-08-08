@@ -140,7 +140,6 @@ export const listRecent = query({
 		studentFilter: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Require authentication and filter by teacher
 		const authUser = await getAuthenticatedUser(ctx);
 		if (!authUser) return { evaluations: [], cursor: null };
 
@@ -156,11 +155,13 @@ export const listRecent = query({
 
 		const isAdmin = isAdminRole(userDoc);
 
-		const allEvaluations = await ctx.db
-			.query('evaluations')
-			.withIndex('by_teacherId', (q) => q.eq('teacherId', userDoc._id))
-			.order('desc')
-			.take(200);
+		const allEvaluations = isAdmin
+			? await ctx.db.query('evaluations').withIndex('by_timestamp').order('desc').take(200)
+			: await ctx.db
+					.query('evaluations')
+					.withIndex('by_teacherId', (q) => q.eq('teacherId', userDoc._id))
+					.order('desc')
+					.take(200);
 
 		let results = await enrichEvaluations(allEvaluations, ctx);
 

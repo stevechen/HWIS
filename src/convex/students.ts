@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import type { Id, Doc } from './_generated/dataModel';
 import { requireAdminForSensitiveOperation, isTestRuntime } from './auth';
 import { GRADES, getDisplayName } from './shared/class_roster';
+import { assertUniqueStudentId } from './shared/student';
 import type { MutationCtx } from './_generated/server';
 
 // Validate studentId is a 6- or 7-digit number
@@ -197,14 +198,7 @@ export const update = mutation({
 		const existing = await ctx.db.get(args.id);
 		if (!existing) throw new Error('Student not found');
 
-		if (args.studentId !== existing.studentId) {
-			const duplicate = await ctx.db
-				.query('students')
-				.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
-				.first();
-
-			if (duplicate && duplicate._id !== args.id) throw new Error('Student ID already exists');
-		}
+		await assertUniqueStudentId(ctx.db, args.studentId, args.id);
 
 		const updateData: {
 			englishName: string;
