@@ -7,7 +7,7 @@ import { betterAuth } from 'better-auth/minimal';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import authConfig from './auth.config';
 import { resolveEffectiveTestToken } from './testAuth';
-import { canAccessAdminArea, isSuper } from './shared/authorization';
+import { canAccessAdminArea, isActiveStaff, isSuper } from './shared/authorization';
 
 function normalizeEnvValue(value?: string | null): string | undefined {
 	if (!value) return undefined;
@@ -307,6 +307,14 @@ export const requireUserProfile = async (
 // Basic authentication requirement
 export const requireAuthenticatedUser = async (ctx: AuthCtx, _testToken?: string) => {
 	return await requireUserProfile(ctx, _testToken);
+};
+
+export const requireActiveStaff = async (ctx: AuthCtx, _testToken?: string) => {
+	const user = await requireUserProfile(ctx, _testToken);
+	if (!isActiveStaff(user)) {
+		throw new Error('Forbidden: Active staff access required');
+	}
+	return user;
 };
 
 // Admin/Super role requirement — delegates to the shared access policy.

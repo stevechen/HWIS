@@ -6,6 +6,7 @@ import {
 	requireAdminForSensitiveOperation,
 	getAuthenticatedUser,
 	requireUserProfile,
+	requireActiveStaff,
 	requireUserProfileForSensitiveOperation,
 	isTestRuntime
 } from './auth';
@@ -13,7 +14,16 @@ import { getWeekNumber, formatDateRange, matchesMultiSearch } from './shared/eva
 import { weekStartOf, weekEndOf, isEditable } from './shared/evaluation_week';
 import { enrichEvaluations } from './shared/enrichment';
 import { resolveStudentFromEmail, isStudentEmailAddress } from './shared/student';
-import { canReadEvaluation, isAdmin as isAdminRole, isStudent } from './shared/authorization';
+import {
+	canReadTeacherHistory,
+	requireEvaluationCreate,
+	requireEvaluationDelete,
+	requireEvaluationEdit,
+	requireEvaluationRead,
+	getEvaluationCapabilities,
+	type AuthorizationActor,
+	isAdmin as isAdminRole
+} from './shared/authorization';
 
 export const getUserByAuthId = query({
 	args: { authId: v.string() },
@@ -43,6 +53,7 @@ export const create = mutation({
 	},
 	handler: async (ctx, args) => {
 		const userDoc = await requireUserProfile(ctx);
+		requireEvaluationCreate(userDoc);
 		const teacherId = userDoc._id;
 
 		const category = await ctx.db.get(args.categoryId);
@@ -100,9 +111,7 @@ export const remove = mutation({
 			throw new Error('Evaluation not found');
 		}
 
-		if (evaluation.teacherId !== userDoc._id) {
-			throw new Error('Not authorized to delete this evaluation');
-		}
+		requireEvaluationDelete(userDoc, { teacherId: evaluation.teacherId });
 
 		if (!isEditable(evaluation.timestamp)) {
 			throw new Error(
@@ -134,7 +143,6 @@ export const listRecent = query({
 		studentFilter: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Require authentication and filter by teacher
 		const authUser = await getAuthenticatedUser(ctx);
 		if (!authUser) return { evaluations: [], cursor: null };
 
@@ -148,13 +156,25 @@ export const listRecent = query({
 
 		if (!userDoc) return [];
 
-		const isAdmin = isAdminRole(userDoc);
+		const actor: AuthorizationActor = { kind: 'staff', subject: userDoc };
+		const caps = getEvaluationCapabilities(actor);
 
-		const allEvaluations = await ctx.db
-			.query('evaluations')
-			.withIndex('by_teacherId', (q) => q.eq('teacherId', userDoc._id))
-			.order('desc')
-			.take(200);
+		let allEvaluations;
+		if (caps.viewAnyEvaluation) {
+			allEvaluations = await ctx.db
+				.query('evaluations')
+				.withIndex('by_timestamp')
+				.order('desc')
+				.take(200);
+		} else if (caps.viewOwnEvaluation) {
+			allEvaluations = await ctx.db
+				.query('evaluations')
+				.withIndex('by_teacherId', (q) => q.eq('teacherId', userDoc._id))
+				.order('desc')
+				.take(200);
+		} else {
+			return [];
+		}
 
 		let results = await enrichEvaluations(allEvaluations, ctx);
 
@@ -183,7 +203,7 @@ export const listRecent = query({
 		}
 
 		// Filter out evaluations for unenrolled students (non-admin view)
-		if (!isAdmin) {
+		if (!caps.viewAnyEvaluation) {
 			results = results.filter((e) => e.status !== 'Not Enrolled');
 		}
 
@@ -302,7 +322,7 @@ export const getWeeklyReportDetail = query({
 export const getStudent = query({
 	args: { studentId: v.id('students') },
 	handler: async (ctx, args) => {
-		await requireUserProfile(ctx);
+		await requireActiveStaff(ctx);
 		return await ctx.db.get(args.studentId);
 	}
 });
@@ -311,8 +331,7 @@ export const getStudent = query({
 export const getStudentByStudentIdCode = query({
 	args: { studentIdCode: v.string() },
 	handler: async (ctx, args) => {
-		const user = await requireUserProfile(ctx);
-		if (isStudent(user)) return null;
+		await requireActiveStaff(ctx);
 		return await ctx.db
 			.query('students')
 			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentIdCode))
@@ -326,7 +345,8 @@ export const getStudentEvaluationsByTeacher = query({
 		studentId: v.id('students')
 	},
 	handler: async (ctx, args) => {
-		const user = await requireUserProfile(ctx);
+		const user = await requireActiveStaff(ctx);
+		if (!canReadTeacherHistory(user)) throw new Error('Forbidden: Teacher history access required');
 
 		const evaluations = await ctx.db
 			.query('evaluations')
@@ -357,7 +377,8 @@ export const getStudentEvaluationsByTeacherByStudentIdCode = query({
 		studentIdCode: v.string()
 	},
 	handler: async (ctx, args) => {
-		const user = await requireUserProfile(ctx);
+		const user = await requireActiveStaff(ctx);
+		if (!canReadTeacherHistory(user)) throw new Error('Forbidden: Teacher history access required');
 
 		// Look up student by custom studentId code to get the Convex ID
 		const student = await ctx.db
@@ -612,11 +633,7 @@ export const update = mutation({
 			throw new Error('Evaluation not found');
 		}
 
-		// Only allow editing own evaluations (admins are also teachers)
-		// Admins can only edit evaluations they created, same as regular teachers
-		if (evaluation.teacherId !== userDoc._id) {
-			throw new Error('Not authorized to edit this evaluation');
-		}
+		requireEvaluationEdit(userDoc, evaluation);
 
 		if (!isEditable(evaluation.timestamp)) {
 			throw new Error(
@@ -660,7 +677,9 @@ export const getEvaluation = query({
 		const evaluation = await ctx.db.get(args.id);
 		if (!evaluation) return null;
 
-		if (!canReadEvaluation(user, evaluation)) {
+		try {
+			requireEvaluationRead(user, evaluation);
+		} catch {
 			return null;
 		}
 

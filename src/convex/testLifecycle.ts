@@ -28,76 +28,73 @@ const SCOPE = v.union(
 	v.literal('all')
 );
 
-function getE2ETag(): string {
+type TeardownContext = {
+	ctx: MutationCtx;
+	e2eTag?: string;
+	deleted: Record<string, number>;
+	studentIds: Id<'students'>[];
+	evaluationIds: Id<'evaluations'>[];
+	studentClassIds: Id<'classes'>[];
+	limitClassesToStudentIds: boolean;
+};
+
+function getE2ETag() {
 	return `e2e-test_${Date.now().toString().slice(-6)}`;
 }
 
-function isTestEmail(email?: string): boolean {
+function isTestEmail(email?: string) {
 	return Boolean(email && (email.includes('test') || email.includes('hwis.test')));
 }
 
-function bump(deleted: Record<string, number>, table: string, count: number): void {
-	deleted[table] = (deleted[table] ?? 0) + count;
+function bump(teardown: TeardownContext, table: string, count: number) {
+	teardown.deleted[table] = (teardown.deleted[table] ?? 0) + count;
 }
 
-async function deleteStudentsByTag(
-	ctx: MutationCtx,
-	e2eTag: string,
-	deleted: Record<string, number>
-): Promise<Id<'students'>[]> {
-	const students = await ctx.db
+async function deleteStudentsByTag(teardown: TeardownContext) {
+	const students = await teardown.ctx.db
 		.query('students')
-		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
 	const ids = students.map((s) => s._id);
 	for (const id of ids) {
-		await ctx.db.delete(id);
+		await teardown.ctx.db.delete(id);
 	}
-	if (ids.length > 0) bump(deleted, 'students', ids.length);
+	if (ids.length > 0) bump(teardown, 'students', ids.length);
+	teardown.studentIds.push(...ids);
 	return ids;
 }
 
-async function deleteEvaluationsByTag(
-	ctx: MutationCtx,
-	e2eTag: string,
-	studentIds: Id<'students'>[],
-	deleted: Record<string, number>
-): Promise<Id<'evaluations'>[]> {
+async function deleteEvaluationsByTag(teardown: TeardownContext) {
 	const ids = new Set<Id<'evaluations'>>();
-	const tagged = await ctx.db
+	const tagged = await teardown.ctx.db
 		.query('evaluations')
-		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
 	for (const evaluation of tagged) ids.add(evaluation._id);
-	for (const studentId of studentIds) {
-		const dependents = await ctx.db
+	for (const studentId of teardown.studentIds) {
+		const dependents = await teardown.ctx.db
 			.query('evaluations')
 			.withIndex('by_studentId', (q) => q.eq('studentId', studentId))
 			.collect();
 		for (const evaluation of dependents) ids.add(evaluation._id);
 	}
 	for (const id of ids) {
-		await ctx.db.delete(id);
+		await teardown.ctx.db.delete(id);
 	}
-	if (ids.size > 0) bump(deleted, 'evaluations', ids.size);
+	if (ids.size > 0) bump(teardown, 'evaluations', ids.size);
+	teardown.evaluationIds.push(...ids);
 	return [...ids];
 }
 
-async function deleteAuditLogsByTag(
-	ctx: MutationCtx,
-	e2eTag: string,
-	studentIds: Id<'students'>[],
-	evaluationIds: Id<'evaluations'>[],
-	deleted: Record<string, number>
-): Promise<void> {
+async function deleteAuditLogsByTag(teardown: TeardownContext) {
 	const ids = new Set<Id<'audit_logs'>>();
-	const tagged = await ctx.db
+	const tagged = await teardown.ctx.db
 		.query('audit_logs')
-		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
 	for (const log of tagged) ids.add(log._id);
-	for (const evaluationId of evaluationIds) {
-		const logs = await ctx.db
+	for (const evaluationId of teardown.evaluationIds) {
+		const logs = await teardown.ctx.db
 			.query('audit_logs')
 			.withIndex('by_target', (q) =>
 				q.eq('targetTable', 'evaluations').eq('targetId', evaluationId)
@@ -105,134 +102,119 @@ async function deleteAuditLogsByTag(
 			.collect();
 		for (const log of logs) ids.add(log._id);
 	}
-	for (const studentId of studentIds) {
-		const logs = await ctx.db
+	for (const studentId of teardown.studentIds) {
+		const logs = await teardown.ctx.db
 			.query('audit_logs')
 			.withIndex('by_target', (q) => q.eq('targetTable', 'students').eq('targetId', studentId))
 			.collect();
 		for (const log of logs) ids.add(log._id);
 	}
 	for (const id of ids) {
-		await ctx.db.delete(id);
+		await teardown.ctx.db.delete(id);
 	}
-	if (ids.size > 0) bump(deleted, 'audit_logs', ids.size);
+	if (ids.size > 0) bump(teardown, 'audit_logs', ids.size);
 }
 
-async function deleteCategoriesByTag(
-	ctx: MutationCtx,
-	e2eTag: string,
-	deleted: Record<string, number>
-): Promise<void> {
-	const categories = await ctx.db
+async function deleteCategoriesByTag(teardown: TeardownContext) {
+	const categories = await teardown.ctx.db
 		.query('point_categories')
-		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
 	for (const category of categories) {
-		await ctx.db.delete(category._id);
+		await teardown.ctx.db.delete(category._id);
 	}
-	if (categories.length > 0) bump(deleted, 'point_categories', categories.length);
+	if (categories.length > 0) bump(teardown, 'point_categories', categories.length);
 }
 
-async function deleteHouseEventsByTag(
-	ctx: MutationCtx,
-	e2eTag: string,
-	deleted: Record<string, number>
-): Promise<void> {
-	const events = await ctx.db
+async function deleteHouseEventsByTag(teardown: TeardownContext) {
+	const events = await teardown.ctx.db
 		.query('house_events')
-		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
 	for (const event of events) {
-		await ctx.db.delete(event._id);
+		await teardown.ctx.db.delete(event._id);
 	}
-	if (events.length > 0) bump(deleted, 'house_events', events.length);
+	if (events.length > 0) bump(teardown, 'house_events', events.length);
 }
 
-async function deleteBackupsByTag(
-	ctx: MutationCtx,
-	e2eTag: string,
-	deleted: Record<string, number>
-): Promise<void> {
-	const backups = await ctx.db
+async function deleteBackupsByTag(teardown: TeardownContext) {
+	const backups = await teardown.ctx.db
 		.query('backups')
-		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
 	for (const backup of backups) {
-		await ctx.db.delete(backup._id);
+		await teardown.ctx.db.delete(backup._id);
 	}
-	if (backups.length > 0) bump(deleted, 'backups', backups.length);
+	if (backups.length > 0) bump(teardown, 'backups', backups.length);
 }
 
-async function deleteUsersByTag(
-	ctx: MutationCtx,
-	e2eTag: string,
-	deleted: Record<string, number>
-): Promise<void> {
-	const users = await ctx.db.query('users').collect();
+async function deleteUsersByTag(teardown: TeardownContext) {
+	const users = await teardown.ctx.db.query('users').collect();
 	let count = 0;
 	for (const user of users) {
-		if (user.e2eTag === e2eTag) {
-			await ctx.db.delete(user._id);
+		if (user.e2eTag === teardown.e2eTag) {
+			await teardown.ctx.db.delete(user._id);
 			count++;
 		}
 	}
-	if (count > 0) bump(deleted, 'users', count);
+	if (count > 0) bump(teardown, 'users', count);
 }
 
 // Removes classes that no longer reference any student after cascade teardown.
-async function deleteOrphanedClasses(
-	ctx: MutationCtx,
-	deleted: Record<string, number>
-): Promise<void> {
-	const classes = await ctx.db.query('classes').collect();
+async function deleteOrphanedClasses(teardown: TeardownContext) {
+	const classes = teardown.e2eTag
+		? await teardown.ctx.db
+				.query('classes')
+				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
+				.collect()
+		: await teardown.ctx.db.query('classes').collect();
+	const candidates = teardown.limitClassesToStudentIds
+		? new Set(teardown.studentClassIds)
+		: undefined;
 	let count = 0;
 	for (const cls of classes) {
-		const studentsInClass = await ctx.db
+		if (candidates && !candidates.has(cls._id)) continue;
+		const studentsInClass = await teardown.ctx.db
 			.query('students')
 			.withIndex('by_classId', (q) => q.eq('classId', cls._id))
 			.take(1);
 		if (studentsInClass.length === 0) {
-			await ctx.db.delete(cls._id);
+			await teardown.ctx.db.delete(cls._id);
 			count++;
 		}
 	}
-	if (count > 0) bump(deleted, 'classes', count);
+	if (count > 0) bump(teardown, 'classes', count);
 }
 
 // Seeded audit logs (no e2eTag) or logs performed by the default_user test user.
-async function deleteUntaggedAuditLogs(
-	ctx: MutationCtx,
-	deleted: Record<string, number>
-): Promise<void> {
-	const logs = await ctx.db.query('audit_logs').collect();
-	const defaultUser = await ctx.db
+async function deleteUntaggedAuditLogs(teardown: TeardownContext) {
+	const logs = await teardown.ctx.db.query('audit_logs').collect();
+	const defaultUser = await teardown.ctx.db
 		.query('users')
 		.withIndex('by_authId', (q) => q.eq('authId', 'default_user'))
 		.first();
 	let count = 0;
 	for (const log of logs) {
 		if (!log.e2eTag || (defaultUser && log.performerId === defaultUser._id)) {
-			await ctx.db.delete(log._id);
+			await teardown.ctx.db.delete(log._id);
 			count++;
 		}
 	}
-	if (count > 0) bump(deleted, 'audit_logs', count);
+	if (count > 0) bump(teardown, 'audit_logs', count);
 }
 
 // Audit-log performer users created via e2eSeedAuditLogs(testAuthId).
-async function deleteTestPerformerUser(
-	ctx: MutationCtx,
-	e2eTag: string,
-	deleted: Record<string, number>
-): Promise<void> {
-	if (!TEST_AUTH_ID_PREFIXES.some((prefix) => e2eTag.startsWith(prefix))) return;
-	const user = await ctx.db
+
+async function deleteTestPerformerUser(teardown: TeardownContext) {
+	const { e2eTag } = teardown;
+	if (!e2eTag || !TEST_AUTH_ID_PREFIXES.some((prefix) => e2eTag.startsWith(prefix))) return;
+	const user = await teardown.ctx.db
 		.query('users')
 		.withIndex('by_authId', (q) => q.eq('authId', e2eTag))
 		.first();
 	if (user) {
-		await ctx.db.delete(user._id);
-		bump(deleted, 'users', 1);
+		await teardown.ctx.db.delete(user._id);
+		bump(teardown, 'users', 1);
 	}
 }
 
@@ -252,45 +234,57 @@ export const teardownByTag = mutation({
 		await requireAdminForSensitiveOperation(ctx);
 		const scope = args.scope ?? 'all';
 		const e2eTag = args.e2eTag ?? getE2ETag();
+		const teardown: TeardownContext = {
+			ctx,
+			e2eTag,
+			deleted: {},
+			studentIds: [],
+			evaluationIds: [],
+			studentClassIds: [],
+			limitClassesToStudentIds: scope === 'students'
+		};
 		const hasTag = args.e2eTag !== undefined;
-		const deleted: Record<string, number> = {};
 		const isAll = scope === 'all';
 
 		if (scope === 'auditLogs' && !hasTag) {
-			await deleteUntaggedAuditLogs(ctx, deleted);
-			return { deleted };
+			await deleteUntaggedAuditLogs(teardown);
+			return { deleted: teardown.deleted };
 		}
-
-		let studentIds: Id<'students'>[] = [];
-		let evaluationIds: Id<'evaluations'>[] = [];
 
 		if (isAll || scope === 'students') {
-			studentIds = await deleteStudentsByTag(ctx, e2eTag, deleted);
+			const taggedStudents = await ctx.db
+				.query('students')
+				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+				.collect();
+			teardown.studentClassIds = taggedStudents.map((student) => student.classId);
+			await deleteStudentsByTag(teardown);
 		}
 		if (isAll || scope === 'students' || scope === 'evaluations') {
-			evaluationIds = await deleteEvaluationsByTag(ctx, e2eTag, studentIds, deleted);
+			await deleteEvaluationsByTag(teardown);
 		}
 		if (isAll || scope === 'students' || scope === 'evaluations' || scope === 'auditLogs') {
-			await deleteAuditLogsByTag(ctx, e2eTag, studentIds, evaluationIds, deleted);
+			await deleteAuditLogsByTag(teardown);
 		}
 		if (scope === 'auditLogs') {
-			await deleteTestPerformerUser(ctx, e2eTag, deleted);
+			await deleteTestPerformerUser(teardown);
 		}
 		if (isAll || scope === 'categories') {
-			await deleteCategoriesByTag(ctx, e2eTag, deleted);
+			await deleteCategoriesByTag(teardown);
 		}
 		if (isAll || scope === 'houseEvents') {
-			await deleteHouseEventsByTag(ctx, e2eTag, deleted);
+			await deleteHouseEventsByTag(teardown);
 		}
 		if (isAll || scope === 'backups') {
-			await deleteBackupsByTag(ctx, e2eTag, deleted);
+			await deleteBackupsByTag(teardown);
 		}
 		if (isAll) {
-			await deleteUsersByTag(ctx, e2eTag, deleted);
-			await deleteOrphanedClasses(ctx, deleted);
+			await deleteUsersByTag(teardown);
+			await deleteOrphanedClasses(teardown);
+		} else if (scope === 'students') {
+			await deleteOrphanedClasses(teardown);
 		}
 
-		return { deleted };
+		return { deleted: teardown.deleted };
 	}
 });
 
@@ -302,18 +296,24 @@ export const teardownAllTagged = mutation({
 	args: {},
 	handler: async (ctx) => {
 		await requireAdminForSensitiveOperation(ctx);
-		const deleted: Record<string, number> = {};
+		const teardown: TeardownContext = {
+			ctx,
+			deleted: {},
+			studentIds: [],
+			evaluationIds: [],
+			studentClassIds: [],
+			limitClassesToStudentIds: false
+		};
 
-		const studentIds: Id<'students'>[] = [];
 		const students = await ctx.db
 			.query('students')
 			.filter((q) => q.neq(q.field('e2eTag'), undefined))
 			.collect();
 		for (const student of students) {
 			await ctx.db.delete(student._id);
-			studentIds.push(student._id);
+			teardown.studentIds.push(student._id);
 		}
-		if (students.length > 0) bump(deleted, 'students', students.length);
+		if (students.length > 0) bump(teardown, 'students', students.length);
 
 		const evaluationIds = new Set<Id<'evaluations'>>();
 		const evaluations = await ctx.db
@@ -321,7 +321,7 @@ export const teardownAllTagged = mutation({
 			.filter((q) => q.neq(q.field('e2eTag'), undefined))
 			.collect();
 		for (const evaluation of evaluations) evaluationIds.add(evaluation._id);
-		for (const studentId of studentIds) {
+		for (const studentId of teardown.studentIds) {
 			const dependents = await ctx.db
 				.query('evaluations')
 				.withIndex('by_studentId', (q) => q.eq('studentId', studentId))
@@ -331,7 +331,8 @@ export const teardownAllTagged = mutation({
 		for (const id of evaluationIds) {
 			await ctx.db.delete(id);
 		}
-		if (evaluationIds.size > 0) bump(deleted, 'evaluations', evaluationIds.size);
+		teardown.evaluationIds.push(...evaluationIds);
+		if (evaluationIds.size > 0) bump(teardown, 'evaluations', evaluationIds.size);
 
 		const auditIds = new Set<Id<'audit_logs'>>();
 		const audits = await ctx.db
@@ -348,7 +349,7 @@ export const teardownAllTagged = mutation({
 				.collect();
 			for (const log of logs) auditIds.add(log._id);
 		}
-		for (const studentId of studentIds) {
+		for (const studentId of teardown.studentIds) {
 			const logs = await ctx.db
 				.query('audit_logs')
 				.withIndex('by_target', (q) => q.eq('targetTable', 'students').eq('targetId', studentId))
@@ -358,7 +359,7 @@ export const teardownAllTagged = mutation({
 		for (const id of auditIds) {
 			await ctx.db.delete(id);
 		}
-		if (auditIds.size > 0) bump(deleted, 'audit_logs', auditIds.size);
+		if (auditIds.size > 0) bump(teardown, 'audit_logs', auditIds.size);
 
 		const categories = await ctx.db
 			.query('point_categories')
@@ -367,7 +368,7 @@ export const teardownAllTagged = mutation({
 		for (const category of categories) {
 			await ctx.db.delete(category._id);
 		}
-		if (categories.length > 0) bump(deleted, 'point_categories', categories.length);
+		if (categories.length > 0) bump(teardown, 'point_categories', categories.length);
 
 		const events = await ctx.db
 			.query('house_events')
@@ -376,7 +377,7 @@ export const teardownAllTagged = mutation({
 		for (const event of events) {
 			await ctx.db.delete(event._id);
 		}
-		if (events.length > 0) bump(deleted, 'house_events', events.length);
+		if (events.length > 0) bump(teardown, 'house_events', events.length);
 
 		const backups = await ctx.db
 			.query('backups')
@@ -385,7 +386,7 @@ export const teardownAllTagged = mutation({
 		for (const backup of backups) {
 			await ctx.db.delete(backup._id);
 		}
-		if (backups.length > 0) bump(deleted, 'backups', backups.length);
+		if (backups.length > 0) bump(teardown, 'backups', backups.length);
 
 		const users = await ctx.db.query('users').collect();
 		let userCount = 0;
@@ -395,11 +396,11 @@ export const teardownAllTagged = mutation({
 				userCount++;
 			}
 		}
-		if (userCount > 0) bump(deleted, 'users', userCount);
+		if (userCount > 0) bump(teardown, 'users', userCount);
 
-		await deleteOrphanedClasses(ctx, deleted);
+		await deleteOrphanedClasses(teardown);
 
-		return { deleted };
+		return { deleted: teardown.deleted };
 	}
 });
 

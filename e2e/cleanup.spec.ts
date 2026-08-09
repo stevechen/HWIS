@@ -20,16 +20,12 @@
  */
 
 import { test } from './fixtures';
-import { cleanupAllE2eTaggedData } from './convex-client';
+import { teardownAllTagged } from './recovery-client';
 
 /**
  * Cleanup all test data (students, evaluations, categories, audit logs with e2eTag)
  */
 test('cleanup all test data', async () => {
-	try {
-		const result = await cleanupAllE2eTaggedData();
-		console.log('Test data cleanup result:', JSON.stringify(result, null, 2));
-	} catch (error) {
-		console.warn('Test data cleanup skipped:', error);
-	}
+	const result = await teardownAllTagged();
+	console.log('Test data cleanup result:', JSON.stringify(result, null, 2));
 });

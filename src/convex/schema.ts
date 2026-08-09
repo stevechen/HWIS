@@ -49,10 +49,12 @@ export default defineSchema({
 	classes: defineTable({
 		grade: v.number(),
 		class: v.string(),
-		homeroomTeacherId: v.optional(v.id('users'))
+		homeroomTeacherId: v.optional(v.id('users')),
+		e2eTag: v.optional(v.string())
 	})
 		.index('by_grade_class', ['grade', 'class'])
-		.index('by_teacher', ['homeroomTeacherId']),
+		.index('by_teacher', ['homeroomTeacherId'])
+		.index('by_e2eTag', ['e2eTag']),
 
 	students: defineTable({
 		englishName: v.string(),

@@ -16,7 +16,7 @@
 	import {
 		canAccessAdminArea,
 		isActiveStaff,
-		isStudent,
+		isEnrolledStudent,
 		isAdmin as isAdminRole
 	} from '$convex/shared/authorization';
 	import { headerTitleOverride, headerHouseBadge } from '$lib/stores/header';
@@ -97,7 +97,10 @@
 			return !canAccessAdminArea(user.data);
 		}
 		if (isEvaluationsPage) {
-			return !isActiveStaff(user.data) && !isStudent(user.data);
+			const isStudentEvaluationPage = $page.url.pathname.startsWith('/evaluations/student/');
+			return (
+				!isActiveStaff(user.data) && !(isStudentEvaluationPage && isEnrolledStudent(user.data))
+			);
 		}
 		return false;
 	});

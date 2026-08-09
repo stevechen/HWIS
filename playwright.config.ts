@@ -143,14 +143,12 @@ const config: PlaywrightTestConfig = {
 	forbidOnly: isCI,
 	retries: isCI ? 2 : 1,
 	reporter: 'html',
-	webServer: isCI
-		? {
-				command: 'bash scripts/start-dev-servers.sh',
-				url: 'http://localhost:5173',
-				reuseExistingServer: false,
-				timeout: 120000
-			}
-		: undefined,
+	webServer: {
+		command: 'bash scripts/start-dev-servers.sh',
+		url: 'http://localhost:5173',
+		reuseExistingServer: !isCI,
+		timeout: 120000
+	},
 	use: {
 		baseURL: 'http://localhost:5173',
 		trace: 'on-first-retry'

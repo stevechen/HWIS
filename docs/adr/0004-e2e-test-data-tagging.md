@@ -12,18 +12,25 @@ Additionally, tests run in parallel across multiple Playwright workers, so clean
 
 ## Decision
 
-Every test run creates data with a unique `e2eTag` string and cleans up by that tag after the test.
+Every test run creates data with a unique `e2eTag` string and cleans up by that tag after the test. The
+tag is the ownership key: ordinary teardown may remove tagged rows, plus untagged dependents that
+reference a tagged parent, but it must not perform global deletion.
 
 - Every data table includes an `e2eTag: v.optional(v.string())` field.
 - Indexes on `e2eTag` exist on `students`, `point_categories`, `evaluations`, and `audit_logs`.
-- A `cleanupByTag` Convex mutation deletes all rows matching a given tag, with cascade logic for UI-created data.
+- A `testLifecycle` module provides the per-tag teardown interface and owns cascade ordering, retry, and
+  verification behavior. The underlying mutation is `teardownByTag`.
 - A `dataFactory.ts` module provides helper mutations (`createStudent`, `createCategory`, `createEvaluationForStudent`) that accept and propagate `e2eTag`.
-- Each test calls `cleanupByTag` in `test.afterEach` using boolean flags to track what was created.
+- Each test calls the per-tag lifecycle operation in `test.afterEach` using boolean flags to track what was created.
 - Tags are unique per test per worker using timestamp + random fragment.
+- Test-created classes carry an optional `e2eTag`; production and baseline classes remain untagged.
+- Global tagged sweeps, global house-event deletion, and test-user cleanup are recovery-only operations
+  exposed through a separate recovery entry point for setup and explicit cleanup jobs.
+- Teardown failures are re-thrown and fail the test or cleanup job; they are not silently swallowed.
 
 ## Consequences
 
 - Test data is fully isolated between parallel workers and test runs.
 - Deterministic teardown prevents accumulation.
-- **Complex overhead**: The tagging system adds significant surface — 3 cleanup mutations with overlapping semantics, cascade logic for untagged UI-created data, boolean flags in every test, and a separate data factory module.
-- **Gaps**: `house_events` lacks a `by_e2eTag` index (full table scan on cleanup). `users` has the field but no index and is unused. Three cleanup variants (`cleanupByTag`, `cleanupAllTestData`, `cleanupAllE2eTaggedData`) increase cognitive load.
+- **Complex overhead**: The lifecycle module centralizes cascade logic, retry, and verification, while tests retain explicit per-tag ownership.
+- **Recovery tradeoff**: Global recovery operations remain intentionally destructive, so they are isolated from ordinary test helpers and must not run during parallel test execution.

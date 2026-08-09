@@ -96,26 +96,11 @@ export async function cleanupTestData(tag: string) {
 	return await withTeardownRetry(`cleanupTestData(${tag})`, () => utils.cleanupTestData(tag));
 }
 
-export async function cleanupAllE2eTaggedData() {
-	const utils = getUtils();
-	return await withTeardownRetry('cleanupAllE2eTaggedData', () => utils.cleanupAllE2eTaggedData());
-}
-
-export async function cleanupAuditLogs(authIdString?: string) {
-	const utils = getUtils();
-	return await withTeardownRetry('cleanupAuditLogs', () => utils.cleanupAuditLogs(authIdString));
-}
-
 export async function cleanupByTag(dataType: CleanupScope, e2eTag: string) {
 	const utils = getUtils();
 	return await withTeardownRetry(`cleanupByTag(${dataType}, ${e2eTag})`, () =>
 		utils.cleanupByTag(dataType, e2eTag)
 	);
-}
-
-export async function cleanupTestUsers() {
-	const utils = getUtils();
-	return await withTeardownRetry('cleanupTestUsers', () => utils.cleanupTestUsers());
 }
 
 export async function setupTestUsers() {
@@ -155,6 +140,11 @@ export async function setE2eTag(
 ) {
 	const utils = getUtils();
 	return await utils.setE2eTag(dataType, dataId, e2eTag);
+}
+
+export async function tagHouseEventsByTitle(titlePart: string, e2eTag: string) {
+	const utils = getUtils();
+	return await utils.tagHouseEventsByTitle(titlePart, e2eTag);
 }
 
 export async function createCategory(opts: {
@@ -281,11 +271,6 @@ export async function cleanupTestBackupsByTimestamp(since: number) {
 export async function createWeeklyReportTestData(tag?: string) {
 	const utils = getUtils();
 	return await utils.createWeeklyReportTestData(tag);
-}
-
-export async function cleanupAllHouseEvents() {
-	const utils = getUtils();
-	return await withTeardownRetry('cleanupAllHouseEvents', () => utils.cleanupAllHouseEvents());
 }
 
 export async function cleanupWeeklyReportTestData(tag?: string) {

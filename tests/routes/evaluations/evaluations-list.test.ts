@@ -28,9 +28,19 @@ describe('Evaluations List', () => {
 
 	it('renders error state when the evaluations query fails', async () => {
 		const { useQuery } = await import('convex-svelte');
+		// The page makes 3 useQuery calls in order: viewer, capabilities, listRecent.
+		// Mock viewer and capabilities as success, then listRecent with an error.
 		vi.mocked(useQuery)
 			.mockReturnValueOnce({
-				data: null,
+				data: { role: 'admin', status: 'active' },
+				isLoading: false,
+				error: null
+			} as unknown as ReturnType<typeof useQuery>)
+			.mockReturnValueOnce({
+				data: {
+					actor: { kind: 'staff', subject: { role: 'admin', status: 'active' } },
+					capabilities: {}
+				},
 				isLoading: false,
 				error: null
 			} as unknown as ReturnType<typeof useQuery>)

@@ -24,6 +24,7 @@
 	import { onDestroy } from 'svelte';
 
 	const user = useQuery(api.users.viewer, () => ({}));
+	const capabilities = useQuery(api.users.capabilities, () => ({}));
 	const currentUserId = $derived(user.data?._id);
 
 	// Filter state
@@ -80,13 +81,7 @@
 	// Handle query results
 	$effect(() => {
 		if (evaluationsQuery.data) {
-			// Handle both array and object return types
-			const data = Array.isArray(evaluationsQuery.data)
-				? evaluationsQuery.data
-				: 'evaluations' in evaluationsQuery.data
-					? evaluationsQuery.data.evaluations
-					: [];
-
+			const data = Array.isArray(evaluationsQuery.data) ? evaluationsQuery.data : [];
 			const evals = data.map((e) =>
 				transformEvaluation({
 					...e,
@@ -103,7 +98,14 @@
 	let selectedEvaluation = $state<EvaluationEntry | null>(null);
 
 	function canEditEntry(entry: EvaluationEntry): boolean {
-		return entry.teacherId === currentUserId && isEditable(entry.timestamp);
+		const policy = capabilities.data?.capabilities;
+		return (
+			isEditable(entry.timestamp) &&
+			Boolean(
+				policy?.editAnyEvaluation ||
+				(policy?.editOwnEvaluation && entry.teacherId === currentUserId)
+			)
+		);
 	}
 
 	function handleCardClick(_entry: EvaluationEntry): void {
@@ -121,6 +123,7 @@
 </script>
 
 <span data-current-user-id={currentUserId} class="hidden"></span>
+<span data-capabilities-ready={capabilities.data ? 'true' : 'false'} class="hidden"></span>
 
 <div class="mx-auto w-full max-w-6xl p-8 pt-0">
 	<!-- Filter Controls - Always at top, outside conditionals -->

@@ -123,6 +123,7 @@ export interface E2EUtils {
 		dataId: string,
 		e2eTag: string
 	) => Promise<unknown>;
+	tagHouseEventsByTitle: (titlePart: string, e2eTag: string) => Promise<unknown>;
 	createCategory: (opts?: CreateCategoryOptions) => Promise<unknown>;
 	createEvalForCategory: (categoryName: string) => Promise<unknown>;
 	checkEvaluationExists: (categoryName: string) => Promise<unknown>;
@@ -176,7 +177,12 @@ export function getE2EUtils(): E2EUtils {
 		},
 
 		async cleanupTestData(tag: string) {
-			return await c.mutation(api.testLifecycle.teardownByTag, { e2eTag: tag });
+			const result = await c.mutation(api.testLifecycle.teardownByTag, { e2eTag: tag });
+			const verification = await c.query(api.testLifecycle.verifyCleanTeardown, { e2eTag: tag });
+			if (Object.keys(verification.remaining).length > 0) {
+				throw new Error(`Teardown left tagged rows: ${JSON.stringify(verification.remaining)}`);
+			}
+			return result;
 		},
 
 		async cleanupAllE2eTaggedData() {
@@ -184,10 +190,17 @@ export function getE2EUtils(): E2EUtils {
 		},
 
 		async cleanupByTag(dataType: CleanupScope, e2eTag: string) {
-			return await c.mutation(api.testLifecycle.teardownByTag, {
+			const result = await c.mutation(api.testLifecycle.teardownByTag, {
 				scope: dataType,
 				e2eTag
 			});
+			if (dataType === 'all') {
+				const verification = await c.query(api.testLifecycle.verifyCleanTeardown, { e2eTag });
+				if (Object.keys(verification.remaining).length > 0) {
+					throw new Error(`Teardown left tagged rows: ${JSON.stringify(verification.remaining)}`);
+				}
+			}
+			return result;
 		},
 
 		async cleanupAllHouseEvents() {
@@ -250,6 +263,7 @@ export function getE2EUtils(): E2EUtils {
 				return await c.mutation(api.classes.create, {
 					grade: opts.grade,
 					class: opts.class,
+					e2eTag: opts.e2eTag,
 					homeroomTeacherId: opts.homeroomTeacherId
 						? (opts.homeroomTeacherId as Id<'users'>)
 						: undefined
@@ -292,6 +306,10 @@ export function getE2EUtils(): E2EUtils {
 				console.log('Set e2eTag error:', e);
 				return { error: e instanceof Error ? e.message : String(e) };
 			}
+		},
+
+		async tagHouseEventsByTitle(titlePart: string, e2eTag: string) {
+			return await c.mutation(api.dataFactory.tagHouseEventsByTitle, { titlePart, e2eTag });
 		},
 
 		async createCategory(opts?: CreateCategoryOptions) {

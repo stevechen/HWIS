@@ -9,7 +9,12 @@ import {
 	authComponent
 } from './auth';
 import { isStudentEmailAddress, resolveStudentFromEmail } from './shared/student';
-import { isStaff } from './shared/authorization';
+import {
+	getEvaluationCapabilities,
+	noEvaluationCapabilities,
+	isStaff,
+	type AuthorizationActor
+} from './shared/authorization';
 import type { Id } from './_generated/dataModel';
 
 type BetterAuthUser = {
@@ -118,6 +123,43 @@ export const viewer = query({
 			status: dbUser.status ?? 'pending',
 			profileExists: true
 		};
+	}
+});
+
+export const capabilities = query({
+	args: {},
+	handler: async (ctx) => {
+		const authUser = await getAuthenticatedUser(ctx);
+		if (!authUser) {
+			return { actor: { kind: 'anonymous' as const }, capabilities: noEvaluationCapabilities };
+		}
+
+		const email = (authUser as BetterAuthUser).email?.trim().toLowerCase();
+		if (isStudentEmailAddress(email)) {
+			const student = await resolveStudentFromEmail(email, ctx);
+			if (!student) {
+				return { actor: { kind: 'anonymous' as const }, capabilities: noEvaluationCapabilities };
+			}
+			const actor: AuthorizationActor = {
+				kind: 'student',
+				studentId: student._id,
+				enrollmentStatus: student.status
+			};
+			return { actor, capabilities: getEvaluationCapabilities(actor) };
+		}
+
+		if ('role' in authUser && authUser.role && authUser.status) {
+			const actor: AuthorizationActor = {
+				kind: 'staff',
+				subject: { role: authUser.role, status: authUser.status }
+			};
+			if (typeof authUser._id === 'string') {
+				actor.subject._id = authUser._id as Id<'users'>;
+			}
+			return { actor, capabilities: getEvaluationCapabilities(actor) };
+		}
+
+		return { actor: { kind: 'anonymous' as const }, capabilities: noEvaluationCapabilities };
 	}
 });
 

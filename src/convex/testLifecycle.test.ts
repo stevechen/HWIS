@@ -102,7 +102,11 @@ describe('test data lifecycle', () => {
 	it('teardownByTag scope all removes tagged rows across every table and leaves untagged data', async () => {
 		const t = rawConvexTest(schema, modules);
 		await t.run(async (ctx) => {
-			const taggedClass = await ctx.db.insert('classes', { grade: 7, class: '1' });
+			const taggedClass = await ctx.db.insert('classes', {
+				grade: 7,
+				class: '1',
+				e2eTag: 'e2e-test_x'
+			});
 			const untaggedClass = await ctx.db.insert('classes', { grade: 8, class: '1' });
 			const teacher = await ctx.db.insert('users', {
 				authId: 'e2e_teacher1',
@@ -204,7 +208,11 @@ describe('test data lifecycle', () => {
 	it('teardownByTag cascades to untagged evaluations and audit logs of tagged students', async () => {
 		const t = rawConvexTest(schema, modules);
 		await t.run(async (ctx) => {
-			const cls = await ctx.db.insert('classes', { grade: 7, class: '1' });
+			const cls = await ctx.db.insert('classes', {
+				grade: 7,
+				class: '1',
+				e2eTag: 'e2e-test_x'
+			});
 			const teacher = await ctx.db.insert('users', {
 				authId: 'e2e_teacher1',
 				name: 'Teacher',
@@ -257,6 +265,35 @@ describe('test data lifecycle', () => {
 		expect(snapshot.students).toHaveLength(0);
 		expect(snapshot.evaluations).toHaveLength(0);
 		expect(snapshot.audit).toHaveLength(0);
+	});
+
+	it('teardownByTag preserves untagged classes and classes owned by another tag', async () => {
+		const t = rawConvexTest(schema, modules);
+		await t.run(async (ctx) => {
+			const owned = await ctx.db.insert('classes', {
+				grade: 7,
+				class: '1',
+				e2eTag: 'e2e-test_a'
+			});
+			await ctx.db.insert('classes', { grade: 7, class: '2' });
+			await ctx.db.insert('classes', { grade: 7, class: '3', e2eTag: 'e2e-test_b' });
+			await ctx.db.insert('students', {
+				englishName: 'Owned',
+				chineseName: '',
+				studentId: 'OWNED',
+				classId: owned,
+				status: 'Enrolled',
+				e2eTag: 'e2e-test_a'
+			});
+		});
+
+		await t.mutation(api.testLifecycle.teardownByTag, {
+			scope: 'all',
+			e2eTag: 'e2e-test_a'
+		});
+
+		const classes = await t.run(async (ctx) => ctx.db.query('classes').collect());
+		expect(classes.map((cls) => cls.class).sort()).toEqual(['2', '3']);
 	});
 
 	it('teardownByTag scope categories only removes tagged categories', async () => {

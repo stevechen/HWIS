@@ -1,10 +1,6 @@
 import { test as setup, expect } from './fixtures';
-import {
-	setupTestUsers,
-	cleanupTestUsers,
-	cleanupAllE2eTaggedData,
-	seedBaseline
-} from './convex-client';
+import { setupTestUsers, seedBaseline } from './convex-client';
+import { teardownAllTagged, teardownTestUsers } from './recovery-client';
 import { mkdir, writeFile } from 'fs/promises';
 import { readFileSync } from 'fs';
 import path from 'path';
@@ -243,11 +239,11 @@ async function buildContextCookies(sessionToken: string): Promise<BrowserContext
 
 setup('seed test data and verify setup', async ({ page }) => {
 	// Clear all tagged test data and seed fresh baseline
-	await cleanupAllE2eTaggedData();
+	await teardownAllTagged();
 	await seedBaseline();
 
 	// Clean up old test users first to avoid accumulation
-	await cleanupTestUsers();
+	await teardownTestUsers();
 
 	const setupResult = await setupTestUsers();
 	expect(setupResult?.adminSessionToken).toBeTruthy();

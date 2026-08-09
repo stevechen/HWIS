@@ -3,11 +3,7 @@
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { isEditable } from '$convex/shared/evaluation_week';
-	import {
-		canAccessAdminArea,
-		isStudent as isStudentRole,
-		isEnrolledStudent
-	} from '$convex/shared/authorization';
+	import { getEvaluationCapabilities } from '$convex/shared/authorization';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { EvaluationsTimeline, type EvaluationEntry } from '$lib/components/timeline';
 	import RadarChart from '$lib/components/RadarChart.svelte';
@@ -43,23 +39,34 @@
 	// Fetch user to check role (always call useQuery at top level)
 	const userQuery = useQuery(api.users.viewer, () => ({}));
 
+	// Fetch centralized capabilities for permission checks
+	const capabilitiesQuery = useQuery(api.users.capabilities, () => ({}));
+
 	// Fetch all categories for radar chart
 	const categoriesQuery = useQuery(api.categories.list, () => ({}));
 
-	// Determine if user is admin (Admin/Super role, Active status)
-	const isAdmin = $derived(userQuery.data ? canAccessAdminArea(userQuery.data) : false);
+	const actor = $derived(capabilitiesQuery.data?.actor);
+	const caps = $derived(capabilitiesQuery.data?.capabilities);
 
-	// Determine if user is a teacher (not admin, not super)
-	const isTeacher = $derived(userQuery.data?.role === 'teacher');
-
-	// Determine if user is a student
-	const isStudent = $derived(userQuery.data ? isStudentRole(userQuery.data) : false);
-
-	// Check if the student is enrolled
-	const isEnrolled = $derived(userQuery.data ? isEnrolledStudent(userQuery.data) : false);
-
-	// Current user ID for ownership check
-	const currentUserId = $derived(userQuery.data?._id);
+	// Derive role-based flags from the centralized actor/capabilities
+	const isStudent = $derived.by(() => {
+		if (!actor) return false;
+		if (actor.kind === 'student') return true;
+		return false;
+	});
+	const isEnrolled = $derived.by(() => {
+		if (!actor) return false;
+		if (actor.kind === 'student') return actor.enrollmentStatus === 'Enrolled';
+		return true;
+	});
+	const isAdmin = $derived.by(() => {
+		if (!actor || !caps) return false;
+		return actor.kind === 'staff' && caps.viewAnyEvaluation;
+	});
+	const isTeacher = $derived.by(() => {
+		if (!actor || !caps) return false;
+		return actor.kind === 'staff' && caps.viewOwnEvaluation && !caps.viewAnyEvaluation;
+	});
 
 	// House logos mapping
 	const houseLogos: Record<string, HouseLogoComponent> = {
@@ -68,12 +75,6 @@
 		Ixbalam: LogoIxbalam,
 		Setna: LogoSetna
 	};
-
-	// Get student's house
-	const studentHouse = $derived.by(() => {
-		const s = student as { house?: string } | undefined;
-		return s?.house || null;
-	});
 
 	// Check if studentId is a Convex ID (format: tableName:hexString)
 	// Convex IDs look like "students:abc123def456" or similar
@@ -87,9 +88,7 @@
 	const urlStudentId = $derived(data.studentId || '');
 	const useConvexIdQuery = $derived(isConvexId(urlStudentId));
 
-	// Real Convex queries - support both Convex ID and custom studentId code
-	// Use 'skip' pattern for conditional queries - always call useQuery at top level
-	// Students derive their own record from auth and never query by URL parameter.
+	// Student record (for students, derived from auth; for staff, fetched by URL param)
 	const studentQueryById = useQuery(api.evaluations.getStudent, () =>
 		isStudent || !useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
 	);
@@ -128,6 +127,12 @@
 	const allEvalsQuery = $derived(useConvexIdQuery ? allEvalsQueryById : allEvalsQueryByCode);
 
 	const student = $derived(isStudent ? userQuery.data : studentQuery.data);
+
+	// Get student's house
+	const studentHouse = $derived.by(() => {
+		const s = student as { house?: string } | undefined;
+		return s?.house || null;
+	});
 
 	// Get evaluations data
 	const evaluations = $derived.by(() => {
@@ -292,7 +297,12 @@
 	});
 
 	function canEditEntry(entry: EvaluationEntry): boolean {
-		return entry.teacherId === currentUserId && isEditable(entry.timestamp);
+		if (!actor || !isEditable(entry.timestamp) || !entry.teacherId) return false;
+		const capabilities = getEvaluationCapabilities(actor, {
+			teacherId: entry.teacherId as Id<'users'>,
+			isUnlocked: true
+		});
+		return capabilities.editAnyEvaluation || capabilities.editOwnEvaluation;
 	}
 
 	function handleLongPress(entry: EvaluationEntry): void {
@@ -328,6 +338,7 @@
 	// Determine loading state
 	const isLoading = $derived.by(() => {
 		if (userQuery.isLoading) return true;
+		if (capabilitiesQuery.isLoading) return true;
 		if (studentQuery.isLoading) return true;
 		if (isStudent && studentAnonymousEvalsQuery.isLoading) return true;
 		if (isAdmin && allEvalsQuery.isLoading) return true;
@@ -337,7 +348,7 @@
 
 	// Determine loading message
 	const loadingMessage = $derived.by(() => {
-		if (userQuery.isLoading) return 'Loading user data...';
+		if (userQuery.isLoading || capabilitiesQuery.isLoading) return 'Loading user data...';
 		if (studentQuery.isLoading) return 'Loading student data...';
 		if (isAdmin) return 'Loading evaluations...';
 		return 'Loading your evaluations...';

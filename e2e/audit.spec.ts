@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { cleanupAuditLogs, seedAuditLogs } from './convex-client';
+import { cleanupByTag, seedAuditLogs } from './convex-client';
 import { AdminAuditPage } from './pages';
 
 test.describe('Audit Log Page (super admin) @audit', () => {
@@ -13,9 +13,7 @@ test.describe('Audit Log Page (super admin) @audit', () => {
 		await auditPage.resetColumnVisibility();
 	});
 
-	test.afterEach(async () => {
-		await cleanupAuditLogs();
-	});
+	test.afterEach(async () => {});
 
 	test('loads core audit controls', async ({ page }) => {
 		await expect(page.getByTestId('audit.columns-control')).toBeVisible();
@@ -49,7 +47,7 @@ test.describe('Audit Log - Data-driven column toggle', () => {
 	});
 
 	test.afterEach(async () => {
-		if (testAuditLogs) await cleanupAuditLogs(testAuthId);
+		if (testAuditLogs) await cleanupByTag('auditLogs', testAuthId);
 	});
 
 	test('toggles Details column while filtering seeded data', async ({ page }) => {

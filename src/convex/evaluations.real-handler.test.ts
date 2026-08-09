@@ -151,6 +151,36 @@ describe('evaluations.update (real handler)', () => {
 			})
 		).rejects.toThrow('Not authorized to edit this evaluation');
 	});
+
+	it("allows an active Super to correct another teacher's evaluation", async () => {
+		const t = convexTest(schema, modules);
+		mockAuthUser({ authId: 'super-1' });
+		const superId = await seedUser(t, { authId: 'super-1', role: 'super' });
+		const otherTeacher = await seedUser(t, {
+			authId: 'other-teacher-super-test',
+			role: 'teacher'
+		});
+		const studentId = await seedStudent(t, 'STU-UPDATE-SUPER-001');
+		const categoryId = await seedCategory(t);
+		const evaluationId = await seedEvaluation(t, {
+			studentId,
+			teacherId: otherTeacher,
+			categoryId
+		});
+
+		const result = await t.mutation(api.evaluations.update, {
+			id: evaluationId,
+			details: 'Corrected by Super'
+		});
+
+		expect(result).toEqual({ success: true });
+		expect(superId).toBeDefined();
+		await expect(
+			t.query(api.evaluations.getEvaluation, { id: evaluationId })
+		).resolves.toMatchObject({
+			details: 'Corrected by Super'
+		});
+	});
 });
 
 describe('evaluations.remove (real handler)', () => {
@@ -338,6 +368,16 @@ describe('evaluations.getStudentByStudentIdCode (real handler)', () => {
 			})
 		).rejects.toThrow('Unauthorized');
 	});
+
+	it('rejects pending staff from student lookup', async () => {
+		const t = convexTest(schema, modules);
+		mockAuthUser({ authId: 'pending-teacher' });
+		await seedUser(t, { authId: 'pending-teacher', role: 'teacher', status: 'pending' });
+
+		await expect(
+			t.query(api.evaluations.getStudentByStudentIdCode, { studentIdCode: 'S1001' })
+		).rejects.toThrow('Active staff access required');
+	});
 });
 
 describe('evaluations.getStudentEvaluationsAll (real handler)', () => {
@@ -474,6 +514,42 @@ describe('evaluations.getWeeklyReportDetail (real handler)', () => {
 		expect(result[0].studentId).toBe('STU-WEEKLY-001');
 		expect(result[0].totalPoints).toBe(5);
 		expect(result[0].pointsByCategory).toEqual({ Participation: 5 });
+	});
+});
+
+describe('evaluation read authorization (real handlers)', () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	it('rejects pending teachers from teacher history reads', async () => {
+		const t = convexTest(schema, modules);
+		mockAuthUser({ authId: 'pending-teacher' });
+		await seedUser(t, { authId: 'pending-teacher', role: 'teacher', status: 'pending' });
+		const studentId = await seedStudent(t, 'PENDING-READ-001');
+
+		await expect(
+			t.query(api.evaluations.getStudentEvaluationsByTeacher, { studentId })
+		).rejects.toThrow('Active staff access required');
+	});
+
+	it('hides evaluations from inactive admins', async () => {
+		const t = convexTest(schema, modules);
+		mockAuthUser({ authId: 'inactive-admin' });
+		const adminId = await seedUser(t, {
+			authId: 'inactive-admin',
+			role: 'admin',
+			status: 'pending'
+		});
+		const studentId = await seedStudent(t, 'INACTIVE-READ-001');
+		const categoryId = await seedCategory(t);
+		const evaluationId = await seedEvaluation(t, {
+			studentId,
+			teacherId: adminId,
+			categoryId
+		});
+
+		const result = await t.query(api.evaluations.getEvaluation, { id: evaluationId });
+
+		expect(result).toBeNull();
 	});
 });
 

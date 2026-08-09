@@ -10,7 +10,8 @@ async function getOrCreateClass(
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	ctx: any,
 	grade: number,
-	className: string
+	className: string,
+	e2eTag?: string
 ): Promise<Id<'classes'>> {
 	const existing = await ctx.db
 		.query('classes')
@@ -28,7 +29,8 @@ async function getOrCreateClass(
 
 	return await ctx.db.insert('classes', {
 		grade,
-		class: className
+		class: className,
+		e2eTag
 	});
 }
 
@@ -407,7 +409,7 @@ export const createStudentWithId = mutation({
 		// Get or create class
 		// "default", "IB", "1", "2", etc. - defaults to "default" class
 		const className = args.class || 'default';
-		const classId = await getOrCreateClass(ctx, args.grade, className);
+		const classId = await getOrCreateClass(ctx, args.grade, className, tag);
 
 		const existing = await ctx.db
 			.query('students')
@@ -415,6 +417,9 @@ export const createStudentWithId = mutation({
 			.first();
 
 		if (existing) {
+			if (existing.e2eTag && existing.e2eTag !== tag) {
+				throw new Error(`Student ID "${args.studentId}" is already owned by another test`);
+			}
 			await ctx.db.patch(existing._id, {
 				englishName: args.englishName ?? existing.englishName,
 				chineseName: args.chineseName ?? existing.chineseName,
@@ -528,5 +533,21 @@ export const setE2eTag = mutation({
 		}
 
 		throw new Error(`Unknown data type: ${args.dataType}`);
+	}
+});
+
+export const tagHouseEventsByTitle = mutation({
+	args: { titlePart: v.string(), e2eTag: v.string() },
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const events = await ctx.db.query('house_events').collect();
+		let tagged = 0;
+		for (const event of events) {
+			if (event.title.includes(args.titlePart)) {
+				await ctx.db.patch(event._id, { e2eTag: args.e2eTag });
+				tagged++;
+			}
+		}
+		return { tagged };
 	}
 });
