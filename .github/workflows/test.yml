@@ -9,6 +9,8 @@ on:
 jobs:
   unit-and-component:
     runs-on: ubuntu-latest
+    env:
+      PUBLIC_CONVEX_URL: http://127.0.0.1:3210
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +38,8 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    env:
+      PUBLIC_CONVEX_URL: http://127.0.0.1:3210
     steps:
       - uses: actions/checkout@v4
 
@@ -45,6 +49,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Generate SvelteKit config
+        run: bun run check
 
       - name: Install Playwright browser
         run: bunx playwright install --with-deps chromium
