@@ -47,9 +47,13 @@ export function getEvaluationCapabilities(
 			(subject.role === 'teacher' || isAdmin(subject)) &&
 			(evaluation === undefined || evaluation.teacherId === subject._id);
 		const unlocked = evaluation === undefined || evaluation.isUnlocked;
+		const canViewOwn =
+			active &&
+			(isAdmin(subject) || subject.role === 'teacher') &&
+			(evaluation === undefined || evaluation.teacherId === subject._id);
 		return {
 			viewAnyEvaluation: active && isAdmin(subject),
-			viewOwnEvaluation: active && (isAdmin(subject) || subject.role === 'teacher'),
+			viewOwnEvaluation: canViewOwn,
 			editOwnEvaluation: own && unlocked,
 			editAnyEvaluation: active && isSuper(subject) && unlocked
 		};
@@ -128,11 +132,94 @@ export function canEditEvaluation(
 	return isSuper(subject) || evaluation.teacherId === subject._id;
 }
 
-export function requireEvaluationAccess(
+/**
+ * Builds a staff `AuthorizationActor` from a user profile (or any
+ * `AccessSubject` that carries an `_id`). Every backend guard and the
+ * frontend capability query decide against the same normalized actor.
+ */
+export function buildStaffActor(
+	subject: AccessSubject & { _id?: Id<'users'> }
+): AuthorizationActor {
+	return { kind: 'staff', subject };
+}
+
+/** Evaluation context consumed by named operation guards. */
+export type EvaluationContext = {
+	teacherId: Id<'users'>;
+	isUnlocked: boolean;
+};
+
+/**
+ * Named read guard. Backed by `getEvaluationCapabilities`: a staff member may
+ * read when they are Admin/Super (viewAny) or the authoring Teacher (viewOwn).
+ * Student actors are denied here — their path is `getStudentEvaluationsAnonymous`.
+ *
+ * Lock status is irrelevant for reads, so `isUnlocked` is forced to `true` to
+ * perform an auth-only check.
+ *
+ * Query handlers catch this error and return null/empty per endpoint contract.
+ */
+export function requireEvaluationRead(
 	subject: AccessSubject & { _id?: Id<'users'> },
 	evaluation: { teacherId: Id<'users'> }
 ): void {
-	if (!canReadEvaluation(subject, evaluation)) {
+	const actor = buildStaffActor(subject);
+	const caps = getEvaluationCapabilities(actor, {
+		teacherId: evaluation.teacherId,
+		isUnlocked: true
+	});
+	if (!caps.viewAnyEvaluation && !caps.viewOwnEvaluation) {
 		throw new Error('Forbidden');
+	}
+}
+
+/** Alias preserved for existing callers and tests. */
+export const requireEvaluationAccess = requireEvaluationRead;
+
+/**
+ * Named edit guard. Backed by `getEvaluationCapabilities`: Super may edit any
+ * evaluation (editAny), Admin/Teacher their own (editOwn).
+ *
+ * The guard checks **authorisation only** (ownership + role + active status).
+ * Calender-lock enforcement (`isEditable`) happens in the mutation handler
+ * so that a distinct error message is produced for locked records, including
+ * for Super.
+ */
+export function requireEvaluationEdit(
+	subject: AccessSubject & { _id?: Id<'users'> },
+	evaluation: { teacherId: Id<'users'> }
+): void {
+	const actor = buildStaffActor(subject);
+	const caps = getEvaluationCapabilities(actor, {
+		teacherId: evaluation.teacherId,
+		isUnlocked: true
+	});
+	if (!caps.editAnyEvaluation && !caps.editOwnEvaluation) {
+		throw new Error('Not authorized to edit this evaluation');
+	}
+}
+
+/**
+ * Named delete guard. Uses the same capability surface as edit but with a
+ * distinct error message so callers can disambiguate auth vs. lock failures.
+ */
+export function requireEvaluationDelete(
+	subject: AccessSubject & { _id?: Id<'users'> },
+	evaluation: { teacherId: Id<'users'> }
+): void {
+	if (!isActiveStaff(subject) || (!isSuper(subject) && evaluation.teacherId !== subject._id)) {
+		throw new Error('Not authorized to delete this evaluation');
+	}
+}
+
+/**
+ * Named create guard. Backed by `getEvaluationCapabilities`: only active
+ * staff (Teacher/Admin/Super) may author evaluations. The `editOwn`/
+ * `editAny` capabilities imply `create` since writing requires the same
+ * role/status predicate.
+ */
+export function requireEvaluationCreate(subject: AccessSubject & { _id?: Id<'users'> }): void {
+	if (!isActiveStaff(subject)) {
+		throw new Error('Not authorized to create evaluations');
 	}
 }

@@ -11,6 +11,16 @@ const mockAdminUser = {
 	status: 'active'
 };
 
+const mockAdminCapabilities = {
+	actor: { kind: 'staff' as const, subject: { _id: 'admin-001', role: 'admin', status: 'active' } },
+	capabilities: {
+		viewAnyEvaluation: true,
+		viewOwnEvaluation: true,
+		editOwnEvaluation: true,
+		editAnyEvaluation: true
+	}
+};
+
 const mockEvalData = createMockEvaluationSet();
 
 vi.mock('convex-svelte', () => ({
@@ -39,14 +49,20 @@ import StudentEvaluationsPage from '$src/routes/evaluations/student/[studentId]/
 describe('Student Evaluations Page', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks();
-		// The page makes multiple useQuery calls. The first is userQuery:
-		// it must return an object with a `role` property (not an array)
-		// so that isAdmin/isTeacher/isStudent resolve and the main content
-		// area renders. Remaining calls (categories, student, evaluations)
-		// fall through to the module-level default (mockEvalData).
+		// The page makes multiple useQuery calls:
+		// 1. userQuery (api.users.viewer) - returns mockAdminUser
+		// 2. capabilitiesQuery (api.users.capabilities) - returns mockAdminCapabilities
+		// Remaining calls (categories, student, evaluations) fall through to
+		// the module-level default (mockEvalData).
 		const { useQuery } = await import('convex-svelte');
 		vi.mocked(useQuery).mockReturnValueOnce({
 			data: mockAdminUser,
+			isLoading: false,
+			isStale: false,
+			error: undefined
+		});
+		vi.mocked(useQuery).mockReturnValueOnce({
+			data: mockAdminCapabilities,
 			isLoading: false,
 			isStale: false,
 			error: undefined
@@ -104,10 +120,37 @@ describe('Student Evaluations Page — student branch', () => {
 		house: 'Wukong'
 	};
 
-	async function mockViewer(viewer: object) {
+	function mockStudentCapabilities(enrollmentStatus: 'Enrolled' | 'Not Enrolled' = 'Enrolled') {
+		return {
+			actor: {
+				kind: 'student' as const,
+				studentId: 'student-001',
+				enrollmentStatus
+			},
+			capabilities: {
+				viewAnyEvaluation: false,
+				viewOwnEvaluation: true,
+				editOwnEvaluation: false,
+				editAnyEvaluation: false
+			}
+		};
+	}
+
+	async function mockViewer(
+		viewer: object,
+		enrollmentStatus: 'Enrolled' | 'Not Enrolled' = 'Enrolled'
+	) {
 		const { useQuery } = await import('convex-svelte');
+		// 1. userQuery (api.users.viewer)
 		vi.mocked(useQuery).mockReturnValueOnce({
 			data: viewer,
+			isLoading: false,
+			isStale: false,
+			error: undefined
+		});
+		// 2. capabilitiesQuery (api.users.capabilities)
+		vi.mocked(useQuery).mockReturnValueOnce({
+			data: mockStudentCapabilities(enrollmentStatus),
 			isLoading: false,
 			isStale: false,
 			error: undefined
@@ -129,7 +172,7 @@ describe('Student Evaluations Page — student branch', () => {
 	});
 
 	it('shows the access denied screen for a not-enrolled student', async () => {
-		await mockViewer({ ...mockStudentUser, enrollmentStatus: 'Not Enrolled' });
+		await mockViewer({ ...mockStudentUser, enrollmentStatus: 'Not Enrolled' }, 'Not Enrolled');
 		render(StudentEvaluationsPage, { data: { studentId: 'ignored' } });
 		await expect.element(page.getByText('Access Denied')).toBeInTheDocument();
 	});

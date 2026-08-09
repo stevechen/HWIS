@@ -15,6 +15,10 @@ import {
 	getEvaluationCapabilities,
 	noEvaluationCapabilities,
 	requireEvaluationAccess,
+	requireEvaluationRead,
+	requireEvaluationEdit,
+	requireEvaluationCreate,
+	requireEvaluationDelete,
 	type AccessSubject,
 	type Role,
 	type UserStatus
@@ -296,5 +300,125 @@ describe('requireEvaluationAccess', () => {
 	it('throws Forbidden for non-evaluator teacher', () => {
 		const otherTeacher = makeUser({ role: 'teacher', _id: 'users-other' as Id<'users'> });
 		expect(() => requireEvaluationAccess(otherTeacher, evaluation)).toThrow('Forbidden');
+	});
+});
+
+describe('requireEvaluationRead', () => {
+	it('does not throw for admin reading any evaluation', () => {
+		expect(() => requireEvaluationRead(makeUser({ role: 'admin' }), evaluation)).not.toThrow();
+	});
+
+	it('does not throw for super reading any evaluation', () => {
+		expect(() => requireEvaluationRead(makeUser({ role: 'super' }), evaluation)).not.toThrow();
+	});
+
+	it('does not throw for authoring teacher', () => {
+		const authoringTeacher = makeUser({ role: 'teacher', _id: teacherId });
+		expect(() => requireEvaluationRead(authoringTeacher, evaluation)).not.toThrow();
+	});
+
+	it('throws Forbidden for non-authoring teacher', () => {
+		const otherTeacher = makeUser({ role: 'teacher', _id: 'users-other' as Id<'users'> });
+		expect(() => requireEvaluationRead(otherTeacher, evaluation)).toThrow('Forbidden');
+	});
+
+	it('throws Forbidden for inactive staff', () => {
+		expect(() =>
+			requireEvaluationRead(makeUser({ role: 'admin', status: 'pending' }), evaluation)
+		).toThrow('Forbidden');
+	});
+});
+
+describe('requireEvaluationEdit', () => {
+	it('does not throw for super editing any evaluation', () => {
+		expect(() => requireEvaluationEdit(makeUser({ role: 'super' }), evaluation)).not.toThrow();
+	});
+
+	it('does not throw for authoring teacher', () => {
+		const authoringTeacher = makeUser({ role: 'teacher', _id: teacherId });
+		expect(() => requireEvaluationEdit(authoringTeacher, evaluation)).not.toThrow();
+	});
+
+	it('throws "Not authorized" for non-authoring teacher', () => {
+		const otherTeacher = makeUser({ role: 'teacher', _id: 'users-other' as Id<'users'> });
+		expect(() => requireEvaluationEdit(otherTeacher, evaluation)).toThrow(
+			'Not authorized to edit this evaluation'
+		);
+	});
+
+	it('throws "Not authorized" for admin (admins cannot edit)', () => {
+		expect(() => requireEvaluationEdit(makeUser({ role: 'admin' }), evaluation)).toThrow(
+			'Not authorized to edit this evaluation'
+		);
+	});
+
+	it('throws "Not authorized" for inactive staff', () => {
+		const authoringTeacher = makeUser({ role: 'teacher', _id: teacherId, status: 'pending' });
+		expect(() => requireEvaluationEdit(authoringTeacher, evaluation)).toThrow(
+			'Not authorized to edit this evaluation'
+		);
+	});
+});
+
+describe('requireEvaluationCreate', () => {
+	it('does not throw for active teacher', () => {
+		expect(() => requireEvaluationCreate(makeUser({ role: 'teacher' }))).not.toThrow();
+	});
+
+	it('does not throw for active admin', () => {
+		expect(() => requireEvaluationCreate(makeUser({ role: 'admin' }))).not.toThrow();
+	});
+
+	it('does not throw for active super', () => {
+		expect(() => requireEvaluationCreate(makeUser({ role: 'super' }))).not.toThrow();
+	});
+
+	it('throws "Not authorized" for pending teacher', () => {
+		expect(() => requireEvaluationCreate(makeUser({ role: 'teacher', status: 'pending' }))).toThrow(
+			'Not authorized to create evaluations'
+		);
+	});
+
+	it('throws "Not authorized" for student', () => {
+		expect(() => requireEvaluationCreate(makeUser({ role: 'student' }))).toThrow(
+			'Not authorized to create evaluations'
+		);
+	});
+
+	it('throws "Not authorized" for undefined role', () => {
+		expect(() => requireEvaluationCreate(makeUser({ role: undefined }))).toThrow(
+			'Not authorized to create evaluations'
+		);
+	});
+});
+
+describe('requireEvaluationDelete', () => {
+	it('does not throw for super deleting any evaluation', () => {
+		expect(() => requireEvaluationDelete(makeUser({ role: 'super' }), evaluation)).not.toThrow();
+	});
+
+	it('does not throw for authoring teacher', () => {
+		const authoringTeacher = makeUser({ role: 'teacher', _id: teacherId });
+		expect(() => requireEvaluationDelete(authoringTeacher, evaluation)).not.toThrow();
+	});
+
+	it('throws "Not authorized" for non-authoring teacher', () => {
+		const otherTeacher = makeUser({ role: 'teacher', _id: 'users-other' as Id<'users'> });
+		expect(() => requireEvaluationDelete(otherTeacher, evaluation)).toThrow(
+			'Not authorized to delete this evaluation'
+		);
+	});
+
+	it('throws "Not authorized" for admin (admins cannot delete)', () => {
+		expect(() => requireEvaluationDelete(makeUser({ role: 'admin' }), evaluation)).toThrow(
+			'Not authorized to delete this evaluation'
+		);
+	});
+
+	it('throws "Not authorized" for inactive staff', () => {
+		const authoringTeacher = makeUser({ role: 'teacher', _id: teacherId, status: 'pending' });
+		expect(() => requireEvaluationDelete(authoringTeacher, evaluation)).toThrow(
+			'Not authorized to delete this evaluation'
+		);
 	});
 });

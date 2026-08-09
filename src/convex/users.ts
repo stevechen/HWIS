@@ -153,6 +153,9 @@ export const capabilities = query({
 				kind: 'staff',
 				subject: { role: authUser.role, status: authUser.status }
 			};
+			if (typeof authUser._id === 'string') {
+				actor.subject._id = authUser._id as Id<'users'>;
+			}
 			return { actor, capabilities: getEvaluationCapabilities(actor) };
 		}
 
