@@ -99,6 +99,7 @@ function buildPilotTaskSheet() {
 				'- Category delete blocked when referenced by evals (expected).\n\n' +
 				'Triage: dev triages evenings. Blockers = same-day fix.'
 		);
+	readme.getDataRange().setFontSize(18);
 
 	// Session tabs
 	sessions.forEach(function (session) {
@@ -108,6 +109,23 @@ function buildPilotTaskSheet() {
 		tab.getRange('C1').setValue('Log').setFontWeight('bold');
 
 		const rows = session.tasks.map(function (task) {
+			return [task, 'FALSE'];
+		});
+
+		tab.getRange(2, 1, rows.length, 2).setValues(rows);
+
+		// Done? column: pulldown menu with TRUE / FALSE
+		const doneRange = tab.getRange(2, 2, rows.length, 1);
+		doneRange.setDataValidation(
+			SpreadsheetApp.newDataValidation()
+				.requireValueInList(['TRUE', 'FALSE'], true)
+				.setAllowInvalid(false)
+				.build()
+		);
+
+		// Log links read the task live from column A, so editing a task in the
+		// Sheet automatically changes what the form pre-fills.
+		for (let i = 0; i < rows.length; i++) {
 			const logUrl =
 				baseUrl +
 				'?entry.' +
@@ -120,22 +138,19 @@ function buildPilotTaskSheet() {
 				encodeURIComponent(session.name) +
 				'&entry.' +
 				ENTRY_TRYING +
-				'=' +
-				encodeURIComponent(task);
-			return [task, false, logUrl];
-		});
-
-		tab.getRange(2, 1, rows.length, 3).setValues(rows);
-
-		// Turn the Log URL cells into clickable "Log" links
-		for (let i = 0; i < rows.length; i++) {
-			tab.getRange(2 + i, 3).setFormula('=HYPERLINK("' + rows[i][2] + '","Log")');
+				'=" & ENCODEURL(A' +
+				(2 + i) +
+				')';
+			tab.getRange(2 + i, 3).setFormula('=HYPERLINK("' + logUrl + ',"Log")');
 		}
 
 		tab.getRange('A1:C1').setBackground('#f3f4f6');
 		tab.setColumnWidth(1, 380);
 		tab.setColumnWidth(2, 60);
 		tab.setColumnWidth(3, 80);
+
+		// Default font size for the whole tab (headers + all rows)
+		tab.getDataRange().setFontSize(18);
 	});
 
 	ss.deleteSheet(ss.getSheetByName('Sheet1'));
