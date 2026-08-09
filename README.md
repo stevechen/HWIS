@@ -198,18 +198,19 @@ bun run test:all
 
 ## Environment Variables
 
-| Variable                     | Required     | Purpose                |
-| ---------------------------- | ------------ | ---------------------- |
-| `BETTER_AUTH_SECRET`         | Production   | Auth JWT signing       |
-| `GOOGLE_CLIENT_ID`           | Yes          | Google OAuth           |
-| `GOOGLE_CLIENT_SECRET`       | Yes          | Google OAuth           |
-| `SITE_URL` / `VITE_SITE_URL` | Yes          | Service URLs           |
-| `PUBLIC_CONVEX_URL`          | Yes          | Convex deployment URL  |
-| `CONVEX_DEPLOYMENT`          | Yes          | Convex deployment name |
-| `CRON_SECRET`                | Cron         | Vercel cron auth       |
-| `GOOGLE_REFRESH_TOKEN`       | Drive backup | Google Drive upload    |
-| `GOOGLE_DRIVE_FOLDER_ID`     | Optional     | Drive backup folder    |
-| `E2E_TEST_TOKEN`             | Testing      | Custom test token      |
+| Variable                     | Required     | Purpose                              |
+| ---------------------------- | ------------ | ------------------------------------ |
+| `BETTER_AUTH_SECRET`         | Production   | Auth JWT signing                     |
+| `GOOGLE_CLIENT_ID`           | Yes          | Google OAuth                         |
+| `GOOGLE_CLIENT_SECRET`       | Yes          | Google OAuth                         |
+| `SITE_URL` / `VITE_SITE_URL` | Yes          | Service URLs                         |
+| `PUBLIC_CONVEX_URL`          | Yes          | Convex deployment URL                |
+| `PUBLIC_CONVEX_SITE_URL`     | Yes          | Convex site URL for auth HTTP routes |
+| `CONVEX_DEPLOYMENT`          | Yes          | Convex deployment name               |
+| `CRON_SECRET`                | Cron         | Vercel cron auth                     |
+| `GOOGLE_REFRESH_TOKEN`       | Drive backup | Google Drive upload                  |
+| `GOOGLE_DRIVE_FOLDER_ID`     | Optional     | Drive backup folder                  |
+| `E2E_TEST_TOKEN`             | Testing      | Custom test token                    |
 
 ## Database Schema (11 Tables)
 
