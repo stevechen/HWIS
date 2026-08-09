@@ -3,5 +3,5 @@
 # Run e2e tests manually with: bun run test:e2e
 # Or use --no-verify flag to skip this hook entirely: git commit --no-verify
 
-# Only run linting in pre-commit
-bun run lint || true
+# Only run linting in pre-commit. Fail the commit when linting fails.
+bun run lint
