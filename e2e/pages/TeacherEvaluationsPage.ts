@@ -30,6 +30,7 @@ export class TeacherEvaluationsPage {
 			const val = el?.getAttribute('data-current-user-id');
 			return val && val !== 'undefined' && val !== '';
 		});
+		await expect(this.page.locator('[data-capabilities-ready="true"]')).toBeAttached();
 
 		// Long-press the card by dispatching mousedown directly on the element.
 		// The timeline's onmouseleave cancels the long-press timer, and the
