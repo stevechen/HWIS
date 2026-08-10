@@ -169,13 +169,23 @@ describe('parseGradeAndClass', () => {
 		expect(parseGradeAndClass('11-IB')).toEqual({ grade: 11, class: 'IB' });
 	});
 
-	it('parses plain grade with default class', () => {
-		expect(parseGradeAndClass('9')).toEqual({ grade: 9, class: '1' });
-		expect(parseGradeAndClass('12')).toEqual({ grade: 12, class: '1' });
+	it('extracts grade-class values from surrounding labels', () => {
+		expect(parseGradeAndClass('G7-2')).toEqual({ grade: 7, class: '2' });
+		expect(parseGradeAndClass('Grade 9 Class 3')).toEqual({ grade: 9, class: '3' });
 	});
 
-	it('defaults to grade 7 class 1 for empty input', () => {
-		expect(parseGradeAndClass('')).toEqual({ grade: 7, class: '1' });
+	it('parses plain grade with the default class', () => {
+		expect(parseGradeAndClass('9')).toEqual({ grade: 9, class: 'default' });
+		expect(parseGradeAndClass('G12')).toEqual({ grade: 12, class: 'default' });
+	});
+
+	it('rejects values without a valid grade or with an invalid class suffix', () => {
+		expect(() => parseGradeAndClass('Class 2')).toThrow('Grade must be between 7 and 12');
+		expect(() => parseGradeAndClass('G7-22')).toThrow('Class must be between 1 and 9');
+	});
+
+	it('rejects empty input', () => {
+		expect(() => parseGradeAndClass('')).toThrow('Grade must be between 7 and 12');
 	});
 });
 

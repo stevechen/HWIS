@@ -82,22 +82,29 @@ export function parseCsv(text: string): ParsedCsvRow[] {
 	return dataRows;
 }
 
-export function parseGradeAndClass(value: string): { grade: number; class?: string } {
+export function parseGradeAndClass(value: string): { grade: number; class: string } {
 	const cleaned = value.trim();
-	if (!cleaned) return { grade: 7, class: '1' };
-
-	const dashMatch = cleaned.match(/^(\d{1,2})\s*-\s*([A-Za-z0-9]+)$/);
-	if (dashMatch) {
-		const grade = parseInt(dashMatch[1], 10);
-		const className = dashMatch[2].toUpperCase() === 'IB' ? 'IB' : dashMatch[2];
-		return { grade: Number.isNaN(grade) ? 7 : grade, class: className };
+	const match = cleaned.match(/(?:^|[^\d])(7|8|9|10|11|12)(?:(?:\s*-\s*|\s+class\s*)(IB|\d+))?/i);
+	if (!match) {
+		throw new Error('Grade must be between 7 and 12');
 	}
 
-	const gradeOnly = parseInt(cleaned, 10);
-	return {
-		grade: Number.isNaN(gradeOnly) ? 7 : gradeOnly,
-		class: '1'
-	};
+	const grade = Number(match[1]);
+	const classValue = match[2];
+	if (!classValue) return { grade, class: 'default' };
+
+	const normalizedClass = classValue.toUpperCase();
+	if (normalizedClass === 'IB') {
+		if (grade < 11) throw new Error('IB classes are only available for grades 11 and 12');
+		return { grade, class: 'IB' };
+	}
+
+	const classNumber = Number(normalizedClass);
+	if (!Number.isInteger(classNumber) || classNumber < 1 || classNumber > 9) {
+		throw new Error('Class must be between 1 and 9');
+	}
+
+	return { grade, class: normalizedClass };
 }
 
 export function mapCsvRowToStudent(row: ParsedCsvRow): {

@@ -731,6 +731,80 @@ describe('disableStudent', () => {
 	});
 });
 
+describe('students.listPaginated', () => {
+	it('creates and reuses an imported class section', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.students.importFromExcel, {
+			students: [
+				{
+					englishName: 'Section One',
+					chineseName: '一班',
+					studentId: '7001001',
+					grade: 7,
+					class: '2',
+					status: 'Enrolled'
+				},
+				{
+					englishName: 'Section Two',
+					chineseName: '二班',
+					studentId: '7001002',
+					grade: 7,
+					class: '2',
+					status: 'Enrolled'
+				}
+			]
+		});
+
+		const classes = await t.query(api.classes.getByGrade, { grade: 7 });
+		const students = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 10, cursor: null },
+			search: undefined,
+			status: undefined
+		});
+
+		expect(
+			classes.filter((classRecord: { class: string }) => classRecord.class === '2')
+		).toHaveLength(1);
+		expect(
+			students.page.filter(
+				(student: { classInfo?: { class?: string } | null }) => student.classInfo?.class === '2'
+			)
+		).toHaveLength(2);
+	});
+
+	it('returns a continuation cursor for students beyond the first page', async () => {
+		const t = convexTest(schema, modules);
+
+		for (let index = 0; index < 3; index++) {
+			await t.mutation(api.students.create, {
+				englishName: `Student ${index}`,
+				chineseName: `學生${index}`,
+				studentId: `PAGINATE${index}`,
+				grade: 7,
+				status: 'Enrolled'
+			});
+		}
+
+		const firstPage = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 2, cursor: null },
+			search: undefined,
+			status: undefined
+		});
+		const secondPage = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 2, cursor: firstPage.continueCursor },
+			search: undefined,
+			status: undefined
+		});
+
+		expect(firstPage.page).toHaveLength(2);
+		expect(secondPage.page).toHaveLength(1);
+		expect(firstPage.page.map((student: { studentId: string }) => student.studentId)).not.toEqual(
+			secondPage.page.map((student: { studentId: string }) => student.studentId)
+		);
+	});
+});
+
 describe('students.importFromExcel (bulk create/update)', () => {
 	it('creates multiple students in a single call', async () => {
 		const t = convexTest(schema, modules);

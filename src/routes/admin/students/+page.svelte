@@ -10,14 +10,15 @@
 		Upload,
 		Check,
 		X,
-		CircleQuestionMark
+		CircleQuestionMark,
+		Loader
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Table from '$lib/components/ui/table';
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import Label from '$lib/components/ui/label/label.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { parseCsv, mapCsvRowToStudent } from './import-utils';
 	import { HOUSES, HOUSE_COLORS, type House } from '$lib/constants/houses';
 	import { cn } from '$lib/utils.js';
@@ -44,10 +45,47 @@
 	};
 
 	const studentsApi = api.students;
-	const studentsQuery = useQuery(studentsApi.list, () => ({}));
+	let studentCursor = $state<string | null>(null);
+	let accumulatedStudents = $state<Student[]>([]);
+	let isStudentListDone = $state(false);
+	let isLoadingMoreStudents = $state(false);
+	const studentsQueryArgs = $derived({
+		paginationOpts: { cursor: studentCursor, numItems: 100 },
+		search: undefined,
+		status: undefined
+	});
+	const studentsQuery = useQuery(studentsApi.listPaginated, () => studentsQueryArgs);
 	const classesApi = api.classes;
 	const classesQuery = useQuery(classesApi.list, () => ({}));
 	const client = useConvexClient();
+
+	$effect(() => {
+		if (!studentsQuery.data) return;
+
+		if (!Array.isArray(studentsQuery.data.page)) return;
+		const newPage = studentsQuery.data.page as Student[];
+		const currentCursor = untrack(() => studentCursor);
+		if (currentCursor === null) {
+			accumulatedStudents = newPage;
+		} else {
+			const existing = untrack(() => accumulatedStudents);
+			const existingIds = new Set(existing.map((student) => student._id));
+			accumulatedStudents = [
+				...existing,
+				...newPage.filter((student) => !existingIds.has(student._id))
+			];
+		}
+		isStudentListDone = studentsQuery.data.isDone;
+		isLoadingMoreStudents = false;
+	});
+
+	function loadMoreStudents() {
+		if (isStudentListDone || isLoadingMoreStudents || studentsQuery.isLoading) return;
+		if (!studentsQuery.data?.continueCursor) return;
+
+		isLoadingMoreStudents = true;
+		studentCursor = studentsQuery.data.continueCursor;
+	}
 
 	// Automatically seed default classes when page loads
 	onMount(async () => {
@@ -371,7 +409,7 @@
 	}
 
 	const filteredStudents = $derived(
-		studentsQuery.data?.filter((s: Student) => {
+		accumulatedStudents.filter((s: Student) => {
 			if (selectedStatus && s.status !== selectedStatus) return false;
 			if (selectedHouse) {
 				if (selectedHouse === '__unassigned') {
@@ -478,7 +516,7 @@
 			</div>
 		</div>
 
-		{#if studentsQuery.isLoading}
+		{#if studentsQuery.isLoading && studentCursor === null}
 			<div class="text-muted-foreground flex flex-1 items-center justify-center text-center">
 				Loading students...
 			</div>
@@ -603,6 +641,17 @@
 					</Table.Body>
 				</Table.Root>
 			</div>
+			{#if isLoadingMoreStudents}
+				<div data-testid="admin-students.loading-more" class="flex justify-center py-4">
+					<Loader class="text-muted-foreground size-6 animate-spin" />
+				</div>
+			{:else if !isStudentListDone}
+				<div class="flex justify-center py-4">
+					<Button variant="outline" testId="admin-students.load-more" onclick={loadMoreStudents}>
+						Load more students
+					</Button>
+				</div>
+			{/if}
 		{/if}
 	</main>
 </div>
