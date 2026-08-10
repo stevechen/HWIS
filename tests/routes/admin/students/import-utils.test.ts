@@ -5,6 +5,7 @@ import {
 	parseGradeAndClass,
 	mapCsvRowToStudent
 } from '$src/routes/admin/students/import-utils';
+import exampleImportCsv from '$src/../static/example-import.csv?raw';
 
 describe('matchFieldName', () => {
 	it('maps student ID variants', () => {
@@ -50,11 +51,16 @@ describe('matchFieldName', () => {
 		expect(matchFieldName('GRADE')).toBe('gradeClass');
 	});
 
+	it('maps note variants', () => {
+		expect(matchFieldName('Note')).toBe('note');
+		expect(matchFieldName('note')).toBe('note');
+		expect(matchFieldName('NOTES')).toBe('note');
+	});
+
 	it('returns null for unrecognized headers', () => {
-		expect(matchFieldName('Notes')).toBeNull();
-		expect(matchFieldName('note')).toBeNull();
 		expect(matchFieldName('Address')).toBeNull();
 		expect(matchFieldName('Phone')).toBeNull();
+		expect(matchFieldName('Email')).toBeNull();
 		expect(matchFieldName('')).toBeNull();
 	});
 });
@@ -86,9 +92,25 @@ describe('parseCsv', () => {
 		});
 	});
 
-	it('ignores unrecognized columns like Notes', () => {
-		const csv = `Student ID,English Name,Chinese Name,Grade-Class,Notes
+	it('parses note column', () => {
+		const csv = `Student ID,English Name,Chinese Name,Grade-Class,Note
 1234567,Alice Wang,王愛麗,9-1,some note`;
+
+		const rows = parseCsv(csv);
+
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toEqual({
+			studentId: '1234567',
+			englishName: 'Alice Wang',
+			chineseName: '王愛麗',
+			gradeClass: '9-1',
+			note: 'some note'
+		});
+	});
+
+	it('ignores unrecognized columns like Address', () => {
+		const csv = `Student ID,English Name,Chinese Name,Grade-Class,Address
+1234567,Alice Wang,王愛麗,9-1,some address`;
 
 		const rows = parseCsv(csv);
 
@@ -99,8 +121,7 @@ describe('parseCsv', () => {
 			chineseName: '王愛麗',
 			gradeClass: '9-1'
 		});
-		expect(rows[0]).not.toHaveProperty('notes');
-		expect(rows[0]).not.toHaveProperty('note');
+		expect(rows[0]).not.toHaveProperty('address');
 	});
 
 	it('handles different header orders', () => {
@@ -211,7 +232,7 @@ describe('mapCsvRowToStudent', () => {
 		});
 	});
 
-	it('does not include note field', () => {
+	it('includes note as undefined when not present', () => {
 		const result = mapCsvRowToStudent({
 			studentId: '1234567',
 			englishName: 'Alice',
@@ -219,7 +240,19 @@ describe('mapCsvRowToStudent', () => {
 			gradeClass: '9'
 		});
 
-		expect(result).not.toHaveProperty('note');
+		expect(result.note).toBeUndefined();
+	});
+
+	it('parses note field', () => {
+		const result = mapCsvRowToStudent({
+			studentId: '1234567',
+			englishName: 'Alice',
+			chineseName: '王愛麗',
+			gradeClass: '9',
+			note: 'Special accommodations'
+		});
+
+		expect(result.note).toBe('Special accommodations');
 	});
 
 	it('parses house field', () => {
@@ -274,5 +307,32 @@ describe('mapCsvRowToStudent', () => {
 
 		expect(result.status).toBeUndefined();
 		expect(result.house).toBeUndefined();
+	});
+});
+
+describe('example-import.csv format', () => {
+	it('starts with UTF-8 BOM so Windows Excel detects UTF-8', () => {
+		expect(exampleImportCsv.startsWith('\ufeff')).toBe(true);
+	});
+
+	it('uses CRLF line endings for Windows compatibility', () => {
+		expect(exampleImportCsv).toContain('\r\n');
+		expect(exampleImportCsv.replace(/\r\n/g, '')).not.toContain('\n');
+	});
+
+	it('has no Status column', () => {
+		expect(exampleImportCsv).not.toMatch(/status/i);
+	});
+
+	it('parses correctly through the CSV parser', () => {
+		const rows = parseCsv(exampleImportCsv);
+		expect(rows).toHaveLength(5);
+		expect(rows[0]).toEqual({
+			studentId: '1234567',
+			englishName: 'Alice Wang',
+			chineseName: '王愛麗',
+			gradeClass: '9-1',
+			house: 'Heracles'
+		});
 	});
 });

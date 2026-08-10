@@ -938,7 +938,7 @@
 				<div class="grid gap-4 py-4">
 					<p class="text-muted-foreground text-sm">
 						Upload a CSV file. <strong>Required:</strong> Student ID, English Name, Chinese Name,
-						Grade-Class. <strong>Optional:</strong> House, Status.
+						Grade-Class. <strong>Optional:</strong> House, Note.
 						<a
 							href="/example-import.csv"
 							download

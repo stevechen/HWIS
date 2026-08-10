@@ -1,6 +1,7 @@
 import { expect, test, describe } from 'vitest';
-import { convexTest, modules } from './test.setup';
+import { convexTest, modules, mockAuthUser, seedUser } from './test.setup';
 import schema from './schema';
+import { api } from './_generated/api';
 
 describe('checkStudentIdExists query', () => {
 	test('returns { exists: true } for existing student ID', async () => {
@@ -165,5 +166,61 @@ describe('bulkImportWithDuplicateCheck mutation - integration', () => {
 		});
 
 		expect(existing).not.toBeNull();
+	});
+});
+
+describe('bulkImportWithDuplicateCheck mutation - note field', () => {
+	type ImportStudent = {
+		studentId: string;
+		englishName: string;
+		chineseName: string;
+		grade: number;
+		class?: string;
+		note?: string;
+	};
+
+	async function importAsAdmin(students: ImportStudent[]) {
+		const t = convexTest(schema, modules);
+		await seedUser(t, { authId: 'import-admin', name: 'Import Admin', role: 'admin' });
+		mockAuthUser({ authId: 'import-admin', name: 'Import Admin', role: 'admin', status: 'active' });
+
+		await t.mutation(api.students.bulkImportWithDuplicateCheck, {
+			mode: 'halt',
+			students
+		});
+
+		return t.run(async (ctx) => {
+			return await ctx.db.query('students').collect();
+		});
+	}
+
+	test('persists note from CSV import', async () => {
+		const students = await importAsAdmin([
+			{
+				studentId: '7001234',
+				englishName: 'Note Test',
+				chineseName: '註記測試',
+				grade: 7,
+				class: '1',
+				note: 'Special accommodations required'
+			}
+		]);
+
+		expect(students).toHaveLength(1);
+		expect(students[0].note).toBe('Special accommodations required');
+	});
+
+	test('defaults note to empty string when not provided', async () => {
+		const students = await importAsAdmin([
+			{
+				studentId: '7001235',
+				englishName: 'No Note Test',
+				chineseName: '無註記測試',
+				grade: 7,
+				class: '1'
+			}
+		]);
+
+		expect(students[0].note).toBe('');
 	});
 });
