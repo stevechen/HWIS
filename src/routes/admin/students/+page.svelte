@@ -132,6 +132,15 @@
 		}
 	}
 
+	function sortIndicator(field: typeof sortBy) {
+		if (sortBy !== field) return '';
+		return sortDirection === 'asc' ? ' ↑' : ' ↓';
+	}
+
+	function sortValue(field: typeof sortBy) {
+		return sortBy === field ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none';
+	}
+
 	// Automatically seed default classes when page loads
 	onMount(async () => {
 		try {
@@ -593,22 +602,36 @@
 					<Table.Header class="bg-background/80 sticky top-0 z-10 backdrop-blur">
 						<Table.Row>
 							<Table.Head class="w-7" />
-							<Table.Head class="hidden text-center sm:table-cell">
-								<button type="button" onclick={() => toggleSort('studentId')}>Student ID</button>
+							<Table.Head
+								class="hidden text-center sm:table-cell"
+								aria-sort={sortValue('studentId')}
+							>
+								<button type="button" onclick={() => toggleSort('studentId')}>
+									Student ID{sortIndicator('studentId')}
+								</button>
 							</Table.Head>
-							<Table.Head class="whitespace-normal sm:whitespace-nowrap">
-								<button type="button" onclick={() => toggleSort('englishName')}>English Name</button
-								>
+							<Table.Head
+								class="whitespace-normal sm:whitespace-nowrap"
+								aria-sort={sortValue('englishName')}
+							>
+								<button type="button" onclick={() => toggleSort('englishName')}>
+									English Name{sortIndicator('englishName')}
+								</button>
 							</Table.Head>
-							<Table.Head class="hidden sm:table-cell">
-								<button type="button" onclick={() => toggleSort('chineseName')}>Chinese Name</button
-								>
+							<Table.Head class="hidden sm:table-cell" aria-sort={sortValue('chineseName')}>
+								<button type="button" onclick={() => toggleSort('chineseName')}>
+									Chinese Name{sortIndicator('chineseName')}
+								</button>
 							</Table.Head>
-							<Table.Head class="px-1 text-center sm:px-2">
-								<button type="button" onclick={() => toggleSort('grade')}>Grade</button>
+							<Table.Head class="px-1 text-center sm:px-2" aria-sort={sortValue('grade')}>
+								<button type="button" onclick={() => toggleSort('grade')}>
+									Grade{sortIndicator('grade')}
+								</button>
 							</Table.Head>
-							<Table.Head class="px-1 text-center sm:px-2">
-								<button type="button" onclick={() => toggleSort('house')}>House</button>
+							<Table.Head class="px-1 text-center sm:px-2" aria-sort={sortValue('house')}>
+								<button type="button" onclick={() => toggleSort('house')}>
+									House{sortIndicator('house')}
+								</button>
 							</Table.Head>
 							<Table.Head class="hidden sm:table-cell">Note</Table.Head>
 							<Table.Head class="px-1 text-center sm:px-2">Actions</Table.Head>
