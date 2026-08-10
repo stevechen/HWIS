@@ -12,6 +12,7 @@ export function matchFieldName(header: string): string | null {
 	if (/house/.test(s)) return 'house';
 	if (/status/.test(s)) return 'status';
 	if (/grade/.test(s) || /class/.test(s)) return 'gradeClass';
+	if (/note/.test(s)) return 'note';
 
 	return null;
 }
@@ -115,6 +116,7 @@ export function mapCsvRowToStudent(row: ParsedCsvRow): {
 	class?: string;
 	status?: 'Enrolled' | 'Not Enrolled';
 	house?: 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna';
+	note?: string;
 } {
 	const englishName = row.englishName || '';
 	const chineseName = row.chineseName || '';
@@ -133,6 +135,8 @@ export function mapCsvRowToStudent(row: ParsedCsvRow): {
 	if (rawHouse.toLowerCase() === 'ixbalam') parsedHouse = 'Ixbalam';
 	if (rawHouse.toLowerCase() === 'setna') parsedHouse = 'Setna';
 
+	const note = (row.note || '').trim();
+
 	return {
 		englishName,
 		chineseName,
@@ -140,6 +144,7 @@ export function mapCsvRowToStudent(row: ParsedCsvRow): {
 		grade: gradeClass.grade,
 		class: gradeClass.class,
 		status: parsedStatus,
-		house: parsedHouse
+		house: parsedHouse,
+		note: note || undefined
 	};
 }
