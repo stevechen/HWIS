@@ -20,6 +20,7 @@ vi.mock('convex-svelte', () => {
 			englishName: 'John Doe',
 			chineseName: '張三',
 			grade: 10,
+			classInfo: { grade: 10, class: '1' },
 			status: 'Enrolled',
 			note: ''
 		},
@@ -29,6 +30,7 @@ vi.mock('convex-svelte', () => {
 			englishName: 'Jane Smith',
 			chineseName: '李四',
 			grade: 11,
+			classInfo: { grade: 11, class: '1' },
 			status: 'Enrolled',
 			note: 'Has evaluations'
 		}
