@@ -760,7 +760,9 @@ describe('students.listPaginated', () => {
 		const students = await t.query(api.students.listPaginated, {
 			paginationOpts: { numItems: 10, cursor: null },
 			search: undefined,
-			status: undefined
+			status: undefined,
+			sortBy: 'englishName',
+			sortDirection: 'asc'
 		});
 
 		expect(
@@ -789,12 +791,16 @@ describe('students.listPaginated', () => {
 		const firstPage = await t.query(api.students.listPaginated, {
 			paginationOpts: { numItems: 2, cursor: null },
 			search: undefined,
-			status: undefined
+			status: undefined,
+			sortBy: 'englishName',
+			sortDirection: 'asc'
 		});
 		const secondPage = await t.query(api.students.listPaginated, {
 			paginationOpts: { numItems: 2, cursor: firstPage.continueCursor },
 			search: undefined,
-			status: undefined
+			status: undefined,
+			sortBy: 'englishName',
+			sortDirection: 'asc'
 		});
 
 		expect(firstPage.page).toHaveLength(2);

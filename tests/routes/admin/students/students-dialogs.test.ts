@@ -20,6 +20,7 @@ vi.mock('convex-svelte', () => {
 			englishName: 'John Doe',
 			chineseName: '張三',
 			grade: 10,
+			classInfo: { grade: 10, class: '1' },
 			status: 'Enrolled',
 			note: ''
 		},
@@ -29,30 +30,21 @@ vi.mock('convex-svelte', () => {
 			englishName: 'Jane Smith',
 			chineseName: '李四',
 			grade: 11,
+			classInfo: { grade: 11, class: '1' },
 			status: 'Enrolled',
 			note: 'Has evaluations'
 		}
 	];
 
-	let queryCallCount = 0;
+	const mockQueryData = Object.assign([...mockStudents], {
+		page: mockStudents,
+		isDone: true,
+		continueCursor: 'done'
+	});
 	return {
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
-		useQuery: vi.fn((_api: any) => {
-			queryCallCount += 1;
-			// The students page calls the paginated student query first, followed by classes.
-			if (queryCallCount % 2 === 1) {
-				return {
-					data: {
-						page: mockStudents,
-						isDone: true,
-						continueCursor: 'done'
-					},
-					isLoading: false,
-					error: null
-				};
-			}
-			return { data: [], isLoading: false, error: null };
-		}),
+		// Return data that supports both the paginated students query and the classes query.
+		// This avoids coupling the fixture to the order or number of reactive query calls.
+		useQuery: vi.fn(() => ({ data: mockQueryData, isLoading: false, error: null })),
 		useConvexClient: vi.fn(() => ({
 			mutation: vi.fn().mockResolvedValue(undefined),
 			query: vi.fn().mockResolvedValue({})
@@ -71,10 +63,13 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 import StudentsPage from '$src/routes/admin/students/+page.svelte';
 
 describe('Students Page - Edit and Delete Dialogs', () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.clearAllMocks();
-		// Each render invokes the student and classes queries in this order.
-		// The mock implementation is reset by the test module between files.
+		// The student table's Actions column sits at the far right, which the default
+		// mobile viewport (414px) clips off screen (the table container uses
+		// overflow-x: clip, so it cannot be scrolled into view for clicking). Use a
+		// desktop viewport so the row action buttons are clickable.
+		await page.viewport(1280, 720);
 	});
 
 	describe('Edit Dialog', () => {

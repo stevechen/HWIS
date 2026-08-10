@@ -18,7 +18,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import Label from '$lib/components/ui/label/label.svelte';
-	import { onMount, untrack } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { parseCsv, mapCsvRowToStudent } from './import-utils';
 	import { HOUSES, HOUSE_COLORS, type House } from '$lib/constants/houses';
 	import { cn } from '$lib/utils.js';
@@ -45,19 +45,55 @@
 	};
 
 	const studentsApi = api.students;
+	let searchQuery = $state('');
+	let selectedGrade = $state<string>('');
+	let selectedHouse = $state<string>('');
+	let selectedStatus = $state<string>('');
+	let selectedClass = $state<string>('');
 	let studentCursor = $state<string | null>(null);
 	let accumulatedStudents = $state<Student[]>([]);
 	let isStudentListDone = $state(false);
 	let isLoadingMoreStudents = $state(false);
+	let sortBy = $state<'studentId' | 'englishName' | 'chineseName' | 'grade' | 'house'>(
+		'englishName'
+	);
+	let sortDirection = $state<'asc' | 'desc'>('asc');
+	let sentinelElement = $state<HTMLElement | null>(null);
+	let observer: IntersectionObserver | null = null;
+	let previousQueryKey = '';
 	const studentsQueryArgs = $derived({
 		paginationOpts: { cursor: studentCursor, numItems: 100 },
-		search: undefined,
-		status: undefined
+		search: searchQuery || undefined,
+		status: selectedStatus ? (selectedStatus as 'Enrolled' | 'Not Enrolled') : undefined,
+		grade: selectedGrade ? Number(selectedGrade) : undefined,
+		class: selectedClass || undefined,
+		house: selectedHouse ? (selectedHouse as House | '__unassigned') : undefined,
+		sortBy,
+		sortDirection
 	});
 	const studentsQuery = useQuery(studentsApi.listPaginated, () => studentsQueryArgs);
 	const classesApi = api.classes;
 	const classesQuery = useQuery(classesApi.list, () => ({}));
 	const client = useConvexClient();
+
+	$effect(() => {
+		const queryKey = JSON.stringify({
+			searchQuery,
+			selectedGrade,
+			selectedHouse,
+			selectedStatus,
+			selectedClass,
+			sortBy,
+			sortDirection
+		});
+		if (previousQueryKey && previousQueryKey !== queryKey) {
+			studentCursor = null;
+			accumulatedStudents = [];
+			isStudentListDone = false;
+			isLoadingMoreStudents = false;
+		}
+		previousQueryKey = queryKey;
+	});
 
 	$effect(() => {
 		if (!studentsQuery.data) return;
@@ -87,6 +123,24 @@
 		studentCursor = studentsQuery.data.continueCursor;
 	}
 
+	function toggleSort(field: typeof sortBy) {
+		if (sortBy === field) {
+			sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+		} else {
+			sortBy = field;
+			sortDirection = 'asc';
+		}
+	}
+
+	function sortIndicator(field: typeof sortBy) {
+		if (sortBy !== field) return '';
+		return sortDirection === 'asc' ? ' ↑' : ' ↓';
+	}
+
+	function sortValue(field: typeof sortBy) {
+		return sortBy === field ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none';
+	}
+
 	// Automatically seed default classes when page loads
 	onMount(async () => {
 		try {
@@ -96,11 +150,21 @@
 		}
 	});
 
-	let searchQuery = $state('');
-	let selectedGrade = $state<string>('');
-	let selectedHouse = $state<string>('');
-	let selectedStatus = $state<string>('');
-	let selectedClass = $state<string>('');
+	$effect(() => {
+		if (!Array.isArray(studentsQuery.data?.page) || studentsQuery.data.isDone) return;
+		if (!observer) {
+			observer = new IntersectionObserver(
+				(entries) => {
+					if (entries[0]?.isIntersecting && !isStudentListDone) loadMoreStudents();
+				},
+				{ rootMargin: '200px' }
+			);
+		}
+		if (sentinelElement) observer.observe(sentinelElement);
+		return () => observer?.disconnect();
+	});
+
+	onDestroy(() => observer?.disconnect());
 
 	// Dialog visibility
 	let showForm = $state(false);
@@ -538,11 +602,37 @@
 					<Table.Header class="bg-background/80 sticky top-0 z-10 backdrop-blur">
 						<Table.Row>
 							<Table.Head class="w-7" />
-							<Table.Head class="hidden text-center sm:table-cell">Student ID</Table.Head>
-							<Table.Head class="whitespace-normal sm:whitespace-nowrap">English Name</Table.Head>
-							<Table.Head class="hidden sm:table-cell">Chinese Name</Table.Head>
-							<Table.Head class="px-1 text-center sm:px-2">Grade</Table.Head>
-							<Table.Head class="px-1 text-center sm:px-2">House</Table.Head>
+							<Table.Head
+								class="hidden text-center sm:table-cell"
+								aria-sort={sortValue('studentId')}
+							>
+								<button type="button" onclick={() => toggleSort('studentId')}>
+									Student ID{sortIndicator('studentId')}
+								</button>
+							</Table.Head>
+							<Table.Head
+								class="whitespace-normal sm:whitespace-nowrap"
+								aria-sort={sortValue('englishName')}
+							>
+								<button type="button" onclick={() => toggleSort('englishName')}>
+									English Name{sortIndicator('englishName')}
+								</button>
+							</Table.Head>
+							<Table.Head class="hidden sm:table-cell" aria-sort={sortValue('chineseName')}>
+								<button type="button" onclick={() => toggleSort('chineseName')}>
+									Chinese Name{sortIndicator('chineseName')}
+								</button>
+							</Table.Head>
+							<Table.Head class="px-1 text-center sm:px-2" aria-sort={sortValue('grade')}>
+								<button type="button" onclick={() => toggleSort('grade')}>
+									Grade{sortIndicator('grade')}
+								</button>
+							</Table.Head>
+							<Table.Head class="px-1 text-center sm:px-2" aria-sort={sortValue('house')}>
+								<button type="button" onclick={() => toggleSort('house')}>
+									House{sortIndicator('house')}
+								</button>
+							</Table.Head>
 							<Table.Head class="hidden sm:table-cell">Note</Table.Head>
 							<Table.Head class="px-1 text-center sm:px-2">Actions</Table.Head>
 						</Table.Row>
@@ -645,14 +735,9 @@
 				<div data-testid="admin-students.loading-more" class="flex justify-center py-4">
 					<Loader class="text-muted-foreground size-6 animate-spin" />
 				</div>
-			{:else if !isStudentListDone}
-				<div class="flex justify-center py-4">
-					<Button variant="outline" testId="admin-students.load-more" onclick={loadMoreStudents}>
-						Load more students
-					</Button>
-				</div>
 			{/if}
 		{/if}
+		<div data-testid="admin-students.sentinel" bind:this={sentinelElement} class="h-4"></div>
 	</main>
 </div>
 
