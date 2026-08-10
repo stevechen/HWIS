@@ -123,31 +123,31 @@ export const listPaginated = query({
 	args: {
 		paginationOpts: paginationOptsValidator,
 		search: v.optional(v.string()),
-		status: v.optional(v.union(v.literal('Enrolled'), v.literal('Not Enrolled')))
+		status: v.optional(v.union(v.literal('Enrolled'), v.literal('Not Enrolled'))),
+		grade: v.optional(v.number()),
+		class: v.optional(v.string()),
+		house: v.optional(
+			v.union(
+				v.literal('Heracles'),
+				v.literal('Wukong'),
+				v.literal('Ixbalam'),
+				v.literal('Setna'),
+				v.literal('__unassigned')
+			)
+		),
+		sortBy: v.union(
+			v.literal('studentId'),
+			v.literal('englishName'),
+			v.literal('chineseName'),
+			v.literal('grade'),
+			v.literal('house')
+		),
+		sortDirection: v.union(v.literal('asc'), v.literal('desc'))
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
-
-		const page = await ctx.db
-			.query('students')
-			.withIndex('by_studentId')
-			.order('asc')
-			.paginate(args.paginationOpts);
-
-		const filtered = page.page.filter((student) => {
-			if (args.status !== undefined && student.status !== args.status) return false;
-			if (args.search) {
-				const search = args.search.toLowerCase();
-				return (
-					student.englishName.toLowerCase().includes(search) ||
-					student.chineseName.includes(search) ||
-					student.studentId.toLowerCase().includes(search)
-				);
-			}
-			return true;
-		});
-
-		const classIds = [...new Set(filtered.map((student) => student.classId))];
+		const allStudents = await ctx.db.query('students').take(5000);
+		const classIds = [...new Set(allStudents.map((student) => student.classId))];
 		const classRecords = await Promise.all(classIds.map((id) => ctx.db.get(id)));
 		const classMap = new Map(
 			classRecords.filter(Boolean).map((classRecord) => [classRecord!._id, classRecord!])
@@ -164,25 +164,68 @@ export const listPaginated = query({
 		const teacherMap = new Map(
 			teachers.filter(Boolean).map((teacher) => [teacher!._id, teacher!.name || 'Unknown Teacher'])
 		);
-
+		const hydrated = allStudents.map((student) => {
+			const classInfo = classMap.get(student.classId) || null;
+			return {
+				...student,
+				classInfo: classInfo
+					? {
+							...classInfo,
+							homeroomTeacherName: classInfo.homeroomTeacherId
+								? teacherMap.get(classInfo.homeroomTeacherId) || 'Unknown Teacher'
+								: null
+						}
+					: null
+			};
+		});
+		const search = args.search?.toLowerCase();
+		const filtered = hydrated.filter((student) => {
+			if (args.status !== undefined && student.status !== args.status) return false;
+			if (args.grade !== undefined && student.classInfo?.grade !== args.grade) return false;
+			if (args.class !== undefined && student.classInfo?.class !== args.class) return false;
+			if (args.house === '__unassigned' && student.house !== undefined) return false;
+			if (args.house !== undefined && args.house !== '__unassigned' && student.house !== args.house)
+				return false;
+			if (search) {
+				if (
+					!student.englishName.toLowerCase().includes(search) &&
+					!student.chineseName.includes(search) &&
+					!student.studentId.toLowerCase().includes(search)
+				)
+					return false;
+			}
+			return true;
+		});
+		const compare = (a: (typeof hydrated)[number], b: (typeof hydrated)[number]) => {
+			if (args.sortBy === 'grade') {
+				const result = (a.classInfo?.grade ?? 0) - (b.classInfo?.grade ?? 0);
+				if (result !== 0) return result;
+			} else if (args.sortBy === 'house') {
+				const houseA = a.house ?? '';
+				const houseB = b.house ?? '';
+				if (houseA !== houseB) {
+					if (!houseA) return -1;
+					if (!houseB) return 1;
+					return houseA.localeCompare(houseB);
+				}
+			} else {
+				const fieldA = a[args.sortBy];
+				const fieldB = b[args.sortBy];
+				if (fieldA !== fieldB) return String(fieldA).localeCompare(String(fieldB));
+			}
+			return a._id.localeCompare(b._id);
+		};
+		filtered.sort((a, b) => {
+			const result = compare(a, b);
+			return args.sortDirection === 'asc' ? result : -result;
+		});
+		const offset = args.paginationOpts.cursor ? Number(args.paginationOpts.cursor) : 0;
+		const page = filtered.slice(offset, offset + args.paginationOpts.numItems);
+		const nextOffset = offset + page.length;
 		return {
-			...page,
-			page: filtered
-				.map((student) => {
-					const classInfo = classMap.get(student.classId) || null;
-					return {
-						...student,
-						classInfo: classInfo
-							? {
-									...classInfo,
-									homeroomTeacherName: classInfo.homeroomTeacherId
-										? teacherMap.get(classInfo.homeroomTeacherId) || 'Unknown Teacher'
-										: null
-								}
-							: null
-					};
-				})
-				.sort((a, b) => a.englishName.localeCompare(b.englishName))
+			page,
+			isDone: nextOffset >= filtered.length,
+			continueCursor: String(nextOffset)
 		};
 	}
 });
