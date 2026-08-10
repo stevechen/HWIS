@@ -63,8 +63,13 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 import StudentsPage from '$src/routes/admin/students/+page.svelte';
 
 describe('Students Page - Edit and Delete Dialogs', () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.clearAllMocks();
+		// The student table's Actions column sits at the far right, which the default
+		// mobile viewport (414px) clips off screen (the table container uses
+		// overflow-x: clip, so it cannot be scrolled into view for clicking). Use a
+		// desktop viewport so the row action buttons are clickable.
+		await page.viewport(1280, 720);
 	});
 
 	describe('Edit Dialog', () => {
