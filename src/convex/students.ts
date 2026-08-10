@@ -1,5 +1,6 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
+import { paginationOptsValidator } from 'convex/server';
 import type { Id, Doc } from './_generated/dataModel';
 import { requireAdminForSensitiveOperation, isTestRuntime } from './auth';
 import { GRADES, getDisplayName } from './shared/class_roster';
@@ -115,6 +116,74 @@ export const list = query({
 		});
 
 		return result.sort((a, b) => a.englishName.localeCompare(b.englishName));
+	}
+});
+
+export const listPaginated = query({
+	args: {
+		paginationOpts: paginationOptsValidator,
+		search: v.optional(v.string()),
+		status: v.optional(v.union(v.literal('Enrolled'), v.literal('Not Enrolled')))
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+
+		const page = await ctx.db
+			.query('students')
+			.withIndex('by_studentId')
+			.order('asc')
+			.paginate(args.paginationOpts);
+
+		const filtered = page.page.filter((student) => {
+			if (args.status !== undefined && student.status !== args.status) return false;
+			if (args.search) {
+				const search = args.search.toLowerCase();
+				return (
+					student.englishName.toLowerCase().includes(search) ||
+					student.chineseName.includes(search) ||
+					student.studentId.toLowerCase().includes(search)
+				);
+			}
+			return true;
+		});
+
+		const classIds = [...new Set(filtered.map((student) => student.classId))];
+		const classRecords = await Promise.all(classIds.map((id) => ctx.db.get(id)));
+		const classMap = new Map(
+			classRecords.filter(Boolean).map((classRecord) => [classRecord!._id, classRecord!])
+		);
+		const teacherIds = [
+			...new Set(
+				classRecords
+					.filter(Boolean)
+					.map((classRecord) => classRecord!.homeroomTeacherId)
+					.filter(Boolean)
+			)
+		];
+		const teachers = await Promise.all(teacherIds.map((id) => ctx.db.get(id!)));
+		const teacherMap = new Map(
+			teachers.filter(Boolean).map((teacher) => [teacher!._id, teacher!.name || 'Unknown Teacher'])
+		);
+
+		return {
+			...page,
+			page: filtered
+				.map((student) => {
+					const classInfo = classMap.get(student.classId) || null;
+					return {
+						...student,
+						classInfo: classInfo
+							? {
+									...classInfo,
+									homeroomTeacherName: classInfo.homeroomTeacherId
+										? teacherMap.get(classInfo.homeroomTeacherId) || 'Unknown Teacher'
+										: null
+								}
+							: null
+					};
+				})
+				.sort((a, b) => a.englishName.localeCompare(b.englishName))
+		};
 	}
 });
 
