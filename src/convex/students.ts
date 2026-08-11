@@ -3,7 +3,7 @@ import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import type { Id, Doc } from './_generated/dataModel';
 import { requireAdminForSensitiveOperation, isTestRuntime } from './auth';
-import { GRADES, getDisplayName } from './shared/class_roster';
+import { GRADES, getDisplayName, classSortPriority } from './shared/class_roster';
 import { assertUniqueStudentId } from './shared/student';
 import type { MutationCtx } from './_generated/server';
 
@@ -197,10 +197,7 @@ export const listPaginated = query({
 			return true;
 		});
 		const compare = (a: (typeof hydrated)[number], b: (typeof hydrated)[number]) => {
-			if (args.sortBy === 'grade') {
-				const result = (a.classInfo?.grade ?? 0) - (b.classInfo?.grade ?? 0);
-				if (result !== 0) return result;
-			} else if (args.sortBy === 'house') {
+			if (args.sortBy === 'house') {
 				const houseA = a.house ?? '';
 				const houseB = b.house ?? '';
 				if (houseA !== houseB) {
@@ -208,14 +205,28 @@ export const listPaginated = query({
 					if (!houseB) return 1;
 					return houseA.localeCompare(houseB);
 				}
-			} else {
+			} else if (args.sortBy !== 'grade') {
+				// 'grade' is a composite key handled in the sort callback below, so
+				// here sortBy is one of the direct student fields.
 				const fieldA = a[args.sortBy];
 				const fieldB = b[args.sortBy];
 				if (fieldA !== fieldB) return String(fieldA).localeCompare(String(fieldB));
 			}
 			return a._id.localeCompare(b._id);
 		};
+		// Grade sorts as a composite key: grade carries the direction, but the
+		// class tiebreak always ascends within each grade so a descending grade
+		// still reads 1, 2, ..., IB top-to-bottom.
 		filtered.sort((a, b) => {
+			if (args.sortBy === 'grade') {
+				const direction = args.sortDirection === 'asc' ? 1 : -1;
+				const gradeDiff = (a.classInfo?.grade ?? 0) - (b.classInfo?.grade ?? 0);
+				if (gradeDiff !== 0) return gradeDiff * direction;
+				const classDiff =
+					classSortPriority(a.classInfo?.class ?? '') - classSortPriority(b.classInfo?.class ?? '');
+				if (classDiff !== 0) return classDiff;
+				return a._id.localeCompare(b._id);
+			}
 			const result = compare(a, b);
 			return args.sortDirection === 'asc' ? result : -result;
 		});

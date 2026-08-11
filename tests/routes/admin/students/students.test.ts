@@ -47,6 +47,9 @@ describe('Students Page', () => {
 		render(StudentsPage);
 		const gradeFilter = page.getByRole('combobox', { name: /filter by grade/i });
 		await expect.element(gradeFilter).toBeInTheDocument();
+		const classFilter = page.getByRole('combobox', { name: /filter by class/i });
+		await expect.element(classFilter).toBeInTheDocument();
+		await expect.element(classFilter).toHaveValue('');
 		const statusFilter = page.getByRole('combobox', { name: /filter by status/i });
 		await expect.element(statusFilter).toBeInTheDocument();
 	});
@@ -63,6 +66,38 @@ describe('Students Page', () => {
 		// Set a filter that won't match any students
 		const searchInput = page.getByPlaceholder('Search by name or student ID...');
 		await searchInput.fill('nonexistent');
+		await expect.element(page.getByText('No students match your filters')).toBeInTheDocument();
+	});
+
+	it('shows filtered empty state when a class filter matches no results', async () => {
+		const { useQuery } = await import('convex-svelte');
+		vi.mocked(useQuery).mockImplementation(((
+			query: unknown,
+			argsFn?: () => Record<string, unknown>
+		) => {
+			const args = argsFn ? argsFn() : undefined;
+			if (args && Object.keys(args).length === 0) {
+				return {
+					data: [
+						{ _id: 'c1', grade: 7, class: '1' },
+						{ _id: 'c2', grade: 11, class: 'IB' }
+					],
+					isLoading: false,
+					error: null
+				} as unknown as ReturnType<typeof useQuery>;
+			}
+			return {
+				data: [],
+				isLoading: false,
+				error: null
+			} as unknown as ReturnType<typeof useQuery>;
+		}) as typeof useQuery);
+		render(StudentsPage);
+		const select = (await page
+			.getByRole('combobox', { name: /filter by class/i })
+			.element()) as HTMLSelectElement;
+		select.value = 'IB';
+		select.dispatchEvent(new Event('change', { bubbles: true }));
 		await expect.element(page.getByText('No students match your filters')).toBeInTheDocument();
 	});
 
