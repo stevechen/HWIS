@@ -19,6 +19,7 @@
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import { onDestroy, onMount, untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { parseCsv, mapCsvRowToStudent } from './import-utils';
 	import { HOUSES, HOUSE_COLORS, type House } from '$lib/constants/houses';
 	import { cn } from '$lib/utils.js';
@@ -216,7 +217,22 @@
 	const grades = GRADES;
 	const statuses = ['Enrolled', 'Not Enrolled'] as const;
 
-	import { GRADES, getDisplayName } from '$convex/shared/class_roster';
+	import { GRADES, getDisplayName, classSortPriority } from '$convex/shared/class_roster';
+
+	// Flat class-name options for the class filter dropdown, deduped across all
+	// grades and ordered by the classes page convention (default, 1, 2, ..., IB).
+	let classFilterOptions = $derived.by(() => {
+		if (!classesQuery.data) return [];
+		const seen = new SvelteSet<string>();
+		const options: string[] = [];
+		for (const cls of classesQuery.data) {
+			if (seen.has(cls.class)) continue;
+			seen.add(cls.class);
+			options.push(cls.class);
+		}
+		options.sort((a, b) => classSortPriority(a) - classSortPriority(b));
+		return options;
+	});
 
 	// Combined grade-class options for the form dropdown
 	let gradeClassOptions = $derived.by(() => {
@@ -557,6 +573,18 @@
 					{/each}
 				</NativeSelect.Root>
 				<NativeSelect.Root
+					bind:value={selectedClass}
+					aria-label="Filter by class"
+					data-testid="admin-students.filter-class"
+				>
+					<NativeSelect.Option value="">All Classes</NativeSelect.Option>
+					{#each classFilterOptions as className (className)}
+						<NativeSelect.Option value={className}
+							>{className === 'default' ? 'Default' : className}</NativeSelect.Option
+						>
+					{/each}
+				</NativeSelect.Root>
+				<NativeSelect.Root
 					bind:value={selectedHouse}
 					aria-label="Filter by house"
 					data-testid="admin-students.filter-house"
@@ -592,7 +620,7 @@
 			</div>
 		{:else if filteredStudents.length === 0}
 			<div class="text-muted-foreground flex flex-1 items-center justify-center text-center">
-				{searchQuery || selectedGrade || selectedStatus
+				{searchQuery || selectedGrade || selectedClass || selectedHouse || selectedStatus
 					? 'No students match your filters'
 					: 'No students yet. Add one or import from Excel!'}
 			</div>

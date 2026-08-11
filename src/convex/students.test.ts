@@ -856,6 +856,80 @@ describe('students.listPaginated', () => {
 			secondPage.page.map((student: { studentId: string }) => student.studentId)
 		);
 	});
+
+	it('sorts by grade then class in numeric order ascending', async () => {
+		const t = convexTest(schema, modules);
+
+		const seed = [
+			{ studentId: '7001010', grade: 7, class: '10' },
+			{ studentId: '7001002', grade: 7, class: '2' },
+			{ studentId: '7001001', grade: 7, class: '1' },
+			{ studentId: '8001001', grade: 8, class: '1' },
+			{ studentId: '8001002', grade: 8, class: '2' }
+		];
+		for (const { studentId, grade, class: className } of seed) {
+			await t.mutation(api.students.create, {
+				englishName: `Student ${studentId}`,
+				chineseName: `學生${studentId}`,
+				studentId,
+				grade,
+				class: className,
+				status: 'Enrolled'
+			});
+		}
+
+		const result = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			search: undefined,
+			status: undefined,
+			sortBy: 'grade',
+			sortDirection: 'asc'
+		});
+
+		expect(
+			result.page.map(
+				(student: { classInfo: { grade: number; class: string } }) =>
+					`${student.classInfo.grade}-${student.classInfo.class}`
+			)
+		).toEqual(['7-1', '7-2', '7-10', '8-1', '8-2']);
+	});
+
+	it('sorts by grade descending but keeps class ascending within each grade', async () => {
+		const t = convexTest(schema, modules);
+
+		const seed = [
+			{ studentId: '7001010', grade: 7, class: '10' },
+			{ studentId: '7001002', grade: 7, class: '2' },
+			{ studentId: '7001001', grade: 7, class: '1' },
+			{ studentId: '8001001', grade: 8, class: '1' },
+			{ studentId: '8001002', grade: 8, class: '2' }
+		];
+		for (const { studentId, grade, class: className } of seed) {
+			await t.mutation(api.students.create, {
+				englishName: `Student ${studentId}`,
+				chineseName: `學生${studentId}`,
+				studentId,
+				grade,
+				class: className,
+				status: 'Enrolled'
+			});
+		}
+
+		const result = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			search: undefined,
+			status: undefined,
+			sortBy: 'grade',
+			sortDirection: 'desc'
+		});
+
+		expect(
+			result.page.map(
+				(student: { classInfo: { grade: number; class: string } }) =>
+					`${student.classInfo.grade}-${student.classInfo.class}`
+			)
+		).toEqual(['8-1', '8-2', '7-1', '7-2', '7-10']);
+	});
 });
 
 describe('students.importFromExcel (bulk create/update)', () => {
