@@ -63,7 +63,7 @@
 	let observer: IntersectionObserver | null = null;
 	let previousQueryKey = '';
 	const studentsQueryArgs = $derived({
-		paginationOpts: { cursor: studentCursor, numItems: 100 },
+		paginationOpts: { cursor: studentCursor, numItems: 5000 },
 		search: searchQuery || undefined,
 		status: selectedStatus ? (selectedStatus as 'Enrolled' | 'Not Enrolled') : undefined,
 		grade: selectedGrade ? Number(selectedGrade) : undefined,
