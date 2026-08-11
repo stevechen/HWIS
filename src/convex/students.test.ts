@@ -358,6 +358,53 @@ describe('students.list', () => {
 		expect(byId).toHaveLength(1);
 		expect(byId[0].englishName).toBe('Bob Jones');
 	});
+
+	it('returns more than 200 students when the roster exceeds the old cap', async () => {
+		const t = convexTest(schema, modules);
+
+		// One shared class so we can seed a large enrolled cohort cheaply.
+		const classId = await t.run(async (ctx) => {
+			return await ctx.db.insert('classes', { grade: 10, class: '1' });
+		});
+
+		for (let i = 0; i < 350; i++) {
+			await t.run(async (ctx) => {
+				await ctx.db.insert('students', {
+					englishName: `Student ${i}`,
+					chineseName: `學生${i}`,
+					studentId: `999${String(i).padStart(4, '0')}`,
+					classId,
+					status: 'Enrolled'
+				});
+			});
+		}
+
+		const enrolled = await t.query(api.students.list, { status: 'Enrolled' });
+		expect(enrolled).toHaveLength(350);
+	});
+
+	it('caps the roster at 400 even when the cohort exceeds the cap', async () => {
+		const t = convexTest(schema, modules);
+
+		const classId = await t.run(async (ctx) => {
+			return await ctx.db.insert('classes', { grade: 10, class: '1' });
+		});
+
+		for (let i = 0; i < 450; i++) {
+			await t.run(async (ctx) => {
+				await ctx.db.insert('students', {
+					englishName: `Student ${i}`,
+					chineseName: `學生${i}`,
+					studentId: `888${String(i).padStart(4, '0')}`,
+					classId,
+					status: 'Enrolled'
+				});
+			});
+		}
+
+		const enrolled = await t.query(api.students.list, { status: 'Enrolled' });
+		expect(enrolled).toHaveLength(400);
+	});
 });
 
 describe('Bulk Student Import', () => {

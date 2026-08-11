@@ -55,8 +55,8 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 				evalsPage.page.locator('[data-testid^="evaluations-new.student-row-"]').first()
 			).toBeVisible();
 
-			const studentCheckboxes = evalsPage.page.locator('input[type="checkbox"]');
-			const count = await studentCheckboxes.count();
+			const studentRows = evalsPage.page.locator('[data-testid^="evaluations-new.student-row-"]');
+			const count = await studentRows.count();
 
 			expect(count).toBeGreaterThanOrEqual(3);
 		});
@@ -65,15 +65,10 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 			const searchInput = evalsPage.page.getByRole('textbox', { name: 'Search students' });
 			await searchInput.clear();
 
-			const selectAllCheckbox = evalsPage.page.locator('input[type="checkbox"]').first();
-			await selectAllCheckbox.click();
+			// Add all filtered results via the sticky header button
+			await evalsPage.selectAll();
 
-			const checkboxes = evalsPage.page.locator('input[type="checkbox"]');
-			const totalCheckboxes = await checkboxes.count();
-
-			for (let i = 0; i < Math.min(3, totalCheckboxes); i++) {
-				await checkboxes.nth(i).check();
-			}
+			await expect(evalsPage.page.getByText(/selected$/)).toBeVisible();
 
 			const continueButton = evalsPage.page.getByRole('button', { name: /continue|next/i });
 			if (await continueButton.isVisible()) {

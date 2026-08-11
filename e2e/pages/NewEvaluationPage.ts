@@ -21,6 +21,10 @@ export class NewEvaluationPage {
 		await this.page.getByTestId('evaluations-new.select-all').click();
 	}
 
+	async expectStudentSelected(name: string) {
+		await expect(this.page.getByRole('button', { name: `Deselect ${name}` })).toBeVisible();
+	}
+
 	async selectCategory(name: string) {
 		await this.page.getByTestId('evaluations-new.category-trigger').click();
 		const option = this.page.getByRole('option', { name }).first();

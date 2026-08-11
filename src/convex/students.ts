@@ -62,7 +62,7 @@ export const list = query({
 			students = await ctx.db
 				.query('students')
 				.withIndex('by_status', (q) => q.eq('status', args.status as 'Enrolled' | 'Not Enrolled'))
-				.take(200);
+				.take(400);
 			statusIndexUsed = true;
 		} else {
 			students = await ctx.db.query('students').take(200);

@@ -7,7 +7,7 @@ import {
 	useRole
 } from './convex-client';
 import { getTestSuffix, getTestStudentId } from './helpers';
-import { AdminStudentsPage, StudentTimelinePage } from './pages';
+import { AdminStudentsPage, NewEvaluationPage, StudentTimelinePage } from './pages';
 
 // ============================================================================
 // CREATE STUDENT TESTS
@@ -108,8 +108,7 @@ test.describe('Evaluation Persistence @integration', () => {
 		await expect(studentRow).toBeVisible();
 
 		await studentRow.click();
-		const checkbox = studentRow.locator('input[type="checkbox"]');
-		await expect(checkbox).toBeChecked();
+		await new NewEvaluationPage(page).expectStudentSelected(englishName);
 	});
 });
 

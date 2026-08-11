@@ -212,7 +212,7 @@ test.describe('Weekly Reports - Create Report @weekly @sequential', () => {
 		const studentRow = page.getByTestId(`evaluations-new.student-row-WeeklyReport_${suffix}`);
 		await expect(studentRow).toBeVisible();
 		await studentRow.click();
-		await expect(studentRow.getByRole('checkbox')).toBeChecked();
+		await evalPage.expectStudentSelected(`WeeklyReport_${suffix}`);
 
 		// Select category
 		const categoryName = `TestCategory_${suffix}`;
@@ -281,7 +281,7 @@ test.describe('Weekly Reports - Update Report @weekly @sequential', () => {
 		const studentRow = page.getByTestId(`evaluations-new.student-row-UpdateReport_${suffix}`);
 		await expect(studentRow).toBeVisible();
 		await studentRow.click();
-		await expect(studentRow.getByRole('checkbox')).toBeChecked();
+		await evalPage.expectStudentSelected(`UpdateReport_${suffix}`);
 
 		// Select category
 		await evalPage.selectCategory(categoryName);
@@ -316,7 +316,7 @@ test.describe('Weekly Reports - Update Report @weekly @sequential', () => {
 		const studentRow2 = page.getByTestId(`evaluations-new.student-row-UpdateReport_${suffix}`);
 		await expect(studentRow2).toBeVisible();
 		await studentRow2.click();
-		await expect(studentRow2.getByRole('checkbox')).toBeChecked();
+		await evalPage.expectStudentSelected(`UpdateReport_${suffix}`);
 
 		// Select category again
 		await evalPage.selectCategory(categoryName);

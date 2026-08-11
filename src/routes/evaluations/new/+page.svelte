@@ -5,12 +5,9 @@
 	import type { Id } from '$convex/_generated/dataModel';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import { Search } from '@lucide/svelte';
-	import { SvelteSet } from 'svelte/reactivity';
+	import StudentPicker from '$lib/components/StudentPicker.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { matchesMultiSearch } from '$lib/evaluations';
 	import * as Card from '$lib/components/ui/card';
 	import * as Select from '$lib/components/ui/select';
 	import CategoryInfoCard from '$lib/components/CategoryInfoCard.svelte';
@@ -31,8 +28,7 @@
 		day: 'numeric'
 	});
 
-	let searchQuery = $state('');
-	let selectedStudentIds = new SvelteSet<Id<'students'>>();
+	let selectedStudentIds = $state<Id<'students'>[]>([]);
 	let categoryId = $state<string | undefined>(undefined);
 	let points = $state(1);
 	let details = $state('');
@@ -43,7 +39,7 @@
 	let validationErrors = $derived.by(() => {
 		if (!submitted) return [];
 		const errors: string[] = [];
-		if (selectedStudentIds.size === 0) {
+		if (selectedStudentIds.length === 0) {
 			errors.push('Please select at least one student');
 		}
 		if (!categoryId) {
@@ -56,23 +52,15 @@
 	const categoriesQuery = useQuery(api.categories.list, () => ({}));
 	const studentsQuery = useQuery(api.students.list, () => ({ status: 'Enrolled' as const }));
 
-	let filteredStudents = $derived(
-		studentsQuery.data?.filter((s) => {
-			if (!searchQuery.trim()) return true;
-			return (
-				matchesMultiSearch(searchQuery, s.englishName) ||
-				matchesMultiSearch(searchQuery, s.chineseName) ||
-				matchesMultiSearch(searchQuery, s.studentId)
-			);
-		}) || []
-	);
+	// Stable reference for the picker (avoids a fresh [] each render)
+	let pickerStudents = $derived(studentsQuery.data ?? []);
 
 	let selectedCategory = $derived(categoriesQuery.data?.find((c) => c._id === categoryId));
 
 	async function handleSubmit() {
 		submitted = true;
 
-		if (selectedStudentIds.size === 0 || !categoryId) {
+		if (selectedStudentIds.length === 0 || !categoryId) {
 			return;
 		}
 
@@ -80,7 +68,7 @@
 
 		try {
 			await client.mutation(api.evaluations.create, {
-				studentIds: Array.from(selectedStudentIds) as Id<'students'>[],
+				studentIds: selectedStudentIds,
 				value: points,
 				categoryId: categoryId as unknown as Id<'point_categories'>,
 				details,
@@ -93,37 +81,6 @@
 			console.error('Failed to save evaluation:', err);
 		} finally {
 			loading = false;
-		}
-	}
-
-	function toggleStudent(id: Id<'students'>) {
-		if (selectedStudentIds.has(id)) {
-			selectedStudentIds.delete(id);
-		} else {
-			selectedStudentIds.add(id);
-		}
-	}
-
-	// Derived values for "check all" checkbox state
-	let allFilteredSelected = $derived(
-		filteredStudents.length > 0 && filteredStudents.every((s) => selectedStudentIds.has(s._id))
-	);
-
-	let someFilteredSelected = $derived(
-		filteredStudents.some((s) => selectedStudentIds.has(s._id)) && !allFilteredSelected
-	);
-
-	function toggleAllFiltered() {
-		if (allFilteredSelected) {
-			// Deselect all filtered students
-			for (const student of filteredStudents) {
-				selectedStudentIds.delete(student._id);
-			}
-		} else {
-			// Select all filtered students
-			for (const student of filteredStudents) {
-				selectedStudentIds.add(student._id);
-			}
 		}
 	}
 
@@ -191,98 +148,15 @@
 				<Card.Title>1. Select Students</Card.Title>
 			</Card.Header>
 			<Card.Content class="flex min-h-0 flex-1 flex-col">
-				<div class="relative mb-4">
-					<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-					<Input
-						testId="evaluations-new.search-input"
-						type="text"
-						placeholder="Filter by names (separated by commas) or ID..."
-						bind:value={searchQuery}
-						class="pl-10"
-						aria-label="Search students"
-					/>
-				</div>
-
-				<div
-					class="bg-muted max-h-72 min-h-0 flex-1 overflow-y-auto rounded-md border lg:max-h-none"
-					role="list"
-					aria-label="Students"
-				>
-					{#if studentsQuery.isLoading}
-						<div class="text-muted-foreground p-8 text-center">Loading students...</div>
-					{:else if filteredStudents.length === 0}
-						<div class="text-muted-foreground p-8 text-center">No students found</div>
-					{:else}
-						{#if filteredStudents.length > 1}
-							<div
-								data-testid="evaluations-new.select-all"
-								class="bg-background/90 hover:bg-accent/90 sticky top-0 z-10 cursor-pointer border-b backdrop-blur-sm transition-colors"
-								onclick={toggleAllFiltered}
-								onkeydown={(e) => e.key === 'Enter' && toggleAllFiltered()}
-								role="button"
-								tabindex="0"
-							>
-								<div class="flex items-center gap-4 p-3">
-									<input
-										id="select-all"
-										type="checkbox"
-										checked={allFilteredSelected}
-										indeterminate={someFilteredSelected}
-										tabindex="-1"
-										class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
-										aria-label="Select all students"
-										onclick={(e) => e.stopPropagation()}
-										onchange={(e) => {
-											e.stopPropagation();
-											toggleAllFiltered();
-										}}
-									/>
-									<span class="text-sm font-medium"
-										>Select {selectedStudentIds.size}/{filteredStudents.length}
-										{selectedStudentIds.size === 1 ? 'student' : 'students'}
-									</span>
-								</div>
-							</div>
-						{/if}
-						{#each filteredStudents as student (student._id)}
-							<div
-								data-testid="evaluations-new.student-row-{student.englishName}"
-								class="bg-background hover:bg-accent even:bg-muted/50 cursor-pointer border-b transition-colors last:border-b-0"
-								class:bg-accent={selectedStudentIds.has(student._id)}
-								onclick={() => toggleStudent(student._id)}
-								onkeydown={(e) => e.key === 'Enter' && toggleStudent(student._id)}
-								role="button"
-								aria-label={`Select ${student.englishName}`}
-								tabindex="0"
-							>
-								<div class="flex items-center gap-4 p-3">
-									<input
-										id={`select-${student.englishName}`}
-										type="checkbox"
-										checked={selectedStudentIds.has(student._id)}
-										tabindex="-1"
-										class="border-input focus:ring-primary text-primary size-4 cursor-pointer rounded"
-										onclick={(e) => e.stopPropagation()}
-										onchange={(e) => {
-											e.stopPropagation();
-											toggleStudent(student._id);
-										}}
-									/>
-									<div class="flex flex-col">
-										<span class="font-medium">{student.englishName}</span>
-										<span class="text-muted-foreground text-xs">
-											Grade {student.classInfo?.grade}{student.classInfo?.class
-												? `-${student.classInfo.class}`
-												: ''}{student.classInfo?.homeroomTeacherName
-												? ` (${student.classInfo.homeroomTeacherName})`
-												: ''}
-										</span>
-									</div>
-								</div>
-							</div>
-						{/each}
-					{/if}
-				</div>
+				{#if studentsQuery.isLoading}
+					<div
+						class="text-muted-foreground flex flex-1 items-center justify-center rounded-md border p-8 text-center"
+					>
+						Loading students...
+					</div>
+				{:else}
+					<StudentPicker students={pickerStudents} bind:selectedStudentIds />
+				{/if}
 			</Card.Content>
 		</Card.Root>
 

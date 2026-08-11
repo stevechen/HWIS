@@ -83,7 +83,7 @@ describe('Evaluation Form', () => {
 
 	it('shows student count indicator', async () => {
 		render(EvaluationFormPage);
-		await expect.element(page.getByText('Select 0/2 students')).toBeInTheDocument();
+		await expect.element(page.getByText('0 selected')).toBeInTheDocument();
 	});
 
 	describe('Submit Behavior', () => {
