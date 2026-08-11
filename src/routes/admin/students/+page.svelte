@@ -18,7 +18,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import Label from '$lib/components/ui/label/label.svelte';
-	import { onDestroy, onMount, untrack } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { parseCsv, mapCsvRowToStudent } from './import-utils';
 	import { HOUSES, HOUSE_COLORS, type House } from '$lib/constants/houses';
 	import { cn } from '$lib/utils.js';
@@ -50,7 +50,7 @@
 	let selectedHouse = $state<string>('');
 	let selectedStatus = $state<string>('');
 	let selectedClass = $state<string>('');
-	let studentCursor = $state<string | null>(null);
+	let numItems = $state(100);
 	let accumulatedStudents = $state<Student[]>([]);
 	let isStudentListDone = $state(false);
 	let isLoadingMoreStudents = $state(false);
@@ -62,7 +62,7 @@
 	let observer: IntersectionObserver | null = null;
 	let previousQueryKey = '';
 	const studentsQueryArgs = $derived({
-		paginationOpts: { cursor: studentCursor, numItems: 100 },
+		paginationOpts: { cursor: null, numItems },
 		search: searchQuery || undefined,
 		status: selectedStatus ? (selectedStatus as 'Enrolled' | 'Not Enrolled') : undefined,
 		grade: selectedGrade ? Number(selectedGrade) : undefined,
@@ -71,7 +71,9 @@
 		sortBy,
 		sortDirection
 	});
-	const studentsQuery = useQuery(studentsApi.listPaginated, () => studentsQueryArgs);
+	const studentsQuery = useQuery(studentsApi.listPaginated, () => studentsQueryArgs, {
+		keepPreviousData: true
+	});
 	const classesApi = api.classes;
 	const classesQuery = useQuery(classesApi.list, () => ({}));
 	const client = useConvexClient();
@@ -87,7 +89,7 @@
 			sortDirection
 		});
 		if (previousQueryKey && previousQueryKey !== queryKey) {
-			studentCursor = null;
+			numItems = 100;
 			accumulatedStudents = [];
 			isStudentListDone = false;
 			isLoadingMoreStudents = false;
@@ -99,18 +101,7 @@
 		if (!studentsQuery.data) return;
 
 		if (!Array.isArray(studentsQuery.data.page)) return;
-		const newPage = studentsQuery.data.page as Student[];
-		const currentCursor = untrack(() => studentCursor);
-		if (currentCursor === null) {
-			accumulatedStudents = newPage;
-		} else {
-			const existing = untrack(() => accumulatedStudents);
-			const existingIds = new Set(existing.map((student) => student._id));
-			accumulatedStudents = [
-				...existing,
-				...newPage.filter((student) => !existingIds.has(student._id))
-			];
-		}
+		accumulatedStudents = studentsQuery.data.page as Student[];
 		isStudentListDone = studentsQuery.data.isDone;
 		isLoadingMoreStudents = false;
 	});
@@ -120,7 +111,7 @@
 		if (!studentsQuery.data?.continueCursor) return;
 
 		isLoadingMoreStudents = true;
-		studentCursor = studentsQuery.data.continueCursor;
+		numItems += 100;
 	}
 
 	function toggleSort(field: typeof sortBy) {
@@ -580,7 +571,7 @@
 			</div>
 		</div>
 
-		{#if studentsQuery.isLoading && studentCursor === null}
+		{#if studentsQuery.isLoading}
 			<div class="text-muted-foreground flex flex-1 items-center justify-center text-center">
 				Loading students...
 			</div>
