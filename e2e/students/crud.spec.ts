@@ -6,6 +6,7 @@ import {
 	cleanupByTag,
 	setE2eTag,
 	createCategory,
+	seedManyStudents,
 	useRole
 } from '../convex-client';
 import { AdminStudentsPage } from '../pages';
@@ -351,5 +352,69 @@ test.describe('Delete - Set Not Enrolled @sequential', () => {
 
 		// Student and category still exist, evaluation was used but should be cleaned up
 		// (testEvaluation remains true for cleanup)
+	});
+});
+
+// ============================================================================
+// FULL ROSTER REACTIVITY (regression for stale rows beyond the first page)
+// ============================================================================
+
+test.describe('Student List - Full Roster Updates @sequential', () => {
+	test.use({ storageState: 'e2e/.auth/admin.json' });
+
+	const suffix = getTestSuffix('staleRow');
+	const targetStudentId = getTestStudentId('staleRow');
+	const e2eTag = `e2e-test_${suffix}`;
+	const targetEnglishName = 'AAA Stale Row Target';
+	let seeded = false;
+	let studentsPage: AdminStudentsPage;
+
+	test.beforeEach(async ({ page }) => {
+		// Seed >100 students (the roster exceeds the historical 100-row page size)
+		// in one round trip so the unfiltered list spans multiple pages.
+		test.setTimeout(60000);
+		studentsPage = new AdminStudentsPage(page);
+		useRole('admin');
+
+		await seedManyStudents({ count: 150, grade: 10, e2eTag });
+		// 'AAA...' sorts to the top of the default englishName-ascending list,
+		// so the target row is on page 1.
+		await createStudent({
+			studentId: targetStudentId,
+			englishName: targetEnglishName,
+			grade: 10,
+			status: 'Enrolled',
+			e2eTag
+		});
+		seeded = true;
+
+		await studentsPage.goto();
+		await studentsPage.expectLoadingHidden();
+	});
+
+	test.afterEach(async () => {
+		if (seeded) await cleanupByTag('all', e2eTag);
+	});
+
+	test('status edit to a row on an already-loaded page reflects immediately', async () => {
+		// Reproduction of the historical stale-row bug: with a paginated list
+		// (>100 students), scrolling advances past page 1 so its rows lose their
+		// live subscription, and a later edit never re-delivers to them. The
+		// scroll-poll is a no-op under the current single-page fix but keeps
+		// this test a red guard if page-based accumulation ever returns.
+		await studentsPage.page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+		await expect(async () => {
+			const rowCount = await studentsPage.page
+				.locator('[data-testid^="admin-students.student-row-"]')
+				.count();
+			if (rowCount <= 100) throw new Error('second page not loaded yet');
+		}).toPass({ timeout: 20000 });
+		await studentsPage.page.evaluate(() => window.scrollTo(0, 0));
+
+		// Edit the target row (page 1) without searching or filtering.
+		await studentsPage.setStudentStatusViaDialog(targetStudentId, 'Not Enrolled');
+
+		// The row must reflect the change even though its page loaded before the edit.
+		await studentsPage.expectStudentStatus(targetStudentId, 'Not Enrolled');
 	});
 });

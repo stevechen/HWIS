@@ -133,6 +133,16 @@ export async function createClass(opts: { grade: number; class: string; e2eTag?:
 	return await utils.createClass(opts);
 }
 
+export async function seedManyStudents(opts: {
+	count: number;
+	grade: number;
+	class?: string;
+	e2eTag?: string;
+}) {
+	const utils = getUtils();
+	return await utils.seedManyStudents(opts);
+}
+
 export async function setE2eTag(
 	dataType: 'students' | 'categories' | 'evaluations',
 	dataId: string,

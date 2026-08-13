@@ -37,6 +37,8 @@ test.describe('Student CRUD Cycle @integration', () => {
 		});
 
 		await studentsPage.goto();
+		await studentsPage.fillSearch(studentId);
+		await studentsPage.expectStudentRowVisible(studentId);
 	});
 
 	test.afterEach(async () => {

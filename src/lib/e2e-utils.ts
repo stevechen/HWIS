@@ -117,6 +117,12 @@ export interface E2EUtils {
 	cleanupTestBackupsByTimestamp: (since: number) => Promise<unknown>;
 	createStudent: (opts: CreateStudentOptions) => Promise<unknown>;
 	createStudentWithId: (opts: CreateStudentOptions) => Promise<unknown>;
+	seedManyStudents: (opts: {
+		count: number;
+		grade: number;
+		class?: string;
+		e2eTag?: string;
+	}) => Promise<unknown>;
 	createClass: (opts: CreateClassOptions) => Promise<unknown>;
 	setE2eTag: (
 		dataType: 'students' | 'categories' | 'evaluations',
@@ -287,6 +293,25 @@ export function getE2EUtils(): E2EUtils {
 				});
 			} catch (e) {
 				console.log('Create student with ID error:', e);
+				return { error: e instanceof Error ? e.message : String(e) };
+			}
+		},
+
+		async seedManyStudents(opts: {
+			count: number;
+			grade: number;
+			class?: string;
+			e2eTag?: string;
+		}) {
+			try {
+				return await c.mutation(api.dataFactory.seedManyStudents, {
+					count: opts.count,
+					grade: opts.grade,
+					class: opts.class,
+					e2eTag: opts.e2eTag
+				});
+			} catch (e) {
+				console.log('Seed many students error:', e);
 				return { error: e instanceof Error ? e.message : String(e) };
 			}
 		},

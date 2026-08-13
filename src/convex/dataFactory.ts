@@ -441,6 +441,38 @@ export const createStudentWithId = mutation({
 	}
 });
 
+export const seedManyStudents = mutation({
+	args: {
+		count: v.number(),
+		grade: v.number(),
+		class: v.optional(v.string()),
+		e2eTag: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const tag = args.e2eTag || getE2ETag();
+		const className = args.class || 'default';
+		const classId = await getOrCreateClass(ctx, args.grade, className, tag);
+
+		const count = Math.max(0, Math.min(args.count, 5000));
+		const ids: Id<'students'>[] = [];
+		for (let i = 0; i < count; i++) {
+			ids.push(
+				await ctx.db.insert('students', {
+					englishName: `${generateStudentName()} ${i}`,
+					chineseName: generateChineseName(),
+					studentId: `SEED_${tag}_${i}`,
+					classId,
+					status: 'Enrolled',
+					e2eTag: tag
+				})
+			);
+		}
+
+		return { count: ids.length, classId };
+	}
+});
+
 export const createCategory = mutation({
 	args: {
 		name: v.optional(v.string()),
