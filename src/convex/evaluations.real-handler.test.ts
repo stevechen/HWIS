@@ -262,15 +262,47 @@ describe('evaluations.listRecent (real handler)', () => {
 		mockAuthUser({ authId: 'admin-1' });
 
 		const teacherId = await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
+		const otherTeacherId = await seedUser(t, {
+			authId: 'teacher-2',
+			name: 'Other Teacher',
+			role: 'teacher'
+		});
 		const studentId = await seedStudent(t, 'STU-RECENT-001');
 		const categoryId = await seedCategory(t, 'Recent Category');
 		await seedEvaluation(t, { studentId, teacherId, categoryId });
+		await seedEvaluation(t, { studentId, teacherId: otherTeacherId, categoryId });
 
 		const result = await t.query(api.evaluations.listRecent, {});
 
 		expect(result).toHaveLength(1);
+		expect(result[0].teacherId).toBe(teacherId);
 		expect(result[0].details).toBe('Seed evaluation');
 		expect(result[0].category).toBe('Recent Category');
+	});
+
+	it('includes admin-authored evaluations for Not Enrolled students', async () => {
+		const t = convexTest(schema, modules);
+		mockAuthUser({ authId: 'admin-1' });
+
+		const adminId = await seedUser(t, { authId: 'admin-1', name: 'Admin One', role: 'admin' });
+		const classId = await t.run((ctx) => ctx.db.insert('classes', { grade: 10, class: '1' }));
+		const unenrolledStudentId = await t.run((ctx) =>
+			ctx.db.insert('students', {
+				englishName: 'Unenrolled Student',
+				chineseName: '未入學學生',
+				studentId: 'STU-UNENROLLED-ADMIN-001',
+				classId,
+				status: 'Not Enrolled'
+			})
+		);
+
+		const categoryId = await seedCategory(t);
+		await seedEvaluation(t, { studentId: unenrolledStudentId, teacherId: adminId, categoryId });
+
+		const result = await t.query(api.evaluations.listRecent, {});
+
+		expect(result).toHaveLength(1);
+		expect(result[0].teacherId).toBe(adminId);
 	});
 
 	it('returns empty list when not authenticated', async () => {

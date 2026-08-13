@@ -160,13 +160,7 @@ export const listRecent = query({
 		const caps = getEvaluationCapabilities(actor);
 
 		let allEvaluations;
-		if (caps.viewAnyEvaluation) {
-			allEvaluations = await ctx.db
-				.query('evaluations')
-				.withIndex('by_timestamp')
-				.order('desc')
-				.take(200);
-		} else if (caps.viewOwnEvaluation) {
+		if (caps.viewOwnEvaluation) {
 			allEvaluations = await ctx.db
 				.query('evaluations')
 				.withIndex('by_teacherId', (q) => q.eq('teacherId', userDoc._id))
