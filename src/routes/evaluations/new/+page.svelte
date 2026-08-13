@@ -7,6 +7,7 @@
 	import { browser } from '$app/environment';
 	import StudentPicker from '$lib/components/StudentPicker.svelte';
 	import { onMount, onDestroy } from 'svelte';
+	import { Lock } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import * as Select from '$lib/components/ui/select';
@@ -25,7 +26,8 @@
 	const lockDateStr = lockDate.toLocaleDateString('en-US', {
 		weekday: 'short',
 		month: 'short',
-		day: 'numeric'
+		day: 'numeric',
+		timeZone: 'Asia/Taipei'
 	});
 
 	let selectedStudentIds = $state<Id<'students'>[]>([]);
@@ -163,6 +165,13 @@
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>2. Evaluation Details</Card.Title>
+				<p
+					class="text-muted-foreground flex items-center gap-1.5 text-xs"
+					data-testid="evaluations-new.lock-notice"
+				>
+					<Lock class="size-3.5 text-red-400" />
+					*This evaluation locks for edits on {lockDateStr} (Monday 00:00)
+				</p>
 			</Card.Header>
 			<Card.Content class="flex min-h-0 flex-1 flex-col overflow-y-auto">
 				<div class="mb-5">
@@ -299,10 +308,6 @@
 						Submit Evaluation
 					{/if}
 				</Button>
-
-				<p class="mt-3 text-center text-xs text-red-400">
-					* This evaluation locks for edits on {lockDateStr} (Monday 00:00)
-				</p>
 			</Card.Content>
 		</Card.Root>
 	</div>

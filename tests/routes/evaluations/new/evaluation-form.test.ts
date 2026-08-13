@@ -86,6 +86,20 @@ describe('Evaluation Form', () => {
 		await expect.element(page.getByText('0 selected')).toBeInTheDocument();
 	});
 
+	it('shows lock notice at the top of the Evaluation Details card, before the Submit button', async () => {
+		render(EvaluationFormPage);
+		const lockNotice = page.getByText(/locks for edits on/i);
+		const submitButton = page.getByRole('button', { name: 'Submit evaluation' });
+		await expect.element(lockNotice).toBeInTheDocument();
+
+		const lockEl = await lockNotice.element();
+		const submitEl = await submitButton.element();
+		// Lock notice should precede the Submit button in DOM order
+		expect(
+			lockEl.compareDocumentPosition(submitEl) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy();
+	});
+
 	describe('Submit Behavior', () => {
 		it('calls goto on successful submit', async () => {
 			render(EvaluationFormPage);
