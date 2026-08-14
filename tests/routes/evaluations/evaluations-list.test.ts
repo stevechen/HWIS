@@ -2,6 +2,17 @@ import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 
+const mockProfile = {
+	user: { _id: 'user_t1', role: 'admin', status: 'active', authId: 'teacher-1' },
+	actor: { kind: 'staff', subject: { role: 'admin', status: 'active' } },
+	capabilities: {
+		editAnyEvaluation: true,
+		editOwnEvaluation: true,
+		viewAnyEvaluation: true,
+		viewOwnEvaluation: true
+	}
+};
+
 vi.mock('convex-svelte', () => ({
 	useQuery: vi.fn(() => ({
 		data: [],
@@ -14,11 +25,23 @@ vi.mock('convex-svelte', () => ({
 	}))
 }));
 
+vi.mock('$lib/auth-profile', () => ({
+	useAuthProfile: vi.fn(() => ({ data: mockProfile, isLoading: false, error: undefined })),
+	AUTH_PROFILE_KEY: 'auth-profile',
+	setAuthProfile: vi.fn()
+}));
+
 import EvaluationsPage from '$src/routes/evaluations/+page.svelte';
 
 describe('Evaluations List', () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.clearAllMocks();
+		const { useAuthProfile } = await import('$lib/auth-profile');
+		vi.mocked(useAuthProfile).mockReturnValue({
+			data: mockProfile,
+			isLoading: false,
+			error: undefined
+		} as unknown as ReturnType<typeof useAuthProfile>);
 	});
 
 	it('shows empty state when no evaluations', async () => {
@@ -28,27 +51,11 @@ describe('Evaluations List', () => {
 
 	it('renders error state when the evaluations query fails', async () => {
 		const { useQuery } = await import('convex-svelte');
-		// The page makes 3 useQuery calls in order: viewer, capabilities, listRecent.
-		// Mock viewer and capabilities as success, then listRecent with an error.
-		vi.mocked(useQuery)
-			.mockReturnValueOnce({
-				data: { role: 'admin', status: 'active' },
-				isLoading: false,
-				error: null
-			} as unknown as ReturnType<typeof useQuery>)
-			.mockReturnValueOnce({
-				data: {
-					actor: { kind: 'staff', subject: { role: 'admin', status: 'active' } },
-					capabilities: {}
-				},
-				isLoading: false,
-				error: null
-			} as unknown as ReturnType<typeof useQuery>)
-			.mockReturnValueOnce({
-				data: null,
-				isLoading: false,
-				error: new Error('Failed to load')
-			} as unknown as ReturnType<typeof useQuery>);
+		vi.mocked(useQuery).mockReturnValue({
+			data: null,
+			isLoading: false,
+			error: new Error('Failed to load')
+		} as unknown as ReturnType<typeof useQuery>);
 
 		render(EvaluationsPage);
 		await expect.element(page.getByText(/Error loading evaluations/)).toBeInTheDocument();

@@ -2,7 +2,7 @@
 	import { authClient } from '$lib/auth-client';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { browser } from '$app/environment';
-	import { useQuery, useConvexClient } from 'convex-svelte';
+	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import {
 		canAccessAdminArea,
@@ -12,6 +12,7 @@
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
+	import { useAuthProfile } from '$lib/auth-profile';
 
 	let { data }: { data: { authState?: { isAuthenticated: boolean } } } = $props();
 
@@ -26,13 +27,16 @@
 					return () => {};
 				}
 			};
-	const dbUser = useQuery(api.users.viewer, () => ({}));
 	const client = useConvexClient();
+
+	const profile = useAuthProfile();
 
 	const serverAuthenticated = $derived(!!data.authState?.isAuthenticated);
 	const isLoggedIn = $derived(!auth.isLoading && (auth.isAuthenticated || serverAuthenticated));
 	const userName = $derived($session.data?.user.name);
-	const isApproved = $derived(dbUser.data ? hasApplicationAccess(dbUser.data) : false);
+	const isApproved = $derived(
+		profile ? (profile.data?.user ? hasApplicationAccess(profile.data.user) : false) : false
+	);
 	let hasEnsuredProfile = $state(false);
 
 	async function ensureProfile() {
@@ -48,15 +52,15 @@
 			hasEnsuredProfile = false;
 			return;
 		}
-		if (!dbUser.isLoading && !hasEnsuredProfile) {
+		if (profile && !profile.isLoading && !hasEnsuredProfile) {
 			hasEnsuredProfile = true;
 			ensureProfile();
 		}
 	});
 
 	$effect(() => {
-		if (isApproved && !dbUser.isLoading && dbUser.data) {
-			const viewer = dbUser.data;
+		if (profile && isApproved && !profile.isLoading && profile.data?.user) {
+			const viewer = profile.data.user;
 			if (isStudent(viewer) && 'studentId' in viewer && viewer.studentId) {
 				window.location.href = `/evaluations/student/${viewer.studentId}`;
 			} else {

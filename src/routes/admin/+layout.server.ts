@@ -22,7 +22,7 @@ export const load = async ({ locals }: { locals: { token?: string } }) => {
 	const fetchViewer = async () => {
 		for (let attempt = 0; attempt < 3; attempt += 1) {
 			try {
-				return await client.query(api.users.viewer, {});
+				return await client.query(api.users.profile, {});
 			} catch {
 				if (attempt === 2) return null;
 				await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
@@ -33,9 +33,9 @@ export const load = async ({ locals }: { locals: { token?: string } }) => {
 
 	const viewer = await fetchViewer();
 
-	if (!viewer || !canAccessAdminArea(viewer)) {
+	if (!viewer?.user || !canAccessAdminArea(viewer.user)) {
 		throw redirect(302, '/');
 	}
 
-	return { viewer };
+	return { viewer: viewer.user };
 };

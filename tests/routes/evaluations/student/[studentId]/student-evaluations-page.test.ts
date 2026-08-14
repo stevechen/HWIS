@@ -44,29 +44,23 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 	}))
 }));
 
+vi.mock('$lib/auth-profile', () => ({
+	useAuthProfile: vi.fn(() => ({ data: undefined, isLoading: false, error: undefined })),
+	AUTH_PROFILE_KEY: 'auth-profile',
+	setAuthProfile: vi.fn()
+}));
+
 import StudentEvaluationsPage from '$src/routes/evaluations/student/[studentId]/+page.svelte';
 
 describe('Student Evaluations Page', () => {
 	beforeEach(async () => {
+		const { useAuthProfile } = await import('$lib/auth-profile');
 		vi.clearAllMocks();
-		// The page makes multiple useQuery calls:
-		// 1. userQuery (api.users.viewer) - returns mockAdminUser
-		// 2. capabilitiesQuery (api.users.capabilities) - returns mockAdminCapabilities
-		// Remaining calls (categories, student, evaluations) fall through to
-		// the module-level default (mockEvalData).
-		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValueOnce({
-			data: mockAdminUser,
+		vi.mocked(useAuthProfile).mockReturnValue({
+			data: { ...mockAdminUser, ...mockAdminCapabilities },
 			isLoading: false,
-			isStale: false,
 			error: undefined
-		});
-		vi.mocked(useQuery).mockReturnValueOnce({
-			data: mockAdminCapabilities,
-			isLoading: false,
-			isStale: false,
-			error: undefined
-		});
+		} as unknown as ReturnType<typeof useAuthProfile>);
 	});
 
 	describe('Static Structure', () => {
@@ -122,6 +116,7 @@ describe('Student Evaluations Page — student branch', () => {
 
 	function mockStudentCapabilities(enrollmentStatus: 'Enrolled' | 'Not Enrolled' = 'Enrolled') {
 		return {
+			user: mockStudentUser,
 			actor: {
 				kind: 'student' as const,
 				studentId: 'student-001',
@@ -136,35 +131,23 @@ describe('Student Evaluations Page — student branch', () => {
 		};
 	}
 
-	async function mockViewer(
-		viewer: object,
-		enrollmentStatus: 'Enrolled' | 'Not Enrolled' = 'Enrolled'
-	) {
-		const { useQuery } = await import('convex-svelte');
-		// 1. userQuery (api.users.viewer)
-		vi.mocked(useQuery).mockReturnValueOnce({
-			data: viewer,
+	async function mockAuthProfile(profile: unknown) {
+		const { useAuthProfile } = await import('$lib/auth-profile');
+		vi.mocked(useAuthProfile).mockReturnValue({
+			data: profile,
 			isLoading: false,
-			isStale: false,
 			error: undefined
-		});
-		// 2. capabilitiesQuery (api.users.capabilities)
-		vi.mocked(useQuery).mockReturnValueOnce({
-			data: mockStudentCapabilities(enrollmentStatus),
-			isLoading: false,
-			isStale: false,
-			error: undefined
-		});
+		} as unknown as ReturnType<typeof useAuthProfile>);
 	}
 
 	it('renders the timeline for an enrolled student', async () => {
-		await mockViewer(mockStudentUser);
+		await mockAuthProfile(mockStudentCapabilities('Enrolled'));
 		render(StudentEvaluationsPage, { data: { studentId: 'ignored' } });
 		await expect.element(page.getByRole('region', { name: 'Evaluations' })).toBeInTheDocument();
 	});
 
 	it('hides the teacher filter for students', async () => {
-		await mockViewer(mockStudentUser);
+		await mockAuthProfile(mockStudentCapabilities('Enrolled'));
 		render(StudentEvaluationsPage, { data: { studentId: 'ignored' } });
 		await expect
 			.element(page.getByRole('textbox', { name: 'Filter by teacher' }))
@@ -172,7 +155,7 @@ describe('Student Evaluations Page — student branch', () => {
 	});
 
 	it('shows the access denied screen for a not-enrolled student', async () => {
-		await mockViewer({ ...mockStudentUser, enrollmentStatus: 'Not Enrolled' }, 'Not Enrolled');
+		await mockAuthProfile(mockStudentCapabilities('Not Enrolled'));
 		render(StudentEvaluationsPage, { data: { studentId: 'ignored' } });
 		await expect.element(page.getByText('Access Denied')).toBeInTheDocument();
 	});

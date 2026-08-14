@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { useQuery } from 'convex-svelte';
-	import { api } from '$convex/_generated/api';
 	import { canAccessAdminArea } from '$convex/shared/authorization';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import { setContext } from 'svelte';
-	import type { Snippet } from 'svelte';
+	import { setContext, type Snippet } from 'svelte';
+	import { useAuthProfile } from '$lib/auth-profile';
 
 	let { children }: { children: Snippet } = $props();
 
-	const user = useQuery(api.users.viewer, () => ({}));
+	const profile = useAuthProfile();
 
-	const isAdmin = $derived(user.data ? canAccessAdminArea(user.data) : false);
-	const loaded = $derived(!user.isLoading);
+	const isAdmin = $derived(
+		profile ? (profile.data?.user ? canAccessAdminArea(profile.data.user) : false) : false
+	);
+	const loaded = $derived(profile ? !profile.isLoading : false);
 
 	setContext('adminAuth', {
 		get loaded() {
@@ -30,7 +30,7 @@
 	});
 </script>
 
-{#if user.isLoading}
+{#if profile?.isLoading}
 	<div class="flex min-h-screen items-center justify-center">
 		<div
 			class="border-primary/20 border-b-primary size-8 animate-spin rounded-full border-4"

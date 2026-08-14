@@ -3,28 +3,49 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { createMockEvaluationSet } from '../../fixtures/evaluations';
 
+const mockProfile = {
+	user: { _id: 'user_t1', role: 'teacher', status: 'active', authId: 'teacher-1' },
+	actor: { kind: 'staff', subject: { role: 'teacher', status: 'active' } },
+	capabilities: {
+		editAnyEvaluation: false,
+		editOwnEvaluation: true,
+		viewAnyEvaluation: false,
+		viewOwnEvaluation: true
+	}
+};
+
 // Mock convex-svelte
 const mockMutation = vi.fn().mockResolvedValue(undefined);
 const mockQuery = vi.fn();
 
 vi.mock('convex-svelte', () => ({
-	useQuery: vi.fn(() => ({
-		data: createMockEvaluationSet(),
-		isLoading: false,
-		error: null
-	})),
+	useQuery: vi.fn(() => {
+		return { data: createMockEvaluationSet(), isLoading: false, error: null };
+	}),
 	useConvexClient: vi.fn(() => ({
 		mutation: mockMutation,
 		query: mockQuery
 	}))
 }));
 
+vi.mock('$lib/auth-profile', () => ({
+	useAuthProfile: vi.fn(() => ({ data: mockProfile, isLoading: false, error: undefined })),
+	AUTH_PROFILE_KEY: 'auth-profile',
+	setAuthProfile: vi.fn()
+}));
+
 // Import after mocks
 import TeacherEvaluationsPage from '$src/routes/evaluations/+page.svelte';
 
 describe('Teacher Evaluations Page', () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.clearAllMocks();
+		const { useAuthProfile } = await import('$lib/auth-profile');
+		vi.mocked(useAuthProfile).mockReturnValue({
+			data: mockProfile,
+			isLoading: false,
+			error: undefined
+		} as unknown as ReturnType<typeof useAuthProfile>);
 	});
 
 	describe('Static Structure', () => {

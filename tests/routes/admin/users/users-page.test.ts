@@ -5,7 +5,7 @@ import { render } from 'vitest-browser-svelte';
 const now = Date.now();
 const day = 86_400_000;
 
-const viewer = { _id: 'user_a1', name: 'Current Admin', role: 'admin', status: 'active' };
+const currentUserId = { _id: 'user_a1', role: 'admin', status: 'active' };
 
 const newOne = {
 	_id: 'user_p1',
@@ -58,15 +58,10 @@ const activeTeacher = {
 const defaultUsers = [newOne, newTwo, deactivated, activeAdmin, activeTeacher];
 
 let currentUsers: typeof defaultUsers = defaultUsers;
-let queryCall = 0;
 let mutationMock: ReturnType<typeof vi.fn>;
 
 vi.mock('convex-svelte', () => ({
 	useQuery: vi.fn(() => {
-		queryCall += 1;
-		if (queryCall === 1) {
-			return { data: viewer, isLoading: false, error: null };
-		}
 		return { data: currentUsers, isLoading: false, error: null };
 	}),
 	useConvexClient: vi.fn(() => {
@@ -78,6 +73,16 @@ vi.mock('convex-svelte', () => ({
 	})
 }));
 
+vi.mock('$lib/auth-profile', () => ({
+	useAuthProfile: vi.fn(() => ({
+		data: { user: currentUserId, actor: { kind: 'staff' }, capabilities: {} },
+		isLoading: false,
+		error: undefined
+	})),
+	AUTH_PROFILE_KEY: 'auth-profile',
+	setAuthProfile: vi.fn()
+}));
+
 import UsersPage from '$src/routes/admin/users/+page.svelte';
 
 describe('Users Admin Page - card grid', () => {
@@ -85,7 +90,6 @@ describe('Users Admin Page - card grid', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		queryCall = 0;
 		currentUsers = defaultUsers;
 		mounted = [];
 	});

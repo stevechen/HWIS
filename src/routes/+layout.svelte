@@ -19,6 +19,7 @@
 		isEnrolledStudent,
 		isAdmin as isAdminRole
 	} from '$convex/shared/authorization';
+	import { setAuthProfile } from '$lib/auth-profile';
 	import { headerTitleOverride, headerHouseBadge } from '$lib/stores/header';
 	import { theme } from '$lib/stores/theme';
 	import type { Snippet } from 'svelte';
@@ -79,13 +80,16 @@
 		void goto('/login');
 	}
 
-	const user = useQuery(api.users.viewer, () => ({}));
+	const profile = useQuery(api.users.profile, () => ({}));
+	setAuthProfile(profile);
+
+	const user = $derived(profile.data?.user);
 
 	const shouldShowModal = $derived.by(() => {
 		if (!$page.url.pathname || $page.url.pathname === '/login' || $page.url.pathname === '/') {
 			return false;
 		}
-		if (user.isLoading || !user.data) {
+		if (profile.isLoading || !user) {
 			return false;
 		}
 		const isAdminPage = $page.url.pathname.startsWith('/admin');
@@ -94,20 +98,18 @@
 		// /admin pages: only active admins/super users
 		// /evaluations pages: active staff, except students (who reach only their own page)
 		if (isAdminPage) {
-			return !canAccessAdminArea(user.data);
+			return !canAccessAdminArea(user);
 		}
 		if (isEvaluationsPage) {
 			const isStudentEvaluationPage = $page.url.pathname.startsWith('/evaluations/student/');
-			return (
-				!isActiveStaff(user.data) && !(isStudentEvaluationPage && isEnrolledStudent(user.data))
-			);
+			return !isActiveStaff(user) && !(isStudentEvaluationPage && isEnrolledStudent(user));
 		}
 		return false;
 	});
 
 	const isAdmin = $derived.by(() => {
-		if (!user.isLoading && user.data) {
-			return isAdminRole(user.data);
+		if (!profile.isLoading && user) {
+			return isAdminRole(user);
 		}
 		return false;
 	});

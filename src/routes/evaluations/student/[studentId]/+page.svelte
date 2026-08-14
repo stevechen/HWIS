@@ -15,11 +15,9 @@
 		type HouseLogoComponent
 	} from '$lib/stores/header';
 	import { onDestroy } from 'svelte';
-	import {
-		matchesMultiSearch,
-		sortEvaluations,
-		createEvaluationDisplayState
-	} from '$lib/evaluations';
+	import { useAuthProfile } from '$lib/auth-profile';
+	import { matchesMultiSearch } from '$convex/shared/evaluation_utils';
+	import { sortEvaluations, createEvaluationDisplayState } from '$lib/evaluations';
 	import {
 		FilterInput,
 		FilterSummaryToast,
@@ -37,16 +35,13 @@
 	let { data }: { data: { studentId?: string } } = $props();
 
 	// Fetch user to check role (always call useQuery at top level)
-	const userQuery = useQuery(api.users.viewer, () => ({}));
-
-	// Fetch centralized capabilities for permission checks
-	const capabilitiesQuery = useQuery(api.users.capabilities, () => ({}));
+	const profile = useAuthProfile();
 
 	// Fetch all categories for radar chart
 	const categoriesQuery = useQuery(api.categories.list, () => ({}));
 
-	const actor = $derived(capabilitiesQuery.data?.actor);
-	const caps = $derived(capabilitiesQuery.data?.capabilities);
+	const actor = $derived(profile?.data?.actor);
+	const caps = $derived(profile?.data?.capabilities);
 
 	// Derive role-based flags from the centralized actor/capabilities
 	const isStudent = $derived.by(() => {
@@ -126,7 +121,7 @@
 	);
 	const allEvalsQuery = $derived(useConvexIdQuery ? allEvalsQueryById : allEvalsQueryByCode);
 
-	const student = $derived(isStudent ? userQuery.data : studentQuery.data);
+	const student = $derived(isStudent ? profile?.data?.user : studentQuery.data);
 
 	// Get student's house
 	const studentHouse = $derived.by(() => {
@@ -337,8 +332,7 @@
 
 	// Determine loading state
 	const isLoading = $derived.by(() => {
-		if (userQuery.isLoading) return true;
-		if (capabilitiesQuery.isLoading) return true;
+		if (profile?.isLoading) return true;
 		if (studentQuery.isLoading) return true;
 		if (isStudent && studentAnonymousEvalsQuery.isLoading) return true;
 		if (isAdmin && allEvalsQuery.isLoading) return true;
@@ -348,7 +342,7 @@
 
 	// Determine loading message
 	const loadingMessage = $derived.by(() => {
-		if (userQuery.isLoading || capabilitiesQuery.isLoading) return 'Loading user data...';
+		if (profile?.isLoading) return 'Loading user data...';
 		if (studentQuery.isLoading) return 'Loading student data...';
 		if (isAdmin) return 'Loading evaluations...';
 		return 'Loading your evaluations...';

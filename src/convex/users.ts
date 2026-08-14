@@ -163,6 +163,147 @@ export const capabilities = query({
 	}
 });
 
+export const profile = query({
+	args: {},
+	handler: async (ctx) => {
+		const authUser = await getAuthenticatedUser(ctx);
+		if (!authUser) {
+			return {
+				user: null,
+				actor: { kind: 'anonymous' as const },
+				capabilities: noEvaluationCapabilities
+			};
+		}
+
+		const auth = authUser as { email?: string; role?: string };
+
+		// Dev-mode super admin (matches the viewer special case)
+		if (auth.email === 'super@hwis.test' && auth.role === 'super') {
+			const userResult = {
+				...authUser,
+				authId: 'super@hwis.test' as const,
+				role: 'super' as const,
+				status: 'active' as const,
+				profileExists: true
+			};
+			const actor: AuthorizationActor = {
+				kind: 'staff',
+				subject: { role: 'super' as const, status: 'active' as const }
+			};
+			return {
+				user: userResult,
+				actor,
+				capabilities: getEvaluationCapabilities(actor)
+			};
+		}
+
+		// Student path: email-derived identity (no user profile row)
+		const email = auth.email?.toLowerCase();
+		if (isStudentEmailAddress(email)) {
+			const student = await resolveStudentFromEmail(email, ctx);
+
+			const userResult = {
+				...authUser,
+				authId: undefined,
+				role: 'student' as const,
+				status: 'active' as const,
+				profileExists: true,
+				studentRecordId: student?._id,
+				studentId: student?.studentId,
+				enrollmentStatus: student?.status,
+				englishName: student?.englishName,
+				chineseName: student?.chineseName,
+				house: student?.house
+			};
+
+			const actor: AuthorizationActor =
+				student && student.status === 'Enrolled'
+					? { kind: 'student', studentId: student._id, enrollmentStatus: student.status }
+					: { kind: 'anonymous' };
+
+			return {
+				user: userResult,
+				actor,
+				capabilities: getEvaluationCapabilities(actor)
+			};
+		}
+
+		// Staff path: authUser already carries role/status (DB profile or test-token)
+		if ('role' in authUser && authUser.role && authUser.status) {
+			const actor: AuthorizationActor = {
+				kind: 'staff',
+				subject: { role: authUser.role, status: authUser.status }
+			};
+			if (typeof authUser._id === 'string') {
+				actor.subject._id = authUser._id as Id<'users'>;
+			}
+			return {
+				user: { ...authUser, profileExists: true },
+				actor,
+				capabilities: getEvaluationCapabilities(actor)
+			};
+		}
+
+		// Staff path: resolve authId and look up DB profile (same as viewer)
+		const authIdLookup =
+			authUser.authId ||
+			(authUser as { id?: string }).id ||
+			(typeof authUser._id === 'string' ? authUser._id : undefined);
+
+		if (!authIdLookup) {
+			return {
+				user: {
+					...authUser,
+					authId: undefined,
+					role: undefined,
+					status: undefined,
+					profileExists: false
+				},
+				actor: { kind: 'anonymous' as const },
+				capabilities: noEvaluationCapabilities
+			};
+		}
+
+		const dbUser = await ctx.db
+			.query('users')
+			.withIndex('by_authId', (q) => q.eq('authId', authIdLookup))
+			.first();
+
+		if (!dbUser) {
+			return {
+				user: {
+					...authUser,
+					authId: undefined,
+					role: undefined,
+					status: undefined,
+					profileExists: false
+				},
+				actor: { kind: 'anonymous' as const },
+				capabilities: noEvaluationCapabilities
+			};
+		}
+
+		const userResult = {
+			...authUser,
+			authId: dbUser.authId,
+			role: dbUser.role ?? 'teacher',
+			status: dbUser.status ?? 'pending',
+			profileExists: true
+		};
+
+		const actor: AuthorizationActor = {
+			kind: 'staff',
+			subject: { role: dbUser.role, status: dbUser.status, _id: dbUser._id }
+		};
+
+		return {
+			user: userResult,
+			actor,
+			capabilities: getEvaluationCapabilities(actor)
+		};
+	}
+});
+
 export const list = query({
 	args: {},
 	handler: async (ctx) => {

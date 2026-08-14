@@ -47,11 +47,18 @@ const pendingUser = {
 	name: 'Test Pending'
 } as const;
 
-interface MockQueryResult<T> {
-	data: T;
-	isLoading: false;
-	error: undefined;
-	isStale: boolean;
+function mockProfileQueryResult(user: unknown) {
+	return {
+		data: { user, actor: { kind: 'staff' }, capabilities: {} },
+		isLoading: false,
+		error: undefined,
+		isStale: false
+	} as unknown as {
+		data: { user: unknown; actor: unknown; capabilities: unknown };
+		isLoading: boolean;
+		error: Error | undefined;
+		isStale: boolean;
+	};
 }
 
 import Layout from '$src/routes/+layout.svelte';
@@ -65,13 +72,7 @@ describe('access control', () => {
 	it('active admin can access /admin - page content visible', async () => {
 		mockPagePath.pathname = '/admin';
 		const { useQuery } = await import('convex-svelte');
-		const mockResult: MockQueryResult<typeof activeAdminUser> = {
-			data: activeAdminUser,
-			isLoading: false,
-			error: undefined,
-			isStale: false
-		};
-		vi.mocked(useQuery).mockReturnValue(mockResult);
+		vi.mocked(useQuery).mockReturnValue(mockProfileQueryResult(activeAdminUser) as never);
 
 		render(Layout);
 		// The Layout renders the header with title "Admin Dashboard" when on /admin
@@ -81,13 +82,7 @@ describe('access control', () => {
 	it('pending user sees modal on /evaluations', async () => {
 		mockPagePath.pathname = '/evaluations';
 		const { useQuery } = await import('convex-svelte');
-		const mockResult: MockQueryResult<typeof pendingUser> = {
-			data: pendingUser,
-			isLoading: false,
-			error: undefined,
-			isStale: false
-		};
-		vi.mocked(useQuery).mockReturnValue(mockResult);
+		vi.mocked(useQuery).mockReturnValue(mockProfileQueryResult(pendingUser) as never);
 
 		render(Layout);
 		await expect.element(page.getByText('Access Restricted')).toBeVisible();
@@ -96,13 +91,7 @@ describe('access control', () => {
 	it('pending user sees modal on /admin', async () => {
 		mockPagePath.pathname = '/admin';
 		const { useQuery } = await import('convex-svelte');
-		const mockResult: MockQueryResult<typeof pendingUser> = {
-			data: pendingUser,
-			isLoading: false,
-			error: undefined,
-			isStale: false
-		};
-		vi.mocked(useQuery).mockReturnValue(mockResult);
+		vi.mocked(useQuery).mockReturnValue(mockProfileQueryResult(pendingUser) as never);
 
 		render(Layout);
 		await expect.element(page.getByText('Access Restricted')).toBeVisible();

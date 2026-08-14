@@ -40,7 +40,7 @@ describe('access modal', () => {
 	beforeEach(() => {
 		resetMockOptions();
 		mockPagePath.pathname = '/evaluations';
-		setupConvexMocks({ data: pendingUser });
+		setupConvexMocks({ data: { user: pendingUser, actor: { kind: 'staff' }, capabilities: {} } });
 		setupAuthMocks({
 			isAuthenticated: true,
 			user: { name: 'Test Pending', role: 'teacher', status: 'pending' }

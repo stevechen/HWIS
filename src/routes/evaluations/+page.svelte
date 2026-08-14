@@ -1,7 +1,5 @@
 <script lang="ts">
 	/* eslint-disable svelte/no-useless-children-snippet */
-	import { useQuery } from 'convex-svelte';
-	import { api } from '$convex/_generated/api';
 	import { isEditable } from '$convex/shared/evaluation_week';
 	import { goto } from '$app/navigation';
 	import { Plus } from '@lucide/svelte';
@@ -22,10 +20,12 @@
 		DeleteEvaluationDialog
 	} from '$lib/evaluations/components';
 	import { onDestroy } from 'svelte';
+	import { useQuery } from 'convex-svelte';
+	import { api } from '$convex/_generated/api';
+	import { useAuthProfile } from '$lib/auth-profile';
 
-	const user = useQuery(api.users.viewer, () => ({}));
-	const capabilities = useQuery(api.users.capabilities, () => ({}));
-	const currentUserId = $derived(user.data?._id);
+	const profile = useAuthProfile();
+	const currentUserId = $derived(profile?.data?.user?._id);
 
 	// Filter state
 	let studentFilter = $state('');
@@ -98,7 +98,7 @@
 	let selectedEvaluation = $state<EvaluationEntry | null>(null);
 
 	function canEditEntry(entry: EvaluationEntry): boolean {
-		const policy = capabilities.data?.capabilities;
+		const policy = profile?.data?.capabilities;
 		return (
 			isEditable(entry.timestamp) &&
 			Boolean(
@@ -123,7 +123,7 @@
 </script>
 
 <span data-current-user-id={currentUserId} class="hidden"></span>
-<span data-capabilities-ready={capabilities.data ? 'true' : 'false'} class="hidden"></span>
+<span data-capabilities-ready={profile?.data ? 'true' : 'false'} class="hidden"></span>
 
 <div class="mx-auto w-full max-w-6xl p-8 pt-0">
 	<!-- Filter Controls - Always at top, outside conditionals -->
