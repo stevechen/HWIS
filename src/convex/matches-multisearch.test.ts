@@ -31,4 +31,16 @@ describe('matchesMultiSearch (canonical)', () => {
 	test('student id partial matching works', () => {
 		expect(matchesMultiSearch('7001', 'Student 7001001')).toBe(true);
 	});
+
+	test('empty value never matches a non-empty filter', () => {
+		expect(matchesMultiSearch('test', '')).toBe(false);
+	});
+
+	test('empty filter and empty value both match', () => {
+		expect(matchesMultiSearch('', '')).toBe(true);
+	});
+
+	test('empty terms in a comma-separated filter are dropped', () => {
+		expect(matchesMultiSearch(',,Johnson,', 'Ms. Johnson')).toBe(true);
+	});
 });

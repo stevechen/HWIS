@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { transformEvaluation, sortEvaluations, matchesMultiSearch } from '$lib/evaluations/utils';
+import { transformEvaluation, sortEvaluations } from '$lib/evaluations/utils';
 import type { EvaluationEntry } from '$lib/components/timeline/types';
 
 describe('transformEvaluation', () => {
@@ -127,56 +127,5 @@ describe('sortEvaluations', () => {
 		const single = [{ _id: '1', value: 5, category: 'A', timestamp: 1000 }];
 		const result = sortEvaluations(single, false);
 		expect(result).toHaveLength(1);
-	});
-});
-
-describe('matchesMultiSearch', () => {
-	it('returns true for empty filter', () => {
-		expect(matchesMultiSearch('', 'Any Value')).toBe(true);
-	});
-
-	it('returns true for whitespace-only filter', () => {
-		expect(matchesMultiSearch('   ', 'Any Value')).toBe(true);
-	});
-
-	it('matches single term', () => {
-		expect(matchesMultiSearch('Johnson', 'Ms. Johnson')).toBe(true);
-	});
-
-	it('matches case-insensitive', () => {
-		expect(matchesMultiSearch('johnson', 'Ms. Johnson')).toBe(true);
-	});
-
-	it('matches partial string', () => {
-		expect(matchesMultiSearch('John', 'Ms. Johnson')).toBe(true);
-	});
-
-	it('matches any term in comma-separated list', () => {
-		expect(matchesMultiSearch('Smith, Johnson', 'Ms. Johnson')).toBe(true);
-		expect(matchesMultiSearch('Smith, Johnson', 'Mr. Smith')).toBe(true);
-	});
-
-	it('handles comma-separated with spaces', () => {
-		expect(matchesMultiSearch('Smith,  Johnson , Brown', 'Ms. Johnson')).toBe(true);
-	});
-
-	it('returns false when no terms match', () => {
-		expect(matchesMultiSearch('Brown', 'Ms. Johnson')).toBe(false);
-	});
-
-	it('handles empty value string', () => {
-		expect(matchesMultiSearch('test', '')).toBe(false);
-	});
-
-	it('handles both empty filter and value', () => {
-		expect(matchesMultiSearch('', '')).toBe(true);
-	});
-
-	it('trims whitespace from search terms', () => {
-		expect(matchesMultiSearch('  Johnson  ', 'Ms. Johnson')).toBe(true);
-	});
-
-	it('filters out empty terms from comma-separated list', () => {
-		expect(matchesMultiSearch(',,Johnson,', 'Ms. Johnson')).toBe(true);
 	});
 });

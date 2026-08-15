@@ -1,5 +1,5 @@
 import { SvelteSet } from 'svelte/reactivity';
-import { matchesMultiSearch } from '$lib/evaluations';
+import { matchesMultiSearch } from '$convex/shared/evaluation_utils';
 import type { Id } from '$convex/_generated/dataModel';
 
 export type PickerStudent = {
