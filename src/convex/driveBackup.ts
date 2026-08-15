@@ -84,8 +84,12 @@ async function uploadToDrive(
 export const backupToDrive = action({
 	args: {},
 	handler: async (ctx) => {
-		const viewer = (await ctx.runQuery(anyApi.users.viewer, {})) as AccessSubject | null;
-		if (!viewer || !canAccessAdminArea(viewer)) {
+		const profile = (await ctx.runQuery(anyApi.users.profile, {})) as {
+			user: AccessSubject | null;
+			actor: unknown;
+			capabilities: unknown;
+		};
+		if (!profile?.user || !canAccessAdminArea(profile.user)) {
 			throw new Error('Forbidden');
 		}
 

@@ -27,8 +27,8 @@ async function isAdminRequest(event: RequestEvent): Promise<boolean> {
 			token: event.locals.token,
 			convexUrl
 		});
-		const viewer = await client.query(api.users.viewer, {});
-		return viewer ? canAccessAdminArea(viewer) : false;
+		const profile = await client.query(api.users.profile, {});
+		return profile?.user ? canAccessAdminArea(profile.user) : false;
 	} catch {
 		return false;
 	}
