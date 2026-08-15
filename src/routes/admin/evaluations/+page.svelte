@@ -15,7 +15,8 @@
 	} from '$lib/evaluations/components';
 	import { Button } from '$lib/components/ui/button';
 	import { Loader, EyeClosed, Users } from '@lucide/svelte';
-	import { onDestroy, onMount, untrack } from 'svelte';
+	import { createPaginatedList } from '$lib/stores/paginatedList.svelte';
+	import { onDestroy } from 'svelte';
 
 	// Filter states
 	let studentFilter = $state('');
@@ -48,17 +49,8 @@
 	const displayState = createEvaluationDisplayState();
 
 	// Pagination state
-	let cursor = $state<string | null>(null);
-	let accumulatedEvaluations = $state<EvaluationEntry[]>([]);
-	let isDone = $state(false);
-	let isLoadingMore = $state(false);
-
-	// Track previous filter values to detect changes
-	// Use regular variables (not $state) to avoid infinite reactive loops
-	let prevStudentFilter = '';
-	let prevTeacherFilter = '';
-	let prevShowUnenrolled = false;
-	let prevSortAscending = false;
+	const paginated = createPaginatedList<EvaluationEntry>('100px');
+	let sentinelElement = $state<HTMLElement | null>(null);
 
 	// Determine if any filters are active
 	const hasActiveFilters = $derived(!!(studentFilter?.trim() || teacherFilter?.trim()));
@@ -70,24 +62,14 @@
 
 	// Reset pagination when filters or sort change
 	$effect(() => {
-		const filtersChanged =
-			studentFilter !== prevStudentFilter ||
-			teacherFilter !== prevTeacherFilter ||
-			showUnenrolled !== prevShowUnenrolled ||
-			displayState.sortAscending !== prevSortAscending;
-
-		if (filtersChanged) {
-			cursor = null;
-			accumulatedEvaluations = [];
-			isDone = false;
-			isLoadingMore = false;
-
-			// Update previous values
-			prevStudentFilter = studentFilter;
-			prevTeacherFilter = teacherFilter;
-			prevShowUnenrolled = showUnenrolled;
-			prevSortAscending = displayState.sortAscending;
-		}
+		paginated.reset(
+			JSON.stringify({
+				studentFilter,
+				teacherFilter,
+				showUnenrolled,
+				sortAscending: displayState.sortAscending
+			})
+		);
 	});
 
 	// Query args for non-paginated query (used when filters are active)
@@ -104,7 +86,7 @@
 		showUnenrolled,
 		sortAscending: displayState.sortAscending,
 		paginationOpts: {
-			cursor: cursor,
+			cursor: paginated.cursor,
 			numItems: 20
 		}
 	});
@@ -129,78 +111,28 @@
 			const sorted = displayState.sortAscending
 				? results.sort((a, b) => a.timestamp - b.timestamp)
 				: results.sort((a, b) => b.timestamp - a.timestamp);
-			accumulatedEvaluations = sorted;
-			isDone = true;
-			isLoadingMore = false;
+			paginated.accept({ page: sorted, isDone: true, continueCursor: null });
 		}
 	});
 
 	// Handle paginated query results - accumulate pages (when no filters)
 	$effect(() => {
-		if (!hasActiveFilters && paginatedQuery.data) {
-			const newPage = paginatedQuery.data.page.map(transformEvaluation);
-
-			// Use untrack to read cursor without tracking it (prevents infinite loop)
-			const currentCursor = untrack(() => cursor);
-
-			if (currentCursor === null) {
-				// First load or filter reset - replace all
-				accumulatedEvaluations = newPage;
-			} else {
-				// Append to existing, avoiding duplicates
-				// Use untrack to read accumulatedEvaluations without tracking it
-				const existing = untrack(() => accumulatedEvaluations);
-				const existingIds = new Set(existing.map((e) => e._id));
-				const uniqueNew = newPage.filter((e) => !existingIds.has(e._id));
-				accumulatedEvaluations = [...existing, ...uniqueNew];
-			}
-
-			isDone = paginatedQuery.data.isDone;
-			isLoadingMore = false;
-		}
+		if (hasActiveFilters || !Array.isArray(paginatedQuery.data?.page)) return;
+		paginated.accept({
+			page: paginatedQuery.data.page.map(transformEvaluation),
+			isDone: paginatedQuery.data.isDone,
+			continueCursor: paginatedQuery.data.continueCursor
+		});
 	});
 
-	// Load more function (only used for paginated/infinite scroll mode)
-	function loadMore() {
-		// Don't load more if filters are active (using non-paginated query)
-		if (hasActiveFilters) return;
-		if (isDone || isLoadingMore || paginatedQuery.isLoading) return;
-		if (!paginatedQuery.data?.continueCursor) return;
-
-		isLoadingMore = true;
-		cursor = paginatedQuery.data.continueCursor;
-	}
-
-	// Intersection observer for infinite scroll
-	let sentinelElement: HTMLElement | null = $state(null);
-	let observer: IntersectionObserver | null = null;
-
-	onMount(() => {
-		observer = new IntersectionObserver(
-			(entries) => {
-				if (entries[0].isIntersecting && !isDone && !isLoadingMore) {
-					loadMore();
-				}
-			},
-			{ rootMargin: '100px' }
-		);
-
-		if (sentinelElement) {
-			observer.observe(sentinelElement);
-		}
+	// Intersection observer for infinite scroll — owned by the paginated store
+	$effect(() => {
+		paginated.bindSentinel(sentinelElement);
 	});
 
 	onDestroy(() => {
-		observer?.disconnect();
+		paginated.destroy();
 		filterSummary.cleanup();
-	});
-
-	// Re-observe when sentinel changes
-	$effect(() => {
-		if (sentinelElement && observer) {
-			observer.disconnect();
-			observer.observe(sentinelElement);
-		}
 	});
 
 	function handleCardClick(_entry: EvaluationEntry): void {
@@ -253,7 +185,7 @@
 		{/snippet}
 	</EvaluationsControls>
 
-	{#if (hasActiveFilters ? nonPaginatedQuery.isLoading : paginatedQuery.isLoading) && cursor === null}
+	{#if (hasActiveFilters ? nonPaginatedQuery.isLoading : paginatedQuery.isLoading) && paginated.cursor === null}
 		<EvaluationStates state="loading" testId="admin-evaluations.loading" />
 	{:else if hasActiveFilters ? nonPaginatedQuery.error : paginatedQuery.error}
 		<EvaluationStates
@@ -262,7 +194,7 @@
 			errorMessage={(hasActiveFilters ? nonPaginatedQuery.error : paginatedQuery.error)?.message ||
 				'An error occurred'}
 		/>
-	{:else if accumulatedEvaluations.length === 0}
+	{:else if paginated.items.length === 0}
 		<EvaluationStates
 			state="empty"
 			testId="admin-evaluations.empty"
@@ -278,7 +210,7 @@
 			detailsTestId="admin-evaluations.details"
 			unenrolledTestId="admin-evaluations.unenrolled"
 			emptyTestId="admin-evaluations.empty-timeline"
-			evaluations={accumulatedEvaluations}
+			evaluations={paginated.items}
 			showStudentName={true}
 			{showTeacherName}
 			enableCardClick={true}
@@ -294,14 +226,14 @@
 		<div data-testid="admin-evaluations.sentinel" bind:this={sentinelElement} class="h-4"></div>
 
 		<!-- Loading indicator -->
-		{#if isLoadingMore}
+		{#if paginated.isLoadingMore}
 			<div data-testid="admin-evaluations.loading-more" class="flex justify-center py-4">
 				<Loader class="text-muted-foreground size-6 animate-spin" />
 			</div>
 		{/if}
 
 		<!-- End of list indicator -->
-		{#if isDone && accumulatedEvaluations.length > 0}
+		{#if paginated.isDone && paginated.items.length > 0}
 			<div
 				data-testid="admin-evaluations.no-more"
 				class="text-muted-foreground py-4 text-center text-sm"
@@ -314,6 +246,6 @@
 	<FilterSummaryToast
 		testId="admin-evaluations.filter-summary"
 		show={filterSummary.showSummary}
-		count={accumulatedEvaluations.length}
+		count={paginated.items.length}
 	/>
 </div>

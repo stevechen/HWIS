@@ -18,9 +18,10 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import Label from '$lib/components/ui/label/label.svelte';
-	import { onDestroy, onMount, untrack } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { parseCsv, mapCsvRowToStudent } from './import-utils';
+	import { createPaginatedList } from '$lib/stores/paginatedList.svelte';
 	import { HOUSES, HOUSE_COLORS, type House } from '$lib/constants/houses';
 	import { cn } from '$lib/utils.js';
 
@@ -51,19 +52,14 @@
 	let selectedHouse = $state<string>('');
 	let selectedStatus = $state<string>('');
 	let selectedClass = $state<string>('');
-	let studentCursor = $state<string | null>(null);
-	let accumulatedStudents = $state<Student[]>([]);
-	let isStudentListDone = $state(false);
-	let isLoadingMoreStudents = $state(false);
 	let sortBy = $state<'studentId' | 'englishName' | 'chineseName' | 'grade' | 'house'>(
 		'englishName'
 	);
 	let sortDirection = $state<'asc' | 'desc'>('asc');
 	let sentinelElement = $state<HTMLElement | null>(null);
-	let observer: IntersectionObserver | null = null;
-	let previousQueryKey = '';
+	const paginated = createPaginatedList<Student>();
 	const studentsQueryArgs = $derived({
-		paginationOpts: { cursor: studentCursor, numItems: 5000 },
+		paginationOpts: { cursor: paginated.cursor, numItems: 5000 },
 		search: searchQuery || undefined,
 		status: selectedStatus ? (selectedStatus as 'Enrolled' | 'Not Enrolled') : undefined,
 		grade: selectedGrade ? Number(selectedGrade) : undefined,
@@ -78,51 +74,23 @@
 	const client = useConvexClient();
 
 	$effect(() => {
-		const queryKey = JSON.stringify({
-			searchQuery,
-			selectedGrade,
-			selectedHouse,
-			selectedStatus,
-			selectedClass,
-			sortBy,
-			sortDirection
-		});
-		if (previousQueryKey && previousQueryKey !== queryKey) {
-			studentCursor = null;
-			accumulatedStudents = [];
-			isStudentListDone = false;
-			isLoadingMoreStudents = false;
-		}
-		previousQueryKey = queryKey;
+		paginated.reset(
+			JSON.stringify({
+				searchQuery,
+				selectedGrade,
+				selectedHouse,
+				selectedStatus,
+				selectedClass,
+				sortBy,
+				sortDirection
+			})
+		);
 	});
 
 	$effect(() => {
-		if (!studentsQuery.data) return;
-
-		if (!Array.isArray(studentsQuery.data.page)) return;
-		const newPage = studentsQuery.data.page as Student[];
-		const currentCursor = untrack(() => studentCursor);
-		if (currentCursor === null) {
-			accumulatedStudents = newPage;
-		} else {
-			const existing = untrack(() => accumulatedStudents);
-			const existingIds = new Set(existing.map((student) => student._id));
-			accumulatedStudents = [
-				...existing,
-				...newPage.filter((student) => !existingIds.has(student._id))
-			];
-		}
-		isStudentListDone = studentsQuery.data.isDone;
-		isLoadingMoreStudents = false;
+		if (!Array.isArray(studentsQuery.data?.page)) return;
+		paginated.accept(studentsQuery.data);
 	});
-
-	function loadMoreStudents() {
-		if (isStudentListDone || isLoadingMoreStudents || studentsQuery.isLoading) return;
-		if (!studentsQuery.data?.continueCursor) return;
-
-		isLoadingMoreStudents = true;
-		studentCursor = studentsQuery.data.continueCursor;
-	}
 
 	function toggleSort(field: typeof sortBy) {
 		if (sortBy === field) {
@@ -152,20 +120,10 @@
 	});
 
 	$effect(() => {
-		if (!Array.isArray(studentsQuery.data?.page) || studentsQuery.data.isDone) return;
-		if (!observer) {
-			observer = new IntersectionObserver(
-				(entries) => {
-					if (entries[0]?.isIntersecting && !isStudentListDone) loadMoreStudents();
-				},
-				{ rootMargin: '200px' }
-			);
-		}
-		if (sentinelElement) observer.observe(sentinelElement);
-		return () => observer?.disconnect();
+		paginated.bindSentinel(sentinelElement);
 	});
 
-	onDestroy(() => observer?.disconnect());
+	onDestroy(() => paginated.destroy());
 
 	// Dialog visibility
 	let showForm = $state(false);
@@ -489,7 +447,7 @@
 	}
 
 	const filteredStudents = $derived(
-		accumulatedStudents.filter((s: Student) => {
+		paginated.items.filter((s: Student) => {
 			if (selectedStatus && s.status !== selectedStatus) return false;
 			if (selectedHouse) {
 				if (selectedHouse === '__unassigned') {
@@ -608,7 +566,7 @@
 			</div>
 		</div>
 
-		{#if studentsQuery.isLoading && studentCursor === null}
+		{#if studentsQuery.isLoading && paginated.cursor === null}
 			<div class="text-muted-foreground flex flex-1 items-center justify-center text-center">
 				Loading students...
 			</div>
@@ -759,7 +717,7 @@
 					</Table.Body>
 				</Table.Root>
 			</div>
-			{#if isLoadingMoreStudents}
+			{#if paginated.isLoadingMore}
 				<div data-testid="admin-students.loading-more" class="flex justify-center py-4">
 					<Loader class="text-muted-foreground size-6 animate-spin" />
 				</div>

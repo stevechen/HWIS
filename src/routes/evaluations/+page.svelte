@@ -22,6 +22,7 @@
 	import { onDestroy } from 'svelte';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
+	import { createPaginatedList } from '$lib/stores/paginatedList.svelte';
 	import { useAuthProfile } from '$lib/auth-profile';
 
 	const profile = useAuthProfile();
@@ -35,11 +36,7 @@
 	const displayState = createEvaluationDisplayState();
 
 	// Pagination state
-	let cursor = $state<string | null>(null);
-	let accumulatedEvaluations = $state<EvaluationEntry[]>([]);
-
-	// Track previous filter value to detect changes
-	let prevStudentFilter = '';
+	const paginated = createPaginatedList<EvaluationEntry>();
 
 	// Update filter summary when filter changes
 	$effect(() => {
@@ -48,11 +45,7 @@
 
 	// Reset pagination when filter changes
 	$effect(() => {
-		if (studentFilter !== prevStudentFilter) {
-			cursor = null;
-			accumulatedEvaluations = [];
-			prevStudentFilter = studentFilter;
-		}
+		paginated.reset(studentFilter);
 	});
 
 	// Toggle sort
@@ -88,7 +81,11 @@
 					isAdmin: false
 				})
 			);
-			accumulatedEvaluations = sortEvaluations(evals, displayState.sortAscending);
+			paginated.accept({
+				page: sortEvaluations(evals, displayState.sortAscending),
+				isDone: true,
+				continueCursor: null
+			});
 		}
 	});
 
@@ -150,7 +147,7 @@
 		{/snippet}
 	</EvaluationsControls>
 
-	{#if evaluationsQuery.isLoading && cursor === null}
+	{#if evaluationsQuery.isLoading && paginated.cursor === null}
 		<EvaluationStates state="loading" testId="evaluations.loading" message="Loading history..." />
 	{:else if evaluationsQuery.error}
 		<EvaluationStates
@@ -158,7 +155,7 @@
 			testId="evaluations.error"
 			errorMessage={evaluationsQuery.error.message}
 		/>
-	{:else if accumulatedEvaluations.length === 0}
+	{:else if paginated.items.length === 0}
 		<EvaluationStates
 			state="empty"
 			testId="evaluations.empty"
@@ -182,7 +179,7 @@
 			sortTestId="evaluations.sort"
 			detailsTestId="evaluations.details"
 			emptyTestId="evaluations.empty-timeline"
-			evaluations={accumulatedEvaluations}
+			evaluations={paginated.items}
 			showStudentName={true}
 			showTeacherName={false}
 			enableCardClick={true}
@@ -199,7 +196,7 @@
 		<FilterSummaryToast
 			testId="evaluations.filter-summary"
 			show={filterSummary.showSummary}
-			count={accumulatedEvaluations.length}
+			count={paginated.items.length}
 			filterLabel="student"
 			filterValue={studentFilter}
 		/>
