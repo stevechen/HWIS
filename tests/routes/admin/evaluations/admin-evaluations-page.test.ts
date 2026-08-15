@@ -34,11 +34,57 @@ vi.mock('convex-svelte', () => ({
 }));
 
 // Import after mocks
+import { getFunctionName } from 'convex/server';
+import { useQuery } from 'convex-svelte';
+import { api } from '$convex/_generated/api';
 import AdminEvaluationsPage from '$src/routes/admin/evaluations/+page.svelte';
 
 describe('Admin Evaluations Page', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+	});
+
+	describe('Query Gating', () => {
+		function invokeQueryArgsFor(queryFn: unknown): unknown {
+			const calls = vi.mocked(useQuery).mock.calls;
+			const address = getFunctionName(queryFn as never);
+			const call = calls.find(([apiFn]) => getFunctionName(apiFn as never) === address);
+			expect(call, `expected useQuery to be called for ${address}`).toBeDefined();
+			const argsClosure = call![1] as () => unknown;
+			return argsClosure();
+		}
+
+		it('skips the non-paginated query when no filters are active', async () => {
+			render(AdminEvaluationsPage);
+
+			const args = invokeQueryArgsFor(api.evaluations.listAllEvaluations);
+			expect(args).toBe('skip');
+		});
+
+		it('skips the paginated query when filters are active', async () => {
+			render(AdminEvaluationsPage);
+			const studentFilter = page.getByRole('textbox', { name: 'Filter by student name' });
+			await studentFilter.fill('Alice');
+
+			const args = invokeQueryArgsFor(api.evaluations.listAllEvaluationsPaginated);
+			expect(args).toBe('skip');
+		});
+
+		it('uses real args for the paginated query when no filters are active', async () => {
+			render(AdminEvaluationsPage);
+
+			const args = invokeQueryArgsFor(api.evaluations.listAllEvaluationsPaginated);
+			expect(args).not.toBe('skip');
+		});
+
+		it('uses real args for the non-paginated query when filters are active', async () => {
+			render(AdminEvaluationsPage);
+			const teacherFilter = page.getByRole('textbox', { name: 'Filter by teacher' });
+			await teacherFilter.fill('Johnson');
+
+			const args = invokeQueryArgsFor(api.evaluations.listAllEvaluations);
+			expect(args).not.toBe('skip');
+		});
 	});
 
 	describe('Static Structure', () => {

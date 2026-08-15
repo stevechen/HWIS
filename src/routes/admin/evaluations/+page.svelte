@@ -92,15 +92,15 @@
 	});
 
 	// Non-paginated query for filtered results (fetches all, filters server-side)
-	const nonPaginatedQuery = useQuery(
-		api.evaluations.listAllEvaluations,
-		() => nonPaginatedQueryArgs
+	// Skipped when no filters are active — only the paginated query subscribes then.
+	const nonPaginatedQuery = useQuery(api.evaluations.listAllEvaluations, () =>
+		hasActiveFilters ? nonPaginatedQueryArgs : 'skip'
 	);
 
 	// Paginated query for unfiltered results (infinite scroll)
-	const paginatedQuery = useQuery(
-		api.evaluations.listAllEvaluationsPaginated,
-		() => paginatedQueryArgs
+	// Skipped when filters are active — only the non-paginated query subscribes then.
+	const paginatedQuery = useQuery(api.evaluations.listAllEvaluationsPaginated, () =>
+		hasActiveFilters ? 'skip' : paginatedQueryArgs
 	);
 
 	// Handle non-paginated query results (when filters are active)
