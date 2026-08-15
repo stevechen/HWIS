@@ -307,9 +307,11 @@ export const createEvaluationForStudent = mutation({
 			throw new Error('Failed to resolve teacher user for seeded evaluation');
 		}
 
-		// Find the student
-		const students = await ctx.db.query('students').collect();
-		const student = students.find((s) => s.studentId === args.studentId);
+		// Find the student via the by_studentId index (avoids a full table scan)
+		const student = await ctx.db
+			.query('students')
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
+			.first();
 		if (!student) {
 			throw new Error(`Student with ID "${args.studentId}" not found`);
 		}
