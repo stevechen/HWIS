@@ -49,8 +49,11 @@ describe('dataFactory.createEvaluationForStudent', () => {
 		const auditLog = await t.run((ctx) =>
 			ctx.db
 				.query('audit_logs')
-				.withIndex('by_target', (q) =>
-					q.eq('targetTable', 'evaluations').eq('targetId', evaluationId.toString())
+				.filter((q) =>
+					q.and(
+						q.eq(q.field('targetTable'), 'evaluations'),
+						q.eq(q.field('targetId'), evaluationId.toString())
+					)
 				)
 				.first()
 		);
