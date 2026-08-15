@@ -22,7 +22,7 @@ export const load = async ({ locals }: { locals: { token?: string } }) => {
 	const fetchViewer = async () => {
 		for (let attempt = 0; attempt < 3; attempt += 1) {
 			try {
-				return await client.query(api.users.viewer, {});
+				return await client.query(api.users.profile, {});
 			} catch {
 				if (attempt === 2) return null;
 				await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
@@ -32,15 +32,14 @@ export const load = async ({ locals }: { locals: { token?: string } }) => {
 	};
 
 	const viewer = await fetchViewer();
-	if (!viewer) return {};
+	if (!viewer?.user) return {};
 
-	if (!hasApplicationAccess(viewer)) return {};
+	const user = viewer.user;
 
-	if (isStudent(viewer) && 'studentId' in viewer) {
-		throw redirect(
-			302,
-			viewer.studentId ? `/evaluations/student/${viewer.studentId}` : '/evaluations'
-		);
+	if (!hasApplicationAccess(user)) return {};
+
+	if (isStudent(user) && 'studentId' in user && user.studentId) {
+		throw redirect(302, `/evaluations/student/${user.studentId}`);
 	}
-	throw redirect(302, canAccessAdminArea(viewer) ? '/admin' : '/evaluations');
+	throw redirect(302, canAccessAdminArea(user) ? '/admin' : '/evaluations');
 };
