@@ -348,23 +348,6 @@ export const createEvaluationForStudent = mutation({
 			e2eTag: args.e2eTag || getE2ETag()
 		});
 
-		// Also create an audit log for the evaluation creation
-		await ctx.db.insert('audit_logs', {
-			action: 'create_evaluation',
-			performerId: teacherId,
-			targetTable: 'evaluations',
-			targetId: evaluationId.toString(),
-			oldValue: null,
-			newValue: {
-				studentId: student._id,
-				value: 1,
-				categoryId: category._id,
-				categoryName: category.name
-			},
-			timestamp: now,
-			e2eTag: args.e2eTag || getE2ETag()
-		});
-
 		return evaluationId;
 	}
 });

@@ -37,6 +37,26 @@ describe('dataFactory.createEvaluationForStudent', () => {
 		expect(evaluation?.e2eTag).toBe('ev-tag');
 	});
 
+	it('does not create an audit log for seeded evaluations', async () => {
+		const t = convexTest(schema, modules);
+		await seedAdminAndStudent(t, 'EV1005');
+
+		const evaluationId = await t.mutation(api.dataFactory.createEvaluationForStudent, {
+			studentId: 'EV1005',
+			e2eTag: 'ev-tag'
+		});
+
+		const auditLog = await t.run((ctx) =>
+			ctx.db
+				.query('audit_logs')
+				.withIndex('by_target', (q) =>
+					q.eq('targetTable', 'evaluations').eq('targetId', evaluationId.toString())
+				)
+				.first()
+		);
+		expect(auditLog).toBeNull();
+	});
+
 	it('matches the seeded student even when many other students exist', async () => {
 		const t = convexTest(schema, modules);
 		const seededStudentId = await seedAdminAndStudent(t, 'EV1002');
