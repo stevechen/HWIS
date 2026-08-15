@@ -91,7 +91,7 @@
 					</div>
 				</Card.Content>
 			</Card.Root>
-		{:else if dbUser.isLoading}
+		{:else if profile?.isLoading}
 			<Card.Root>
 				<Card.Content class="pt-6">
 					<div class="flex flex-col items-center justify-center gap-4">
