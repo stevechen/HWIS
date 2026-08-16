@@ -13,7 +13,7 @@ jobs:
       PUBLIC_CONVEX_URL: http://127.0.0.1:3210
       PUBLIC_CONVEX_SITE_URL: http://127.0.0.1:3211
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -43,7 +43,7 @@ jobs:
       PUBLIC_CONVEX_URL: http://127.0.0.1:3210
       PUBLIC_CONVEX_SITE_URL: http://127.0.0.1:3211
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: oven-sh/setup-bun@v2
         with:
