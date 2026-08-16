@@ -107,6 +107,9 @@ export default defineSchema({
 		details: v.string(),
 		timestamp: v.number(),
 		semesterId: v.string(),
+		// Groups evaluations awarded together in one call. Rows created before
+		// this column existed fall back to a derived key on the client.
+		batchId: v.optional(v.string()),
 		e2eTag: v.optional(v.string())
 	})
 		.index('by_studentId', ['studentId'])

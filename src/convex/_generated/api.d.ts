@@ -35,6 +35,7 @@ import type * as shared_evaluation_utils from "../shared/evaluation_utils.js";
 import type * as shared_evaluation_week from "../shared/evaluation_week.js";
 import type * as shared_houses from "../shared/houses.js";
 import type * as shared_migration_plan from "../shared/migration_plan.js";
+import type * as shared_recentActions from "../shared/recentActions.js";
 import type * as shared_restore_plan from "../shared/restore_plan.js";
 import type * as shared_student from "../shared/student.js";
 import type * as students from "../students.js";
@@ -79,6 +80,7 @@ declare const fullApi: ApiFromModules<{
   "shared/evaluation_week": typeof shared_evaluation_week;
   "shared/houses": typeof shared_houses;
   "shared/migration_plan": typeof shared_migration_plan;
+  "shared/recentActions": typeof shared_recentActions;
   "shared/restore_plan": typeof shared_restore_plan;
   "shared/student": typeof shared_student;
   students: typeof students;

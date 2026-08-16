@@ -1,4 +1,5 @@
 import { query, mutation } from './_generated/server';
+import type { Id } from './_generated/dataModel';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import type { EnrichedEvaluation } from './shared/enrichment';
@@ -13,6 +14,8 @@ import {
 import { getWeekNumber, formatDateRange, matchesMultiSearch } from './shared/evaluation_utils';
 import { weekStartOf, weekEndOf, isEditable } from './shared/evaluation_week';
 import { enrichEvaluations } from './shared/enrichment';
+import type { RecentBatch, RecentBatchEvaluation } from './shared/recentActions';
+import { derivedBatchKey } from './shared/recentActions';
 import { resolveStudentFromEmail, isStudentEmailAddress } from './shared/student';
 import {
 	canReadTeacherHistory,
@@ -62,6 +65,9 @@ export const create = mutation({
 		}
 
 		const timestamp = Date.now();
+		// All rows created in one call share a batch so teachers can correct the
+		// whole group (or a subset) later from the Recent Actions panel.
+		const batchId = crypto.randomUUID();
 		const evaluationIds: string[] = [];
 
 		for (const studentId of args.studentIds) {
@@ -73,6 +79,7 @@ export const create = mutation({
 				details: args.details,
 				timestamp,
 				semesterId: args.semesterId,
+				batchId,
 				e2eTag: args.e2eTag
 			});
 
@@ -88,7 +95,8 @@ export const create = mutation({
 					studentId,
 					value: args.value,
 					categoryId: args.categoryId,
-					categoryName: category.name
+					categoryName: category.name,
+					batchId
 				},
 				timestamp,
 				e2eTag: args.e2eTag
@@ -202,6 +210,79 @@ export const listRecent = query({
 		}
 
 		return results.sort((a, b) => b.timestamp - a.timestamp);
+	}
+});
+
+/**
+ * Groups the current user's recent evaluations into the batches they were
+ * created in. Rows created together share a `batchId`; rows created before
+ * that column existed fall back to a derived key (timestamp + value + category
+ * + details + semester) so older batches still surface.
+ *
+ * Returns recent batches (newest first) with enriched per-student rows. The
+ * client decides which batches are actionable (calendar lock + role), keeping
+ * this query cache-friendly.
+ */
+export const listRecentBatches = query({
+	args: {},
+	handler: async (ctx) => {
+		const authUser = await getAuthenticatedUser(ctx);
+		if (!authUser) return [];
+
+		const authId = authUser.authId || (typeof authUser._id === 'string' ? authUser._id : undefined);
+		if (!authId) return [];
+
+		const userDoc = await ctx.db
+			.query('users')
+			.withIndex('by_authId', (q) => q.eq('authId', authId))
+			.first();
+
+		if (!userDoc) return [];
+
+		const actor: AuthorizationActor = { kind: 'staff', subject: userDoc };
+		const caps = getEvaluationCapabilities(actor);
+		if (!caps.viewOwnEvaluation) return [];
+
+		const recent = await ctx.db
+			.query('evaluations')
+			.withIndex('by_teacherId', (q) => q.eq('teacherId', userDoc._id))
+			.order('desc')
+			.take(500);
+
+		const enriched = await enrichEvaluations(recent, ctx);
+
+		const groups = new Map<string, RecentBatch>();
+
+		for (const eval_ of enriched) {
+			const key = eval_.batchId ?? derivedBatchKey(eval_);
+			const item: RecentBatchEvaluation = {
+				id: eval_._id,
+				studentId: eval_.studentId,
+				englishName: eval_.englishName,
+				className: eval_.class ? `Grade ${eval_.grade} ${eval_.class}` : undefined,
+				value: eval_.value,
+				categoryId: eval_.categoryId,
+				category: eval_.category,
+				details: eval_.details,
+				timestamp: eval_.timestamp
+			};
+
+			const existing = groups.get(key);
+			if (existing) {
+				existing.evaluations.push(item);
+			} else {
+				groups.set(key, { batchId: key, createdAt: eval_.timestamp, evaluations: [item] });
+			}
+		}
+
+		return Array.from(groups.values())
+			.map((batch) => ({
+				...batch,
+				evaluations: [...batch.evaluations].sort((a, b) =>
+					a.englishName.localeCompare(b.englishName)
+				)
+			}))
+			.sort((a, b) => b.createdAt - a.createdAt);
 	}
 });
 
@@ -660,6 +741,112 @@ export const update = mutation({
 		});
 
 		return { success: true };
+	}
+});
+
+export const updateMany = mutation({
+	args: {
+		ids: v.array(v.id('evaluations')),
+		value: v.optional(v.number()),
+		categoryId: v.optional(v.id('point_categories')),
+		details: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		const userDoc = await requireUserProfileForSensitiveOperation(ctx);
+
+		if (args.categoryId !== undefined) {
+			const category = await ctx.db.get(args.categoryId);
+			if (!category) {
+				throw new Error(`Category with ID ${args.categoryId} does not exist`);
+			}
+		}
+
+		const updates: { value?: number; categoryId?: Id<'point_categories'>; details?: string } = {};
+		if (args.value !== undefined) updates.value = args.value;
+		if (args.categoryId !== undefined) updates.categoryId = args.categoryId;
+		if (args.details !== undefined) updates.details = args.details;
+
+		const timestamp = Date.now();
+
+		// All-or-nothing: any locked, unauthorized, or missing row aborts the
+		// whole call before any row is touched (mutations are transactional).
+		for (const id of args.ids) {
+			const evaluation = await ctx.db.get(id);
+			if (!evaluation) {
+				throw new Error(`Evaluation not found: ${id}`);
+			}
+
+			requireEvaluationEdit(userDoc, evaluation);
+
+			if (!isEditable(evaluation.timestamp)) {
+				throw new Error(
+					'This evaluation can no longer be edited. Evaluations are locked the Monday after the week ends (Mon 00:00). You can only edit evaluations within their Monday-to-Sunday week.'
+				);
+			}
+
+			await ctx.db.patch(id, updates);
+
+			await ctx.db.insert('audit_logs', {
+				action: 'update_evaluation',
+				performerId: userDoc._id,
+				targetTable: 'evaluations',
+				targetId: id.toString(),
+				oldValue: { ...evaluation },
+				newValue: {
+					...updates,
+					...(evaluation.batchId ? { batchId: evaluation.batchId } : {})
+				},
+				timestamp
+			});
+		}
+
+		return { success: true, count: args.ids.length };
+	}
+});
+
+export const removeMany = mutation({
+	args: {
+		ids: v.array(v.id('evaluations'))
+	},
+	handler: async (ctx, args) => {
+		const userDoc = await requireUserProfile(ctx);
+
+		const timestamp = Date.now();
+
+		for (const id of args.ids) {
+			const evaluation = await ctx.db.get(id);
+			if (!evaluation) {
+				throw new Error(`Evaluation not found: ${id}`);
+			}
+
+			requireEvaluationDelete(userDoc, evaluation);
+
+			if (!isEditable(evaluation.timestamp)) {
+				throw new Error(
+					'This evaluation can no longer be deleted. Evaluations are locked the Monday after the week ends (Mon 00:00). You can only edit evaluations within their Monday-to-Sunday week.'
+				);
+			}
+
+			await ctx.db.delete(id);
+
+			await ctx.db.insert('audit_logs', {
+				action: 'delete_evaluation',
+				performerId: userDoc._id,
+				targetTable: 'evaluations',
+				targetId: id.toString(),
+				oldValue: {
+					studentId: evaluation.studentId,
+					value: evaluation.value,
+					categoryId: evaluation.categoryId,
+					...(evaluation.batchId ? { batchId: evaluation.batchId } : {})
+				},
+				newValue: null,
+				timestamp,
+				e2eTag: evaluation.e2eTag
+			});
+		}
+
+		return { success: true, count: args.ids.length };
 	}
 });
 

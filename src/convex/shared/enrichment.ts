@@ -11,6 +11,7 @@ export type EnrichedEvaluation = {
 	details: string;
 	timestamp: number;
 	semesterId: string;
+	batchId?: string;
 	englishName: string;
 	chineseName: string;
 	studentIdCode: string;

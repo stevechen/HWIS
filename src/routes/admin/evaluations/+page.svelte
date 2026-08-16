@@ -11,7 +11,8 @@
 		FilterInput,
 		FilterSummaryToast,
 		EvaluationStates,
-		EvaluationsControls
+		EvaluationsControls,
+		RecentActionsPanel
 	} from '$lib/evaluations/components';
 	import { Button } from '$lib/components/ui/button';
 	import { Loader, EyeClosed, Users } from '@lucide/svelte';
@@ -141,6 +142,8 @@
 </script>
 
 <div class="mx-auto max-w-6xl p-8 pt-0">
+	<RecentActionsPanel panelTestId="admin-recent-actions" />
+
 	<!-- Filters Section - Sticky for easy access while scrolling -->
 	<EvaluationsControls
 		sortTestId="admin-evaluations.sort"

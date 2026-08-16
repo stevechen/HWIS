@@ -17,7 +17,8 @@
 		EvaluationStates,
 		EvaluationsControls,
 		EditEvaluationDialog,
-		DeleteEvaluationDialog
+		DeleteEvaluationDialog,
+		RecentActionsPanel
 	} from '$lib/evaluations/components';
 	import { onDestroy } from 'svelte';
 	import { useQuery } from 'convex-svelte';
@@ -123,6 +124,8 @@
 <span data-capabilities-ready={profile?.data ? 'true' : 'false'} class="hidden"></span>
 
 <div class="mx-auto w-full max-w-6xl p-8 pt-0">
+	<RecentActionsPanel panelTestId="recent-actions" />
+
 	<!-- Filter Controls - Always at top, outside conditionals -->
 	<EvaluationsControls
 		sortTestId="evaluations.sort"
