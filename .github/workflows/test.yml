@@ -35,7 +35,9 @@ jobs:
         run: bun run test:unit -- --run
 
       - name: Component tests
-        run: bun run test:component -- --run
+        run: |
+          printf 'PUBLIC_CONVEX_URL=%s\nPUBLIC_CONVEX_SITE_URL=%s\n' "$PUBLIC_CONVEX_URL" "$PUBLIC_CONVEX_SITE_URL" > .env
+          bun run test:component -- --run
 
   e2e:
     runs-on: ubuntu-latest
