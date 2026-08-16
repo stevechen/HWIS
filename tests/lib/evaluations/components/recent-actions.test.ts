@@ -45,6 +45,12 @@ const mockCategories = [
 	{ _id: 'cat-behavior', name: 'Behavior' }
 ];
 
+// Returns the args function passed to the Nth useQuery call so tests can
+// assert the deferred-subscription contract ('skip' while closed).
+function queryArgsAt(index = 0): () => unknown {
+	return mockUseQuery.mock.calls[index]?.[1] as () => unknown;
+}
+
 function makeBatch(overrides: Partial<RecentBatch> = {}): RecentBatch {
 	const timestamp = Date.now();
 	return {
@@ -84,26 +90,27 @@ describe('RecentActionsPanel', () => {
 		queryData = [];
 	});
 
-	it('renders nothing when there are no batches', async () => {
-		render(PanelWithProfile, { props: { profile: makeProfile(false) } });
+	it('hides the chip when hasRecent is false', async () => {
+		queryData = [makeBatch()];
+		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: false } });
 		await expect
 			.element(page.getByRole('button', { name: 'Expand recent actions' }))
 			.not.toBeInTheDocument();
 	});
 
-	it('renders a folded chip with the actionable count by default', async () => {
-		queryData = [makeBatch(), makeBatch({ batchId: 'batch-2' })];
-		render(PanelWithProfile, { props: { profile: makeProfile(false) } });
+	it('shows an icon-only chip when hasRecent is true', async () => {
+		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
 
 		await expect
 			.element(page.getByRole('button', { name: 'Expand recent actions' }))
 			.toBeInTheDocument();
-		await expect.element(page.getByText('2 actions')).toBeInTheDocument();
+		await expect.element(page.getByText('1 action')).not.toBeInTheDocument();
+		await expect.element(page.getByText('2 actions')).not.toBeInTheDocument();
 	});
 
 	it('expands into the Recent Actions card on click', async () => {
 		queryData = [makeBatch()];
-		render(PanelWithProfile, { props: { profile: makeProfile(false) } });
+		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
@@ -111,11 +118,20 @@ describe('RecentActionsPanel', () => {
 		await expect.element(page.getByText('2 students')).toBeInTheDocument();
 	});
 
+	it('shows the empty state when nothing is actionable', async () => {
+		queryData = [makeBatch({ batchId: 'batch-locked', createdAt: Date.now() - 3 * WEEK_MS })];
+		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
+
+		await page.getByRole('button', { name: 'Expand recent actions' }).click();
+
+		await expect.element(page.getByText('No recent actions to fix')).toBeInTheDocument();
+	});
+
 	it('shows a mixed chip for a partially-edited batch', async () => {
 		const batch = makeBatch();
 		batch.evaluations[1] = { ...batch.evaluations[1], value: 2 };
 		queryData = [batch];
-		render(PanelWithProfile, { props: { profile: makeProfile(false) } });
+		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
@@ -130,9 +146,8 @@ describe('RecentActionsPanel', () => {
 		});
 		const fresh = makeBatch({ batchId: 'batch-fresh' });
 		queryData = [locked, fresh];
-		render(PanelWithProfile, { props: { profile: makeProfile(false) } });
+		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
 
-		await expect.element(page.getByText('1 action')).toBeInTheDocument();
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
 		expect(page.getByRole('button', { name: 'Edit batch' }).all().length).toBe(1);
@@ -145,9 +160,8 @@ describe('RecentActionsPanel', () => {
 		});
 		const fresh = makeBatch({ batchId: 'batch-fresh' });
 		queryData = [locked, fresh];
-		render(PanelWithProfile, { props: { profile: makeProfile(true) } });
+		render(PanelWithProfile, { props: { profile: makeProfile(true), hasRecent: true } });
 
-		await expect.element(page.getByText('2 actions')).toBeInTheDocument();
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
 		expect(page.getByRole('button', { name: 'Edit batch' }).all().length).toBe(2);
@@ -155,12 +169,23 @@ describe('RecentActionsPanel', () => {
 
 	it('opens the batch edit dialog when a row is clicked', async () => {
 		queryData = [makeBatch()];
-		render(PanelWithProfile, { props: { profile: makeProfile(false) } });
+		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 		await page.getByRole('button', { name: 'Edit batch' }).click();
 
 		await expect.element(page.getByRole('dialog', { name: 'Edit Batch' })).toBeInTheDocument();
+	});
+
+	it('does not subscribe to the batches query while folded', async () => {
+		queryData = [makeBatch()];
+		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
+
+		const batchesArgs = queryArgsAt();
+		expect(batchesArgs()).toBe('skip');
+
+		await page.getByRole('button', { name: 'Expand recent actions' }).click();
+		expect(batchesArgs()).toEqual({});
 	});
 });
 
@@ -184,6 +209,9 @@ describe('BatchEditDialog', () => {
 	it('is hidden when open is false', async () => {
 		render(BatchEditDialog, { open: false, batch, onClose: vi.fn() });
 		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+
+		const categoriesArgs = queryArgsAt();
+		expect(categoriesArgs()).toBe('skip');
 	});
 
 	it('save calls updateMany with all checked ids', async () => {

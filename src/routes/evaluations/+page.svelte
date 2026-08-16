@@ -72,6 +72,12 @@
 	// Fetch evaluations
 	const evaluationsQuery = useQuery(api.evaluations.listRecent, () => queryArgs);
 
+	// The timeline query is student-filtered, so drive the Recent Actions chip
+	// from a dedicated unfiltered subscription — it must stay visible while the
+	// teacher searches a subset of their recent evaluations.
+	const hasRecentQuery = useQuery(api.evaluations.listRecent, () => ({}));
+	const hasRecent = $derived(Array.isArray(hasRecentQuery.data) && hasRecentQuery.data.length > 0);
+
 	// Handle query results
 	$effect(() => {
 		if (evaluationsQuery.data) {
@@ -124,7 +130,7 @@
 <span data-capabilities-ready={profile?.data ? 'true' : 'false'} class="hidden"></span>
 
 <div class="mx-auto w-full max-w-6xl p-8 pt-0">
-	<RecentActionsPanel panelTestId="recent-actions" />
+	<RecentActionsPanel panelTestId="recent-actions" {hasRecent} />
 
 	<!-- Filter Controls - Always at top, outside conditionals -->
 	<EvaluationsControls

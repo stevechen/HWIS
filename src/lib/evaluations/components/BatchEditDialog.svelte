@@ -29,7 +29,7 @@
 	}: Props = $props();
 
 	const client = useConvexClient();
-	const categoriesQuery = useQuery(api.categories.list, () => ({}));
+	const categoriesQuery = useQuery(api.categories.list, () => (open ? {} : 'skip'));
 
 	let checked = $state<Record<string, boolean>>({});
 	let editValue = $state(1);

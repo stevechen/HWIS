@@ -5,9 +5,10 @@
 
 	interface Props {
 		profile: { data: unknown; isLoading: boolean; error: unknown };
+		hasRecent: boolean;
 	}
 
-	let { profile }: Props = $props();
+	let { profile, hasRecent }: Props = $props();
 
 	function initialProfile(): { data: unknown; isLoading: boolean; error: unknown } {
 		return profile;
@@ -16,4 +17,4 @@
 	setAuthProfile(initialProfile() as unknown as AuthProfile);
 </script>
 
-<RecentActionsPanel />
+<RecentActionsPanel {hasRecent} />
