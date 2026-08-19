@@ -51,6 +51,58 @@ vi.mock('$lib/auth-profile', () => ({
 }));
 
 import StudentEvaluationsPage from '$src/routes/evaluations/student/[studentId]/+page.svelte';
+import { useQuery } from 'convex-svelte';
+import { useAuthProfile } from '$lib/auth-profile';
+
+describe('Student Evaluations Page — query gating while profile is loading', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.mocked(useQuery).mockImplementation(() => ({
+			data: mockEvalData,
+			isLoading: false,
+			isStale: false,
+			error: undefined
+		}));
+	});
+
+	function renderWhileProfileLoading() {
+		vi.mocked(useAuthProfile).mockReturnValue({
+			data: undefined,
+			isLoading: true,
+			error: undefined
+		} as unknown as ReturnType<typeof useAuthProfile>);
+		render(StudentEvaluationsPage, { data: { studentId: 'test-student' } });
+	}
+
+	function profileReadyGatedArgs() {
+		return vi
+			.mocked(useQuery)
+			.mock.calls.map(([, argsFn]) => argsFn)
+			.filter((argsFn) => argsFn && String(argsFn).includes('profileReady'));
+	}
+
+	it('skips every role-dependent query while the profile is loading', async () => {
+		renderWhileProfileLoading();
+
+		const gated = profileReadyGatedArgs();
+		expect(gated.length).toBeGreaterThan(0);
+		for (const argsFn of gated) {
+			expect(argsFn()).toBe('skip');
+		}
+	});
+
+	it('does not skip the category list while the profile is loading', async () => {
+		renderWhileProfileLoading();
+
+		const notGated = vi
+			.mocked(useQuery)
+			.mock.calls.map(([, argsFn]) => argsFn)
+			.filter((argsFn) => argsFn && !String(argsFn).includes('profileReady'));
+		for (const argsFn of notGated) {
+			expect(argsFn()).not.toBe('skip');
+		}
+	});
+});
 
 describe('Student Evaluations Page', () => {
 	beforeEach(async () => {

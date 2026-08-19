@@ -1,7 +1,1 @@
-import type { LayoutLoad } from './$types';
-
-export const load: LayoutLoad = async ({ data }) => {
-	return {
-		authState: data.authState
-	};
-};
+export const ssr = false;

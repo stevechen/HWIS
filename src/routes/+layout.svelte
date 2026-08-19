@@ -9,6 +9,8 @@
 	import { PUBLIC_CONVEX_URL } from '$env/static/public';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { computeAuthRedirect } from '$lib/auth-guard';
 	import { ArrowLeft, PowerOff } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
@@ -36,13 +38,7 @@
 	// Initialize Convex client - must be called before any useQuery() calls
 	setupConvex(PUBLIC_CONVEX_URL);
 
-	let {
-		children,
-		data = {}
-	}: {
-		children: Snippet;
-		data?: { authState?: { isAuthenticated: boolean } };
-	} = $props();
+	let { children }: { children: Snippet } = $props();
 
 	if (browser) {
 		const externalSession = (() => {
@@ -58,12 +54,15 @@
 			}
 		})();
 
-		createSvelteAuthClient({
-			authClient,
-			getServerState: () => data.authState,
-			externalSession
-		});
+		createSvelteAuthClient({ authClient, externalSession });
 	}
+
+	const auth = useAuth();
+
+	$effect(() => {
+		const target = computeAuthRedirect($page.url.pathname, $page.url.search, auth);
+		if (target) void goto(target);
+	});
 
 	onMount(() => {
 		document.body.classList.add('hydrated');

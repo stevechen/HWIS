@@ -14,8 +14,6 @@
 	import * as Card from '$lib/components/ui/card';
 	import { useAuthProfile } from '$lib/auth-profile';
 
-	let { data }: { data: { authState?: { isAuthenticated: boolean } } } = $props();
-
 	const auth = browser ? useAuth() : { isLoading: false, isAuthenticated: false };
 	const session = browser
 		? authClient.useSession()
@@ -31,11 +29,20 @@
 
 	const profile = useAuthProfile();
 
-	const serverAuthenticated = $derived(!!data.authState?.isAuthenticated);
-	const isLoggedIn = $derived(!auth.isLoading && (auth.isAuthenticated || serverAuthenticated));
+	const isLoggedIn = $derived(!auth.isLoading && auth.isAuthenticated);
 	const userName = $derived($session.data?.user.name);
 	const isApproved = $derived(
 		profile ? (profile.data?.user ? hasApplicationAccess(profile.data.user) : false) : false
+	);
+	// We can show a terminal screen (sign-in / pending approval) once auth is
+	// settled and, for authenticated users, the profile has resolved.
+	const canShowTerminal = $derived(
+		!auth.isLoading && (!isLoggedIn || (profile !== undefined && !profile.isLoading))
+	);
+	// Valid accounts redirect immediately; render nothing so the HWIS title +
+	// loading card never flashes by on the way to /admin.
+	const shouldRedirect = $derived(
+		isLoggedIn && isApproved && profile !== undefined && !profile.isLoading
 	);
 	let hasEnsuredProfile = $state(false);
 
@@ -52,7 +59,20 @@
 			hasEnsuredProfile = false;
 			return;
 		}
-		if (profile && !profile.isLoading && !hasEnsuredProfile) {
+		// Only ensure the profile when it genuinely does not exist yet. The
+		// profile query returns user:null for a stale/missing token (skip) and a
+		// non-null user with profileExists:false for a new user who still needs
+		// one (create). Existing users resolve profileExists:true and are skipped
+		// entirely, which also avoids firing the mutation while a token refresh
+		// is mid-flight (Not authenticated).
+		if (
+			profile &&
+			!profile.isLoading &&
+			profile.data?.user &&
+			'profileExists' in profile.data.user &&
+			profile.data.user.profileExists === false &&
+			!hasEnsuredProfile
+		) {
 			hasEnsuredProfile = true;
 			ensureProfile();
 		}
@@ -62,9 +82,9 @@
 		if (profile && isApproved && !profile.isLoading && profile.data?.user) {
 			const viewer = profile.data.user;
 			if (isStudent(viewer) && 'studentId' in viewer && viewer.studentId) {
-				window.location.href = `/evaluations/student/${viewer.studentId}`;
+				void goto(`/evaluations/student/${viewer.studentId}`);
 			} else {
-				window.location.href = canAccessAdminArea(viewer) ? '/admin' : '/evaluations';
+				void goto(canAccessAdminArea(viewer) ? '/admin' : '/evaluations');
 			}
 		}
 	});
@@ -76,43 +96,40 @@
 </script>
 
 <div class="flex h-screen flex-col items-center bg-gray-50 p-4">
-	<header class="mb-6 flex w-full max-w-2xl items-center justify-between">
-		<h1 class="text-2xl font-bold text-gray-800">HWIS</h1>
-	</header>
+	{#if !canShowTerminal || shouldRedirect}
+		<!-- Nothing yet: auth/profile still settling, or a valid account that is
+			 being redirected. Avoid flashing the HWIS title + card. -->
+	{:else}
+		<header class="mb-6 flex w-full max-w-2xl items-center justify-between">
+			<h1 class="text-2xl font-bold text-gray-800">HWIS</h1>
+		</header>
 
-	<main class="w-full max-w-2xl">
-		{#if !isLoggedIn}
-			<Card.Root>
-				<Card.Content class="pt-6">
-					<div class="flex flex-col items-center justify-center gap-4">
-						<h2 class="text-xl font-semibold">HWIS Point System</h2>
-						<p class="text-gray-600">Please sign in to continue</p>
-						<Button onclick={() => void goto('/login')}>Sign in</Button>
-					</div>
-				</Card.Content>
-			</Card.Root>
-		{:else if profile?.isLoading}
-			<Card.Root>
-				<Card.Content class="pt-6">
-					<div class="flex flex-col items-center justify-center gap-4">
-						<p class="text-gray-600">Loading...</p>
-					</div>
-				</Card.Content>
-			</Card.Root>
-		{:else if !isApproved}
-			<Card.Root>
-				<Card.Content class="pt-6">
-					<div class="flex flex-col items-center justify-center gap-4">
-						<h2 class="text-xl font-semibold">Account Pending Approval</h2>
-						<p class="text-gray-600">Welcome, {userName}!</p>
-						<p class="text-muted-foreground text-center">
-							Your account has been created and is pending approval from an administrator. You will
-							be notified once your account is activated.
-						</p>
-						<Button variant="outline" onclick={signOut}>Sign out</Button>
-					</div>
-				</Card.Content>
-			</Card.Root>
-		{/if}
-	</main>
+		<main class="w-full max-w-2xl">
+			{#if !isLoggedIn}
+				<Card.Root>
+					<Card.Content class="pt-6">
+						<div class="flex flex-col items-center justify-center gap-4">
+							<h2 class="text-xl font-semibold">HWIS Point System</h2>
+							<p class="text-gray-600">Please sign in to continue</p>
+							<Button onclick={() => void goto('/login')}>Sign in</Button>
+						</div>
+					</Card.Content>
+				</Card.Root>
+			{:else}
+				<Card.Root>
+					<Card.Content class="pt-6">
+						<div class="flex flex-col items-center justify-center gap-4">
+							<h2 class="text-xl font-semibold">Account Pending Approval</h2>
+							<p class="text-gray-600">Welcome, {userName}!</p>
+							<p class="text-muted-foreground text-center">
+								Your account has been created and is pending approval from an administrator. You
+								will be notified once your account is activated.
+							</p>
+							<Button variant="outline" onclick={signOut}>Sign out</Button>
+						</div>
+					</Card.Content>
+				</Card.Root>
+			{/if}
+		</main>
+	{/if}
 </div>

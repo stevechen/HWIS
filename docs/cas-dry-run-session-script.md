@@ -21,8 +21,8 @@
 > **No build required for student login.** Students are identified purely by their
 > Google email (`s####@std.hwhs.tc.edu.tw` → student record via
 > `resolveStudentFromEmail`); they never need a user profile. After login the home
-> route redirects students straight to their own evaluation page (server-side,
-> `src/routes/+page.server.ts`), so no manual navigation is needed.
+> route redirects students straight to their own evaluation page (client-side,
+> via `goto()` in `src/routes/+page.svelte`), so no manual navigation is needed.
 
 ### Role → sign-in map
 

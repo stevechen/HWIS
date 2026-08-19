@@ -83,35 +83,48 @@
 	const urlStudentId = $derived(data.studentId || '');
 	const useConvexIdQuery = $derived(isConvexId(urlStudentId));
 
+	// Role-dependent queries must not fire until the profile has resolved:
+	// while it is loading, isAdmin/isStudent are both false, which would make
+	// an admin (or student) hit the teacher-only history query and throw
+	// "Forbidden: Teacher history access required".
+	const profileReady = $derived(profile !== undefined && !profile.isLoading);
+
 	// Student record (for students, derived from auth; for staff, fetched by URL param)
 	const studentQueryById = useQuery(api.evaluations.getStudent, () =>
-		isStudent || !useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
+		!profileReady || isStudent || !useConvexIdQuery
+			? 'skip'
+			: { studentId: urlStudentId as Id<'students'> }
 	);
 	const studentQueryByCode = useQuery(api.evaluations.getStudentByStudentIdCode, () =>
-		isStudent || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId }
+		!profileReady || isStudent || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId }
 	);
 
 	const teacherEvalsQueryById = useQuery(api.evaluations.getStudentEvaluationsByTeacher, () =>
-		isAdmin || isStudent || !useConvexIdQuery
+		!profileReady || isAdmin || isStudent || !useConvexIdQuery
 			? 'skip'
 			: { studentId: urlStudentId as Id<'students'> }
 	);
 	const teacherEvalsQueryByCode = useQuery(
 		api.evaluations.getStudentEvaluationsByTeacherByStudentIdCode,
-		() => (isAdmin || isStudent || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId })
+		() =>
+			!profileReady || isAdmin || isStudent || useConvexIdQuery
+				? 'skip'
+				: { studentIdCode: urlStudentId }
 	);
 
 	const allEvalsQueryById = useQuery(api.evaluations.getStudentEvaluationsAll, () =>
-		!isAdmin || !useConvexIdQuery ? 'skip' : { studentId: urlStudentId as Id<'students'> }
+		!profileReady || !isAdmin || !useConvexIdQuery
+			? 'skip'
+			: { studentId: urlStudentId as Id<'students'> }
 	);
 	const allEvalsQueryByCode = useQuery(
 		api.evaluations.getStudentEvaluationsAllByStudentIdCode,
-		() => (!isAdmin || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId })
+		() => (!profileReady || !isAdmin || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId })
 	);
 
 	// Student-specific anonymous evaluation query (no teacher names)
 	const studentAnonymousEvalsQuery = useQuery(api.evaluations.getStudentEvaluationsAnonymous, () =>
-		!isStudent ? 'skip' : {}
+		!profileReady || !isStudent ? 'skip' : {}
 	);
 
 	// Derived values to get the active query data
