@@ -6,7 +6,7 @@
 	import type { RecentBatch } from '$convex/shared/recentActions';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { useAuthProfile } from '$lib/auth-profile';
+	import { useViewer } from '$lib/viewer.svelte';
 	import {
 		batchValueDisplay,
 		mixedChipClass,
@@ -29,7 +29,7 @@
 	let editTarget = $state<RecentBatch | null>(null);
 	let deleteTarget = $state<RecentBatch | null>(null);
 
-	const profile = useAuthProfile();
+	const session = useViewer();
 	// Subscribed only once expanded, so the panel adds no function calls on
 	// page load. Visibility comes from the timeline's own subscription via
 	// the `hasRecent` prop.
@@ -37,7 +37,7 @@
 
 	// Super sees their own locked batches too; everyone else only gets
 	// batches whose week has not yet locked at the Monday boundary.
-	const canFixLocked = $derived(Boolean(profile?.data?.capabilities?.editAnyEvaluation));
+	const canFixLocked = $derived(Boolean(session.capabilities?.editAnyEvaluation));
 	const allBatches = $derived(batchesQuery.data ?? []);
 	const actionable = $derived(allBatches.filter((b) => canFixLocked || isEditable(b.createdAt)));
 

@@ -15,7 +15,7 @@
 		type HouseLogoComponent
 	} from '$lib/stores/header';
 	import { onDestroy } from 'svelte';
-	import { useAuthProfile } from '$lib/auth-profile';
+	import { useViewer } from '$lib/viewer.svelte';
 	import { matchesMultiSearch } from '$convex/shared/evaluation_utils';
 	import { sortEvaluations, createEvaluationDisplayState } from '$lib/evaluations';
 	import {
@@ -34,34 +34,18 @@
 
 	let { data }: { data: { studentId?: string } } = $props();
 
-	// Fetch user to check role (always call useQuery at top level)
-	const profile = useAuthProfile();
+	// Settled viewer identity: status, actor, capabilities, and role flags.
+	const session = useViewer();
 
 	// Fetch all categories for radar chart
 	const categoriesQuery = useQuery(api.categories.list, () => ({}));
 
-	const actor = $derived(profile?.data?.actor);
-	const caps = $derived(profile?.data?.capabilities);
-
-	// Derive role-based flags from the centralized actor/capabilities
-	const isStudent = $derived.by(() => {
-		if (!actor) return false;
-		if (actor.kind === 'student') return true;
-		return false;
-	});
-	const isEnrolled = $derived.by(() => {
-		if (!actor) return false;
-		if (actor.kind === 'student') return actor.enrollmentStatus === 'Enrolled';
-		return true;
-	});
-	const isAdmin = $derived.by(() => {
-		if (!actor || !caps) return false;
-		return actor.kind === 'staff' && caps.viewAnyEvaluation;
-	});
-	const isTeacher = $derived.by(() => {
-		if (!actor || !caps) return false;
-		return actor.kind === 'staff' && caps.viewOwnEvaluation && !caps.viewAnyEvaluation;
-	});
+	const actor = $derived(session.actor);
+	const isStudent = $derived(session.isStudent);
+	const isEnrolled = $derived(session.isEnrolled);
+	const isAdmin = $derived(session.isAdmin);
+	const isTeacher = $derived(session.isTeacher);
+	const profileReady = $derived(session.status !== 'loading');
 
 	// House logos mapping
 	const houseLogos: Record<string, HouseLogoComponent> = {
@@ -87,7 +71,7 @@
 	// while it is loading, isAdmin/isStudent are both false, which would make
 	// an admin (or student) hit the teacher-only history query and throw
 	// "Forbidden: Teacher history access required".
-	const profileReady = $derived(profile !== undefined && !profile.isLoading);
+	// (`profileReady` derives from the viewer session's settle state.)
 
 	// Student record (for students, derived from auth; for staff, fetched by URL param)
 	const studentQueryById = useQuery(api.evaluations.getStudent, () =>
@@ -134,7 +118,7 @@
 	);
 	const allEvalsQuery = $derived(useConvexIdQuery ? allEvalsQueryById : allEvalsQueryByCode);
 
-	const student = $derived(isStudent ? profile?.data?.user : studentQuery.data);
+	const student = $derived(isStudent ? session.viewer : studentQuery.data);
 
 	// Get student's house
 	const studentHouse = $derived.by(() => {
@@ -345,7 +329,7 @@
 
 	// Determine loading state
 	const isLoading = $derived.by(() => {
-		if (profile?.isLoading) return true;
+		if (!profileReady) return true;
 		if (studentQuery.isLoading) return true;
 		if (isStudent && studentAnonymousEvalsQuery.isLoading) return true;
 		if (isAdmin && allEvalsQuery.isLoading) return true;
@@ -355,7 +339,7 @@
 
 	// Determine loading message
 	const loadingMessage = $derived.by(() => {
-		if (profile?.isLoading) return 'Loading user data...';
+		if (!profileReady) return 'Loading user data...';
 		if (studentQuery.isLoading) return 'Loading student data...';
 		if (isAdmin) return 'Loading evaluations...';
 		return 'Loading your evaluations...';

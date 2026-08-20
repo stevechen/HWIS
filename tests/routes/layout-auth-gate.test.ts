@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { buildViewerSession, type ViewerSessionConfig } from '../mocks/route-mocks';
 
 const mockPageUrl = { pathname: '/admin', search: '' };
 
@@ -13,11 +14,7 @@ vi.mock('convex-svelte', () => ({
 }));
 
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
-	createSvelteAuthClient: vi.fn(),
-	useAuth: vi.fn(() => ({
-		isLoading: false,
-		isAuthenticated: true
-	}))
+	createSvelteAuthClient: vi.fn()
 }));
 
 vi.mock('$lib/auth-client', () => ({
@@ -53,24 +50,14 @@ vi.mock('$app/stores', async () => {
 	};
 });
 
+vi.mock('$lib/viewer.svelte', () => ({
+	useViewer: vi.fn()
+}));
+
 import Layout from '$src/routes/+layout.svelte';
-import { useQuery } from 'convex-svelte';
-import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 
-function mockProfileQueryResult(user: unknown) {
-	return {
-		data: { user, actor: { kind: 'staff' }, capabilities: {} },
-		isLoading: false,
-		error: undefined,
-		isStale: false
-	} as unknown as ReturnType<typeof useQuery>;
-}
-
-function mockAuth(auth: { isLoading: boolean; isAuthenticated: boolean }) {
-	vi.mocked(useAuth).mockReturnValue({
-		...auth,
-		fetchAccessToken: vi.fn()
-	});
+function viewerFor(config: ViewerSessionConfig) {
+	return buildViewerSession(config);
 }
 
 describe('root layout auth gate', () => {
@@ -78,12 +65,11 @@ describe('root layout auth gate', () => {
 		vi.clearAllMocks();
 		mockPageUrl.pathname = '/admin';
 		mockPageUrl.search = '';
-		vi.mocked(useQuery).mockReturnValue(mockProfileQueryResult(null));
-		mockAuth({ isLoading: false, isAuthenticated: true });
 	});
 
 	it('redirects an unauthenticated user to /login with a callbackUrl', async () => {
-		mockAuth({ isLoading: false, isAuthenticated: false });
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ auth: { isAuthenticated: false } }));
 
 		render(Layout);
 
@@ -93,7 +79,8 @@ describe('root layout auth gate', () => {
 	});
 
 	it('does not redirect while auth is still loading', async () => {
-		mockAuth({ isLoading: true, isAuthenticated: false });
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ auth: { isLoading: true } }));
 
 		render(Layout);
 
@@ -103,6 +90,9 @@ describe('root layout auth gate', () => {
 	});
 
 	it('does not redirect an authenticated user', async () => {
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ role: 'teacher', status: 'active' }));
+
 		render(Layout);
 
 		await vi.waitFor(() => {
@@ -112,7 +102,8 @@ describe('root layout auth gate', () => {
 
 	it('does not redirect on the login page', async () => {
 		mockPageUrl.pathname = '/login';
-		mockAuth({ isLoading: false, isAuthenticated: false });
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ auth: { isAuthenticated: false } }));
 
 		render(Layout);
 
@@ -124,7 +115,8 @@ describe('root layout auth gate', () => {
 	it('includes search params in the callbackUrl', async () => {
 		mockPageUrl.pathname = '/evaluations';
 		mockPageUrl.search = '?status=pending';
-		mockAuth({ isLoading: false, isAuthenticated: false });
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ auth: { isAuthenticated: false } }));
 
 		render(Layout);
 

@@ -2,17 +2,7 @@ import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { createMockEvaluationSet } from '../../fixtures/evaluations';
-
-const mockProfile = {
-	user: { _id: 'user_t1', role: 'teacher', status: 'active', authId: 'teacher-1' },
-	actor: { kind: 'staff', subject: { role: 'teacher', status: 'active' } },
-	capabilities: {
-		editAnyEvaluation: false,
-		editOwnEvaluation: true,
-		viewAnyEvaluation: false,
-		viewOwnEvaluation: true
-	}
-};
+import { buildViewerSession, type ViewerSessionConfig } from '../../mocks/route-mocks';
 
 // Mock convex-svelte
 const mockMutation = vi.fn().mockResolvedValue(undefined);
@@ -28,24 +18,22 @@ vi.mock('convex-svelte', () => ({
 	}))
 }));
 
-vi.mock('$lib/auth-profile', () => ({
-	useAuthProfile: vi.fn(() => ({ data: mockProfile, isLoading: false, error: undefined })),
-	AUTH_PROFILE_KEY: 'auth-profile',
-	setAuthProfile: vi.fn()
+vi.mock('$lib/viewer.svelte', () => ({
+	useViewer: vi.fn()
 }));
 
 // Import after mocks
 import TeacherEvaluationsPage from '$src/routes/evaluations/+page.svelte';
 
+function viewerFor(config: ViewerSessionConfig) {
+	return buildViewerSession(config);
+}
+
 describe('Teacher Evaluations Page', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks();
-		const { useAuthProfile } = await import('$lib/auth-profile');
-		vi.mocked(useAuthProfile).mockReturnValue({
-			data: mockProfile,
-			isLoading: false,
-			error: undefined
-		} as unknown as ReturnType<typeof useAuthProfile>);
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ role: 'teacher', status: 'active' }));
 	});
 
 	describe('Static Structure', () => {
@@ -79,8 +67,8 @@ describe('Teacher Evaluations Page', () => {
 		});
 	});
 
-	describe('Card Navigation', () => {
-		it('cards link to student pages', async () => {
+	describe('Evaluation Cards', () => {
+		it('renders evaluation cards as links', async () => {
 			render(TeacherEvaluationsPage);
 			// Cards should be links - check that at least one link exists
 			const link = page.getByRole('link').first();

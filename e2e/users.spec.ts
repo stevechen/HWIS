@@ -35,7 +35,7 @@ test.describe('Users Page @users', () => {
 
 	test('renders staff emails instead of "No email" fallback', async () => {
 		await usersPage.goToTab('Active');
-		// Seeded staff users (setup-test-users.sh) carry BetterAuth emails; the Admin
+		// Seeded staff users (e2e/setup.spec.ts) carry BetterAuth emails; the Admin
 		// Users page should enrich and render them rather than falling back to "No email".
 		// Regression guard for #57 (email BA-join keyed only on id).
 		await expect(usersPage.page.getByText('super@hwis.test')).toBeVisible();

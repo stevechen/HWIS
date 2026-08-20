@@ -5,27 +5,20 @@
 	import { browser } from '$app/environment';
 	import { createSvelteAuthClient } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { authClient } from '$lib/auth-client';
-	import { setupConvex, useQuery } from 'convex-svelte';
+	import { setupConvex } from 'convex-svelte';
 	import { PUBLIC_CONVEX_URL } from '$env/static/public';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { computeAuthRedirect } from '$lib/auth-guard';
+	import { computeAuthRedirect, toAuthState } from '$lib/auth-guard';
+	import { getExternalSession } from '$lib/e2e/external-session';
 	import { ArrowLeft, PowerOff } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
-	import { api } from '$convex/_generated/api';
-	import {
-		canAccessAdminArea,
-		isActiveStaff,
-		isEnrolledStudent,
-		isAdmin as isAdminRole
-	} from '$convex/shared/authorization';
-	import { setAuthProfile } from '$lib/auth-profile';
 	import { headerTitleOverride, headerHouseBadge } from '$lib/stores/header';
 	import { theme } from '$lib/stores/theme';
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
+	import { useViewer } from '$lib/viewer.svelte';
 
 	// House colors for theming - matching the houses page
 	const houseColors: Record<string, { text: string }> = {
@@ -41,26 +34,15 @@
 	let { children }: { children: Snippet } = $props();
 
 	if (browser) {
-		const externalSession = (() => {
-			try {
-				const sessionToken = localStorage.getItem('e2eSessionToken');
-				if (!sessionToken) return undefined;
-
-				return {
-					getAccessToken: () => sessionToken
-				};
-			} catch {
-				return undefined;
-			}
-		})();
-
-		createSvelteAuthClient({ authClient, externalSession });
+		createSvelteAuthClient({ authClient, externalSession: getExternalSession() });
 	}
 
-	const auth = useAuth();
+	const session = useViewer();
+
+	const status = $derived(session.status);
 
 	$effect(() => {
-		const target = computeAuthRedirect($page.url.pathname, $page.url.search, auth);
+		const target = computeAuthRedirect($page.url, toAuthState(status));
 		if (target) void goto(target);
 	});
 
@@ -79,16 +61,13 @@
 		void goto('/login');
 	}
 
-	const profile = useQuery(api.users.profile, () => ({}));
-	setAuthProfile(profile);
-
-	const user = $derived(profile.data?.user);
+	const viewer = $derived(session.viewer);
 
 	const shouldShowModal = $derived.by(() => {
 		if (!$page.url.pathname || $page.url.pathname === '/login' || $page.url.pathname === '/') {
 			return false;
 		}
-		if (profile.isLoading || !user) {
+		if (status === 'loading' || !viewer) {
 			return false;
 		}
 		const isAdminPage = $page.url.pathname.startsWith('/admin');
@@ -97,21 +76,19 @@
 		// /admin pages: only active admins/super users
 		// /evaluations pages: active staff, except students (who reach only their own page)
 		if (isAdminPage) {
-			return !canAccessAdminArea(user);
+			return !session.isAdmin;
 		}
 		if (isEvaluationsPage) {
 			const isStudentEvaluationPage = $page.url.pathname.startsWith('/evaluations/student/');
-			return !isActiveStaff(user) && !(isStudentEvaluationPage && isEnrolledStudent(user));
+			return (
+				!(session.isAdmin || session.isTeacher) &&
+				!(isStudentEvaluationPage && session.isStudent && session.isEnrolled)
+			);
 		}
 		return false;
 	});
 
-	const isAdmin = $derived.by(() => {
-		if (!profile.isLoading && user) {
-			return isAdminRole(user);
-		}
-		return false;
-	});
+	const isAdmin = $derived(session.isAdmin);
 
 	const backLabel = $derived.by(() => {
 		const path = $page.url.pathname;

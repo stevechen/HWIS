@@ -1,17 +1,7 @@
 import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-
-const mockProfile = {
-	user: { _id: 'user_t1', role: 'admin', status: 'active', authId: 'teacher-1' },
-	actor: { kind: 'staff', subject: { role: 'admin', status: 'active' } },
-	capabilities: {
-		editAnyEvaluation: true,
-		editOwnEvaluation: true,
-		viewAnyEvaluation: true,
-		viewOwnEvaluation: true
-	}
-};
+import { buildViewerSession, type ViewerSessionConfig } from '../../mocks/route-mocks';
 
 vi.mock('convex-svelte', () => ({
 	useQuery: vi.fn(() => ({
@@ -25,23 +15,21 @@ vi.mock('convex-svelte', () => ({
 	}))
 }));
 
-vi.mock('$lib/auth-profile', () => ({
-	useAuthProfile: vi.fn(() => ({ data: mockProfile, isLoading: false, error: undefined })),
-	AUTH_PROFILE_KEY: 'auth-profile',
-	setAuthProfile: vi.fn()
+vi.mock('$lib/viewer.svelte', () => ({
+	useViewer: vi.fn()
 }));
 
 import EvaluationsPage from '$src/routes/evaluations/+page.svelte';
 
+function viewerFor(config: ViewerSessionConfig) {
+	return buildViewerSession(config);
+}
+
 describe('Evaluations List', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks();
-		const { useAuthProfile } = await import('$lib/auth-profile');
-		vi.mocked(useAuthProfile).mockReturnValue({
-			data: mockProfile,
-			isLoading: false,
-			error: undefined
-		} as unknown as ReturnType<typeof useAuthProfile>);
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ role: 'admin', status: 'active' }));
 	});
 
 	it('shows empty state when no evaluations', async () => {

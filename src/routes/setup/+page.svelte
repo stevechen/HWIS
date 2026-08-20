@@ -3,17 +3,16 @@
 	import { api } from '$convex/_generated/api';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { browser } from '$app/environment';
+	import { useViewer } from '$lib/viewer.svelte';
 
 	const client = useConvexClient();
-	const auth = browser ? useAuth() : { isLoading: false, isAuthenticated: false };
+	const session = useViewer();
 
 	let status = $state('Checking auth...');
 	let error = $state<string | null>(null);
 
 	onMount(async () => {
-		if (!auth.isAuthenticated) {
+		if (session.status === 'signedOut') {
 			status = 'Not authenticated. Please sign in first.';
 			return;
 		}

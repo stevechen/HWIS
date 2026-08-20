@@ -1,6 +1,7 @@
 import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { buildViewerSession, type ViewerSessionConfig } from '../mocks/route-mocks';
 
 const { mutationMock } = vi.hoisted(() => ({
 	mutationMock: vi.fn().mockResolvedValue(undefined)
@@ -12,15 +13,6 @@ vi.mock('convex-svelte', () => ({
 	useConvexClient: vi.fn(() => ({
 		mutation: mutationMock,
 		query: vi.fn().mockResolvedValue({})
-	}))
-}));
-
-vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
-	createSvelteAuthClient: vi.fn(),
-	useAuth: vi.fn(() => ({
-		isLoading: false,
-		isAuthenticated: true,
-		data: { user: { name: 'Test User' } }
 	}))
 }));
 
@@ -36,42 +28,28 @@ vi.mock('$lib/auth-client', () => ({
 	}
 }));
 
-const gotoMock = vi.fn();
-
 vi.mock('$app/navigation', () => ({
 	goto: (...args: unknown[]) => gotoMock(...args)
 }));
 
+const gotoMock = vi.fn();
+
+vi.mock('$lib/viewer.svelte', () => ({
+	useViewer: vi.fn()
+}));
+
 import RootPage from '$src/routes/+page.svelte';
 
-function mockProfileQueryResult(overrides: Partial<{ user: unknown; isLoading: boolean }>) {
-	return {
-		data: {
-			user: overrides.user ?? null,
-			actor: { kind: 'anonymous' },
-			capabilities: {}
-		},
-		isLoading: overrides.isLoading ?? false,
-		error: undefined,
-		isStale: false
-	} as unknown as {
-		data: { user: unknown; actor: unknown; capabilities: unknown };
-		isLoading: boolean;
-		error: Error | undefined;
-		isStale: boolean;
-	};
+function viewerFor(config: ViewerSessionConfig) {
+	return buildViewerSession(config);
 }
 
 function renderRootPage() {
 	return render(RootPage);
 }
 
-function mockAuthenticatedAuth() {
-	return {
-		isLoading: false,
-		isAuthenticated: true,
-		data: { user: { name: 'Test User' } }
-	};
+function settledAuthenticated() {
+	return buildViewerSession({ role: 'teacher', status: 'active' });
 }
 
 describe('Root Page', () => {
@@ -80,22 +58,16 @@ describe('Root Page', () => {
 	});
 
 	it('shows sign-in card when logged out', async () => {
-		const { useAuth } = await import('@mmailaender/convex-better-auth-svelte/svelte');
-		vi.mocked(useAuth).mockReturnValue({
-			isLoading: false,
-			isAuthenticated: false,
-			data: null
-		} as never);
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ auth: { isAuthenticated: false } }));
 
 		renderRootPage();
 		await expect.element(page.getByText('Please sign in to continue')).toBeInTheDocument();
 	});
 
 	it('renders nothing while the profile query is loading (no intermediate screen)', async () => {
-		const { useAuth } = await import('@mmailaender/convex-better-auth-svelte/svelte');
-		vi.mocked(useAuth).mockReturnValue(mockAuthenticatedAuth() as never);
-		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValue(mockProfileQueryResult({ isLoading: true }) as never);
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ auth: { isLoading: true } }));
 
 		renderRootPage();
 		await expect.element(page.getByText('HWIS')).not.toBeInTheDocument();
@@ -103,28 +75,16 @@ describe('Root Page', () => {
 	});
 
 	it('shows pending approval state for an unapproved profile', async () => {
-		const { useAuth } = await import('@mmailaender/convex-better-auth-svelte/svelte');
-		vi.mocked(useAuth).mockReturnValue(mockAuthenticatedAuth() as never);
-		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValue(
-			mockProfileQueryResult({
-				user: { role: 'teacher', status: 'pending', name: 'Test User' }
-			}) as never
-		);
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ role: 'teacher', status: 'pending' }));
 
 		renderRootPage();
 		await expect.element(page.getByText('Account Pending Approval')).toBeInTheDocument();
 	});
 
 	it('renders nothing and redirects for an approved admin (no intermediate screen)', async () => {
-		const { useAuth } = await import('@mmailaender/convex-better-auth-svelte/svelte');
-		vi.mocked(useAuth).mockReturnValue(mockAuthenticatedAuth() as never);
-		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValue(
-			mockProfileQueryResult({
-				user: { role: 'admin', status: 'active', name: 'Test Admin' }
-			}) as never
-		);
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ role: 'admin', status: 'active' }));
 
 		renderRootPage();
 
@@ -136,11 +96,36 @@ describe('Root Page', () => {
 		});
 	});
 
-	it('does not ensure a user profile while the Convex token is stale (anonymous profile)', async () => {
-		const { useAuth } = await import('@mmailaender/convex-better-auth-svelte/svelte');
-		vi.mocked(useAuth).mockReturnValue(mockAuthenticatedAuth() as never);
-		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValue(mockProfileQueryResult({ user: null }) as never);
+	it('redirects an active student to their own evaluations page', async () => {
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(
+			viewerFor({
+				role: 'student',
+				status: 'active',
+				enrollmentStatus: 'Enrolled',
+				studentId: '888001'
+			})
+		);
+
+		renderRootPage();
+
+		await vi.waitFor(() => {
+			expect(gotoMock).toHaveBeenCalledWith('/evaluations/student/888001');
+		});
+	});
+
+	it('does not ensure a user profile while not authenticated', async () => {
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ auth: { isAuthenticated: false } }));
+
+		renderRootPage();
+
+		expect(mutationMock).not.toHaveBeenCalled();
+	});
+
+	it('does not ensure a user profile while the session is still loading', async () => {
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ auth: { isLoading: true } }));
 
 		renderRootPage();
 
@@ -148,18 +133,9 @@ describe('Root Page', () => {
 	});
 
 	it('ensures a user profile once the Convex token is confirmed (new user, no profile yet)', async () => {
-		const { useAuth } = await import('@mmailaender/convex-better-auth-svelte/svelte');
-		vi.mocked(useAuth).mockReturnValue(mockAuthenticatedAuth() as never);
-		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValue(
-			mockProfileQueryResult({
-				user: {
-					name: 'New Teacher',
-					role: undefined,
-					status: undefined,
-					profileExists: false
-				}
-			}) as never
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(
+			viewerFor({ role: undefined, status: undefined, profileExists: false })
 		);
 
 		renderRootPage();
@@ -170,14 +146,8 @@ describe('Root Page', () => {
 	});
 
 	it('does not re-ensure a user profile for an existing user (profileExists true)', async () => {
-		const { useAuth } = await import('@mmailaender/convex-better-auth-svelte/svelte');
-		vi.mocked(useAuth).mockReturnValue(mockAuthenticatedAuth() as never);
-		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValue(
-			mockProfileQueryResult({
-				user: { role: 'teacher', status: 'active', name: 'Existing Teacher', profileExists: true }
-			}) as never
-		);
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(settledAuthenticated());
 
 		renderRootPage();
 

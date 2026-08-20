@@ -1,6 +1,7 @@
 import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { buildViewerSession, type ViewerSessionConfig } from '../mocks/route-mocks';
 
 const mockPagePath = { pathname: '/evaluations' };
 
@@ -14,12 +15,7 @@ vi.mock('convex-svelte', () => ({
 }));
 
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
-	createSvelteAuthClient: vi.fn(),
-	useAuth: vi.fn(() => ({
-		isLoading: false,
-		isAuthenticated: true,
-		data: { user: { name: 'Test User' } }
-	}))
+	createSvelteAuthClient: vi.fn()
 }));
 
 vi.mock('$app/stores', async () => {
@@ -35,30 +31,12 @@ vi.mock('$app/stores', async () => {
 	};
 });
 
-const activeAdminUser = {
-	role: 'admin',
-	status: 'active',
-	name: 'Test Admin'
-} as const;
+vi.mock('$lib/viewer.svelte', () => ({
+	useViewer: vi.fn()
+}));
 
-const pendingUser = {
-	role: 'teacher',
-	status: 'pending',
-	name: 'Test Pending'
-} as const;
-
-function mockProfileQueryResult(user: unknown) {
-	return {
-		data: { user, actor: { kind: 'staff' }, capabilities: {} },
-		isLoading: false,
-		error: undefined,
-		isStale: false
-	} as unknown as {
-		data: { user: unknown; actor: unknown; capabilities: unknown };
-		isLoading: boolean;
-		error: Error | undefined;
-		isStale: boolean;
-	};
+function viewerFor(config: ViewerSessionConfig) {
+	return buildViewerSession(config);
 }
 
 import Layout from '$src/routes/+layout.svelte';
@@ -71,8 +49,8 @@ describe('access control', () => {
 
 	it('active admin can access /admin - page content visible', async () => {
 		mockPagePath.pathname = '/admin';
-		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValue(mockProfileQueryResult(activeAdminUser) as never);
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ role: 'admin', status: 'active' }));
 
 		render(Layout);
 		// The Layout renders the header with title "Admin Dashboard" when on /admin
@@ -81,8 +59,8 @@ describe('access control', () => {
 
 	it('pending user sees modal on /evaluations', async () => {
 		mockPagePath.pathname = '/evaluations';
-		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValue(mockProfileQueryResult(pendingUser) as never);
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ role: 'teacher', status: 'pending' }));
 
 		render(Layout);
 		await expect.element(page.getByText('Access Restricted')).toBeVisible();
@@ -90,8 +68,8 @@ describe('access control', () => {
 
 	it('pending user sees modal on /admin', async () => {
 		mockPagePath.pathname = '/admin';
-		const { useQuery } = await import('convex-svelte');
-		vi.mocked(useQuery).mockReturnValue(mockProfileQueryResult(pendingUser) as never);
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(viewerFor({ role: 'teacher', status: 'pending' }));
 
 		render(Layout);
 		await expect.element(page.getByText('Access Restricted')).toBeVisible();

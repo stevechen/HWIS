@@ -24,10 +24,10 @@
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { createPaginatedList } from '$lib/stores/paginatedList.svelte';
-	import { useAuthProfile } from '$lib/auth-profile';
+	import { useViewer } from '$lib/viewer.svelte';
 
-	const profile = useAuthProfile();
-	const currentUserId = $derived(profile?.data?.user?._id);
+	const session = useViewer();
+	const currentUserId = $derived(session.viewer?._id);
 
 	// Filter state
 	let studentFilter = $state('');
@@ -102,7 +102,7 @@
 	let selectedEvaluation = $state<EvaluationEntry | null>(null);
 
 	function canEditEntry(entry: EvaluationEntry): boolean {
-		const policy = profile?.data?.capabilities;
+		const policy = session.capabilities;
 		return (
 			isEditable(entry.timestamp) &&
 			Boolean(
@@ -127,7 +127,8 @@
 </script>
 
 <span data-current-user-id={currentUserId} class="hidden"></span>
-<span data-capabilities-ready={profile?.data ? 'true' : 'false'} class="hidden"></span>
+<span data-capabilities-ready={session.status !== 'loading' ? 'true' : 'false'} class="hidden"
+></span>
 
 <div class="mx-auto w-full max-w-6xl p-8 pt-0">
 	<RecentActionsPanel panelTestId="recent-actions" {hasRecent} />

@@ -4,6 +4,7 @@ import {
 	type CreateStudentOptions,
 	refreshClient
 } from '../src/lib/e2e-utils';
+import { CONVEX_JWT_COOKIE_NAME } from '../src/lib/e2e/session-keys';
 import fs from 'fs';
 import path from 'path';
 
@@ -41,9 +42,7 @@ export function useRole(role: 'admin' | 'teacher' | 'super') {
 			}
 
 			const state: { cookies: Cookie[] } = JSON.parse(fs.readFileSync(authPath, 'utf8'));
-			const convexCookie = state.cookies?.find(
-				(c: Cookie) => c.name === 'better-auth.convex_jwt' || c.name === 'convex_session_token'
-			);
+			const convexCookie = state.cookies?.find((c: Cookie) => c.name === CONVEX_JWT_COOKIE_NAME);
 			if (convexCookie?.value) {
 				setAuthToken(convexCookie.value);
 				return true;

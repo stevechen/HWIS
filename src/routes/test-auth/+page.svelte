@@ -206,9 +206,7 @@
 			convex: environment,
 			convexUrl: import.meta.env.PUBLIC_CONVEX_URL || 'Not set',
 			siteUrl: import.meta.env.VITE_SITE_URL || 'Not set',
-			isTestMode:
-				document.cookie.includes('hwis_test_auth') ||
-				document.cookie.includes('convex_session_token')
+			isTestMode: document.cookie.includes('hwis_test_auth')
 		};
 	});
 </script>

@@ -1,20 +1,13 @@
 <script lang="ts">
 	import { authClient } from '$lib/auth-client';
-	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { browser } from '$app/environment';
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import {
-		canAccessAdminArea,
-		hasApplicationAccess,
-		isStudent
-	} from '$convex/shared/authorization';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
-	import { useAuthProfile } from '$lib/auth-profile';
+	import { useViewer } from '$lib/viewer.svelte';
 
-	const auth = browser ? useAuth() : { isLoading: false, isAuthenticated: false };
 	const session = browser
 		? authClient.useSession()
 		: {
@@ -27,23 +20,17 @@
 			};
 	const client = useConvexClient();
 
-	const profile = useAuthProfile();
+	const viewerSession = useViewer();
 
-	const isLoggedIn = $derived(!auth.isLoading && auth.isAuthenticated);
+	const status = $derived(viewerSession.status);
+	const isLoggedIn = $derived(status !== 'loading' && status !== 'signedOut');
 	const userName = $derived($session.data?.user.name);
-	const isApproved = $derived(
-		profile ? (profile.data?.user ? hasApplicationAccess(profile.data.user) : false) : false
-	);
 	// We can show a terminal screen (sign-in / pending approval) once auth is
 	// settled and, for authenticated users, the profile has resolved.
-	const canShowTerminal = $derived(
-		!auth.isLoading && (!isLoggedIn || (profile !== undefined && !profile.isLoading))
-	);
+	const canShowTerminal = $derived(status !== 'loading');
 	// Valid accounts redirect immediately; render nothing so the HWIS title +
 	// loading card never flashes by on the way to /admin.
-	const shouldRedirect = $derived(
-		isLoggedIn && isApproved && profile !== undefined && !profile.isLoading
-	);
+	const shouldRedirect = $derived(status === 'active');
 	let hasEnsuredProfile = $state(false);
 
 	async function ensureProfile() {
@@ -65,26 +52,19 @@
 		// one (create). Existing users resolve profileExists:true and are skipped
 		// entirely, which also avoids firing the mutation while a token refresh
 		// is mid-flight (Not authenticated).
-		if (
-			profile &&
-			!profile.isLoading &&
-			profile.data?.user &&
-			'profileExists' in profile.data.user &&
-			profile.data.user.profileExists === false &&
-			!hasEnsuredProfile
-		) {
+		if (viewerSession.needsProfileCreation && !hasEnsuredProfile) {
 			hasEnsuredProfile = true;
 			ensureProfile();
 		}
 	});
 
 	$effect(() => {
-		if (profile && isApproved && !profile.isLoading && profile.data?.user) {
-			const viewer = profile.data.user;
-			if (isStudent(viewer) && 'studentId' in viewer && viewer.studentId) {
+		if (status === 'active' && viewerSession.viewer) {
+			const viewer = viewerSession.viewer;
+			if (viewerSession.isStudent && viewer.studentId) {
 				void goto(`/evaluations/student/${viewer.studentId}`);
 			} else {
-				void goto(canAccessAdminArea(viewer) ? '/admin' : '/evaluations');
+				void goto(viewerSession.isAdmin ? '/admin' : '/evaluations');
 			}
 		}
 	});

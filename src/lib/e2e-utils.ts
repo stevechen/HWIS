@@ -11,19 +11,6 @@ function getAuthOptions(): { auth?: string } {
 	if (process.env.CONVEX_AUTH_TOKEN) {
 		return { auth: process.env.CONVEX_AUTH_TOKEN };
 	}
-	if (typeof window !== 'undefined') {
-		try {
-			const convexAuth = localStorage.getItem('convexAuth');
-			if (convexAuth) {
-				const authData = JSON.parse(convexAuth);
-				if (authData.token) {
-					return { auth: authData.token };
-				}
-			}
-		} catch {
-			// Ignore localStorage errors
-		}
-	}
 	return {};
 }
 

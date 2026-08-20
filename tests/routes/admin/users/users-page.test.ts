@@ -1,11 +1,10 @@
 import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { buildViewerSession } from '../../../mocks/route-mocks';
 
 const now = Date.now();
 const day = 86_400_000;
-
-const currentUserId = { _id: 'user_a1', role: 'admin', status: 'active' };
 
 const newOne = {
 	_id: 'user_p1',
@@ -73,14 +72,8 @@ vi.mock('convex-svelte', () => ({
 	})
 }));
 
-vi.mock('$lib/auth-profile', () => ({
-	useAuthProfile: vi.fn(() => ({
-		data: { user: currentUserId, actor: { kind: 'staff' }, capabilities: {} },
-		isLoading: false,
-		error: undefined
-	})),
-	AUTH_PROFILE_KEY: 'auth-profile',
-	setAuthProfile: vi.fn()
+vi.mock('$lib/viewer.svelte', () => ({
+	useViewer: vi.fn()
 }));
 
 import UsersPage from '$src/routes/admin/users/+page.svelte';
@@ -88,10 +81,14 @@ import UsersPage from '$src/routes/admin/users/+page.svelte';
 describe('Users Admin Page - card grid', () => {
 	let mounted: ReturnType<typeof render>[] = [];
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.clearAllMocks();
 		currentUsers = defaultUsers;
 		mounted = [];
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(
+			buildViewerSession({ role: 'admin', status: 'active', name: 'Current Admin' })
+		);
 	});
 
 	afterEach(() => {

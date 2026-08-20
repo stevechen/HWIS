@@ -4,6 +4,7 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { CALLBACK_URL_PARAM, validateCallbackUrl } from '$lib/auth-guard';
 
 	const session = browser
 		? authClient.useSession()
@@ -31,10 +32,7 @@
 	// Redirect when user becomes authenticated
 	$effect(() => {
 		if (sessionData?.data && browser) {
-			const raw = $page.url.searchParams.get('callbackUrl') || '/';
-			// Only allow relative paths (prevent open redirect)
-			const callbackUrl = raw.startsWith('/') && !raw.includes('://') ? raw : '/';
-			goto(callbackUrl);
+			goto(validateCallbackUrl($page.url.searchParams.get(CALLBACK_URL_PARAM)));
 		}
 	});
 

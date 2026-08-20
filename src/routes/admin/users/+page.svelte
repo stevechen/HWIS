@@ -3,10 +3,10 @@
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
 	import UserManagement from './UserManagement.svelte';
-	import { useAuthProfile } from '$lib/auth-profile';
+	import { useViewer } from '$lib/viewer.svelte';
 
 	const client = useConvexClient();
-	const profile = useAuthProfile();
+	const session = useViewer();
 	const usersQuery = useQuery(api.users.list, () => ({}));
 
 	// Transient per-session record of users approved during this visit. The DB write is
@@ -65,8 +65,8 @@
 			updateRole={updateUserRole}
 			updateStatus={updateUserStatus}
 			{updatingId}
-			currentUserId={profile?.data?.user?._id as Id<'users'> | undefined}
-			currentUserIsSuper={profile?.data?.user?.role === 'super'}
+			currentUserId={session.viewer?._id as Id<'users'> | undefined}
+			currentUserIsSuper={session.viewer?.role === 'super'}
 			{roleStates}
 		/>
 	{/if}

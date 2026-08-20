@@ -4,6 +4,7 @@ import { render } from 'vitest-browser-svelte';
 import type { Id } from '$convex/_generated/dataModel';
 import type { RecentBatch } from '$convex/shared/recentActions';
 import { WEEK_MS } from '$convex/shared/evaluation_week';
+import { buildViewerSession } from '../../../mocks/route-mocks';
 
 const mockMutation = vi.fn().mockResolvedValue(undefined);
 let queryData: unknown = [];
@@ -19,26 +20,14 @@ vi.mock('convex-svelte', () => ({
 	}))
 }));
 
+vi.mock('$lib/viewer.svelte', () => ({
+	useViewer: vi.fn()
+}));
+
 // Import after mocks
 import BatchEditDialog from '$lib/evaluations/components/BatchEditDialog.svelte';
 import BatchDeleteDialog from '$lib/evaluations/components/BatchDeleteDialog.svelte';
 import PanelWithProfile from './panel-with-profile.svelte';
-
-function makeProfile(editAnyEvaluation: boolean) {
-	return {
-		data: {
-			user: { _id: 'teacher-1' },
-			capabilities: {
-				viewAnyEvaluation: false,
-				viewOwnEvaluation: true,
-				editOwnEvaluation: true,
-				editAnyEvaluation
-			}
-		},
-		isLoading: false,
-		error: null
-	};
-}
 
 const mockCategories = [
 	{ _id: 'cat-academic', name: 'Academic' },
@@ -85,21 +74,23 @@ function makeBatch(overrides: Partial<RecentBatch> = {}): RecentBatch {
 }
 
 describe('RecentActionsPanel', () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.clearAllMocks();
 		queryData = [];
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(buildViewerSession({ role: 'teacher', status: 'active' }));
 	});
 
 	it('hides the chip when hasRecent is false', async () => {
 		queryData = [makeBatch()];
-		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: false } });
+		render(PanelWithProfile, { props: { hasRecent: false } });
 		await expect
 			.element(page.getByRole('button', { name: 'Expand recent actions' }))
 			.not.toBeInTheDocument();
 	});
 
 	it('shows an icon-only chip when hasRecent is true', async () => {
-		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
+		render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await expect
 			.element(page.getByRole('button', { name: 'Expand recent actions' }))
@@ -110,7 +101,7 @@ describe('RecentActionsPanel', () => {
 
 	it('expands into the Recent Actions card on click', async () => {
 		queryData = [makeBatch()];
-		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
+		render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
@@ -120,7 +111,7 @@ describe('RecentActionsPanel', () => {
 
 	it('shows the empty state when nothing is actionable', async () => {
 		queryData = [makeBatch({ batchId: 'batch-locked', createdAt: Date.now() - 3 * WEEK_MS })];
-		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
+		render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
@@ -131,7 +122,7 @@ describe('RecentActionsPanel', () => {
 		const batch = makeBatch();
 		batch.evaluations[1] = { ...batch.evaluations[1], value: 2 };
 		queryData = [batch];
-		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
+		render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
@@ -146,7 +137,7 @@ describe('RecentActionsPanel', () => {
 		});
 		const fresh = makeBatch({ batchId: 'batch-fresh' });
 		queryData = [locked, fresh];
-		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
+		render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
@@ -154,13 +145,15 @@ describe('RecentActionsPanel', () => {
 	});
 
 	it('shows locked batches for a super user', async () => {
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(buildViewerSession({ role: 'super', status: 'active' }));
 		const locked = makeBatch({
 			batchId: 'batch-locked',
 			createdAt: Date.now() - 3 * WEEK_MS
 		});
 		const fresh = makeBatch({ batchId: 'batch-fresh' });
 		queryData = [locked, fresh];
-		render(PanelWithProfile, { props: { profile: makeProfile(true), hasRecent: true } });
+		render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
@@ -169,7 +162,7 @@ describe('RecentActionsPanel', () => {
 
 	it('opens the batch edit dialog when a row is clicked', async () => {
 		queryData = [makeBatch()];
-		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
+		render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 		await page.getByRole('button', { name: 'Edit batch' }).click();
@@ -179,7 +172,7 @@ describe('RecentActionsPanel', () => {
 
 	it('does not subscribe to the batches query while folded', async () => {
 		queryData = [makeBatch()];
-		render(PanelWithProfile, { props: { profile: makeProfile(false), hasRecent: true } });
+		render(PanelWithProfile, { props: { hasRecent: true } });
 
 		const batchesArgs = queryArgsAt();
 		expect(batchesArgs()).toBe('skip');
