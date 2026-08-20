@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import { browser } from '$app/environment';
 	import { Download, X, Search, ArrowUp, ArrowDown } from '@lucide/svelte';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import * as Table from '$lib/components/ui/table';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 
-	let dialogElement: HTMLDialogElement | undefined = $state();
+	let dialogOpen = $state(false);
 	let selectedReport = $state<{
 		weekNumber: number;
 		fridayDate: number;
@@ -107,17 +107,18 @@
 			filterGrade = '';
 			sortColumn = 'name';
 			sortDirection = 'asc';
-			if (browser && dialogElement) {
-				dialogElement.showModal();
-			}
+			dialogOpen = true;
 		}
 	}
 
-	function closeDetail() {
-		if (browser && dialogElement) {
-			dialogElement.close();
+	$effect(() => {
+		if (!dialogOpen) {
+			selectedReport = null;
 		}
-		selectedReport = null;
+	});
+
+	function closeDetail() {
+		dialogOpen = false;
 	}
 
 	function toggleSort(column: typeof sortColumn) {
@@ -255,261 +256,267 @@
 	</main>
 </div>
 
-<dialog
-	bind:this={dialogElement}
-	class="bg-background fixed top-1/2 left-1/2 max-h-[85vh] w-[calc(100vw-1rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 rounded-lg border-0 p-0 shadow-xl sm:w-[calc(100vw-2rem)]"
-	data-testid="weekly-reports.dialog"
-	onclose={() => {
-		selectedReport = null;
-	}}
-	onclick={(e) => {
-		if (e.target === dialogElement) {
-			closeDetail();
-		}
-	}}
->
-	{#if selectedReport}
-		<div
-			class="flex max-h-[85vh] w-full max-w-5xl flex-col"
-			data-testid="weekly-reports.dialog.content"
+<Dialog.Root bind:open={dialogOpen}>
+	<Dialog.Portal>
+		<Dialog.Overlay class="bg-black/50" data-testid="weekly-reports.dialog.backdrop" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 max-h-[85vh] w-[calc(100vw-1rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 rounded-lg border-0 p-0 shadow-xl sm:w-[calc(100vw-2rem)]"
+			data-testid="weekly-reports.dialog"
+			showCloseButton={false}
 		>
-			<header
-				class="bg-muted/50 flex shrink-0 items-center justify-between border-b px-4 py-3"
-				data-testid="weekly-reports.dialog.header"
-			>
-				<h2
-					class="flex items-center gap-2 text-lg font-semibold"
-					data-testid="weekly-reports.dialog.title"
+			{#if selectedReport}
+				<div
+					class="flex max-h-[85vh] w-full max-w-5xl flex-col"
+					data-testid="weekly-reports.dialog.content"
 				>
-					<span>Week {selectedReport.weekNumber} Report</span>
-					<span class="text-muted-foreground">|</span>
-					<span class="font-normal">{selectedReport.formattedDate}</span>
-					<span class="text-muted-foreground">|</span>
-					<span class="font-normal">{selectedReport.studentCount} students</span>
-				</h2>
-				<button
-					onclick={closeDetail}
-					class="hover:bg-muted text-muted-foreground hover:text-foreground ml-auto rounded p-1"
-					aria-label="Close"
-					data-testid="weekly-reports.dialog.close-x"
-				>
-					<X class="h-5 w-5" />
-				</button>
-			</header>
+					<header
+						class="bg-muted/50 flex shrink-0 items-center justify-between border-b px-4 py-3"
+						data-testid="weekly-reports.dialog.header"
+					>
+						<h2
+							class="flex items-center gap-2 text-lg font-semibold"
+							data-testid="weekly-reports.dialog.title"
+						>
+							<span>Week {selectedReport.weekNumber} Report</span>
+							<span class="text-muted-foreground">|</span>
+							<span class="font-normal">{selectedReport.formattedDate}</span>
+							<span class="text-muted-foreground">|</span>
+							<span class="font-normal">{selectedReport.studentCount} students</span>
+						</h2>
+						<button
+							onclick={closeDetail}
+							class="hover:bg-muted text-muted-foreground hover:text-foreground ml-auto rounded p-1"
+							aria-label="Close"
+							data-testid="weekly-reports.dialog.close-x"
+						>
+							<X class="h-5 w-5" />
+						</button>
+					</header>
 
-			<div
-				class="bg-muted/30 shrink-0 border-b px-4 py-2"
-				role="toolbar"
-				aria-label="Filter options"
-				data-testid="weekly-reports.dialog.filter-toolbar"
-			>
-				<div class="flex w-full items-center gap-3">
 					<div
-						class="relative hidden w-36 shrink-0 2xl:block"
-						data-testid="weekly-reports.dialog.filter-id-wrapper"
+						class="bg-muted/30 shrink-0 border-b px-4 py-2"
+						role="toolbar"
+						aria-label="Filter options"
+						data-testid="weekly-reports.dialog.filter-toolbar"
 					>
-						<Search class="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
-						<input
-							type="text"
-							placeholder="Filter ID..."
-							bind:value={filterId}
-							class="bg-background focus:ring-ring h-8 w-full rounded-md border pr-2 pl-8 text-sm focus:ring-1 focus:outline-none"
-							data-testid="weekly-reports.dialog.filter-id"
-						/>
-					</div>
-					<NativeSelect.Root
-						bind:value={filterGrade}
-						aria-label="Filter by grade"
-						data-testid="weekly-reports.dialog.filter-grade"
-					>
-						<NativeSelect.Option value="">All Grades</NativeSelect.Option>
-						{#each availableGrades as grade (grade)}
-							<NativeSelect.Option value={String(grade)}>Grade {grade}</NativeSelect.Option>
-						{/each}
-					</NativeSelect.Root>
-					<div
-						class="relative min-w-0 flex-1"
-						data-testid="weekly-reports.dialog.filter-name-wrapper"
-					>
-						<Search class="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
-						<input
-							type="text"
-							placeholder="Filter name (comma separated)..."
-							bind:value={filterName}
-							class="bg-background focus:ring-ring h-8 w-full rounded-md border pr-2 pl-8 text-sm focus:ring-1 focus:outline-none"
-							data-testid="weekly-reports.dialog.filter-name"
-						/>
-					</div>
-				</div>
-			</div>
-
-			<div
-				class="flex-1 overflow-auto"
-				role="region"
-				aria-label="Student details table"
-				data-testid="weekly-reports.dialog.student-table-region"
-			>
-				{#if detailData?.isLoading}
-					<div
-						class="flex items-center justify-center py-8"
-						role="status"
-						aria-live="polite"
-						data-testid="weekly-reports.dialog.loading"
-					>
-						<p class="text-muted-foreground">Loading details...</p>
-					</div>
-				{:else if detailData?.error}
-					<div
-						class="flex items-center justify-center py-8"
-						role="alert"
-						data-testid="weekly-reports.dialog.error"
-					>
-						<p class="text-red-500">Error loading details</p>
-					</div>
-				{:else if filteredStudents.length === 0}
-					<div
-						class="text-muted-foreground py-8 text-center"
-						role="status"
-						data-testid="weekly-reports.dialog.empty"
-					>
-						No students match the filters.
-					</div>
-				{:else}
-					<div
-						class="overflow-hidden rounded-md border"
-						data-testid="weekly-reports.dialog.student-table-wrapper"
-					>
-						<div class="max-h-[calc(85vh-240px)] overflow-auto">
-							<Table.Root
-								class="w-full table-fixed"
-								data-testid="weekly-reports.dialog.student-table"
+						<div class="flex w-full items-center gap-3">
+							<div
+								class="relative hidden w-36 shrink-0 2xl:block"
+								data-testid="weekly-reports.dialog.filter-id-wrapper"
 							>
-								<Table.Header>
-									<Table.Row class="bg-muted/50">
-										<Table.Head
-											class="bg-muted/50 sticky top-0 z-10 hidden w-20 font-semibold 2xl:table-cell"
-										>
-											<button
-												class="flex h-full w-full items-center gap-1"
-												onclick={() => toggleSort('id')}
-												data-testid="weekly-reports.dialog.sort-id"
-											>
-												ID
-												{#if sortColumn === 'id'}
-													{#if sortDirection === 'asc'}
-														<ArrowUp class="size-3" />
-													{:else}
-														<ArrowDown class="size-3" />
-													{/if}
-												{/if}
-											</button>
-										</Table.Head>
-										<Table.Head
-											class="bg-muted/50 sticky top-0 z-10 w-10 text-center font-semibold"
-										>
-											<button
-												class="flex h-full w-full items-center justify-center gap-1"
-												onclick={() => toggleSort('grade')}
-												data-testid="weekly-reports.dialog.sort-grade"
-											>
-												<span>G</span>
-												{#if sortColumn === 'grade'}
-													{#if sortDirection === 'asc'}
-														<ArrowUp class="size-3" />
-													{:else}
-														<ArrowDown class="size-3" />
-													{/if}
-												{/if}
-											</button>
-										</Table.Head>
-										<Table.Head class="bg-muted/50 sticky top-0 z-10 w-24 font-semibold sm:w-32">
-											<button
-												class="flex h-full w-full min-w-0 items-center gap-1"
-												onclick={() => toggleSort('name')}
-												data-testid="weekly-reports.dialog.sort-name"
-											>
-												<span class="truncate">Name</span>
-												{#if sortColumn === 'name'}
-													{#if sortDirection === 'asc'}
-														<ArrowUp class="size-3" />
-													{:else}
-														<ArrowDown class="size-3" />
-													{/if}
-												{/if}
-											</button>
-										</Table.Head>
-										{#each categoryColumns as cat (cat)}
-											<Table.Head
-												class="bg-muted/50 sticky top-0 z-10 w-16 text-center text-xs leading-tight font-semibold break-words whitespace-normal sm:w-20 sm:text-sm md:w-24"
-												>{cat}</Table.Head
-											>
-										{/each}
-									</Table.Row>
-								</Table.Header>
-								<Table.Body>
-									{#each filteredStudents as student (student.studentId)}
-										<Table.Row>
-											<Table.Cell class="hidden w-20 font-mono text-sm 2xl:table-cell"
-												>{student.studentId}</Table.Cell
-											>
-											<Table.Cell class="w-10 text-center"
-												>{(student as { grade: number }).grade}</Table.Cell
-											>
-											<Table.Cell
-												class="w-24 max-w-24 break-words whitespace-normal sm:w-32 sm:max-w-32"
-											>
-												{(student as { englishName: string }).englishName}</Table.Cell
-											>
-											{#each categoryColumns as cat (cat)}
-												{@const points =
-													(student as { pointsByCategory: Record<string, number> })
-														.pointsByCategory[cat] || 0}
-												<Table.Cell class="w-16 text-center sm:w-4 md:w-24">
-													<span
-														class={[
-															points > 0 && 'text-emerald-600',
-															points === 0 && 'text-muted-foreground',
-															points < 0 && 'text-red-600',
-															'inline-flex w-full justify-center font-medium'
-														]}
-													>
-														{(points === 0 && '--') || points}
-													</span>
-												</Table.Cell>
-											{/each}
-										</Table.Row>
-									{/each}
-								</Table.Body>
-							</Table.Root>
+								<Search
+									class="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2"
+								/>
+								<input
+									type="text"
+									placeholder="Filter ID..."
+									bind:value={filterId}
+									class="focus:ring-ring bg-background h-8 w-full rounded-md border pr-2 pl-8 text-sm focus:ring-1 focus:outline-none"
+									data-testid="weekly-reports.dialog.filter-id"
+								/>
+							</div>
+							<NativeSelect.Root
+								bind:value={filterGrade}
+								aria-label="Filter by grade"
+								data-testid="weekly-reports.dialog.filter-grade"
+							>
+								<NativeSelect.Option value="">All Grades</NativeSelect.Option>
+								{#each availableGrades as grade (grade)}
+									<NativeSelect.Option value={String(grade)}>Grade {grade}</NativeSelect.Option>
+								{/each}
+							</NativeSelect.Root>
+							<div
+								class="relative min-w-0 flex-1"
+								data-testid="weekly-reports.dialog.filter-name-wrapper"
+							>
+								<Search
+									class="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2"
+								/>
+								<input
+									type="text"
+									placeholder="Filter name (comma separated)..."
+									bind:value={filterName}
+									class="focus:ring-ring bg-background h-8 w-full rounded-md border pr-2 pl-8 text-sm focus:ring-1 focus:outline-none"
+									data-testid="weekly-reports.dialog.filter-name"
+								/>
+							</div>
 						</div>
 					</div>
-				{/if}
-			</div>
 
-			<footer
-				class="bg-muted/30 flex shrink-0 items-center justify-between border-t px-4 py-3"
-				data-testid="weekly-reports.dialog.footer"
-			>
-				<p class="text-muted-foreground text-sm" data-testid="weekly-reports.dialog.footer-info">
-					{selectedReport.formattedDate} - Week {selectedReport.weekNumber}
-				</p>
-				<div class="flex gap-2">
-					<Button
-						variant="outline"
-						onclick={exportToExcel}
-						aria-label="Export report to CSV"
-						data-testid="weekly-reports.dialog.export-button"
+					<div
+						class="flex-1 overflow-auto"
+						role="region"
+						aria-label="Student details table"
+						data-testid="weekly-reports.dialog.student-table-region"
 					>
-						<Download class="mr-2 size-4" />
-						Export
-					</Button>
-					<Button
-						variant="outline"
-						onclick={closeDetail}
-						data-testid="weekly-reports.dialog.close-button">Close</Button
+						{#if detailData?.isLoading}
+							<div
+								class="flex items-center justify-center py-8"
+								role="status"
+								aria-live="polite"
+								data-testid="weekly-reports.dialog.loading"
+							>
+								<p class="text-muted-foreground">Loading details...</p>
+							</div>
+						{:else if detailData?.error}
+							<div
+								class="flex items-center justify-center py-8"
+								role="alert"
+								data-testid="weekly-reports.dialog.error"
+							>
+								<p class="text-red-500">Error loading details</p>
+							</div>
+						{:else if filteredStudents.length === 0}
+							<div
+								class="text-muted-foreground py-8 text-center"
+								role="status"
+								data-testid="weekly-reports.dialog.empty"
+							>
+								No students match the filters.
+							</div>
+						{:else}
+							<div
+								class="overflow-hidden rounded-md border"
+								data-testid="weekly-reports.dialog.student-table-wrapper"
+							>
+								<div class="max-h-[calc(85vh-240px)] overflow-auto">
+									<Table.Root
+										class="w-full table-fixed"
+										data-testid="weekly-reports.dialog.student-table"
+									>
+										<Table.Header>
+											<Table.Row class="bg-muted/50">
+												<Table.Head
+													class="bg-muted/50 sticky top-0 z-10 hidden w-20 font-semibold 2xl:table-cell"
+												>
+													<button
+														class="flex h-full w-full items-center gap-1"
+														onclick={() => toggleSort('id')}
+														data-testid="weekly-reports.dialog.sort-id"
+													>
+														ID
+														{#if sortColumn === 'id'}
+															{#if sortDirection === 'asc'}
+																<ArrowUp class="size-3" />
+															{:else}
+																<ArrowDown class="size-3" />
+															{/if}
+														{/if}
+													</button>
+												</Table.Head>
+												<Table.Head
+													class="bg-muted/50 sticky top-0 z-10 w-10 text-center font-semibold"
+												>
+													<button
+														class="flex h-full w-full items-center justify-center gap-1"
+														onclick={() => toggleSort('grade')}
+														data-testid="weekly-reports.dialog.sort-grade"
+													>
+														<span>G</span>
+														{#if sortColumn === 'grade'}
+															{#if sortDirection === 'asc'}
+																<ArrowUp class="size-3" />
+															{:else}
+																<ArrowDown class="size-3" />
+															{/if}
+														{/if}
+													</button>
+												</Table.Head>
+												<Table.Head
+													class="bg-muted/50 sticky top-0 z-10 w-24 font-semibold sm:w-32"
+												>
+													<button
+														class="flex h-full w-full min-w-0 items-center gap-1"
+														onclick={() => toggleSort('name')}
+														data-testid="weekly-reports.dialog.sort-name"
+													>
+														<span class="truncate">Name</span>
+														{#if sortColumn === 'name'}
+															{#if sortDirection === 'asc'}
+																<ArrowUp class="size-3" />
+															{:else}
+																<ArrowDown class="size-3" />
+															{/if}
+														{/if}
+													</button>
+												</Table.Head>
+												{#each categoryColumns as cat (cat)}
+													<Table.Head
+														class="bg-muted/50 sticky top-0 z-10 w-16 text-center text-xs leading-tight font-semibold break-words whitespace-normal sm:w-20 sm:text-sm md:w-24"
+														>{cat}</Table.Head
+													>
+												{/each}
+											</Table.Row>
+										</Table.Header>
+										<Table.Body>
+											{#each filteredStudents as student (student.studentId)}
+												<Table.Row>
+													<Table.Cell class="hidden w-20 font-mono text-sm 2xl:table-cell"
+														>{student.studentId}</Table.Cell
+													>
+													<Table.Cell class="w-10 text-center"
+														>{(student as { grade: number }).grade}</Table.Cell
+													>
+													<Table.Cell
+														class="w-24 max-w-24 break-words whitespace-normal sm:w-32 sm:max-w-32"
+													>
+														{(student as { englishName: string }).englishName}</Table.Cell
+													>
+													{#each categoryColumns as cat (cat)}
+														{@const points =
+															(student as { pointsByCategory: Record<string, number> })
+																.pointsByCategory[cat] || 0}
+														<Table.Cell class="w-16 text-center sm:w-4 md:w-24">
+															<span
+																class={[
+																	points > 0 && 'text-emerald-600 dark:text-emerald-400',
+																	points === 0 && 'text-muted-foreground',
+																	points < 0 && 'text-red-600 dark:text-red-400',
+																	'inline-flex w-full justify-center font-medium'
+																]}
+															>
+																{(points === 0 && '--') || points}
+															</span>
+														</Table.Cell>
+													{/each}
+												</Table.Row>
+											{/each}
+										</Table.Body>
+									</Table.Root>
+								</div>
+							</div>
+						{/if}
+					</div>
+
+					<footer
+						class="bg-muted/30 flex shrink-0 items-center justify-between border-t px-4 py-3"
+						data-testid="weekly-reports.dialog.footer"
 					>
+						<p
+							class="text-muted-foreground text-sm"
+							data-testid="weekly-reports.dialog.footer-info"
+						>
+							{selectedReport.formattedDate} - Week {selectedReport.weekNumber}
+						</p>
+						<div class="flex gap-2">
+							<Button
+								variant="outline"
+								onclick={exportToExcel}
+								aria-label="Export report to CSV"
+								data-testid="weekly-reports.dialog.export-button"
+							>
+								<Download class="mr-2 size-4" />
+								Export
+							</Button>
+							<Button
+								variant="outline"
+								onclick={closeDetail}
+								data-testid="weekly-reports.dialog.close-button">Close</Button
+							>
+						</div>
+					</footer>
 				</div>
-			</footer>
-		</div>
-	{/if}
-</dialog>
+			{/if}
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
