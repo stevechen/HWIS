@@ -14,6 +14,7 @@ import {
 import { getWeekNumber, formatDateRange } from './shared/evaluation_utils';
 import { weekStartOf, weekEndOf, isEditable } from './shared/evaluation_week';
 import { enrichEvaluations } from './shared/enrichment';
+import { projectWeeklyReport } from './shared/weekly_report_read_model';
 import type { RecentBatch, RecentBatchEvaluation } from './shared/recentActions';
 import { derivedBatchKey } from './shared/recentActions';
 import { resolveStudentFromEmail, isStudentEmailAddress } from './shared/student';
@@ -309,51 +310,7 @@ export const getWeeklyReportDetail = query({
 			.withIndex('by_timestamp', (q) => q.gt('timestamp', startOfWeek).lt('timestamp', endOfWeek))
 			.take(500);
 
-		const enriched = await enrichEvaluations(evaluations, ctx);
-
-		const studentPointsMap = new Map<
-			string,
-			{
-				studentId: string;
-				englishName: string;
-				chineseName: string;
-				grade: number | undefined;
-				class?: string;
-				pointsByCategory: Record<string, number>;
-				totalPoints: number;
-			}
-		>();
-
-		for (const eval_ of enriched) {
-			const student = eval_;
-			if (!student.englishName || student.englishName === 'Unknown Student') continue;
-
-			const categoryName = eval_.category || 'Unknown Category';
-
-			let studentData = studentPointsMap.get(student.studentIdCode);
-			if (!studentData) {
-				studentData = {
-					studentId: student.studentIdCode,
-					englishName: student.englishName,
-					chineseName: student.chineseName,
-					grade: student.grade,
-					class: student.class,
-					pointsByCategory: {},
-					totalPoints: 0
-				};
-				studentPointsMap.set(student.studentIdCode, studentData);
-			}
-
-			if (!studentData.pointsByCategory[categoryName]) {
-				studentData.pointsByCategory[categoryName] = 0;
-			}
-			studentData.pointsByCategory[categoryName] += eval_.value;
-			studentData.totalPoints += eval_.value;
-		}
-
-		return Array.from(studentPointsMap.values()).sort((a, b) =>
-			a.englishName.localeCompare(b.englishName)
-		);
+		return await projectWeeklyReport(evaluations, ctx);
 	}
 });
 

@@ -6,20 +6,25 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Table from '$lib/components/ui/table';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
+	import {
+		filterAndSortWeeklyReportStudents,
+		getAvailableGrades,
+		getCategoryColumns,
+		toWeeklyReportCsv,
+		type WeeklyReportSortColumn,
+		type WeeklyReportSortDirection,
+		type WeeklyReportStudent,
+		type WeeklyReportSummary
+	} from '$lib/weekly-report';
 
 	let dialogOpen = $state(false);
-	let selectedReport = $state<{
-		weekNumber: number;
-		fridayDate: number;
-		formattedDate: string;
-		studentCount: number;
-	} | null>(null);
+	let selectedReport = $state<WeeklyReportSummary | null>(null);
 
 	let filterId = $state('');
 	let filterName = $state('');
 	let filterGrade = $state('');
-	let sortColumn = $state<'id' | 'name' | 'grade'>('name');
-	let sortDirection = $state<'asc' | 'desc'>('asc');
+	let sortColumn = $state<WeeklyReportSortColumn>('name');
+	let sortDirection = $state<WeeklyReportSortDirection>('asc');
 	const weeklyLookbackMs = 52 * 7 * 24 * 60 * 60 * 1000;
 	const sinceTimestamp = Date.now() - weeklyLookbackMs;
 
@@ -32,74 +37,20 @@
 	);
 
 	let reports = $derived(reportsQuery.data || []);
-
-	let allStudents = $derived(detailData?.data ?? []);
-
-	let availableGrades = $derived(
-		Array.from(new Set(allStudents.map((s) => (s as { grade: number }).grade))).sort(
-			(a, b) => (a as number) - (b as number)
-		)
+	let allStudents = $derived<WeeklyReportStudent[]>(detailData?.data ?? []);
+	let availableGrades = $derived(getAvailableGrades(allStudents));
+	let filteredStudents = $derived(
+		filterAndSortWeeklyReportStudents(allStudents, {
+			id: filterId,
+			name: filterName,
+			grade: filterGrade,
+			sortColumn,
+			sortDirection
+		})
 	);
+	let categoryColumns = $derived(getCategoryColumns(allStudents));
 
-	let filteredStudents = $derived.by(() => {
-		let result: typeof allStudents = allStudents;
-
-		if (filterId) {
-			result = result.filter((s) =>
-				(s as { studentId: string }).studentId.toLowerCase().includes(filterId.toLowerCase())
-			);
-		}
-		if (filterName) {
-			const nameParts = filterName
-				.split(',')
-				.map((n) => n.trim().toLowerCase())
-				.filter(Boolean);
-			if (nameParts.length > 0) {
-				result = result.filter((s) => {
-					const student = s as { englishName: string; chineseName: string };
-					const englishLower = student.englishName.toLowerCase();
-					const chineseLower = student.chineseName;
-					return nameParts.some(
-						(part) => englishLower.includes(part) || chineseLower.includes(part)
-					);
-				});
-			}
-		}
-		if (filterGrade) {
-			const gradeNum = parseInt(filterGrade, 10);
-			if (!isNaN(gradeNum)) {
-				result = result.filter((s) => (s as { grade: number }).grade === gradeNum);
-			}
-		}
-
-		result = [...result].sort((a, b) => {
-			const studentA = a as { studentId: string; englishName: string; grade: number };
-			const studentB = b as { studentId: string; englishName: string; grade: number };
-			let comparison = 0;
-			if (sortColumn === 'id') {
-				comparison = studentA.studentId.localeCompare(studentB.studentId);
-			} else if (sortColumn === 'name') {
-				comparison = studentA.englishName.localeCompare(studentB.englishName);
-			} else if (sortColumn === 'grade') {
-				comparison = studentA.grade - studentB.grade;
-			}
-			return sortDirection === 'asc' ? comparison : -comparison;
-		});
-
-		return result;
-	});
-
-	let categoryColumns = $derived(
-		Array.from(
-			new Set(
-				allStudents.flatMap((s: { pointsByCategory: Record<string, number> }) =>
-					Object.keys(s.pointsByCategory)
-				)
-			)
-		).sort()
-	);
-
-	function openReport(report: typeof selectedReport) {
+	function openReport(report: WeeklyReportSummary | null) {
 		if (report) {
 			selectedReport = report;
 			filterId = '';
@@ -111,17 +62,12 @@
 		}
 	}
 
-	$effect(() => {
-		if (!dialogOpen) {
-			selectedReport = null;
-		}
-	});
-
 	function closeDetail() {
 		dialogOpen = false;
+		selectedReport = null;
 	}
 
-	function toggleSort(column: typeof sortColumn) {
+	function toggleSort(column: WeeklyReportSortColumn) {
 		if (sortColumn === column) {
 			sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
 		} else {
@@ -131,44 +77,9 @@
 	}
 
 	function exportToExcel() {
-		const students = detailData?.data ?? [];
-		if (!students.length) return;
+		if (!allStudents.length) return;
 
-		const headers = ['Student ID', 'English Name', 'Chinese Name', 'Grade', 'Total Points'];
-
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Set is used for non-reactive CSV generation
-		const categoryHeaders = new Set<string>();
-		students.forEach((s) => {
-			const student = s as { pointsByCategory: Record<string, number> };
-			Object.keys(student.pointsByCategory).forEach((cat) => categoryHeaders.add(cat));
-		});
-		const sortedCategories = Array.from(categoryHeaders).sort();
-
-		const csvHeaders = [...headers, ...sortedCategories];
-		const csvRows = students.map((s) => {
-			const student = s as {
-				studentId: string;
-				englishName: string;
-				chineseName: string;
-				grade: number;
-				totalPoints: number;
-				pointsByCategory: Record<string, number>;
-			};
-			const row = [
-				student.studentId,
-				student.englishName,
-				student.chineseName,
-				student.grade.toString(),
-				student.totalPoints.toString()
-			];
-			sortedCategories.forEach((cat: string) => {
-				const points = student.pointsByCategory[cat] || 0;
-				row.push(points.toString());
-			});
-			return row.join(',');
-		});
-
-		const csvContent = [csvHeaders.join(','), ...csvRows].join('\n');
+		const csvContent = toWeeklyReportCsv(allStudents);
 		const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 		const link = document.createElement('a');
 		const url = URL.createObjectURL(blob);
@@ -454,18 +365,14 @@
 													<Table.Cell class="hidden w-20 font-mono text-sm 2xl:table-cell"
 														>{student.studentId}</Table.Cell
 													>
-													<Table.Cell class="w-10 text-center"
-														>{(student as { grade: number }).grade}</Table.Cell
-													>
+													<Table.Cell class="w-10 text-center">{student.grade}</Table.Cell>
 													<Table.Cell
 														class="w-24 max-w-24 break-words whitespace-normal sm:w-32 sm:max-w-32"
 													>
-														{(student as { englishName: string }).englishName}</Table.Cell
+														{student.englishName}</Table.Cell
 													>
 													{#each categoryColumns as cat (cat)}
-														{@const points =
-															(student as { pointsByCategory: Record<string, number> })
-																.pointsByCategory[cat] || 0}
+														{@const points = student.pointsByCategory[cat] || 0}
 														<Table.Cell class="w-16 text-center sm:w-4 md:w-24">
 															<span
 																class={[
