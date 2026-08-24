@@ -83,8 +83,24 @@
 		});
 	}
 
-	function handleDownload(backup: { data: unknown; filename: string; _id: Id<'backups'> }) {
-		const data = backup.data;
+	async function handleDownload(backup: {
+		data: unknown;
+		filename: string;
+		_id: Id<'backups'>;
+		chunkCount?: number;
+	}) {
+		let data = backup.data;
+		if (!data && backup.chunkCount) {
+			const chunks = await Promise.all(
+				Array.from({ length: backup.chunkCount }, (_, chunkIndex) =>
+					client.query(api.backup.getBackupChunk, {
+						backupId: backup._id,
+						chunkIndex
+					})
+				)
+			);
+			data = JSON.parse(chunks.map((chunk) => chunk?.data ?? '').join(''));
+		}
 		const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
@@ -106,7 +122,7 @@
 						<div
 							class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900"
 						>
-							<Play class="h-5 w-5 text-blue-600 dark:text-blue-400" />
+							<Play class="size-5 text-blue-600 dark:text-blue-400" />
 						</div>
 						<Card.Title>Force Backup</Card.Title>
 					</div>
@@ -133,7 +149,7 @@
 						<div
 							class="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900"
 						>
-							<Cloud class="h-5 w-5 text-green-600 dark:text-green-400" />
+							<Cloud class="size-5 text-green-600 dark:text-green-400" />
 						</div>
 						<Card.Title>Backup History</Card.Title>
 					</div>
@@ -154,19 +170,22 @@
 									<div class="min-w-0">
 										<p class="truncate font-medium">{backup.filename}</p>
 										<p class="text-muted-foreground text-sm">
-											{formatDate(backup.createdAt)} - {data?.students?.length ?? 0} students
+											{formatDate(backup.createdAt)} - {backup.studentsCount ??
+												data?.students?.length ??
+												0}
+											students
 										</p>
 									</div>
 									<div class="flex flex-wrap gap-2">
 										<Button variant="outline" size="sm" onclick={() => handleDownload(backup)}>
-											<Download class="mr-1 h-4 w-4" /> Download
+											<Download class="mr-1 size-4" /> Download
 										</Button>
 										<Button
 											variant="outline"
 											size="sm"
 											onclick={() => handleRestoreClick(backup._id)}
 										>
-											<RotateCcw class="mr-1 h-4 w-4" /> Restore
+											<RotateCcw class="mr-1 size-4" /> Restore
 										</Button>
 										<Button
 											variant="ghost"
@@ -180,7 +199,7 @@
 												}
 											}}
 										>
-											<Trash2 class="text-destructive h-4 w-4" />
+											<Trash2 class="text-destructive size-4" />
 										</Button>
 									</div>
 								</div>
@@ -196,7 +215,7 @@
 						<div
 							class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900"
 						>
-							<Trash2 class="h-5 w-5 text-red-600" />
+							<Trash2 class="size-5 text-red-600" />
 						</div>
 						<Card.Title>Danger Zone</Card.Title>
 					</div>

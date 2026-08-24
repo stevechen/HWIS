@@ -121,12 +121,22 @@ export default defineSchema({
 
 	backups: defineTable({
 		filename: v.string(),
-		data: v.any(),
+		data: v.optional(v.any()),
+		chunkCount: v.optional(v.number()),
+		studentsCount: v.optional(v.number()),
 		createdAt: v.number(),
 		e2eTag: v.optional(v.string())
 	})
 		.index('by_createdAt', ['createdAt'])
 		.index('by_e2eTag', ['e2eTag']),
+
+	backup_chunks: defineTable({
+		backupId: v.id('backups'),
+		chunkIndex: v.number(),
+		data: v.string()
+	})
+		.index('by_backupId', ['backupId'])
+		.index('by_backupId_chunkIndex', ['backupId', 'chunkIndex']),
 
 	settings: defineTable({
 		key: v.string(),

@@ -39,6 +39,7 @@ import type * as shared_migration_plan from "../shared/migration_plan.js";
 import type * as shared_recentActions from "../shared/recentActions.js";
 import type * as shared_restore_plan from "../shared/restore_plan.js";
 import type * as shared_student from "../shared/student.js";
+import type * as shared_weekly_report_read_model from "../shared/weekly_report_read_model.js";
 import type * as students from "../students.js";
 import type * as testAuth from "../testAuth.js";
 import type * as testData_weeklyReports from "../testData/weeklyReports.js";
@@ -85,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   "shared/recentActions": typeof shared_recentActions;
   "shared/restore_plan": typeof shared_restore_plan;
   "shared/student": typeof shared_student;
+  "shared/weekly_report_read_model": typeof shared_weekly_report_read_model;
   students: typeof students;
   testAuth: typeof testAuth;
   "testData/weeklyReports": typeof testData_weeklyReports;

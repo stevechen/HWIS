@@ -42,8 +42,7 @@ test.describe('Backup Management @backup @sequential', () => {
 
 		await expect(page.getByText(/Created backup/)).toBeVisible();
 
-		const backupRow = page.locator('text=backup-').first();
-		await expect(backupRow).toBeVisible();
+		await expect(page.getByText(/^backup-\d+\.json$/).first()).toBeVisible();
 	});
 
 	test('download button is available for backup entries', async ({ page }) => {

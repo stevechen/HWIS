@@ -11,6 +11,8 @@ import type { Doc, Id } from '../_generated/dataModel';
 import type { GenericDatabaseReader, GenericDatabaseWriter } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
 
+const BACKUP_CHUNK_SIZE = 200_000;
+
 export const SNAPSHOT_VERSION = '1.0';
 
 export type BackupSnapshot = {
@@ -50,17 +52,43 @@ export async function buildSnapshot(ctx: {
 	};
 }
 
-// Persists a snapshot as a backups row so the record shape (filename pattern,
-// data, createdAt) stays in one place.
 export async function insertBackupRecord(
 	ctx: { db: GenericDatabaseWriter<DataModel> },
 	snapshot: BackupSnapshot,
 	e2eTag?: string
 ): Promise<Id<'backups'>> {
-	return await ctx.db.insert('backups', {
-		filename: `backup-${Date.now()}.json`,
-		data: snapshot,
-		createdAt: Date.now(),
+	const filename = `backup-${Date.now()}.json`;
+	const serializedSnapshot = JSON.stringify(snapshot);
+	const createdAt = Date.now();
+	const backupId = await ctx.db.insert('backups', {
+		filename,
+		data: serializedSnapshot.length <= BACKUP_CHUNK_SIZE ? snapshot : undefined,
+		chunkCount:
+			serializedSnapshot.length <= BACKUP_CHUNK_SIZE
+				? undefined
+				: Math.ceil(serializedSnapshot.length / BACKUP_CHUNK_SIZE),
+		studentsCount: snapshot.students.length,
+		createdAt,
 		e2eTag
 	});
+
+	if (serializedSnapshot.length > BACKUP_CHUNK_SIZE) {
+		for (
+			let offset = 0, chunkIndex = 0;
+			offset < serializedSnapshot.length;
+			offset += BACKUP_CHUNK_SIZE, chunkIndex++
+		) {
+			await ctx.db.insert('backup_chunks', {
+				backupId,
+				chunkIndex,
+				data: serializedSnapshot.slice(offset, offset + BACKUP_CHUNK_SIZE)
+			});
+		}
+	}
+
+	return backupId;
+}
+
+export function parseBackupSnapshot(chunks: { data: string }[]): BackupSnapshot {
+	return JSON.parse(chunks.map((chunk) => chunk.data).join('')) as BackupSnapshot;
 }

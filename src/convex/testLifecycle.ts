@@ -143,6 +143,11 @@ async function deleteBackupsByTag(teardown: TeardownContext) {
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
 	for (const backup of backups) {
+		const chunks = await teardown.ctx.db
+			.query('backup_chunks')
+			.withIndex('by_backupId', (q) => q.eq('backupId', backup._id))
+			.collect();
+		for (const chunk of chunks) await teardown.ctx.db.delete(chunk._id);
 		await teardown.ctx.db.delete(backup._id);
 	}
 	if (backups.length > 0) bump(teardown, 'backups', backups.length);
@@ -384,6 +389,11 @@ export const teardownAllTagged = mutation({
 			.filter((q) => q.neq(q.field('e2eTag'), undefined))
 			.collect();
 		for (const backup of backups) {
+			const chunks = await ctx.db
+				.query('backup_chunks')
+				.withIndex('by_backupId', (q) => q.eq('backupId', backup._id))
+				.collect();
+			for (const chunk of chunks) await ctx.db.delete(chunk._id);
 			await ctx.db.delete(backup._id);
 		}
 		if (backups.length > 0) bump(teardown, 'backups', backups.length);
@@ -485,6 +495,11 @@ export const teardownBackupsByTimestamp = mutation({
 			.filter((q) => q.gte(q.field('createdAt'), args.since))
 			.collect();
 		for (const backup of backups) {
+			const chunks = await ctx.db
+				.query('backup_chunks')
+				.withIndex('by_backupId', (q) => q.eq('backupId', backup._id))
+				.collect();
+			for (const chunk of chunks) await ctx.db.delete(chunk._id);
 			await ctx.db.delete(backup._id);
 		}
 		return { deleted: { backups: backups.length } };

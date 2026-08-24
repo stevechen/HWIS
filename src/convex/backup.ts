@@ -1,7 +1,7 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { requireAdminForSensitiveOperation } from './auth';
-import { buildSnapshot, insertBackupRecord } from './shared/backup_snapshot';
+import { buildSnapshot, insertBackupRecord, parseBackupSnapshot } from './shared/backup_snapshot';
 import { applyRestore, type RestorePayload } from './shared/restore_plan';
 import { runYearEndMigration } from './shared/migration_plan';
 
@@ -47,7 +47,12 @@ export const restoreFromBackup = mutation({
 		const backup = await ctx.db.get(args.backupId);
 		if (!backup) throw new Error('Backup not found');
 
-		const data = backup.data as RestorePayload;
+		const chunks = await ctx.db
+			.query('backup_chunks')
+			.withIndex('by_backupId_chunkIndex', (q) => q.eq('backupId', args.backupId))
+			.collect();
+		const data = (backup.data ??
+			parseBackupSnapshot(chunks.sort((a, b) => a.chunkIndex - b.chunkIndex))) as RestorePayload;
 		const { skippedEvaluations } = await applyRestore(ctx, data);
 
 		return {
@@ -82,12 +87,21 @@ export const clearAllData = mutation({
 		const categories = await ctx.db.query('point_categories').collect();
 		const classes = await ctx.db.query('classes').collect();
 		const houseEvents = await ctx.db.query('house_events').collect();
+		const backups = await ctx.db.query('backups').collect();
 
 		for (const student of students) await ctx.db.delete(student._id);
 		for (const evaluation of evaluations) await ctx.db.delete(evaluation._id);
 		for (const category of categories) await ctx.db.delete(category._id);
 		for (const cls of classes) await ctx.db.delete(cls._id);
 		for (const event of houseEvents) await ctx.db.delete(event._id);
+		for (const backup of backups) {
+			const chunks = await ctx.db
+				.query('backup_chunks')
+				.withIndex('by_backupId', (q) => q.eq('backupId', backup._id))
+				.collect();
+			for (const chunk of chunks) await ctx.db.delete(chunk._id);
+			await ctx.db.delete(backup._id);
+		}
 
 		const auditLogs = await ctx.db.query('audit_logs').collect();
 		for (const log of auditLogs) {
@@ -116,12 +130,33 @@ export const listBackups = query({
 	}
 });
 
+export const getBackupChunk = query({
+	args: {
+		backupId: v.id('backups'),
+		chunkIndex: v.number()
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		return await ctx.db
+			.query('backup_chunks')
+			.withIndex('by_backupId_chunkIndex', (q) =>
+				q.eq('backupId', args.backupId).eq('chunkIndex', args.chunkIndex)
+			)
+			.first();
+	}
+});
+
 export const deleteBackup = mutation({
 	args: {
 		backupId: v.id('backups')
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
+		const chunks = await ctx.db
+			.query('backup_chunks')
+			.withIndex('by_backupId', (q) => q.eq('backupId', args.backupId))
+			.collect();
+		for (const chunk of chunks) await ctx.db.delete(chunk._id);
 		await ctx.db.delete(args.backupId);
 		return { message: 'Backup deleted' };
 	}
