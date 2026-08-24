@@ -2,6 +2,8 @@ import type { Doc, Id } from '../_generated/dataModel';
 import type { GenericDatabaseReader } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
 
+export type EvaluationReference = 'resolved' | 'missing';
+
 export type EnrichedEvaluation = {
 	_id: Id<'evaluations'>;
 	studentId: Id<'students'>;
@@ -19,6 +21,8 @@ export type EnrichedEvaluation = {
 	grade: number;
 	class?: string;
 	category: string;
+	studentReference: EvaluationReference;
+	categoryReference: EvaluationReference;
 };
 
 export async function enrichEvaluations(
@@ -56,7 +60,9 @@ export async function enrichEvaluations(
 			status: student?.status || 'Not Enrolled',
 			grade: classRecord?.grade ?? 0,
 			class: classRecord?.class,
-			category: category?.name || 'Unknown Category'
+			category: category?.name || 'Unknown Category',
+			studentReference: student ? 'resolved' : 'missing',
+			categoryReference: category ? 'resolved' : 'missing'
 		};
 	});
 }

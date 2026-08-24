@@ -133,6 +133,44 @@ describe('enrichment helper', () => {
 		expect(result).toHaveLength(2);
 		expect(result[0].category).toBe('Sports');
 		expect(result[1].category).toBe('Academics');
+		expect(result[0].studentReference).toBe('resolved');
+		expect(result[0].categoryReference).toBe('resolved');
 		expect(result[0].timestamp).toBeGreaterThanOrEqual(result[1].timestamp);
+	});
+
+	test('enrichEvaluations marks missing student and category references', async () => {
+		const t = convexTest(schema, modules);
+		const teacherId = await t.run(async (ctx) =>
+			ctx.db.insert('users', {
+				authId: 'missing-reference-teacher',
+				name: 'Missing Reference Teacher',
+				role: 'teacher',
+				status: 'active'
+			})
+		);
+		const { studentId, categoryId } = await setupEvaluationData(t);
+		const evaluation = await t.run(async (ctx) => {
+			const evaluationId = await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId,
+				categoryId,
+				value: 1,
+				details: 'Missing references',
+				timestamp: Date.now(),
+				semesterId: '2025-H1'
+			});
+			await ctx.db.delete(studentId);
+			await ctx.db.delete(categoryId);
+			return ctx.db.get(evaluationId);
+		});
+		if (!evaluation) throw new Error('Evaluation was not created');
+
+		const enrich = await import('./shared/enrichment');
+		const result = await t.run(async (ctx) => enrich.enrichEvaluations([evaluation], ctx));
+
+		expect(result[0].englishName).toBe('Unknown Student');
+		expect(result[0].category).toBe('Unknown Category');
+		expect(result[0].studentReference).toBe('missing');
+		expect(result[0].categoryReference).toBe('missing');
 	});
 });

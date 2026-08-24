@@ -2,7 +2,7 @@ import { query, mutation } from './_generated/server';
 import type { Id } from './_generated/dataModel';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
-import type { EnrichedEvaluation } from './shared/enrichment';
+import { readEvaluations } from './shared/evaluation_read_model';
 import {
 	requireAdminForSensitiveOperation,
 	getAuthenticatedUser,
@@ -11,7 +11,7 @@ import {
 	requireUserProfileForSensitiveOperation,
 	isTestRuntime
 } from './auth';
-import { getWeekNumber, formatDateRange, matchesMultiSearch } from './shared/evaluation_utils';
+import { getWeekNumber, formatDateRange } from './shared/evaluation_utils';
 import { weekStartOf, weekEndOf, isEditable } from './shared/evaluation_week';
 import { enrichEvaluations } from './shared/enrichment';
 import type { RecentBatch, RecentBatchEvaluation } from './shared/recentActions';
@@ -24,8 +24,7 @@ import {
 	requireEvaluationEdit,
 	requireEvaluationRead,
 	getEvaluationCapabilities,
-	type AuthorizationActor,
-	isAdmin as isAdminRole
+	type AuthorizationActor
 } from './shared/authorization';
 
 export const getUserByAuthId = query({
@@ -167,49 +166,14 @@ export const listRecent = query({
 		const actor: AuthorizationActor = { kind: 'staff', subject: userDoc };
 		const caps = getEvaluationCapabilities(actor);
 
-		let allEvaluations;
-		if (caps.viewOwnEvaluation) {
-			allEvaluations = await ctx.db
-				.query('evaluations')
-				.withIndex('by_teacherId', (q) => q.eq('teacherId', userDoc._id))
-				.order('desc')
-				.take(200);
-		} else {
-			return [];
-		}
+		if (!caps.viewOwnEvaluation) return [];
 
-		let results = await enrichEvaluations(allEvaluations, ctx);
-
-		results = results.map((eval_) => ({
-			...eval_,
-			_id: eval_._id,
-			studentId: eval_.studentId,
-			teacherId: eval_.teacherId,
-			englishName: eval_.englishName,
-			chineseName: eval_.chineseName,
-			grade: eval_.grade,
-			class: eval_.class,
-			studentIdCode: eval_.studentIdCode,
-			status: eval_.status,
-			value: eval_.value,
-			categoryId: eval_.categoryId,
-			category: eval_.category,
-			details: eval_.details,
-			timestamp: eval_.timestamp,
-			semesterId: eval_.semesterId
-		}));
-
-		// Server-side filtering if studentFilter is provided
-		if (args.studentFilter && args.studentFilter.trim()) {
-			results = results.filter((e) => matchesMultiSearch(args.studentFilter!, e.englishName ?? ''));
-		}
-
-		// Filter out evaluations for unenrolled students (non-admin view)
-		if (!caps.viewAnyEvaluation) {
-			results = results.filter((e) => e.status !== 'Not Enrolled');
-		}
-
-		return results.sort((a, b) => b.timestamp - a.timestamp);
+		return await readEvaluations(ctx, {
+			scope: 'teacher',
+			teacherId: userDoc._id,
+			sortAscending: false,
+			filters: { studentFilter: args.studentFilter, showUnenrolled: caps.viewAnyEvaluation }
+		});
 	}
 });
 
@@ -423,26 +387,13 @@ export const getStudentEvaluationsByTeacher = query({
 		const user = await requireActiveStaff(ctx);
 		if (!canReadTeacherHistory(user)) throw new Error('Forbidden: Teacher history access required');
 
-		const evaluations = await ctx.db
-			.query('evaluations')
-			.withIndex('by_studentId_teacherId', (q) =>
-				q.eq('studentId', args.studentId).eq('teacherId', user._id)
-			)
-			.take(200);
-
-		const enriched = await enrichEvaluations(evaluations, ctx);
-
-		const teacher = await ctx.db.get(user._id);
-		const teacherName = teacher?.name || 'Unknown Teacher';
-
-		const result = enriched.map((e) => ({
-			...e,
-			categoryId: e.categoryId.toString(),
-			teacherName,
-			isAdmin: false
-		}));
-
-		return result.sort((a, b) => b.timestamp - a.timestamp);
+		return await readEvaluations(ctx, {
+			scope: 'teacher',
+			teacherId: user._id,
+			studentId: args.studentId,
+			sortAscending: false,
+			filters: { showUnenrolled: true }
+		});
 	}
 });
 
@@ -465,27 +416,13 @@ export const getStudentEvaluationsByTeacherByStudentIdCode = query({
 			return [];
 		}
 
-		// Fetch evaluations for this student by this teacher
-		const evaluations = await ctx.db
-			.query('evaluations')
-			.withIndex('by_studentId_teacherId', (q) =>
-				q.eq('studentId', student._id).eq('teacherId', user._id)
-			)
-			.collect();
-
-		const baseEnriched = await enrichEvaluations(evaluations, ctx);
-
-		const teacher = await ctx.db.get(user._id);
-		const teacherName = teacher?.name || 'Unknown Teacher';
-
-		const enriched = baseEnriched.map((e) => ({
-			...e,
-			categoryId: e.categoryId.toString(),
-			teacherName,
-			isAdmin: false
-		}));
-
-		return enriched.sort((a, b) => b.timestamp - a.timestamp);
+		return await readEvaluations(ctx, {
+			scope: 'teacher',
+			teacherId: user._id,
+			studentId: student._id,
+			sortAscending: false,
+			filters: { showUnenrolled: true }
+		});
 	}
 });
 
@@ -496,29 +433,13 @@ export const getStudentEvaluationsAll = query({
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
-		const evaluations = await ctx.db
-			.query('evaluations')
-			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentId))
-			.take(500);
-
-		const baseEnriched = await enrichEvaluations(evaluations, ctx);
-
-		// Fetch teacher data for enrichment
-		const teacherIds = [...new Set(evaluations.map((e) => e.teacherId))];
-		const teachers = await Promise.all(teacherIds.map((id) => ctx.db.get(id)));
-		const teacherMap = new Map(
-			teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
-		);
-
-		// Enrich evaluations with teacher data on top of base enrichment
-		const enriched = baseEnriched.map((eval_) => ({
-			...eval_,
-			categoryId: eval_.categoryId.toString(),
-			teacherName: teacherMap.get(eval_.teacherId)?.name || 'Unknown Teacher',
-			isAdmin: isAdminRole(teacherMap.get(eval_.teacherId) ?? {})
-		}));
-
-		return enriched.sort((a, b) => b.timestamp - a.timestamp);
+		const rows = await readEvaluations(ctx, {
+			scope: 'admin',
+			studentId: args.studentId,
+			sortAscending: false,
+			filters: { showUnenrolled: true }
+		});
+		return rows;
 	}
 });
 
@@ -540,32 +461,12 @@ export const getStudentEvaluationsAllByStudentIdCode = query({
 			return [];
 		}
 
-		const evaluations = await ctx.db
-			.query('evaluations')
-			.withIndex('by_studentId', (q) => q.eq('studentId', student._id))
-			.take(500);
-
-		const baseEnriched = await enrichEvaluations(evaluations, ctx);
-
-		const teacherIds = [...new Set(evaluations.map((e) => e.teacherId))];
-		const teachers = await Promise.all(teacherIds.map((id) => ctx.db.get(id)));
-		const teacherMap = new Map(
-			teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
-		);
-
-		// Enrich evaluations with teacher data on top of base enrichment
-		const enriched = baseEnriched.map((eval_: EnrichedEvaluation) => {
-			const teacher = teacherMap.get(eval_.teacherId);
-			const isAdminUser = isAdminRole(teacher ?? {});
-			return {
-				...eval_,
-				categoryId: eval_.categoryId.toString(),
-				teacherName: teacher?.name || 'Unknown Teacher',
-				isAdmin: isAdminUser
-			};
+		return await readEvaluations(ctx, {
+			scope: 'admin',
+			studentId: student._id,
+			sortAscending: false,
+			filters: { showUnenrolled: true }
 		});
-
-		return enriched.sort((a, b) => b.timestamp - a.timestamp);
 	}
 });
 
@@ -579,51 +480,15 @@ export const listAllEvaluations = query({
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
 
-		const allEvaluations = await ctx.db
-			.query('evaluations')
-			.withIndex('by_timestamp')
-			.order('desc')
-			.take(500);
-
-		const baseEnriched = await enrichEvaluations(allEvaluations, ctx);
-
-		// Fetch teacher data for enrichment
-		const teacherIds = [...new Set(allEvaluations.map((e) => e.teacherId))];
-		const teachers = await Promise.all(teacherIds.map((id) => ctx.db.get(id)));
-		const teacherMap = new Map(
-			teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
-		);
-
-		let enriched = baseEnriched.map((eval_: EnrichedEvaluation) => ({
-			...eval_,
-			_id: eval_._id.toString(),
-			studentId: eval_.studentId.toString(),
-			categoryId: eval_.categoryId.toString(),
-			teacherName: teacherMap.get(eval_.teacherId)?.name || 'Unknown Teacher',
-			teacherId: eval_.teacherId.toString()
-		}));
-
-		// Server-side filtering
-		if (args.studentFilter && args.studentFilter.trim()) {
-			enriched = enriched.filter((e) =>
-				matchesMultiSearch(args.studentFilter!, e.englishName ?? '')
-			);
-		}
-
-		if (args.teacherFilter && args.teacherFilter.trim()) {
-			enriched = enriched.filter((e) =>
-				matchesMultiSearch(args.teacherFilter!, e.teacherName ?? '')
-			);
-		}
-
-		// Filter unenrolled students unless showUnenrolled is true
-		// Default is to hide unenrolled students (showUnenrolled = false or undefined)
-		if (args.showUnenrolled !== true) {
-			enriched = enriched.filter((e) => e.status !== 'Not Enrolled');
-		}
-
-		// Sort by timestamp descending
-		return enriched.sort((a, b) => b.timestamp - a.timestamp);
+		return await readEvaluations(ctx, {
+			scope: 'admin',
+			filters: {
+				studentFilter: args.studentFilter,
+				teacherFilter: args.teacherFilter,
+				showUnenrolled: args.showUnenrolled
+			},
+			sortAscending: false
+		});
 	}
 });
 
@@ -638,58 +503,16 @@ export const listAllEvaluationsPaginated = query({
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
-
-		const order = args.sortAscending ? 'asc' : 'desc';
-
-		// Use paginate() instead of collect() for cursor-based pagination
-		const result = await ctx.db
-			.query('evaluations')
-			.withIndex('by_timestamp')
-			.order(order)
-			.paginate(args.paginationOpts);
-
-		// Enrich only the current page
-		const baseEnriched = await enrichEvaluations(result.page, ctx);
-
-		// Fetch teacher data for enrichment
-		const teacherIds = [...new Set(result.page.map((e) => e.teacherId))];
-		const teachers = await Promise.all(teacherIds.map((id) => ctx.db.get(id)));
-		const teacherMap = new Map(
-			teachers.filter((t): t is NonNullable<typeof t> => t != null).map((t) => [t._id, t])
-		);
-
-		let enriched = baseEnriched.map((eval_: EnrichedEvaluation) => ({
-			...eval_,
-			_id: eval_._id.toString(),
-			studentId: eval_.studentId.toString(),
-			categoryId: eval_.categoryId.toString(),
-			teacherName: teacherMap.get(eval_.teacherId)?.name || 'Unknown Teacher',
-			teacherId: eval_.teacherId.toString()
-		}));
-
-		// Server-side: unenrolled filter
-		if (args.showUnenrolled !== true) {
-			enriched = enriched.filter((e) => e.status !== 'Not Enrolled');
-		}
-
-		// Server-side: text filters (may reduce results below limit)
-		if (args.studentFilter && args.studentFilter.trim()) {
-			enriched = enriched.filter((e) =>
-				matchesMultiSearch(args.studentFilter!, e.englishName ?? '')
-			);
-		}
-
-		if (args.teacherFilter && args.teacherFilter.trim()) {
-			enriched = enriched.filter((e) =>
-				matchesMultiSearch(args.teacherFilter!, e.teacherName ?? '')
-			);
-		}
-
-		return {
-			page: enriched,
-			isDone: result.isDone,
-			continueCursor: result.continueCursor
-		};
+		return await readEvaluations(ctx, {
+			scope: 'admin',
+			filters: {
+				studentFilter: args.studentFilter,
+				teacherFilter: args.teacherFilter,
+				showUnenrolled: args.showUnenrolled
+			},
+			sortAscending: args.sortAscending,
+			paginationOpts: args.paginationOpts
+		});
 	}
 });
 
@@ -888,22 +711,20 @@ export const getStudentEvaluationsAnonymous = query({
 			return [];
 		}
 
-		const evaluations = await ctx.db
-			.query('evaluations')
-			.withIndex('by_studentId', (q) => q.eq('studentId', student._id))
-			.take(200);
+		const evaluations = await readEvaluations(ctx, {
+			scope: 'admin',
+			studentId: student._id,
+			limit: 200,
+			sortAscending: false,
+			filters: { showUnenrolled: true }
+		});
 
-		const baseEnriched = await enrichEvaluations(evaluations, ctx);
-
-		// Return anonymous evaluations (no teacher names/IDs)
-		const anonymousEvaluations = baseEnriched.map((e: EnrichedEvaluation) => ({
-			_id: e._id,
-			value: e.value,
-			category: e.category,
-			details: e.details,
-			timestamp: e.timestamp
+		return evaluations.map((evaluation) => ({
+			_id: evaluation._id,
+			value: evaluation.value,
+			category: evaluation.category,
+			details: evaluation.details,
+			timestamp: evaluation.timestamp
 		}));
-
-		return anonymousEvaluations.sort((a, b) => b.timestamp - a.timestamp);
 	}
 });
