@@ -47,9 +47,15 @@ if lsof -ti "tcp:${VITE_PORT}" >/dev/null 2>&1; then
 fi
 
 # Force local Convex for the run (same as scripts/start-dev-servers.sh).
+# Only pin a deployment name when one is already configured (e.g. a developer's
+# .env.local). When unset (CI), `convex dev` auto-provisions an anonymous local
+# backend non-interactively — required since Convex 1.44 refuses to start a
+# *named* local deployment without an account login, which hangs headless CI.
 export CONVEX_URL="${CONVEX_URL:-http://127.0.0.1:3210}"
 export PUBLIC_CONVEX_URL="${PUBLIC_CONVEX_URL:-$CONVEX_URL}"
-export CONVEX_DEPLOYMENT="${CONVEX_DEPLOYMENT:-local:local-steve_chen-hwis_31a3d}"
+if [ -z "${CONVEX_DEPLOYMENT:-}" ]; then
+	unset CONVEX_DEPLOYMENT
+fi
 unset CONVEX_AUTH_TOKEN
 
 if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:3211 >/dev/null 2>&1; then
