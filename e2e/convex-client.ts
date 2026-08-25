@@ -22,7 +22,7 @@ export function setAuthToken(token: string) {
 }
 
 export function clearAuth() {
-	process.env.CONVEX_AUTH_TOKEN = undefined;
+	delete process.env.CONVEX_AUTH_TOKEN;
 	e2eUtils = null;
 	authInitialized = false;
 }
