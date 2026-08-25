@@ -21,7 +21,7 @@ type Spec = {
 };
 
 type TestResult = {
-	status: 'passed' | 'failed' | 'timedOut' | 'skipped' | 'interrupted' | 'expected';
+	status: 'passed' | 'failed' | 'timedOut' | 'skipped' | 'interrupted' | 'unexpected';
 	expectedStatus?: 'passed' | 'failed';
 	errors?: TestError[];
 };
