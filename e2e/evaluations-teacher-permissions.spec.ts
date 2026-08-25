@@ -1,11 +1,6 @@
 import { test, expect } from './fixtures';
 import { getTestSuffix } from './helpers';
-import {
-	createStudentWithEvaluations,
-	createCategory,
-	cleanupByTag,
-	useRole
-} from './convex-client';
+import { createStudentWithEvaluations, createCategory, cleanupByTag } from './convex-client';
 import { StudentTimelinePage } from './pages';
 
 test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permissions @sequential', () => {
@@ -27,8 +22,6 @@ test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permission
 			englishName = `Student_${suffix}`;
 			testData = false;
 
-			useRole('teacher');
-
 			await createCategory({
 				name: `Cat_${suffix}`,
 				e2eTag
@@ -46,7 +39,7 @@ test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permission
 			testData = true;
 		});
 
-		test.use({ storageState: 'e2e/.auth/teacher.json' });
+		test.use({ role: 'teacher' });
 
 		test('teacher name is NOT displayed on evaluation cards', async ({ page }) => {
 			const timelinePage = new StudentTimelinePage(page);
@@ -87,8 +80,6 @@ test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permission
 			englishName = `Student_${suffix}`;
 			testData = false;
 
-			useRole('admin');
-
 			await createCategory({
 				name: `Cat_${suffix}`,
 				e2eTag
@@ -106,7 +97,7 @@ test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permission
 			testData = true;
 		});
 
-		test.use({ storageState: 'e2e/.auth/admin.json' });
+		test.use({ role: 'admin' });
 
 		test('admin sees teacher name on evaluation cards', async ({ page }) => {
 			const timelinePage = new StudentTimelinePage(page);

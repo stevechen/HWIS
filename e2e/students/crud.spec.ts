@@ -6,8 +6,7 @@ import {
 	cleanupByTag,
 	setE2eTag,
 	createCategory,
-	seedManyStudents,
-	useRole
+	seedManyStudents
 } from '../convex-client';
 import { AdminStudentsPage } from '../pages';
 
@@ -16,7 +15,7 @@ import { AdminStudentsPage } from '../pages';
 // ============================================================================
 
 test.describe('Add Student - UI Data Tests', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('addStud');
 	const studentId = getTestStudentId('addStud');
@@ -27,7 +26,6 @@ test.describe('Add Student - UI Data Tests', () => {
 
 	test.beforeEach(async ({ page }) => {
 		studentsPage = new AdminStudentsPage(page);
-		useRole('admin');
 		await studentsPage.goto();
 	});
 
@@ -36,7 +34,6 @@ test.describe('Add Student - UI Data Tests', () => {
 	});
 
 	test('can add a new student', async () => {
-		useRole('admin');
 		const chineseName = '新增測試';
 
 		await studentsPage.addStudent({
@@ -55,7 +52,7 @@ test.describe('Add Student - UI Data Tests', () => {
 });
 
 test.describe('Student ID Validation - Duplicate Data Tests', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('dupIdForm');
 	const studentId = getTestStudentId('dupIdForm');
@@ -65,7 +62,6 @@ test.describe('Student ID Validation - Duplicate Data Tests', () => {
 
 	test.beforeEach(async ({ page }) => {
 		studentsPage = new AdminStudentsPage(page);
-		useRole('admin');
 		// Create the student first so we can test duplicate detection
 		await createStudent({
 			studentId,
@@ -120,7 +116,7 @@ test.describe('Student ID Validation - Duplicate Data Tests', () => {
 // ============================================================================
 
 test.describe('Edit Student - Data Tests', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('editStatus');
 	const studentId = getTestStudentId('editStatus');
@@ -129,7 +125,6 @@ test.describe('Edit Student - Data Tests', () => {
 	let studentsPage: AdminStudentsPage;
 
 	test.beforeEach(async () => {
-		useRole('admin');
 		await createStudent({
 			studentId,
 			englishName,
@@ -170,7 +165,7 @@ test.describe('Edit Student - Data Tests', () => {
 // ============================================================================
 
 test.describe('Delete Student - Without Evaluations', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('delNoEval');
 	const studentId = getTestStudentId('delNoEval');
@@ -182,7 +177,6 @@ test.describe('Delete Student - Without Evaluations', () => {
 
 	test.beforeEach(async ({ page }) => {
 		studentsPage = new AdminStudentsPage(page);
-		useRole('admin');
 		// Create category first (needed for students)
 		await createCategory({
 			name: `Cat_${suffix}`,
@@ -227,7 +221,7 @@ test.describe('Delete Student - Without Evaluations', () => {
 });
 
 test.describe('Delete Student - With Cascade @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let suffix: string;
 	let studentId: string;
@@ -240,7 +234,6 @@ test.describe('Delete Student - With Cascade @sequential', () => {
 
 	test.beforeEach(async ({ page }) => {
 		studentsPage = new AdminStudentsPage(page);
-		useRole('admin');
 		suffix = getTestSuffix('delCascade');
 		studentId = getTestStudentId('delCascade');
 		englishName = `DelCascade_${suffix}`;
@@ -291,7 +284,7 @@ test.describe('Delete Student - With Cascade @sequential', () => {
 });
 
 test.describe('Delete - Set Not Enrolled @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('setNotEnrolled');
 	const studentId = getTestStudentId('setNotEnrolled');
@@ -304,7 +297,6 @@ test.describe('Delete - Set Not Enrolled @sequential', () => {
 
 	test.beforeEach(async ({ page }) => {
 		studentsPage = new AdminStudentsPage(page);
-		useRole('admin');
 		// Create category
 		await createCategory({
 			name: `Cat_${suffix}`,
@@ -360,7 +352,7 @@ test.describe('Delete - Set Not Enrolled @sequential', () => {
 // ============================================================================
 
 test.describe('Student List - Full Roster Updates @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('staleRow');
 	const targetStudentId = getTestStudentId('staleRow');
@@ -374,7 +366,6 @@ test.describe('Student List - Full Roster Updates @sequential', () => {
 		// in one round trip so the unfiltered list spans multiple pages.
 		test.setTimeout(60000);
 		studentsPage = new AdminStudentsPage(page);
-		useRole('admin');
 
 		await seedManyStudents({ count: 150, grade: 10, e2eTag });
 		// 'AAA...' sorts to the top of the default englishName-ascending list,

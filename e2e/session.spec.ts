@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { useRole, createStudent, cleanupByTag } from './convex-client';
+import { createStudent, cleanupByTag } from './convex-client';
 import { getTestSuffix } from './helpers';
 
 /**
@@ -16,11 +16,9 @@ import { getTestSuffix } from './helpers';
  */
 test.describe('Session Management @session @auth-sequential', () => {
 	test.describe('Session Persistence', () => {
-		test.use({ storageState: 'e2e/.auth/admin.json' });
+		test.use({ role: 'admin' });
 
 		test('admin session persists across page navigation', async ({ page }) => {
-			useRole('admin');
-
 			// Navigate to admin page
 			await page.goto('/admin');
 			await page.waitForSelector('body.hydrated');
@@ -41,9 +39,9 @@ test.describe('Session Management @session @auth-sequential', () => {
 			await expect(page.getByRole('heading', { name: 'Manage Users' })).toBeVisible();
 		});
 
-		test('teacher session persists across page navigation', async ({ page }) => {
-			useRole('teacher');
+		test.use({ role: 'teacher' });
 
+		test('teacher session persists across page navigation', async ({ page }) => {
 			// Navigate to students page
 			await page.goto('/admin/students');
 			await page.waitForSelector('body.hydrated');
@@ -65,10 +63,9 @@ test.describe('Session Management @session @auth-sequential', () => {
 		let testE2eTag: string;
 		let studentId: string;
 
-		test.use({ storageState: 'e2e/.auth/admin.json' });
+		test.use({ role: 'admin' });
 
 		test.beforeEach(async () => {
-			useRole('admin');
 			const suffix = getTestSuffix('sessionTest');
 			studentId = `ST_${suffix}`;
 			testE2eTag = `session_${suffix}`;
@@ -99,11 +96,9 @@ test.describe('Session Management @session @auth-sequential', () => {
 	});
 
 	test.describe('Admin Logout', () => {
-		test.use({ storageState: 'e2e/.auth/admin.json' });
+		test.use({ role: 'admin' });
 
 		test('admin can logout successfully', async ({ page }) => {
-			useRole('admin');
-
 			// Navigate to admin page (should be accessible)
 			await page.goto('/admin');
 			await page.waitForSelector('body.hydrated');
@@ -125,11 +120,9 @@ test.describe('Session Management @session @auth-sequential', () => {
 	});
 
 	test.describe('Teacher Logout', () => {
-		test.use({ storageState: 'e2e/.auth/teacher.json' });
+		test.use({ role: 'teacher' });
 
 		test('teacher can logout successfully', async ({ page }) => {
-			useRole('teacher');
-
 			// Navigate to students page (should be accessible for teachers)
 			await page.goto('/admin/students');
 			await page.waitForSelector('body.hydrated');

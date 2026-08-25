@@ -3,7 +3,7 @@ import { cleanupByTag, seedAuditLogs } from './convex-client';
 import { AdminAuditPage } from './pages';
 
 test.describe('Audit Log Page (super admin) @audit', () => {
-	test.use({ storageState: 'e2e/.auth/super.json' });
+	test.use({ role: 'super' });
 
 	let auditPage: AdminAuditPage;
 
@@ -24,7 +24,7 @@ test.describe('Audit Log Page (super admin) @audit', () => {
 });
 
 test.describe('Audit Log - Data-driven column toggle', () => {
-	test.use({ storageState: 'e2e/.auth/super.json' });
+	test.use({ role: 'super' });
 
 	let testAuthId: string;
 	let testAuditLogs = false;

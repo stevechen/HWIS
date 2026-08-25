@@ -1,5 +1,4 @@
 import { test, expect } from './fixtures';
-import { useRole } from './convex-client';
 
 test.describe('Permission Tests @smoke', () => {
 	test('unauthenticated user is redirected to login for admin route', async ({ page }) => {
@@ -11,11 +10,9 @@ test.describe('Permission Tests @smoke', () => {
 	});
 
 	test.describe('Teacher user redirect from admin routes', () => {
-		test.use({ storageState: 'e2e/.auth/teacher.json' });
+		test.use({ role: 'teacher' });
 
-		test.beforeEach(async () => {
-			useRole('teacher');
-		});
+		test.beforeEach(async () => {});
 
 		const adminRoutes = [
 			'/admin/categories',

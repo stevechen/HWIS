@@ -4,13 +4,12 @@ import {
 	createStudent,
 	createStudentWithEvaluations,
 	createCategory,
-	cleanupByTag,
-	useRole
+	cleanupByTag
 } from './convex-client';
 import { NewEvaluationPage, TeacherEvaluationsPage } from './pages';
 
 test.describe('Evaluations - Select Student', () => {
-	test.use({ storageState: 'e2e/.auth/teacher.json' });
+	test.use({ role: 'teacher' });
 
 	let suffix: string;
 	let e2eTag: string;
@@ -21,7 +20,6 @@ test.describe('Evaluations - Select Student', () => {
 
 	test.beforeEach(async ({ page }) => {
 		evalsPage = new NewEvaluationPage(page);
-		useRole('teacher');
 		testStudent = false;
 		suffix = getTestSuffix('selectStudent');
 		e2eTag = `e2e-test_${suffix}`;
@@ -67,7 +65,7 @@ test.describe('Evaluations - Select Student', () => {
 });
 
 test.describe('Evaluations - No Category Error', () => {
-	test.use({ storageState: 'e2e/.auth/teacher.json' });
+	test.use({ role: 'teacher' });
 
 	let suffix: string;
 	let e2eTag: string;
@@ -78,7 +76,6 @@ test.describe('Evaluations - No Category Error', () => {
 
 	test.beforeEach(async ({ page }) => {
 		evalsPage = new NewEvaluationPage(page);
-		useRole('teacher');
 		testStudent = false;
 		suffix = getTestSuffix('noCat');
 		e2eTag = `e2e-test_${suffix}`;
@@ -127,7 +124,7 @@ test.describe('Evaluations - No Category Error', () => {
 });
 
 test.describe('Evaluations - Submit Success', () => {
-	test.use({ storageState: 'e2e/.auth/teacher.json' });
+	test.use({ role: 'teacher' });
 
 	let suffix: string;
 	let e2eTag: string;
@@ -139,7 +136,6 @@ test.describe('Evaluations - Submit Success', () => {
 
 	test.beforeEach(async ({ page }) => {
 		evalsPage = new NewEvaluationPage(page);
-		useRole('teacher');
 		testData = false;
 		suffix = getTestSuffix('submit');
 		e2eTag = `e2e-test_${suffix}`;
@@ -194,7 +190,7 @@ test.describe('Evaluations - Submit Success', () => {
 });
 
 test.describe('Evaluations - UI Controls @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/teacher.json' });
+	test.use({ role: 'teacher' });
 
 	let suffix: string;
 	let e2eTag: string;
@@ -205,7 +201,6 @@ test.describe('Evaluations - UI Controls @sequential', () => {
 
 	test.beforeEach(async ({ page }) => {
 		evalsPage = new TeacherEvaluationsPage(page);
-		useRole('teacher');
 		testData = false;
 		suffix = getTestSuffix('evalUI');
 		e2eTag = `e2e-test_${suffix}`;

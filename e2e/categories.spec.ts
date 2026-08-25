@@ -4,8 +4,7 @@ import {
 	createCategory,
 	createStudentWithEvaluations,
 	cleanupByTag,
-	setE2eTag,
-	useRole
+	setE2eTag
 } from './convex-client';
 import { AdminCategoriesPage, AdminEvaluationsPage } from './pages';
 
@@ -18,7 +17,7 @@ test.describe('Categories Management @categories', () => {
 });
 
 test.describe('Categories - Update Name', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('editCat');
 	const categoryName = `Category_${suffix}`;
@@ -29,7 +28,6 @@ test.describe('Categories - Update Name', () => {
 
 	test.beforeEach(async ({ page }) => {
 		categoriesPage = new AdminCategoriesPage(page);
-		useRole('admin');
 		await createCategory({ name: categoryName, e2eTag, casAlignment: ['Creativity'] });
 		testCategory = true;
 
@@ -50,7 +48,7 @@ test.describe('Categories - Update Name', () => {
 });
 
 test.describe('Categories - Name Change Reflects in Evaluations @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let suffix: string;
 	let englishName: string;
@@ -72,7 +70,6 @@ test.describe('Categories - Name Change Reflects in Evaluations @sequential', ()
 		updatedName = `UpdatedCat_${suffix}`;
 		e2eTag = `e2e-test_${suffix}`;
 		studentId = `S_${suffix}`;
-		useRole('admin');
 		await createCategory({ name: categoryName, e2eTag, casAlignment: ['Creativity'] });
 		testCategory = true;
 		await createStudentWithEvaluations({
@@ -117,7 +114,7 @@ test.describe('Categories - Name Change Reflects in Evaluations @sequential', ()
 });
 
 test.describe('Categories - Delete Cascade Removes Evaluations @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let suffix: string;
 	let englishName: string;
@@ -135,7 +132,6 @@ test.describe('Categories - Delete Cascade Removes Evaluations @sequential', () 
 		categoryName = `Category_${suffix}`;
 		e2eTag = `e2e-test_${suffix}`;
 		studentId = `S_${suffix}`;
-		useRole('admin');
 		await createCategory({ name: categoryName, e2eTag, casAlignment: ['Creativity'] });
 		await createStudentWithEvaluations({
 			studentId,

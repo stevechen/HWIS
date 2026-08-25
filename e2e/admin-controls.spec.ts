@@ -1,10 +1,10 @@
 import { test, expect } from './fixtures';
-import { createStudent, cleanupByTag, useRole } from './convex-client';
+import { createStudent, cleanupByTag } from './convex-client';
 import { getTestSuffix } from './helpers';
 import { AdminStudentsPage } from './pages';
 
 test.describe('Admin Controls Visibility @admin', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let testE2eTag: string;
 	let studentId: string;
@@ -13,7 +13,6 @@ test.describe('Admin Controls Visibility @admin', () => {
 
 	test.beforeEach(async ({ page }) => {
 		studentsPage = new AdminStudentsPage(page);
-		useRole('admin');
 		const suffix = getTestSuffix('adminActions');
 		studentId = `SA_${suffix}`;
 		testE2eTag = `e2e-test_${suffix}`;
@@ -53,10 +52,9 @@ test.describe('Admin Controls Visibility @admin', () => {
 });
 
 test.describe('Teacher User', () => {
-	test.use({ storageState: 'e2e/.auth/teacher.json' });
+	test.use({ role: 'teacher' });
 
 	test.beforeEach(async ({ page }) => {
-		useRole('teacher');
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');
 	});

@@ -1,10 +1,10 @@
 import { test, expect } from '../fixtures';
 import { getTestSuffix, getUniqueTag } from '../helpers';
-import { cleanupByTag, useRole, createStudent, createClass } from '../convex-client';
+import { cleanupByTag, createStudent, createClass } from '../convex-client';
 import { AdminClassesPage } from '../pages';
 
 test.describe('Classes CRUD', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const e2eTag = getUniqueTag('classCrud');
 	let testDataCreated = false;
@@ -12,7 +12,6 @@ test.describe('Classes CRUD', () => {
 
 	test.beforeEach(async ({ page }) => {
 		classesPage = new AdminClassesPage(page);
-		useRole('admin');
 		await classesPage.goto();
 		await expect(classesPage.page.getByText('G7', { exact: true })).toBeVisible();
 	});

@@ -1,17 +1,16 @@
 import { test, expect } from '../fixtures';
 import { getUniqueTag } from '../helpers';
-import { cleanupByTag, useRole, createStudent } from '../convex-client';
+import { cleanupByTag, createStudent } from '../convex-client';
 import { AdminHousesPage } from '../pages';
 
 test.describe('House Management - Integration', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const e2eTag = getUniqueTag('houses');
 	let housesPage: AdminHousesPage;
 
 	test.beforeEach(async ({ page }) => {
 		housesPage = new AdminHousesPage(page);
-		useRole('admin');
 
 		await housesPage.goto();
 	});

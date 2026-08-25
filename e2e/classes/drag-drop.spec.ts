@@ -1,10 +1,10 @@
 import { test, expect } from '../fixtures';
 import { getTestSuffix, getUniqueTag, getTestStudentId } from '../helpers';
-import { cleanupByTag, useRole, createStudent, createClass } from '../convex-client';
+import { cleanupByTag, createStudent, createClass } from '../convex-client';
 import { AdminClassesPage } from '../pages';
 
 test.describe('Drag and Drop Student Movement', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const e2eTag = getUniqueTag('dragDrop');
 	let testDataCreated = false;
@@ -12,7 +12,6 @@ test.describe('Drag and Drop Student Movement', () => {
 
 	test.beforeEach(async ({ page }) => {
 		classesPage = new AdminClassesPage(page);
-		useRole('admin');
 		await classesPage.goto();
 	});
 
