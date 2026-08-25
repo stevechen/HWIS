@@ -21,7 +21,7 @@ type Spec = {
 };
 
 type TestResult = {
-	status: 'passed' | 'failed' | 'timedOut' | 'skipped' | 'interrupted';
+	status: 'passed' | 'failed' | 'timedOut' | 'skipped' | 'interrupted' | 'expected';
 	expectedStatus?: 'passed' | 'failed';
 	errors?: TestError[];
 };
@@ -36,9 +36,18 @@ type FlatSpec = {
 function collectErrors(tests: TestResult[]): TestError[] {
 	const errors: TestError[] = [];
 	for (const test of tests) {
-		if (test.status === 'failed' || test.status === 'timedOut' || test.status === 'interrupted') {
-			if (test.errors) {
+		if (
+			test.status === 'failed' ||
+			test.status === 'timedOut' ||
+			test.status === 'interrupted' ||
+			test.status === 'unexpected'
+		) {
+			if (test.errors && test.errors.length > 0) {
 				errors.push(...test.errors);
+			} else {
+				errors.push({
+					message: `Test ${test.status} (expected ${test.expectedStatus ?? 'unknown'}) with no error details`
+				});
 			}
 		}
 	}
@@ -172,6 +181,10 @@ export function compressResults(report: JsonReport): string {
 	const lines: string[] = [];
 	lines.push(`## Failures (${failed}/${total})`);
 	lines.push('');
+
+	if (failedSpecs.length === 0) {
+		lines.push('*No spec-level details available — the failure may be in a hook or setup.*');
+	}
 
 	for (const spec of failedSpecs) {
 		lines.push(`### ${spec.title}`);

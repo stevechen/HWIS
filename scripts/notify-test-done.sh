@@ -7,6 +7,10 @@
 
 STATUS="${1:-0}"
 
+if [ "${CI:-}" = "true" ] || [ "${CI:-}" = "1" ]; then
+  exit "$STATUS"
+fi
+
 if [ "$STATUS" -eq 0 ]; then
   afplay /System/Library/Sounds/Glass.aiff
 else
