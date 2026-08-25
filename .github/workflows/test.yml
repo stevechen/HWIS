@@ -63,5 +63,9 @@ jobs:
       - name: Install Playwright browser
         run: bunx playwright install --with-deps chromium
 
+      - name: Write Convex env for anonymous local backend
+        run: |
+          printf 'SITE_URL=%s\nVITE_SITE_URL=%s\nBETTER_AUTH_SECRET=%s\n' "$SITE_URL" "$VITE_SITE_URL" "$BETTER_AUTH_SECRET" > .env.local
+
       - name: End-to-end tests
         run: bun run test:ai
