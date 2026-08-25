@@ -84,7 +84,7 @@
 	}
 
 	async function handleDownload(backup: {
-		data: unknown;
+		data?: unknown;
 		filename: string;
 		_id: Id<'backups'>;
 		chunkCount?: number;

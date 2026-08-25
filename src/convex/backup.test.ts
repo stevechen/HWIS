@@ -2,6 +2,7 @@ import { expect, test, describe } from 'vitest';
 import { convexTest, modules, createStudentWithClass } from './test.setup';
 import schema from './schema';
 import { api } from './_generated/api';
+import { buildSnapshot, insertBackupRecord } from './shared/backup_snapshot';
 
 describe('restoreFromBackup', () => {
 	test('clears existing data before restoring backup data', async () => {
@@ -124,6 +125,43 @@ describe('restoreFromBackup', () => {
 
 		// Only the 2 original classes should remain
 		expect(classes).toHaveLength(1);
+	});
+});
+
+describe('restoreFromBackup (chunked)', () => {
+	test('restores a backup that exceeded the document limit and was chunked', async () => {
+		const t = convexTest(schema, modules);
+
+		const classId = await t.run(async (ctx) => {
+			return await ctx.db.insert('classes', { grade: 10, class: '1' });
+		});
+		await t.run(async (ctx) => {
+			await ctx.db.insert('students', {
+				englishName: 'Big Student',
+				chineseName: '大學生',
+				studentId: 'STU001',
+				classId,
+				status: 'Enrolled',
+				note: 'x'.repeat(250_000),
+				house: 'Heracles'
+			});
+		});
+
+		const backupId = await t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot);
+		});
+
+		const backup = await t.run(async (ctx) => ctx.db.get(backupId));
+		expect(backup!.data).toBeUndefined();
+		expect((backup!.chunkCount ?? 0) > 0).toBe(true);
+
+		await t.mutation(api.backup.restoreFromBackup, { backupId });
+
+		const students = await t.run(async (ctx) => ctx.db.query('students').collect());
+		expect(students).toHaveLength(1);
+		expect(students[0].englishName).toBe('Big Student');
+		expect(students[0].note).toBe('x'.repeat(250_000));
 	});
 });
 
