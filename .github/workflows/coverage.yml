@@ -13,6 +13,9 @@ jobs:
       VITE_COVERAGE: 'true'
       PUBLIC_CONVEX_URL: http://127.0.0.1:3210
       PUBLIC_CONVEX_SITE_URL: http://127.0.0.1:3211
+      SITE_URL: http://localhost:5173
+      VITE_SITE_URL: http://localhost:5173
+      BETTER_AUTH_SECRET: dev-e2e-only-secret-do-not-use-in-prod-0000000000
     steps:
       - uses: actions/checkout@v5
 
