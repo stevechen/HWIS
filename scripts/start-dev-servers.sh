@@ -73,6 +73,10 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     sleep 1
 done
 
+if [ "${CI:-}" = "true" ] || [ "${CI:-}" = "1" ]; then
+    bash scripts/convex-local-env-sync.sh
+fi
+
 echo -e "${GREEN}Starting Vite dev server...${NC}"
 
 # Start Vite in foreground so playwright can detect when it's ready

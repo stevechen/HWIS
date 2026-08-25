@@ -44,7 +44,13 @@ if ! curl -sSf http://127.0.0.1:3210 >/dev/null 2>&1; then
   exit 1
 fi
 
-SITE_URL_VALUE="$(read_env_value SITE_URL)"
+SITE_URL_VALUE="${SITE_URL:-}"
+if [[ -z "$SITE_URL_VALUE" ]]; then
+  SITE_URL_VALUE="$(read_env_value SITE_URL)"
+fi
+if [[ -z "$SITE_URL_VALUE" ]]; then
+  SITE_URL_VALUE="${VITE_SITE_URL:-}"
+fi
 if [[ -z "$SITE_URL_VALUE" ]]; then
   SITE_URL_VALUE="$(read_env_value VITE_SITE_URL)"
 fi
@@ -52,7 +58,10 @@ if [[ -z "$SITE_URL_VALUE" ]]; then
   SITE_URL_VALUE="http://localhost:5173"
 fi
 
-BETTER_AUTH_SECRET_VALUE="$(read_env_value BETTER_AUTH_SECRET)"
+BETTER_AUTH_SECRET_VALUE="${BETTER_AUTH_SECRET:-}"
+if [[ -z "$BETTER_AUTH_SECRET_VALUE" ]]; then
+  BETTER_AUTH_SECRET_VALUE="$(read_env_value BETTER_AUTH_SECRET)"
+fi
 GOOGLE_CLIENT_ID_VALUE="$(read_env_value GOOGLE_CLIENT_ID)"
 GOOGLE_CLIENT_SECRET_VALUE="$(read_env_value GOOGLE_CLIENT_SECRET)"
 

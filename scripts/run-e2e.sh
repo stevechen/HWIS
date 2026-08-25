@@ -82,6 +82,10 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 	sleep 1
 done
 
+if [ "${CI:-}" = "true" ] || [ "${CI:-}" = "1" ]; then
+	bash scripts/convex-local-env-sync.sh >&2
+fi
+
 echo -e "\033[1;32mStarting Vite dev server on port ${VITE_PORT}...\033[0m" >&2
 bun run dev -- --port "${VITE_PORT}" --strictPort >&2 &
 VITE_PID=$!

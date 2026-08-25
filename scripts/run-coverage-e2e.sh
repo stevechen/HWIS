@@ -48,7 +48,9 @@ fi
 # Force local Convex for the run (same as scripts/start-dev-servers.sh).
 export CONVEX_URL="${CONVEX_URL:-http://127.0.0.1:3210}"
 export PUBLIC_CONVEX_URL="${PUBLIC_CONVEX_URL:-$CONVEX_URL}"
-export CONVEX_DEPLOYMENT="${CONVEX_DEPLOYMENT:-local:local-steve_chen-hwis_31a3d}"
+if [ -z "${CONVEX_DEPLOYMENT:-}" ]; then
+    unset CONVEX_DEPLOYMENT
+fi
 unset CONVEX_AUTH_TOKEN
 
 if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:3211 >/dev/null 2>&1; then
@@ -74,6 +76,10 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     fi
     sleep 1
 done
+
+if [ "${CI:-}" = "true" ] || [ "${CI:-}" = "1" ]; then
+    bash scripts/convex-local-env-sync.sh
+fi
 
 echo -e "\033[1;32mStarting instrumented Vite dev server on port ${VITE_PORT}...\033[0m"
 VITE_COVERAGE=true bun run dev -- --port "${VITE_PORT}" --strictPort &
