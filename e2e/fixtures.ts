@@ -1,8 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
-import { setAuthToken, clearAuth } from './convex-client';
-import { CONVEX_JWT_COOKIE_NAME } from '../src/lib/e2e/session-keys';
+import { clearAuth } from './convex-client';
 
 interface CoverageWindow {
 	__coverage__?: Record<string, unknown>;
@@ -47,8 +46,9 @@ export const test = base.extend<AuthFixtures & SessionFixtures>({
 				}
 			}, state.origins);
 
-			const convexCookie = state.cookies.find((c) => c.name === CONVEX_JWT_COOKIE_NAME);
-			if (convexCookie?.value) setAuthToken(convexCookie.value);
+			// Role fixture sets browser auth but leaves Convex client as admin
+			// so beforeEach can create data with admin privileges, then browser
+			// navigates as the specified role for UI permission tests
 		} else {
 			clearAuth();
 		}
