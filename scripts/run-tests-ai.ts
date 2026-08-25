@@ -26,7 +26,10 @@ async function main() {
 	sanitizeEnv();
 	const passthroughArgs = process.argv.slice(2);
 
-	const child = spawn('bunx', ['playwright', 'test', '--reporter=json', ...passthroughArgs], {
+	// Delegate to scripts/run-e2e.sh, which boots Convex + Vite and runs the
+	// suite via playwright.e2e.config.ts (no webServer reuse pitfall). The wrapper
+	// logs to stderr, so Playwright's JSON report stays on stdout.
+	const child = spawn('bash', ['scripts/run-e2e.sh', '--reporter=json', ...passthroughArgs], {
 		stdio: ['inherit', 'pipe', 'inherit'],
 		shell: false
 	});
