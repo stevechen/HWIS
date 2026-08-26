@@ -81,16 +81,10 @@ if (typeof window === 'undefined') {
 		) ||
 		normalizeConvexSiteUrl(convexUrl) ||
 		'http://127.0.0.1:3211';
-	if (!getEnvValue('BETTER_AUTH_SECRET')) {
-		if (isDev || isTestRuntime) {
-			console.warn(
-				'[auth] BETTER_AUTH_SECRET is not set. Generated an ephemeral secret for local/test runtime.'
-			);
-		} else {
-			console.warn(
-				'[auth] BETTER_AUTH_SECRET is not set. Using ephemeral secret; set a stable secret in production env.'
-			);
-		}
+	if (!getEnvValue('BETTER_AUTH_SECRET') && !isDev && !isTestRuntime) {
+		console.warn(
+			'[auth] BETTER_AUTH_SECRET is not set. Using an ephemeral secret; set a stable secret in production env.'
+		);
 	}
 
 	process.env.CONVEX_URL = convexUrl;
