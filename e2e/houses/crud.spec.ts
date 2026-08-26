@@ -6,10 +6,11 @@ import { AdminHousesPage } from '../pages';
 test.describe('House Management - Integration', () => {
 	test.use({ role: 'admin' });
 
-	const e2eTag = getUniqueTag('houses');
+	let e2eTag: string;
 	let housesPage: AdminHousesPage;
 
 	test.beforeEach(async ({ page }) => {
+		e2eTag = getUniqueTag('houses');
 		housesPage = new AdminHousesPage(page);
 
 		await housesPage.goto();

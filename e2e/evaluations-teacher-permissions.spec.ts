@@ -15,7 +15,10 @@ test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permission
 	});
 
 	test.describe('Teacher View', () => {
-		test.beforeEach(async () => {
+		test.beforeEach(async ({ page }) => {
+			// Resolve the role fixture before the setup mutations so they use the
+			// authenticated test user rather than an unauthenticated client.
+			void page;
 			suffix = getTestSuffix('teacherPerm');
 			e2eTag = `e2e-test_${suffix}`;
 			studentId = `STU_${suffix}`;
@@ -73,7 +76,8 @@ test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permission
 	});
 
 	test.describe('Admin View (Comparison)', () => {
-		test.beforeEach(async () => {
+		test.beforeEach(async ({ page }) => {
+			void page;
 			suffix = getTestSuffix('teacherPerm');
 			e2eTag = `e2e-test_${suffix}`;
 			studentId = `STU_${suffix}`;

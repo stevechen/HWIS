@@ -152,7 +152,8 @@ export async function getConvexJwtToken(sessionToken: string): Promise<string> {
 		headers: {
 			accept: 'application/json',
 			authorization: `Bearer ${sessionToken}`
-		}
+		},
+		signal: AbortSignal.timeout(10_000)
 	});
 
 	if (!response.ok) {

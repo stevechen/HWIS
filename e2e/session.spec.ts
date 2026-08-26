@@ -16,46 +16,50 @@ import { getTestSuffix } from './helpers';
  */
 test.describe('Session Management @session @auth-sequential', () => {
 	test.describe('Session Persistence', () => {
-		test.use({ role: 'admin' });
+		test.describe('Admin', () => {
+			test.use({ role: 'admin' });
 
-		test('admin session persists across page navigation', async ({ page }) => {
-			// Navigate to admin page
-			await page.goto('/admin');
-			await page.waitForSelector('body.hydrated');
+			test('admin session persists across page navigation', async ({ page }) => {
+				// Navigate to admin page
+				await page.goto('/admin');
+				await page.waitForSelector('body.hydrated');
 
-			// Navigate to students page
-			await page.goto('/admin/students');
-			await page.waitForSelector('body.hydrated');
+				// Navigate to students page
+				await page.goto('/admin/students');
+				await page.waitForSelector('body.hydrated');
 
-			// Verify still authenticated - should see admin features
-			await expect(page.getByRole('button', { name: 'Add new student' })).toBeVisible();
+				// Verify still authenticated - should see admin features
+				await expect(page.getByRole('button', { name: 'Add new student' })).toBeVisible();
 
-			// Navigate to users page
-			await page.goto('/admin/users');
-			await page.waitForSelector('body.hydrated');
+				// Navigate to users page
+				await page.goto('/admin/users');
+				await page.waitForSelector('body.hydrated');
 
-			// Verify still authenticated - should see the admin users view
-			await expect(page.getByTestId('admin-users.root')).toBeVisible();
-			await expect(page.getByRole('heading', { name: 'Manage Users' })).toBeVisible();
+				// Verify still authenticated - should see the admin users view
+				await expect(page.getByTestId('admin-users.root')).toBeVisible();
+				await expect(page.getByRole('heading', { name: 'Manage Users' })).toBeVisible();
+			});
 		});
 
-		test.use({ role: 'teacher' });
+		test.describe('Teacher', () => {
+			test.use({ role: 'teacher' });
 
-		test('teacher session persists across page navigation', async ({ page }) => {
-			// Navigate to students page
-			await page.goto('/admin/students');
-			await page.waitForSelector('body.hydrated');
-			await expect(page.getByText('Loading students...')).not.toBeVisible();
+			test('teacher session persists across page navigation', async ({ page }) => {
+				// Navigate to students page
+				await page.goto('/admin/students');
+				await page.waitForSelector('body.hydrated');
+				await expect(page.getByText('Loading students...')).not.toBeVisible();
 
-			// Should see students but not admin controls
-			await expect(page.getByRole('heading', { name: 'Student Management' })).toBeVisible();
+				// Should see students but not admin controls
+				await expect(page.getByRole('heading', { name: 'Student Management' })).toBeVisible();
 
-			// Navigate to another page
-			await page.goto('/');
-			await page.waitForSelector('body.hydrated');
+				// Navigate to another page
+				await page.goto('/');
+				await page.waitForSelector('body.hydrated');
 
-			// Should still be logged in (no login button visible)
-			await expect(page.getByRole('button', { name: 'Sign In' })).not.toBeVisible();
+				// Should still be logged in (no login button visible)
+				await expect(page.getByRole('button', { name: 'Sign In' })).not.toBeVisible();
+			});
 		});
 	});
 

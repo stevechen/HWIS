@@ -24,6 +24,11 @@ VITE_PORT="${VITE_PORT:-5173}"
 VITE_PID=""
 CONVEX_PID=""
 
+convex_ready() {
+	curl -s --max-time 2 http://localhost:3210 >/dev/null 2>&1 &&
+		curl -s --max-time 2 http://localhost:3211 >/dev/null 2>&1
+}
+
 cleanup() {
 	echo -e "\033[1;33mShutting down e2e servers...\033[0m" >&2
 	if [ -n "$VITE_PID" ]; then
@@ -52,7 +57,7 @@ export PUBLIC_CONVEX_URL="${PUBLIC_CONVEX_URL:-$CONVEX_URL}"
 export CONVEX_DEPLOYMENT="${CONVEX_DEPLOYMENT:-local:local-steve_chen-hwis_31a3d}"
 unset CONVEX_AUTH_TOKEN
 
-if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:3211 >/dev/null 2>&1; then
+if convex_ready; then
 	echo -e "\033[1;32mConvex dev server already running, reusing it...\033[0m" >&2
 else
 		echo -e "\033[1;32mStarting Convex dev server...\033[0m" >&2
@@ -64,7 +69,7 @@ echo -e "\033[1;33mWaiting for Convex to be ready...\033[0m" >&2
 MAX_RETRIES=60
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-	if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:3211 >/dev/null 2>&1; then
+	if convex_ready; then
 		echo -e "\033[1;32mConvex is ready!\033[0m" >&2
 		break
 	fi

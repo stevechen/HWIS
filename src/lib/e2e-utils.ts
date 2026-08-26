@@ -9,6 +9,12 @@ const CONVEX_URL = process.env.CONVEX_URL || 'http://127.0.0.1:3210';
 function getAuthOptions(): { auth?: string } {
 	// First check environment variable (set by useRole() in Playwright tests)
 	if (process.env.CONVEX_AUTH_TOKEN) {
+		if (process.env.CONVEX_AUTH_TOKEN.split('.').length !== 3) {
+			console.log(
+				`[E2E-Utils] Skipping invalid CONVEX_AUTH_TOKEN: ${process.env.CONVEX_AUTH_TOKEN.substring(0, 10)}...`
+			);
+			return {};
+		}
 		return { auth: process.env.CONVEX_AUTH_TOKEN };
 	}
 	return {};
