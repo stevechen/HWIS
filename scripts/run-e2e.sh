@@ -23,10 +23,28 @@ set -e
 VITE_PORT="${VITE_PORT:-5173}"
 VITE_PID=""
 CONVEX_PID=""
+CONVEX_STARTED="0"
 
 convex_ready() {
 	curl -s --max-time 2 http://localhost:3210 >/dev/null 2>&1 &&
 		curl -s --max-time 2 http://localhost:3211 >/dev/null 2>&1
+}
+
+stop_owned_convex() {
+	if [ -n "$CONVEX_PID" ]; then
+		kill "$CONVEX_PID" 2>/dev/null || true
+		wait "$CONVEX_PID" 2>/dev/null || true
+	fi
+
+	# `convex dev` owns a separate local-backend child process. Kill that child
+	# too, otherwise a restart can pass the port check while the old process is
+	# still serving functions with stale environment variables.
+	local backend_pids
+	backend_pids="$(lsof -ti tcp:3210 -sTCP:LISTEN 2>/dev/null || true)"
+	if [ -n "$backend_pids" ]; then
+		kill $backend_pids 2>/dev/null || true
+	fi
+	CONVEX_PID=""
 }
 
 cleanup() {
@@ -35,9 +53,8 @@ cleanup() {
 		kill "$VITE_PID" 2>/dev/null || true
 		wait "$VITE_PID" 2>/dev/null || true
 	fi
-	if [ -n "$CONVEX_PID" ]; then
-		kill "$CONVEX_PID" 2>/dev/null || true
-		wait "$CONVEX_PID" 2>/dev/null || true
+	if [ "$CONVEX_STARTED" = "1" ]; then
+		stop_owned_convex
 	fi
 	echo -e "\033[1;32me2e servers stopped\033[0m" >&2
 }
@@ -71,6 +88,7 @@ else
 		echo -e "\033[1;32mStarting Convex dev server...\033[0m" >&2
 		CI=1 bunx convex dev --tail-logs --typecheck=disable >&2 &
 		CONVEX_PID=$!
+		CONVEX_STARTED="1"
 fi
 
 echo -e "\033[1;33mWaiting for Convex to be ready...\033[0m" >&2
@@ -88,6 +106,37 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 	fi
 	sleep 1
 done
+
+# Auth configuration is read inside Convex functions, so shell exports alone
+# are insufficient. Set the values on the anonymous local deployment after it
+# has been created and before the frontend requests a JWT.
+printf '%s' "$BETTER_AUTH_SECRET" | bunx convex env set --deployment local BETTER_AUTH_SECRET >/dev/null
+bunx convex env set --deployment local SITE_URL "$SITE_URL" >/dev/null
+
+# The first Convex process can load function modules before the deployment
+# environment is updated. Restart the process we started so auth reads the
+# configured secret on module initialization. Never restart a server owned by
+# the caller when this script reused an existing one.
+if [ -n "$CONVEX_PID" ]; then
+	echo -e "\033[1;33mRestarting Convex after setting auth environment...\033[0m" >&2
+	stop_owned_convex
+	CI=1 bunx convex dev --tail-logs --typecheck=disable >&2 &
+	CONVEX_PID=$!
+
+	RETRY_COUNT=0
+	while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+		if convex_ready; then
+			echo -e "\033[1;32mConvex is ready with auth environment configured!\033[0m" >&2
+			break
+		fi
+		RETRY_COUNT=$((RETRY_COUNT + 1))
+		if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+			echo -e "\033[1;31mFailed to restart Convex after $MAX_RETRIES attempts\033[0m" >&2
+			exit 1
+		fi
+		sleep 1
+	done
+fi
 
 echo -e "\033[1;32mStarting Vite dev server on port ${VITE_PORT}...\033[0m" >&2
 bun run dev -- --port "${VITE_PORT}" --strictPort >&2 &
