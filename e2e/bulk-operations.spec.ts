@@ -1,11 +1,11 @@
 import { test, expect } from './fixtures';
 import { getTestSuffix, getStudentId } from './helpers';
-import { createStudent, createCategory, cleanupByTag, useRole } from './convex-client';
+import { createStudent, createCategory, cleanupByTag } from './convex-client';
 import { AdminStudentsPage, NewEvaluationPage } from './pages';
 
 test.describe('Bulk Operations @bulk @sequential', () => {
 	test.describe('Bulk Evaluation Creation', () => {
-		test.use({ storageState: 'e2e/.auth/teacher.json' });
+		test.use({ role: 'teacher' });
 
 		const suffix = getTestSuffix('bulkEval');
 		const e2eTag = `e2e-test_${suffix}`;
@@ -15,7 +15,6 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 
 		test.beforeEach(async ({ page }) => {
 			evalsPage = new NewEvaluationPage(page);
-			useRole('teacher');
 
 			for (let i = 1; i <= 3; i++) {
 				await createStudent({
@@ -88,7 +87,7 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 	});
 
 	test.describe('Bulk Status Change', () => {
-		test.use({ storageState: 'e2e/.auth/admin.json' });
+		test.use({ role: 'admin' });
 
 		const suffix = getTestSuffix('bulkStatus');
 		const e2eTag = `e2e-status_${suffix}`;
@@ -97,7 +96,6 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 
 		test.beforeEach(async ({ page }) => {
 			studentsPage = new AdminStudentsPage(page);
-			useRole('admin');
 
 			for (let i = 1; i <= 3; i++) {
 				await createStudent({
@@ -140,7 +138,7 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 	});
 
 	test.describe('Bulk Selection in UI', () => {
-		test.use({ storageState: 'e2e/.auth/admin.json' });
+		test.use({ role: 'admin' });
 
 		const suffix = getTestSuffix('bulkSelect');
 		const e2eTag = `e2e-select_${suffix}`;
@@ -149,7 +147,6 @@ test.describe('Bulk Operations @bulk @sequential', () => {
 
 		test.beforeEach(async ({ page }) => {
 			studentsPage = new AdminStudentsPage(page);
-			useRole('admin');
 
 			for (let i = 1; i <= 5; i++) {
 				await createStudent({

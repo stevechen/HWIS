@@ -1,10 +1,10 @@
 import { test, expect, type Locator } from './fixtures';
 import { getTestSuffix } from './helpers';
-import { createStudentWithEvaluations, cleanupByTag, useRole } from './convex-client';
+import { createStudentWithEvaluations, cleanupByTag } from './convex-client';
 import { AdminEvaluationsPage } from './pages';
 
 test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	// CONSTANTS - Define at top of describe
 	let suffix: string;
@@ -18,7 +18,6 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations 
 
 	test.beforeEach(async ({ page }) => {
 		evalsPage = new AdminEvaluationsPage(page);
-		useRole('admin');
 		suffix = getTestSuffix('unenrolledToggle');
 		e2eTag = `e2e-test_${suffix}`;
 		enrolledStudentName = `Enrolled_${suffix}`;
@@ -124,7 +123,7 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations 
 // ============================================
 
 test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/teacher.json' });
+	test.use({ role: 'teacher' });
 
 	let suffix: string;
 	let enrolledStudentName: string;
@@ -137,7 +136,6 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations 
 
 	test.beforeEach(async ({ page: p }) => {
 		page = p;
-		useRole('teacher');
 		suffix = getTestSuffix('teacherToggle');
 		e2eTag = `e2e-test_${suffix}`;
 		enrolledStudentName = `Enrolled_${suffix}`;
@@ -219,7 +217,7 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations 
 // ============================================
 
 test.describe('Unenrolled Toggle - Edge Cases @edge-cases @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let suffix: string;
 	let e2eTag: string;
@@ -269,8 +267,6 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases @sequential', () => {
 	});
 
 	test('all students enrolled shows all regardless of toggle state', async () => {
-		useRole('admin');
-
 		const student1Card = evalsPage.getAllCards().filter({
 			has: evalsPage.page.locator(`text="${student1Name}"`)
 		});
@@ -302,7 +298,7 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases @sequential', () => {
 // ============================================
 
 test.describe('Admin Evaluations - Teacher Name Toggle @admin-evaluations @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let suffix: string;
 	let e2eTag: string;
@@ -312,7 +308,6 @@ test.describe('Admin Evaluations - Teacher Name Toggle @admin-evaluations @seque
 
 	test.beforeEach(async ({ page }) => {
 		evalsPage = new AdminEvaluationsPage(page);
-		useRole('admin');
 		suffix = getTestSuffix('teacherNameToggle');
 		e2eTag = `e2e-test_${suffix}`;
 		studentName = `Student_${suffix}`;
@@ -398,7 +393,7 @@ test.describe('Admin Evaluations - Teacher Name Toggle @admin-evaluations @seque
 // ============================================
 
 test.describe('Unenrolled Toggle - Icon Visibility @icons @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let suffix: string;
 	let e2eTag: string;
@@ -444,8 +439,6 @@ test.describe('Unenrolled Toggle - Icon Visibility @icons @sequential', () => {
 	});
 
 	test('eye icon visible when unenrolled are hidden', async () => {
-		useRole('admin');
-
 		await evalsPage.goto();
 		await evalsPage.expectLoadingHidden();
 
@@ -461,8 +454,6 @@ test.describe('Unenrolled Toggle - Icon Visibility @icons @sequential', () => {
 	});
 
 	test('eye icon hidden after toggle shows both enrolled and unenrolled', async () => {
-		useRole('admin');
-
 		await evalsPage.goto();
 		await evalsPage.expectLoadingHidden();
 

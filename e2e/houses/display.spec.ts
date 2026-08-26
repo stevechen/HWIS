@@ -4,7 +4,7 @@ import { cleanupByTag, createStudent, createCategory, getE2EUtilsClient } from '
 import { HouseEventsDisplayPage } from '../pages';
 
 test.describe('House Display Page - E2E', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let suffix: string;
 	let e2eTag: string;

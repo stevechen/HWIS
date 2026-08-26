@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { useRole, createStudent, cleanupByTag } from './convex-client';
+import { createStudent, cleanupByTag } from './convex-client';
 import { getTestSuffix } from './helpers';
 
 /**
@@ -16,48 +16,50 @@ import { getTestSuffix } from './helpers';
  */
 test.describe('Session Management @session @auth-sequential', () => {
 	test.describe('Session Persistence', () => {
-		test.use({ storageState: 'e2e/.auth/admin.json' });
+		test.describe('Admin', () => {
+			test.use({ role: 'admin' });
 
-		test('admin session persists across page navigation', async ({ page }) => {
-			useRole('admin');
+			test('admin session persists across page navigation', async ({ page }) => {
+				// Navigate to admin page
+				await page.goto('/admin');
+				await page.waitForSelector('body.hydrated');
 
-			// Navigate to admin page
-			await page.goto('/admin');
-			await page.waitForSelector('body.hydrated');
+				// Navigate to students page
+				await page.goto('/admin/students');
+				await page.waitForSelector('body.hydrated');
 
-			// Navigate to students page
-			await page.goto('/admin/students');
-			await page.waitForSelector('body.hydrated');
+				// Verify still authenticated - should see admin features
+				await expect(page.getByRole('button', { name: 'Add new student' })).toBeVisible();
 
-			// Verify still authenticated - should see admin features
-			await expect(page.getByRole('button', { name: 'Add new student' })).toBeVisible();
+				// Navigate to users page
+				await page.goto('/admin/users');
+				await page.waitForSelector('body.hydrated');
 
-			// Navigate to users page
-			await page.goto('/admin/users');
-			await page.waitForSelector('body.hydrated');
-
-			// Verify still authenticated - should see the admin users view
-			await expect(page.getByTestId('admin-users.root')).toBeVisible();
-			await expect(page.getByRole('heading', { name: 'Manage Users' })).toBeVisible();
+				// Verify still authenticated - should see the admin users view
+				await expect(page.getByTestId('admin-users.root')).toBeVisible();
+				await expect(page.getByRole('heading', { name: 'Manage Users' })).toBeVisible();
+			});
 		});
 
-		test('teacher session persists across page navigation', async ({ page }) => {
-			useRole('teacher');
+		test.describe('Teacher', () => {
+			test.use({ role: 'teacher' });
 
-			// Navigate to students page
-			await page.goto('/admin/students');
-			await page.waitForSelector('body.hydrated');
-			await expect(page.getByText('Loading students...')).not.toBeVisible();
+			test('teacher session persists across page navigation', async ({ page }) => {
+				// Navigate to students page
+				await page.goto('/admin/students');
+				await page.waitForSelector('body.hydrated');
+				await expect(page.getByText('Loading students...')).not.toBeVisible();
 
-			// Should see students but not admin controls
-			await expect(page.getByRole('heading', { name: 'Student Management' })).toBeVisible();
+				// Should see students but not admin controls
+				await expect(page.getByRole('heading', { name: 'Student Management' })).toBeVisible();
 
-			// Navigate to another page
-			await page.goto('/');
-			await page.waitForSelector('body.hydrated');
+				// Navigate to another page
+				await page.goto('/');
+				await page.waitForSelector('body.hydrated');
 
-			// Should still be logged in (no login button visible)
-			await expect(page.getByRole('button', { name: 'Sign In' })).not.toBeVisible();
+				// Should still be logged in (no login button visible)
+				await expect(page.getByRole('button', { name: 'Sign In' })).not.toBeVisible();
+			});
 		});
 	});
 
@@ -65,10 +67,9 @@ test.describe('Session Management @session @auth-sequential', () => {
 		let testE2eTag: string;
 		let studentId: string;
 
-		test.use({ storageState: 'e2e/.auth/admin.json' });
+		test.use({ role: 'admin' });
 
 		test.beforeEach(async () => {
-			useRole('admin');
 			const suffix = getTestSuffix('sessionTest');
 			studentId = `ST_${suffix}`;
 			testE2eTag = `session_${suffix}`;
@@ -99,11 +100,9 @@ test.describe('Session Management @session @auth-sequential', () => {
 	});
 
 	test.describe('Admin Logout', () => {
-		test.use({ storageState: 'e2e/.auth/admin.json' });
+		test.use({ role: 'admin' });
 
 		test('admin can logout successfully', async ({ page }) => {
-			useRole('admin');
-
 			// Navigate to admin page (should be accessible)
 			await page.goto('/admin');
 			await page.waitForSelector('body.hydrated');
@@ -125,11 +124,9 @@ test.describe('Session Management @session @auth-sequential', () => {
 	});
 
 	test.describe('Teacher Logout', () => {
-		test.use({ storageState: 'e2e/.auth/teacher.json' });
+		test.use({ role: 'teacher' });
 
 		test('teacher can logout successfully', async ({ page }) => {
-			useRole('teacher');
-
 			// Navigate to students page (should be accessible for teachers)
 			await page.goto('/admin/students');
 			await page.waitForSelector('body.hydrated');

@@ -1,10 +1,10 @@
 import { test, expect } from './fixtures';
 import { getTestSuffix } from './helpers';
-import { createStudent, createCategory, cleanupByTag, useRole } from './convex-client';
+import { createStudent, createCategory, cleanupByTag } from './convex-client';
 import { NewEvaluationPage } from './pages';
 
 test.describe('Recent Actions - Batch', () => {
-	test.use({ storageState: 'e2e/.auth/teacher.json' });
+	test.use({ role: 'teacher' });
 
 	let suffix: string;
 	let e2eTag: string;
@@ -16,7 +16,6 @@ test.describe('Recent Actions - Batch', () => {
 	let testData = false;
 
 	test.beforeEach(async () => {
-		useRole('teacher');
 		testData = false;
 		suffix = getTestSuffix('recentActions');
 		e2eTag = `e2e-test_${suffix}`;

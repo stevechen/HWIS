@@ -23,6 +23,29 @@ set -e
 VITE_PORT="${VITE_PORT:-5173}"
 VITE_PID=""
 CONVEX_PID=""
+CONVEX_STARTED="0"
+
+convex_ready() {
+	curl -s --max-time 2 http://localhost:3210 >/dev/null 2>&1 &&
+		curl -s --max-time 2 http://localhost:3211 >/dev/null 2>&1
+}
+
+stop_owned_convex() {
+	if [ -n "$CONVEX_PID" ]; then
+		kill "$CONVEX_PID" 2>/dev/null || true
+		wait "$CONVEX_PID" 2>/dev/null || true
+	fi
+
+	# `convex dev` owns a separate local-backend child process. Kill that child
+	# too, otherwise a restart can pass the port check while the old process is
+	# still serving functions with stale environment variables.
+	local backend_pids
+	backend_pids="$(lsof -ti tcp:3210 -sTCP:LISTEN 2>/dev/null || true)"
+	if [ -n "$backend_pids" ]; then
+		kill $backend_pids 2>/dev/null || true
+	fi
+	CONVEX_PID=""
+}
 
 cleanup() {
 	echo -e "\033[1;33mShutting down e2e servers...\033[0m" >&2
@@ -30,9 +53,8 @@ cleanup() {
 		kill "$VITE_PID" 2>/dev/null || true
 		wait "$VITE_PID" 2>/dev/null || true
 	fi
-	if [ -n "$CONVEX_PID" ]; then
-		kill "$CONVEX_PID" 2>/dev/null || true
-		wait "$CONVEX_PID" 2>/dev/null || true
+	if [ "$CONVEX_STARTED" = "1" ]; then
+		stop_owned_convex
 	fi
 	echo -e "\033[1;32me2e servers stopped\033[0m" >&2
 }
@@ -49,22 +71,31 @@ fi
 # Force local Convex for the run (same as scripts/start-dev-servers.sh).
 export CONVEX_URL="${CONVEX_URL:-http://127.0.0.1:3210}"
 export PUBLIC_CONVEX_URL="${PUBLIC_CONVEX_URL:-$CONVEX_URL}"
-export CONVEX_DEPLOYMENT="${CONVEX_DEPLOYMENT:-local:local-steve_chen-hwis_31a3d}"
+# Convex and Vite run as separate processes, so provide the same local auth
+# configuration to both instead of letting each generate its own secret.
+export SITE_URL="${SITE_URL:-http://localhost:${VITE_PORT}}"
+export VITE_SITE_URL="${VITE_SITE_URL:-$SITE_URL}"
+export PUBLIC_SITE_URL="${PUBLIC_SITE_URL:-$SITE_URL}"
+export BETTER_AUTH_SECRET="${BETTER_AUTH_SECRET:-e2e-local-better-auth-secret-change-me}"
+# Leave deployment selection unset so non-interactive CI uses Convex's
+# anonymous local deployment instead of prompting for account login.
+unset CONVEX_DEPLOYMENT
 unset CONVEX_AUTH_TOKEN
 
-if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:3211 >/dev/null 2>&1; then
+if convex_ready; then
 	echo -e "\033[1;32mConvex dev server already running, reusing it...\033[0m" >&2
 else
 		echo -e "\033[1;32mStarting Convex dev server...\033[0m" >&2
 		CI=1 bunx convex dev --tail-logs --typecheck=disable >&2 &
 		CONVEX_PID=$!
+		CONVEX_STARTED="1"
 fi
 
 echo -e "\033[1;33mWaiting for Convex to be ready...\033[0m" >&2
 MAX_RETRIES=60
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-	if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:3211 >/dev/null 2>&1; then
+	if convex_ready; then
 		echo -e "\033[1;32mConvex is ready!\033[0m" >&2
 		break
 	fi

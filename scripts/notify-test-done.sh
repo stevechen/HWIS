@@ -7,10 +7,12 @@
 
 STATUS="${1:-0}"
 
-if [ "$STATUS" -eq 0 ]; then
-  afplay /System/Library/Sounds/Glass.aiff
-else
-  afplay /System/Library/Sounds/Basso.aiff
+if [ -z "${CI:-}" ] && command -v afplay >/dev/null 2>&1; then
+  if [ "$STATUS" -eq 0 ]; then
+    afplay /System/Library/Sounds/Glass.aiff
+  else
+    afplay /System/Library/Sounds/Basso.aiff
+  fi
 fi
 
 exit "$STATUS"

@@ -154,13 +154,14 @@ async function deleteBackupsByTag(teardown: TeardownContext) {
 }
 
 async function deleteUsersByTag(teardown: TeardownContext) {
-	const users = await teardown.ctx.db.query('users').collect();
+	const users = await teardown.ctx.db
+		.query('users')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
+		.collect();
 	let count = 0;
 	for (const user of users) {
-		if (user.e2eTag === teardown.e2eTag) {
-			await teardown.ctx.db.delete(user._id);
-			count++;
-		}
+		await teardown.ctx.db.delete(user._id);
+		count++;
 	}
 	if (count > 0) bump(teardown, 'users', count);
 }

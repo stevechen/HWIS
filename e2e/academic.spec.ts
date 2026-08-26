@@ -1,11 +1,9 @@
 import { test, expect } from './fixtures';
-import { useRole } from './convex-client';
 
 test.describe('Academic Page @academic @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	test.beforeEach(async ({ page }) => {
-		useRole('admin');
 		await page.goto('/admin/academic');
 		await page.waitForSelector('body.hydrated');
 	});

@@ -2,7 +2,7 @@ import { test } from './fixtures';
 import { expect } from './fixtures';
 
 test.describe('Authenticated Redirects @smoke', () => {
-	test.use({ storageState: 'e2e/.auth/teacher.json' });
+	test.use({ role: 'teacher' });
 
 	test('redirects to evaluations when authenticated as teacher', async ({ page }) => {
 		await page.goto('/');
@@ -14,7 +14,7 @@ test.describe('Authenticated Redirects @smoke', () => {
 });
 
 test.describe('Authenticated Admin Redirect @smoke', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	test('redirects to admin when authenticated as admin', async ({ page }) => {
 		await page.goto('/');

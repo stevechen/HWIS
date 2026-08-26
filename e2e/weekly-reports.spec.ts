@@ -3,14 +3,13 @@ import {
 	createWeeklyReportTestData,
 	cleanupWeeklyReportTestData,
 	createStudent,
-	createCategory,
-	useRole
+	createCategory
 } from './convex-client';
 import { getTestSuffix, getUniqueTag } from './helpers';
 import { AdminWeeklyReportsPage } from './pages';
 
 test.describe('Weekly Reports - Data Display @weekly @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let e2eTag: string;
 	let testData = false;
@@ -18,7 +17,6 @@ test.describe('Weekly Reports - Data Display @weekly @sequential', () => {
 
 	test.beforeEach(async ({ page }) => {
 		reportsPage = new AdminWeeklyReportsPage(page);
-		useRole('admin');
 		e2eTag = getUniqueTag('weekly-report');
 		await cleanupWeeklyReportTestData(e2eTag);
 		const createResult = await createWeeklyReportTestData(e2eTag);
@@ -45,7 +43,7 @@ test.describe('Weekly Reports - Data Display @weekly @sequential', () => {
 });
 
 test.describe('Weekly Reports - Dialog Interactions @weekly @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let e2eTag: string;
 	let testData = false;
@@ -53,7 +51,6 @@ test.describe('Weekly Reports - Dialog Interactions @weekly @sequential', () => 
 
 	test.beforeEach(async ({ page }) => {
 		reportsPage = new AdminWeeklyReportsPage(page);
-		useRole('admin');
 		e2eTag = getUniqueTag('weekly-report');
 		await cleanupWeeklyReportTestData(e2eTag);
 		const createResult = await createWeeklyReportTestData(e2eTag);
@@ -165,7 +162,7 @@ test.describe('Weekly Reports - Dialog Interactions @weekly @sequential', () => 
 });
 
 test.describe('Weekly Reports - Create Report @weekly @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let suffix: string;
 	let studentId: string;
@@ -175,7 +172,6 @@ test.describe('Weekly Reports - Create Report @weekly @sequential', () => {
 
 	test.beforeEach(async ({ page }) => {
 		reportsPage = new AdminWeeklyReportsPage(page);
-		useRole('admin');
 		suffix = getTestSuffix('createReport');
 		studentId = `WR_${suffix}`;
 		e2eTag = getUniqueTag('weekly-report');
@@ -239,7 +235,7 @@ test.describe('Weekly Reports - Create Report @weekly @sequential', () => {
 });
 
 test.describe('Weekly Reports - Update Report @weekly @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let suffix: string;
 	let studentId: string;
@@ -250,7 +246,6 @@ test.describe('Weekly Reports - Update Report @weekly @sequential', () => {
 
 	test.beforeEach(async ({ page }) => {
 		reportsPage = new AdminWeeklyReportsPage(page);
-		useRole('admin');
 		suffix = getTestSuffix('updateReport');
 		studentId = `WR_UPDATE_${suffix}`;
 		categoryName = `UpdateCategory_${suffix}`;

@@ -3,8 +3,7 @@ import {
 	createStudent,
 	createStudentWithEvaluations,
 	createCategory,
-	cleanupTestData,
-	useRole
+	cleanupTestData
 } from './convex-client';
 import { getTestSuffix, getTestStudentId } from './helpers';
 import { AdminStudentsPage, NewEvaluationPage, StudentTimelinePage } from './pages';
@@ -14,7 +13,7 @@ import { AdminStudentsPage, NewEvaluationPage, StudentTimelinePage } from './pag
 // ============================================================================
 
 test.describe('Student CRUD Cycle @integration', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('crud');
 	const studentId = getTestStudentId('crud');
@@ -24,7 +23,6 @@ test.describe('Student CRUD Cycle @integration', () => {
 
 	test.beforeEach(async ({ page }) => {
 		studentsPage = new AdminStudentsPage(page);
-		useRole('admin');
 		testE2eTag = `e2e-test_${suffix}`;
 
 		await createStudent({
@@ -64,7 +62,7 @@ test.describe('Student CRUD Cycle @integration', () => {
 });
 
 test.describe('Evaluation Persistence @integration', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('evalPersist');
 	const studentId = `SE_${suffix}`;
@@ -74,7 +72,6 @@ test.describe('Evaluation Persistence @integration', () => {
 
 	test.beforeEach(async ({ page: p }) => {
 		page = p;
-		useRole('admin');
 		testE2eTag = `e2e-test_${suffix}`;
 
 		// Create tagged category for evaluations (replaces seedBaseline)
@@ -115,7 +112,7 @@ test.describe('Evaluation Persistence @integration', () => {
 });
 
 test.describe('Student Timeline Navigation @integration @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('evalNav');
 	const studentId = `SE_${suffix}`;
@@ -126,7 +123,6 @@ test.describe('Student Timeline Navigation @integration @sequential', () => {
 
 	test.beforeEach(async ({ page }) => {
 		timelinePage = new StudentTimelinePage(page);
-		useRole('admin');
 		testE2eTag = `e2e-test_${suffix}`;
 
 		// Create tagged category for evaluations (replaces seedBaseline)
@@ -162,7 +158,7 @@ test.describe('Student Timeline Navigation @integration @sequential', () => {
 });
 
 test.describe('Category to Evaluation Integration @integration', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('catEvalInt');
 	const categoryName = `IntTestCat_${suffix}`;
@@ -171,7 +167,6 @@ test.describe('Category to Evaluation Integration @integration', () => {
 
 	test.beforeEach(async ({ page: p }) => {
 		page = p;
-		useRole('admin');
 		testE2eTag = `e2e-test_${suffix}`;
 
 		// Create category via API with e2eTag for proper cleanup

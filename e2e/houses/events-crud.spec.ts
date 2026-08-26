@@ -9,7 +9,7 @@ import {
 import { HouseEventsPage } from '../pages';
 
 test.describe('House Events Management - E2E @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let suffix: string;
 	let e2eTag: string;

@@ -49,6 +49,10 @@ function generateEphemeralSecret(): string {
 	return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+const localAuthSecret =
+	getEnvValue('BETTER_AUTH_SECRET') ||
+	(isDev || isTestRuntime ? 'e2e-local-better-auth-secret-change-me' : generateEphemeralSecret());
+
 if (typeof window === 'undefined') {
 	// Set environment variables for auth component if not already set
 	const convexUrl =
@@ -77,23 +81,15 @@ if (typeof window === 'undefined') {
 		) ||
 		normalizeConvexSiteUrl(convexUrl) ||
 		'http://127.0.0.1:3211';
-	let betterAuthSecret = getEnvValue('BETTER_AUTH_SECRET');
-	if (!betterAuthSecret) {
-		betterAuthSecret = generateEphemeralSecret();
-		if (isDev || isTestRuntime) {
-			console.warn(
-				'[auth] BETTER_AUTH_SECRET is not set. Generated an ephemeral secret for local/test runtime.'
-			);
-		} else {
-			console.warn(
-				'[auth] BETTER_AUTH_SECRET is not set. Using ephemeral secret; set a stable secret in production env.'
-			);
-		}
+	if (!getEnvValue('BETTER_AUTH_SECRET') && !isDev && !isTestRuntime) {
+		console.warn(
+			'[auth] BETTER_AUTH_SECRET is not set. Using an ephemeral secret; set a stable secret in production env.'
+		);
 	}
 
 	process.env.CONVEX_URL = convexUrl;
 	process.env.PUBLIC_CONVEX_SITE_URL = convexSiteUrl;
-	process.env.BETTER_AUTH_SECRET = betterAuthSecret;
+	process.env.BETTER_AUTH_SECRET = localAuthSecret;
 	const googleClientId = getEnvValue('GOOGLE_CLIENT_ID');
 	const googleClientSecret = getEnvValue('GOOGLE_CLIENT_SECRET');
 	if (googleClientId) process.env.GOOGLE_CLIENT_ID = googleClientId;
@@ -163,6 +159,7 @@ function isUserProfile(user: AuthenticatedUserLike): user is Doc<'users'> {
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
 	return betterAuth({
+		secret: localAuthSecret,
 		baseURL: siteUrl,
 		trustedOrigins,
 		database: authComponent.adapter(ctx),

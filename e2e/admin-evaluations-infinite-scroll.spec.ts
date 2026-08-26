@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures';
 import { getTestSuffix } from './helpers';
-import { createStudentWithEvaluations, cleanupByTag, useRole } from './convex-client';
+import { createStudentWithEvaluations, cleanupByTag } from './convex-client';
 import { AdminEvaluationsPage } from './pages';
 
 async function waitForEvaluationsReady(page: import('@playwright/test').Page) {
@@ -26,7 +26,7 @@ async function waitForEvaluationsReady(page: import('@playwright/test').Page) {
 }
 
 test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	// CONSTANTS - Define at top of describe
 	let suffix: string;
@@ -39,7 +39,6 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 		test.setTimeout(60000);
 
 		evalsPage = new AdminEvaluationsPage(page);
-		useRole('admin');
 		testEntity = false; // Reset at start of each test
 		suffix = getTestSuffix('infiniteScroll');
 		e2eTag = `e2e-test_${suffix}`;
@@ -214,7 +213,7 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 });
 
 test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	// CONSTANTS - Define at top of describe
 	let suffix: string;
@@ -224,7 +223,6 @@ test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small @sequent
 
 	test.beforeEach(async ({ page }) => {
 		evalsPage = new AdminEvaluationsPage(page);
-		useRole('admin');
 		testEntity = false; // Reset at start of each test
 		suffix = getTestSuffix('scrollSmall');
 		e2eTag = `e2e-test_${suffix}`;
@@ -268,7 +266,7 @@ test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small @sequent
 });
 
 test.describe('Admin Evaluations - Filter Empty State @infinite-scroll-filter-empty @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	// CONSTANTS - Define at top of describe
 	let suffix: string;
@@ -278,7 +276,6 @@ test.describe('Admin Evaluations - Filter Empty State @infinite-scroll-filter-em
 
 	test.beforeEach(async ({ page }) => {
 		evalsPage = new AdminEvaluationsPage(page);
-		useRole('admin');
 		testEntity = false; // Reset at start of each test
 		suffix = getTestSuffix('scrollFilter');
 		e2eTag = `e2e-test_${suffix}`;

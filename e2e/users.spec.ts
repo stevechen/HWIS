@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import { AdminUsersPage } from './pages';
 
 test.describe('Users Page @users', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let usersPage: AdminUsersPage;
 
@@ -44,7 +44,7 @@ test.describe('Users Page @users', () => {
 });
 
 test.describe('Users Page - Super User @users', () => {
-	test.use({ storageState: 'e2e/.auth/super.json' });
+	test.use({ role: 'super' });
 
 	let usersPage: AdminUsersPage;
 

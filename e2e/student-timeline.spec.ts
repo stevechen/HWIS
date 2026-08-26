@@ -1,15 +1,10 @@
 import { test, expect } from './fixtures';
 import { getTestSuffix } from './helpers';
-import {
-	createStudentWithEvaluations,
-	createCategory,
-	cleanupByTag,
-	useRole
-} from './convex-client';
+import { createStudentWithEvaluations, createCategory, cleanupByTag } from './convex-client';
 import { StudentTimelinePage } from './pages';
 
 test.describe('Student Timeline Long-Press @timeline-longpress @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/teacher.json' });
+	test.use({ role: 'teacher' });
 
 	let suffix: string;
 	let studentId: string;
@@ -20,7 +15,6 @@ test.describe('Student Timeline Long-Press @timeline-longpress @sequential', () 
 
 	test.beforeEach(async ({ page }) => {
 		timelinePage = new StudentTimelinePage(page);
-		useRole('teacher');
 		suffix = getTestSuffix('timelineLongpress');
 		studentId = `STU_${suffix}`;
 		englishName = `Student_${suffix}`;
@@ -66,7 +60,7 @@ test.describe('Student Timeline Long-Press @timeline-longpress @sequential', () 
 });
 
 test.describe('Student Timeline Long-Press Admin @timeline-longpress @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let suffix: string;
 	let studentId: string;
@@ -77,7 +71,6 @@ test.describe('Student Timeline Long-Press Admin @timeline-longpress @sequential
 
 	test.beforeEach(async ({ page }) => {
 		timelinePage = new StudentTimelinePage(page);
-		useRole('admin');
 		suffix = getTestSuffix('timelineLongpressAdmin');
 		studentId = `STU_${suffix}`;
 		englishName = `Student_${suffix}`;
@@ -118,7 +111,7 @@ test.describe('Student Timeline Long-Press Admin @timeline-longpress @sequential
 });
 
 test.describe('Student Timeline Edit Dialog @timeline-longpress @sequential', () => {
-	test.use({ storageState: 'e2e/.auth/teacher.json' });
+	test.use({ role: 'teacher' });
 
 	let suffix: string;
 	let studentId: string;
@@ -129,7 +122,6 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress @sequential', ()
 
 	test.beforeEach(async ({ page }) => {
 		timelinePage = new StudentTimelinePage(page);
-		useRole('teacher');
 		suffix = getTestSuffix('timelineEdit');
 		studentId = `STU_${suffix}`;
 		englishName = `Student_${suffix}`;
@@ -181,7 +173,7 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress @sequential', ()
 
 test.describe('Score Tally Bar @score-tally @sequential', () => {
 	// Use admin auth to see all evaluations (not just teacher's own)
-	test.use({ storageState: 'e2e/.auth/admin.json' });
+	test.use({ role: 'admin' });
 
 	let suffix: string;
 	let studentId: string;
@@ -192,7 +184,6 @@ test.describe('Score Tally Bar @score-tally @sequential', () => {
 
 	test.beforeEach(async ({ page }) => {
 		timelinePage = new StudentTimelinePage(page);
-		useRole('admin');
 		suffix = getTestSuffix('scoreTally');
 		studentId = `STU_${suffix}`;
 		englishName = `Student_${suffix}`;
