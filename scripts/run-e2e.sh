@@ -54,6 +54,12 @@ fi
 # Force local Convex for the run (same as scripts/start-dev-servers.sh).
 export CONVEX_URL="${CONVEX_URL:-http://127.0.0.1:3210}"
 export PUBLIC_CONVEX_URL="${PUBLIC_CONVEX_URL:-$CONVEX_URL}"
+# Convex and Vite run as separate processes, so provide the same local auth
+# configuration to both instead of letting each generate its own secret.
+export SITE_URL="${SITE_URL:-http://localhost:${VITE_PORT}}"
+export VITE_SITE_URL="${VITE_SITE_URL:-$SITE_URL}"
+export PUBLIC_SITE_URL="${PUBLIC_SITE_URL:-$SITE_URL}"
+export BETTER_AUTH_SECRET="${BETTER_AUTH_SECRET:-e2e-local-better-auth-secret-change-me}"
 # Leave deployment selection unset so non-interactive CI uses Convex's
 # anonymous local deployment instead of prompting for account login.
 unset CONVEX_DEPLOYMENT
