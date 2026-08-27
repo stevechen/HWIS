@@ -1,6 +1,6 @@
 'use node';
 
-import { action } from './_generated/server';
+import { action, internalAction, type ActionCtx } from './_generated/server';
 import { anyApi } from 'convex/server';
 import type { Doc } from './_generated/dataModel';
 import { canAccessAdminArea, type AccessSubject } from './shared/authorization';
@@ -81,6 +81,46 @@ async function uploadToDrive(
 	return { fileId: data.id, createdTime: data.createdTime ?? new Date().toISOString() };
 }
 
+async function createDriveBackup(ctx: ActionCtx) {
+	const cronSecret = process.env.CRON_SECRET;
+	if (!cronSecret) {
+		throw new Error('CRON_SECRET is not configured');
+	}
+
+	const exportData = (await ctx.runQuery(anyApi.backup.exportDataForCron, { cronSecret })) as {
+		students: Doc<'students'>[];
+		evaluations: Doc<'evaluations'>[];
+		users: Doc<'users'>[];
+		categories: Doc<'point_categories'>[];
+	};
+	const { students: studentData, evaluations, users, categories } = exportData;
+	const backup = {
+		exportedAt: new Date().toISOString(),
+		version: '1.0',
+		students: studentData,
+		evaluations,
+		users,
+		categories
+	};
+	const filename = `backup-${new Date().toISOString().split('T')[0]}.json`;
+	const fileContent = JSON.stringify(backup, null, 2);
+	const accessToken = await getAccessToken();
+	const { fileId, createdTime } = await uploadToDrive(accessToken, fileContent, filename);
+
+	return {
+		success: true,
+		filename,
+		fileId,
+		createdTime,
+		stats: {
+			students: studentData.length,
+			evaluations: evaluations.length,
+			users: users.length,
+			categories: categories.length
+		}
+	};
+}
+
 export const backupToDrive = action({
 	args: {},
 	handler: async (ctx) => {
@@ -93,45 +133,11 @@ export const backupToDrive = action({
 			throw new Error('Forbidden');
 		}
 
-		const cronSecret = process.env.CRON_SECRET;
-		if (!cronSecret) {
-			throw new Error('CRON_SECRET is not configured');
-		}
-		const exportDataFn = anyApi.backup.exportDataForCron;
-		const exportData = (await ctx.runQuery(exportDataFn, { cronSecret })) as {
-			students: Doc<'students'>[];
-			evaluations: Doc<'evaluations'>[];
-			users: Doc<'users'>[];
-			categories: Doc<'point_categories'>[];
-		};
-		const { students: studentData, evaluations, users, categories } = exportData;
-
-		const backup = {
-			exportedAt: new Date().toISOString(),
-			version: '1.0',
-			students: studentData,
-			evaluations,
-			users,
-			categories
-		};
-
-		const filename = `backup-${new Date().toISOString().split('T')[0]}.json`;
-		const fileContent = JSON.stringify(backup, null, 2);
-
-		const accessToken = await getAccessToken();
-		const { fileId, createdTime } = await uploadToDrive(accessToken, fileContent, filename);
-
-		return {
-			success: true,
-			filename,
-			fileId,
-			createdTime,
-			stats: {
-				students: studentData.length,
-				evaluations: evaluations.length,
-				users: users.length,
-				categories: categories.length
-			}
-		};
+		return createDriveBackup(ctx);
 	}
+});
+
+export const scheduledBackup = internalAction({
+	args: {},
+	handler: async (ctx) => createDriveBackup(ctx)
 });

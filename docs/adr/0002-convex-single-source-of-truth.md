@@ -17,6 +17,8 @@ Convex is the single source of truth for both backend logic and data.
 - All business logic (CRUD, auth, locking, reporting) lives in Convex queries, mutations, and actions.
 - Client-side uses `convex-svelte` with `setupConvex()`, `useQuery()`, and `useMutation()` for reactivity. Auth sessions flow from the SPA into Convex via the Better Auth Convex plugin (JWT), so authenticated Convex queries see the real user.
 - No duplicate business logic in SvelteKit server routes — they serve only as thin proxies (e.g., cron backup endpoint).
+- Convex function-call volume should be minimized while on free quotas. Prefer reactive subscriptions, batching, and client-side filtering over repeated ad-hoc queries, action loops, or polling that increases billable invocations.
+- Vercel Edge request volume should be minimized. Keep authenticated and dynamic work in Convex, use client-side SPA transitions where appropriate, cache immutable static assets, and avoid routing scheduled jobs through Vercel when Convex scheduled functions can run them directly.
 
 ## Consequences
 
