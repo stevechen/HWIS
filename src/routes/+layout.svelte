@@ -109,9 +109,10 @@
 	const backTarget = $derived.by(() => {
 		const path = $page.url.pathname;
 		if (path.startsWith('/admin') && path !== '/admin') return '/admin';
-		if (path.startsWith('/evaluations/student') || path === '/evaluations/new')
-			return '/evaluations';
+		if (path === '/evaluations/new') return '/evaluations';
 		if (path === '/evaluations' && isAdmin) return '/admin';
+		// For student evaluation pages, return to the actual previous page
+		// (My Evaluations for teachers, All Evaluations for admins) via history.
 		return '';
 	});
 
