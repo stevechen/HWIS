@@ -54,6 +54,32 @@ describe('users.update', () => {
 	});
 });
 
+describe('users.normalizeStaffNames', () => {
+	it('normalizes existing staff names without changing student names or IDs', async () => {
+		const t = convexTest(schema, modules);
+		const ids = await t.run(async (ctx) => ({
+			teacherId: await ctx.db.insert('users', {
+				authId: 'mixed-name',
+				name: '  Amy 王  Smith  ',
+				role: 'teacher',
+				status: 'active'
+			}),
+			studentId: await ctx.db.insert('users', {
+				authId: 'student-name',
+				name: '學生 王',
+				role: 'student',
+				status: 'active'
+			})
+		}));
+
+		await t.mutation(api.users.normalizeStaffNames, {});
+
+		const users = await t.run((ctx) => ctx.db.query('users').collect());
+		expect(users.find((user) => user._id === ids.teacherId)?.name).toBe('Amy Smith');
+		expect(users.find((user) => user._id === ids.studentId)?.name).toBe('學生 王');
+	});
+});
+
 describe('users.update access-removal / restore timestamps', () => {
 	it('stamps deactivatedAt when an active user is moved to pending', async () => {
 		const t = convexTest(schema, modules);
@@ -458,7 +484,7 @@ describe('users.list', () => {
 		});
 
 		const users = await t.query(api.users.list, {});
-		expect(users.map((u: { name?: string }) => u.name)).toEqual(['Amy Wang 王', 'Zoe Zhang 張']);
+		expect(users.map((u: { name?: string }) => u.name)).toEqual(['Amy Wang', 'Zoe Zhang']);
 
 		vi.restoreAllMocks();
 	});

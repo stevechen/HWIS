@@ -1,6 +1,7 @@
+import { normalizeStaffName } from '$convex/shared/staff_name';
+
 export function cleanName(name?: string): string {
-	if (!name) return '';
-	return name.replace(/[\u3400-\u4DB5\u4E00-\u9FFF\uF900-\uFAFF\u3000-\u303F]/g, '').trim();
+	return normalizeStaffName(name);
 }
 
 export function initials(name?: string): string {

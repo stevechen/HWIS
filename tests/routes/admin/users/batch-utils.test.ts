@@ -7,7 +7,7 @@ describe('cleanName', () => {
 	});
 
 	it('removes CJK characters while keeping English', () => {
-		expect(cleanName('John 約翰 Smith')).toBe('John  Smith');
+		expect(cleanName('John 約翰 Smith')).toBe('John Smith');
 	});
 
 	it('removes CJK from mixed name and trims', () => {
@@ -25,11 +25,11 @@ describe('cleanName', () => {
 	});
 
 	it('preserves spaces between English parts after removing CJK', () => {
-		expect(cleanName('Mary 林 Mary')).toBe('Mary  Mary');
+		expect(cleanName('Mary 林 Mary')).toBe('Mary Mary');
 	});
 
 	it('handles mixed punctuation and CJK', () => {
-		expect(cleanName("O'Brien 奧賓 XIII")).toBe("O'Brien  XIII");
+		expect(cleanName("O'Brien 奧賓 XIII")).toBe("O'Brien XIII");
 	});
 });
 

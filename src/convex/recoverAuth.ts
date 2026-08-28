@@ -1,5 +1,6 @@
 import { mutation } from './_generated/server';
 import { authComponent, getAllowlistedRole, requireAdminForSensitiveOperation } from './auth';
+import { normalizeStaffName } from './shared/staff_name';
 
 type BetterAuthUser = {
 	_id?: string;
@@ -37,7 +38,7 @@ export const forceCreateUser = mutation({
 
 			if (existing) {
 				await ctx.db.patch(existing._id, {
-					name: u.name || email.split('@')[0],
+					name: normalizeStaffName(u.name || email.split('@')[0]),
 					role: u.role || 'teacher',
 					status: 'active'
 				});
@@ -45,7 +46,7 @@ export const forceCreateUser = mutation({
 			} else {
 				await ctx.db.insert('users', {
 					authId: authId,
-					name: u.name || email.split('@')[0],
+					name: normalizeStaffName(u.name || email.split('@')[0]),
 					role: getAllowlistedRole(email) ?? 'teacher',
 					status: 'active',
 					createdAt: Date.now()

@@ -1,6 +1,7 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { authComponent, requireAdminForSensitiveOperation } from './auth';
+import { normalizeStaffName } from './shared/staff_name';
 
 type BetterAuthUser = {
 	_id?: string;
@@ -39,7 +40,7 @@ export const createUserByEmail = mutation({
 
 		if (existing) {
 			await ctx.db.patch(existing._id, {
-				name: baUser.name || args.email.split('@')[0],
+				name: normalizeStaffName(baUser.name || args.email.split('@')[0]),
 				role: args.role ?? existing.role,
 				status: args.status ?? existing.status
 			});
@@ -48,7 +49,7 @@ export const createUserByEmail = mutation({
 
 		await ctx.db.insert('users', {
 			authId: authId,
-			name: baUser.name || args.email.split('@')[0],
+			name: normalizeStaffName(baUser.name || args.email.split('@')[0]),
 			role: args.role ?? 'teacher',
 			status: args.status ?? 'active',
 			createdAt: Date.now()

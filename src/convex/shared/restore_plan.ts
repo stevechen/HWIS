@@ -12,6 +12,7 @@ import type { Id } from '../_generated/dataModel';
 import type { GenericDatabaseWriter } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
 import type { BackupSnapshot } from './backup_snapshot';
+import { normalizeStaffName } from './staff_name';
 
 type SerializedDocument<T> = Omit<T, '_id' | '_creationTime'> & { _id: string };
 
@@ -143,7 +144,7 @@ async function remapUsers(
 
 		if (existingUser) {
 			await ctx.db.patch(existingUser._id, {
-				name: user.name ?? undefined,
+				name: user.role === 'student' ? (user.name ?? undefined) : normalizeStaffName(user.name),
 				role: user.role ?? existingUser.role,
 				status: user.status ?? existingUser.status
 			});
@@ -151,7 +152,7 @@ async function remapUsers(
 		} else {
 			const newUserId = await ctx.db.insert('users', {
 				authId: user.authId ?? undefined,
-				name: user.name ?? undefined,
+				name: user.role === 'student' ? (user.name ?? undefined) : normalizeStaffName(user.name),
 				role: user.role ?? 'teacher',
 				status: user.status ?? 'active'
 			});

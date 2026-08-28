@@ -5,6 +5,7 @@ import type { Id, Doc } from './_generated/dataModel';
 import { requireAdminForSensitiveOperation, isTestRuntime } from './auth';
 import { GRADES, getDisplayName, classSortPriority } from './shared/class_roster';
 import { assertUniqueStudentId } from './shared/student';
+import { displayStaffName } from './shared/staff_name';
 import type { MutationCtx } from './_generated/server';
 
 // Validate studentId is a 6- or 7-digit number
@@ -101,7 +102,7 @@ export const list = query({
 		];
 		const teachers = await Promise.all(teacherIds.map((id) => ctx.db.get(id)));
 		const teacherMap = new Map(
-			teachers.filter(Boolean).map((t) => [t!._id, t!.name || 'Unknown Teacher'])
+			teachers.filter(Boolean).map((t) => [t!._id, displayStaffName(t!.name)])
 		);
 
 		const result = filtered.map((s) => {
@@ -162,7 +163,7 @@ export const listPaginated = query({
 		];
 		const teachers = await Promise.all(teacherIds.map((id) => ctx.db.get(id!)));
 		const teacherMap = new Map(
-			teachers.filter(Boolean).map((teacher) => [teacher!._id, teacher!.name || 'Unknown Teacher'])
+			teachers.filter(Boolean).map((teacher) => [teacher!._id, displayStaffName(teacher!.name)])
 		);
 		const hydrated = allStudents.map((student) => {
 			const classInfo = classMap.get(student.classId) || null;

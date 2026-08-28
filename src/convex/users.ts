@@ -16,6 +16,7 @@ import {
 	type AuthorizationActor
 } from './shared/authorization';
 import type { Id } from './_generated/dataModel';
+import { displayStaffName, normalizeStaffName } from './shared/staff_name';
 
 type BetterAuthUser = {
 	_id?: string;
@@ -24,10 +25,6 @@ type BetterAuthUser = {
 	name?: string;
 	image?: string | null;
 };
-
-function stripCJK(name: string): string {
-	return name.replace(/[\u3400-\u4DB5\u4E00-\u9FFF\uF900-\uFAFF\u3000-\u303F]/g, '');
-}
 
 async function invalidateUserSessions(ctx: MutationCtx, userId: Id<'users'>): Promise<void> {
 	const sessions = await ctx.db
@@ -227,13 +224,14 @@ export const list = query({
 				const ba = u.authId ? baUserLookup[u.authId] : undefined;
 				return {
 					...u,
+					name: displayStaffName(u.name),
 					role: u.role ?? 'teacher',
 					status: u.status ?? 'active',
 					email: ba?.email,
 					image: ba?.image
 				};
 			})
-			.sort((a, b) => stripCJK(a.name || '').localeCompare(stripCJK(b.name || '')));
+			.sort((a, b) => normalizeStaffName(a.name).localeCompare(normalizeStaffName(b.name)));
 	}
 });
 
@@ -249,12 +247,31 @@ export const getTeachers = query({
 			.filter((u) => isStaff(u))
 			.map((u) => ({
 				...u,
+				name: displayStaffName(u.name),
 				role: u.role ?? 'teacher',
 				status: u.status ?? 'active'
 			}))
-			.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+			.sort((a, b) => normalizeStaffName(a.name).localeCompare(normalizeStaffName(b.name)));
 
 		return teachers;
+	}
+});
+
+export const normalizeStaffNames = mutation({
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const users = await ctx.db.query('users').collect();
+		let updated = 0;
+		for (const user of users) {
+			if (user.role === 'student') continue;
+			const name = normalizeStaffName(user.name);
+			if (name !== user.name) {
+				await ctx.db.patch(user._id, { name });
+				updated++;
+			}
+		}
+		return { updated };
 	}
 });
 

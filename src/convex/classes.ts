@@ -10,6 +10,7 @@ import {
 	moveRejectionReason,
 	protectedClassErrorMessage
 } from './shared/class_roster';
+import { displayStaffName } from './shared/staff_name';
 
 export const list = query({
 	args: {
@@ -33,7 +34,7 @@ export const list = query({
 		const teacherIds = [...new Set(classes.map((c) => c.homeroomTeacherId).filter(Boolean))];
 		const teachers = await Promise.all(teacherIds.map((id) => (id ? ctx.db.get(id) : null)));
 		const teacherMap = new Map(
-			teachers.filter(Boolean).map((t) => [t!._id, t!.name || 'Unknown Teacher'])
+			teachers.filter(Boolean).map((t) => [t!._id, displayStaffName(t!.name)])
 		);
 
 		// Get all students grouped by classId
@@ -154,7 +155,7 @@ export const getByTeacher = query({
 
 		return {
 			...classRecord,
-			homeroomTeacherName: teacher?.name || 'Unknown Teacher'
+			homeroomTeacherName: displayStaffName(teacher?.name)
 		};
 	}
 });
@@ -376,7 +377,7 @@ export const getById = query({
 		let teacherName = null;
 		if (classRecord.homeroomTeacherId) {
 			const teacher = await ctx.db.get(classRecord.homeroomTeacherId);
-			teacherName = teacher?.name || 'Unknown Teacher';
+			teacherName = displayStaffName(teacher?.name);
 		}
 
 		return {

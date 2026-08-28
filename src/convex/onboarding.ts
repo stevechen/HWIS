@@ -9,6 +9,7 @@ import {
 } from './auth';
 import { isStudentEmailAddress } from './shared/student';
 import { isAdmin } from './shared/authorization';
+import { normalizeStaffName } from './shared/staff_name';
 
 type BetterAuthUser = {
 	email?: string;
@@ -49,7 +50,7 @@ export const ensureUserProfile = mutation({
 			const role = allowlistedRole ?? existing.role ?? 'teacher';
 			const status = allowlistedRole ? 'active' : (existing.status ?? 'pending');
 			await ctx.db.patch(existing._id, {
-				name: authUser.name,
+				name: normalizeStaffName(authUser.name),
 				role,
 				status
 			});
@@ -65,7 +66,7 @@ export const ensureUserProfile = mutation({
 
 		await ctx.db.insert('users', {
 			authId: authId,
-			name: authUser.name,
+			name: normalizeStaffName(authUser.name),
 			role,
 			status,
 			createdAt: Date.now()
@@ -178,7 +179,7 @@ export const updateUserName = mutation({
 		if (!existing) {
 			await ctx.db.insert('users', {
 				authId: args.authId,
-				name: args.name,
+				name: normalizeStaffName(args.name),
 				role: 'teacher',
 				status: 'active',
 				createdAt: Date.now()
@@ -187,7 +188,7 @@ export const updateUserName = mutation({
 		}
 
 		await ctx.db.patch(existing._id, {
-			name: args.name
+			name: normalizeStaffName(args.name)
 		});
 		return { created: false };
 	}

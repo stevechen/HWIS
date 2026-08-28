@@ -2,6 +2,7 @@ import type { Id } from '../_generated/dataModel';
 import type { EnrichedEvaluation } from './enrichment';
 import { enrichEvaluations } from './enrichment';
 import { matchesMultiSearch } from './evaluation_utils';
+import { displayStaffName } from './staff_name';
 import type { DataModel } from '../_generated/dataModel';
 import type { GenericDatabaseReader, PaginationOptions } from 'convex/server';
 
@@ -63,7 +64,7 @@ function serializeEvaluation(
 		studentId: evaluation.studentId.toString(),
 		teacherId: evaluation.teacherId.toString(),
 		categoryId: evaluation.categoryId.toString(),
-		teacherName: teacher?.name || 'Unknown Teacher',
+		teacherName: displayStaffName(teacher?.name),
 		isAdmin: teacher?.role === 'admin' || teacher?.role === 'super'
 	};
 }
