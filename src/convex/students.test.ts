@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { convexTest, modules } from './test.setup';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { convexTest, modules, createStudentWithClass } from './test.setup';
+import { setTestAuthRole } from './testAuth';
 import { api } from './_generated/api';
 import schema from './schema';
 import type { Doc, Id } from './_generated/dataModel';
@@ -779,6 +780,510 @@ describe('disableStudent', () => {
 });
 
 describe('students.listPaginated', () => {
+	// Seed `count` students attached to a single class so listPaginated must scan the
+	// whole candidate set before applying index/post-filters. Spreads across grades,
+	// houses and statuses so scale tests exercise every branch.
+	async function seedScaledStudents(t: ReturnType<typeof convexTest>, count: number) {
+		const classIds = await t.run(async (ctx) => {
+			const ids: string[] = [];
+			for (let g = 7; g <= 12; g++) {
+				ids.push(await ctx.db.insert('classes', { grade: g, class: '1' }));
+			}
+			return ids;
+		});
+		await t.run(async (ctx) => {
+			const houses = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
+			for (let i = 0; i < count; i++) {
+				await ctx.db.insert('students', {
+					englishName: `Match ${i}`,
+					chineseName: `匹配${i}`,
+					studentId: `SCALE${String(i).padStart(4, '0')}`,
+					classId: classIds[i % classIds.length],
+					// i%10 -> Not Enrolled (so status filter is meaningful at scale)
+					status: i % 10 === 0 ? 'Not Enrolled' : 'Enrolled',
+					// i%6 -> no house (so __unassigned filter is meaningful at scale)
+					house: i % 6 === 0 ? undefined : houses[i % 4]
+				});
+			}
+		});
+		return classIds;
+	}
+
+	// Walk every page and return the flattened ids.
+	async function collectIds(
+		t: ReturnType<typeof convexTest>,
+		args: {
+			search?: string;
+			status?: 'Enrolled' | 'Not Enrolled';
+			grade?: number;
+			house?: string;
+			sortBy: 'studentId' | 'englishName' | 'chineseName' | 'grade' | 'house';
+			sortDirection: 'asc' | 'desc';
+			useIndex: boolean;
+		}
+	) {
+		const ids: string[] = [];
+		let cursor: string | null = null;
+		let pages = 0;
+		do {
+			const r = await t.query(api.students.listPaginated, {
+				paginationOpts: { numItems: 50, cursor },
+				search: args.search,
+				status: args.status,
+				grade: args.grade,
+				house: args.house as
+					| 'Heracles'
+					| 'Wukong'
+					| 'Ixbalam'
+					| 'Setna'
+					| '__unassigned'
+					| undefined,
+				sortBy: args.sortBy,
+				sortDirection: args.sortDirection,
+				useIndex: args.useIndex
+			});
+			for (const s of r.page) ids.push(s.studentId);
+			cursor = r.isDone ? null : r.continueCursor;
+			pages++;
+		} while (cursor && pages < 100);
+		return ids;
+	}
+
+	it('sorts by house asc/desc', async () => {
+		const t = convexTest(schema, modules);
+
+		const houseNames = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'];
+		for (let i = 0; i < houseNames.length; i++) {
+			await t.mutation(api.students.create, {
+				englishName: `Student ${houseNames[i]}`,
+				chineseName: `學生${i}`,
+				studentId: `HOUSE${i}`,
+				grade: 10,
+				status: 'Enrolled',
+				house: houseNames[i]
+			});
+		}
+		await t.mutation(api.students.create, {
+			englishName: 'Student No House',
+			chineseName: '無學生',
+			studentId: 'HOUSE99',
+			grade: 10,
+			status: 'Enrolled'
+		});
+
+		const ascResult = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			search: undefined,
+			status: undefined,
+			sortBy: 'house',
+			sortDirection: 'asc'
+		});
+		const ascHouses = ascResult.page.map((s: { house?: string }) => s.house ?? '__unassigned');
+		// Current impl: empty house ('') sorts first in asc, last in desc
+		expect(ascHouses).toEqual(['__unassigned', 'Heracles', 'Ixbalam', 'Setna', 'Wukong']);
+
+		const descResult = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			search: undefined,
+			status: undefined,
+			sortBy: 'house',
+			sortDirection: 'desc'
+		});
+		const descHouses = descResult.page.map((s: { house?: string }) => s.house ?? '__unassigned');
+		expect(descHouses).toEqual(['Wukong', 'Setna', 'Ixbalam', 'Heracles', '__unassigned']);
+	});
+
+	it('sorts by studentId asc/desc', async () => {
+		const t = convexTest(schema, modules);
+
+		const ids = ['7000001', '7000002', '7000003', '8000001', '9000001'];
+		for (const id of ids) {
+			await t.mutation(api.students.create, {
+				englishName: `Student ${id}`,
+				chineseName: `學生${id}`,
+				studentId: id,
+				grade: 10,
+				status: 'Enrolled'
+			});
+		}
+
+		const ascResult = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			search: undefined,
+			status: undefined,
+			sortBy: 'studentId',
+			sortDirection: 'asc'
+		});
+		expect(ascResult.page.map((s: { studentId: string }) => s.studentId)).toEqual(ids);
+
+		const descResult = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			search: undefined,
+			status: undefined,
+			sortBy: 'studentId',
+			sortDirection: 'desc'
+		});
+		expect(descResult.page.map((s: { studentId: string }) => s.studentId)).toEqual(
+			[...ids].reverse()
+		);
+	});
+
+	it('sorts by chineseName asc/desc', async () => {
+		const t = convexTest(schema, modules);
+
+		const names = ['張三', '李四', '王五', '趙六'];
+		for (let i = 0; i < names.length; i++) {
+			await t.mutation(api.students.create, {
+				englishName: `Student ${i}`,
+				chineseName: names[i],
+				studentId: `CHINESE${i}`,
+				grade: 10,
+				status: 'Enrolled'
+			});
+		}
+
+		const ascResult = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			search: undefined,
+			status: undefined,
+			sortBy: 'chineseName',
+			sortDirection: 'asc'
+		});
+		expect(ascResult.page.map((s: { chineseName: string }) => s.chineseName)).toEqual(names.sort());
+
+		const descResult = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			search: undefined,
+			status: undefined,
+			sortBy: 'chineseName',
+			sortDirection: 'desc'
+		});
+		expect(descResult.page.map((s: { chineseName: string }) => s.chineseName)).toEqual(
+			[...names].sort().reverse()
+		);
+	});
+
+	it('sorts by englishName desc', async () => {
+		const t = convexTest(schema, modules);
+
+		for (const name of ['Alice', 'Bob', 'Charlie']) {
+			await t.mutation(api.students.create, {
+				englishName: name,
+				chineseName: `中文${name}`,
+				studentId: `ENG${name}`,
+				grade: 10,
+				status: 'Enrolled'
+			});
+		}
+
+		const descResult = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			search: undefined,
+			status: undefined,
+			sortBy: 'englishName',
+			sortDirection: 'desc'
+		});
+		expect(descResult.page.map((s: { englishName: string }) => s.englishName)).toEqual([
+			'Charlie',
+			'Bob',
+			'Alice'
+		]);
+	});
+
+	it('filters by house __unassigned', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.students.create, {
+			englishName: 'Has House',
+			chineseName: '有學生',
+			studentId: 'UNHOUSE01',
+			grade: 10,
+			status: 'Enrolled',
+			house: 'Heracles'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'No House',
+			chineseName: '無學生',
+			studentId: 'UNHOUSE02',
+			grade: 10,
+			status: 'Enrolled'
+		});
+
+		const result = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			search: undefined,
+			status: undefined,
+			house: '__unassigned',
+			sortBy: 'englishName',
+			sortDirection: 'asc'
+		});
+		expect(result.page).toHaveLength(1);
+		expect(result.page[0].englishName).toBe('No House');
+	});
+
+	it('filters by status+grade+house+class combined', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.students.create, {
+			englishName: 'G10 Enrolled Heracles 1',
+			chineseName: '學生1',
+			studentId: 'COMBO01',
+			grade: 10,
+			class: '1',
+			status: 'Enrolled',
+			house: 'Heracles'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'G10 Enrolled Heracles 2',
+			chineseName: '學生2',
+			studentId: 'COMBO02',
+			grade: 10,
+			class: '2',
+			status: 'Enrolled',
+			house: 'Heracles'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'G10 NotEnrolled Heracles 1',
+			chineseName: '學生3',
+			studentId: 'COMBO03',
+			grade: 10,
+			class: '1',
+			status: 'Not Enrolled',
+			house: 'Heracles'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'G11 Enrolled Heracles 1',
+			chineseName: '學生4',
+			studentId: 'COMBO04',
+			grade: 11,
+			class: '1',
+			status: 'Enrolled',
+			house: 'Heracles'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'G10 Enrolled Wukong 1',
+			chineseName: '學生5',
+			studentId: 'COMBO05',
+			grade: 10,
+			class: '1',
+			status: 'Enrolled',
+			house: 'Wukong'
+		});
+
+		const result = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			search: undefined,
+			status: 'Enrolled',
+			grade: 10,
+			house: 'Heracles',
+			class: '1',
+			sortBy: 'englishName',
+			sortDirection: 'asc'
+		});
+		expect(result.page).toHaveLength(1);
+		expect(result.page[0].englishName).toBe('G10 Enrolled Heracles 1');
+	});
+
+	it('search + sort + filter together', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.mutation(api.students.create, {
+			englishName: 'Alice Chen',
+			chineseName: '陳艾莉',
+			studentId: 'SEARCH01',
+			grade: 10,
+			status: 'Enrolled',
+			house: 'Heracles'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'Bob Chen',
+			chineseName: '陳鮑勃',
+			studentId: 'SEARCH02',
+			grade: 10,
+			status: 'Enrolled',
+			house: 'Wukong'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'Charlie Wang',
+			chineseName: '王查理',
+			studentId: 'SEARCH03',
+			grade: 11,
+			status: 'Enrolled',
+			house: 'Heracles'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'David Lee',
+			chineseName: '李大衛',
+			studentId: 'SEARCH04',
+			grade: 10,
+			status: 'Not Enrolled',
+			house: 'Heracles'
+		});
+
+		const result = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			search: 'Chen',
+			status: 'Enrolled',
+			sortBy: 'englishName',
+			sortDirection: 'asc'
+		});
+		expect(result.page).toHaveLength(2);
+		expect(result.page.map((s: { englishName: string }) => s.englishName)).toEqual([
+			'Alice Chen',
+			'Bob Chen'
+		]);
+	});
+
+	it('index-based path (useIndex) matches legacy results', async () => {
+		const t = convexTest(schema, modules);
+
+		// Create test data with various combinations
+		await t.mutation(api.students.create, {
+			englishName: 'Alice Heracles',
+			chineseName: '陳艾莉',
+			studentId: 'IDX001',
+			grade: 10,
+			class: '1',
+			status: 'Enrolled',
+			house: 'Heracles'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'Bob Heracles',
+			chineseName: '陳鮑勃',
+			studentId: 'IDX002',
+			grade: 10,
+			class: '2',
+			status: 'Enrolled',
+			house: 'Heracles'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'Charlie Wukong',
+			chineseName: '王查理',
+			studentId: 'IDX003',
+			grade: 10,
+			class: '1',
+			status: 'Enrolled',
+			house: 'Wukong'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'David NoHouse',
+			chineseName: '李大衛',
+			studentId: 'IDX004',
+			grade: 11,
+			class: '1',
+			status: 'Enrolled'
+		});
+		await t.mutation(api.students.create, {
+			englishName: 'Eve NotEnrolled',
+			chineseName: '伊芙',
+			studentId: 'IDX005',
+			grade: 10,
+			class: '1',
+			status: 'Not Enrolled',
+			house: 'Heracles'
+		});
+
+		// Test 1: status filter only
+		const legacy1 = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			status: 'Enrolled',
+			sortBy: 'englishName',
+			sortDirection: 'asc'
+		});
+		const indexed1 = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			status: 'Enrolled',
+			sortBy: 'englishName',
+			sortDirection: 'asc',
+			useIndex: true
+		});
+		expect(indexed1.page.map((s: { englishName: string }) => s.englishName)).toEqual(
+			legacy1.page.map((s: { englishName: string }) => s.englishName)
+		);
+
+		// Test 2: status + house filter
+		const legacy2 = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			status: 'Enrolled',
+			house: 'Heracles',
+			sortBy: 'englishName',
+			sortDirection: 'asc'
+		});
+		const indexed2 = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			status: 'Enrolled',
+			house: 'Heracles',
+			sortBy: 'englishName',
+			sortDirection: 'asc',
+			useIndex: true
+		});
+		expect(indexed2.page.map((s: { englishName: string }) => s.englishName)).toEqual(
+			legacy2.page.map((s: { englishName: string }) => s.englishName)
+		);
+
+		// Test 3: sort by studentId asc
+		const legacy3 = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			sortBy: 'studentId',
+			sortDirection: 'asc'
+		});
+		const indexed3 = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			sortBy: 'studentId',
+			sortDirection: 'asc',
+			useIndex: true
+		});
+		expect(indexed3.page.map((s: { studentId: string }) => s.studentId)).toEqual(
+			legacy3.page.map((s: { studentId: string }) => s.studentId)
+		);
+
+		// Test 4: sort by house
+		const legacy4 = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			sortBy: 'house',
+			sortDirection: 'asc'
+		});
+		const indexed4 = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 50, cursor: null },
+			sortBy: 'house',
+			sortDirection: 'asc',
+			useIndex: true
+		});
+		expect(indexed4.page.map((s: { house?: string }) => s.house ?? '__unassigned')).toEqual(
+			legacy4.page.map((s: { house?: string }) => s.house ?? '__unassigned')
+		);
+
+		// Test 5: pagination with cursor
+		const legacyPage1 = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 2, cursor: null },
+			sortBy: 'englishName',
+			sortDirection: 'asc'
+		});
+		const legacyPage2 = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 2, cursor: legacyPage1.continueCursor },
+			sortBy: 'englishName',
+			sortDirection: 'asc'
+		});
+		const indexedPage1 = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 2, cursor: null },
+			sortBy: 'englishName',
+			sortDirection: 'asc',
+			useIndex: true
+		});
+		const indexedPage2 = await t.query(api.students.listPaginated, {
+			paginationOpts: { numItems: 2, cursor: indexedPage1.continueCursor },
+			sortBy: 'englishName',
+			sortDirection: 'asc',
+			useIndex: true
+		});
+		expect(indexedPage1.page.map((s: { englishName: string }) => s.englishName)).toEqual(
+			legacyPage1.page.map((s: { englishName: string }) => s.englishName)
+		);
+		expect(indexedPage2.page.map((s: { englishName: string }) => s.englishName)).toEqual(
+			legacyPage2.page.map((s: { englishName: string }) => s.englishName)
+		);
+	});
+
 	it('creates and reuses an imported class section', async () => {
 		const t = convexTest(schema, modules);
 
@@ -929,6 +1434,241 @@ describe('students.listPaginated', () => {
 					`${student.classInfo.grade}-${student.classInfo.class}`
 			)
 		).toEqual(['8-1', '8-2', '7-1', '7-2', '7-10']);
+	});
+
+	it('returns every search match at scale (>500 rows) without index-path truncation', async () => {
+		const t = convexTest(schema, modules);
+
+		// Seed >500 students via direct inserts so the query must scan the whole
+		// candidate set before applying the free-text filter.
+		const classId = await t.run(async (ctx) => {
+			return await ctx.db.insert('classes', { grade: 10, class: '1' });
+		});
+		await t.run(async (ctx) => {
+			const houses = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
+			for (let i = 0; i < 600; i++) {
+				await ctx.db.insert('students', {
+					englishName: `Match ${i}`,
+					chineseName: `匹配${i}`,
+					studentId: `SCALE${String(i).padStart(4, '0')}`,
+					classId,
+					status: i % 10 === 0 ? 'Not Enrolled' : 'Enrolled',
+					house: houses[i % 4]
+				});
+			}
+		});
+
+		const countAll = async (useIndex: boolean) => {
+			let cursor: string | null = null;
+			let total = 0;
+			let pages = 0;
+			do {
+				const r = await t.query(api.students.listPaginated, {
+					paginationOpts: { numItems: 50, cursor },
+					search: 'Match',
+					sortBy: 'studentId',
+					sortDirection: 'asc',
+					useIndex
+				});
+				total += r.page.length;
+				cursor = r.isDone ? null : r.continueCursor;
+				pages++;
+			} while (cursor && pages < 50);
+			return total;
+		};
+
+		const legacy = await countAll(false);
+		const indexed = await countAll(true);
+		expect(legacy).toBe(600);
+		expect(indexed).toBe(600);
+	});
+
+	it('returns all status+search matches at scale via the index path (useIndex)', async () => {
+		const t = convexTest(schema, modules);
+		await seedScaledStudents(t, 600);
+
+		const legacy = await collectIds(t, {
+			status: 'Enrolled',
+			search: 'Match',
+			sortBy: 'studentId',
+			sortDirection: 'asc',
+			useIndex: false
+		});
+		const indexed = await collectIds(t, {
+			status: 'Enrolled',
+			search: 'Match',
+			sortBy: 'studentId',
+			sortDirection: 'asc',
+			useIndex: true
+		});
+
+		// 60 of 600 are Not Enrolled, so 540 Enrolled should match 'Match'.
+		expect(legacy.length).toBe(540);
+		expect(indexed.length).toBe(540);
+		expect(new Set(indexed)).toEqual(new Set(legacy));
+	});
+
+	it('returns all grade-filtered matches at scale (never-indexed field)', async () => {
+		const t = convexTest(schema, modules);
+		await seedScaledStudents(t, 600);
+
+		const legacy = await collectIds(t, {
+			grade: 9,
+			sortBy: 'studentId',
+			sortDirection: 'asc',
+			useIndex: false
+		});
+		const indexed = await collectIds(t, {
+			grade: 9,
+			sortBy: 'studentId',
+			sortDirection: 'asc',
+			useIndex: true
+		});
+
+		// Students are spread round-robin across grades 7-12.
+		expect(legacy.length).toBe(100);
+		expect(indexed.length).toBe(100);
+		expect(new Set(indexed)).toEqual(new Set(legacy));
+	});
+
+	it('returns all __unassigned house matches at scale via full scan', async () => {
+		const t = convexTest(schema, modules);
+		await seedScaledStudents(t, 600);
+
+		const legacy = await collectIds(t, {
+			house: '__unassigned',
+			sortBy: 'studentId',
+			sortDirection: 'asc',
+			useIndex: false
+		});
+		const indexed = await collectIds(t, {
+			house: '__unassigned',
+			sortBy: 'studentId',
+			sortDirection: 'asc',
+			useIndex: true
+		});
+
+		// i%6 === 0 -> no house, so 100 unassigned of 600.
+		expect(legacy.length).toBe(100);
+		expect(indexed.length).toBe(100);
+		expect(new Set(indexed)).toEqual(new Set(legacy));
+	});
+
+	it('paginates the full scaled set without gaps or duplicates (useIndex)', async () => {
+		const t = convexTest(schema, modules);
+		await seedScaledStudents(t, 600);
+
+		const ids = await collectIds(t, {
+			sortBy: 'studentId',
+			sortDirection: 'asc',
+			useIndex: true
+		});
+
+		expect(ids.length).toBe(600);
+		// No duplicates and no missing rows across pages.
+		expect(new Set(ids).size).toBe(600);
+		const expected = Array.from({ length: 600 }, (_, i) => `SCALE${String(i).padStart(4, '0')}`);
+		expect([...ids].sort()).toEqual(expected);
+	});
+
+	it('dispatcher default (no useIndex) routes to the legacy path', async () => {
+		const t = convexTest(schema, modules);
+		await seedScaledStudents(t, 200);
+
+		const args = {
+			status: 'Enrolled' as const,
+			house: 'Heracles' as const,
+			search: 'Match',
+			sortBy: 'studentId' as const,
+			sortDirection: 'asc' as const
+		};
+		const withoutFlag = await collectIds(t, { ...args, useIndex: false as const });
+		// Omit the flag entirely to exercise the dispatcher's default branch.
+		const defaultBranch = await (async () => {
+			const ids: string[] = [];
+			let cursor: string | null = null;
+			let pages = 0;
+			do {
+				const r = await t.query(api.students.listPaginated, {
+					paginationOpts: { numItems: 50, cursor },
+					status: args.status,
+					house: args.house,
+					search: args.search,
+					sortBy: args.sortBy,
+					sortDirection: args.sortDirection
+				});
+				for (const s of r.page) ids.push(s.studentId);
+				cursor = r.isDone ? null : r.continueCursor;
+				pages++;
+			} while (cursor && pages < 100);
+			return ids;
+		})();
+
+		expect(new Set(defaultBranch)).toEqual(new Set(withoutFlag));
+	});
+
+	it('legacy and indexed paths produce identical ordered results across the full arg matrix', async () => {
+		const t = convexTest(schema, modules);
+		await seedScaledStudents(t, 600);
+
+		const sortBys = ['studentId', 'englishName', 'chineseName', 'grade', 'house'] as const;
+		const dirs = ['asc', 'desc'] as const;
+		type Scenario = {
+			status?: 'Enrolled' | 'Not Enrolled';
+			house?: 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna' | '__unassigned';
+			grade?: number;
+			class?: string;
+			search?: string;
+		};
+		const scenarios: Scenario[] = [
+			{},
+			{ status: 'Enrolled' },
+			{ status: 'Not Enrolled' },
+			{ house: 'Heracles' },
+			{ house: 'Ixbalam' },
+			{ house: '__unassigned' },
+			{ status: 'Enrolled', house: 'Wukong' },
+			{ grade: 8 },
+			{ grade: 11, house: 'Setna' },
+			{ class: '1' },
+			{ search: 'Match 1' },
+			{ status: 'Enrolled', search: 'Match' },
+			{ grade: 9, status: 'Enrolled', house: 'Heracles', search: 'Match 3' }
+		];
+
+		for (const sortBy of sortBys) {
+			for (const sortDirection of dirs) {
+				for (const f of scenarios) {
+					const legacy = await t.query(api.students.listPaginated, {
+						paginationOpts: { numItems: 1000, cursor: null },
+						sortBy,
+						sortDirection,
+						status: f.status,
+						house: f.house,
+						grade: f.grade,
+						class: f.class,
+						search: f.search,
+						useIndex: false
+					});
+					const indexed = await t.query(api.students.listPaginated, {
+						paginationOpts: { numItems: 1000, cursor: null },
+						sortBy,
+						sortDirection,
+						status: f.status,
+						house: f.house,
+						grade: f.grade,
+						class: f.class,
+						search: f.search,
+						useIndex: true
+					});
+					const label = `sortBy=${sortBy} dir=${sortDirection} f=${JSON.stringify(f)}`;
+					expect(
+						indexed.page.map((s: { _id: string }) => s._id),
+						label
+					).toEqual(legacy.page.map((s: { _id: string }) => s._id));
+				}
+			}
+		}
 	});
 });
 
@@ -1239,5 +1979,141 @@ describe('students.bulkAssignHouses', () => {
 
 		const students = await t.query(api.students.list, {});
 		expect(students[0].house).toBe('Wukong');
+	});
+});
+
+describe('students.getSystemStatus', () => {
+	beforeEach(() => setTestAuthRole('admin'));
+	afterEach(() => setTestAuthRole('admin'));
+
+	it('reports counts and the canary flag', async () => {
+		setTestAuthRole('super');
+		const t = convexTest(schema, modules);
+
+		await createStudentWithClass(t, {
+			englishName: 'Amy',
+			chineseName: '阿美',
+			studentId: '7000001',
+			grade: 7,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+		await createStudentWithClass(t, {
+			englishName: 'Bob',
+			chineseName: '鮑伯',
+			studentId: '7000002',
+			grade: 7,
+			classNum: '1',
+			status: 'Not Enrolled'
+		});
+
+		const d = await t.query(api.students.getSystemStatus, {});
+		expect(d.counts.total).toBe(2);
+		expect(d.counts.enrolled).toBe(1);
+		expect(d.counts.notEnrolled).toBe(1);
+		expect(d.environment.canaryEnabled).toBe(false);
+	});
+
+	it('denies non-super callers', async () => {
+		const t = convexTest(schema, modules);
+
+		await expect(t.query(api.students.getSystemStatus, {})).rejects.toThrow(
+			/Forbidden: Super role required/
+		);
+	});
+});
+
+describe('students.runParitySelfTest', () => {
+	beforeEach(() => setTestAuthRole('admin'));
+	afterEach(() => setTestAuthRole('admin'));
+
+	it('reports allMatch across the matrix', async () => {
+		setTestAuthRole('super');
+		const t = convexTest(schema, modules);
+
+		await createStudentWithClass(t, {
+			englishName: 'Amy',
+			chineseName: '阿美',
+			studentId: '7000001',
+			grade: 7,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+		await createStudentWithClass(t, {
+			englishName: 'Bob',
+			chineseName: '鮑伯',
+			studentId: '7000002',
+			grade: 7,
+			classNum: '1',
+			status: 'Not Enrolled'
+		});
+
+		const d = await t.query(api.students.runParitySelfTest, {});
+		expect(d.allMatch).toBe(true);
+		expect(d.combos.length).toBeGreaterThan(0);
+	});
+
+	it('denies non-super callers', async () => {
+		const t = convexTest(schema, modules);
+
+		await expect(t.query(api.students.runParitySelfTest, {})).rejects.toThrow(
+			/Forbidden: Super role required/
+		);
+	});
+});
+
+describe('students.getCanaryDivergences / runCanaryCheckNow', () => {
+	beforeEach(() => setTestAuthRole('admin'));
+	afterEach(() => setTestAuthRole('admin'));
+
+	it('records the last-run timestamp when a super runs the check', async () => {
+		setTestAuthRole('super');
+		const t = convexTest(schema, modules);
+
+		expect((await t.query(api.students.getCanaryDivergences, {})).lastRunAt).toBeNull();
+
+		await t.mutation(api.students.runCanaryCheckNow, {});
+
+		const result = await t.query(api.students.getCanaryDivergences, {});
+		expect(result.lastRunAt).not.toBeNull();
+		// Test data agrees, so no divergences are recorded.
+		expect(result.total).toBe(0);
+	});
+
+	it('denies non-super callers', async () => {
+		const t = convexTest(schema, modules);
+
+		await expect(t.query(api.students.getCanaryDivergences, {})).rejects.toThrow(
+			/Forbidden: Super role required/
+		);
+		await expect(t.mutation(api.students.runCanaryCheckNow, {})).rejects.toThrow(
+			/Forbidden: Super role required/
+		);
+	});
+});
+
+describe('students.setShadowCompare', () => {
+	beforeEach(() => setTestAuthRole('admin'));
+	afterEach(() => setTestAuthRole('admin'));
+
+	it('super can toggle the persisted canary flag', async () => {
+		setTestAuthRole('super');
+		const t = convexTest(schema, modules);
+
+		expect((await t.query(api.students.getSystemStatus, {})).environment.canaryEnabled).toBe(false);
+
+		await t.mutation(api.students.setShadowCompare, { enabled: true });
+		expect((await t.query(api.students.getSystemStatus, {})).environment.canaryEnabled).toBe(true);
+
+		await t.mutation(api.students.setShadowCompare, { enabled: false });
+		expect((await t.query(api.students.getSystemStatus, {})).environment.canaryEnabled).toBe(false);
+	});
+
+	it('denies non-super callers', async () => {
+		const t = convexTest(schema, modules);
+
+		await expect(t.mutation(api.students.setShadowCompare, { enabled: true })).rejects.toThrow(
+			/Forbidden: Super role required/
+		);
 	});
 });

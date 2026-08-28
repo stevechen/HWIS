@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { useConvexClient } from 'convex-svelte';
+	import { useViewer } from '$lib/viewer.svelte';
 	import { api } from '$convex/_generated/api';
 	import {
 		Database,
@@ -19,6 +20,8 @@
 	import * as Card from '$lib/components/ui/card';
 
 	const client = useConvexClient();
+	const session = useViewer();
+	const isSuper = $derived(session.viewer?.role === 'super');
 
 	let seeding = $state(false);
 	let seedMessage = $state('');
@@ -232,6 +235,25 @@
 						</Card.Header>
 					</Card.Root>
 				</a>
+
+				<!-- System Diagnostics - Super only -->
+				{#if isSuper}
+					<a href="/admin/diagnostics" class="block">
+						<Card.Root
+							class="cursor-pointer border-amber-500/50 transition-all hover:border-amber-500 hover:shadow-md"
+						>
+							<Card.Header>
+								<div class="mb-2 flex items-center gap-3 text-amber-600">
+									<Database class="h-5 w-5" />
+									<Card.Title class="text-lg">System Diagnostics</Card.Title>
+								</div>
+								<Card.Description
+									>Technical heartbeat: pagination parity, counts, deploy flags.</Card.Description
+								>
+							</Card.Header>
+						</Card.Root>
+					</a>
+				{/if}
 
 				<!-- Seed Initial Data - Testing only -->
 				<button

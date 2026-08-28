@@ -51,3 +51,7 @@ plans/
 
 # Convex generated AI guidelines
 src/convex/_generated/ai/
+
+# Scratch / temporary files
+temp/
+

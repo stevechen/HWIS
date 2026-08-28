@@ -74,7 +74,9 @@ export default defineSchema({
 		.index('by_classId', ['classId'])
 		.index('by_status', ['status'])
 		.index('by_e2eTag', ['e2eTag'])
-		.index('by_house', ['house']),
+		.index('by_house', ['house'])
+		.index('by_status_classId', ['status', 'classId'])
+		.index('by_status_house', ['status', 'house']),
 
 	audit_logs: defineTable({
 		action: v.string(),
@@ -144,7 +146,7 @@ export default defineSchema({
 		key: v.string(),
 		value: v.string(),
 		updatedAt: v.number(),
-		updatedBy: v.id('users')
+		updatedBy: v.optional(v.id('users'))
 	}).index('by_key', ['key']),
 
 	house_events: defineTable({
@@ -162,5 +164,15 @@ export default defineSchema({
 		e2eTag: v.optional(v.string())
 	})
 		.index('by_startDate', ['startDate'])
-		.index('by_e2eTag', ['e2eTag'])
+		.index('by_e2eTag', ['e2eTag']),
+
+	canary_divergences: defineTable({
+		label: v.string(),
+		detectedAt: v.number(),
+		legacyCount: v.number(),
+		indexedCount: v.number(),
+		indexedIsDone: v.boolean(),
+		legacyIsDone: v.boolean(),
+		note: v.optional(v.string())
+	}).index('by_detectedAt', ['detectedAt'])
 });

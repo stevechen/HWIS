@@ -16,6 +16,14 @@ vi.mock('convex-svelte', () => {
 	};
 });
 
+vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
+	useAuth: vi.fn(() => ({
+		isLoading: false,
+		isAuthenticated: true,
+		data: { user: { name: 'Test Admin', role: 'admin' } }
+	}))
+}));
+
 import AdminDashboard from '$src/routes/admin/+page.svelte';
 
 describe('Admin Dashboard', () => {

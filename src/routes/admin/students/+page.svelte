@@ -66,7 +66,8 @@
 		class: selectedClass || undefined,
 		house: selectedHouse ? (selectedHouse as House | '__unassigned') : undefined,
 		sortBy,
-		sortDirection
+		sortDirection,
+		useIndex: true
 	});
 	const studentsQuery = useQuery(studentsApi.listPaginated, () => studentsQueryArgs);
 	const classesApi = api.classes;
