@@ -383,6 +383,53 @@ export const getStudentEvaluationsByTeacherByStudentIdCode = query({
 	}
 });
 
+// Get ALL evaluation history for a student (teacher view - cross-teacher).
+// Teachers may opt into seeing every teacher's evaluations for a student; the
+// default teacher-facing UI still offers the "mine only" scope.
+export const getStudentEvaluationsAllByTeacher = query({
+	args: {
+		studentId: v.id('students')
+	},
+	handler: async (ctx, args) => {
+		const user = await requireActiveStaff(ctx);
+		if (!canReadTeacherHistory(user)) throw new Error('Forbidden: Teacher history access required');
+
+		return await readEvaluations(ctx, {
+			scope: 'admin',
+			studentId: args.studentId,
+			sortAscending: false,
+			filters: { showUnenrolled: true }
+		});
+	}
+});
+
+// Get ALL evaluation history for a student by custom studentId code (teacher view)
+export const getStudentEvaluationsAllByTeacherByStudentIdCode = query({
+	args: {
+		studentIdCode: v.string()
+	},
+	handler: async (ctx, args) => {
+		const user = await requireActiveStaff(ctx);
+		if (!canReadTeacherHistory(user)) throw new Error('Forbidden: Teacher history access required');
+
+		const student = await ctx.db
+			.query('students')
+			.withIndex('by_studentId', (q) => q.eq('studentId', args.studentIdCode))
+			.first();
+
+		if (!student) {
+			return [];
+		}
+
+		return await readEvaluations(ctx, {
+			scope: 'admin',
+			studentId: student._id,
+			sortAscending: false,
+			filters: { showUnenrolled: true }
+		});
+	}
+});
+
 // Get all evaluation history for a student (admin view - all evaluations)
 export const getStudentEvaluationsAll = query({
 	args: {

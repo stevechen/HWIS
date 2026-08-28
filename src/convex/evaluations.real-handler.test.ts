@@ -585,6 +585,55 @@ describe('evaluation read authorization (real handlers)', () => {
 	});
 });
 
+describe('evaluations.getStudentEvaluationsAllByTeacher (real handler)', () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	it('returns evaluations from ALL teachers for the student, not just the viewer', async () => {
+		const t = convexTest(schema, modules);
+
+		mockAuthUser({ authId: 'teacher-viewer', role: 'teacher' });
+		const viewerTeacherId = await seedUser(t, { authId: 'teacher-viewer', role: 'teacher' });
+		const otherTeacherId = await seedUser(t, {
+			authId: 'other-teacher-x',
+			name: 'Other Teacher',
+			role: 'teacher'
+		});
+		const studentId = await seedStudent(t, 'STU-XTEACHER-001');
+		const categoryId = await seedCategory(t);
+		await seedEvaluation(t, { studentId, teacherId: viewerTeacherId, categoryId });
+		await seedEvaluation(t, { studentId, teacherId: otherTeacherId, categoryId });
+
+		const result = await t.query(api.evaluations.getStudentEvaluationsAllByTeacher, { studentId });
+
+		// Both teachers' evaluations are visible to a teacher in the cross-teacher scope.
+		expect(result).toHaveLength(2);
+		const names = result.map((e: { teacherName: string }) => e.teacherName).sort();
+		expect(names).toContain('Other Teacher');
+		expect(names).toHaveLength(2);
+	});
+
+	it('throws for non-teacher staff', async () => {
+		const t = convexTest(schema, modules);
+		mockAuthUser({ authId: 'admin-1' });
+		await seedUser(t, { authId: 'admin-1', role: 'admin' });
+		const studentId = await seedStudent(t, 'STU-XTEACHER-002');
+
+		await expect(
+			t.query(api.evaluations.getStudentEvaluationsAllByTeacher, { studentId })
+		).rejects.toThrow();
+	});
+
+	it('throws for students', async () => {
+		const t = convexTest(schema, modules);
+		mockAuthUser({ authId: 'student-1', email: 's999001@std.hwhs.tc.edu.tw' });
+		const studentId = await seedStudent(t, 'STU-XTEACHER-003');
+
+		await expect(
+			t.query(api.evaluations.getStudentEvaluationsAllByTeacher, { studentId })
+		).rejects.toThrow();
+	});
+});
+
 describe('evaluations.getStudentEvaluationsAnonymous (real handler)', () => {
 	afterEach(() => vi.restoreAllMocks());
 

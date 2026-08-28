@@ -44,9 +44,9 @@ test.describe('Student Timeline Long-Press @timeline-longpress @sequential', () 
 	});
 
 	test('page header displays student name', async () => {
-		// Verify the header contains the student name, not the generic "My Evaluation"
+		// Verify the header contains the student name (the title is the bare
+		// student name — no "Evaluations" suffix), not the generic "My Evaluation"
 		await timelinePage.expectHeaderContains(englishName);
-		await timelinePage.expectHeaderContains('Evaluations');
 		// Ensure it doesn't show the fallback "My Evaluation" text
 		await expect(timelinePage.page.getByTestId('layout.header-title')).not.toContainText(
 			'My Evaluation'

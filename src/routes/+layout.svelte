@@ -14,7 +14,12 @@
 	import { ArrowLeft, PowerOff } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeToggle } from '$lib/components/ui/theme-toggle';
-	import { headerTitleOverride, headerHouseBadge } from '$lib/stores/header';
+	import {
+		headerTitleOverride,
+		headerHouseBadge,
+		headerTeacherScope,
+		headerTeacherScopeVisible
+	} from '$lib/stores/header';
 	import { theme } from '$lib/stores/theme';
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
@@ -194,7 +199,7 @@
 					: 'bg-primary'} text-primary-foreground border-b"
 			>
 				<div class="flex h-14 items-center justify-between gap-3 px-4">
-					<div class="flex items-center gap-3">
+					<div class="flex min-w-0 items-center gap-3">
 						{#if backLabel}
 							<Button
 								variant="default"
@@ -207,7 +212,7 @@
 							</Button>
 						{/if}
 						<h1
-							class="text-primary-foreground flex items-center gap-2 font-semibold"
+							class="text-primary-foreground flex min-w-0 items-center gap-2 font-semibold"
 							data-testid="layout.header-title"
 						>
 							{#if $headerHouseBadge}
@@ -220,10 +225,44 @@
 									<LogoComponent />
 								</div>
 							{/if}
-							{headerTitle}
+							<span
+								class="[display:-webkit-box] min-w-0 [overflow:hidden] text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
+								title={headerTitle}>{headerTitle}</span
+							>
 						</h1>
+						{#if $headerTeacherScopeVisible}
+							<div
+								class="inline-flex shrink-0 overflow-hidden rounded-md border border-white/40 text-xs"
+								role="group"
+								aria-label="Evaluation scope"
+								data-testid="layout.header.scope-toggle"
+							>
+								<button
+									type="button"
+									class="min-w-8 p-1 font-medium {$headerTeacherScope === 'all'
+										? 'bg-white text-blue-950'
+										: 'bg-transparent text-white hover:bg-white/20'}"
+									aria-pressed={$headerTeacherScope === 'all'}
+									data-testid="layout.header.scope-all"
+									onclick={() => headerTeacherScope.set('all')}
+								>
+									All
+								</button>
+								<button
+									type="button"
+									class="min-w-8 p-1 font-medium {$headerTeacherScope === 'mine'
+										? 'bg-white text-blue-950'
+										: 'bg-transparent text-white hover:bg-white/20'}"
+									aria-pressed={$headerTeacherScope === 'mine'}
+									data-testid="layout.header.scope-mine"
+									onclick={() => headerTeacherScope.set('mine')}
+								>
+									Mine
+								</button>
+							</div>
+						{/if}
 					</div>
-					<div class="flex items-center gap-3">
+					<div class="flex shrink-0 items-center gap-3">
 						<ThemeToggle />
 						<Button
 							variant="default"

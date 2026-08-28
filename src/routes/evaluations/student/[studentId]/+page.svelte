@@ -12,6 +12,8 @@
 		headerTitleOverride,
 		setHeaderHouseBadge,
 		clearHeaderHouseBadge,
+		headerTeacherScope,
+		headerTeacherScopeVisible,
 		type HouseLogoComponent
 	} from '$lib/stores/header';
 	import { onDestroy } from 'svelte';
@@ -106,15 +108,49 @@
 		() => (!profileReady || !isAdmin || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId })
 	);
 
+	// Teacher cross-teacher query (all teachers' evaluations for this student)
+	const teacherAllEvalsQueryById = useQuery(
+		api.evaluations.getStudentEvaluationsAllByTeacher,
+		() =>
+			!profileReady || !isTeacher || !useConvexIdQuery
+				? 'skip'
+				: { studentId: urlStudentId as Id<'students'> }
+	);
+	const teacherAllEvalsQueryByCode = useQuery(
+		api.evaluations.getStudentEvaluationsAllByTeacherByStudentIdCode,
+		() =>
+			!profileReady || !isTeacher || useConvexIdQuery ? 'skip' : { studentIdCode: urlStudentId }
+	);
+
 	// Student-specific anonymous evaluation query (no teacher names)
 	const studentAnonymousEvalsQuery = useQuery(api.evaluations.getStudentEvaluationsAnonymous, () =>
 		!profileReady || !isStudent ? 'skip' : {}
 	);
 
+	// Teacher view-scope toggle: default to ALL teachers, optionally "mine only".
+	// The scope lives in the shared header store so the global header tab and the
+	// page data stay in sync; this page just reads it.
+	const teacherViewScope = $derived($headerTeacherScope);
+
+	// Show the scope tab in the global header only while a teacher views this page.
+	// Reset to "all teachers" each time a teacher enters, and hide the tab on leave.
+	$effect(() => {
+		if (isTeacher) {
+			headerTeacherScope.set('all');
+			headerTeacherScopeVisible.set(true);
+		} else {
+			headerTeacherScopeVisible.set(false);
+		}
+		return () => headerTeacherScopeVisible.set(false);
+	});
+
 	// Derived values to get the active query data
 	const studentQuery = $derived(useConvexIdQuery ? studentQueryById : studentQueryByCode);
 	const teacherEvalsQuery = $derived(
 		useConvexIdQuery ? teacherEvalsQueryById : teacherEvalsQueryByCode
+	);
+	const teacherAllEvalsQuery = $derived(
+		useConvexIdQuery ? teacherAllEvalsQueryById : teacherAllEvalsQueryByCode
 	);
 	const allEvalsQuery = $derived(useConvexIdQuery ? allEvalsQueryById : allEvalsQueryByCode);
 
@@ -139,20 +175,38 @@
 			if (allEvalsQuery.error) return [];
 			return allEvalsQuery.data ?? [];
 		}
-		if (teacherEvalsQuery.isLoading) return [];
-		if (teacherEvalsQuery.error) return [];
-		return teacherEvalsQuery.data ?? [];
+		// Teacher view: default ALL teachers, toggle to "mine only".
+		const sourceQuery = teacherViewScope === 'all' ? teacherAllEvalsQuery : teacherEvalsQuery;
+		if (sourceQuery.isLoading) return [];
+		if (sourceQuery.error) return [];
+		return sourceQuery.data ?? [];
 	});
 
 	// Filter state
 	let teacherFilter = $state('');
 
-	// Show teacher name toggle - default to OFF for privacy (admin only)
+	// Show teacher name toggle - default to OFF for privacy (admin only).
+	// Teachers always label their own evaluations; other teachers' names are
+	// masked in the cross-teacher ("All teachers") scope.
 	let showTeacherName = $state(false);
 
 	function toggleShowTeacherName(): void {
 		showTeacherName = !showTeacherName;
 	}
+
+	const effectiveShowTeacherName = $derived(isTeacher ? true : showTeacherName);
+
+	// The signed-in teacher's user id, used to mask other teachers' names.
+	const viewerTeacherId = $derived(session.viewer?._id);
+
+	// In the "All teachers" scope, blank out other teachers' names so the viewer
+	// sees aggregated cross-teacher data without exposing who wrote each entry.
+	const timelineEvaluations = $derived.by(() => {
+		if (!isTeacher || teacherViewScope !== 'all') return filteredEvaluations;
+		return filteredEvaluations.map((e) =>
+			e.teacherId === viewerTeacherId ? e : { ...e, teacherName: '' }
+		);
+	});
 
 	const displayState = createEvaluationDisplayState();
 	const showFilterSummary = $derived(!!teacherFilter);
@@ -315,7 +369,7 @@
 		// Student data has englishName but grade is in class data
 		// For now, just show the student name without grade
 		if (s && 'englishName' in s && s.englishName) {
-			$headerTitleOverride = `${s.englishName} Evaluations`;
+			$headerTitleOverride = `${s.englishName}`;
 			// Set house badge in header
 			if (h && houseLogos[h as keyof typeof houseLogos]) {
 				setHeaderHouseBadge(h, houseLogos[h as keyof typeof houseLogos]);
@@ -439,10 +493,10 @@
 						sortTestId="evaluations-student.sort"
 						detailsTestId="evaluations-student.details"
 						emptyTestId="evaluations-student.empty-timeline"
-						evaluations={filteredEvaluations}
+						evaluations={timelineEvaluations}
 						showStudentName={false}
 						studentGrade={(student as { grade?: number }).grade}
-						{showTeacherName}
+						showTeacherName={effectiveShowTeacherName}
 						bind:sortAscending={displayState.sortAscending}
 						bind:showDetails={displayState.showDetails}
 						enableLongPress={!isStudent}
