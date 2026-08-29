@@ -45,6 +45,9 @@
 	let backupResult = $state<{ message: string; skippedEvaluations?: string[] } | null>(null);
 	let restoreConfirmText = $state('');
 	let selectedBackupId = $state<Id<'backups'> | null>(null);
+	let showMigrateDialog = $state(false);
+	let isMigrating = $state(false);
+	let migrateResult = $state<string | null>(null);
 
 	// File restore states
 	let fileInput = $state<HTMLInputElement | null>(null);
@@ -163,6 +166,21 @@
 			alert('Failed to rename: ' + (e instanceof Error ? e.message : String(e)));
 		} finally {
 			isRenaming = false;
+		}
+	}
+
+	async function handleMigrate() {
+		if (!showMigrateDialog) return;
+		isMigrating = true;
+		try {
+			const res = await client.mutation(api.backup.migrateLegacyBackups, {});
+			migrateResult = res.message;
+			showMigrateDialog = false;
+			refreshTrigger++;
+		} catch (e) {
+			alert('Failed to migrate: ' + (e instanceof Error ? e.message : String(e)));
+		} finally {
+			isMigrating = false;
 		}
 	}
 
@@ -525,6 +543,22 @@
 					>
 						{isClearing ? 'Clearing...' : 'Clear All Data'}
 					</Button>
+					{#if isSuperUser}
+						<Button
+							variant="outline"
+							class="mt-3 w-full"
+							onclick={() => {
+								migrateResult = null;
+								showMigrateDialog = true;
+							}}
+							disabled={isMigrating}
+						>
+							{isMigrating ? 'Migrating...' : 'Migrate Legacy Backups'}
+						</Button>
+						{#if migrateResult}
+							<p class="text-muted-foreground mt-2 text-sm">{migrateResult}</p>
+						{/if}
+					{/if}
 				</Card.Content>
 			</Card.Root>
 		</div>
@@ -757,6 +791,38 @@
 						handleClearAll();
 					}}>Confirm & Clear</Button
 				>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Migrate Legacy Backups Dialog -->
+{#if showMigrateDialog}
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+		<div
+			class="absolute inset-0 bg-black/50"
+			onclick={() => (showMigrateDialog = false)}
+			role="button"
+			tabindex="0"
+			onkeydown={(e) => e.key === 'Escape' && (showMigrateDialog = false)}
+		></div>
+		<div class="bg-background relative w-full max-w-lg rounded-lg border p-6 shadow-lg">
+			<h2 class="text-lg font-semibold">Migrate Legacy Backups</h2>
+			<p class="text-muted-foreground pt-2 text-sm">
+				Attribute all existing pre-ownership backups to the active Super Admin. This is a one-time
+				operation and is safe to run more than once.
+			</p>
+			<div class="flex justify-end gap-2 pt-4">
+				<Button
+					variant="outline"
+					onclick={() => (showMigrateDialog = false)}
+					disabled={isMigrating}
+				>
+					Cancel
+				</Button>
+				<Button onclick={handleMigrate} disabled={isMigrating}>
+					{isMigrating ? 'Migrating...' : 'Run Migration'}
+				</Button>
 			</div>
 		</div>
 	</div>

@@ -2,6 +2,7 @@ import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { sanitizeFilename } from '$lib/utils/backup';
+import { api } from '$convex/_generated/api';
 
 const mockMutation = vi.fn().mockResolvedValue(undefined);
 const mockQuery = vi.fn().mockResolvedValue([]);
@@ -280,5 +281,36 @@ describe('Backup Admin Page', () => {
 	it('sanitizeFilename replaces unsafe characters with underscores', async () => {
 		expect(sanitizeFilename('My/Backup: Name?.json')).toBe('My_Backup__Name_.json');
 		expect(sanitizeFilename('plain-name_1.txt')).toBe('plain-name_1.txt');
+	});
+
+	it('non-super admin does not see the Migrate Legacy Backups action', async () => {
+		render(BackupPage);
+
+		await expect
+			.element(page.getByRole('button', { name: 'Migrate Legacy Backups' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('super admin can open and run the Migrate Legacy Backups action', async () => {
+		mockViewer = {
+			viewer: { _id: 'user-super-1', role: 'super', name: 'Carol' },
+			isAdmin: true,
+			status: 'active'
+		};
+		mockMutation.mockResolvedValue({ message: 'Migrated 0 legacy backup(s)' });
+
+		render(BackupPage);
+
+		const migrateButton = page.getByRole('button', { name: 'Migrate Legacy Backups' });
+		await expect.element(migrateButton).toBeInTheDocument();
+		await migrateButton.click();
+
+		await expect
+			.element(page.getByRole('heading', { name: 'Migrate Legacy Backups' }))
+			.toBeVisible();
+		await page.getByRole('button', { name: 'Run Migration' }).click();
+
+		expect(mockMutation).toHaveBeenCalledWith(api.backup.migrateLegacyBackups, {});
+		await expect.element(page.getByText('Migrated 0 legacy backup(s)')).toBeVisible();
 	});
 });
