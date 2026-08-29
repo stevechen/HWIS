@@ -257,6 +257,16 @@ export const getTeachers = query({
 	}
 });
 
+export const getPendingCount = query({
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const users = await ctx.db.query('users').collect();
+		return users.filter((u) => u.role !== 'student' && u.status === 'pending' && !u.deactivatedAt)
+			.length;
+	}
+});
+
 export const normalizeStaffNames = mutation({
 	args: {},
 	handler: async (ctx) => {
@@ -352,6 +362,23 @@ export const seedTestAdmin = mutation({
 				status: 'active'
 			});
 		}
+	}
+});
+
+export const seedPendingUser = mutation({
+	args: {
+		name: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const name = args.name ?? 'Mock Pending Teacher';
+		const id = await ctx.db.insert('users', {
+			name,
+			role: 'teacher',
+			status: 'pending',
+			createdAt: Date.now()
+		});
+		return { success: true, id, name };
 	}
 });
 

@@ -558,3 +558,102 @@ describe('users.list', () => {
 		vi.restoreAllMocks();
 	});
 });
+
+describe('users.getPendingCount', () => {
+	it('returns 0 when there are no pending users', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'active-teacher',
+				name: 'Active Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const count = await t.query(api.users.getPendingCount, {});
+		expect(count).toBe(0);
+	});
+
+	it('counts only new pending staff registrations and ignores deactivated accounts and students', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			// New pending teacher (should count)
+			await ctx.db.insert('users', {
+				authId: 'new-teacher-1',
+				name: 'New Teacher 1',
+				role: 'teacher',
+				status: 'pending'
+			});
+			// Another new pending staff (should count)
+			await ctx.db.insert('users', {
+				authId: 'new-teacher-2',
+				name: 'New Teacher 2',
+				status: 'pending'
+			});
+			// Deactivated teacher (should not count)
+			await ctx.db.insert('users', {
+				authId: 'deactivated-teacher',
+				name: 'Deactivated Teacher',
+				role: 'teacher',
+				status: 'pending',
+				deactivatedAt: Date.now() - 100000
+			});
+			// Pending student (should not count)
+			await ctx.db.insert('users', {
+				authId: 'student-pending',
+				name: 'Student Pending',
+				role: 'student',
+				status: 'pending'
+			});
+			// Active teacher (should not count)
+			await ctx.db.insert('users', {
+				authId: 'active-teacher',
+				name: 'Active Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const count = await t.query(api.users.getPendingCount, {});
+		expect(count).toBe(2);
+	});
+
+	it('returns 0 when pending users are only deactivated staff or students', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'deactivated-staff',
+				name: 'Deactivated Staff',
+				role: 'teacher',
+				status: 'pending',
+				deactivatedAt: Date.now() - 50000
+			});
+			await ctx.db.insert('users', {
+				authId: 'pending-student',
+				name: 'Pending Student',
+				role: 'student',
+				status: 'pending'
+			});
+		});
+
+		const count = await t.query(api.users.getPendingCount, {});
+		expect(count).toBe(0);
+	});
+});
+
+describe('users.seedPendingUser', () => {
+	it('creates a new pending teacher and increases getPendingCount', async () => {
+		const t = convexTest(schema, modules);
+
+		const result = await t.mutation(api.users.seedPendingUser, { name: 'Test New Teacher' });
+		expect(result.success).toBe(true);
+		expect(result.name).toBe('Test New Teacher');
+
+		const count = await t.query(api.users.getPendingCount, {});
+		expect(count).toBe(1);
+	});
+});

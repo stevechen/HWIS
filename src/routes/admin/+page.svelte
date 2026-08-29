@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { useConvexClient } from 'convex-svelte';
+	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { useViewer } from '$lib/viewer.svelte';
 	import { api } from '$convex/_generated/api';
 	import {
@@ -18,10 +18,13 @@
 		Trophy
 	} from '@lucide/svelte';
 	import * as Card from '$lib/components/ui/card';
+	import { Badge } from '$lib/components/ui/badge';
 
 	const client = useConvexClient();
 	const session = useViewer();
 	const isSuper = $derived(session.viewer?.role === 'super');
+	const pendingUsersQuery = useQuery(api.users.getPendingCount, () => ({}));
+	const pendingCount = $derived(pendingUsersQuery.data ?? 0);
 
 	let seeding = $state(false);
 	let seedMessage = $state('');
@@ -145,11 +148,26 @@
 
 		<!-- User Accounts - Beginning of year, very limited -->
 		<a href="/admin/users" class="block">
-			<Card.Root class="hover:border-primary/50 cursor-pointer transition-all hover:shadow-md">
+			<Card.Root
+				class="hover:border-primary/50 cursor-pointer transition-all hover:shadow-md {pendingCount >
+				0
+					? 'border-amber-500/50 hover:border-amber-500'
+					: ''}"
+			>
 				<Card.Header>
-					<div class="text-primary mb-2 flex items-center gap-3">
-						<Users class="h-5 w-5" />
-						<Card.Title class="text-lg">User Accounts</Card.Title>
+					<div class="mb-2 flex items-center justify-between">
+						<div class="text-primary flex items-center gap-3">
+							<Users class="size-5" />
+							<Card.Title class="text-lg">User Accounts</Card.Title>
+						</div>
+						{#if pendingCount > 0}
+							<Badge
+								class="border-transparent bg-amber-500 font-semibold text-white shadow-xs hover:bg-amber-600"
+								data-testid="admin-dashboard.pending-users-badge"
+							>
+								{pendingCount} new
+							</Badge>
+						{/if}
 					</div>
 					<Card.Description
 						>Review teacher registrations and assign administrative roles.</Card.Description

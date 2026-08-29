@@ -49,4 +49,32 @@ describe('Admin Dashboard', () => {
 		await expect.element(page.getByRole('link', { name: 'Audit Log' })).toBeInTheDocument();
 		await expect.element(page.getByRole('link', { name: 'Archive & Reset' })).toBeInTheDocument();
 	});
+
+	it('does not display badge when pending users count is 0', async () => {
+		const { useQuery } = await import('convex-svelte');
+		vi.mocked(useQuery).mockReturnValue({
+			data: 0,
+			isLoading: false,
+			error: null
+		} as never);
+
+		render(AdminDashboard);
+		await expect
+			.element(page.getByTestId('admin-dashboard.pending-users-badge'))
+			.not.toBeInTheDocument();
+	});
+
+	it('displays badge with pending count when new users are awaiting approval', async () => {
+		const { useQuery } = await import('convex-svelte');
+		vi.mocked(useQuery).mockReturnValue({
+			data: 3,
+			isLoading: false,
+			error: null
+		} as never);
+
+		render(AdminDashboard);
+		const badge = page.getByTestId('admin-dashboard.pending-users-badge');
+		await expect.element(badge).toBeInTheDocument();
+		await expect.element(badge).toHaveTextContent('3 new');
+	});
 });
