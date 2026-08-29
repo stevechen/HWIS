@@ -1,7 +1,8 @@
-import { expect, test, describe } from 'vitest';
-import { convexTest, modules, createStudentWithClass, seedUser } from './test.setup';
+import { expect, test, describe, vi, afterEach } from 'vitest';
+import { convexTest, modules, createStudentWithClass, seedUser, mockAuthUser } from './test.setup';
 import schema from './schema';
 import { api } from './_generated/api';
+import type { Id } from './_generated/dataModel';
 import { buildSnapshot, insertBackupRecord } from './shared/backup_snapshot';
 import { canDownloadBackup, canRenameBackup, canDeleteBackup } from './shared/authorization';
 import { setTestAuthRole } from './testAuth';
@@ -944,5 +945,290 @@ describe('backup ownership, naming & permissions', () => {
 		const owned = await t.run(async (ctx) => ctx.db.get(ownedBackupId));
 		expect(owned?.name).toBe('Already Owned');
 		expect(owned?.creatorId).toBe(superId);
+	});
+});
+
+describe('renameBackup & deleteBackup mutation authorization', () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	function seedBackupOwnedBy(t: ReturnType<typeof convexTest>, ownerId: Id<'users'>) {
+		return t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				name: 'Owned Backup',
+				creatorId: ownerId,
+				creatorName: 'Owner Admin',
+				source: 'manual'
+			});
+		});
+	}
+
+	function seedSystemBackup(t: ReturnType<typeof convexTest>) {
+		return t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				name: 'System Snapshot',
+				source: 'system_migration'
+			});
+		});
+	}
+
+	test('owner admin can rename own backup via the mutation', async () => {
+		const t = convexTest(schema, modules);
+		const ownerId = await seedUser(t, {
+			authId: 'rename-owner',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: ownerId,
+			authId: 'rename-owner-auth',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const backupId = await seedBackupOwnedBy(t, ownerId);
+
+		const result = await t.mutation(api.backup.renameBackup, {
+			backupId,
+			name: 'Renamed By Owner'
+		});
+		expect(result.name).toBe('Renamed By Owner');
+		const updated = await t.run(async (ctx) => ctx.db.get(backupId));
+		expect(updated?.name).toBe('Renamed By Owner');
+	});
+
+	test('non-owner admin is rejected by the rename mutation', async () => {
+		const t = convexTest(schema, modules);
+		const ownerId = await seedUser(t, {
+			authId: 'rename-owner-2',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const otherId = await seedUser(t, {
+			authId: 'rename-other',
+			name: 'Other Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: otherId,
+			authId: 'rename-other-auth',
+			name: 'Other Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const backupId = await seedBackupOwnedBy(t, ownerId);
+
+		await expect(
+			t.mutation(api.backup.renameBackup, { backupId, name: 'Hijacked' })
+		).rejects.toThrow(/Forbidden/);
+		const unchanged = await t.run(async (ctx) => ctx.db.get(backupId));
+		expect(unchanged?.name).toBe('Owned Backup');
+	});
+
+	test('admin is rejected when renaming a system backup', async () => {
+		const t = convexTest(schema, modules);
+		const adminId = await seedUser(t, {
+			authId: 'rename-admin-sys',
+			name: 'Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: adminId,
+			authId: 'rename-admin-sys-auth',
+			name: 'Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const systemBackupId = await seedSystemBackup(t);
+
+		await expect(
+			t.mutation(api.backup.renameBackup, { backupId: systemBackupId, name: 'Renamed System' })
+		).rejects.toThrow(/Forbidden/);
+	});
+
+	test('super admin can rename any backup, including system backups', async () => {
+		const t = convexTest(schema, modules);
+		const ownerId = await seedUser(t, {
+			authId: 'rename-owner-3',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const superId = await seedUser(t, {
+			authId: 'rename-super',
+			name: 'Super User',
+			role: 'super',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: superId,
+			authId: 'rename-super-auth',
+			name: 'Super User',
+			role: 'super',
+			status: 'active'
+		});
+		const backupId = await seedBackupOwnedBy(t, ownerId);
+		const systemBackupId = await seedSystemBackup(t);
+
+		const ownerResult = await t.mutation(api.backup.renameBackup, {
+			backupId,
+			name: 'Super Renamed Owner Backup'
+		});
+		expect(ownerResult.name).toBe('Super Renamed Owner Backup');
+		const sysResult = await t.mutation(api.backup.renameBackup, {
+			backupId: systemBackupId,
+			name: 'Super Renamed System'
+		});
+		expect(sysResult.name).toBe('Super Renamed System');
+	});
+
+	test('owner admin can delete own backup and its chunks via the mutation', async () => {
+		const t = convexTest(schema, modules);
+		const ownerId = await seedUser(t, {
+			authId: 'delete-owner',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: ownerId,
+			authId: 'delete-owner-auth',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const backupId = await seedBackupOwnedBy(t, ownerId);
+		// Attach a chunk row so chunk deletion is exercised
+		await t.run(async (ctx) => {
+			await ctx.db.insert('backup_chunks', {
+				backupId,
+				chunkIndex: 0,
+				data: 'chunk-data'
+			});
+		});
+
+		await t.mutation(api.backup.deleteBackup, { backupId });
+
+		expect(await t.run(async (ctx) => ctx.db.get(backupId))).toBeNull();
+		const remainingChunks = await t.run(async (ctx) =>
+			(await ctx.db.query('backup_chunks').collect()).filter((c) => c.backupId === backupId)
+		);
+		expect(remainingChunks).toHaveLength(0);
+	});
+
+	test('non-owner admin is rejected by the delete mutation', async () => {
+		const t = convexTest(schema, modules);
+		const ownerId = await seedUser(t, {
+			authId: 'delete-owner-2',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const otherId = await seedUser(t, {
+			authId: 'delete-other',
+			name: 'Other Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: otherId,
+			authId: 'delete-other-auth',
+			name: 'Other Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const backupId = await seedBackupOwnedBy(t, ownerId);
+
+		await expect(t.mutation(api.backup.deleteBackup, { backupId })).rejects.toThrow(/Forbidden/);
+		expect(await t.run(async (ctx) => ctx.db.get(backupId))).not.toBeNull();
+	});
+
+	test('admin is rejected when deleting a system backup', async () => {
+		const t = convexTest(schema, modules);
+		const adminId = await seedUser(t, {
+			authId: 'delete-admin-sys',
+			name: 'Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: adminId,
+			authId: 'delete-admin-sys-auth',
+			name: 'Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const systemBackupId = await seedSystemBackup(t);
+
+		await expect(t.mutation(api.backup.deleteBackup, { backupId: systemBackupId })).rejects.toThrow(
+			/Forbidden/
+		);
+	});
+
+	test('super admin can delete any backup, including system backups', async () => {
+		const t = convexTest(schema, modules);
+		const ownerId = await seedUser(t, {
+			authId: 'delete-owner-3',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const superId = await seedUser(t, {
+			authId: 'delete-super',
+			name: 'Super User',
+			role: 'super',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: superId,
+			authId: 'delete-super-auth',
+			name: 'Super User',
+			role: 'super',
+			status: 'active'
+		});
+		const backupId = await seedBackupOwnedBy(t, ownerId);
+		const systemBackupId = await seedSystemBackup(t);
+
+		await t.mutation(api.backup.deleteBackup, { backupId });
+		await t.mutation(api.backup.deleteBackup, { backupId: systemBackupId });
+
+		expect(await t.run(async (ctx) => ctx.db.get(backupId))).toBeNull();
+		expect(await t.run(async (ctx) => ctx.db.get(systemBackupId))).toBeNull();
+	});
+
+	test('teacher and student are blocked from rename and delete mutations', async () => {
+		const t = convexTest(schema, modules);
+		const ownerId = await seedUser(t, {
+			authId: 'perm-owner',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const backupId = await seedBackupOwnedBy(t, ownerId);
+		const systemBackupId = await seedSystemBackup(t);
+
+		for (const role of ['teacher', 'student'] as const) {
+			mockAuthUser({
+				_id: 'some-id',
+				authId: `blocked-${role}`,
+				name: `${role} User`,
+				role,
+				status: 'active'
+			});
+
+			await expect(t.mutation(api.backup.renameBackup, { backupId, name: 'Nope' })).rejects.toThrow(
+				/Forbidden|Unauthorized/
+			);
+			await expect(
+				t.mutation(api.backup.deleteBackup, { backupId: systemBackupId })
+			).rejects.toThrow(/Forbidden|Unauthorized/);
+		}
 	});
 });

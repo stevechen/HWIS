@@ -174,4 +174,64 @@ describe('Backup Admin Page', () => {
 		await expect.element(page.getByRole('button', { name: /rename/i })).not.toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: /download/i })).not.toBeInTheDocument();
 	});
+
+	it('super admin sees rename and delete buttons for all backups, including system', async () => {
+		mockViewer = {
+			viewer: { _id: 'user-super-1', role: 'super', name: 'Carol' },
+			isAdmin: true,
+			status: 'active'
+		};
+		mockBackups = [
+			{
+				_id: 'backup-system',
+				name: 'System Snapshot',
+				filename: 'backup-system.json',
+				source: 'system_safety',
+				createdAt: Date.now(),
+				data: { students: [] }
+			},
+			{
+				_id: 'backup-other',
+				name: 'Bob Backup',
+				filename: 'backup-bob.json',
+				creatorId: 'user-admin-2',
+				creatorName: 'Bob',
+				creatorRole: 'admin',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			}
+		];
+
+		render(BackupPage);
+
+		// Super can rename/delete system backups and other admins' backups
+		await expect.element(page.getByText('System: Safety')).toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: /rename/i }).first()).toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: /delete/i }).first()).toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: /rename/i }).nth(1)).toBeInTheDocument();
+	});
+
+	it('owner admin sees rename and delete buttons for own backup', async () => {
+		mockBackups = [
+			{
+				_id: 'backup-own',
+				name: 'My Backup',
+				filename: 'backup-own.json',
+				creatorId: 'user-admin-1',
+				creatorName: 'Alice',
+				creatorRole: 'admin',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			}
+		];
+
+		render(BackupPage);
+
+		await expect.element(page.getByText('My Backup')).toBeInTheDocument();
+		await expect.element(page.getByText('You', { exact: true })).toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: /rename/i })).toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: /delete/i })).toBeInTheDocument();
+	});
 });

@@ -495,6 +495,7 @@
 												}}
 											>
 												<Trash2 class="text-destructive size-4" />
+												<span class="sr-only">Delete backup</span>
 											</Button>
 										{/if}
 									</div>
