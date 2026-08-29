@@ -4,20 +4,39 @@
 	import { getContext } from 'svelte';
 	import type { Id } from '$convex/_generated/dataModel';
 	import type { RestorePayload } from '$convex/shared/restore_plan';
-	import { Cloud, RotateCcw, Trash2, Download, Play, Upload, AlertTriangle } from '@lucide/svelte';
+	import {
+		Cloud,
+		RotateCcw,
+		Trash2,
+		Download,
+		Play,
+		Upload,
+		AlertTriangle,
+		Pencil
+	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
+	import { useViewer } from '$lib/viewer.svelte';
 
 	const client = useConvexClient();
 	const adminAuth = getContext<{ loaded: boolean; isAdmin: boolean }>('adminAuth');
+	const session = useViewer();
 	let refreshTrigger = $state(0);
 	const backupsQuery = useQuery(api.backup.listBackups, () =>
 		adminAuth.loaded && adminAuth.isAdmin ? { _trigger: refreshTrigger } : 'skip'
 	);
 
+	const currentUserId = $derived(session.viewer?._id);
+	const isSuperUser = $derived(session.viewer?.role === 'super');
+
 	let showForceBackupDialog = $state(false);
+	let customBackupName = $state('');
 	let showRestoreDialog = $state(false);
+	let showRenameDialog = $state(false);
+	let renameBackupId = $state<Id<'backups'> | null>(null);
+	let renameBackupName = $state('');
+	let isRenaming = $state(false);
 	let showClearDialog = $state(false);
 	let isForcingBackup = $state(false);
 	let isRestoring = $state(false);
@@ -35,6 +54,30 @@
 	let fileRestoreConfirmText = $state('');
 	let isFileRestoring = $state(false);
 	let isDragging = $state(false);
+
+	function isSystemBackup(backup: { source?: string }) {
+		return Boolean(backup.source && backup.source.startsWith('system_'));
+	}
+
+	function isOwner(backup: { creatorId?: Id<'users'> }) {
+		return Boolean(currentUserId && backup.creatorId === currentUserId);
+	}
+
+	function canDownloadBackup(backup: { creatorId?: Id<'users'>; source?: string }) {
+		return isSuperUser || isSystemBackup(backup) || isOwner(backup);
+	}
+
+	function canRenameBackup(backup: { creatorId?: Id<'users'>; source?: string }) {
+		return isSuperUser || (!isSystemBackup(backup) && isOwner(backup));
+	}
+
+	function canDeleteBackup(backup: { creatorId?: Id<'users'>; source?: string }) {
+		return isSuperUser || (!isSystemBackup(backup) && isOwner(backup));
+	}
+
+	function sanitizeFilename(name: string): string {
+		return name.replace(/[^a-zA-Z0-9-_.]/g, '_');
+	}
 
 	function validateBackupPayload(data: unknown): {
 		valid: boolean;
@@ -88,13 +131,41 @@
 		isForcingBackup = true;
 		backupResult = null;
 		try {
-			const result = await client.mutation(api.backup.createBackup, {});
+			const result = await client.mutation(api.backup.createBackup, {
+				name: customBackupName.trim() || undefined
+			});
 			backupResult = result;
+			customBackupName = '';
 			refreshTrigger++;
 		} catch (e) {
 			alert('Failed: ' + (e instanceof Error ? e.message : String(e)));
 		} finally {
 			isForcingBackup = false;
+		}
+	}
+
+	function handleRenameClick(backup: { _id: Id<'backups'>; name?: string; filename: string }) {
+		renameBackupId = backup._id;
+		renameBackupName = backup.name || backup.filename.replace('.json', '');
+		showRenameDialog = true;
+	}
+
+	async function handleRename() {
+		if (!renameBackupId || !renameBackupName.trim()) return;
+		isRenaming = true;
+		try {
+			await client.mutation(api.backup.renameBackup, {
+				backupId: renameBackupId,
+				name: renameBackupName.trim()
+			});
+			showRenameDialog = false;
+			renameBackupId = null;
+			renameBackupName = '';
+			refreshTrigger++;
+		} catch (e) {
+			alert('Failed to rename: ' + (e instanceof Error ? e.message : String(e)));
+		} finally {
+			isRenaming = false;
 		}
 	}
 
@@ -167,6 +238,7 @@
 
 	async function handleDownload(backup: {
 		data?: unknown;
+		name?: string;
 		filename: string;
 		_id: Id<'backups'>;
 		chunkCount?: number;
@@ -187,7 +259,8 @@
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = backup.filename;
+		const rawName = backup.name || backup.filename.replace('.json', '');
+		a.download = `${sanitizeFilename(rawName)}.json`;
 		document.body.appendChild(a);
 		a.click();
 		document.body.removeChild(a);
@@ -215,7 +288,10 @@
 					<Button
 						variant="default"
 						class="w-full"
-						onclick={() => (showForceBackupDialog = true)}
+						onclick={() => {
+							customBackupName = '';
+							showForceBackupDialog = true;
+						}}
 						disabled={isForcingBackup}
 					>
 						{isForcingBackup ? 'Creating...' : 'Force Backup Now'}
@@ -334,7 +410,40 @@
 									class="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
 								>
 									<div class="min-w-0">
-										<p class="truncate font-medium">{backup.filename}</p>
+										<div class="flex flex-wrap items-center gap-2">
+											<p class="truncate font-medium">{backup.name || backup.filename}</p>
+											{#if backup.source === 'system_migration'}
+												<span
+													class="inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-950 dark:text-purple-300"
+												>
+													System: Migration
+												</span>
+											{:else if backup.source === 'system_safety'}
+												<span
+													class="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+												>
+													System: Safety
+												</span>
+											{:else if backup.source === 'system_cron'}
+												<span
+													class="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+												>
+													System: Auto
+												</span>
+											{:else if isOwner(backup)}
+												<span
+													class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+												>
+													You
+												</span>
+											{:else if backup.creatorName}
+												<span
+													class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+												>
+													{backup.creatorName}
+												</span>
+											{/if}
+										</div>
 										<p class="text-muted-foreground text-sm">
 											{formatDate(backup.createdAt)} - {backup.studentsCount ??
 												data?.students?.length ??
@@ -343,9 +452,16 @@
 										</p>
 									</div>
 									<div class="flex flex-wrap gap-2">
-										<Button variant="outline" size="sm" onclick={() => handleDownload(backup)}>
-											<Download class="mr-1 size-4" /> Download
-										</Button>
+										{#if canDownloadBackup(backup)}
+											<Button variant="outline" size="sm" onclick={() => handleDownload(backup)}>
+												<Download class="mr-1 size-4" /> Download
+											</Button>
+										{/if}
+										{#if canRenameBackup(backup)}
+											<Button variant="outline" size="sm" onclick={() => handleRenameClick(backup)}>
+												<Pencil class="mr-1 size-4" /> Rename
+											</Button>
+										{/if}
 										<Button
 											variant="outline"
 											size="sm"
@@ -353,20 +469,22 @@
 										>
 											<RotateCcw class="mr-1 size-4" /> Restore
 										</Button>
-										<Button
-											variant="ghost"
-											size="sm"
-											onclick={async () => {
-												if (confirm('Delete?')) {
-													await client.mutation(api.backup.deleteBackup, {
-														backupId: backup._id
-													});
-													refreshTrigger++;
-												}
-											}}
-										>
-											<Trash2 class="text-destructive size-4" />
-										</Button>
+										{#if canDeleteBackup(backup)}
+											<Button
+												variant="ghost"
+												size="sm"
+												onclick={async () => {
+													if (confirm('Delete this backup?')) {
+														await client.mutation(api.backup.deleteBackup, {
+															backupId: backup._id
+														});
+														refreshTrigger++;
+													}
+												}}
+											>
+												<Trash2 class="text-destructive size-4" />
+											</Button>
+										{/if}
 									</div>
 								</div>
 							{/each}
@@ -415,7 +533,16 @@
 		></div>
 		<div class="bg-background relative w-full max-w-lg rounded-lg border p-6 shadow-lg">
 			<h2 class="text-lg font-semibold">Force Backup</h2>
-			<p class="text-muted-foreground py-4">Create a backup of all current data?</p>
+			<p class="text-muted-foreground pt-2 text-sm">Create a backup of all current data.</p>
+			<div class="py-4">
+				<label for="backup-name-input" class="text-sm font-medium">Backup Name (optional)</label>
+				<Input
+					id="backup-name-input"
+					bind:value={customBackupName}
+					placeholder="Leave blank for timestamped default"
+					class="mt-2"
+				/>
+			</div>
 			<div class="flex justify-end gap-2">
 				<Button variant="outline" onclick={() => (showForceBackupDialog = false)}>Cancel</Button>
 				<Button
@@ -424,6 +551,39 @@
 						handleForceBackup();
 					}}>Confirm</Button
 				>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Rename Backup Dialog -->
+{#if showRenameDialog}
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+		<div
+			class="absolute inset-0 bg-black/50"
+			onclick={() => (showRenameDialog = false)}
+			role="button"
+			tabindex="0"
+			onkeydown={(e) => e.key === 'Escape' && (showRenameDialog = false)}
+		></div>
+		<div class="bg-background relative w-full max-w-md rounded-lg border p-6 shadow-lg">
+			<h2 class="text-lg font-semibold">Rename Backup</h2>
+			<div class="py-4">
+				<label for="rename-input" class="text-sm font-medium">New Backup Name</label>
+				<Input
+					id="rename-input"
+					bind:value={renameBackupName}
+					placeholder="Enter backup name"
+					class="mt-2"
+				/>
+			</div>
+			<div class="flex justify-end gap-2">
+				<Button variant="outline" onclick={() => (showRenameDialog = false)} disabled={isRenaming}>
+					Cancel
+				</Button>
+				<Button onclick={handleRename} disabled={!renameBackupName.trim() || isRenaming}>
+					{isRenaming ? 'Renaming...' : 'Save'}
+				</Button>
 			</div>
 		</div>
 	</div>

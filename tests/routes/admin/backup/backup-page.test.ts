@@ -8,12 +8,21 @@ const mockQuery = vi.fn().mockResolvedValue([]);
 let mockBackups:
 	| Array<{
 			_id: string;
+			name?: string;
 			filename: string;
+			creatorId?: string;
+			creatorName?: string;
+			source?: string;
 			createdAt: number;
 			data: { students?: unknown[] };
 	  }>
 	| undefined = [];
 let mockIsLoading = false;
+let mockViewer = {
+	viewer: { _id: 'user-admin-1', role: 'admin', name: 'Alice' },
+	isAdmin: true,
+	status: 'active'
+};
 
 vi.mock('convex-svelte', () => ({
 	useQuery: vi.fn(() => ({
@@ -27,6 +36,10 @@ vi.mock('convex-svelte', () => ({
 	}))
 }));
 
+vi.mock('$lib/viewer.svelte', () => ({
+	useViewer: vi.fn(() => mockViewer)
+}));
+
 import BackupPage from '$src/routes/admin/backup/+page.svelte';
 
 describe('Backup Admin Page', () => {
@@ -34,6 +47,11 @@ describe('Backup Admin Page', () => {
 		vi.clearAllMocks();
 		mockBackups = [];
 		mockIsLoading = false;
+		mockViewer = {
+			viewer: { _id: 'user-admin-1', role: 'admin', name: 'Alice' },
+			isAdmin: true,
+			status: 'active'
+		};
 	});
 
 	it('renders core backup sections and action buttons', async () => {
@@ -57,20 +75,63 @@ describe('Backup Admin Page', () => {
 		await expect.element(page.getByText('No backups found.')).toBeInTheDocument();
 	});
 
-	it('renders backup history rows with download and restore actions', async () => {
+	it('renders backup history rows with custom name and badges', async () => {
 		mockBackups = [
 			{
 				_id: 'backup-1',
+				name: 'My Fall Backup',
 				filename: 'backup-2026-02-18.json',
+				creatorId: 'user-admin-1',
+				creatorName: 'Alice',
+				source: 'manual',
 				createdAt: Date.now(),
 				data: { students: [{}, {}] }
+			},
+			{
+				_id: 'backup-2',
+				name: 'Migration 2026',
+				filename: 'backup-2026-06-01.json',
+				source: 'system_migration',
+				createdAt: Date.now(),
+				data: { students: [{}] }
 			}
 		];
 
 		render(BackupPage);
 
-		await expect.element(page.getByText('backup-2026-02-18.json')).toBeInTheDocument();
-		await expect.element(page.getByRole('button', { name: /download/i })).toBeInTheDocument();
+		await expect.element(page.getByText('My Fall Backup')).toBeInTheDocument();
+		await expect.element(page.getByText('You', { exact: true })).toBeInTheDocument();
+		await expect.element(page.getByText('System: Migration')).toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: /download/i }).first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: /restore/i }).first())
+			.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: /rename/i }).first()).toBeInTheDocument();
+	});
+
+	it('hides rename and delete buttons for non-owner admin on other user backups', async () => {
+		mockBackups = [
+			{
+				_id: 'backup-other',
+				name: 'Bob Backup',
+				filename: 'backup-bob.json',
+				creatorId: 'user-admin-2',
+				creatorName: 'Bob',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			}
+		];
+
+		render(BackupPage);
+
+		await expect.element(page.getByText('Bob Backup')).toBeInTheDocument();
+		await expect.element(page.getByText('Bob', { exact: true })).toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: /restore/i })).toBeInTheDocument();
+		// Rename and Delete should NOT be present for non-owner
+		await expect.element(page.getByRole('button', { name: /rename/i })).not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: /download/i })).not.toBeInTheDocument();
 	});
 });

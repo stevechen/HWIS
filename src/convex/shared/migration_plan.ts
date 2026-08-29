@@ -30,7 +30,10 @@ export async function runYearEndMigration(
 ): Promise<MigrationResult> {
 	// Auto-backup first so the migration can be rolled back from a snapshot.
 	const snapshot = await buildSnapshot(ctx);
-	await insertBackupRecord(ctx, snapshot, options.e2eTag);
+	await insertBackupRecord(ctx, snapshot, {
+		source: 'system_migration',
+		e2eTag: options.e2eTag
+	});
 
 	// Clear evaluations and their audit logs.
 	const evaluations = await ctx.db.query('evaluations').collect();

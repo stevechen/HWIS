@@ -1,8 +1,10 @@
 import { expect, test, describe } from 'vitest';
-import { convexTest, modules, createStudentWithClass } from './test.setup';
+import { convexTest, modules, createStudentWithClass, seedUser } from './test.setup';
 import schema from './schema';
 import { api } from './_generated/api';
 import { buildSnapshot, insertBackupRecord } from './shared/backup_snapshot';
+import { canDownloadBackup, canRenameBackup, canDeleteBackup } from './shared/authorization';
+import { setTestAuthRole } from './testAuth';
 
 describe('restoreFromBackup', () => {
 	test('clears existing data before restoring backup data', async () => {
@@ -326,7 +328,10 @@ describe('restoreFromBackupPayload', () => {
 		// Verify automatic safety snapshot was created in backups table
 		const backups = await t.run(async (ctx) => await ctx.db.query('backups').collect());
 		expect(backups).toHaveLength(1);
-		expect(backups[0].studentsCount).toBe(2); // STU_ORIG + STU_BACKUP from before restore
+		const safetyBackup = backups[0];
+		expect(safetyBackup.studentsCount).toBe(2); // STU_ORIG + STU_BACKUP from before restore
+		expect(safetyBackup.source).toBe('system_safety');
+		expect(safetyBackup.name).toMatch(/^Pre-Restore Safety Snapshot - /);
 	});
 });
 
@@ -535,6 +540,8 @@ describe('advanceGradesAndClearEvaluations', () => {
 		expect(evaluations).toHaveLength(0);
 		expect(houseEvents).toHaveLength(0);
 		expect(backups).toHaveLength(1);
+		expect(backups[0].source).toBe('system_migration');
+		expect(backups[0].name).toMatch(/^Year-End Migration Snapshot - /);
 		expect(auditLogs.filter((l) => l.targetTable === 'evaluations')).toHaveLength(0);
 	});
 
@@ -567,5 +574,323 @@ describe('advanceGradesAndClearEvaluations', () => {
 		expect(evaluations).toHaveLength(0);
 		expect(houseEvents).toHaveLength(0);
 		expect(classes).toHaveLength(0);
+	});
+});
+
+describe('backup ownership, naming & permissions', () => {
+	test('createBackup creates a named backup with admin attribution', async () => {
+		const t = convexTest(schema, modules);
+		const adminId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'admin-auth-1',
+				name: 'Admin Alice',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		const result = await t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				name: 'Custom Fall 2026 Backup',
+				creatorId: adminId,
+				creatorName: 'Admin Alice',
+				source: 'manual'
+			});
+		});
+
+		const backup = await t.run(async (ctx) => ctx.db.get(result));
+		expect(backup).toBeDefined();
+		expect(backup?.name).toBe('Custom Fall 2026 Backup');
+		expect(backup?.creatorId).toBe(adminId);
+		expect(backup?.creatorName).toBe('Admin Alice');
+		expect(backup?.source).toBe('manual');
+	});
+
+	test('createBackup generates a default timestamped name when none is provided', async () => {
+		const t = convexTest(schema, modules);
+		const adminId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'admin-auth-2',
+				name: 'Admin Bob',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+
+		const result = await t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				creatorId: adminId,
+				creatorName: 'Admin Bob',
+				source: 'manual'
+			});
+		});
+
+		const backup = await t.run(async (ctx) => ctx.db.get(result));
+		expect(backup?.name).toMatch(/^Manual Backup - \d{4}-\d{2}-\d{2}/);
+	});
+
+	test('renameBackup allows owner to rename and rejects non-owner admin and system backups', async () => {
+		const t = convexTest(schema, modules);
+		const ownerId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'owner-id',
+				name: 'Owner Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+		const otherAdminId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'other-id',
+				name: 'Other Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+		const superId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'super-id',
+				name: 'Super User',
+				role: 'super',
+				status: 'active'
+			});
+		});
+
+		const backupId = await t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				name: 'Initial Name',
+				creatorId: ownerId,
+				creatorName: 'Owner Admin',
+				source: 'manual'
+			});
+		});
+
+		const systemBackupId = await t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				name: 'System Snapshot',
+				source: 'system_migration'
+			});
+		});
+
+		// 1. Owner can rename
+		await t.run(async (ctx) => {
+			const owner = (await ctx.db.get(ownerId))!;
+			const backup = (await ctx.db.get(backupId))!;
+			expect(canRenameBackup(owner, backup)).toBe(true);
+			await ctx.db.patch(backupId, { name: 'Renamed by Owner' });
+		});
+		expect((await t.run(async (ctx) => ctx.db.get(backupId)))?.name).toBe('Renamed by Owner');
+
+		// 2. Other admin cannot rename
+		await t.run(async (ctx) => {
+			const other = (await ctx.db.get(otherAdminId))!;
+			const backup = (await ctx.db.get(backupId))!;
+			expect(canRenameBackup(other, backup)).toBe(false);
+		});
+
+		// 3. Admin cannot rename system backup
+		await t.run(async (ctx) => {
+			const owner = (await ctx.db.get(ownerId))!;
+			const sysBackup = (await ctx.db.get(systemBackupId))!;
+			expect(canRenameBackup(owner, sysBackup)).toBe(false);
+		});
+
+		// 4. Super can rename both user and system backups
+		await t.run(async (ctx) => {
+			const superUser = (await ctx.db.get(superId))!;
+			const backup = (await ctx.db.get(backupId))!;
+			const sysBackup = (await ctx.db.get(systemBackupId))!;
+			expect(canRenameBackup(superUser, backup)).toBe(true);
+			expect(canRenameBackup(superUser, sysBackup)).toBe(true);
+		});
+	});
+
+	test('deleteBackup allows owner and super, rejects non-owner and system for admin', async () => {
+		const t = convexTest(schema, modules);
+		const ownerId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'owner-del',
+				name: 'Owner Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+		const otherAdminId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'other-del',
+				name: 'Other Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+		const superId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'super-del',
+				name: 'Super User',
+				role: 'super',
+				status: 'active'
+			});
+		});
+
+		const backupId = await t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				name: 'To Delete',
+				creatorId: ownerId,
+				creatorName: 'Owner Admin',
+				source: 'manual'
+			});
+		});
+
+		const systemBackupId = await t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				name: 'System To Delete',
+				source: 'system_safety'
+			});
+		});
+
+		// Other admin cannot delete
+		await t.run(async (ctx) => {
+			const other = (await ctx.db.get(otherAdminId))!;
+			const backup = (await ctx.db.get(backupId))!;
+			expect(canDeleteBackup(other, backup)).toBe(false);
+		});
+
+		// Admin cannot delete system backup
+		await t.run(async (ctx) => {
+			const owner = (await ctx.db.get(ownerId))!;
+			const sysBackup = (await ctx.db.get(systemBackupId))!;
+			expect(canDeleteBackup(owner, sysBackup)).toBe(false);
+		});
+
+		// Owner can delete own backup
+		await t.run(async (ctx) => {
+			const owner = (await ctx.db.get(ownerId))!;
+			const backup = (await ctx.db.get(backupId))!;
+			expect(canDeleteBackup(owner, backup)).toBe(true);
+		});
+
+		// Super can delete any backup and system backup
+		await t.run(async (ctx) => {
+			const superUser = (await ctx.db.get(superId))!;
+			const backup = (await ctx.db.get(backupId))!;
+			const sysBackup = (await ctx.db.get(systemBackupId))!;
+			expect(canDeleteBackup(superUser, backup)).toBe(true);
+			expect(canDeleteBackup(superUser, sysBackup)).toBe(true);
+		});
+	});
+
+	test('download permissions allow owner, super, and system auto-backups for all admins', async () => {
+		const t = convexTest(schema, modules);
+		const admin1Id = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'admin-1',
+				name: 'Admin 1',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+		const admin2Id = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'admin-2',
+				name: 'Admin 2',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+		const superId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'super-dl',
+				name: 'Super User',
+				role: 'super',
+				status: 'active'
+			});
+		});
+
+		const admin1BackupId = await t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				creatorId: admin1Id,
+				creatorName: 'Admin 1',
+				source: 'manual'
+			});
+		});
+
+		const systemBackupId = await t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				source: 'system_migration'
+			});
+		});
+
+		await t.run(async (ctx) => {
+			const admin1 = (await ctx.db.get(admin1Id))!;
+			const admin2 = (await ctx.db.get(admin2Id))!;
+			const superUser = (await ctx.db.get(superId))!;
+			const b1 = (await ctx.db.get(admin1BackupId))!;
+			const bSys = (await ctx.db.get(systemBackupId))!;
+
+			// Admin 1 can download own backup and system backup
+			expect(canDownloadBackup(admin1, b1)).toBe(true);
+			expect(canDownloadBackup(admin1, bSys)).toBe(true);
+
+			// Admin 2 CANNOT download Admin 1's manual backup, but CAN download system backup
+			expect(canDownloadBackup(admin2, b1)).toBe(false);
+			expect(canDownloadBackup(admin2, bSys)).toBe(true);
+
+			// Super can download everything
+			expect(canDownloadBackup(superUser, b1)).toBe(true);
+			expect(canDownloadBackup(superUser, bSys)).toBe(true);
+		});
+	});
+
+	test('migrateLegacyBackups backfills unassigned backups to super admin', async () => {
+		const t = convexTest(schema, modules);
+		const superId = await seedUser(t, {
+			authId: 'super-migrator',
+			name: 'Super Steve',
+			role: 'super',
+			status: 'active'
+		});
+
+		// Insert legacy unassigned backup
+		const legacyBackupId = await t.run(async (ctx) => {
+			return await ctx.db.insert('backups', {
+				filename: 'legacy-backup-1234.json',
+				createdAt: Date.now()
+			});
+		});
+
+		// A backup that already has ownership must be left untouched
+		const ownedBackupId = await t.run(async (ctx) => {
+			return await ctx.db.insert('backups', {
+				name: 'Already Owned',
+				filename: 'owned-backup.json',
+				creatorId: superId,
+				creatorName: 'Super Steve',
+				source: 'manual',
+				createdAt: Date.now()
+			});
+		});
+
+		// Run the actual migration mutation as super
+		setTestAuthRole('super');
+		const result = await t.mutation(api.backup.migrateLegacyBackups, {});
+		expect(result.migratedCount).toBe(1);
+
+		const migrated = await t.run(async (ctx) => ctx.db.get(legacyBackupId));
+		expect(migrated?.creatorId).toBe(superId);
+		expect(migrated?.creatorName).toBe('Super Steve');
+		expect(migrated?.source).toBe('manual');
+		expect(migrated?.name).toBe('legacy-backup-1234');
+
+		const owned = await t.run(async (ctx) => ctx.db.get(ownedBackupId));
+		expect(owned?.name).toBe('Already Owned');
+		expect(owned?.creatorId).toBe(superId);
 	});
 });

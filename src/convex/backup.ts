@@ -1,6 +1,7 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { requireAdminForSensitiveOperation } from './auth';
+import { requireAdminForSensitiveOperation, requireSuperForSensitiveOperation } from './auth';
+import { canDownloadBackup, canRenameBackup, canDeleteBackup } from './shared/authorization';
 import { buildSnapshot, insertBackupRecord, parseBackupSnapshot } from './shared/backup_snapshot';
 import { applyRestore, type RestorePayload } from './shared/restore_plan';
 import { runYearEndMigration } from './shared/migration_plan';
@@ -25,11 +26,20 @@ export const exportDataForCron = query({
 });
 
 export const createBackup = mutation({
-	args: { e2eTag: v.optional(v.string()) },
+	args: {
+		name: v.optional(v.string()),
+		e2eTag: v.optional(v.string())
+	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx);
+		const user = await requireAdminForSensitiveOperation(ctx);
 		const snapshot = await buildSnapshot(ctx);
-		const backupId = await insertBackupRecord(ctx, snapshot, args.e2eTag);
+		const backupId = await insertBackupRecord(ctx, snapshot, {
+			name: args.name,
+			creatorId: user._id,
+			creatorName: user.name ?? (user.role === 'super' ? 'Super Admin' : 'Admin'),
+			source: 'manual',
+			e2eTag: args.e2eTag
+		});
 
 		return {
 			backupId,
@@ -69,7 +79,7 @@ export const restoreFromBackupPayload = mutation({
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
 		const snapshot = await buildSnapshot(ctx);
-		await insertBackupRecord(ctx, snapshot);
+		await insertBackupRecord(ctx, snapshot, { source: 'system_safety' });
 
 		const data = args.backupData as RestorePayload;
 		const { skippedEvaluations } = await applyRestore(ctx, data);
@@ -127,9 +137,17 @@ export const listBackups = query({
 		_trigger: v.optional(v.number())
 	},
 	handler: async (ctx) => {
-		await requireAdminForSensitiveOperation(ctx);
+		const user = await requireAdminForSensitiveOperation(ctx);
 		const backups = await ctx.db.query('backups').collect();
-		return backups.sort((a, b) => b.createdAt - a.createdAt);
+		return backups
+			.sort((a, b) => b.createdAt - a.createdAt)
+			.map((backup) => {
+				const canDownload = canDownloadBackup(user, backup);
+				return {
+					...backup,
+					data: canDownload ? backup.data : undefined
+				};
+			});
 	}
 });
 
@@ -139,7 +157,14 @@ export const getBackupChunk = query({
 		chunkIndex: v.number()
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx);
+		const user = await requireAdminForSensitiveOperation(ctx);
+		const backup = await ctx.db.get(args.backupId);
+		if (!backup) throw new Error('Backup not found');
+
+		if (!canDownloadBackup(user, backup)) {
+			throw new Error('Forbidden');
+		}
+
 		return await ctx.db
 			.query('backup_chunks')
 			.withIndex('by_backupId_chunkIndex', (q) =>
@@ -149,12 +174,44 @@ export const getBackupChunk = query({
 	}
 });
 
+export const renameBackup = mutation({
+	args: {
+		backupId: v.id('backups'),
+		name: v.string()
+	},
+	handler: async (ctx, args) => {
+		const user = await requireAdminForSensitiveOperation(ctx);
+		const backup = await ctx.db.get(args.backupId);
+		if (!backup) throw new Error('Backup not found');
+
+		if (!canRenameBackup(user, backup)) {
+			throw new Error('Forbidden');
+		}
+
+		const trimmedName = args.name.trim();
+		if (!trimmedName) throw new Error('Backup name cannot be empty');
+
+		await ctx.db.patch(args.backupId, {
+			name: trimmedName
+		});
+
+		return { message: 'Backup renamed', name: trimmedName };
+	}
+});
+
 export const deleteBackup = mutation({
 	args: {
 		backupId: v.id('backups')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx);
+		const user = await requireAdminForSensitiveOperation(ctx);
+		const backup = await ctx.db.get(args.backupId);
+		if (!backup) throw new Error('Backup not found');
+
+		if (!canDeleteBackup(user, backup)) {
+			throw new Error('Forbidden');
+		}
+
 		const chunks = await ctx.db
 			.query('backup_chunks')
 			.withIndex('by_backupId', (q) => q.eq('backupId', args.backupId))
@@ -162,6 +219,36 @@ export const deleteBackup = mutation({
 		for (const chunk of chunks) await ctx.db.delete(chunk._id);
 		await ctx.db.delete(args.backupId);
 		return { message: 'Backup deleted' };
+	}
+});
+
+export const migrateLegacyBackups = mutation({
+	args: {},
+	handler: async (ctx) => {
+		await requireSuperForSensitiveOperation(ctx);
+		const backups = await ctx.db.query('backups').collect();
+		const superUsers = (await ctx.db.query('users').collect()).filter(
+			(u) => u.role === 'super' && u.status === 'active'
+		);
+		const primarySuper = superUsers[0];
+
+		let migratedCount = 0;
+		for (const backup of backups) {
+			if (backup.creatorId === undefined && backup.source === undefined) {
+				await ctx.db.patch(backup._id, {
+					creatorId: primarySuper?._id,
+					creatorName: primarySuper?.name ?? 'Super Admin',
+					source: 'manual',
+					name: backup.name ?? backup.filename.replace('.json', '')
+				});
+				migratedCount++;
+			}
+		}
+
+		return {
+			message: `Migrated ${migratedCount} legacy backup(s)`,
+			migratedCount
+		};
 	}
 });
 

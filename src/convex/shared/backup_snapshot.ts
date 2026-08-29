@@ -52,16 +52,49 @@ export async function buildSnapshot(ctx: {
 	};
 }
 
+export type BackupSource = 'manual' | 'system_migration' | 'system_safety' | 'system_cron';
+
+export type InsertBackupOptions = {
+	name?: string;
+	creatorId?: Id<'users'>;
+	creatorName?: string;
+	source?: BackupSource;
+	e2eTag?: string;
+};
+
+export function getDefaultBackupName(source: BackupSource | undefined, createdAt: number): string {
+	const timestamp = new Date(createdAt).toISOString().replace('T', ' ').slice(0, 19);
+	switch (source) {
+		case 'system_migration':
+			return `Year-End Migration Snapshot - ${timestamp}`;
+		case 'system_safety':
+			return `Pre-Restore Safety Snapshot - ${timestamp}`;
+		case 'system_cron':
+			return `Scheduled Auto Backup - ${timestamp}`;
+		case 'manual':
+		default:
+			return `Manual Backup - ${timestamp}`;
+	}
+}
+
 export async function insertBackupRecord(
 	ctx: { db: GenericDatabaseWriter<DataModel> },
 	snapshot: BackupSnapshot,
-	e2eTag?: string
+	optionsOrTag?: InsertBackupOptions | string
 ): Promise<Id<'backups'>> {
-	const filename = `backup-${Date.now()}.json`;
-	const serializedSnapshot = JSON.stringify(snapshot);
+	const options: InsertBackupOptions =
+		typeof optionsOrTag === 'string' ? { e2eTag: optionsOrTag } : (optionsOrTag ?? {});
+
 	const createdAt = Date.now();
+	const name = options.name?.trim() || getDefaultBackupName(options.source, createdAt);
+	const filename = `backup-${createdAt}.json`;
+	const serializedSnapshot = JSON.stringify(snapshot);
 	const backupId = await ctx.db.insert('backups', {
+		name,
 		filename,
+		creatorId: options.creatorId,
+		creatorName: options.creatorName,
+		source: options.source,
 		data: serializedSnapshot.length <= BACKUP_CHUNK_SIZE ? snapshot : undefined,
 		chunkCount:
 			serializedSnapshot.length <= BACKUP_CHUNK_SIZE
@@ -69,7 +102,7 @@ export async function insertBackupRecord(
 				: Math.ceil(serializedSnapshot.length / BACKUP_CHUNK_SIZE),
 		studentsCount: snapshot.students.length,
 		createdAt,
-		e2eTag
+		e2eTag: options.e2eTag
 	});
 
 	if (serializedSnapshot.length > BACKUP_CHUNK_SIZE) {

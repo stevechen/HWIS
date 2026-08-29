@@ -124,7 +124,18 @@ export default defineSchema({
 		.index('by_e2eTag', ['e2eTag']),
 
 	backups: defineTable({
+		name: v.optional(v.string()),
 		filename: v.string(),
+		creatorId: v.optional(v.id('users')),
+		creatorName: v.optional(v.string()),
+		source: v.optional(
+			v.union(
+				v.literal('manual'),
+				v.literal('system_migration'),
+				v.literal('system_safety'),
+				v.literal('system_cron')
+			)
+		),
 		data: v.optional(v.any()),
 		chunkCount: v.optional(v.number()),
 		studentsCount: v.optional(v.number()),
@@ -132,6 +143,7 @@ export default defineSchema({
 		e2eTag: v.optional(v.string())
 	})
 		.index('by_createdAt', ['createdAt'])
+		.index('by_creatorId', ['creatorId'])
 		.index('by_e2eTag', ['e2eTag']),
 
 	backup_chunks: defineTable({

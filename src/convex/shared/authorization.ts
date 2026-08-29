@@ -223,3 +223,51 @@ export function requireEvaluationCreate(subject: AccessSubject & { _id?: Id<'use
 		throw new Error('Not authorized to create evaluations');
 	}
 }
+
+export type BackupSubject = {
+	creatorId?: Id<'users'>;
+	source?: 'manual' | 'system_migration' | 'system_safety' | 'system_cron';
+};
+
+/** True when the backup is generated automatically by the system. */
+export function isSystemBackup(backup?: BackupSubject): boolean {
+	return Boolean(backup?.source && backup.source.startsWith('system_'));
+}
+
+/** True when active admin/super may download the backup: Super, backup owner, or any admin if it's a system backup. */
+export function canDownloadBackup(
+	subject: AccessSubject & { _id?: Id<'users'> },
+	backup: BackupSubject
+): boolean {
+	if (!canAccessAdminArea(subject)) return false;
+	if (isSuper(subject)) return true;
+	if (isSystemBackup(backup)) return true;
+	return Boolean(subject._id && backup.creatorId === subject._id);
+}
+
+/** True when active admin/super may rename the backup: Super can rename any backup, or owner if not a system backup. */
+export function canRenameBackup(
+	subject: AccessSubject & { _id?: Id<'users'> },
+	backup: BackupSubject
+): boolean {
+	if (!canAccessAdminArea(subject)) return false;
+	if (isSuper(subject)) return true;
+	if (isSystemBackup(backup)) return false;
+	return Boolean(subject._id && backup.creatorId === subject._id);
+}
+
+/** True when active admin/super may delete the backup: Super can delete any backup, or owner if not a system backup. */
+export function canDeleteBackup(
+	subject: AccessSubject & { _id?: Id<'users'> },
+	backup: BackupSubject
+): boolean {
+	if (!canAccessAdminArea(subject)) return false;
+	if (isSuper(subject)) return true;
+	if (isSystemBackup(backup)) return false;
+	return Boolean(subject._id && backup.creatorId === subject._id);
+}
+
+/** True when active admin/super may restore from a backup: any active admin or super. */
+export function canRestoreBackup(subject: AccessSubject): boolean {
+	return canAccessAdminArea(subject);
+}

@@ -33,17 +33,28 @@ test.describe('Backup Management @backup @sequential', () => {
 		await cleanupTestBackupsByTimestamp(testStartTime);
 	});
 
-	test('creates a backup and displays it in history', async ({ page }) => {
+	test('creates a named backup, displays ownership badge, and renames it', async ({ page }) => {
+		const customName = `E2E_Backup_${suffix}`;
 		await page.getByRole('button', { name: 'Force Backup Now' }).click();
 		await expect(page.getByRole('heading', { name: 'Force Backup', level: 2 })).toBeVisible();
+		await page.getByPlaceholder('Leave blank for timestamped default').fill(customName);
 		await page.getByRole('button', { name: 'Confirm' }).click();
 
 		await expect(page.getByText(/Created backup/)).toBeVisible();
+		await expect(page.getByText(customName).first()).toBeVisible();
+		await expect(page.getByText('You').first()).toBeVisible();
 
-		await expect(page.getByText(/^backup-\d+\.json$/).first()).toBeVisible();
+		// Rename the backup
+		await page.getByRole('button', { name: 'Rename' }).first().click();
+		await expect(page.getByRole('heading', { name: 'Rename Backup' })).toBeVisible();
+		const updatedName = `${customName}_Renamed`;
+		await page.getByPlaceholder('Enter backup name').fill(updatedName);
+		await page.getByRole('button', { name: 'Save' }).click();
+
+		await expect(page.getByText(updatedName).first()).toBeVisible();
 	});
 
-	test('download button is available for backup entries', async ({ page }) => {
+	test('download button is available for owned backup entries', async ({ page }) => {
 		await page.getByRole('button', { name: 'Force Backup Now' }).click();
 		await expect(page.getByRole('heading', { name: 'Force Backup', level: 2 })).toBeVisible();
 		await page.getByRole('button', { name: 'Confirm' }).click();
@@ -135,8 +146,9 @@ test.describe('Backup Management @backup @sequential', () => {
 		// Verify success feedback
 		await expect(page.getByText(/Restored data:/)).toBeVisible();
 
-		// Verify a pre-restore safety backup was saved in history
-		await expect(page.getByText(/^backup-\d+\.json$/).first()).toBeVisible();
+		// Verify a pre-restore safety backup was saved in history with system badge
+		await expect(page.getByText(/Pre-Restore Safety Snapshot/).first()).toBeVisible();
+		await expect(page.getByText('System: Safety').first()).toBeVisible();
 	});
 
 	test('shows error when invalid JSON file is uploaded', async ({ page }) => {
