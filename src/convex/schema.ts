@@ -128,6 +128,9 @@ export default defineSchema({
 		filename: v.string(),
 		creatorId: v.optional(v.id('users')),
 		creatorName: v.optional(v.string()),
+		creatorRole: v.optional(
+			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
+		),
 		source: v.optional(
 			v.union(
 				v.literal('manual'),

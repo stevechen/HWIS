@@ -37,6 +37,7 @@ export const createBackup = mutation({
 			name: args.name,
 			creatorId: user._id,
 			creatorName: user.name ?? (user.role === 'super' ? 'Super Admin' : 'Admin'),
+			creatorRole: user.role,
 			source: 'manual',
 			e2eTag: args.e2eTag
 		});
@@ -238,6 +239,7 @@ export const migrateLegacyBackups = mutation({
 				await ctx.db.patch(backup._id, {
 					creatorId: primarySuper?._id,
 					creatorName: primarySuper?.name ?? 'Super Admin',
+					creatorRole: primarySuper?.role ?? 'super',
 					source: 'manual',
 					name: backup.name ?? backup.filename.replace('.json', '')
 				});

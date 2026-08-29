@@ -436,6 +436,18 @@
 												>
 													You
 												</span>
+											{:else if backup.creatorRole === 'super'}
+												<span
+													class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+												>
+													Super: {backup.creatorName}
+												</span>
+											{:else if backup.creatorRole === 'admin'}
+												<span
+													class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+												>
+													Admin: {backup.creatorName}
+												</span>
 											{:else if backup.creatorName}
 												<span
 													class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"

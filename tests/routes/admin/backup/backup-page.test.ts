@@ -12,6 +12,7 @@ let mockBackups:
 			filename: string;
 			creatorId?: string;
 			creatorName?: string;
+			creatorRole?: 'super' | 'admin' | 'teacher' | 'student';
 			source?: string;
 			createdAt: number;
 			data: { students?: unknown[] };
@@ -83,6 +84,7 @@ describe('Backup Admin Page', () => {
 				filename: 'backup-2026-02-18.json',
 				creatorId: 'user-admin-1',
 				creatorName: 'Alice',
+				creatorRole: 'admin',
 				source: 'manual',
 				createdAt: Date.now(),
 				data: { students: [{}, {}] }
@@ -111,14 +113,26 @@ describe('Backup Admin Page', () => {
 		await expect.element(page.getByRole('button', { name: /rename/i }).first()).toBeInTheDocument();
 	});
 
-	it('hides rename and delete buttons for non-owner admin on other user backups', async () => {
+	it('renders role-prefixed badges for other admins and super users', async () => {
 		mockBackups = [
 			{
-				_id: 'backup-other',
+				_id: 'backup-admin',
 				name: 'Bob Backup',
 				filename: 'backup-bob.json',
 				creatorId: 'user-admin-2',
 				creatorName: 'Bob',
+				creatorRole: 'admin',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			},
+			{
+				_id: 'backup-super',
+				name: 'Carol Backup',
+				filename: 'backup-carol.json',
+				creatorId: 'user-super-1',
+				creatorName: 'Carol',
+				creatorRole: 'super',
 				source: 'manual',
 				createdAt: Date.now(),
 				data: { students: [] }
@@ -128,7 +142,33 @@ describe('Backup Admin Page', () => {
 		render(BackupPage);
 
 		await expect.element(page.getByText('Bob Backup')).toBeInTheDocument();
-		await expect.element(page.getByText('Bob', { exact: true })).toBeInTheDocument();
+		await expect.element(page.getByText('Admin: Bob', { exact: true })).toBeInTheDocument();
+		await expect.element(page.getByText('Carol Backup')).toBeInTheDocument();
+		await expect.element(page.getByText('Super: Carol', { exact: true })).toBeInTheDocument();
+		// Owner (Alice) is neither, so rename/delete buttons must be hidden for these backups
+		await expect.element(page.getByRole('button', { name: /rename/i })).not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: /download/i })).not.toBeInTheDocument();
+	});
+
+	it('hides rename and delete buttons for non-owner admin on other user backups', async () => {
+		mockBackups = [
+			{
+				_id: 'backup-other',
+				name: 'Bob Backup',
+				filename: 'backup-bob.json',
+				creatorId: 'user-admin-2',
+				creatorName: 'Bob',
+				creatorRole: 'admin',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			}
+		];
+
+		render(BackupPage);
+
+		await expect.element(page.getByText('Bob Backup')).toBeInTheDocument();
+		await expect.element(page.getByText('Admin: Bob', { exact: true })).toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: /restore/i })).toBeInTheDocument();
 		// Rename and Delete should NOT be present for non-owner
 		await expect.element(page.getByRole('button', { name: /rename/i })).not.toBeInTheDocument();

@@ -631,6 +631,57 @@ describe('backup ownership, naming & permissions', () => {
 		expect(backup?.name).toMatch(/^Manual Backup - \d{4}-\d{2}-\d{2}/);
 	});
 
+	test('insertBackupRecord stores creator role with manual source', async () => {
+		const t = convexTest(schema, modules);
+		const adminId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'admin-role',
+				name: 'Admin Role',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+		const superId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'super-role',
+				name: 'Super Role',
+				role: 'super',
+				status: 'active'
+			});
+		});
+
+		const adminBackupId = await t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				name: 'Admin Backup',
+				creatorId: adminId,
+				creatorName: 'Admin Role',
+				creatorRole: 'admin',
+				source: 'manual'
+			});
+		});
+
+		const superBackupId = await t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				name: 'Super Backup',
+				creatorId: superId,
+				creatorName: 'Super Role',
+				creatorRole: 'super',
+				source: 'manual'
+			});
+		});
+
+		const adminBackup = await t.run(async (ctx) => ctx.db.get(adminBackupId));
+		expect(adminBackup?.source).toBe('manual');
+		expect(adminBackup?.creatorRole).toBe('admin');
+		expect(adminBackup?.creatorName).toBe('Admin Role');
+
+		const superBackup = await t.run(async (ctx) => ctx.db.get(superBackupId));
+		expect(superBackup?.creatorRole).toBe('super');
+		expect(superBackup?.creatorName).toBe('Super Role');
+	});
+
 	test('renameBackup allows owner to rename and rejects non-owner admin and system backups', async () => {
 		const t = convexTest(schema, modules);
 		const ownerId = await t.run(async (ctx) => {
@@ -886,6 +937,7 @@ describe('backup ownership, naming & permissions', () => {
 		const migrated = await t.run(async (ctx) => ctx.db.get(legacyBackupId));
 		expect(migrated?.creatorId).toBe(superId);
 		expect(migrated?.creatorName).toBe('Super Steve');
+		expect(migrated?.creatorRole).toBe('super');
 		expect(migrated?.source).toBe('manual');
 		expect(migrated?.name).toBe('legacy-backup-1234');
 

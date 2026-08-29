@@ -10,6 +10,7 @@
 import type { Doc, Id } from '../_generated/dataModel';
 import type { GenericDatabaseReader, GenericDatabaseWriter } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
+import type { Role } from './authorization';
 
 const BACKUP_CHUNK_SIZE = 200_000;
 
@@ -58,6 +59,7 @@ export type InsertBackupOptions = {
 	name?: string;
 	creatorId?: Id<'users'>;
 	creatorName?: string;
+	creatorRole?: Role;
 	source?: BackupSource;
 	e2eTag?: string;
 };
@@ -94,6 +96,7 @@ export async function insertBackupRecord(
 		filename,
 		creatorId: options.creatorId,
 		creatorName: options.creatorName,
+		creatorRole: options.creatorRole,
 		source: options.source,
 		data: serializedSnapshot.length <= BACKUP_CHUNK_SIZE ? snapshot : undefined,
 		chunkCount:
