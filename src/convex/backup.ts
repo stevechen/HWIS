@@ -68,6 +68,9 @@ export const restoreFromBackupPayload = mutation({
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
+		const snapshot = await buildSnapshot(ctx);
+		await insertBackupRecord(ctx, snapshot);
+
 		const data = args.backupData as RestorePayload;
 		const { skippedEvaluations } = await applyRestore(ctx, data);
 

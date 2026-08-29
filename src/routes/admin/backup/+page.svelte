@@ -3,7 +3,8 @@
 	import { api } from '$convex/_generated/api';
 	import { getContext } from 'svelte';
 	import type { Id } from '$convex/_generated/dataModel';
-	import { Cloud, RotateCcw, Trash2, Download, Play } from '@lucide/svelte';
+	import type { RestorePayload } from '$convex/shared/restore_plan';
+	import { Cloud, RotateCcw, Trash2, Download, Play, Upload, AlertTriangle } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
@@ -21,9 +22,67 @@
 	let isForcingBackup = $state(false);
 	let isRestoring = $state(false);
 	let isClearing = $state(false);
-	let backupResult = $state<{ message: string } | null>(null);
+	let backupResult = $state<{ message: string; skippedEvaluations?: string[] } | null>(null);
 	let restoreConfirmText = $state('');
 	let selectedBackupId = $state<Id<'backups'> | null>(null);
+
+	// File restore states
+	let fileInput = $state<HTMLInputElement | null>(null);
+	let selectedFile = $state<File | null>(null);
+	let fileError = $state<string | null>(null);
+	let parsedBackup = $state<RestorePayload | null>(null);
+	let showFileRestoreDialog = $state(false);
+	let fileRestoreConfirmText = $state('');
+	let isFileRestoring = $state(false);
+	let isDragging = $state(false);
+
+	function validateBackupPayload(data: unknown): {
+		valid: boolean;
+		error?: string;
+		payload?: RestorePayload;
+	} {
+		if (!data || typeof data !== 'object') {
+			return { valid: false, error: 'File content must be a JSON object.' };
+		}
+		const d = data as Record<string, unknown>;
+		const requiredArrays = [
+			'students',
+			'evaluations',
+			'users',
+			'categories',
+			'classes',
+			'houseEvents'
+		];
+		for (const key of requiredArrays) {
+			if (!Array.isArray(d[key])) {
+				return { valid: false, error: `Invalid backup format: missing or invalid '${key}' array.` };
+			}
+		}
+		return { valid: true, payload: data as RestorePayload };
+	}
+
+	async function processFile(file: File) {
+		if (!file.name.endsWith('.json') && file.type !== 'application/json' && file.type !== '') {
+			fileError = 'Please select a valid .json backup file.';
+			return;
+		}
+		fileError = null;
+		try {
+			const text = await file.text();
+			const json = JSON.parse(text);
+			const result = validateBackupPayload(json);
+			if (!result.valid || !result.payload) {
+				fileError = result.error || 'Invalid backup file structure.';
+				return;
+			}
+			selectedFile = file;
+			parsedBackup = result.payload;
+			fileRestoreConfirmText = '';
+			showFileRestoreDialog = true;
+		} catch (e) {
+			fileError = 'Failed to parse JSON file: ' + (e instanceof Error ? e.message : String(e));
+		}
+	}
 
 	async function handleForceBackup() {
 		isForcingBackup = true;
@@ -49,15 +108,36 @@
 		if (!selectedBackupId || restoreConfirmText !== 'RESTORE') return;
 		isRestoring = true;
 		try {
-			await client.mutation(api.backup.restoreFromBackup, {
+			const res = await client.mutation(api.backup.restoreFromBackup, {
 				backupId: selectedBackupId
 			});
+			backupResult = res;
 			showRestoreDialog = false;
 			refreshTrigger++;
 		} catch (e) {
 			alert('Failed: ' + (e instanceof Error ? e.message : String(e)));
 		} finally {
 			isRestoring = false;
+		}
+	}
+
+	async function handleFileRestore() {
+		if (!parsedBackup || fileRestoreConfirmText !== 'RESTORE') return;
+		isFileRestoring = true;
+		try {
+			const res = await client.mutation(api.backup.restoreFromBackupPayload, {
+				backupData: parsedBackup
+			});
+			backupResult = res;
+			showFileRestoreDialog = false;
+			selectedFile = null;
+			parsedBackup = null;
+			if (fileInput) fileInput.value = '';
+			refreshTrigger++;
+		} catch (e) {
+			alert('Failed: ' + (e instanceof Error ? e.message : String(e)));
+		} finally {
+			isFileRestoring = false;
 		}
 	}
 
@@ -72,8 +152,10 @@
 		}
 	}
 
-	function formatDate(timestamp: number) {
-		return new Date(timestamp).toLocaleString('en-US', {
+	function formatDate(timestamp: number | string) {
+		const d = typeof timestamp === 'number' ? new Date(timestamp) : new Date(timestamp);
+		if (isNaN(d.getTime())) return String(timestamp);
+		return d.toLocaleString('en-US', {
 			timeZone: 'Asia/Hong_Kong',
 			year: 'numeric',
 			month: 'short',
@@ -116,11 +198,12 @@
 <div class="bg-background min-h-dvh overflow-x-hidden">
 	<main class="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
 		<div class="grid gap-6">
+			<!-- Force Backup Card -->
 			<Card.Root>
 				<Card.Header>
 					<div class="mb-2 flex items-center gap-3">
 						<div
-							class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900"
+							class="flex size-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900"
 						>
 							<Play class="size-5 text-blue-600 dark:text-blue-400" />
 						</div>
@@ -138,16 +221,99 @@
 						{isForcingBackup ? 'Creating...' : 'Force Backup Now'}
 					</Button>
 					{#if backupResult}
-						<p class="mt-4 text-sm text-green-600">{backupResult.message}</p>
+						<div
+							class="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-300"
+						>
+							<p class="font-medium">{backupResult.message}</p>
+							{#if backupResult.skippedEvaluations?.length}
+								<p class="mt-1 text-xs text-amber-600 dark:text-amber-400">
+									Note: {backupResult.skippedEvaluations.length} evaluation(s) were skipped due to missing
+									references.
+								</p>
+							{/if}
+						</div>
 					{/if}
 				</Card.Content>
 			</Card.Root>
 
+			<!-- Restore from JSON File Card -->
 			<Card.Root>
 				<Card.Header>
 					<div class="mb-2 flex items-center gap-3">
 						<div
-							class="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900"
+							class="flex size-10 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900"
+						>
+							<Upload class="size-5 text-purple-600 dark:text-purple-400" />
+						</div>
+						<Card.Title>Restore from File</Card.Title>
+					</div>
+					<Card.Description>
+						Upload and restore database state from a downloaded JSON backup file.
+					</Card.Description>
+				</Card.Header>
+				<Card.Content>
+					<div
+						role="region"
+						aria-label="Upload JSON backup file"
+						class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors {isDragging
+							? 'border-purple-500 bg-purple-50/50 dark:bg-purple-950/20'
+							: 'border-muted-foreground/25 hover:border-purple-400'}"
+						ondragover={(e) => {
+							e.preventDefault();
+							isDragging = true;
+						}}
+						ondragleave={() => {
+							isDragging = false;
+						}}
+						ondrop={(e) => {
+							e.preventDefault();
+							isDragging = false;
+							const file = e.dataTransfer?.files?.[0];
+							if (file) processFile(file);
+						}}
+					>
+						<Upload class="text-muted-foreground mb-3 size-8" />
+						<p class="text-sm font-medium">Drag and drop your backup JSON file here, or browse</p>
+						<p class="text-muted-foreground mt-1 text-xs">Supports exported .json backup files</p>
+						<input
+							bind:this={fileInput}
+							type="file"
+							accept=".json,application/json"
+							class="hidden"
+							onchange={(e) => {
+								const target = e.target as HTMLInputElement;
+								const file = target.files?.[0];
+								if (file) processFile(file);
+							}}
+						/>
+						<Button
+							variant="outline"
+							size="sm"
+							class="mt-4"
+							onclick={() => fileInput?.click()}
+							disabled={isFileRestoring}
+						>
+							Choose Backup File
+						</Button>
+					</div>
+
+					{#if fileError}
+						<div
+							class="mt-4 flex items-center gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
+						>
+							<AlertTriangle class="size-4 shrink-0" />
+							<p>{fileError}</p>
+						</div>
+					{/if}
+				</Card.Content>
+			</Card.Root>
+
+			<!-- Backup History Card -->
+			<Card.Root>
+				<Card.Header>
+					<div class="mb-2 flex items-center gap-3">
+						<div
+							class="flex size-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900"
 						>
 							<Cloud class="size-5 text-green-600 dark:text-green-400" />
 						</div>
@@ -209,11 +375,12 @@
 				</Card.Content>
 			</Card.Root>
 
+			<!-- Danger Zone Card -->
 			<Card.Root class="border-destructive">
 				<Card.Header>
 					<div class="mb-2 flex items-center gap-3">
 						<div
-							class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900"
+							class="flex size-10 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900"
 						>
 							<Trash2 class="size-5 text-red-600" />
 						</div>
@@ -236,6 +403,7 @@
 	</main>
 </div>
 
+<!-- Force Backup Dialog -->
 {#if showForceBackupDialog}
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<div
@@ -261,6 +429,7 @@
 	</div>
 {/if}
 
+<!-- In-table Backup Restore Dialog -->
 {#if showRestoreDialog}
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<div
@@ -277,7 +446,7 @@
 					Warning: This will replace ALL existing data.
 				</p>
 				<p class="mt-2 text-sm">
-					Type <code class="rounded bg-red-100 px-1">RESTORE</code> to confirm.
+					Type <code class="rounded bg-red-100 px-1 dark:bg-red-950">RESTORE</code> to confirm.
 				</p>
 				<Input bind:value={restoreConfirmText} placeholder="Type RESTORE" class="mt-4" />
 			</div>
@@ -295,6 +464,104 @@
 	</div>
 {/if}
 
+<!-- File Restore Preview & Confirmation Dialog -->
+{#if showFileRestoreDialog && parsedBackup}
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+		<div
+			class="absolute inset-0 bg-black/50"
+			onclick={() => (showFileRestoreDialog = false)}
+			role="button"
+			tabindex="0"
+			onkeydown={(e) => e.key === 'Escape' && (showFileRestoreDialog = false)}
+		></div>
+		<div class="bg-background relative w-full max-w-lg rounded-lg border p-6 shadow-lg">
+			<h2 class="text-lg font-semibold">Restore from JSON Backup</h2>
+			<p class="text-muted-foreground mt-1 text-sm">
+				Review the contents of <span class="text-foreground font-medium">{selectedFile?.name}</span> before
+				restoring.
+			</p>
+
+			<div class="my-4 space-y-3">
+				{#if parsedBackup.exportedAt}
+					<p class="text-muted-foreground text-xs">
+						Exported at: <span class="text-foreground font-medium"
+							>{formatDate(parsedBackup.exportedAt)}</span
+						>
+						{#if parsedBackup.version}
+							· Version: <span class="text-foreground font-medium">{parsedBackup.version}</span>
+						{/if}
+					</p>
+				{/if}
+
+				<!-- Summary Grid -->
+				<div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+					<div class="bg-muted/50 rounded-lg border p-3 text-center">
+						<p class="text-2xl font-bold">{parsedBackup.students.length}</p>
+						<p class="text-muted-foreground text-xs">Students</p>
+					</div>
+					<div class="bg-muted/50 rounded-lg border p-3 text-center">
+						<p class="text-2xl font-bold">{parsedBackup.evaluations.length}</p>
+						<p class="text-muted-foreground text-xs">Evaluations</p>
+					</div>
+					<div class="bg-muted/50 rounded-lg border p-3 text-center">
+						<p class="text-2xl font-bold">{parsedBackup.classes.length}</p>
+						<p class="text-muted-foreground text-xs">Classes</p>
+					</div>
+					<div class="bg-muted/50 rounded-lg border p-3 text-center">
+						<p class="text-2xl font-bold">{parsedBackup.categories.length}</p>
+						<p class="text-muted-foreground text-xs">Categories</p>
+					</div>
+					<div class="bg-muted/50 rounded-lg border p-3 text-center">
+						<p class="text-2xl font-bold">{parsedBackup.users.length}</p>
+						<p class="text-muted-foreground text-xs">Users</p>
+					</div>
+					<div class="bg-muted/50 rounded-lg border p-3 text-center">
+						<p class="text-2xl font-bold">{parsedBackup.houseEvents.length}</p>
+						<p class="text-muted-foreground text-xs">House Events</p>
+					</div>
+				</div>
+
+				<div
+					class="rounded-lg bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
+				>
+					<p class="font-semibold">Safety Note:</p>
+					<p class="mt-1">
+						Restoring will replace existing students, evaluations, classes, categories, and house
+						events. A safety snapshot of your current database will be saved automatically before
+						restoring.
+					</p>
+				</div>
+
+				<div>
+					<p class="text-sm">
+						Type <code class="rounded bg-red-100 px-1 font-semibold dark:bg-red-950">RESTORE</code> to
+						confirm:
+					</p>
+					<Input bind:value={fileRestoreConfirmText} placeholder="Type RESTORE" class="mt-2" />
+				</div>
+			</div>
+
+			<div class="flex justify-end gap-2">
+				<Button
+					variant="outline"
+					onclick={() => (showFileRestoreDialog = false)}
+					disabled={isFileRestoring}
+				>
+					Cancel
+				</Button>
+				<Button
+					variant="destructive"
+					onclick={handleFileRestore}
+					disabled={fileRestoreConfirmText !== 'RESTORE' || isFileRestoring}
+				>
+					{isFileRestoring ? 'Restoring Data...' : 'Restore Data'}
+				</Button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Clear All Data Dialog -->
 {#if showClearDialog}
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<div

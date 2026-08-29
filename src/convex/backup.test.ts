@@ -322,6 +322,11 @@ describe('restoreFromBackupPayload', () => {
 		expect(houseEvents).toHaveLength(1);
 		expect(houseEvents[0].title).toBe('Restored Event');
 		expect(houseEvents[0].housePoints?.Heracles).toBe(100);
+
+		// Verify automatic safety snapshot was created in backups table
+		const backups = await t.run(async (ctx) => await ctx.db.query('backups').collect());
+		expect(backups).toHaveLength(1);
+		expect(backups[0].studentsCount).toBe(2); // STU_ORIG + STU_BACKUP from before restore
 	});
 });
 

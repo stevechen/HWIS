@@ -40,9 +40,13 @@ describe('Backup Admin Page', () => {
 		render(BackupPage);
 
 		await expect.element(page.getByText('Backup History')).toBeInTheDocument();
+		await expect.element(page.getByText('Restore from File')).toBeInTheDocument();
 		await expect.element(page.getByText('Danger Zone')).toBeInTheDocument();
 		await expect
 			.element(page.getByRole('button', { name: 'Force Backup Now' }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Choose Backup File' }))
 			.toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: 'Clear All Data' })).toBeInTheDocument();
 	});
