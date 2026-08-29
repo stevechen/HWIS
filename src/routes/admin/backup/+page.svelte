@@ -18,6 +18,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { useViewer } from '$lib/viewer.svelte';
+	import { sanitizeFilename } from '$lib/utils/backup';
 
 	const client = useConvexClient();
 	const adminAuth = getContext<{ loaded: boolean; isAdmin: boolean }>('adminAuth');
@@ -73,10 +74,6 @@
 
 	function canDeleteBackup(backup: { creatorId?: Id<'users'>; source?: string }) {
 		return isSuperUser || (!isSystemBackup(backup) && isOwner(backup));
-	}
-
-	function sanitizeFilename(name: string): string {
-		return name.replace(/[^a-zA-Z0-9-_.]/g, '_');
 	}
 
 	function validateBackupPayload(data: unknown): {

@@ -63,6 +63,25 @@ test.describe('Backup Management @backup @sequential', () => {
 		await expect(page.getByRole('button', { name: 'Download' }).first()).toBeVisible();
 	});
 
+	test('downloads a backup using a sanitized filename derived from the display name', async ({
+		page
+	}) => {
+		const customName = `E2E/Backup: ${suffix}?`;
+		await page.getByRole('button', { name: 'Force Backup Now' }).click();
+		await expect(page.getByRole('heading', { name: 'Force Backup', level: 2 })).toBeVisible();
+		await page.getByPlaceholder('Leave blank for timestamped default').fill(customName);
+		await page.getByRole('button', { name: 'Confirm' }).click();
+		await expect(page.getByText(/Created backup/)).toBeVisible();
+
+		const [download] = await Promise.all([
+			page.waitForEvent('download'),
+			page.getByRole('button', { name: 'Download' }).first().click()
+		]);
+
+		const expected = `${customName.replace(/[^a-zA-Z0-9-_.]/g, '_')}.json`;
+		expect(download.suggestedFilename()).toBe(expected);
+	});
+
 	test('danger zone section is visible', async ({ page }) => {
 		await expect(page.getByRole('button', { name: 'Clear All Data' })).toBeVisible();
 	});

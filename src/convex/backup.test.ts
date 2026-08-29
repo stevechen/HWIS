@@ -1232,3 +1232,164 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 		}
 	});
 });
+
+describe('getBackupChunk download scoping & unrestricted restore', () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	function seedOwnerBackup(t: ReturnType<typeof convexTest>, ownerId: Id<'users'>) {
+		return t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				name: 'Owned Backup',
+				creatorId: ownerId,
+				creatorName: 'Owner Admin',
+				source: 'manual'
+			});
+		});
+	}
+
+	function seedSystemBackup(t: ReturnType<typeof convexTest>) {
+		return t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx);
+			return await insertBackupRecord(ctx, snapshot, {
+				name: 'System Snapshot',
+				source: 'system_migration'
+			});
+		});
+	}
+
+	test('non-owner admin is rejected by the getBackupChunk query', async () => {
+		const t = convexTest(schema, modules);
+		const ownerId = await seedUser(t, {
+			authId: 'dl-owner',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const otherId = await seedUser(t, {
+			authId: 'dl-other',
+			name: 'Other Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: otherId,
+			authId: 'dl-other-auth',
+			name: 'Other Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const backupId = await seedOwnerBackup(t, ownerId);
+
+		await expect(t.query(api.backup.getBackupChunk, { backupId, chunkIndex: 0 })).rejects.toThrow(
+			/Forbidden/
+		);
+	});
+
+	test('owner, super, and any admin on system backups can fetch chunks', async () => {
+		const t = convexTest(schema, modules);
+		const ownerId = await seedUser(t, {
+			authId: 'dl-owner-2',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: ownerId,
+			authId: 'dl-owner-auth',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const ownerBackupId = await seedOwnerBackup(t, ownerId);
+		const ownerChunk = await t.query(api.backup.getBackupChunk, {
+			backupId: ownerBackupId,
+			chunkIndex: 0
+		});
+		expect(ownerChunk).toBeNull(); // inline data, no chunks
+
+		const superId = await seedUser(t, {
+			authId: 'dl-super',
+			name: 'Super User',
+			role: 'super',
+			status: 'active'
+		});
+		const systemBackupId = await seedSystemBackup(t);
+		mockAuthUser({
+			_id: superId,
+			authId: 'dl-super-auth',
+			name: 'Super User',
+			role: 'super',
+			status: 'active'
+		});
+		const superChunk = await t.query(api.backup.getBackupChunk, {
+			backupId: systemBackupId,
+			chunkIndex: 0
+		});
+		expect(superChunk).toBeNull();
+
+		// A synthetic admin (default test token) can also read system backups
+		vi.restoreAllMocks();
+		const adminChunk = await t.query(api.backup.getBackupChunk, {
+			backupId: systemBackupId,
+			chunkIndex: 0
+		});
+		expect(adminChunk).toBeNull();
+	});
+
+	test('any active admin can restore a backup they do not own', async () => {
+		const t = convexTest(schema, modules);
+		const ownerId = await seedUser(t, {
+			authId: 'restore-owner',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const otherId = await seedUser(t, {
+			authId: 'restore-other',
+			name: 'Other Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: otherId,
+			authId: 'restore-other-auth',
+			name: 'Other Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const backupId = await seedOwnerBackup(t, ownerId);
+
+		const result = await t.mutation(api.backup.restoreFromBackup, { backupId });
+		expect(result.message).toContain('Restored');
+	});
+
+	test('super admin can restore any backup', async () => {
+		const t = convexTest(schema, modules);
+		const ownerId = await seedUser(t, {
+			authId: 'restore-owner-2',
+			name: 'Owner Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		const superId = await seedUser(t, {
+			authId: 'restore-super',
+			name: 'Super User',
+			role: 'super',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: superId,
+			authId: 'restore-super-auth',
+			name: 'Super User',
+			role: 'super',
+			status: 'active'
+		});
+		const backupId = await seedOwnerBackup(t, ownerId);
+
+		const result = await t.mutation(api.backup.restoreFromBackup, { backupId });
+		expect(result.message).toContain('Restored');
+	});
+});

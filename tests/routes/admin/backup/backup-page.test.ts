@@ -1,6 +1,7 @@
 import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { sanitizeFilename } from '$lib/utils/backup';
 
 const mockMutation = vi.fn().mockResolvedValue(undefined);
 const mockQuery = vi.fn().mockResolvedValue([]);
@@ -210,6 +211,13 @@ describe('Backup Admin Page', () => {
 		await expect.element(page.getByRole('button', { name: /rename/i }).first()).toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: /delete/i }).first()).toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: /rename/i }).nth(1)).toBeInTheDocument();
+		// Super can also download all backups, including system
+		await expect
+			.element(page.getByRole('button', { name: /download/i }).first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: /download/i }).nth(1))
+			.toBeInTheDocument();
 	});
 
 	it('owner admin sees rename and delete buttons for own backup', async () => {
@@ -233,5 +241,44 @@ describe('Backup Admin Page', () => {
 		await expect.element(page.getByText('You', { exact: true })).toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: /rename/i })).toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: /delete/i })).toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: /download/i })).toBeInTheDocument();
+	});
+
+	it('downloads a backup using a sanitized filename derived from the display name', async () => {
+		mockBackups = [
+			{
+				_id: 'backup-own',
+				name: 'Quarterly / Final: Report?',
+				filename: 'backup-own.json',
+				creatorId: 'user-admin-1',
+				creatorName: 'Alice',
+				creatorRole: 'admin',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			}
+		];
+
+		const createdAnchors: HTMLAnchorElement[] = [];
+		const originalCreate = document.createElement.bind(document);
+		vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+			const el = originalCreate(tag);
+			if (tag === 'a') createdAnchors.push(el as HTMLAnchorElement);
+			return el;
+		});
+
+		render(BackupPage);
+
+		await page.getByRole('button', { name: /download/i }).click();
+
+		expect(createdAnchors.length).toBeGreaterThan(0);
+		expect(createdAnchors[0].download).toBe(
+			`${sanitizeFilename('Quarterly / Final: Report?')}.json`
+		);
+	});
+
+	it('sanitizeFilename replaces unsafe characters with underscores', async () => {
+		expect(sanitizeFilename('My/Backup: Name?.json')).toBe('My_Backup__Name_.json');
+		expect(sanitizeFilename('plain-name_1.txt')).toBe('plain-name_1.txt');
 	});
 });
