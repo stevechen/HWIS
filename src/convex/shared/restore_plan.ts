@@ -12,6 +12,7 @@ import type { Id } from '../_generated/dataModel';
 import type { GenericDatabaseWriter } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
 import type { BackupSnapshot } from './backup_snapshot';
+import { SNAPSHOT_VERSION } from './backup_snapshot';
 import { normalizeStaffName } from './staff_name';
 
 type SerializedDocument<T> = Omit<T, '_id' | '_creationTime'> & { _id: string };
@@ -128,7 +129,9 @@ async function remapClasses(
 
 // Recreates payload users. A user whose authId already exists is patched
 // (name/role/status) rather than duplicated so authenticated accounts keep
-// their live identity; users without an authId are always inserted fresh.
+// their live identity. Users with an authId absent from the live database are
+// skipped — a deleted user stays deleted across restores. Users without an
+// authId are always inserted fresh.
 async function remapUsers(
 	ctx: { db: GenericDatabaseWriter<DataModel> },
 	users: RestorePayload['users']
@@ -149,9 +152,11 @@ async function remapUsers(
 				status: user.status ?? existingUser.status
 			});
 			mapping.set(user._id, existingUser._id);
+		} else if (user.authId) {
+			continue;
 		} else {
 			const newUserId = await ctx.db.insert('users', {
-				authId: user.authId ?? undefined,
+				authId: undefined,
 				name: user.role === 'student' ? (user.name ?? undefined) : normalizeStaffName(user.name),
 				role: user.role ?? 'teacher',
 				status: user.status ?? 'active'
@@ -203,6 +208,12 @@ export async function applyRestore(
 	ctx: { db: GenericDatabaseWriter<DataModel> },
 	payload: RestorePayload
 ): Promise<RestoreResult> {
+	if (payload.version && payload.version !== SNAPSHOT_VERSION) {
+		throw new Error(
+			`Incompatible schema version: snapshot version "${payload.version}" is not compatible with current version "${SNAPSHOT_VERSION}". Restore cannot proceed.`
+		);
+	}
+
 	const studentIds = new Set<string>();
 	const duplicateStudentIds = new Set<string>();
 	for (const student of payload.students) {

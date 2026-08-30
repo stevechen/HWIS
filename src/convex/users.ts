@@ -502,3 +502,64 @@ export const setRoleByToken = mutation({
 		}
 	}
 });
+
+const FIVE_YEARS_MS = 5 * 365.25 * 24 * 60 * 60 * 1000;
+
+export const deleteUserAfter5Years = mutation({
+	args: {
+		userId: v.id('users')
+	},
+	handler: async (ctx, args) => {
+		await requireSuperForSensitiveOperation(ctx);
+
+		const user = await ctx.db.get(args.userId);
+		if (!user) throw new Error('User not found');
+
+		if (!user.deactivatedAt) {
+			throw new Error('User is not disabled');
+		}
+
+		const elapsed = Date.now() - user.deactivatedAt;
+		if (elapsed < FIVE_YEARS_MS) {
+			const yearsRemaining = ((FIVE_YEARS_MS - elapsed) / (365.25 * 24 * 60 * 60 * 1000)).toFixed(
+				1
+			);
+			throw new Error(
+				`User must be disabled for 5 years before deletion. ${yearsRemaining} years remaining.`
+			);
+		}
+
+		if (user.authId) {
+			try {
+				const adapter = await authComponent.adapter(ctx)({
+					user: { fields: undefined }
+				});
+				const baUser = (await adapter.findMany({
+					model: 'user',
+					where: [{ field: 'email', value: user.authId }]
+				})) as { id: string }[];
+				if (baUser.length > 0) {
+					const baId = baUser[0].id;
+					await adapter.deleteMany({
+						model: 'session',
+						where: [{ field: 'userId', value: baId }]
+					});
+					await adapter.deleteMany({
+						model: 'account',
+						where: [{ field: 'userId', value: baId }]
+					});
+					await adapter.deleteMany({
+						model: 'user',
+						where: [{ field: 'id', value: baId }]
+					});
+				}
+			} catch (e) {
+				console.error('deleteUserAfter5Years: BetterAuth cleanup failed', e);
+			}
+		}
+
+		await ctx.db.delete(args.userId);
+
+		return { success: true, message: 'User and linked auth account permanently deleted' };
+	}
+});

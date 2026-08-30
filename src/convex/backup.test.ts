@@ -189,6 +189,12 @@ describe('restoreFromBackupPayload', () => {
 				role: 'teacher',
 				status: 'active'
 			});
+			await ctx.db.insert('users', {
+				authId: 'restored-teacher',
+				name: 'Existing Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
 		});
 
 		await t.mutation(api.categories.create, {
@@ -1391,5 +1397,122 @@ describe('getBackupChunk download scoping & unrestricted restore', () => {
 
 		const result = await t.mutation(api.backup.restoreFromBackup, { backupId });
 		expect(result.message).toContain('Restored');
+	});
+});
+
+describe('pruneExpiredBackups', () => {
+	const ONE_DAY = 24 * 60 * 60 * 1000;
+
+	test('prunes system_cron backups older than 30 days', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('backups', {
+				filename: 'old-cron.json',
+				data: {},
+				source: 'system_cron',
+				createdAt: Date.now() - 31 * ONE_DAY
+			});
+			await ctx.db.insert('backups', {
+				filename: 'new-cron.json',
+				data: {},
+				source: 'system_cron',
+				createdAt: Date.now() - 1 * ONE_DAY
+			});
+		});
+
+		await t.mutation(api.backup.pruneExpiredBackups, {});
+
+		const backups = await t.run(async (ctx) => await ctx.db.query('backups').collect());
+		expect(backups).toHaveLength(1);
+		expect(backups[0].filename).toBe('new-cron.json');
+	});
+
+	test('prunes system_safety backups older than 90 days', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('backups', {
+				filename: 'old-safety.json',
+				data: {},
+				source: 'system_safety',
+				createdAt: Date.now() - 91 * ONE_DAY
+			});
+			await ctx.db.insert('backups', {
+				filename: 'new-safety.json',
+				data: {},
+				source: 'system_safety',
+				createdAt: Date.now() - 1 * ONE_DAY
+			});
+		});
+
+		await t.mutation(api.backup.pruneExpiredBackups, {});
+
+		const backups = await t.run(async (ctx) => await ctx.db.query('backups').collect());
+		expect(backups).toHaveLength(1);
+		expect(backups[0].filename).toBe('new-safety.json');
+	});
+
+	test('never prunes system_migration backups', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('backups', {
+				filename: 'old-migration.json',
+				data: {},
+				source: 'system_migration',
+				createdAt: Date.now() - 365 * ONE_DAY
+			});
+		});
+
+		await t.mutation(api.backup.pruneExpiredBackups, {});
+
+		const backups = await t.run(async (ctx) => await ctx.db.query('backups').collect());
+		expect(backups).toHaveLength(1);
+	});
+
+	test('never prunes manual backups', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('backups', {
+				filename: 'old-manual.json',
+				data: {},
+				source: 'manual',
+				createdAt: Date.now() - 365 * ONE_DAY
+			});
+		});
+
+		await t.mutation(api.backup.pruneExpiredBackups, {});
+
+		const backups = await t.run(async (ctx) => await ctx.db.query('backups').collect());
+		expect(backups).toHaveLength(1);
+	});
+
+	test('deletes backup chunks when pruning', async () => {
+		const t = convexTest(schema, modules);
+
+		const backupId = await t.run(async (ctx) => {
+			const id = await ctx.db.insert('backups', {
+				filename: 'old-cron-chunked.json',
+				data: undefined,
+				chunkCount: 2,
+				source: 'system_cron',
+				createdAt: Date.now() - 31 * ONE_DAY
+			});
+			await ctx.db.insert('backup_chunks', { backupId: id, chunkIndex: 0, data: 'chunk0' });
+			await ctx.db.insert('backup_chunks', { backupId: id, chunkIndex: 1, data: 'chunk1' });
+			return id;
+		});
+
+		await t.mutation(api.backup.pruneExpiredBackups, {});
+
+		const backup = await t.run(async (ctx) => ctx.db.get(backupId));
+		expect(backup).toBeNull();
+
+		const chunks = await t.run(async (ctx) =>
+			(await ctx.db.query('backup_chunks').collect()).filter((c) => c.backupId === backupId)
+		);
+		expect(chunks).toHaveLength(0);
 	});
 });

@@ -2,6 +2,7 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { getContext } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import type { Id } from '$convex/_generated/dataModel';
 	import type { RestorePayload } from '$convex/shared/restore_plan';
 	import {
@@ -12,11 +13,14 @@
 		Play,
 		Upload,
 		AlertTriangle,
-		Pencil
+		Pencil,
+		ChevronLeft,
+		ChevronRight
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import { useViewer } from '$lib/viewer.svelte';
 	import { sanitizeFilename } from '$lib/utils/backup';
 
@@ -55,6 +59,11 @@
 	let fileRestoreConfirmText = $state('');
 	let isFileRestoring = $state(false);
 	let isDragging = $state(false);
+	let historyTab = $state('list');
+	let calendarMonth = $state(new Date().getMonth());
+	let calendarYear = $state(new Date().getFullYear());
+	let selectedCalendarBackupId = $state<Id<'backups'> | null>(null);
+	let showCalendarRestoreDialog = $state(false);
 
 	function isSystemBackup(backup: { source?: string }) {
 		return Boolean(backup.source && backup.source.startsWith('system_'));
@@ -74,6 +83,88 @@
 
 	function canDeleteBackup(backup: { creatorId?: Id<'users'>; source?: string }) {
 		return isSuperUser || (!isSystemBackup(backup) && isOwner(backup));
+	}
+
+	const autoBackups = $derived((backupsQuery.data ?? []).filter((b) => b.source === 'system_cron'));
+
+	const listBackups = $derived(
+		(backupsQuery.data ?? []).filter(
+			(b) =>
+				!b.source ||
+				b.source === 'manual' ||
+				b.source === 'system_migration' ||
+				b.source === 'system_safety'
+		)
+	);
+
+	const backupDaysByDate = $derived(() => {
+		const map = new SvelteMap<string, typeof autoBackups>();
+		for (const backup of autoBackups) {
+			const date = new Date(backup.createdAt);
+			const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+			const existing = map.get(key) ?? [];
+			existing.push(backup);
+			map.set(key, existing);
+		}
+		return map;
+	});
+
+	function getDaysInMonth(year: number, month: number) {
+		return new Date(year, month + 1, 0).getDate();
+	}
+
+	function getFirstDayOfMonth(year: number, month: number) {
+		return new Date(year, month, 1).getDay();
+	}
+
+	function prevMonth() {
+		if (calendarMonth === 0) {
+			calendarMonth = 11;
+			calendarYear--;
+		} else {
+			calendarMonth--;
+		}
+	}
+
+	function nextMonth() {
+		if (calendarMonth === 11) {
+			calendarMonth = 0;
+			calendarYear++;
+		} else {
+			calendarMonth++;
+		}
+	}
+
+	function handleCalendarDayClick(day: number) {
+		const key = `${calendarYear}-${calendarMonth}-${day}`;
+		const backupsForDay = backupDaysByDate().get(key);
+		if (backupsForDay && backupsForDay.length > 0) {
+			const latest = backupsForDay.reduce((a, b) => (a.createdAt > b.createdAt ? a : b));
+			selectedCalendarBackupId = latest._id;
+			restoreConfirmText = '';
+			showCalendarRestoreDialog = true;
+		}
+	}
+
+	function handleCalendarRestore() {
+		if (!selectedCalendarBackupId || restoreConfirmText !== 'RESTORE') return;
+		isRestoring = true;
+		showCalendarRestoreDialog = false;
+		client
+			.mutation(api.backup.restoreFromBackup, {
+				backupId: selectedCalendarBackupId
+			})
+			.then((res) => {
+				backupResult = res;
+				refreshTrigger++;
+			})
+			.catch((e: Error) => {
+				alert('Failed: ' + (e instanceof Error ? e.message : String(e)));
+			})
+			.finally(() => {
+				isRestoring = false;
+				selectedCalendarBackupId = null;
+			});
 	}
 
 	function validateBackupPayload(data: unknown): {
@@ -400,105 +491,164 @@
 					{:else if !backupsQuery.data?.length}
 						<p class="text-muted-foreground">No backups found.</p>
 					{:else}
-						<div class="space-y-2">
-							{#each backupsQuery.data ?? [] as backup (backup._id)}
-								{@const data = backup.data}
-								<div
-									class="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
-								>
-									<div class="min-w-0">
-										<div class="flex flex-wrap items-center gap-2">
-											<p class="truncate font-medium">{backup.name || backup.filename}</p>
-											{#if backup.source === 'system_migration'}
-												<span
-													class="inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-950 dark:text-purple-300"
-												>
-													System: Migration
-												</span>
-											{:else if backup.source === 'system_safety'}
-												<span
-													class="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300"
-												>
-													System: Safety
-												</span>
-											{:else if backup.source === 'system_cron'}
-												<span
-													class="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-												>
-													System: Auto
-												</span>
-											{:else if isOwner(backup)}
-												<span
-													class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-												>
-													You
-												</span>
-											{:else if backup.creatorRole === 'super'}
-												<span
-													class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-												>
-													Super: {backup.creatorName}
-												</span>
-											{:else if backup.creatorRole === 'admin'}
-												<span
-													class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-												>
-													Admin: {backup.creatorName}
-												</span>
-											{:else if backup.creatorName}
-												<span
-													class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-												>
-													{backup.creatorName}
-												</span>
-											{/if}
-										</div>
-										<p class="text-muted-foreground text-sm">
-											{formatDate(backup.createdAt)} - {backup.studentsCount ??
-												data?.students?.length ??
-												0}
-											students
-										</p>
-									</div>
-									<div class="flex flex-wrap gap-2">
-										{#if canDownloadBackup(backup)}
-											<Button variant="outline" size="sm" onclick={() => handleDownload(backup)}>
-												<Download class="mr-1 size-4" /> Download
-											</Button>
-										{/if}
-										{#if canRenameBackup(backup)}
-											<Button variant="outline" size="sm" onclick={() => handleRenameClick(backup)}>
-												<Pencil class="mr-1 size-4" /> Rename
-											</Button>
-										{/if}
-										<Button
-											variant="outline"
-											size="sm"
-											onclick={() => handleRestoreClick(backup._id)}
-										>
-											<RotateCcw class="mr-1 size-4" /> Restore
-										</Button>
-										{#if canDeleteBackup(backup)}
-											<Button
-												variant="ghost"
-												size="sm"
-												onclick={async () => {
-													if (confirm('Delete this backup?')) {
-														await client.mutation(api.backup.deleteBackup, {
-															backupId: backup._id
-														});
-														refreshTrigger++;
-													}
-												}}
+						<Tabs.Root bind:value={historyTab}>
+							<Tabs.List>
+								<Tabs.Trigger value="list">Snapshots</Tabs.Trigger>
+								<Tabs.Trigger value="calendar">Daily</Tabs.Trigger>
+							</Tabs.List>
+							<Tabs.Content value="list">
+								{#if listBackups.length === 0}
+									<p class="text-muted-foreground">No manual or system backups found.</p>
+								{:else}
+									<div class="space-y-2">
+										{#each listBackups as backup (backup._id)}
+											{@const data = backup.data}
+											<div
+												class="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
 											>
-												<Trash2 class="text-destructive size-4" />
-												<span class="sr-only">Delete backup</span>
-											</Button>
-										{/if}
+												<div class="min-w-0">
+													<div class="flex flex-wrap items-center gap-2">
+														<p class="truncate font-medium">{backup.name || backup.filename}</p>
+														{#if backup.source === 'system_migration'}
+															<span
+																class="inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-950 dark:text-purple-300"
+															>
+																System: Migration
+															</span>
+														{:else if backup.source === 'system_safety'}
+															<span
+																class="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+															>
+																System: Safety
+															</span>
+														{:else if isOwner(backup)}
+															<span
+																class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+															>
+																You
+															</span>
+														{:else if backup.creatorRole === 'super'}
+															<span
+																class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+															>
+																Super: {backup.creatorName}
+															</span>
+														{:else if backup.creatorRole === 'admin'}
+															<span
+																class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+															>
+																Admin: {backup.creatorName}
+															</span>
+														{:else if backup.creatorName}
+															<span
+																class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+															>
+																{backup.creatorName}
+															</span>
+														{/if}
+													</div>
+													<p class="text-muted-foreground text-sm">
+														{formatDate(backup.createdAt)} - {backup.studentsCount ??
+															data?.students?.length ??
+															0}
+														students
+													</p>
+												</div>
+												<div class="flex flex-wrap gap-2">
+													{#if canDownloadBackup(backup)}
+														<Button
+															variant="outline"
+															size="sm"
+															onclick={() => handleDownload(backup)}
+														>
+															<Download class="mr-1 size-4" /> Download
+														</Button>
+													{/if}
+													{#if canRenameBackup(backup)}
+														<Button
+															variant="outline"
+															size="sm"
+															onclick={() => handleRenameClick(backup)}
+														>
+															<Pencil class="mr-1 size-4" /> Rename
+														</Button>
+													{/if}
+													<Button
+														variant="outline"
+														size="sm"
+														onclick={() => handleRestoreClick(backup._id)}
+													>
+														<RotateCcw class="mr-1 size-4" /> Restore
+													</Button>
+													{#if canDeleteBackup(backup)}
+														<Button
+															variant="ghost"
+															size="sm"
+															onclick={async () => {
+																if (confirm('Delete this backup?')) {
+																	await client.mutation(api.backup.deleteBackup, {
+																		backupId: backup._id
+																	});
+																	refreshTrigger++;
+																}
+															}}
+														>
+															<Trash2 class="text-destructive size-4" />
+															<span class="sr-only">Delete backup</span>
+														</Button>
+													{/if}
+												</div>
+											</div>
+										{/each}
 									</div>
+								{/if}
+							</Tabs.Content>
+							<Tabs.Content value="calendar">
+								<div class="space-y-4">
+									<div class="flex items-center justify-between">
+										<Button variant="outline" size="sm" onclick={prevMonth}>
+											<ChevronLeft class="size-4" />
+										</Button>
+										<h3 class="text-sm font-medium">
+											{new Date(calendarYear, calendarMonth).toLocaleDateString('en-US', {
+												month: 'long',
+												year: 'numeric'
+											})}
+										</h3>
+										<Button variant="outline" size="sm" onclick={nextMonth}>
+											<ChevronRight class="size-4" />
+										</Button>
+									</div>
+									<div class="grid grid-cols-7 gap-1 text-center text-xs">
+										{#each ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as day (day)}
+											<div class="text-muted-foreground font-medium">{day}</div>
+										{/each}
+										{#each Array.from({ length: getFirstDayOfMonth(calendarYear, calendarMonth) }, (_, i) => i) as emptyIdx (`empty-${emptyIdx}`)}
+											<div></div>
+										{/each}
+										{#each Array.from({ length: getDaysInMonth(calendarYear, calendarMonth) }, (_, i) => i) as dayIdx (`day-${dayIdx}`)}
+											{@const day = dayIdx + 1}
+											{@const key = `${calendarYear}-${calendarMonth}-${day}`}
+											{@const hasBackup = backupDaysByDate().has(key)}
+											<button
+												type="button"
+												class="flex size-9 items-center justify-center rounded-md text-sm transition-colors
+													{hasBackup
+													? 'cursor-pointer bg-blue-100 font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:hover:bg-blue-800'
+													: 'text-muted-foreground hover:bg-muted cursor-default'}"
+												onclick={() => handleCalendarDayClick(day)}
+												disabled={!hasBackup}
+											>
+												{day}
+											</button>
+										{/each}
+									</div>
+									<p class="text-muted-foreground text-xs">
+										Blue-highlighted days have auto-backups. Click a day to restore.
+									</p>
 								</div>
-							{/each}
-						</div>
+							</Tabs.Content>
+						</Tabs.Root>
 					{/if}
 				</Card.Content>
 			</Card.Root>
@@ -625,6 +775,42 @@
 				<Button
 					variant="destructive"
 					onclick={handleRestore}
+					disabled={restoreConfirmText !== 'RESTORE' || isRestoring}
+				>
+					{isRestoring ? 'Restoring...' : 'Restore'}
+				</Button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Calendar Restore Dialog -->
+{#if showCalendarRestoreDialog}
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+		<div
+			class="absolute inset-0 bg-black/50"
+			onclick={() => (showCalendarRestoreDialog = false)}
+			role="button"
+			tabindex="0"
+			onkeydown={(e) => e.key === 'Escape' && (showCalendarRestoreDialog = false)}
+		></div>
+		<div class="bg-background relative w-full max-w-md rounded-lg border p-6 shadow-lg">
+			<h2 class="text-lg font-semibold">Restore from Calendar</h2>
+			<div class="py-4">
+				<p class="text-destructive text-sm font-medium">
+					Warning: This will replace ALL existing data.
+				</p>
+				<p class="mt-2 text-sm">
+					Type <code class="rounded bg-red-100 px-1 dark:bg-red-950">RESTORE</code> to confirm.
+				</p>
+				<Input bind:value={restoreConfirmText} placeholder="Type RESTORE" class="mt-4" />
+			</div>
+			<div class="flex justify-end gap-2">
+				<Button variant="outline" onclick={() => (showCalendarRestoreDialog = false)}>Cancel</Button
+				>
+				<Button
+					variant="destructive"
+					onclick={handleCalendarRestore}
 					disabled={restoreConfirmText !== 'RESTORE' || isRestoring}
 				>
 					{isRestoring ? 'Restoring...' : 'Restore'}

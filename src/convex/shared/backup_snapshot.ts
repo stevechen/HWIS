@@ -16,6 +16,20 @@ const BACKUP_CHUNK_SIZE = 200_000;
 
 export const SNAPSHOT_VERSION = '1.0';
 
+/**
+ * Retention thresholds for backup pruning.
+ * Hot daily snapshots (system_cron) kept ~1 month.
+ * system_safety snapshots kept ~3 months.
+ * system_migration snapshots never pruned (IB/WASC 5-year obligation).
+ * Manual backups never pruned (user-created).
+ */
+export const RETENTION_DAYS = {
+	system_cron: 30,
+	system_safety: 90,
+	system_migration: Infinity,
+	manual: Infinity
+} as const;
+
 export type BackupSnapshot = {
 	exportedAt: string;
 	version: string;
@@ -79,6 +93,15 @@ export function getDefaultBackupName(source: BackupSource | undefined, createdAt
 	}
 }
 
+export async function createStoredBackup(
+	ctx: { db: GenericDatabaseWriter<DataModel> },
+	options: InsertBackupOptions = {}
+): Promise<{ backupId: Id<'backups'>; snapshot: BackupSnapshot }> {
+	const snapshot = await buildSnapshot(ctx);
+	const backupId = await insertBackupRecord(ctx, snapshot, options);
+	return { backupId, snapshot };
+}
+
 export async function insertBackupRecord(
 	ctx: { db: GenericDatabaseWriter<DataModel> },
 	snapshot: BackupSnapshot,
@@ -127,4 +150,39 @@ export async function insertBackupRecord(
 
 export function parseBackupSnapshot(chunks: { data: string }[]): BackupSnapshot {
 	return JSON.parse(chunks.map((chunk) => chunk.data).join('')) as BackupSnapshot;
+}
+
+export async function pruneOldBackups(ctx: {
+	db: GenericDatabaseReader<DataModel> & GenericDatabaseWriter<DataModel>;
+}): Promise<{ deleted: number; kept: number }> {
+	const now = Date.now();
+	const backups = await ctx.db.query('backups').collect();
+	let deleted = 0;
+	let kept = 0;
+
+	for (const backup of backups) {
+		const source = backup.source ?? 'manual';
+		const maxAge = RETENTION_DAYS[source];
+		if (maxAge === Infinity) {
+			kept++;
+			continue;
+		}
+
+		const maxAgeMs = maxAge * 24 * 60 * 60 * 1000;
+		if (now - backup.createdAt > maxAgeMs) {
+			const chunks = await ctx.db
+				.query('backup_chunks')
+				.withIndex('by_backupId', (q) => q.eq('backupId', backup._id))
+				.collect();
+			for (const chunk of chunks) {
+				await ctx.db.delete(chunk._id);
+			}
+			await ctx.db.delete(backup._id);
+			deleted++;
+		} else {
+			kept++;
+		}
+	}
+
+	return { deleted, kept };
 }

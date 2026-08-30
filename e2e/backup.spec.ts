@@ -156,7 +156,8 @@ test.describe('Backup Management @backup @sequential', () => {
 		await expect(page.getByText('backup-restore-test.json')).toBeVisible();
 
 		// Verify preview counts
-		await expect(page.getByText('1', { exact: true }).first()).toBeVisible();
+		const dialog = page.getByRole('heading', { name: 'Restore from JSON Backup' }).locator('..');
+		await expect(dialog.getByText('1', { exact: true }).first()).toBeVisible();
 
 		// Confirm Restore
 		await page.getByPlaceholder('Type RESTORE').fill('RESTORE');

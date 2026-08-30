@@ -2,6 +2,7 @@ import { expect, test, describe } from 'vitest';
 import { convexTest, modules, createStudentWithClass } from './test.setup';
 import schema from './schema';
 import { applyRestore, type RestorePayload } from './shared/restore_plan';
+import { SNAPSHOT_VERSION } from './shared/backup_snapshot';
 
 function emptyPayload(): RestorePayload {
 	return {
@@ -93,6 +94,15 @@ describe('restore plan', () => {
 	test('remaps student, teacher, and category IDs when recreating evaluations', async () => {
 		const t = convexTest(schema, modules);
 
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'restored-teacher',
+				name: 'Existing Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
 		const payload: RestorePayload = {
 			students: [
 				{
@@ -167,6 +177,15 @@ describe('restore plan', () => {
 
 	test('remaps class homeroom teacher IDs', async () => {
 		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'restored-teacher',
+				name: 'Existing Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
 
 		const payload: RestorePayload = {
 			students: [],
@@ -319,8 +338,92 @@ describe('restore plan', () => {
 		expect(houseEvents.find((e) => e.title === 'No Points Event')?.housePoints).toBeUndefined();
 	});
 
+	test('skips deleted users absent from live database, preserving their deletion', async () => {
+		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'live-teacher-auth',
+				name: 'Live Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const payload: RestorePayload = {
+			students: [],
+			evaluations: [
+				{
+					_id: 'eval_deleted_teacher',
+					studentId: 'missing_student',
+					teacherId: 'deleted_teacher_id',
+					value: 1,
+					categoryId: 'payload_cat',
+					details: 'Eval for deleted teacher',
+					timestamp: Date.now(),
+					semesterId: '2025-H1'
+				}
+			],
+			users: [
+				{
+					_id: 'live_teacher_id',
+					authId: 'live-teacher-auth',
+					name: 'Live Teacher Updated',
+					role: 'teacher',
+					status: 'active'
+				},
+				{
+					_id: 'deleted_teacher_id',
+					authId: 'deleted-teacher-auth',
+					name: 'Deleted Teacher',
+					role: 'teacher',
+					status: 'active'
+				}
+			],
+			categories: [
+				{
+					_id: 'payload_cat',
+					name: 'Restored Category',
+					meritCriteria: [],
+					demeritCriteria: [],
+					casAlignment: []
+				}
+			],
+			classes: [],
+			houseEvents: []
+		};
+
+		const result = await t.run(async (ctx) => applyRestore(ctx, payload));
+
+		const users = await t.run(async (ctx) => await ctx.db.query('users').collect());
+		expect(users).toHaveLength(1);
+		expect(users[0].authId).toBe('live-teacher-auth');
+		expect(users[0].name).toBe('Live Teacher Updated');
+
+		const deletedUser = await t.run(async (ctx) =>
+			(await ctx.db.query('users').collect()).find((u) => u.authId === 'deleted-teacher-auth')
+		);
+		expect(deletedUser).toBeNull();
+
+		expect(result.skippedEvaluations).toHaveLength(1);
+		expect(result.skippedEvaluations[0]).toContain('eval_deleted_teacher');
+		expect(result.skippedEvaluations[0]).toContain('not found');
+
+		const evaluations = await t.run(async (ctx) => await ctx.db.query('evaluations').collect());
+		expect(evaluations).toHaveLength(0);
+	});
+
 	test('reports skipped evaluations with reasons when a referenced entity is missing', async () => {
 		const t = convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'teacher',
+				name: 'Live Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
 
 		const payload: RestorePayload = {
 			students: [
@@ -391,5 +494,39 @@ describe('restore plan', () => {
 
 		const evaluations = await t.run(async (ctx) => await ctx.db.query('evaluations').collect());
 		expect(evaluations).toHaveLength(0);
+	});
+
+	test('refuses restore with incompatible schema version', async () => {
+		const t = convexTest(schema, modules);
+
+		const payload: RestorePayload = {
+			...emptyPayload(),
+			version: '999.0'
+		};
+
+		await expect(t.run(async (ctx) => applyRestore(ctx, payload))).rejects.toThrow(
+			/Incompatible schema version/
+		);
+	});
+
+	test('allows restore with matching schema version', async () => {
+		const t = convexTest(schema, modules);
+
+		const payload: RestorePayload = {
+			...emptyPayload(),
+			version: SNAPSHOT_VERSION
+		};
+
+		await expect(t.run(async (ctx) => applyRestore(ctx, payload))).resolves.toBeDefined();
+	});
+
+	test('allows restore with no version (legacy payload)', async () => {
+		const t = convexTest(schema, modules);
+
+		const payload: RestorePayload = {
+			...emptyPayload()
+		};
+
+		await expect(t.run(async (ctx) => applyRestore(ctx, payload))).resolves.toBeDefined();
 	});
 });

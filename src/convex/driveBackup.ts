@@ -1,8 +1,9 @@
 'use node';
 
-import { action, internalAction, type ActionCtx } from './_generated/server';
+import { action, internalAction } from './_generated/server';
 import { anyApi } from 'convex/server';
 import { canAccessAdminArea, type AccessSubject } from './shared/authorization';
+import type { BackupSnapshot } from './shared/backup_snapshot';
 
 async function getAccessToken(): Promise<string> {
 	const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -80,20 +81,9 @@ async function uploadToDrive(
 	return { fileId: data.id, createdTime: data.createdTime ?? new Date().toISOString() };
 }
 
-async function createDriveBackup(ctx: ActionCtx) {
-	const cronSecret = process.env.CRON_SECRET;
-	if (!cronSecret) {
-		throw new Error('CRON_SECRET is not configured');
-	}
-
-	const exportData = await ctx.runQuery(anyApi.backup.exportDataForCron, { cronSecret });
-	const backup = {
-		...exportData,
-		exportedAt: new Date().toISOString(),
-		version: '1.0'
-	};
+async function uploadSnapshotBackup(snapshot: BackupSnapshot) {
 	const filename = `backup-${new Date().toISOString().split('T')[0]}.json`;
-	const fileContent = JSON.stringify(backup, null, 2);
+	const fileContent = JSON.stringify(snapshot, null, 2);
 	const accessToken = await getAccessToken();
 	const { fileId, createdTime } = await uploadToDrive(accessToken, fileContent, filename);
 
@@ -103,12 +93,12 @@ async function createDriveBackup(ctx: ActionCtx) {
 		fileId,
 		createdTime,
 		stats: {
-			students: exportData.students.length,
-			evaluations: exportData.evaluations.length,
-			users: exportData.users.length,
-			categories: exportData.categories.length,
-			classes: exportData.classes.length,
-			houseEvents: exportData.houseEvents.length
+			students: snapshot.students.length,
+			evaluations: snapshot.evaluations.length,
+			users: snapshot.users.length,
+			categories: snapshot.categories.length,
+			classes: snapshot.classes.length,
+			houseEvents: snapshot.houseEvents.length
 		}
 	};
 }
@@ -125,11 +115,22 @@ export const backupToDrive = action({
 			throw new Error('Forbidden');
 		}
 
-		return createDriveBackup(ctx);
+		const cronSecret = process.env.CRON_SECRET;
+		if (!cronSecret) {
+			throw new Error('CRON_SECRET is not configured');
+		}
+
+		const snapshot = (await ctx.runQuery(anyApi.backup.exportDataForCron, {
+			cronSecret
+		})) as BackupSnapshot;
+		return uploadSnapshotBackup(snapshot);
 	}
 });
 
 export const scheduledBackup = internalAction({
 	args: {},
-	handler: async (ctx) => createDriveBackup(ctx)
+	handler: async (ctx) => {
+		const result = await ctx.runMutation(anyApi.backup.createDailyBackup, {});
+		return uploadSnapshotBackup(result.snapshot);
+	}
 });

@@ -1,8 +1,13 @@
-import { query, mutation } from './_generated/server';
+import { query, mutation, internalMutation } from './_generated/server';
 import { v } from 'convex/values';
 import { requireAdminForSensitiveOperation, requireSuperForSensitiveOperation } from './auth';
 import { canDownloadBackup, canRenameBackup, canDeleteBackup } from './shared/authorization';
-import { buildSnapshot, insertBackupRecord, parseBackupSnapshot } from './shared/backup_snapshot';
+import {
+	buildSnapshot,
+	createStoredBackup,
+	parseBackupSnapshot,
+	pruneOldBackups
+} from './shared/backup_snapshot';
 import { applyRestore, type RestorePayload } from './shared/restore_plan';
 import { runYearEndMigration } from './shared/migration_plan';
 
@@ -32,8 +37,7 @@ export const createBackup = mutation({
 	},
 	handler: async (ctx, args) => {
 		const user = await requireAdminForSensitiveOperation(ctx);
-		const snapshot = await buildSnapshot(ctx);
-		const backupId = await insertBackupRecord(ctx, snapshot, {
+		const { backupId, snapshot } = await createStoredBackup(ctx, {
 			name: args.name,
 			creatorId: user._id,
 			creatorName: user.name ?? (user.role === 'super' ? 'Super Admin' : 'Admin'),
@@ -73,14 +77,18 @@ export const restoreFromBackup = mutation({
 	}
 });
 
+export const createDailyBackup = internalMutation({
+	args: {},
+	handler: async (ctx) => createStoredBackup(ctx, { source: 'system_cron' })
+});
+
 export const restoreFromBackupPayload = mutation({
 	args: {
 		backupData: v.any()
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
-		const snapshot = await buildSnapshot(ctx);
-		await insertBackupRecord(ctx, snapshot, { source: 'system_safety' });
+		await createStoredBackup(ctx, { source: 'system_safety' });
 
 		const data = args.backupData as RestorePayload;
 		const { skippedEvaluations } = await applyRestore(ctx, data);
@@ -288,4 +296,17 @@ export const advanceGradesAndClearEvaluations = mutation({
 			message: `Advanced grades for ${result.gradesAdvanced} students, deleted ${result.grade12Deleted} grade 12 students, deleted ${result.notEnrolledDeleted} not enrolled students, cleared ${result.evaluationsCleared} evaluations and ${result.auditLogsCleared} audit logs, deleted ${result.eventsDeleted} events, deleted ${result.emptyClassesDeleted} empty classes`
 		};
 	}
+});
+
+export const pruneExpiredBackups = mutation({
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
+		return await pruneOldBackups(ctx);
+	}
+});
+
+export const runPruneExpiredBackups = internalMutation({
+	args: {},
+	handler: async (ctx) => pruneOldBackups(ctx)
 });

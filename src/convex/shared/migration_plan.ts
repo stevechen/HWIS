@@ -12,7 +12,7 @@
 import type { Id } from '../_generated/dataModel';
 import type { GenericDatabaseWriter } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
-import { buildSnapshot, insertBackupRecord } from './backup_snapshot';
+import { createStoredBackup } from './backup_snapshot';
 
 export type MigrationResult = {
 	gradesAdvanced: number;
@@ -29,8 +29,7 @@ export async function runYearEndMigration(
 	options: { e2eTag?: string }
 ): Promise<MigrationResult> {
 	// Auto-backup first so the migration can be rolled back from a snapshot.
-	const snapshot = await buildSnapshot(ctx);
-	await insertBackupRecord(ctx, snapshot, {
+	await createStoredBackup(ctx, {
 		source: 'system_migration',
 		e2eTag: options.e2eTag
 	});

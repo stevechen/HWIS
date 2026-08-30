@@ -657,3 +657,82 @@ describe('users.seedPendingUser', () => {
 		expect(count).toBe(1);
 	});
 });
+
+describe('users.deleteUserAfter5Years', () => {
+	it('deletes a user disabled for more than 5 years', async () => {
+		setTestAuthRole('super');
+		const t = convexTest(schema, modules);
+		const fiveYearsAndOneDay = 5 * 365.25 * 24 * 60 * 60 * 1000 + 86400000;
+
+		const userId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'old-deleted-teacher',
+				name: 'Old Deleted Teacher',
+				role: 'teacher',
+				status: 'pending',
+				deactivatedAt: Date.now() - fiveYearsAndOneDay
+			});
+		});
+
+		await t.mutation(api.users.deleteUserAfter5Years, { userId });
+
+		const user = await t.run(async (ctx) => ctx.db.get(userId));
+		expect(user).toBeNull();
+	});
+
+	it('rejects deletion of a user disabled for less than 5 years', async () => {
+		setTestAuthRole('super');
+		const t = convexTest(schema, modules);
+
+		const userId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'recent-deleted-teacher',
+				name: 'Recent Deleted Teacher',
+				role: 'teacher',
+				status: 'pending',
+				deactivatedAt: Date.now() - 1000
+			});
+		});
+
+		await expect(t.mutation(api.users.deleteUserAfter5Years, { userId })).rejects.toThrow(
+			/5 years/
+		);
+	});
+
+	it('rejects deletion of a non-disabled user', async () => {
+		setTestAuthRole('super');
+		const t = convexTest(schema, modules);
+
+		const userId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'active-teacher',
+				name: 'Active Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		await expect(t.mutation(api.users.deleteUserAfter5Years, { userId })).rejects.toThrow(
+			/not disabled/
+		);
+	});
+
+	it('rejects deletion by non-super admin', async () => {
+		const t = convexTest(schema, modules);
+		setTestAuthRole('admin');
+
+		const userId = await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'old-teacher',
+				name: 'Old Teacher',
+				role: 'teacher',
+				status: 'pending',
+				deactivatedAt: Date.now() - 5 * 365.25 * 24 * 60 * 60 * 1000 - 1
+			});
+		});
+
+		await expect(t.mutation(api.users.deleteUserAfter5Years, { userId })).rejects.toThrow();
+
+		setTestAuthRole('super');
+	});
+});

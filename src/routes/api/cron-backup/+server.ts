@@ -7,10 +7,14 @@ import { getConvexUrlFromToken } from '$lib/server/convex-url';
 import type { RequestEvent } from '@sveltejs/kit';
 
 type BackupExportPayload = {
-	students?: unknown[];
-	evaluations?: unknown[];
-	users?: unknown[];
-	categories?: unknown[];
+	exportedAt: string;
+	version: string;
+	students: unknown[];
+	evaluations: unknown[];
+	users: unknown[];
+	categories: unknown[];
+	classes: unknown[];
+	houseEvents: unknown[];
 };
 
 async function isAdminRequest(event: RequestEvent): Promise<boolean> {
@@ -77,10 +81,9 @@ export async function GET(event: RequestEvent) {
 			});
 		}
 
-		const data = isCronRequest
+		const backup = isCronRequest
 			? await fetchBackupDataForCron()
 			: await fetchBackupDataForAdmin(event.locals.token!);
-		const backup = { exportedAt: new Date().toISOString(), version: '1.0', ...data };
 
 		const filename = `backup-${new Date().toISOString().split('T')[0]}.json`;
 		const fileContent = JSON.stringify(backup, null, 2);
@@ -107,10 +110,12 @@ export async function GET(event: RequestEvent) {
 				filename,
 				fileId,
 				stats: {
-					students: data.students?.length ?? 0,
-					evaluations: data.evaluations?.length ?? 0,
-					users: data.users?.length ?? 0,
-					categories: data.categories?.length ?? 0
+					students: backup.students.length,
+					evaluations: backup.evaluations.length,
+					users: backup.users.length,
+					categories: backup.categories.length,
+					classes: backup.classes.length,
+					houseEvents: backup.houseEvents.length
 				}
 			}),
 			{ headers: { 'Content-Type': 'application/json' } }
