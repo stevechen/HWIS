@@ -13,9 +13,7 @@
 		Play,
 		Upload,
 		AlertTriangle,
-		Pencil,
-		ChevronLeft,
-		ChevronRight
+		Pencil
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
@@ -23,6 +21,8 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { useViewer } from '$lib/viewer.svelte';
 	import { sanitizeFilename } from '$lib/utils/backup';
+	import * as Calendar from '$lib/components/ui/calendar';
+	import { getLocalTimeZone, today, type DateValue } from '@internationalized/date';
 
 	const client = useConvexClient();
 	const adminAuth = getContext<{ loaded: boolean; isAdmin: boolean }>('adminAuth');
@@ -60,8 +60,9 @@
 	let isFileRestoring = $state(false);
 	let isDragging = $state(false);
 	let historyTab = $state('list');
-	let calendarMonth = $state(new Date().getMonth());
-	let calendarYear = $state(new Date().getFullYear());
+	// Two-month view defaults to the previous month + current month, since this
+	// calendar is used to pick past backups to restore.
+	let calendarPlaceholder = $state(today(getLocalTimeZone()).subtract({ months: 1 }));
 	let selectedCalendarBackupId = $state<Id<'backups'> | null>(null);
 	let showCalendarRestoreDialog = $state(false);
 
@@ -109,34 +110,8 @@
 		return map;
 	});
 
-	function getDaysInMonth(year: number, month: number) {
-		return new Date(year, month + 1, 0).getDate();
-	}
-
-	function getFirstDayOfMonth(year: number, month: number) {
-		return new Date(year, month, 1).getDay();
-	}
-
-	function prevMonth() {
-		if (calendarMonth === 0) {
-			calendarMonth = 11;
-			calendarYear--;
-		} else {
-			calendarMonth--;
-		}
-	}
-
-	function nextMonth() {
-		if (calendarMonth === 11) {
-			calendarMonth = 0;
-			calendarYear++;
-		} else {
-			calendarMonth++;
-		}
-	}
-
-	function handleCalendarDayClick(day: number) {
-		const key = `${calendarYear}-${calendarMonth}-${day}`;
+	function handleCalendarDayClick(day: DateValue) {
+		const key = `${day.year}-${day.month - 1}-${day.day}`;
 		const backupsForDay = backupDaysByDate().get(key);
 		if (backupsForDay && backupsForDay.length > 0) {
 			const latest = backupsForDay.reduce((a, b) => (a.createdAt > b.createdAt ? a : b));
@@ -605,46 +580,47 @@
 							</Tabs.Content>
 							<Tabs.Content value="calendar">
 								<div class="space-y-4">
-									<div class="flex items-center justify-between">
-										<Button variant="outline" size="sm" onclick={prevMonth}>
-											<ChevronLeft class="size-4" />
-										</Button>
-										<h3 class="text-sm font-medium">
-											{new Date(calendarYear, calendarMonth).toLocaleDateString('en-US', {
-												month: 'long',
-												year: 'numeric'
-											})}
-										</h3>
-										<Button variant="outline" size="sm" onclick={nextMonth}>
-											<ChevronRight class="size-4" />
-										</Button>
-									</div>
-									<div class="grid grid-cols-7 gap-1 text-center text-xs">
-										{#each ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as day (day)}
-											<div class="text-muted-foreground font-medium">{day}</div>
-										{/each}
-										{#each Array.from({ length: getFirstDayOfMonth(calendarYear, calendarMonth) }, (_, i) => i) as emptyIdx (`empty-${emptyIdx}`)}
-											<div></div>
-										{/each}
-										{#each Array.from({ length: getDaysInMonth(calendarYear, calendarMonth) }, (_, i) => i) as dayIdx (`day-${dayIdx}`)}
-											{@const day = dayIdx + 1}
-											{@const key = `${calendarYear}-${calendarMonth}-${day}`}
+									<Calendar.Root
+										type="single"
+										bind:placeholder={calendarPlaceholder}
+										numberOfMonths={2}
+										class="mx-auto w-fit"
+									>
+										{#snippet day({ day: date, outsideMonth })}
+											{@const key = `${date.year}-${date.month - 1}-${date.day}`}
 											{@const hasBackup = backupDaysByDate().has(key)}
-											<button
-												type="button"
-												class="flex size-9 items-center justify-center rounded-md text-sm transition-colors
-													{hasBackup
-													? 'cursor-pointer bg-blue-100 font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:hover:bg-blue-800'
-													: 'text-muted-foreground hover:bg-muted cursor-default'}"
-												onclick={() => handleCalendarDayClick(day)}
-												disabled={!hasBackup}
-											>
-												{day}
-											</button>
-										{/each}
-									</div>
-									<p class="text-muted-foreground text-xs">
-										Blue-highlighted days have auto-backups. Click a day to restore.
+											{@const dateToday = today(getLocalTimeZone())}
+											{@const isToday =
+												date.year === dateToday.year &&
+												date.month === dateToday.month &&
+												date.day === dateToday.day}
+											{#if outsideMonth}
+												<Calendar.Day class="pointer-events-none opacity-30">
+													{date.day}
+												</Calendar.Day>
+											{:else if hasBackup}
+												<Calendar.Day
+													class="cursor-pointer bg-blue-600 font-semibold text-white shadow-sm hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400"
+													onclick={() => handleCalendarDayClick(date)}
+													data-testid="backup-calendar-day"
+												>
+													{date.day}
+												</Calendar.Day>
+											{:else}
+												<Calendar.Day
+													class={isToday
+														? 'pointer-events-none font-medium'
+														: 'text-muted-foreground pointer-events-none'}
+													aria-disabled="true"
+												>
+													{date.day}
+												</Calendar.Day>
+											{/if}
+										{/snippet}
+									</Calendar.Root>
+									<p class="text-muted-foreground text-center text-xs">
+										Blue-highlighted days have auto-backups. Today is ringed. Click a day to
+										restore.
 									</p>
 								</div>
 							</Tabs.Content>

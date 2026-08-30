@@ -277,6 +277,86 @@ describe('Backup Admin Page', () => {
 		);
 	});
 
+	it('renders Daily calendar tab without the old Test tab', async () => {
+		mockBackups = [
+			{
+				_id: 'backup-1',
+				filename: 'backup-1.json',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			}
+		];
+		render(BackupPage);
+
+		await expect.element(page.getByRole('tab', { name: 'Snapshots' })).toBeInTheDocument();
+		await expect.element(page.getByRole('tab', { name: 'Daily' })).toBeInTheDocument();
+		await expect.element(page.getByRole('tab', { name: 'Test' })).not.toBeInTheDocument();
+	});
+
+	it('renders a compact centered calendar with two month grids in the Daily tab', async () => {
+		mockBackups = [
+			{
+				_id: 'backup-1',
+				filename: 'backup-1.json',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			}
+		];
+		render(BackupPage);
+
+		await page.getByRole('tab', { name: 'Daily' }).click();
+
+		// Weekday header and day cells are present
+		await expect.element(page.getByText('Su', { exact: true }).first()).toBeInTheDocument();
+		await expect.element(page.getByRole('grid').first()).toBeInTheDocument();
+		// Two months side-by-side: previous month heading plus the current month's
+		// (default view picks past backups, so it's previous + current)
+		const fmt = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
+		const now = new Date();
+		const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+		await expect
+			.element(page.getByRole('heading', { name: fmt.format(prevMonthDate), exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('heading', { name: fmt.format(now), exact: true }))
+			.toBeInTheDocument();
+		// Legend centered under the calendar
+		await expect
+			.element(
+				page.getByText(
+					'Blue-highlighted days have auto-backups. Today is ringed. Click a day to restore.'
+				)
+			)
+			.toBeInTheDocument();
+	});
+
+	it('highlights days with auto-backups using the solid clickable style', async () => {
+		mockBackups = [
+			{
+				_id: 'backup-cron',
+				filename: 'backup-cron.json',
+				source: 'system_cron',
+				createdAt: Date.now(), // today -> highlighted day
+				data: { students: [] }
+			}
+		];
+		render(BackupPage);
+
+		await page.getByRole('tab', { name: 'Daily' }).click();
+
+		// Select the clickable (auto-backup) day via a stable testid rather than
+		// matching a day number, since duplicate day numbers appear across the
+		// two month grids (previous + current) and inside-month outside-cells.
+		const todayDay = String(new Date().getDate());
+		const todayCell = page.getByTestId('backup-calendar-day');
+		await expect.element(todayCell).toBeInTheDocument();
+		await expect.element(todayCell).toHaveTextContent(todayDay);
+		await expect.element(todayCell).toHaveClass(/bg-blue-600/);
+		await expect.element(todayCell).toHaveClass(/text-white/);
+	});
+
 	it('sanitizeFilename replaces unsafe characters with underscores', async () => {
 		expect(sanitizeFilename('My/Backup: Name?.json')).toBe('My_Backup__Name_.json');
 		expect(sanitizeFilename('plain-name_1.txt')).toBe('plain-name_1.txt');

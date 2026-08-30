@@ -29,7 +29,10 @@ export default defineConfig({
 		alias: {
 			$tests: resolve(__dirname, 'tests'),
 			$src: resolve(__dirname, 'src')
-		}
+		},
+		// Ensure a single instance of @internationalized/date, otherwise instanceof
+		// checks in bits-ui (e.g. getDateValueType) fail with "Unknown date type".
+		dedupe: ['@internationalized/date']
 	},
 
 	test: {
