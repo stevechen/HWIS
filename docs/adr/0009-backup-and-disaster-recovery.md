@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by ADR-0012 for backup/restore organization, retention tiers, and restore boundaries, and by ADR-0013 for schema compatibility. This ADR remains accurate for the existing snapshot format, ownership/permissions model, and Drive upload mechanism.
 
 ## Context
 

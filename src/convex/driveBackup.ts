@@ -2,7 +2,6 @@
 
 import { action, internalAction, type ActionCtx } from './_generated/server';
 import { anyApi } from 'convex/server';
-import type { Doc } from './_generated/dataModel';
 import { canAccessAdminArea, type AccessSubject } from './shared/authorization';
 
 async function getAccessToken(): Promise<string> {
@@ -87,20 +86,11 @@ async function createDriveBackup(ctx: ActionCtx) {
 		throw new Error('CRON_SECRET is not configured');
 	}
 
-	const exportData = (await ctx.runQuery(anyApi.backup.exportDataForCron, { cronSecret })) as {
-		students: Doc<'students'>[];
-		evaluations: Doc<'evaluations'>[];
-		users: Doc<'users'>[];
-		categories: Doc<'point_categories'>[];
-	};
-	const { students: studentData, evaluations, users, categories } = exportData;
+	const exportData = await ctx.runQuery(anyApi.backup.exportDataForCron, { cronSecret });
 	const backup = {
+		...exportData,
 		exportedAt: new Date().toISOString(),
-		version: '1.0',
-		students: studentData,
-		evaluations,
-		users,
-		categories
+		version: '1.0'
 	};
 	const filename = `backup-${new Date().toISOString().split('T')[0]}.json`;
 	const fileContent = JSON.stringify(backup, null, 2);
@@ -113,10 +103,12 @@ async function createDriveBackup(ctx: ActionCtx) {
 		fileId,
 		createdTime,
 		stats: {
-			students: studentData.length,
-			evaluations: evaluations.length,
-			users: users.length,
-			categories: categories.length
+			students: exportData.students.length,
+			evaluations: exportData.evaluations.length,
+			users: exportData.users.length,
+			categories: exportData.categories.length,
+			classes: exportData.classes.length,
+			houseEvents: exportData.houseEvents.length
 		}
 	};
 }
