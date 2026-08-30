@@ -16,18 +16,26 @@
 			<section>
 				<h2 class="mb-1 text-base font-semibold text-gray-800">1. Overview</h2>
 				<p>
-					The HWIS CAS Point System supports teachers in encouraging students' positive behavior
-					by awarding evaluation points, and provides administrators with oversight and reporting.
-					This policy explains the personal data the system handles and how we protect it.
+					The HWIS CAS Point System supports teachers in encouraging students' positive behavior by
+					awarding evaluation points, and provides administrators with oversight and reporting. This
+					policy explains the personal data the system handles and how we protect it.
 				</p>
 			</section>
 
 			<section>
 				<h2 class="mb-1 text-base font-semibold text-gray-800">2. Data we collect</h2>
 				<ul class="list-disc space-y-1 pl-5">
-					<li>Staff sign in with their school Google account. We receive your name and email for authentication.</li>
-					<li>We store your name, role, and account status in order to control access to the system.</li>
-					<li>We store evaluation records (points awarded to students under categories), including student names and IDs.</li>
+					<li>
+						Staff sign in with their school Google account. We receive your name and email for
+						authentication.
+					</li>
+					<li>
+						We store your name, role, and account status in order to control access to the system.
+					</li>
+					<li>
+						We store evaluation records (points awarded to students under categories), including
+						student names and IDs.
+					</li>
 					<li>We record house competition events and point totals.</li>
 				</ul>
 			</section>
@@ -42,11 +50,13 @@
 			</section>
 
 			<section>
-				<h2 class="mb-1 text-base font-semibold text-gray-800">4. How we store and protect the data</h2>
+				<h2 class="mb-1 text-base font-semibold text-gray-800">
+					4. How we store and protect the data
+				</h2>
 				<p>
-					Data is stored in a secured cloud database. Access is limited to authenticated staff,
-					with role-based permissions enforced at the server. Backups are taken for disaster
-					recovery and, where required by accreditation, records may be retained for up to five years.
+					Data is stored in a secured cloud database. Access is limited to authenticated staff, with
+					role-based permissions enforced at the server. Backups are taken for disaster recovery
+					and, where required by accreditation, records may be retained for up to five years.
 				</p>
 			</section>
 

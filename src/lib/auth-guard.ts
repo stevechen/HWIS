@@ -41,6 +41,16 @@ export function computeAuthRedirect(url: URL, auth: AuthState): string | null {
 	if (auth.isLoading) return null;
 	if (auth.isAuthenticated) return null;
 	if (url.pathname === '/login') return null;
+	if (isPublicPath(url.pathname)) return null;
 	const callbackUrl = `${url.pathname}${url.search}`;
 	return `/login?${CALLBACK_URL_PARAM}=${encodeURIComponent(callbackUrl)}`;
+}
+
+/**
+ * Paths reachable without authentication. External clients (e.g. Google's
+ * privacy-policy verifier) must be able to view these without being bounced
+ * to /login.
+ */
+export function isPublicPath(pathname: string): boolean {
+	return pathname === '/privacy';
 }
