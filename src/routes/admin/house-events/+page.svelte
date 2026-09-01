@@ -180,7 +180,7 @@
 
 	function openDisplay() {
 		if (browser) {
-			window.open('/admin/house-events/display', '_blank', 'noopener,noreferrer');
+			window.open('/display', '_blank', 'noopener,noreferrer');
 		}
 	}
 </script>

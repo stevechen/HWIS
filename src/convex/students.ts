@@ -1447,287 +1447,295 @@ export const assignHouse = mutation({
 	}
 });
 
-// Houses competition page - get statistics for all houses
+// Houses competition page - get statistics for all houses (internal shared logic)
+async function fetchHouseStats(ctx: QueryCtx) {
+	const HOUSES = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
+
+	// Use by_house index to fetch only housed students (4 indexed queries)
+	const studentGroups = await Promise.all(
+		HOUSES.map((house) =>
+			ctx.db
+				.query('students')
+				.withIndex('by_house', (q) => q.eq('house', house))
+				.collect()
+		)
+	);
+	const studentsWithHouses = studentGroups.flat();
+	const studentIds = studentsWithHouses.map((s) => s._id);
+
+	// Use by_studentId index to fetch evaluations for housed students
+	const evaluations = (
+		await Promise.all(
+			studentIds.map((id) =>
+				ctx.db
+					.query('evaluations')
+					.withIndex('by_studentId', (q) => q.eq('studentId', id))
+					.collect()
+			)
+		)
+	).flat();
+
+	const allEvents = await ctx.db.query('house_events').take(200);
+
+	const categories = await ctx.db.query('point_categories').take(100);
+	const categoryMap = new Map(categories.map((c) => [c._id, c]));
+
+	// Type for student points data
+	type StudentPointsData = {
+		studentId: string;
+		house: string;
+		englishName: string;
+		chineseName: string;
+		totalPoints: number;
+		positivePoints: number;
+		negativePoints: number;
+		pointsByCategory: Record<string, number>;
+		recentTotalPoints: number;
+		recentPositivePoints: number;
+		recentNegativePoints: number;
+		recentPointsByCategory: Record<string, number>;
+	};
+
+	const studentPointsMap = new Map<string, StudentPointsData>();
+
+	// Get timestamp for 30 days ago, rounded to day boundary for cache friendliness
+	const thirtyDaysAgo = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 86400000) * 86400000;
+
+	for (const student of studentsWithHouses) {
+		studentPointsMap.set(student._id, {
+			studentId: student.studentId,
+			house: student.house!,
+			englishName: student.englishName,
+			chineseName: student.chineseName,
+			totalPoints: 0,
+			positivePoints: 0,
+			negativePoints: 0,
+			pointsByCategory: {},
+			recentTotalPoints: 0,
+			recentPositivePoints: 0,
+			recentNegativePoints: 0,
+			recentPointsByCategory: {}
+		});
+	}
+
+	for (const eval_ of evaluations) {
+		const studentData = studentPointsMap.get(eval_.studentId);
+		if (!studentData) continue;
+
+		const category = categoryMap.get(eval_.categoryId);
+		const categoryName = category?.name || 'Unknown';
+
+		// All-time stats
+		if (!studentData.pointsByCategory[categoryName]) {
+			studentData.pointsByCategory[categoryName] = 0;
+		}
+		studentData.pointsByCategory[categoryName] += eval_.value;
+		studentData.totalPoints += eval_.value;
+
+		if (eval_.value > 0) {
+			studentData.positivePoints += eval_.value;
+		} else if (eval_.value < 0) {
+			studentData.negativePoints += eval_.value; // This is negative
+		}
+
+		// Recent stats (last 30 days)
+		const isRecent = eval_.timestamp && eval_.timestamp >= thirtyDaysAgo;
+		if (isRecent) {
+			if (!studentData.recentPointsByCategory[categoryName]) {
+				studentData.recentPointsByCategory[categoryName] = 0;
+			}
+			studentData.recentPointsByCategory[categoryName] += eval_.value;
+			studentData.recentTotalPoints += eval_.value;
+
+			if (eval_.value > 0) {
+				studentData.recentPositivePoints += eval_.value;
+			} else if (eval_.value < 0) {
+				studentData.recentNegativePoints += eval_.value;
+			}
+		}
+	}
+
+	const houseStats: Record<
+		string,
+		{
+			totalPoints: number;
+			recentTotalPoints: number;
+			studentCount: number;
+			pointsByCategory: Record<string, number>;
+			recentPointsByCategory: Record<string, number>;
+			topContributors: { studentId: string; englishName: string; totalPoints: number }[];
+			topContributorsRecent: { studentId: string; englishName: string; totalPoints: number }[];
+			growthOpportunities: { studentId: string; englishName: string; pointsLost: number }[];
+			growthOpportunitiesRecent: { studentId: string; englishName: string; pointsLost: number }[];
+		}
+	> = {};
+
+	for (const house of HOUSES) {
+		houseStats[house] = {
+			totalPoints: 0,
+			recentTotalPoints: 0,
+			studentCount: 0,
+			pointsByCategory: {},
+			recentPointsByCategory: {},
+			topContributors: [],
+			topContributorsRecent: [],
+			growthOpportunities: [],
+			growthOpportunitiesRecent: []
+		};
+	}
+
+	for (const [, studentData] of studentPointsMap) {
+		const stats = houseStats[studentData.house];
+		if (!stats) continue;
+
+		stats.totalPoints += studentData.totalPoints;
+		stats.recentTotalPoints += studentData.recentTotalPoints;
+		stats.studentCount++;
+
+		for (const [cat, points] of Object.entries(studentData.pointsByCategory)) {
+			if (!stats.pointsByCategory[cat]) {
+				stats.pointsByCategory[cat] = 0;
+			}
+			stats.pointsByCategory[cat] += points;
+		}
+
+		for (const [cat, points] of Object.entries(studentData.recentPointsByCategory)) {
+			if (!stats.recentPointsByCategory[cat]) {
+				stats.recentPointsByCategory[cat] = 0;
+			}
+			stats.recentPointsByCategory[cat] += points;
+		}
+	}
+
+	// Add house event points to house totals
+	const EVENTS_CATEGORY = 'Events';
+	for (const event of allEvents) {
+		if (!event.housePoints) continue;
+
+		for (const [houseName, housePoints] of Object.entries(event.housePoints)) {
+			const stats = houseStats[houseName];
+			if (!stats) continue;
+
+			stats.totalPoints += housePoints;
+			if (!stats.pointsByCategory[EVENTS_CATEGORY]) {
+				stats.pointsByCategory[EVENTS_CATEGORY] = 0;
+			}
+			stats.pointsByCategory[EVENTS_CATEGORY] += housePoints;
+
+			// If the event overlaps the last 30 days, also count it as recent
+			if (event.endDate >= thirtyDaysAgo) {
+				stats.recentTotalPoints += housePoints;
+				if (!stats.recentPointsByCategory[EVENTS_CATEGORY]) {
+					stats.recentPointsByCategory[EVENTS_CATEGORY] = 0;
+				}
+				stats.recentPointsByCategory[EVENTS_CATEGORY] += housePoints;
+			}
+		}
+	}
+
+	const studentsByHouse: Record<string, StudentPointsData[]> = {
+		Heracles: [],
+		Wukong: [],
+		Ixbalam: [],
+		Setna: []
+	};
+
+	for (const [, studentData] of studentPointsMap) {
+		if (studentsByHouse[studentData.house]) {
+			studentsByHouse[studentData.house].push(studentData);
+		}
+	}
+
+	for (const house of HOUSES) {
+		const houseStudents = studentsByHouse[house];
+
+		// Top contributors - All Time (by net points: positive - negative)
+		houseStats[house].topContributors = houseStudents
+			.filter((s) => s.totalPoints > 0)
+			.sort((a, b) => b.totalPoints - a.totalPoints)
+			.slice(0, 6)
+			.map((s) => ({
+				studentId: s.studentId,
+				englishName: s.englishName,
+				totalPoints: s.totalPoints
+			}));
+
+		// Top contributors - Most Recent (last 30 days)
+		houseStats[house].topContributorsRecent = houseStudents
+			.filter((s) => s.recentTotalPoints > 0)
+			.sort((a, b) => b.recentTotalPoints - a.recentTotalPoints)
+			.slice(0, 6)
+			.map((s) => ({
+				studentId: s.studentId,
+				englishName: s.englishName,
+				totalPoints: s.recentTotalPoints
+			}));
+
+		// Growth opportunities - All Time (students with negative points)
+		houseStats[house].growthOpportunities = houseStudents
+			.filter((s) => s.negativePoints < 0)
+			.sort((a, b) => a.negativePoints - b.negativePoints)
+			.slice(0, 6)
+			.map((s) => ({
+				studentId: s.studentId,
+				englishName: s.englishName,
+				pointsLost: Math.abs(s.negativePoints)
+			}));
+
+		// Growth opportunities - Most Recent (last 30 days)
+		houseStats[house].growthOpportunitiesRecent = houseStudents
+			.filter((s) => s.recentNegativePoints < 0)
+			.sort((a, b) => a.recentNegativePoints - b.recentNegativePoints)
+			.slice(0, 6)
+			.map((s) => ({
+				studentId: s.studentId,
+				englishName: s.englishName,
+				pointsLost: Math.abs(s.recentNegativePoints)
+			}));
+	}
+
+	const allCategories = [...new Set(categories.map((c) => c.name))];
+
+	const ranking = [...HOUSES].sort((a, b) => houseStats[b].totalPoints - houseStats[a].totalPoints);
+
+	const recentRanking = [...HOUSES].sort(
+		(a, b) => houseStats[b].recentTotalPoints - houseStats[a].recentTotalPoints
+	);
+
+	const result = HOUSES.map((house) => ({
+		house,
+		totalPoints: houseStats[house].totalPoints,
+		recentTotalPoints: houseStats[house].recentTotalPoints,
+		studentCount: houseStats[house].studentCount,
+		pointsByCategory: houseStats[house].pointsByCategory,
+		recentPointsByCategory: houseStats[house].recentPointsByCategory,
+		topContributors: houseStats[house].topContributors,
+		topContributorsRecent: houseStats[house].topContributorsRecent,
+		growthOpportunities: houseStats[house].growthOpportunities,
+		growthOpportunitiesRecent: houseStats[house].growthOpportunitiesRecent,
+		rank: ranking.indexOf(house) + 1,
+		recentRank: recentRanking.indexOf(house) + 1
+	}));
+
+	return {
+		houses: result,
+		ranking,
+		recentRanking,
+		categories: allCategories
+	};
+}
+
 export const getHouseStats = query({
 	args: {},
 	handler: async (ctx) => {
 		await requireAdminForSensitiveOperation(ctx);
+		return fetchHouseStats(ctx);
+	}
+});
 
-		const HOUSES = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
-
-		// Use by_house index to fetch only housed students (4 indexed queries)
-		const studentGroups = await Promise.all(
-			HOUSES.map((house) =>
-				ctx.db
-					.query('students')
-					.withIndex('by_house', (q) => q.eq('house', house))
-					.collect()
-			)
-		);
-		const studentsWithHouses = studentGroups.flat();
-		const studentIds = studentsWithHouses.map((s) => s._id);
-
-		// Use by_studentId index to fetch evaluations for housed students
-		const evaluations = (
-			await Promise.all(
-				studentIds.map((id) =>
-					ctx.db
-						.query('evaluations')
-						.withIndex('by_studentId', (q) => q.eq('studentId', id))
-						.collect()
-				)
-			)
-		).flat();
-
-		const allEvents = await ctx.db.query('house_events').take(200);
-
-		const categories = await ctx.db.query('point_categories').take(100);
-		const categoryMap = new Map(categories.map((c) => [c._id, c]));
-
-		// Type for student points data
-		type StudentPointsData = {
-			studentId: string;
-			house: string;
-			englishName: string;
-			chineseName: string;
-			totalPoints: number;
-			positivePoints: number;
-			negativePoints: number;
-			pointsByCategory: Record<string, number>;
-			recentTotalPoints: number;
-			recentPositivePoints: number;
-			recentNegativePoints: number;
-			recentPointsByCategory: Record<string, number>;
-		};
-
-		const studentPointsMap = new Map<string, StudentPointsData>();
-
-		// Get timestamp for 30 days ago, rounded to day boundary for cache friendliness
-		const thirtyDaysAgo = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 86400000) * 86400000;
-
-		for (const student of studentsWithHouses) {
-			studentPointsMap.set(student._id, {
-				studentId: student.studentId,
-				house: student.house!,
-				englishName: student.englishName,
-				chineseName: student.chineseName,
-				totalPoints: 0,
-				positivePoints: 0,
-				negativePoints: 0,
-				pointsByCategory: {},
-				recentTotalPoints: 0,
-				recentPositivePoints: 0,
-				recentNegativePoints: 0,
-				recentPointsByCategory: {}
-			});
-		}
-
-		for (const eval_ of evaluations) {
-			const studentData = studentPointsMap.get(eval_.studentId);
-			if (!studentData) continue;
-
-			const category = categoryMap.get(eval_.categoryId);
-			const categoryName = category?.name || 'Unknown';
-
-			// All-time stats
-			if (!studentData.pointsByCategory[categoryName]) {
-				studentData.pointsByCategory[categoryName] = 0;
-			}
-			studentData.pointsByCategory[categoryName] += eval_.value;
-			studentData.totalPoints += eval_.value;
-
-			if (eval_.value > 0) {
-				studentData.positivePoints += eval_.value;
-			} else if (eval_.value < 0) {
-				studentData.negativePoints += eval_.value; // This is negative
-			}
-
-			// Recent stats (last 30 days)
-			const isRecent = eval_.timestamp && eval_.timestamp >= thirtyDaysAgo;
-			if (isRecent) {
-				if (!studentData.recentPointsByCategory[categoryName]) {
-					studentData.recentPointsByCategory[categoryName] = 0;
-				}
-				studentData.recentPointsByCategory[categoryName] += eval_.value;
-				studentData.recentTotalPoints += eval_.value;
-
-				if (eval_.value > 0) {
-					studentData.recentPositivePoints += eval_.value;
-				} else if (eval_.value < 0) {
-					studentData.recentNegativePoints += eval_.value;
-				}
-			}
-		}
-
-		const houseStats: Record<
-			string,
-			{
-				totalPoints: number;
-				recentTotalPoints: number;
-				studentCount: number;
-				pointsByCategory: Record<string, number>;
-				recentPointsByCategory: Record<string, number>;
-				topContributors: { studentId: string; englishName: string; totalPoints: number }[];
-				topContributorsRecent: { studentId: string; englishName: string; totalPoints: number }[];
-				growthOpportunities: { studentId: string; englishName: string; pointsLost: number }[];
-				growthOpportunitiesRecent: { studentId: string; englishName: string; pointsLost: number }[];
-			}
-		> = {};
-
-		for (const house of HOUSES) {
-			houseStats[house] = {
-				totalPoints: 0,
-				recentTotalPoints: 0,
-				studentCount: 0,
-				pointsByCategory: {},
-				recentPointsByCategory: {},
-				topContributors: [],
-				topContributorsRecent: [],
-				growthOpportunities: [],
-				growthOpportunitiesRecent: []
-			};
-		}
-
-		for (const [, studentData] of studentPointsMap) {
-			const stats = houseStats[studentData.house];
-			if (!stats) continue;
-
-			stats.totalPoints += studentData.totalPoints;
-			stats.recentTotalPoints += studentData.recentTotalPoints;
-			stats.studentCount++;
-
-			for (const [cat, points] of Object.entries(studentData.pointsByCategory)) {
-				if (!stats.pointsByCategory[cat]) {
-					stats.pointsByCategory[cat] = 0;
-				}
-				stats.pointsByCategory[cat] += points;
-			}
-
-			for (const [cat, points] of Object.entries(studentData.recentPointsByCategory)) {
-				if (!stats.recentPointsByCategory[cat]) {
-					stats.recentPointsByCategory[cat] = 0;
-				}
-				stats.recentPointsByCategory[cat] += points;
-			}
-		}
-
-		// Add house event points to house totals
-		const EVENTS_CATEGORY = 'Events';
-		for (const event of allEvents) {
-			if (!event.housePoints) continue;
-
-			for (const [houseName, housePoints] of Object.entries(event.housePoints)) {
-				const stats = houseStats[houseName];
-				if (!stats) continue;
-
-				stats.totalPoints += housePoints;
-				if (!stats.pointsByCategory[EVENTS_CATEGORY]) {
-					stats.pointsByCategory[EVENTS_CATEGORY] = 0;
-				}
-				stats.pointsByCategory[EVENTS_CATEGORY] += housePoints;
-
-				// If the event overlaps the last 30 days, also count it as recent
-				if (event.endDate >= thirtyDaysAgo) {
-					stats.recentTotalPoints += housePoints;
-					if (!stats.recentPointsByCategory[EVENTS_CATEGORY]) {
-						stats.recentPointsByCategory[EVENTS_CATEGORY] = 0;
-					}
-					stats.recentPointsByCategory[EVENTS_CATEGORY] += housePoints;
-				}
-			}
-		}
-
-		const studentsByHouse: Record<string, StudentPointsData[]> = {
-			Heracles: [],
-			Wukong: [],
-			Ixbalam: [],
-			Setna: []
-		};
-
-		for (const [, studentData] of studentPointsMap) {
-			if (studentsByHouse[studentData.house]) {
-				studentsByHouse[studentData.house].push(studentData);
-			}
-		}
-
-		for (const house of HOUSES) {
-			const houseStudents = studentsByHouse[house];
-
-			// Top contributors - All Time (by net points: positive - negative)
-			houseStats[house].topContributors = houseStudents
-				.filter((s) => s.totalPoints > 0)
-				.sort((a, b) => b.totalPoints - a.totalPoints)
-				.slice(0, 6)
-				.map((s) => ({
-					studentId: s.studentId,
-					englishName: s.englishName,
-					totalPoints: s.totalPoints
-				}));
-
-			// Top contributors - Most Recent (last 30 days)
-			houseStats[house].topContributorsRecent = houseStudents
-				.filter((s) => s.recentTotalPoints > 0)
-				.sort((a, b) => b.recentTotalPoints - a.recentTotalPoints)
-				.slice(0, 6)
-				.map((s) => ({
-					studentId: s.studentId,
-					englishName: s.englishName,
-					totalPoints: s.recentTotalPoints
-				}));
-
-			// Growth opportunities - All Time (students with negative points)
-			houseStats[house].growthOpportunities = houseStudents
-				.filter((s) => s.negativePoints < 0)
-				.sort((a, b) => a.negativePoints - b.negativePoints)
-				.slice(0, 6)
-				.map((s) => ({
-					studentId: s.studentId,
-					englishName: s.englishName,
-					pointsLost: Math.abs(s.negativePoints)
-				}));
-
-			// Growth opportunities - Most Recent (last 30 days)
-			houseStats[house].growthOpportunitiesRecent = houseStudents
-				.filter((s) => s.recentNegativePoints < 0)
-				.sort((a, b) => a.recentNegativePoints - b.recentNegativePoints)
-				.slice(0, 6)
-				.map((s) => ({
-					studentId: s.studentId,
-					englishName: s.englishName,
-					pointsLost: Math.abs(s.recentNegativePoints)
-				}));
-		}
-
-		const allCategories = [...new Set(categories.map((c) => c.name))];
-
-		const ranking = [...HOUSES].sort(
-			(a, b) => houseStats[b].totalPoints - houseStats[a].totalPoints
-		);
-
-		const recentRanking = [...HOUSES].sort(
-			(a, b) => houseStats[b].recentTotalPoints - houseStats[a].recentTotalPoints
-		);
-
-		const result = HOUSES.map((house) => ({
-			house,
-			totalPoints: houseStats[house].totalPoints,
-			recentTotalPoints: houseStats[house].recentTotalPoints,
-			studentCount: houseStats[house].studentCount,
-			pointsByCategory: houseStats[house].pointsByCategory,
-			recentPointsByCategory: houseStats[house].recentPointsByCategory,
-			topContributors: houseStats[house].topContributors,
-			topContributorsRecent: houseStats[house].topContributorsRecent,
-			growthOpportunities: houseStats[house].growthOpportunities,
-			growthOpportunitiesRecent: houseStats[house].growthOpportunitiesRecent,
-			rank: ranking.indexOf(house) + 1,
-			recentRank: recentRanking.indexOf(house) + 1
-		}));
-
-		return {
-			houses: result,
-			ranking,
-			recentRanking,
-			categories: allCategories
-		};
+export const getPublicHouseStats = query({
+	args: {},
+	handler: async (ctx) => {
+		return fetchHouseStats(ctx);
 	}
 });

@@ -52,5 +52,7 @@ export function computeAuthRedirect(url: URL, auth: AuthState): string | null {
  * to /login.
  */
 export function isPublicPath(pathname: string): boolean {
-	return pathname === '/privacy';
+	if (pathname === '/privacy') return true;
+	if (pathname === '/display' || pathname.startsWith('/display/')) return true;
+	return false;
 }
