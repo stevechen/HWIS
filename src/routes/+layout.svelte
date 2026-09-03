@@ -90,6 +90,11 @@
 				!(isStudentEvaluationPage && session.isStudent && session.isEnrolled)
 			);
 		}
+		const isDisplayPath =
+			$page.url.pathname === '/display' || $page.url.pathname.startsWith('/display/');
+		if (isDisplayPath) {
+			return !session.isApproved;
+		}
 		return false;
 	});
 
@@ -144,9 +149,7 @@
 
 	const headerTitle = $derived.by(() => $headerTitleOverride || titleFromPath);
 	const isDisplayPage = $derived(
-		$page.url.pathname === '/admin/house-events/display' ||
-			$page.url.pathname === '/display' ||
-			$page.url.pathname.startsWith('/display/')
+		$page.url.pathname === '/display' || $page.url.pathname.startsWith('/display/')
 	);
 
 	function handleBack() {
@@ -164,6 +167,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	<title>{headerTitle ? `${headerTitle} — HWIS CAS` : 'HWIS CAS'}</title>
 </svelte:head>
 
 <div class="relative min-h-screen">

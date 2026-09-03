@@ -5,10 +5,14 @@ import type { Id, Doc } from './_generated/dataModel';
 import {
 	requireAdminForSensitiveOperation,
 	requireSuperForSensitiveOperation,
+	getAuthenticatedUser,
+	isStudentEmail,
 	isTestRuntime,
 	isProdDeployment,
 	getEnvValue
 } from './auth';
+import { hasApplicationAccess } from './shared/authorization';
+import { resolveStudentFromEmail } from './shared/student';
 import { GRADES, getDisplayName, classSortPriority } from './shared/class_roster';
 import { assertUniqueStudentId } from './shared/student';
 import { displayStaffName } from './shared/staff_name';
@@ -1736,6 +1740,46 @@ export const getHouseStats = query({
 export const getPublicHouseStats = query({
 	args: {},
 	handler: async (ctx) => {
+		const authUser = (await getAuthenticatedUser(ctx)) as
+			| (Doc<'users'> & { email?: string })
+			| ({ email?: string; role?: string; status?: string; authId?: string; id?: string } & Record<
+					string,
+					unknown
+			  >)
+			| null;
+		if (!authUser) throw new Error('Unauthorized');
+
+		const email = (authUser as { email?: string }).email?.toLowerCase();
+		if (email && isStudentEmail(email)) {
+			const student = await resolveStudentFromEmail(email, ctx);
+			if (!student || student.status !== 'Enrolled') {
+				throw new Error('Forbidden: Student not enrolled');
+			}
+		} else {
+			// Staff path — require active staff (teacher/admin/super, status active)
+			const candidate = authUser as Doc<'users'>;
+			if (candidate.role && candidate.status) {
+				if (!hasApplicationAccess(candidate)) {
+					throw new Error('Forbidden: Active staff access required');
+				}
+			} else {
+				const authId =
+					(authUser as { authId?: string }).authId ||
+					(authUser as { id?: string }).id ||
+					(typeof (authUser as { _id?: string })._id === 'string'
+						? (authUser as { _id?: string })._id
+						: undefined);
+				if (!authId) throw new Error('Unauthorized');
+				const dbUser = await ctx.db
+					.query('users')
+					.withIndex('by_authId', (q) => q.eq('authId', authId))
+					.first();
+				if (!dbUser || !hasApplicationAccess(dbUser)) {
+					throw new Error('Forbidden: Active staff access required');
+				}
+			}
+		}
+
 		return fetchHouseStats(ctx);
 	}
 });

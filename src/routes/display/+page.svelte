@@ -6,8 +6,20 @@
 	import { CircleAlert, Medal, Star, TrendingUp, Trophy } from '@lucide/svelte';
 	import RadarChart from '$lib/components/RadarChart.svelte';
 	import { houseLogos } from '$lib/assets/house-logos';
+	import { useViewer } from '$lib/viewer.svelte';
 
 	let viewportWidth = $state(1920);
+
+	const loadingMessages = [
+		{ title: 'Summoning house magic…', subtitle: 'the Great Hall is waking up' },
+		{ title: 'Polishing the house cups…', subtitle: 'still a few smudges left' },
+		{ title: 'Herding house elves…', subtitle: 'they’re shy but willing' },
+		{ title: 'Counting every kind act…', subtitle: 'even the tiny ones count' },
+		{ title: 'Waking the portraits…', subtitle: 'they have gossip to share' }
+	];
+	let loadingMsgIndex = $state(0);
+	let hasMounted = $state(false);
+	let loadingInterval: ReturnType<typeof setInterval> | null = null;
 
 	onMount(() => {
 		if (!browser) return;
@@ -18,12 +30,25 @@
 		};
 		updateWidth();
 		window.addEventListener('resize', updateWidth);
+		// Pick a random starter so refresh isn't always "Summoning"
+		loadingMsgIndex = Math.floor(Math.random() * loadingMessages.length);
+		hasMounted = true;
+		// Rotate playful message while we wait for auth
+		const startInterval = () => {
+			if (loadingInterval) clearInterval(loadingInterval);
+			loadingInterval = setInterval(() => {
+				loadingMsgIndex = (loadingMsgIndex + 1) % loadingMessages.length;
+			}, 2600);
+		};
+		startInterval();
+		return () => window.removeEventListener('resize', updateWidth);
 	});
 
 	onDestroy(() => {
 		if (!browser) return;
 		document.documentElement.style.overflow = '';
 		document.body.style.overflow = '';
+		if (loadingInterval) clearInterval(loadingInterval);
 	});
 
 	type House = 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna';
@@ -93,7 +118,12 @@
 		4: 'bg-slate-50 text-slate-500 ring-slate-200'
 	};
 
-	const housesQuery = useQuery(api.students.getPublicHouseStats, () => ({}));
+	const session = useViewer();
+	const isAuthLoading = $derived(session.status === 'loading');
+
+	const housesQuery = useQuery(api.students.getPublicHouseStats, () =>
+		session.isApproved ? {} : 'skip'
+	);
 
 	const categories = $derived(housesQuery.data?.categories || []);
 	const houses = $derived(housesQuery.data?.houses || []);
@@ -148,6 +178,19 @@
 
 		return [{ label: houseData.house || 'Unknown', ...data }];
 	}
+
+	function toColumnMajor<T>(items: T[]): T[] {
+		if (items.length <= 2) return items;
+		const rows = Math.ceil(items.length / 2);
+		const result: T[] = [];
+		for (let r = 0; r < rows; r++) {
+			for (let c = 0; c < 2; c++) {
+				const idx = c * rows + r;
+				if (idx < items.length) result.push(items[idx]);
+			}
+		}
+		return result;
+	}
 </script>
 
 <svelte:head>
@@ -157,13 +200,43 @@
 <section
 	class="house-display-page h-screen overflow-hidden bg-slate-950 p-[clamp(0.75rem,1.5vw,100rem)] text-slate-950"
 >
-	{#if housesQuery.isLoading}
-		<div class="flex h-full items-center justify-center text-white">
-			<div
-				class="size-16 animate-spin rounded-full border-4 border-white/20 border-b-white"
-				role="status"
-				aria-label="Loading"
-			></div>
+	{#if isAuthLoading || housesQuery.isLoading}
+		<div class="flex h-full flex-col items-center justify-center gap-6 text-white">
+			<div class="relative">
+				<div
+					class="size-16 animate-spin rounded-full border-4 border-white/20 border-b-white"
+					role="status"
+					aria-label="Loading"
+				></div>
+				<div class="absolute inset-0 flex items-center justify-center">
+					<span class="animate-pulse text-2xl" aria-hidden="true">✨</span>
+				</div>
+			</div>
+			<div class="min-h-[3.5rem] text-center">
+				{#if hasMounted}
+					{#key loadingMsgIndex}
+						<p
+							class="animate-[slideInUp_0.5s_ease-out] text-[clamp(1.4rem,1.8vw,100rem)] font-semibold tracking-wide"
+						>
+							{loadingMessages[loadingMsgIndex].title}
+						</p>
+						<p class="mt-1 text-[clamp(1rem,1.2vw,100rem)] text-white/60">
+							{loadingMessages[loadingMsgIndex].subtitle}
+						</p>
+					{/key}
+				{/if}
+				<p class="mt-3 flex justify-center gap-1.5" aria-hidden="true">
+					<span
+						class="size-2 animate-bounce rounded-full bg-white/70 [animation-delay:0ms] [animation-duration:0.9s]"
+					></span>
+					<span
+						class="size-2 animate-bounce rounded-full bg-white/70 [animation-delay:150ms] [animation-duration:0.9s]"
+					></span>
+					<span
+						class="size-2 animate-bounce rounded-full bg-white/70 [animation-delay:300ms] [animation-duration:0.9s]"
+					></span>
+				</p>
+			</div>
 		</div>
 	{:else if housesQuery.error}
 		<div class="flex h-full flex-col items-center justify-center text-center text-white">
@@ -230,7 +303,7 @@
 						</div>
 
 						<div
-							class="min-h-0 overflow-hidden border-b border-slate-100 px-[clamp(1.5rem,2vw,100rem)] py-[clamp(0.6rem,1vw,100rem)] pb-4"
+							class="min-h-0 overflow-hidden border-b border-slate-100 px-[clamp(0.75rem,1vw,100rem)] py-[clamp(0.6rem,1vw,100rem)] pb-4"
 						>
 							<h3
 								class="mb-1 flex items-center gap-2 text-[clamp(1rem,1.2vw,100rem)] font-black text-slate-700"
@@ -240,18 +313,16 @@
 							</h3>
 							{#if houseData.topContributors && houseData.topContributors.length > 0}
 								<ul
-									class="grid grid-cols-2 gap-x-3 gap-y-1.5 pr-6 pl-2 text-[clamp(0.6rem,1vw,100rem)] leading-tight"
+									class="name-grid relative grid grid-cols-2 gap-x-3 gap-y-1.5 pr-0 pl-0 text-[clamp(0.6rem,1vw,100rem)] leading-tight"
 								>
-									{#each houseData.topContributors as contributor, index (contributor.studentId)}
-										<li class="animate-list-item flex min-w-0 items-center justify-between gap-2">
-											<span class="min-w-0 truncate font-semibold">
-												{index + 1}. {contributor.englishName}
-											</span>
+									{#each toColumnMajor(houseData.topContributors) as contributor (contributor.studentId)}
+										<li class="animate-list-item flex min-w-0 items-center gap-2">
 											<span class="shrink-0 font-black {colors.accent}">
 												{#key contributor.totalPoints}
 													<span class="animate-scale-in">+{contributor.totalPoints}</span>
 												{/key}
 											</span>
+											<span class="min-w-0 truncate font-semibold">{contributor.englishName}</span>
 										</li>
 									{/each}
 								</ul>
@@ -262,7 +333,7 @@
 							{/if}
 						</div>
 
-						<div class="min-h-0 overflow-hidden px-[clamp(1.5rem,2vw,100rem)] py-3 pb-5">
+						<div class="min-h-0 overflow-hidden px-[clamp(0.75rem,1vw,100rem)] py-3 pb-5">
 							<h3
 								class="mb-1 flex items-center gap-2 text-[clamp(1rem,1.2vw,100rem)] font-black text-slate-700"
 							>
@@ -274,16 +345,16 @@
 							</h3>
 							{#if houseData.growthOpportunities.length > 0}
 								<ul
-									class="grid grid-cols-2 gap-x-3 gap-y-1.5 pr-6 pl-2 text-[clamp(0.6rem,1vw,100rem)] leading-tight"
+									class="name-grid relative grid grid-cols-2 gap-x-3 gap-y-1.5 pr-0 pl-0 text-[clamp(0.6rem,1vw,100rem)] leading-tight"
 								>
-									{#each houseData.growthOpportunities as student (student.studentId)}
-										<li class="animate-list-item flex min-w-0 items-center justify-between gap-2">
-											<span class="min-w-0 truncate font-semibold">{student.englishName}</span>
+									{#each toColumnMajor(houseData.growthOpportunities) as student (student.studentId)}
+										<li class="animate-list-item flex min-w-0 items-center gap-2">
 											<span class="shrink-0 text-slate-500">
 												{#key student.pointsLost}
 													<span class="animate-scale-in">{student.pointsLost}</span>
 												{/key}
 											</span>
+											<span class="min-w-0 truncate font-semibold">{student.englishName}</span>
 										</li>
 									{/each}
 								</ul>
@@ -335,5 +406,17 @@
 	.animate-list-item {
 		animation: slideInUp 1s ease-out;
 		animation-fill-mode: both;
+	}
+
+	.name-grid::before {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 0;
+		bottom: 0;
+		width: 1px;
+		background: rgb(226 232 240 / 0.6);
+		transform: translateX(-50%);
+		pointer-events: none;
 	}
 </style>

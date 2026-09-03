@@ -67,7 +67,7 @@
 	// Calculate feature angles and coordinates
 	const featureData = $derived(
 		features.map((name, index) => {
-			const angle = Math.PI / 2 + (2 * Math.PI * index) / features.length;
+			const angle = Math.PI / 2 - (2 * Math.PI * index) / features.length;
 			return {
 				name,
 				angle,
@@ -114,7 +114,7 @@
 
 	function getPath(d: DataItem, features: string[], scale: d3.ScaleLinear<number, number>): string {
 		const points = features.map((f, i) => {
-			const angle = Math.PI / 2 + (2 * Math.PI * i) / features.length;
+			const angle = Math.PI / 2 - (2 * Math.PI * i) / features.length;
 			const value = Number(d[f]) || 0;
 			const coord = angleToCoordinate(angle, value, scale);
 			return `${coord.x},${coord.y}`;
@@ -141,7 +141,7 @@
 	function getGridPath(tick: number): string {
 		if (features.length === 0) return '';
 		const points = features.map((_, i) => {
-			const angle = Math.PI / 2 + (2 * Math.PI * i) / features.length;
+			const angle = Math.PI / 2 - (2 * Math.PI * i) / features.length;
 			const coord = angleToCoordinate(angle, tick, radialScale);
 			return `${coord.x},${coord.y}`;
 		});
@@ -209,7 +209,7 @@
 
 			<!-- Draw data points -->
 			{#each features as feature, fIdx (feature)}
-				{@const angle = Math.PI / 2 + (2 * Math.PI * fIdx) / features.length}
+				{@const angle = Math.PI / 2 - (2 * Math.PI * fIdx) / features.length}
 				{@const value = Number(d[feature]) || 0}
 				{@const coord = angleToCoordinate(angle, value, radialScale)}
 				<circle
