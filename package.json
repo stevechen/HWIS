@@ -29,7 +29,7 @@
 		"test:coverage:convex": "vitest run --coverage",
 		"test:coverage:e2e": "bash scripts/run-coverage-e2e.sh",
 		"coverage:merge": "bun run scripts/merge-coverage.ts",
-		"test:coverage": "bun run --parallel test:coverage:component test:coverage:convex && bun run test:coverage:e2e && bun run coverage:merge",
+		"test:coverage": "bun run test:coverage:convex && bun run test:coverage:component && bun run test:coverage:e2e && bun run coverage:merge",
 		"test:all": "bun run --parallel test:unit test:component && bash scripts/run-e2e.sh; bash scripts/notify-test-done.sh \"$?\"",
 		"test": "bun run --parallel test:unit test:e2e",
 		"precommit": "bun run lint",

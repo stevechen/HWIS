@@ -91,10 +91,8 @@
 			);
 		}
 		const isDisplayPath =
-			$page.url.pathname === '/leaderboard/houses' ||
-			$page.url.pathname.startsWith('/leaderboard/houses') ||
-			$page.url.pathname === '/display' ||
-			$page.url.pathname.startsWith('/display/');
+			($page.url.pathname as string).startsWith('/leaderboard') ||
+			($page.url.pathname as string).startsWith('/display');
 		if (isDisplayPath) {
 			return !session.isApproved;
 		}
@@ -152,10 +150,8 @@
 
 	const headerTitle = $derived.by(() => $headerTitleOverride || titleFromPath);
 	const isDisplayPage = $derived(
-		$page.url.pathname === '/leaderboard/houses' ||
-			$page.url.pathname.startsWith('/leaderboard/houses') ||
-			$page.url.pathname === '/display' ||
-			$page.url.pathname.startsWith('/display/')
+		($page.url.pathname as string).startsWith('/leaderboard') ||
+			($page.url.pathname as string).startsWith('/display')
 	);
 
 	function handleBack() {

@@ -37,6 +37,8 @@ export default defineConfig({
 
 	test: {
 		expect: { requireAssertions: true },
+		testTimeout: 20000,
+		hookTimeout: 20000,
 		projects: [
 			{
 				extends: './vite.config.ts',

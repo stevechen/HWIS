@@ -1465,19 +1465,16 @@ async function fetchHouseStats(ctx: QueryCtx) {
 		)
 	);
 	const studentsWithHouses = studentGroups.flat();
-	const studentIds = studentsWithHouses.map((s) => s._id);
-
-	// Use by_studentId index to fetch evaluations for housed students
-	const evaluations = (
-		await Promise.all(
-			studentIds.map((id) =>
-				ctx.db
-					.query('evaluations')
-					.withIndex('by_studentId', (q) => q.eq('studentId', id))
-					.collect()
-			)
-		)
-	).flat();
+	// Free-quota: replace N per-student indexed queries (N = housed students, ~300-400)
+	// with a single table scan + Set filter. Saves `databaseQueries` quota and
+	// reduces scheduler overhead; document reads stay O(relevant evals) when table
+	// is small-moderate (<10k). If evaluations grows large, switch to batched
+	// indexed fetch via scheduler to avoid full scan.
+	const studentIdSet = new Set(studentsWithHouses.map((s) => s._id as unknown as string));
+	const allEvalsForHouses = await ctx.db.query('evaluations').collect();
+	const evaluations = allEvalsForHouses.filter((ev) =>
+		studentIdSet.has(ev.studentId as unknown as string)
+	);
 
 	const allEvents = await ctx.db.query('house_events').take(200);
 
@@ -1781,5 +1778,174 @@ export const getPublicHouseStats = query({
 		}
 
 		return fetchHouseStats(ctx);
+	}
+});
+
+// Class leaderboard — aggregate evaluation points per class (Enrolled students only, all-time)
+// Shared logic so public + admin queries stay identical.
+async function fetchClassStats(ctx: QueryCtx) {
+	const allClasses = await ctx.db.query('classes').take(100);
+	const categories = await ctx.db.query('point_categories').take(100);
+	const categoryMap = new Map(categories.map((c) => [c._id, c]));
+
+	// Enrolled students only (house leaderboard likewise excludes non-enrolled implicitly via housed filter)
+	const enrolledStudents = await ctx.db
+		.query('students')
+		.withIndex('by_status', (q) => q.eq('status', 'Enrolled'))
+		.collect();
+
+	// Map student _id -> class display key helpers
+	const studentsByClassId = new Map<string, typeof enrolledStudents>();
+	for (const s of enrolledStudents) {
+		const key = s.classId as unknown as string;
+		if (!studentsByClassId.has(key)) studentsByClassId.set(key, []);
+		studentsByClassId.get(key)!.push(s);
+	}
+
+	// Free-quota: single scan + Set filter instead of N per-student queries
+	// (N ≈ enrolled students, ~500). Cuts `databaseQueries` from ~500 to 1.
+	const enrolledIdSet = new Set(enrolledStudents.map((s) => s._id as unknown as string));
+	const allEvalsForClasses = await ctx.db.query('evaluations').collect();
+	const evaluations = allEvalsForClasses.filter((ev) =>
+		enrolledIdSet.has(ev.studentId as unknown as string)
+	);
+
+	type PerStudent = { totalPoints: number; pointsByCategory: Record<string, number> };
+	const perStudent = new Map<string, PerStudent>();
+	for (const s of enrolledStudents) {
+		perStudent.set(s._id as unknown as string, { totalPoints: 0, pointsByCategory: {} });
+	}
+	for (const ev of evaluations) {
+		const entry = perStudent.get(ev.studentId as unknown as string);
+		if (!entry) continue;
+		const cat = categoryMap.get(ev.categoryId);
+		const catName = cat?.name ?? 'Unknown';
+		entry.pointsByCategory[catName] = (entry.pointsByCategory[catName] ?? 0) + ev.value;
+		entry.totalPoints += ev.value;
+	}
+
+	type ClassStat = {
+		classId: string;
+		grade: number;
+		class: string;
+		displayName: string;
+		totalPoints: number;
+		studentCount: number;
+		pointsByCategory: Record<string, number>;
+		rank: number;
+	};
+
+	const raws: Omit<ClassStat, 'rank'>[] = allClasses.map((cls) => {
+		const classStudents = studentsByClassId.get(cls._id as unknown as string) ?? [];
+		let totalPoints = 0;
+		const pointsByCategory: Record<string, number> = {};
+		for (const st of classStudents) {
+			const ps = perStudent.get(st._id as unknown as string);
+			if (!ps) continue;
+			totalPoints += ps.totalPoints;
+			for (const [cat, val] of Object.entries(ps.pointsByCategory)) {
+				pointsByCategory[cat] = (pointsByCategory[cat] ?? 0) + val;
+			}
+		}
+		return {
+			classId: cls._id as unknown as string,
+			grade: cls.grade,
+			class: cls.class,
+			displayName: getDisplayName(cls.grade, cls.class),
+			totalPoints,
+			studentCount: classStudents.length,
+			pointsByCategory
+		};
+	});
+
+	// Dense rank by totalPoints DESC, tie-break displayName ASC for determinism
+	const sortedByScore = [...raws].sort((a, b) => {
+		if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+		return a.displayName.localeCompare(b.displayName);
+	});
+	const rankById = new Map<string, number>();
+	let denseRank = 0;
+	let prevPoints: number | null = null;
+	for (const item of sortedByScore) {
+		if (prevPoints === null || item.totalPoints !== prevPoints) {
+			denseRank += 1;
+			prevPoints = item.totalPoints;
+		}
+		rankById.set(item.classId, denseRank);
+	}
+
+	const ranked: ClassStat[] = raws.map((r) => ({
+		...r,
+		rank: rankById.get(r.classId) ?? denseRank + 1
+	}));
+
+	// Alphabetical order for display (grade ASC -> classSortPriority ASC -> displayName)
+	const ordered = [...ranked].sort((a, b) => {
+		if (a.grade !== b.grade) return a.grade - b.grade;
+		const pa = classSortPriority(a.class);
+		const pb = classSortPriority(b.class);
+		if (pa !== pb) return pa - pb;
+		return a.displayName.localeCompare(b.displayName);
+	});
+
+	const allCategories = [...new Set(categories.map((c) => c.name))];
+
+	return {
+		classes: ordered,
+		categories: allCategories
+	};
+}
+
+export const getClassStats = query({
+	args: {},
+	handler: async (ctx) => {
+		await requireAdminForSensitiveOperation(ctx);
+		return fetchClassStats(ctx);
+	}
+});
+
+export const getPublicClassStats = query({
+	args: {},
+	handler: async (ctx) => {
+		const authUser = (await getAuthenticatedUser(ctx)) as
+			| (Doc<'users'> & { email?: string })
+			| ({ email?: string; role?: string; status?: string; authId?: string; id?: string } & Record<
+					string,
+					unknown
+			  >)
+			| null;
+		if (!authUser) throw new Error('Unauthorized');
+
+		const email = (authUser as { email?: string }).email?.toLowerCase();
+		if (email && isStudentEmail(email)) {
+			const student = await resolveStudentFromEmail(email, ctx);
+			if (!student || student.status !== 'Enrolled') {
+				throw new Error('Forbidden: Student not enrolled');
+			}
+		} else {
+			const candidate = authUser as Doc<'users'>;
+			if (candidate.role && candidate.status) {
+				if (!hasApplicationAccess(candidate)) {
+					throw new Error('Forbidden: Active staff access required');
+				}
+			} else {
+				const authId =
+					(authUser as { authId?: string }).authId ||
+					(authUser as { id?: string }).id ||
+					(typeof (authUser as { _id?: string })._id === 'string'
+						? (authUser as { _id?: string })._id
+						: undefined);
+				if (!authId) throw new Error('Unauthorized');
+				const dbUser = await ctx.db
+					.query('users')
+					.withIndex('by_authId', (q) => q.eq('authId', authId))
+					.first();
+				if (!dbUser || !hasApplicationAccess(dbUser)) {
+					throw new Error('Forbidden: Active staff access required');
+				}
+			}
+		}
+
+		return fetchClassStats(ctx);
 	}
 });
