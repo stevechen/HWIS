@@ -91,7 +91,10 @@
 			);
 		}
 		const isDisplayPath =
-			$page.url.pathname === '/display' || $page.url.pathname.startsWith('/display/');
+			$page.url.pathname === '/leaderboard/houses' ||
+			$page.url.pathname.startsWith('/leaderboard/houses') ||
+			$page.url.pathname === '/display' ||
+			$page.url.pathname.startsWith('/display/');
 		if (isDisplayPath) {
 			return !session.isApproved;
 		}
@@ -149,7 +152,10 @@
 
 	const headerTitle = $derived.by(() => $headerTitleOverride || titleFromPath);
 	const isDisplayPage = $derived(
-		$page.url.pathname === '/display' || $page.url.pathname.startsWith('/display/')
+		$page.url.pathname === '/leaderboard/houses' ||
+			$page.url.pathname.startsWith('/leaderboard/houses') ||
+			$page.url.pathname === '/display' ||
+			$page.url.pathname.startsWith('/display/')
 	);
 
 	function handleBack() {
@@ -234,7 +240,7 @@
 								</div>
 							{/if}
 							<span
-								class="[display:-webkit-box] min-w-0 [overflow:hidden] text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
+								class="[display:-webkit-box] min-w-0 overflow-hidden text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
 								title={headerTitle}>{headerTitle}</span
 							>
 						</h1>

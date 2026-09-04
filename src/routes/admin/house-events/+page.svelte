@@ -180,7 +180,7 @@
 
 	function openDisplay() {
 		if (browser) {
-			window.open('/display', '_blank', 'noopener,noreferrer');
+			window.open('/leaderboard/houses', '_blank', 'noopener,noreferrer');
 		}
 	}
 </script>

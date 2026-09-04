@@ -4,7 +4,7 @@ export class HouseEventsDisplayPage {
 	constructor(public page: Page) {}
 
 	async goto() {
-		await this.page.goto('/display');
+		await this.page.goto('/leaderboard/houses');
 		await this.page.waitForSelector('body.hydrated');
 	}
 

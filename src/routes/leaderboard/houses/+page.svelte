@@ -302,7 +302,7 @@
 			</filter>
 		</defs>
 	</svg>
-	<div class="vignette pointer-events-none absolute inset-0 z-[1]"></div>
+	<div class="vignette pointer-events-none absolute inset-0 z-1"></div>
 	{#if hasMounted}
 		<div class="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
 			{#each stars as m, i (i)}
@@ -325,7 +325,7 @@
 					<span class="animate-pulse text-2xl" aria-hidden="true">✨</span>
 				</div>
 			</div>
-			<div class="min-h-[3.5rem] text-center">
+			<div class="min-h-14 text-center">
 				{#if hasMounted}
 					{#key loadingMsgIndex}
 						<p
@@ -340,13 +340,13 @@
 				{/if}
 				<p class="mt-3 flex justify-center gap-1.5" aria-hidden="true">
 					<span
-						class="size-2 animate-bounce rounded-full bg-white/70 [animation-delay:0ms] [animation-duration:0.9s]"
+						class="animation-duration-[0.9s] size-2 animate-bounce rounded-full bg-white/70 [animation-delay:0ms]"
 					></span>
 					<span
-						class="size-2 animate-bounce rounded-full bg-white/70 [animation-delay:150ms] [animation-duration:0.9s]"
+						class="animation-duration-[0.9s] size-2 animate-bounce rounded-full bg-white/70 [animation-delay:150ms]"
 					></span>
 					<span
-						class="size-2 animate-bounce rounded-full bg-white/70 [animation-delay:300ms] [animation-duration:0.9s]"
+						class="animation-duration-[0.9s] size-2 animate-bounce rounded-full bg-white/70 [animation-delay:300ms]"
 					></span>
 				</p>
 			</div>
