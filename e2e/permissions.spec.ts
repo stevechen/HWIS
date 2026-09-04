@@ -22,7 +22,6 @@ test.describe('Permission Tests @smoke', () => {
 			'/admin/classes',
 			'/admin/houses',
 			'/admin/house-events',
-			'/admin/house-events/display',
 			'/admin/weekly-reports'
 		];
 

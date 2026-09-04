@@ -31,10 +31,10 @@
 
 	const center = $derived(size / 2);
 	const edgePadding = $derived(Math.max(8, Math.round(size * 0.02)));
-	const featureFontSize = $derived(Math.max(10, Math.round((12 * size) / 460)));
-	const tickFontSize = $derived(Math.max(8, Math.round((10 * size) / 460)));
-	const tickLabelOffset = $derived(Math.max(8, Math.round(size * 0.02)));
-	const featureLabelRadius = $derived(Math.max(0, center - edgePadding - featureFontSize));
+	const featureFontSize = $derived(Math.max(12, Math.round((15 * size) / 460)));
+	const tickFontSize = $derived(Math.max(10, Math.round((12 * size) / 460)));
+	const tickLabelOffset = $derived(Math.max(12, Math.round(size * 0.03)));
+	const featureLabelRadius = $derived(Math.max(0, center - edgePadding - featureFontSize + 4));
 	const labelGap = $derived(Math.max(30, Math.round(size * 0.075)));
 
 	function getFeatureInitial(name: string) {
@@ -167,7 +167,13 @@
 	<svg width={size} height={size}>
 		<!-- Draw circles for ticks -->
 		{#each uniqueTicks as tick (tick)}
-			<path d={getGridPath(tick)} fill="none" stroke="#e5e7eb" stroke-width="1" />
+			<path
+				d={getGridPath(tick)}
+				fill="none"
+				stroke={colors[0] ?? '#94a3b8'}
+				stroke-opacity="0.14"
+				stroke-width="1"
+			/>
 		{/each}
 
 		<!-- Draw axes -->
@@ -177,7 +183,8 @@
 				y1={center}
 				x2={feature.line.x}
 				y2={feature.line.y}
-				stroke="#e5e7eb"
+				stroke={colors[0] ?? '#94a3b8'}
+				stroke-opacity="0.2"
 				stroke-width="1"
 			/>
 		{/each}
@@ -190,7 +197,9 @@
 				text-anchor="middle"
 				dominant-baseline={getTickBaseline(labelAxisAngle)}
 				font-size={tickFontSize}
-				fill="#9ca3af"
+				font-weight="600"
+				fill="#f1f5f9"
+				fill-opacity="0.92"
 			>
 				{item.tick}
 			</text>
@@ -222,18 +231,25 @@
 			{/each}
 		{/each}
 
-		<!-- Draw feature labels -->
+		<!-- Draw feature labels: house-colored, brightest near-white, min still visible -->
 		{#each featureData as feature (feature.name)}
 			{@const x = center + featureLabelRadius * Math.cos(feature.angle)}
 			{@const y = center - featureLabelRadius * Math.sin(feature.angle)}
+			{@const raw = Number(chartData[0]?.[feature.name] ?? minValue)}
+			{@const norm = maxValue === minValue ? 0.5 : (raw - minValue) / (maxValue - minValue)}
+			{@const t = Math.max(0, Math.min(1, norm))}
+			{@const baseColor = colors[0] ?? '#94a3b8'}
+			{@const fill = d3.interpolateRgb(baseColor, '#f8fafc')(0.32 + 0.63 * Math.pow(t, 0.85))}
+			{@const opacity = 0.55 + 0.45 * t}
 			<text
 				{x}
 				{y}
 				text-anchor="middle"
 				dominant-baseline={getLabelBaseline(feature.angle)}
 				font-size={featureFontSize}
-				font-weight="500"
-				fill="#374151"
+				font-weight="800"
+				{fill}
+				fill-opacity={opacity}
 			>
 				{getFeatureInitial(feature.name)}
 			</text>
