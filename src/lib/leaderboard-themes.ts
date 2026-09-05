@@ -1,5 +1,10 @@
 export type LeaderboardThemeId = 'default' | 'thanksgiving' | 'christmas' | 'cny';
 
+export type WittyMessage = {
+	title: string;
+	subtitle: string;
+};
+
 export type LeaderboardTheme = {
 	label: string;
 	section: string;
@@ -13,6 +18,10 @@ export type LeaderboardTheme = {
 	wittyTitle: string;
 	wittySubtitle: string;
 	wittyEmoji: string;
+	/** Rotating follow-up jokes shown after the main message. */
+	wittyExtras: WittyMessage[];
+	/** Ambient glyph drifting behind the disabled screen (stars, leaves, snow, lanterns). */
+	mote: string;
 };
 
 export const LEADERBOARD_THEME_OPTIONS: { value: LeaderboardThemeId; label: string }[] = [
@@ -43,7 +52,18 @@ export const LEADERBOARD_THEMES: Record<LeaderboardThemeId, LeaderboardTheme> = 
 		pointsGlow: 'text-cyan-200 drop-shadow-[0_0_24px_rgba(120,220,255,0.8)]',
 		wittyTitle: 'The Great Hall is taking a nap…',
 		wittySubtitle: 'the house elves hid the scoreboard under a blanket of stars',
-		wittyEmoji: '✨'
+		wittyEmoji: '✨',
+		wittyExtras: [
+			{
+				title: 'The portraits are re-hanging the scores…',
+				subtitle: 'they argue about the order — it takes a while'
+			},
+			{
+				title: 'The star ceiling dimmed for intermission…',
+				subtitle: 'the house cups are being polished'
+			}
+		],
+		mote: '✦'
 	},
 	thanksgiving: {
 		label: 'Thanksgiving',
@@ -56,7 +76,18 @@ export const LEADERBOARD_THEMES: Record<LeaderboardThemeId, LeaderboardTheme> = 
 		pointsGlow: 'text-amber-200 drop-shadow-[0_0_24px_rgba(251,191,36,0.8)]',
 		wittyTitle: 'The turkeys ate the scoreboard…',
 		wittySubtitle: 'we are basting a fresh one — back after pie',
-		wittyEmoji: '🦃'
+		wittyEmoji: '🦃',
+		wittyExtras: [
+			{
+				title: 'The gravy boat overflowed onto the scores…',
+				subtitle: 'mopping up with dinner rolls'
+			},
+			{
+				title: 'The pie needs cooling before rankings…',
+				subtitle: 'patience smells like cinnamon'
+			}
+		],
+		mote: '🍂'
 	},
 	christmas: {
 		label: 'Christmas',
@@ -69,7 +100,18 @@ export const LEADERBOARD_THEMES: Record<LeaderboardThemeId, LeaderboardTheme> = 
 		pointsGlow: 'text-red-200 drop-shadow-[0_0_24px_rgba(252,165,165,0.8)]',
 		wittyTitle: 'Santa is checking the list… twice',
 		wittySubtitle: 'the reindeer knocked the scoreboard off the sleigh',
-		wittyEmoji: '🎄'
+		wittyEmoji: '🎄',
+		wittyExtras: [
+			{
+				title: 'The elves wrapped the scoreboard by mistake…',
+				subtitle: 'it looked like a present'
+			},
+			{
+				title: 'The hot cocoa break ran long…',
+				subtitle: 'marshmallows before mathematics'
+			}
+		],
+		mote: '❄'
 	},
 	cny: {
 		label: 'Chinese New Year',
@@ -82,7 +124,18 @@ export const LEADERBOARD_THEMES: Record<LeaderboardThemeId, LeaderboardTheme> = 
 		pointsGlow: 'text-yellow-200 drop-shadow-[0_0_24px_rgba(253,224,71,0.85)]',
 		wittyTitle: 'The lions are dancing past the scoreboard…',
 		wittySubtitle: 'red envelopes first, rankings right after',
-		wittyEmoji: '🧧'
+		wittyEmoji: '🧧',
+		wittyExtras: [
+			{
+				title: 'The firecrackers startled the scorekeeper…',
+				subtitle: 'counting resumes after the echoes'
+			},
+			{
+				title: 'The dumplings come before the data…',
+				subtitle: 'full stomachs rank better'
+			}
+		],
+		mote: '🏮'
 	}
 };
 
@@ -94,8 +147,5 @@ export function resolveLeaderboardThemeId(theme: string | undefined): Leaderboar
 }
 
 export function resolveLeaderboardTheme(theme: string | undefined): LeaderboardTheme {
-	if (theme === 'thanksgiving' || theme === 'christmas' || theme === 'cny') {
-		return LEADERBOARD_THEMES[theme];
-	}
-	return LEADERBOARD_THEMES.default;
+	return LEADERBOARD_THEMES[resolveLeaderboardThemeId(theme)];
 }
