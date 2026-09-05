@@ -8,11 +8,17 @@ import {
 	type LeaderboardThemeId
 } from '$lib/leaderboard-themes';
 
-const THEME_IDS: LeaderboardThemeId[] = ['default', 'thanksgiving', 'christmas', 'cny'];
+const THEME_IDS: LeaderboardThemeId[] = [
+	'default',
+	'thanksgiving-1',
+	'thanksgiving-2',
+	'christmas',
+	'cny'
+];
 const DEFAULT_LABEL = LEADERBOARD_THEMES.default.label;
 
 describe('leaderboard theme registry', () => {
-	it('offers exactly the four seasonal themes', async () => {
+	it('offers exactly the five seasonal themes', async () => {
 		expect(LEADERBOARD_THEME_OPTIONS.map((o) => o.value).sort()).toEqual([...THEME_IDS].sort());
 	});
 
@@ -29,7 +35,7 @@ describe('leaderboard theme registry', () => {
 		expect(resolveLeaderboardThemeId(id)).toBe(id);
 	});
 
-	it.each([undefined, '', 'easter', 'DEFAULT'])(
+	it.each([undefined, '', 'easter', 'DEFAULT', 'thanksgiving'])(
 		'falls back to default for unknown theme %s',
 		async (input) => {
 			expect(resolveLeaderboardThemeId(input)).toBe('default');
@@ -48,6 +54,7 @@ describe('leaderboard theme registry', () => {
 	it.each(THEME_IDS)('ships a complete %s theme bundle', async (id) => {
 		const theme = LEADERBOARD_THEMES[id];
 		// Style keys consumed by the leaderboard pages — every theme must define all of them.
+		// `ink` keeps loading/error chrome readable on light themes (parchment).
 		for (const key of [
 			'section',
 			'titleFont',
@@ -56,7 +63,8 @@ describe('leaderboard theme registry', () => {
 			'cardHeader',
 			'divider',
 			'panelTitle',
-			'pointsGlow'
+			'pointsGlow',
+			'ink'
 		] as const) {
 			expect(theme[key], key).toBeTruthy();
 		}

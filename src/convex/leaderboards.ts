@@ -5,13 +5,19 @@ import { requireAdminForSensitiveOperation } from './auth';
 const boardValidator = v.union(v.literal('houses'), v.literal('classes'));
 const themeValidator = v.union(
 	v.literal('default'),
-	v.literal('thanksgiving'),
+	v.literal('thanksgiving-1'),
+	v.literal('thanksgiving-2'),
 	v.literal('christmas'),
 	v.literal('cny')
 );
 
 export type LeaderboardBoard = 'houses' | 'classes';
-export type LeaderboardTheme = 'default' | 'thanksgiving' | 'christmas' | 'cny';
+export type LeaderboardTheme =
+	| 'default'
+	| 'thanksgiving-1'
+	| 'thanksgiving-2'
+	| 'christmas'
+	| 'cny';
 
 export type LeaderboardConfig = {
 	board: LeaderboardBoard;
@@ -40,16 +46,19 @@ function parseConfig(board: LeaderboardBoard, raw: string | undefined): Leaderbo
 	if (!raw) return defaultConfig(board);
 	try {
 		const parsed = JSON.parse(raw) as Partial<LeaderboardConfig>;
+		const validThemes: LeaderboardTheme[] = [
+			'default',
+			'thanksgiving-1',
+			'thanksgiving-2',
+			'christmas',
+			'cny'
+		];
 		return {
 			board,
 			enabled: typeof parsed.enabled === 'boolean' ? parsed.enabled : true,
-			theme:
-				parsed.theme === 'default' ||
-				parsed.theme === 'thanksgiving' ||
-				parsed.theme === 'christmas' ||
-				parsed.theme === 'cny'
-					? parsed.theme
-					: 'default',
+			theme: validThemes.includes(parsed.theme as LeaderboardTheme)
+				? (parsed.theme as LeaderboardTheme)
+				: 'default',
 			thumbnailUrl: typeof parsed.thumbnailUrl === 'string' ? parsed.thumbnailUrl : undefined,
 			updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : 0
 		};

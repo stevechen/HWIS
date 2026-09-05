@@ -22,7 +22,8 @@ describe('LeaderboardDisabled', () => {
 
 	it.each([
 		{ theme: 'default', title: 'The Great Hall is taking a nap…' },
-		{ theme: 'thanksgiving', title: 'The turkeys ate the scoreboard…' },
+		{ theme: 'thanksgiving-1', title: 'The turkeys ate the scoreboard…' },
+		{ theme: 'thanksgiving-2', title: 'By the hearth, the ink is drying…' },
 		{ theme: 'christmas', title: 'Santa is checking the list… twice' },
 		{ theme: 'cny', title: 'The lions are dancing past the scoreboard…' }
 	] as const)('renders the $theme witty title', async ({ theme, title }) => {

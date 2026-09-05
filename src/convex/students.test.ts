@@ -2159,7 +2159,9 @@ describe('students.getPublicClassStats display names', () => {
 		});
 
 		const stats = await t.query(api.students.getPublicClassStats, {});
-		const names = stats.classes.filter((c) => c.grade === 10).map((c) => c.displayName);
+		const names = stats.classes
+			.filter((c: { grade: number }) => c.grade === 10)
+			.map((c: { displayName: string }) => c.displayName);
 
 		expect(names).toContain('10-1');
 		expect(names).toContain('10-2');
@@ -2186,7 +2188,9 @@ describe('students.getPublicClassStats display names', () => {
 		});
 
 		const stats = await t.query(api.students.getPublicClassStats, {});
-		const names = stats.classes.filter((c) => c.grade === 9).map((c) => c.displayName);
+		const names = stats.classes
+			.filter((c: { grade: number }) => c.grade === 9)
+			.map((c: { displayName: string }) => c.displayName);
 
 		expect(names).toContain('9');
 	});

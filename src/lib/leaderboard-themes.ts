@@ -1,4 +1,9 @@
-export type LeaderboardThemeId = 'default' | 'thanksgiving' | 'christmas' | 'cny';
+export type LeaderboardThemeId =
+	| 'default'
+	| 'thanksgiving-1'
+	| 'thanksgiving-2'
+	| 'christmas'
+	| 'cny';
 
 export type WittyMessage = {
 	title: string;
@@ -15,6 +20,7 @@ export type LeaderboardTheme = {
 	divider: string;
 	panelTitle: string;
 	pointsGlow: string;
+	ink: string;
 	wittyTitle: string;
 	wittySubtitle: string;
 	wittyEmoji: string;
@@ -26,7 +32,14 @@ export type LeaderboardTheme = {
 
 export const LEADERBOARD_THEME_OPTIONS: { value: LeaderboardThemeId; label: string }[] = [
 	{ value: 'default', label: 'Enchanted Ceiling' },
-	{ value: 'thanksgiving', label: 'Thanksgiving' },
+	{
+		value: 'thanksgiving-1',
+		label: 'Thanksgiving Feast Table'
+	},
+	{
+		value: 'thanksgiving-2',
+		label: 'Thanksgiving Hearthside Ledger'
+	},
 	{ value: 'christmas', label: 'Christmas' },
 	{ value: 'cny', label: 'Chinese New Year' }
 ];
@@ -50,6 +63,7 @@ export const LEADERBOARD_THEMES: Record<LeaderboardThemeId, LeaderboardTheme> = 
 		divider: 'border-indigo-200/10',
 		panelTitle: 'text-indigo-100',
 		pointsGlow: 'text-cyan-200 drop-shadow-[0_0_24px_rgba(120,220,255,0.8)]',
+		ink: 'text-indigo-200/60',
 		wittyTitle: 'The Great Hall is taking a nap…',
 		wittySubtitle: 'the house elves hid the scoreboard under a blanket of stars',
 		wittyEmoji: '✨',
@@ -65,8 +79,8 @@ export const LEADERBOARD_THEMES: Record<LeaderboardThemeId, LeaderboardTheme> = 
 		],
 		mote: '✦'
 	},
-	thanksgiving: {
-		label: 'Thanksgiving',
+	'thanksgiving-1': {
+		label: 'Thanksgiving Feast Table',
 		section: 'bg-[#1a0e05] text-amber-50',
 		...baseFonts,
 		card: 'organic-border border-amber-200/25 bg-white/[0.06] backdrop-blur-2xl shadow-[0_25px_80px_-20px_rgba(217,119,6,0.35)]',
@@ -74,6 +88,7 @@ export const LEADERBOARD_THEMES: Record<LeaderboardThemeId, LeaderboardTheme> = 
 		divider: 'border-amber-200/10',
 		panelTitle: 'text-amber-100',
 		pointsGlow: 'text-amber-200 drop-shadow-[0_0_24px_rgba(251,191,36,0.8)]',
+		ink: 'text-amber-200/60',
 		wittyTitle: 'The turkeys ate the scoreboard…',
 		wittySubtitle: 'we are basting a fresh one — back after pie',
 		wittyEmoji: '🦃',
@@ -89,6 +104,31 @@ export const LEADERBOARD_THEMES: Record<LeaderboardThemeId, LeaderboardTheme> = 
 		],
 		mote: '🍂'
 	},
+	'thanksgiving-2': {
+		label: 'Thanksgiving Hearthside Ledger',
+		section: 'bg-[#f3e6c2] text-[#4a2f1a]',
+		...baseFonts,
+		card: 'border-2 border-[#6b4a26]/30 bg-[#ebdcb3] shadow-[0_20px_50px_rgba(74,47,26,0.15)]',
+		cardHeader: 'border-b border-[#6b4a26]/20',
+		divider: 'border-[#6b4a26]/10',
+		panelTitle: 'text-[#4a2f1a]',
+		pointsGlow: 'text-[#6b4a26] drop-shadow-[0_0_8px_rgba(107,74,38,0.2)]',
+		ink: 'text-[#6b4a26]/70',
+		wittyTitle: 'By the hearth, the ink is drying…',
+		wittySubtitle: 'we are copying tonight’s scores onto fresh parchment',
+		wittyEmoji: '🔥',
+		wittyExtras: [
+			{
+				title: 'The cider is warming by the fireplace…',
+				subtitle: 'the scorekeeper took a steaming mug'
+			},
+			{
+				title: 'The harvest counts are being verified…',
+				subtitle: 'every kernel of corn is accounted for'
+			}
+		],
+		mote: '🍁'
+	},
 	christmas: {
 		label: 'Christmas',
 		section: 'bg-[#04120c] text-emerald-50',
@@ -97,7 +137,8 @@ export const LEADERBOARD_THEMES: Record<LeaderboardThemeId, LeaderboardTheme> = 
 		cardHeader: 'border-b border-emerald-200/15',
 		divider: 'border-emerald-200/10',
 		panelTitle: 'text-emerald-100',
-		pointsGlow: 'text-red-200 drop-shadow-[0_0_24px_rgba(252,165,165,0.8)]',
+		pointsGlow: 'text-red-200 drop-shadow-[0_0_24px_rgba(252,165,165,0.85)]',
+		ink: 'text-emerald-200/60',
 		wittyTitle: 'Santa is checking the list… twice',
 		wittySubtitle: 'the reindeer knocked the scoreboard off the sleigh',
 		wittyEmoji: '🎄',
@@ -122,6 +163,7 @@ export const LEADERBOARD_THEMES: Record<LeaderboardThemeId, LeaderboardTheme> = 
 		divider: 'border-red-200/10',
 		panelTitle: 'text-red-100',
 		pointsGlow: 'text-yellow-200 drop-shadow-[0_0_24px_rgba(253,224,71,0.85)]',
+		ink: 'text-red-200/60',
 		wittyTitle: 'The lions are dancing past the scoreboard…',
 		wittySubtitle: 'red envelopes first, rankings right after',
 		wittyEmoji: '🧧',
@@ -156,7 +198,12 @@ export function isDisplayUrl(url: URL): boolean {
 }
 
 export function resolveLeaderboardThemeId(theme: string | undefined): LeaderboardThemeId {
-	if (theme === 'thanksgiving' || theme === 'christmas' || theme === 'cny') {
+	if (
+		theme === 'thanksgiving-1' ||
+		theme === 'thanksgiving-2' ||
+		theme === 'christmas' ||
+		theme === 'cny'
+	) {
 		return theme;
 	}
 	return 'default';

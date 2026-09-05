@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { houseLogos } from '$lib/assets/house-logos';
 	import type { House } from '$lib/constants/houses';
+	import { HOUSES } from '$lib/constants/houses';
 	import { resolveLeaderboardTheme } from '$lib/leaderboard-themes';
 
 	type Contributor = { studentId: string; englishName: string; totalPoints: number };
@@ -15,7 +16,9 @@
 	let { houses = [] as HouseEntry[] }: { houses?: HouseEntry[] } = $props();
 
 	const theme = $derived(resolveLeaderboardTheme('thanksgiving-2'));
-	const sorted = $derived([...houses].sort((a, b) => a.rank - b.rank));
+	const sorted = $derived(
+		[...houses].sort((a, b) => HOUSES.indexOf(a.house as House) - HOUSES.indexOf(b.house as House))
+	);
 	const max = $derived(Math.max(...sorted.map((h) => h.totalPoints), 1));
 	const LEADER_BIRDS = 10;
 	function turkeyFlock(points: number): number {
@@ -32,7 +35,7 @@
 </svelte:head>
 
 <section
-	class="parchment font-hand min-h-screen px-[clamp(1rem,3vw,2.5rem)] py-[clamp(1rem,2.5vw,2rem)] {theme.font}"
+	class="parchment font-hand min-h-[calc(100vh_2rem)] px-[clamp(1rem,3vw,2.5rem)] py-[clamp(1rem,2.5vw,2rem)] {theme.font}"
 >
 	<svg style="position: absolute; width: 0; height: 0;" aria-hidden="true">
 		<defs>
@@ -71,7 +74,7 @@
 			<div class="py-[clamp(0.75rem,1.5vw,1.25rem)]">
 				<div class="flex items-center gap-[clamp(0.5rem,1.2vw,1.25rem)]">
 					<div
-						class="flex size-[clamp(3rem,4.5vw,4.5rem)] shrink-0 items-center justify-center rounded-full bg-[#6b4a26]/10 p-2 text-[#4a2f1a] ring-2 ring-[#6b4a26]/60"
+						class="flex size-[clamp(4.7rem,7vw,7rem)] shrink-0 items-center justify-center p-2 text-[#4a2f1a]"
 						role="img"
 						aria-label="{h.house} crest"
 					>
@@ -107,7 +110,7 @@
 				>
 					{#each (h.topContributors ?? []).slice(0, 5) as c (c.studentId)}
 						<li class="flex items-center gap-1.5">
-							<span class="font-black text-amber-300">+{c.totalPoints}</span>
+							<span class="font-black text-gray-800">+{c.totalPoints}</span>
 							<span class="truncate">{c.englishName}</span>
 						</li>
 					{/each}

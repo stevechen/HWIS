@@ -9,6 +9,8 @@
 	import { houseLogos } from '$lib/assets/house-logos';
 	import { resolveLeaderboardTheme, resolveLeaderboardThemeId } from '$lib/leaderboard-themes';
 	import { useViewer } from '$lib/viewer.svelte';
+	import LeaderboardThanksgivingFeastTable from '$lib/components/LeaderboardThanksgivingFeastTable.svelte';
+	import LeaderboardThanksgivingHearthsideLedger from '$lib/components/LeaderboardThanksgivingHearthsideLedger.svelte';
 
 	let viewportWidth = $state(1920);
 
@@ -354,6 +356,10 @@
 		</div>
 	{:else if isBoardDisabled}
 		<LeaderboardDisabled boardLabel="House Points" theme={boardThemeId} />
+	{:else if housesQuery.data && boardThemeId === 'thanksgiving-1'}
+		<LeaderboardThanksgivingFeastTable {houses} {categories} />
+	{:else if housesQuery.data && boardThemeId === 'thanksgiving-2'}
+		<LeaderboardThanksgivingHearthsideLedger {houses} />
 	{:else if housesQuery.data}
 		<div class="relative z-10 flex h-full min-h-0 w-full max-w-full min-w-0 flex-col">
 			<div class="relative z-10 grid min-h-0 min-w-0 flex-1 grid-cols-4 grid-rows-1 gap-3 sm:gap-4">
