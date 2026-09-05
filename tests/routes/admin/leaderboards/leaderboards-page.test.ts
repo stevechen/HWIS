@@ -19,7 +19,12 @@ vi.mock('convex-svelte', () => ({
 	}))
 }));
 
+vi.mock('$lib/thumbnail', () => ({
+	captureBoardThumbnail: vi.fn().mockResolvedValue('data:image/png;base64,FAKE')
+}));
+
 import LeaderboardsPage from '$src/routes/admin/leaderboards/+page.svelte';
+import { captureBoardThumbnail } from '$lib/thumbnail';
 
 describe('Admin Leaderboards Page', () => {
 	beforeEach(() => {
@@ -64,5 +69,26 @@ describe('Admin Leaderboards Page', () => {
 		await expect
 			.element(page.getByTestId('admin-leaderboards.preview-classes'))
 			.toBeInTheDocument();
+	});
+
+	it('refresh captures the board and stores the thumbnail', async () => {
+		render(LeaderboardsPage);
+		const refresh = page.getByTestId('admin-leaderboards.refresh-houses');
+		await expect.element(refresh).toBeEnabled();
+		await refresh.click();
+		await expect.element(page.getByTestId('admin-leaderboards.preview-houses')).toBeInTheDocument();
+		expect(captureBoardThumbnail).toHaveBeenCalledWith('/leaderboard/houses');
+		expect(mockMutation).toHaveBeenCalledWith(expect.anything(), {
+			board: 'houses',
+			thumbnailUrl: 'data:image/png;base64,FAKE'
+		});
+	});
+
+	it('shows an error when capture fails', async () => {
+		vi.mocked(captureBoardThumbnail).mockRejectedValueOnce(new Error('boom'));
+		render(LeaderboardsPage);
+		await page.getByTestId('admin-leaderboards.refresh-classes').click();
+		await expect.element(page.getByRole('alert')).toHaveTextContent('boom');
+		expect(mockMutation).not.toHaveBeenCalled();
 	});
 });

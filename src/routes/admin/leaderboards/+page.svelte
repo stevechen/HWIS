@@ -12,6 +12,7 @@
 		themeLabel,
 		type LeaderboardThemeId
 	} from '$lib/leaderboard-themes';
+	import { captureBoardThumbnail } from '$lib/thumbnail';
 
 	type Board = 'houses' | 'classes';
 
@@ -65,6 +66,19 @@
 	function openBoard(path: string) {
 		if (!browser) return;
 		window.open(path, '_blank', 'noopener,noreferrer');
+	}
+
+	async function refreshPreview(board: Board, path: string) {
+		pendingBoard = board;
+		actionError = '';
+		try {
+			const thumbnailUrl = await captureBoardThumbnail(path);
+			await client.mutation(api.leaderboards.update, { board, thumbnailUrl });
+		} catch (err) {
+			actionError = err instanceof Error ? err.message : 'Failed to capture preview';
+		} finally {
+			pendingBoard = null;
+		}
 	}
 </script>
 
@@ -140,7 +154,7 @@
 								<p class="text-muted-foreground text-xs">
 									{config.enabled ? 'Live board' : 'Disabled — witty screen shows'}
 								</p>
-								<p class="text-muted-foreground text-xs">Thumbnail preview coming soon</p>
+								<p class="text-muted-foreground text-xs">No preview yet — click Refresh preview</p>
 							{/if}
 						</div>
 
@@ -184,12 +198,12 @@
 							<Button
 								variant="ghost"
 								size="sm"
-								disabled
-								title="Thumbnail generation lands with the preview ticket"
+								disabled={busy}
+								onclick={() => void refreshPreview(board, meta.path)}
 								data-testid="admin-leaderboards.refresh-{board}"
 							>
 								<RefreshCw class="size-4" />
-								Refresh preview
+								{busy ? 'Capturing…' : 'Refresh preview'}
 							</Button>
 						</div>
 					</Card.Content>
