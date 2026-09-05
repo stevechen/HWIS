@@ -15,7 +15,8 @@
 		ChevronDown,
 		ChevronRight,
 		Home,
-		Trophy
+		Trophy,
+		Tv
 	} from '@lucide/svelte';
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
@@ -82,6 +83,21 @@
 						<Card.Title class="text-lg">All Evaluations</Card.Title>
 					</div>
 					<Card.Description>View all evaluations by all teachers.</Card.Description>
+				</Card.Header>
+			</Card.Root>
+		</a>
+
+		<!-- Leaderboard Management -->
+		<a href="/admin/leaderboards" class="block" data-testid="admin-dashboard.leaderboards-card">
+			<Card.Root class="hover:border-primary/50 cursor-pointer transition-all hover:shadow-md">
+				<Card.Header>
+					<div class="text-primary mb-2 flex items-center gap-3">
+						<Tv class="size-5" />
+						<Card.Title class="text-lg">Leaderboard Management</Card.Title>
+					</div>
+					<Card.Description
+						>Enable boards, switch seasonal themes, preview, and open TV displays.</Card.Description
+					>
 				</Card.Header>
 			</Card.Root>
 		</a>

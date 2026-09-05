@@ -5,6 +5,8 @@
 	import { api } from '$convex/_generated/api';
 	import { CircleAlert, Medal, Trophy } from '@lucide/svelte';
 	import RadarChart from '$lib/components/RadarChart.svelte';
+	import LeaderboardDisabled from '$lib/components/LeaderboardDisabled.svelte';
+	import { resolveLeaderboardTheme, resolveLeaderboardThemeId } from '$lib/leaderboard-themes';
 	import { useViewer } from '$lib/viewer.svelte';
 
 	let viewportWidth = $state(1920);
@@ -58,17 +60,12 @@
 		if (loadingInterval) clearInterval(loadingInterval);
 	});
 
-	const theme = {
-		label: 'Enchanted Ceiling',
-		section: 'bg-[#050716] text-indigo-50',
-		titleFont: 'font-cinzel',
-		font: 'font-cormorant',
-		card: 'organic-border border-indigo-200/25 bg-white/[0.06] backdrop-blur-2xl shadow-[0_25px_80px_-20px_rgba(90,120,255,0.28)]',
-		cardHeader: 'border-b border-indigo-200/15',
-		divider: 'border-indigo-200/10',
-		panelTitle: 'text-indigo-100',
-		pointsGlow: 'text-cyan-200 drop-shadow-[0_0_24px_rgba(120,220,255,0.8)]'
-	} as const;
+	const boardConfigQuery = useQuery(api.leaderboards.getPublicConfig, () => ({
+		board: 'classes' as const
+	}));
+	const theme = $derived(resolveLeaderboardTheme(boardConfigQuery.data?.theme ?? 'default'));
+	const boardThemeId = $derived(resolveLeaderboardThemeId(boardConfigQuery.data?.theme));
+	const isBoardDisabled = $derived(boardConfigQuery.data?.enabled === false);
 
 	const rankBadges: Record<number, string> = {
 		1: '1st',
@@ -280,6 +277,8 @@
 			<CircleAlert class="mb-4 size-16 text-red-300" aria-label="Alert" />
 			<p class="text-[clamp(1.5rem,3vw,100rem)] font-bold">Failed to load class statistics</p>
 		</div>
+	{:else if isBoardDisabled}
+		<LeaderboardDisabled boardLabel="Class Leaderboard" theme={boardThemeId} />
 	{:else if classesQuery.data}
 		<div class="relative z-10 flex h-full min-h-0 w-full max-w-full min-w-0 flex-col">
 			<div class="relative z-10 grid min-h-0 min-w-0 flex-1 grid-cols-7 grid-rows-2 gap-2 sm:gap-3">

@@ -23,6 +23,7 @@ import type * as driveBackup from "../driveBackup.js";
 import type * as evaluations from "../evaluations.js";
 import type * as houseEvents from "../houseEvents.js";
 import type * as http from "../http.js";
+import type * as leaderboards from "../leaderboards.js";
 import type * as listUsers from "../listUsers.js";
 import type * as onboarding from "../onboarding.js";
 import type * as recoverAuth from "../recoverAuth.js";
@@ -72,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   evaluations: typeof evaluations;
   houseEvents: typeof houseEvents;
   http: typeof http;
+  leaderboards: typeof leaderboards;
   listUsers: typeof listUsers;
   onboarding: typeof onboarding;
   recoverAuth: typeof recoverAuth;
