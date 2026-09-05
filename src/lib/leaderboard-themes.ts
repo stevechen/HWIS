@@ -139,6 +139,22 @@ export const LEADERBOARD_THEMES: Record<LeaderboardThemeId, LeaderboardTheme> = 
 	}
 };
 
+/**
+ * TV display mode flag shared by the leaderboard shell (`?display=1` hides the
+ * floating toggle chrome) and the admin page (open + thumbnail capture URLs).
+ * Query flag, not dedicated routes: one shell serves both modes, and the URL
+ * stays bookmarkable per board.
+ */
+export const DISPLAY_PARAM = 'display';
+
+export function displayPath(path: string): string {
+	return `${path}?${DISPLAY_PARAM}=1`;
+}
+
+export function isDisplayUrl(url: URL): boolean {
+	return url.searchParams.get(DISPLAY_PARAM) === '1';
+}
+
 export function resolveLeaderboardThemeId(theme: string | undefined): LeaderboardThemeId {
 	if (theme === 'thanksgiving' || theme === 'christmas' || theme === 'cny') {
 		return theme;

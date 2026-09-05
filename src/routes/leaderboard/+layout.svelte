@@ -1,11 +1,21 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { Maximize, Minimize } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { isDisplayUrl } from '$lib/leaderboard-themes';
 
 	let { children }: { children: Snippet } = $props();
+
+	/**
+	 * TV display mode (`?display=1`): chromeless kiosk shell for wall displays.
+	 * Auto-fullscreen, first-click fallback, keyboard shortcuts, and double-click
+	 * toggle keep working; only the floating toggle buttons are hidden.
+	 * Bookmarkable per board.
+	 */
+	const isDisplayMode = $derived(isDisplayUrl(page.url));
 
 	let isFs = $state(false);
 	let container: HTMLDivElement | undefined = $state(undefined);
@@ -72,29 +82,31 @@
 >
 	{@render children?.()}
 
-	<div class="pointer-events-none fixed right-3 bottom-3 z-50 flex gap-2">
-		{#if !isFs}
-			<Button
-				size="sm"
-				variant="secondary"
-				onclick={enterFullscreen}
-				class="pointer-events-auto bg-white/90 text-black shadow-lg backdrop-blur hover:bg-white"
-				aria-label="Enter fullscreen"
-			>
-				<Maximize class="size-4" />
-				Fullscreen
-			</Button>
-		{:else}
-			<Button
-				size="sm"
-				variant="secondary"
-				onclick={exitFullscreen}
-				class="pointer-events-auto bg-black/60 text-white shadow-lg backdrop-blur hover:bg-black/80"
-				aria-label="Exit fullscreen"
-			>
-				<Minimize class="size-4" />
-				Exit
-			</Button>
-		{/if}
-	</div>
+	{#if !isDisplayMode}
+		<div class="pointer-events-none fixed right-3 bottom-3 z-50 flex gap-2">
+			{#if !isFs}
+				<Button
+					size="sm"
+					variant="secondary"
+					onclick={enterFullscreen}
+					class="pointer-events-auto bg-white/90 text-black shadow-lg backdrop-blur hover:bg-white"
+					aria-label="Enter fullscreen"
+				>
+					<Maximize class="size-4" />
+					Fullscreen
+				</Button>
+			{:else}
+				<Button
+					size="sm"
+					variant="secondary"
+					onclick={exitFullscreen}
+					class="pointer-events-auto bg-black/60 text-white shadow-lg backdrop-blur hover:bg-black/80"
+					aria-label="Exit fullscreen"
+				>
+					<Minimize class="size-4" />
+					Exit
+				</Button>
+			{/if}
+		</div>
+	{/if}
 </div>

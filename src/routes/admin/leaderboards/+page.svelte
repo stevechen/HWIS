@@ -9,6 +9,7 @@
 	import { ExternalLink, RefreshCw, ArrowLeft, Tv } from '@lucide/svelte';
 	import {
 		LEADERBOARD_THEME_OPTIONS,
+		displayPath,
 		themeLabel,
 		type LeaderboardThemeId
 	} from '$lib/leaderboard-themes';
@@ -65,14 +66,15 @@
 
 	function openBoard(path: string) {
 		if (!browser) return;
-		window.open(path, '_blank', 'noopener,noreferrer');
+		window.open(displayPath(path), '_blank', 'noopener,noreferrer');
 	}
 
 	async function refreshPreview(board: Board, path: string) {
 		pendingBoard = board;
 		actionError = '';
 		try {
-			const thumbnailUrl = await captureBoardThumbnail(path);
+			// Capture the display shell so the floating toggle buttons stay out of the shot.
+			const thumbnailUrl = await captureBoardThumbnail(displayPath(path));
 			await client.mutation(api.leaderboards.update, { board, thumbnailUrl });
 		} catch (err) {
 			actionError = err instanceof Error ? err.message : 'Failed to capture preview';

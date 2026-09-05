@@ -77,11 +77,26 @@ describe('Admin Leaderboards Page', () => {
 		await expect.element(refresh).toBeEnabled();
 		await refresh.click();
 		await expect.element(page.getByTestId('admin-leaderboards.preview-houses')).toBeInTheDocument();
-		expect(captureBoardThumbnail).toHaveBeenCalledWith('/leaderboard/houses');
+		expect(captureBoardThumbnail).toHaveBeenCalledWith('/leaderboard/houses?display=1');
 		expect(mockMutation).toHaveBeenCalledWith(expect.anything(), {
 			board: 'houses',
 			thumbnailUrl: 'data:image/png;base64,FAKE'
 		});
+	});
+
+	it('opens the TV display URL in a new window', async () => {
+		const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+		try {
+			render(LeaderboardsPage);
+			await page.getByTestId('admin-leaderboards.open-classes').click();
+			expect(openSpy).toHaveBeenCalledWith(
+				'/leaderboard/classes?display=1',
+				'_blank',
+				'noopener,noreferrer'
+			);
+		} finally {
+			openSpy.mockRestore();
+		}
 	});
 
 	it('shows an error when capture fails', async () => {
