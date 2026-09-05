@@ -13,7 +13,12 @@ import {
 } from './auth';
 import { hasApplicationAccess } from './shared/authorization';
 import { resolveStudentFromEmail } from './shared/student';
-import { GRADES, getDisplayName, classSortPriority } from './shared/class_roster';
+import {
+	GRADES,
+	countClassesByGrade,
+	getDisplayName,
+	classSortPriority
+} from './shared/class_roster';
 import { assertUniqueStudentId } from './shared/student';
 import { displayStaffName } from './shared/staff_name';
 import type { MutationCtx, QueryCtx } from './_generated/server';
@@ -1348,13 +1353,18 @@ export const listByHouse = query({
 		];
 		const classRecords = await Promise.all(classIds.map((id) => ctx.db.get(id)));
 		const classMap = new Map(classRecords.filter(Boolean).map((c) => [c!._id, c!]));
+		const gradeCounts = countClassesByGrade(await ctx.db.query('classes').collect());
 
 		const studentsWithClass = students.map((s) => {
 			const classInfo = s.classId ? classMap.get(s.classId) || null : null;
 			let classDisplay = '';
 			if (classInfo) {
 				// Handle special class names like the classes page does
-				classDisplay = getDisplayName(classInfo.grade, classInfo.class);
+				classDisplay = getDisplayName(
+					classInfo.grade,
+					classInfo.class,
+					gradeCounts.get(classInfo.grade) ?? 1
+				);
 			}
 			return {
 				_id: s._id,
@@ -1835,6 +1845,7 @@ async function fetchClassStats(ctx: QueryCtx) {
 		rank: number;
 	};
 
+	const gradeCounts = countClassesByGrade(allClasses);
 	const raws: Omit<ClassStat, 'rank'>[] = allClasses.map((cls) => {
 		const classStudents = studentsByClassId.get(cls._id as unknown as string) ?? [];
 		let totalPoints = 0;
@@ -1851,7 +1862,7 @@ async function fetchClassStats(ctx: QueryCtx) {
 			classId: cls._id as unknown as string,
 			grade: cls.grade,
 			class: cls.class,
-			displayName: getDisplayName(cls.grade, cls.class),
+			displayName: getDisplayName(cls.grade, cls.class, gradeCounts.get(cls.grade) ?? 1),
 			totalPoints,
 			studentCount: classStudents.length,
 			pointsByCategory

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { convexTest, modules, createStudentWithClass } from './test.setup';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { convexTest, modules, createStudentWithClass, mockAuthUser, seedUser } from './test.setup';
 import { setTestAuthRole } from './testAuth';
 import { api } from './_generated/api';
 import schema from './schema';
@@ -2115,5 +2115,79 @@ describe('students.setShadowCompare', () => {
 		await expect(t.mutation(api.students.setShadowCompare, { enabled: true })).rejects.toThrow(
 			/Forbidden: Super role required/
 		);
+	});
+});
+
+describe('students.getPublicClassStats display names', () => {
+	beforeEach(() => {
+		mockAuthUser({ authId: 'board-admin', name: 'Board Admin', role: 'admin', status: 'active' });
+	});
+	afterEach(() => vi.restoreAllMocks());
+
+	it('renders a conflicting default class explicitly instead of a bare grade', async () => {
+		const t = convexTest(schema, modules);
+		await seedUser(t, {
+			authId: 'board-admin',
+			name: 'Board Admin',
+			role: 'admin',
+			status: 'active'
+		});
+
+		await createStudentWithClass(t, {
+			englishName: 'Ten One',
+			chineseName: '十一直一',
+			studentId: '7001001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+		await createStudentWithClass(t, {
+			englishName: 'Ten Two',
+			chineseName: '十一直二',
+			studentId: '7001002',
+			grade: 10,
+			classNum: '2',
+			status: 'Enrolled'
+		});
+		await createStudentWithClass(t, {
+			englishName: 'Ten Stray',
+			chineseName: '十零散',
+			studentId: '7001003',
+			grade: 10,
+			classNum: 'default',
+			status: 'Enrolled'
+		});
+
+		const stats = await t.query(api.students.getPublicClassStats, {});
+		const names = stats.classes.filter((c) => c.grade === 10).map((c) => c.displayName);
+
+		expect(names).toContain('10-1');
+		expect(names).toContain('10-2');
+		expect(names).toContain('10-default');
+		expect(names).not.toContain('10');
+	});
+
+	it('renders a lone default class as just the grade', async () => {
+		const t = convexTest(schema, modules);
+		await seedUser(t, {
+			authId: 'board-admin',
+			name: 'Board Admin',
+			role: 'admin',
+			status: 'active'
+		});
+
+		await createStudentWithClass(t, {
+			englishName: 'Nine Solo',
+			chineseName: '九單',
+			studentId: '7002001',
+			grade: 9,
+			classNum: 'default',
+			status: 'Enrolled'
+		});
+
+		const stats = await t.query(api.students.getPublicClassStats, {});
+		const names = stats.classes.filter((c) => c.grade === 9).map((c) => c.displayName);
+
+		expect(names).toContain('9');
 	});
 });

@@ -210,7 +210,13 @@ export const create = mutation({
 			.first();
 
 		if (existing) {
-			throw new Error(`Class ${getDisplayName(args.grade, className)} already exists`);
+			const gradeCount = (
+				await ctx.db
+					.query('classes')
+					.withIndex('by_grade_class', (q) => q.eq('grade', args.grade))
+					.collect()
+			).length;
+			throw new Error(`Class ${getDisplayName(args.grade, className, gradeCount)} already exists`);
 		}
 
 		const id = await ctx.db.insert('classes', {
@@ -305,8 +311,14 @@ export const remove = mutation({
 			.take(1);
 
 		if (studentsInClass.length > 0) {
+			const gradeCount = (
+				await ctx.db
+					.query('classes')
+					.withIndex('by_grade_class', (q) => q.eq('grade', classRecord.grade))
+					.collect()
+			).length;
 			throw new Error(
-				`Cannot delete class ${getDisplayName(classRecord.grade, classRecord.class)}: students are assigned to this class`
+				`Cannot delete class ${getDisplayName(classRecord.grade, classRecord.class, gradeCount)}: students are assigned to this class`
 			);
 		}
 

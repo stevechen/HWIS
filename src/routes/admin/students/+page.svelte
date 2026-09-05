@@ -176,7 +176,12 @@
 	const grades = GRADES;
 	const statuses = ['Enrolled', 'Not Enrolled'] as const;
 
-	import { GRADES, getDisplayName, classSortPriority } from '$convex/shared/class_roster';
+	import {
+		GRADES,
+		countClassesByGrade,
+		getDisplayName,
+		classSortPriority
+	} from '$convex/shared/class_roster';
 
 	// Flat class-name options for the class filter dropdown, deduped across all
 	// grades and ordered by the classes page convention (default, 1, 2, ..., IB).
@@ -193,6 +198,9 @@
 		return options;
 	});
 
+	// Sibling counts per grade for conditional bare-grade display names
+	let gradeCounts = $derived.by(() => countClassesByGrade(classesQuery.data || []));
+
 	// Combined grade-class options for the form dropdown
 	let gradeClassOptions = $derived.by(() => {
 		if (!classesQuery.data || classesQuery.data.length === 0) {
@@ -203,7 +211,7 @@
 			.filter((c) => c.class !== 'IB' || c.grade >= 11)
 			.map((c) => ({
 				value: `${c.grade}-${c.class}`,
-				label: getDisplayName(c.grade, c.class),
+				label: getDisplayName(c.grade, c.class, gradeCounts.get(c.grade) ?? 1),
 				grade: c.grade,
 				classNum: c.class,
 				classId: c._id
@@ -663,7 +671,11 @@
 								<Table.Cell class="hidden sm:table-cell">{student.chineseName}</Table.Cell>
 								<Table.Cell class="px-1 text-center sm:px-2">
 									{student.classInfo
-										? getDisplayName(student.classInfo.grade, student.classInfo.class)
+										? getDisplayName(
+												student.classInfo.grade,
+												student.classInfo.class,
+												gradeCounts.get(student.classInfo.grade) ?? 1
+											)
 										: '-'}
 								</Table.Cell>
 								<Table.Cell class="px-1 text-center sm:px-2">

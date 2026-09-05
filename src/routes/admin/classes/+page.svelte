@@ -24,6 +24,7 @@
 		GRADES,
 		buildMovePlan,
 		classGradientPosition,
+		countClassesByGrade,
 		eligibleTargetClasses,
 		getDisplayName,
 		groupClassesByGrade,
@@ -183,7 +184,7 @@
 		});
 		for (const cls of targets) {
 			actions.push({
-				label: getDisplayName(cls.grade, cls.class),
+				label: getDisplayName(cls.grade, cls.class, gradeCounts.get(cls.grade) ?? 1),
 				action: async () => {
 					const plan = buildMovePlan({
 						studentIds: Array.from(multiSelect.selectedIds) as Id<'students'>[],
@@ -241,6 +242,9 @@
 
 	// Group classes by grade with gradient-first sorting (enrolled students only)
 	const classesByGrade = $derived.by(() => groupClassesByGrade(classesQuery.data || []));
+
+	// Sibling counts per grade for conditional bare-grade display names
+	const gradeCounts = $derived.by(() => countClassesByGrade(classesQuery.data || []));
 
 	// Get teachers
 	const teachers = $derived.by(() => {
@@ -484,7 +488,7 @@
 											isDragOver && 'scale-[1.02] ring-2 ring-blue-500 ring-inset'
 										]}
 										role="region"
-										aria-label="Class {getDisplayName(cls.grade, cls.class)}"
+										aria-label="Class {getDisplayName(cls.grade, cls.class, gradeClasses.length)}"
 										data-testid={`admin-classes.grade-${cls.grade}.class-${cls.class}`}
 										use:dropZone={{
 											id: cls._id,
@@ -539,7 +543,7 @@
 
 													<!-- Class Name -->
 													<span class="text-sm font-semibold max-md:text-base">
-														{getDisplayName(cls.grade, cls.class)}
+														{getDisplayName(cls.grade, cls.class, gradeClasses.length)}
 													</span>
 
 													<!-- Teacher Select (mobile inline) -->
@@ -551,7 +555,11 @@
 															updateTeacher(cls, target.value || undefined);
 														}}
 														onclick={(e) => e.stopPropagation()}
-														aria-label="Teacher for {getDisplayName(cls.grade, cls.class)}"
+														aria-label="Teacher for {getDisplayName(
+															cls.grade,
+															cls.class,
+															gradeClasses.length
+														)}"
 														class="hidden cursor-pointer appearance-none rounded border border-current/20 bg-white/10 px-1.5 font-medium text-current opacity-80 hover:opacity-100 focus:outline-none max-md:inline-block max-md:h-8 max-md:max-h-8 max-md:text-base"
 													>
 														<option value="">- Teacher -</option>
@@ -600,7 +608,11 @@
 													updateTeacher(cls, target.value || undefined);
 												}}
 												class="h-5 min-h-0 w-full rounded-none px-0 py-0 text-xs"
-												aria-label="Teacher for {getDisplayName(cls.grade, cls.class)}"
+												aria-label="Teacher for {getDisplayName(
+													cls.grade,
+													cls.class,
+													gradeClasses.length
+												)}"
 											>
 												<NativeSelect.Option value="">- No Teacher -</NativeSelect.Option>
 												{#each teachers as teacher (teacher._id)}
@@ -802,7 +814,11 @@
 		<!-- Warning: students assigned -->
 		<h3 class="mb-2 text-lg font-semibold text-red-600">Cannot Delete Class</h3>
 		<p class="text-muted-foreground mb-4 text-sm">
-			Class {getDisplayName(warningClass.grade, warningClass.class)} has {warningClass.studentCount}
+			Class {getDisplayName(
+				warningClass.grade,
+				warningClass.class,
+				gradeCounts.get(warningClass.grade) ?? 1
+			)} has {warningClass.studentCount}
 			student{warningClass.studentCount !== 1 ? 's' : ''} assigned.
 		</p>
 		<p class="mb-4 text-sm">
@@ -818,7 +834,11 @@
 		<h3 class="mb-2 text-lg font-semibold">Delete Class</h3>
 		<p class="text-muted-foreground mb-4 text-sm">
 			Are you sure you want to delete class {warningClass
-				? getDisplayName(warningClass.grade, warningClass.class)
+				? getDisplayName(
+						warningClass.grade,
+						warningClass.class,
+						gradeCounts.get(warningClass.grade) ?? 1
+					)
 				: ''}? This cannot be undone.
 		</p>
 		<div class="flex justify-end gap-2">

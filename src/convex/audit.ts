@@ -2,7 +2,7 @@ import { query, mutation, type QueryCtx } from './_generated/server';
 import { v } from 'convex/values';
 import { requireAdminForSensitiveOperation, getAuthenticatedUser } from './auth';
 import { isAdmin, isSuper } from './shared/authorization';
-import { getDisplayName } from './shared/class_roster';
+import { countClassesByGrade, getDisplayName } from './shared/class_roster';
 import type { Doc, Id } from './_generated/dataModel';
 
 const ACTION_LABELS: Record<string, string> = {
@@ -194,6 +194,7 @@ export const list = query({
 		const classMap = new Map(
 			classDocs.filter((c): c is NonNullable<typeof c> => c != null).map((c) => [c._id, c])
 		);
+		const gradeCounts = countClassesByGrade(await ctx.db.query('classes').collect());
 
 		// --- Build results using batched maps ---
 		const results: Array<
@@ -233,7 +234,11 @@ export const list = query({
 						let studentGradeDisplayVal: string | null = null;
 						if (classRecord) {
 							studentGrade = classRecord.grade;
-							studentGradeDisplayVal = getDisplayName(classRecord.grade, classRecord.class);
+							studentGradeDisplayVal = getDisplayName(
+								classRecord.grade,
+								classRecord.class,
+								gradeCounts.get(classRecord.grade) ?? 1
+							);
 						} else if (student.classId) {
 							studentGradeDisplayVal = 'unknown';
 						} else {
@@ -269,7 +274,11 @@ export const list = query({
 						let studentGradeDisplayVal: string | null = null;
 						if (classRecord) {
 							studentGrade = classRecord.grade;
-							studentGradeDisplayVal = getDisplayName(classRecord.grade, classRecord.class);
+							studentGradeDisplayVal = getDisplayName(
+								classRecord.grade,
+								classRecord.class,
+								gradeCounts.get(classRecord.grade) ?? 1
+							);
 						} else if (student.classId) {
 							studentGradeDisplayVal = 'unknown';
 						} else {

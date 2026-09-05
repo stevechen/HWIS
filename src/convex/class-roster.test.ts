@@ -3,6 +3,7 @@ import {
 	MIN_IB_GRADE,
 	classGradientPosition,
 	classSortPriority,
+	countClassesByGrade,
 	eligibleTargetClasses,
 	buildMovePlan,
 	getDisplayName,
@@ -41,6 +42,34 @@ describe('class roster policy', () => {
 
 		it('renders default classes as just the grade', () => {
 			expect(getDisplayName(7, 'default')).toBe('7');
+		});
+
+		it('renders a lone default class as just the grade', () => {
+			expect(getDisplayName(10, 'default', 1)).toBe('10');
+		});
+
+		it('renders a default class explicitly when siblings exist', () => {
+			expect(getDisplayName(10, 'default', 2)).toBe('10-default');
+			expect(getDisplayName(10, 'default', 3)).toBe('10-default');
+		});
+
+		it('ignores sibling count for numbered and IB classes', () => {
+			expect(getDisplayName(10, '1', 3)).toBe('10-1');
+			expect(getDisplayName(11, 'IB', 2)).toBe('11-IB');
+		});
+	});
+
+	describe('countClassesByGrade', () => {
+		it('counts class rows per grade', () => {
+			const counts = countClassesByGrade([
+				{ grade: 10 },
+				{ grade: 10 },
+				{ grade: 10 },
+				{ grade: 11 }
+			]);
+			expect(counts.get(10)).toBe(3);
+			expect(counts.get(11)).toBe(1);
+			expect(counts.get(7)).toBeUndefined();
 		});
 	});
 

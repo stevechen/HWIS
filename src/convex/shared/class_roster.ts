@@ -32,10 +32,27 @@ export interface RosterClass {
 
 // ---- Display naming & protected classes (ADR-0005) ----
 
-export function getDisplayName(grade: number, className: string): string {
-	if (className === 'default') return `${grade}`;
+/**
+ * Display name for a class. A `default` (undivided) class renders as the bare
+ * grade — but only when it is the sole class in that grade. When numbered
+ * classes exist alongside it (an invalid roster state, e.g. "10" next to
+ * "10-1"), the conflict renders explicitly as `grade-default` instead of
+ * masquerading as a real class. `totalInGrade` defaults to 1 to preserve the
+ * historical behavior at call sites without sibling knowledge.
+ */
+export function getDisplayName(grade: number, className: string, totalInGrade = 1): string {
+	if (className === 'default') return totalInGrade > 1 ? `${grade}-default` : `${grade}`;
 	if (className === 'IB') return `${grade}-IB`;
 	return `${grade}-${className}`;
+}
+
+/** Number of class rows per grade — the sibling counts `getDisplayName` needs. */
+export function countClassesByGrade(classes: { grade: number }[]): Map<number, number> {
+	const counts = new Map<number, number>();
+	for (const c of classes) {
+		counts.set(c.grade, (counts.get(c.grade) ?? 0) + 1);
+	}
+	return counts;
 }
 
 export function isProtectedClass(className: string): boolean {
