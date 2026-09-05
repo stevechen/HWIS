@@ -48,6 +48,7 @@ plans/
 
 # Convex local data
 /convex
+.convex/
 
 # Convex generated AI guidelines
 src/convex/_generated/ai/

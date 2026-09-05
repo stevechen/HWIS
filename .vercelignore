@@ -1,0 +1,16 @@
+.convex/
+node_modules/
+coverage/
+.kilo/
+.history/
+playwright-report/
+test-results/
+.svelte-kit/
+build/
+.git/
+.vercel/
+.opencode/
+.kilocode/
+.claude/
+.agents/
+temp/
