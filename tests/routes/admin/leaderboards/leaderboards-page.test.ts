@@ -7,8 +7,8 @@ const mockMutation = vi.fn().mockResolvedValue({});
 vi.mock('convex-svelte', () => ({
 	useQuery: vi.fn(() => ({
 		data: [
-			{ board: 'houses', enabled: true, theme: 'default', updatedAt: 0 },
-			{ board: 'classes', enabled: false, theme: 'christmas', updatedAt: 0 }
+			{ board: 'houses', enabled: true, theme: 'default', themes: {}, updatedAt: 0 },
+			{ board: 'classes', enabled: false, theme: 'christmas', themes: {}, updatedAt: 0 }
 		],
 		isLoading: false,
 		error: null
@@ -25,6 +25,16 @@ vi.mock('$lib/thumbnail', () => ({
 
 import LeaderboardsPage from '$src/routes/admin/leaderboards/+page.svelte';
 import { captureBoardThumbnail } from '$lib/thumbnail';
+import { themeLabel, type LeaderboardThemeId } from '$lib/leaderboard-themes';
+import { useQuery } from 'convex-svelte';
+
+const THEME_IDS: LeaderboardThemeId[] = [
+	'default',
+	'thanksgiving-1',
+	'thanksgiving-2',
+	'christmas',
+	'cny'
+];
 
 describe('Admin Leaderboards Page', () => {
 	beforeEach(() => {
@@ -43,45 +53,85 @@ describe('Admin Leaderboards Page', () => {
 		await expect.element(page.getByRole('link', { name: 'Back to Admin' })).toBeInTheDocument();
 	});
 
-	it('renders both board cards with status badges', async () => {
+	it('renders both board cards with merged toggle pills', async () => {
 		render(LeaderboardsPage);
 		await expect.element(page.getByTestId('admin-leaderboards.card-houses')).toBeInTheDocument();
 		await expect.element(page.getByTestId('admin-leaderboards.card-classes')).toBeInTheDocument();
 		await expect
-			.element(page.getByTestId('admin-leaderboards.status-houses'))
+			.element(page.getByTestId('admin-leaderboards.toggle-houses'))
 			.toHaveTextContent('Enabled');
 		await expect
-			.element(page.getByTestId('admin-leaderboards.status-classes'))
+			.element(page.getByTestId('admin-leaderboards.toggle-classes'))
 			.toHaveTextContent('Disabled');
 	});
 
-	it('renders theme selectors and open buttons', async () => {
+	it('renders theme tiles for every theme of both boards', async () => {
 		render(LeaderboardsPage);
-		await expect.element(page.getByTestId('admin-leaderboards.theme-houses')).toBeInTheDocument();
-		await expect.element(page.getByTestId('admin-leaderboards.theme-classes')).toBeInTheDocument();
+		for (const board of ['houses', 'classes']) {
+			for (const theme of ['default', 'thanksgiving-1', 'thanksgiving-2', 'christmas', 'cny']) {
+				await expect
+					.element(page.getByTestId(`admin-leaderboards.theme-tile-${board}-${theme}`))
+					.toBeInTheDocument();
+			}
+		}
+	});
+
+	it('renders open buttons', async () => {
+		render(LeaderboardsPage);
 		await expect.element(page.getByTestId('admin-leaderboards.open-houses')).toBeInTheDocument();
 		await expect.element(page.getByTestId('admin-leaderboards.open-classes')).toBeInTheDocument();
 	});
 
-	it('renders preview placeholders', async () => {
+	it('auto-captures a screenshot for every theme of both boards', async () => {
 		render(LeaderboardsPage);
-		await expect.element(page.getByTestId('admin-leaderboards.preview-houses')).toBeInTheDocument();
-		await expect
-			.element(page.getByTestId('admin-leaderboards.preview-classes'))
-			.toBeInTheDocument();
+		for (const theme of THEME_IDS) {
+			await expect
+				.element(page.getByRole('img', { name: `${themeLabel(theme)} theme preview` }).first())
+				.toBeInTheDocument();
+		}
+		expect(captureBoardThumbnail).toHaveBeenCalledWith(
+			'/leaderboard/houses?display=1&theme=christmas'
+		);
+		expect(captureBoardThumbnail).toHaveBeenCalledWith(
+			'/leaderboard/classes?display=1&theme=default'
+		);
+		expect(captureBoardThumbnail).toHaveBeenCalledTimes(10);
 	});
 
-	it('refresh captures the board and stores the thumbnail', async () => {
+	it('persists each captured screenshot to the config', async () => {
 		render(LeaderboardsPage);
-		const refresh = page.getByTestId('admin-leaderboards.refresh-houses');
-		await expect.element(refresh).toBeEnabled();
-		await refresh.click();
-		await expect.element(page.getByTestId('admin-leaderboards.preview-houses')).toBeInTheDocument();
-		expect(captureBoardThumbnail).toHaveBeenCalledWith('/leaderboard/houses?display=1');
-		expect(mockMutation).toHaveBeenCalledWith(expect.anything(), {
-			board: 'houses',
-			thumbnailUrl: 'data:image/png;base64,FAKE'
+		await expect
+			.element(page.getByRole('img', { name: 'Chinese New Year theme preview' }).first())
+			.toBeInTheDocument();
+		await vi.waitFor(() => {
+			expect(mockMutation).toHaveBeenCalledWith(expect.anything(), {
+				board: 'houses',
+				themeScreenshot: { theme: 'cny', url: 'data:image/png;base64,FAKE' }
+			});
 		});
+		expect(mockMutation).toHaveBeenCalledTimes(10);
+	});
+
+	it('renders stored screenshots without re-capturing them', async () => {
+		vi.mocked(useQuery).mockReturnValueOnce({
+			data: [
+				{
+					board: 'houses',
+					enabled: true,
+					theme: 'default',
+					themes: Object.fromEntries(
+						THEME_IDS.map((t) => [t, `data:image/png;base64,STORED_${t}`])
+					)
+				}
+			],
+			isLoading: false,
+			error: null
+		} as never);
+		render(LeaderboardsPage);
+		await expect
+			.element(page.getByRole('img', { name: 'Christmas theme preview' }))
+			.toBeInTheDocument();
+		expect(captureBoardThumbnail).not.toHaveBeenCalled();
 	});
 
 	it('opens the TV display URL in a new window', async () => {
@@ -99,11 +149,12 @@ describe('Admin Leaderboards Page', () => {
 		}
 	});
 
-	it('shows an error when capture fails', async () => {
+	it('shows a fallback tile when a capture fails', async () => {
 		vi.mocked(captureBoardThumbnail).mockRejectedValueOnce(new Error('boom'));
 		render(LeaderboardsPage);
-		await page.getByTestId('admin-leaderboards.refresh-classes').click();
-		await expect.element(page.getByRole('alert')).toHaveTextContent('boom');
+		await expect
+			.element(page.getByText('Preview unavailable', { exact: true }).first())
+			.toBeInTheDocument();
 		expect(mockMutation).not.toHaveBeenCalled();
 	});
 });

@@ -1,11 +1,8 @@
 <script lang="ts">
 	import { useConvexClient, useQuery } from 'convex-svelte';
-	import { browser } from '$app/environment';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { api } from '$convex/_generated/api';
 	import { Button } from '$lib/components/ui/button';
-	import * as Card from '$lib/components/ui/card';
-	import { Badge } from '$lib/components/ui/badge';
-	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import { ExternalLink, RefreshCw, ArrowLeft, Tv } from '@lucide/svelte';
 	import {
 		LEADERBOARD_THEME_OPTIONS,
@@ -30,12 +27,12 @@
 		}
 	};
 
+	const BOARD_DESCRIPTION =
+		'Enable boards, pick from theme previews, and open the TV displays in a separate window.';
+
 	const client = useConvexClient();
 	const configsQuery = useQuery(api.leaderboards.list, () => ({}));
-
 	const configs = $derived(configsQuery.data ?? []);
-	const isLoading = $derived(configsQuery.isLoading);
-	const loadError = $derived(configsQuery.error);
 
 	let pendingBoard = $state<Board | null>(null);
 	let actionError = $state('');
@@ -65,36 +62,153 @@
 	}
 
 	function openBoard(path: string) {
-		if (!browser) return;
 		window.open(displayPath(path), '_blank', 'noopener,noreferrer');
 	}
 
-	async function refreshPreview(board: Board, path: string) {
-		pendingBoard = board;
-		actionError = '';
+	// --- Auto-captured theme screenshots -------------------------------------
+	// Each theme tile shows a real screenshot of the board rendered in that
+	// theme (`?theme=` override, captured in a hidden iframe). Screenshots are
+	// persisted to the config (`themes` map) and only re-captured when missing
+	// or when "Refresh screenshots" is pressed.
+
+	type ThumbState = { url?: string; error?: boolean };
+
+	/** Module-level cache: survives client-side navigation within the session. */
+	const thumbCache = new SvelteMap<string, string>();
+
+	let thumbs = $state<Record<string, ThumbState>>({});
+	let capturingBoard = $state<Board | null>(null);
+
+	function thumbKey(board: Board, themeId: LeaderboardThemeId): string {
+		return `${board}:${themeId}`;
+	}
+
+	async function captureThemeThumbs(board: Board, boardPath: string, force = false) {
+		capturingBoard = board;
 		try {
-			// Capture the display shell so the floating toggle buttons stay out of the shot.
-			const thumbnailUrl = await captureBoardThumbnail(displayPath(path));
-			await client.mutation(api.leaderboards.update, { board, thumbnailUrl });
-		} catch (err) {
-			actionError = err instanceof Error ? err.message : 'Failed to capture preview';
+			for (const option of LEADERBOARD_THEME_OPTIONS) {
+				const key = thumbKey(board, option.value);
+				const cached = thumbCache.get(key);
+				if (cached && !force) {
+					thumbs[key] = { url: cached };
+					continue;
+				}
+				thumbs[key] = {};
+				try {
+					const url = await captureBoardThumbnail(
+						`${displayPath(boardPath)}&theme=${option.value}`
+					);
+					thumbCache.set(key, url);
+					thumbs[key] = { url };
+					await client.mutation(api.leaderboards.update, {
+						board,
+						themeScreenshot: { theme: option.value, url }
+					});
+				} catch {
+					thumbs[key] = { error: true };
+				}
+			}
 		} finally {
-			pendingBoard = null;
+			capturingBoard = null;
 		}
 	}
+
+	let capturesStarted = false;
+	$effect(() => {
+		if (configsQuery.data && !capturesStarted) {
+			capturesStarted = true;
+			// Seed tiles from stored screenshots, then capture only the missing
+			// ones (both boards concurrently, themes sequentially per board).
+			for (const config of configsQuery.data) {
+				const board = config.board as Board;
+				for (const option of LEADERBOARD_THEME_OPTIONS) {
+					const stored = config.themes[option.value];
+					if (stored) {
+						thumbCache.set(thumbKey(board, option.value), stored);
+						thumbs[thumbKey(board, option.value)] = { url: stored };
+					}
+				}
+				void captureThemeThumbs(board, BOARD_META[board].path);
+			}
+		}
+	});
 </script>
+
+{#snippet ThemeTile(themeId: LeaderboardThemeId, board: Board, selected: boolean, busy: boolean)}
+	{@const thumb = thumbs[thumbKey(board, themeId)]}
+	<button
+		type="button"
+		class="flex w-full flex-col gap-1 rounded-lg border p-1.5 text-left transition-all {selected
+			? 'border-primary ring-primary ring-2'
+			: 'hover:border-border border-transparent'}"
+		disabled={busy}
+		onclick={() => void setTheme(board, themeId)}
+		data-testid="admin-leaderboards.theme-tile-{board}-{themeId}"
+	>
+		<div
+			class="bg-muted/60 flex aspect-video items-center justify-center overflow-hidden rounded-md"
+		>
+			{#if thumb?.url}
+				<img
+					src={thumb.url}
+					alt="{themeLabel(themeId)} theme preview"
+					class="size-full object-cover"
+				/>
+			{:else if thumb?.error}
+				<span class="text-muted-foreground p-2 text-center text-[10px]">Preview unavailable</span>
+			{:else}
+				<div
+					class="border-primary/30 border-b-primary size-5 animate-spin rounded-full border-2"
+					role="status"
+					aria-label="Capturing {themeLabel(themeId)} preview"
+				></div>
+			{/if}
+		</div>
+		<span class="flex items-center justify-between gap-1 text-xs">
+			<span class="truncate font-medium">{themeLabel(themeId)}</span>
+			{#if selected}<span class="text-primary shrink-0 text-[10px] font-bold">✓ Current</span>{/if}
+		</span>
+	</button>
+{/snippet}
+
+{#snippet TogglePill(enabled: boolean, busy: boolean, onclick: () => void, testid: string)}
+	<button
+		type="button"
+		{onclick}
+		disabled={busy}
+		class="relative inline-flex h-7 w-40 items-center rounded-full border transition-colors {enabled
+			? 'border-emerald-300/60 bg-emerald-100'
+			: 'border-border bg-muted'}"
+		data-testid={testid}
+		aria-pressed={enabled}
+	>
+		<span
+			class="absolute inset-y-0.5 my-auto flex w-20 items-center justify-center rounded-full text-xs font-semibold whitespace-nowrap transition-all {enabled
+				? 'left-[calc(100%-5.25rem)] bg-emerald-600 text-white'
+				: 'bg-secondary text-secondary-foreground left-0.5'}"
+		>
+			{enabled ? 'Enabled' : 'Disabled'}
+		</span>
+		<span
+			class="pointer-events-none absolute w-12 text-center text-[11px] whitespace-nowrap {enabled
+				? 'left-1.5 text-emerald-700'
+				: 'text-muted-foreground right-1.5'}"
+		>
+			{enabled ? 'On air' : 'Off air'}
+		</span>
+	</button>
+{/snippet}
 
 <svelte:head>
 	<title>Leaderboard Management — HWIS Admin</title>
 </svelte:head>
 
-<div class="mx-auto max-w-5xl p-6 sm:p-8" data-testid="admin-leaderboards.root">
+<div class="mx-auto max-w-6xl p-6 sm:p-8" data-testid="admin-leaderboards.root">
 	<a
 		href="/admin"
 		class="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-2 text-sm"
 	>
-		<ArrowLeft class="size-4" />
-		Back to Admin
+		<ArrowLeft class="size-4" /> Back to Admin
 	</a>
 
 	<div class="mb-6 flex items-center gap-3">
@@ -102,114 +216,68 @@
 		<div>
 			<h1 class="text-2xl font-bold">Leaderboard Management</h1>
 			<p class="text-muted-foreground text-sm">
-				Enable boards, switch seasonal themes, preview, and open TV displays in a separate window.
+				{BOARD_DESCRIPTION}
 			</p>
 		</div>
 	</div>
 
-	{#if isLoading}
-		<div class="flex items-center gap-3" role="status" aria-label="Loading leaderboards">
-			<div
-				class="border-primary/20 border-b-primary size-6 animate-spin rounded-full border-4"
-			></div>
-			<p class="text-muted-foreground text-sm">Loading leaderboard configs…</p>
-		</div>
-	{:else if loadError}
+	{#if actionError}
+		<p class="text-destructive mb-4 text-sm" role="alert">{actionError}</p>
+	{/if}
+
+	{#if configsQuery.isLoading}
+		<p class="text-muted-foreground text-sm">Loading leaderboard configs…</p>
+	{:else if configsQuery.error}
 		<p class="text-destructive text-sm" role="alert">Failed to load leaderboard configs.</p>
 	{:else}
-		{#if actionError}
-			<p class="text-destructive mb-4 text-sm" role="alert">{actionError}</p>
-		{/if}
-		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+		<div class="flex flex-col gap-8">
 			{#each configs as config (config.board)}
 				{@const board = config.board as Board}
 				{@const meta = BOARD_META[board]}
 				{@const busy = pendingBoard === board}
-				<Card.Root data-testid="admin-leaderboards.card-{board}">
-					<Card.Header>
-						<div class="mb-2 flex items-center justify-between gap-3">
-							<Card.Title class="text-lg">{meta.title}</Card.Title>
-							<Badge
-								variant={config.enabled ? 'default' : 'secondary'}
-								data-testid="admin-leaderboards.status-{board}"
-							>
-								{config.enabled ? 'Enabled' : 'Disabled'}
-							</Badge>
+				<section class="rounded-xl border p-4" data-testid="admin-leaderboards.card-{board}">
+					<div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+						<div>
+							<h2 class="text-lg font-semibold">{meta.title}</h2>
+							<p class="text-muted-foreground text-sm">{meta.description}</p>
 						</div>
-						<Card.Description>{meta.description}</Card.Description>
-					</Card.Header>
-					<Card.Content class="flex flex-col gap-4">
-						<div
-							class="bg-muted/40 border-border flex aspect-video flex-col items-center justify-center gap-1 rounded-lg border border-dashed"
-							data-testid="admin-leaderboards.preview-{board}"
-							role="img"
-							aria-label="Preview placeholder for {meta.title}"
-						>
-							{#if config.thumbnailUrl}
-								<img
-									src={config.thumbnailUrl}
-									alt="Preview of {meta.title}"
-									class="h-full w-full rounded-lg object-cover"
-								/>
-							{:else}
-								<p class="text-sm font-semibold">{themeLabel(config.theme)}</p>
-								<p class="text-muted-foreground text-xs">
-									{config.enabled ? 'Live board' : 'Disabled — witty screen shows'}
-								</p>
-								<p class="text-muted-foreground text-xs">No preview yet — click Refresh preview</p>
-							{/if}
-						</div>
-
-						<div class="flex flex-col gap-2">
-							<label class="text-sm font-medium" for="admin-leaderboards-theme-{board}">Theme</label
-							>
-							<NativeSelect.Root
-								id="admin-leaderboards-theme-{board}"
-								bind:value={
-									() => config.theme, (v) => v && void setTheme(board, v as LeaderboardThemeId)
-								}
-								aria-label="Theme for {meta.title}"
-								data-testid="admin-leaderboards.theme-{board}"
-								disabled={busy}
-							>
-								{#each LEADERBOARD_THEME_OPTIONS as option (option.value)}
-									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
-								{/each}
-							</NativeSelect.Root>
-						</div>
-
-						<div class="flex flex-wrap gap-2">
-							<Button
-								variant={config.enabled ? 'outline' : 'default'}
-								size="sm"
-								disabled={busy}
-								onclick={() => void setEnabled(board, !config.enabled)}
-								data-testid="admin-leaderboards.toggle-{board}"
-							>
-								{config.enabled ? 'Disable' : 'Enable'}
-							</Button>
+						<div class="flex items-center gap-3">
+							{@render TogglePill(
+								config.enabled,
+								busy,
+								() => void setEnabled(board, !config.enabled),
+								`admin-leaderboards.toggle-${board}`
+							)}
 							<Button
 								variant="secondary"
 								size="sm"
 								onclick={() => openBoard(meta.path)}
 								data-testid="admin-leaderboards.open-{board}"
 							>
-								<ExternalLink class="size-4" />
-								Open in new window
+								<ExternalLink class="size-4" /> Open
 							</Button>
 							<Button
 								variant="ghost"
 								size="sm"
-								disabled={busy}
-								onclick={() => void refreshPreview(board, meta.path)}
+								disabled={capturingBoard !== null}
+								onclick={() => void captureThemeThumbs(board, meta.path, true)}
 								data-testid="admin-leaderboards.refresh-{board}"
 							>
 								<RefreshCw class="size-4" />
-								{busy ? 'Capturing…' : 'Refresh preview'}
+								{capturingBoard === board ? 'Capturing…' : 'Refresh screenshots'}
 							</Button>
 						</div>
-					</Card.Content>
-				</Card.Root>
+					</div>
+
+					<p class="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+						Theme — click to apply
+					</p>
+					<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+						{#each LEADERBOARD_THEME_OPTIONS as option (option.value)}
+							{@render ThemeTile(option.value, board, option.value === config.theme, busy)}
+						{/each}
+					</div>
+				</section>
 			{/each}
 		</div>
 	{/if}

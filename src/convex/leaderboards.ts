@@ -24,6 +24,8 @@ export type LeaderboardConfig = {
 	enabled: boolean;
 	theme: LeaderboardTheme;
 	thumbnailUrl?: string;
+	/** Screenshot (data URL) of the board rendered in each theme, keyed by theme. */
+	themes: Partial<Record<LeaderboardTheme, string>>;
 	updatedAt: number;
 };
 
@@ -38,14 +40,33 @@ function defaultConfig(board: LeaderboardBoard): LeaderboardConfig {
 		board,
 		enabled: true,
 		theme: 'default',
+		themes: {},
 		updatedAt: 0
 	};
+}
+
+function parseThumbs(raw: unknown): Partial<Record<LeaderboardTheme, string>> {
+	const thumbs: Partial<Record<LeaderboardTheme, string>> = {};
+	const validThemes: LeaderboardTheme[] = [
+		'default',
+		'thanksgiving-1',
+		'thanksgiving-2',
+		'christmas',
+		'cny'
+	];
+	if (typeof raw !== 'object' || raw === null) return thumbs;
+	for (const [key, value] of Object.entries(raw)) {
+		if (validThemes.includes(key as LeaderboardTheme) && typeof value === 'string') {
+			thumbs[key as LeaderboardTheme] = value;
+		}
+	}
+	return thumbs;
 }
 
 function parseConfig(board: LeaderboardBoard, raw: string | undefined): LeaderboardConfig {
 	if (!raw) return defaultConfig(board);
 	try {
-		const parsed = JSON.parse(raw) as Partial<LeaderboardConfig>;
+		const parsed = JSON.parse(raw) as Record<string, unknown>;
 		const validThemes: LeaderboardTheme[] = [
 			'default',
 			'thanksgiving-1',
@@ -60,6 +81,7 @@ function parseConfig(board: LeaderboardBoard, raw: string | undefined): Leaderbo
 				? (parsed.theme as LeaderboardTheme)
 				: 'default',
 			thumbnailUrl: typeof parsed.thumbnailUrl === 'string' ? parsed.thumbnailUrl : undefined,
+			themes: parseThumbs(parsed.themes),
 			updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : 0
 		};
 	} catch {
@@ -99,7 +121,14 @@ export const update = mutation({
 		board: boardValidator,
 		enabled: v.optional(v.boolean()),
 		theme: v.optional(themeValidator),
-		thumbnailUrl: v.optional(v.string())
+		thumbnailUrl: v.optional(v.string()),
+		/** Persist a screenshot for one theme, merged into the stored map. */
+		themeScreenshot: v.optional(
+			v.object({
+				theme: themeValidator,
+				url: v.string()
+			})
+		)
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
@@ -108,17 +137,23 @@ export const update = mutation({
 			.withIndex('by_key', (q) => q.eq('key', settingsKey(args.board)))
 			.first();
 		const parsed = parseConfig(args.board, current?.value);
+		const themes = { ...parsed.themes };
+		if (args.themeScreenshot) {
+			themes[args.themeScreenshot.theme] = args.themeScreenshot.url;
+		}
 		const next: LeaderboardConfig = {
 			board: args.board,
 			enabled: args.enabled ?? parsed.enabled,
 			theme: args.theme ?? parsed.theme,
 			thumbnailUrl: args.thumbnailUrl ?? parsed.thumbnailUrl,
+			themes,
 			updatedAt: Date.now()
 		};
 		const value = JSON.stringify({
 			enabled: next.enabled,
 			theme: next.theme,
 			thumbnailUrl: next.thumbnailUrl,
+			themes: next.themes,
 			updatedAt: next.updatedAt
 		});
 		if (current) {

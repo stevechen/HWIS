@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
+	import { page } from '$app/state';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { CircleAlert, Medal, Star, TrendingUp, Trophy } from '@lucide/svelte';
@@ -72,8 +73,13 @@
 	const boardConfigQuery = useQuery(api.leaderboards.getPublicConfig, () => ({
 		board: 'houses' as const
 	}));
-	const theme = $derived(resolveLeaderboardTheme(boardConfigQuery.data?.theme ?? 'default'));
-	const boardThemeId = $derived(resolveLeaderboardThemeId(boardConfigQuery.data?.theme));
+	// Admin preview capture overrides the stored theme via ?theme= (see admin
+	// leaderboards page) so each theme can be screenshotted without DB writes.
+	const previewTheme = $derived(page.url.searchParams.get('theme'));
+	const theme = $derived(resolveLeaderboardTheme(previewTheme ?? boardConfigQuery.data?.theme));
+	const boardThemeId = $derived(
+		resolveLeaderboardThemeId(previewTheme ?? boardConfigQuery.data?.theme)
+	);
 	const isBoardDisabled = $derived(boardConfigQuery.data?.enabled === false);
 
 	const houseTheme: Record<
