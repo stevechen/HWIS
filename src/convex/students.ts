@@ -1,4 +1,4 @@
-import { query, mutation, internalMutation } from './_generated/server';
+import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import type { Id, Doc } from './_generated/dataModel';
@@ -158,28 +158,19 @@ export const listPaginated = query({
 			v.literal('grade'),
 			v.literal('house')
 		),
-		sortDirection: v.union(v.literal('asc'), v.literal('desc')),
-		useIndex: v.optional(v.boolean())
+		sortDirection: v.union(v.literal('asc'), v.literal('desc'))
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
 
-		// Legacy JS-based path (default for backward compatibility)
-		if (!args.useIndex) {
-			return await listPaginatedLegacy(ctx, args);
-		}
-
-		// Index-based path
+		// Index path (single implementation, no legacy fallback).
 		return await listPaginatedIndexed(ctx, args);
 	}
 });
 
-// Internal arg shape shared by the legacy and indexed pagination paths.
-type PaginatedArgs = Parameters<typeof listPaginatedLegacy>[1];
-
 /**
- * Super-only system status: row counts, environment flags, and the persisted
- * canary flag. Cheap — safe to call on every page load.
+ * Super-only system status: row counts and environment flags. Cheap — safe to
+ * call on every page load.
  */
 export const getSystemStatus = query({
 	args: {},
@@ -189,9 +180,7 @@ export const getSystemStatus = query({
 		const environment = {
 			deployment: getEnvValue('CONVEX_DEPLOYMENT') ?? 'unknown',
 			isProd: isProdDeployment,
-			nodeEnv: getEnvValue('NODE_ENV') ?? 'unknown',
-			canaryEnabled: await readShadowCompareSetting(ctx),
-			canaryEnvOverride: getEnvValue('CONVEX_SHADOW_COMPARE') === '1'
+			nodeEnv: getEnvValue('NODE_ENV') ?? 'unknown'
 		};
 
 		const all = await ctx.db.query('students').take(5000);
@@ -210,312 +199,6 @@ export const getSystemStatus = query({
 		return { environment, counts };
 	}
 });
-
-type ParityCombo = {
-	label: string;
-	match: boolean;
-	legacyCount: number;
-	indexedCount: number;
-	indexedIsDone: boolean;
-	legacyIsDone: boolean;
-	note?: string;
-};
-
-/**
- * Super-only on-demand pagination parity self-test. Exercises both paths over a
- * representative matrix of args and compares their ordered id sequences, so a
- * divergence is visible on a page instead of relying on (retention-limited) log
- * output. Runs only when explicitly triggered (button), since each combo
- * re-scans the full student table and would be too heavy for page load.
- */
-function buildParityCombos(): PaginatedArgs[] {
-	const filterScenarios: Array<
-		Partial<Pick<PaginatedArgs, 'status' | 'house' | 'grade' | 'class' | 'search'>>
-	> = [
-		{},
-		{ status: 'Enrolled' },
-		{ status: 'Not Enrolled' },
-		{ status: 'Enrolled', house: 'Heracles' },
-		{ status: 'Enrolled', class: '1', grade: 7 },
-		{ house: 'Wukong' },
-		{ house: '__unassigned' },
-		{ grade: 10 },
-		{ search: 'a' },
-		{ status: 'Not Enrolled', house: 'Setna' }
-	];
-
-	const combos: PaginatedArgs[] = [];
-	// A) Per filter scenario, order checked via englishName asc/desc.
-	for (const f of filterScenarios) {
-		for (const sortDirection of ['asc', 'desc'] as const) {
-			combos.push({
-				paginationOpts: { cursor: null, numItems: 2000 },
-				sortBy: 'englishName',
-				sortDirection,
-				...f
-			});
-		}
-	}
-	// B) Per sortBy on a full scan, both directions, to cover each comparator.
-	for (const sortBy of ['studentId', 'englishName', 'chineseName', 'grade', 'house'] as const) {
-		for (const sortDirection of ['asc', 'desc'] as const) {
-			combos.push({
-				paginationOpts: { cursor: null, numItems: 2000 },
-				sortBy,
-				sortDirection
-			});
-		}
-	}
-	return combos;
-}
-
-// Exercises both pagination paths over a representative matrix of args and
-// compares their ordered id sequences. Shared by the on-demand self-test and
-// the background canary checker.
-async function comparePaths(ctx: QueryCtx): Promise<ParityCombo[]> {
-	const combos = buildParityCombos();
-	const parityCombos: ParityCombo[] = [];
-	for (const c of combos) {
-		const legacy = await listPaginatedLegacy(ctx, c);
-		const indexed = await listPaginatedIndexed(ctx, c);
-		const lIds = legacy.page.map((s) => s._id);
-		const iIds = indexed.page.map((s) => s._id);
-		let match = lIds.length === iIds.length && legacy.isDone === indexed.isDone;
-		let note: string | undefined;
-		if (match) {
-			for (let i = 0; i < lIds.length; i++) {
-				if (lIds[i] !== iIds[i]) {
-					match = false;
-					note = `order differs at index ${i}`;
-					break;
-				}
-			}
-		} else {
-			note = `size legacy=${lIds.length} indexed=${iIds.length} (isDone ${legacy.isDone}/${indexed.isDone})`;
-		}
-		parityCombos.push({
-			label: JSON.stringify({
-				sortBy: c.sortBy,
-				sortDirection: c.sortDirection,
-				status: c.status,
-				house: c.house,
-				grade: c.grade,
-				class: c.class,
-				search: c.search
-			}),
-			match,
-			legacyCount: lIds.length,
-			indexedCount: iIds.length,
-			indexedIsDone: indexed.isDone,
-			legacyIsDone: legacy.isDone,
-			note
-		});
-	}
-	return parityCombos;
-}
-
-export const runParitySelfTest = query({
-	args: {},
-	handler: async (ctx) => {
-		await requireSuperForSensitiveOperation(ctx);
-		const combos = await comparePaths(ctx);
-		return {
-			allMatch: combos.every((c) => c.match),
-			combos,
-			checkedAt: Date.now()
-		};
-	}
-});
-
-// Local helpers shared by the cron checker and the manual super trigger, so we
-// avoid self-referencing `internal.students.*` (which breaks Convex codegen).
-type CanaryDivergence = {
-	label: string;
-	legacyCount: number;
-	indexedCount: number;
-	indexedIsDone: boolean;
-	legacyIsDone: boolean;
-	note?: string;
-};
-
-function toDivergence(c: ParityCombo): CanaryDivergence {
-	return {
-		label: c.label,
-		legacyCount: c.legacyCount,
-		indexedCount: c.indexedCount,
-		indexedIsDone: c.indexedIsDone,
-		legacyIsDone: c.legacyIsDone,
-		note: c.note
-	};
-}
-
-// Persists recorded divergences + the last-run timestamp in the settings table.
-async function recordDivergences(ctx: MutationCtx, divergences: CanaryDivergence[], now: number) {
-	for (const d of divergences) {
-		await ctx.db.insert('canary_divergences', { detectedAt: now, ...d });
-	}
-	const lastRun = await ctx.db
-		.query('settings')
-		.withIndex('by_key', (q) => q.eq('key', 'canaryLastRun'))
-		.first();
-	if (lastRun) {
-		await ctx.db.patch(lastRun._id, { value: String(now), updatedAt: now });
-	} else {
-		await ctx.db.insert('settings', {
-			key: 'canaryLastRun',
-			value: String(now),
-			updatedAt: now
-		});
-	}
-}
-
-// Background checker: runs the parity matrix and persists any divergence.
-// Durable, unlike the console.warn canary whose log output expires. Registered
-// as an internalMutation so the cron can call it; it only writes divergence logs.
-export const runCanaryCheck = internalMutation({
-	args: {},
-	handler: async (ctx) => {
-		if (isTestRuntime) return;
-		const combos = await comparePaths(ctx);
-		const mismatches = combos.filter((c) => !c.match).map(toDivergence);
-		await recordDivergences(ctx, mismatches, Date.now());
-	}
-});
-
-// Super-triggered run of the background checker (records divergences now).
-// A mutation so it can satisfy the super guard and call runQuery + runMutation.
-export const runCanaryCheckNow = mutation({
-	args: {},
-	handler: async (ctx) => {
-		await requireSuperForSensitiveOperation(ctx);
-		const combos = await comparePaths(ctx);
-		const mismatches = combos.filter((c) => !c.match).map(toDivergence);
-		await recordDivergences(ctx, mismatches, Date.now());
-	}
-});
-
-// Super-only read of recorded divergences for the diagnostics page.
-export const getCanaryDivergences = query({
-	args: {},
-	handler: async (ctx) => {
-		await requireSuperForSensitiveOperation(ctx);
-		const divergences = await ctx.db
-			.query('canary_divergences')
-			.withIndex('by_detectedAt', (q) => q.gt('detectedAt', 0))
-			.order('desc')
-			.take(100);
-		const lastRun = await ctx.db
-			.query('settings')
-			.withIndex('by_key', (q) => q.eq('key', 'canaryLastRun'))
-			.first();
-		return {
-			divergences,
-			lastRunAt: lastRun ? Number(lastRun.value) : null,
-			total: divergences.length
-		};
-	}
-});
-
-async function listPaginatedLegacy(
-	ctx: QueryCtx,
-	args: {
-		paginationOpts: { cursor: string | null; numItems: number };
-		search?: string;
-		status?: 'Enrolled' | 'Not Enrolled';
-		grade?: number;
-		class?: string;
-		house?: 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna' | '__unassigned';
-		sortBy: 'studentId' | 'englishName' | 'chineseName' | 'grade' | 'house';
-		sortDirection: 'asc' | 'desc';
-	}
-) {
-	const allStudents = await ctx.db.query('students').take(5000);
-	const classIds = [...new Set(allStudents.map((student) => student.classId))];
-	const classRecords = await Promise.all(classIds.map((id) => ctx.db.get(id)));
-	const validClassRecords = classRecords.filter((c): c is NonNullable<typeof c> => c != null);
-	const classMap = new Map(validClassRecords.map((classRecord) => [classRecord._id, classRecord]));
-	const teacherIds = [
-		...new Set(
-			validClassRecords
-				.map((classRecord) => classRecord.homeroomTeacherId)
-				.filter((id): id is Id<'users'> => id !== undefined)
-		)
-	];
-	const teachers = await Promise.all(teacherIds.map((id) => ctx.db.get(id)));
-	const validTeachers = teachers.filter((t): t is NonNullable<typeof t> => t != null);
-	const teacherMap = new Map(
-		validTeachers.map((teacher) => [teacher._id, displayStaffName(teacher.name)])
-	);
-	const hydrated = allStudents.map((student) => {
-		const classInfo = classMap.get(student.classId) || null;
-		return {
-			...student,
-			classInfo: classInfo
-				? {
-						...classInfo,
-						homeroomTeacherName: classInfo.homeroomTeacherId
-							? teacherMap.get(classInfo.homeroomTeacherId) || 'Unknown Teacher'
-							: null
-					}
-				: null
-		};
-	});
-	const search = args.search?.toLowerCase();
-	const filtered = hydrated.filter((student) => {
-		if (args.status !== undefined && student.status !== args.status) return false;
-		if (args.grade !== undefined && student.classInfo?.grade !== args.grade) return false;
-		if (args.class !== undefined && student.classInfo?.class !== args.class) return false;
-		if (args.house === '__unassigned' && student.house !== undefined) return false;
-		if (args.house !== undefined && args.house !== '__unassigned' && student.house !== args.house)
-			return false;
-		if (search) {
-			if (
-				!student.englishName.toLowerCase().includes(search) &&
-				!student.chineseName.includes(search) &&
-				!student.studentId.toLowerCase().includes(search)
-			)
-				return false;
-		}
-		return true;
-	});
-	const compare = (a: (typeof hydrated)[number], b: (typeof hydrated)[number]) => {
-		if (args.sortBy === 'house') {
-			const houseA = a.house ?? '';
-			const houseB = b.house ?? '';
-			if (houseA !== houseB) {
-				if (!houseA) return -1;
-				if (!houseB) return 1;
-				return houseA.localeCompare(houseB);
-			}
-		} else if (args.sortBy !== 'grade') {
-			const fieldA = a[args.sortBy];
-			const fieldB = b[args.sortBy];
-			if (fieldA !== fieldB) return String(fieldA).localeCompare(String(fieldB));
-		}
-		return a._id.localeCompare(b._id);
-	};
-	filtered.sort((a, b) => {
-		if (args.sortBy === 'grade') {
-			const direction = args.sortDirection === 'asc' ? 1 : -1;
-			const gradeDiff = (a.classInfo?.grade ?? 0) - (b.classInfo?.grade ?? 0);
-			if (gradeDiff !== 0) return gradeDiff * direction;
-			const classDiff =
-				classSortPriority(a.classInfo?.class ?? '') - classSortPriority(b.classInfo?.class ?? '');
-			if (classDiff !== 0) return classDiff;
-			return a._id.localeCompare(b._id);
-		}
-		const result = compare(a, b);
-		return args.sortDirection === 'asc' ? result : -result;
-	});
-	const offset = args.paginationOpts.cursor ? Number(args.paginationOpts.cursor) : 0;
-	const page = filtered.slice(offset, offset + args.paginationOpts.numItems);
-	const nextOffset = offset + page.length;
-	return {
-		page,
-		isDone: nextOffset >= filtered.length,
-		continueCursor: String(nextOffset)
-	};
-}
 
 async function listPaginatedIndexed(
 	ctx: QueryCtx,
@@ -682,88 +365,8 @@ async function listPaginatedIndexed(
 		continueCursor: String(nextOffset)
 	};
 
-	// Shadow canary: when enabled (settings flag or CONVEX_SHADOW_COMPARE env) and
-	// sampled, recompute via the legacy path and warn on any divergence. Off in tests
-	// and by default so it costs nothing in normal operation. This is the only automated
-	// signal that the two paths disagree in production — non-technical users will not
-	// report such bugs. Toggle via the System Diagnostics page (setShadowCompare).
-	if (await shadowCompareEnabled(ctx)) {
-		try {
-			const legacy = await listPaginatedLegacy(ctx, args);
-			const indexedIds = result.page.map((s) => s._id).sort();
-			const legacyIds = legacy.page.map((s) => s._id).sort();
-			if (
-				JSON.stringify(indexedIds) !== JSON.stringify(legacyIds) ||
-				legacy.isDone !== result.isDone
-			) {
-				console.warn('[shadow-compare] listPaginated divergence', {
-					args,
-					indexedIds,
-					legacyIds,
-					indexedIsDone: result.isDone,
-					legacyIsDone: legacy.isDone
-				});
-			}
-		} catch (err) {
-			console.warn('[shadow-compare] legacy recompute failed', String(err));
-		}
-	}
-
 	return result;
 }
-
-// Reads the persisted shadow-canary flag (settings key `shadowCompare`). The
-// CONVEX_SHADOW_COMPARE env remains a hard override for dev/CI.
-async function readShadowCompareSetting(ctx: QueryCtx): Promise<boolean> {
-	const setting = await ctx.db
-		.query('settings')
-		.withIndex('by_key', (q) => q.eq('key', 'shadowCompare'))
-		.first();
-	return setting?.value === 'true';
-}
-
-// Gate for the shadow canary: only outside the test runtime, only when enabled
-// (settings flag or env override), and only on a sampled fraction of calls.
-async function shadowCompareEnabled(ctx: QueryCtx): Promise<boolean> {
-	if (isTestRuntime) return false;
-	const envOn = getEnvValue('CONVEX_SHADOW_COMPARE') === '1';
-	const dbOn = await readShadowCompareSetting(ctx);
-	return (envOn || dbOn) && Math.random() < 0.1;
-}
-
-// Super-only toggle for the shadow canary, persisted in the `settings` table so
-// it can be flipped from the System Diagnostics page without redeploying.
-export const setShadowCompare = mutation({
-	args: { enabled: v.boolean() },
-	handler: async (ctx, { enabled }) => {
-		const user = await requireSuperForSensitiveOperation(ctx);
-		const value = enabled ? 'true' : 'false';
-		const now = Date.now();
-		// The test runtime uses a synthetic super user with no real DB id; skip
-		// updatedBy there so the settings validator (real Id) is not violated.
-		// In production the caller is a real profile and is recorded for audit.
-		const updatedBy = isTestRuntime ? undefined : user._id;
-		const existing = await ctx.db
-			.query('settings')
-			.withIndex('by_key', (q) => q.eq('key', 'shadowCompare'))
-			.first();
-		if (existing) {
-			await ctx.db.patch(existing._id, {
-				value,
-				updatedAt: now,
-				updatedBy
-			});
-		} else {
-			await ctx.db.insert('settings', {
-				key: 'shadowCompare',
-				value,
-				updatedAt: now,
-				updatedBy
-			});
-		}
-		return enabled;
-	}
-});
 
 export const create = mutation({
 	args: {

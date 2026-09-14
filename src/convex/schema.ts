@@ -179,15 +179,5 @@ export default defineSchema({
 		e2eTag: v.optional(v.string())
 	})
 		.index('by_startDate', ['startDate'])
-		.index('by_e2eTag', ['e2eTag']),
-
-	canary_divergences: defineTable({
-		label: v.string(),
-		detectedAt: v.number(),
-		legacyCount: v.number(),
-		indexedCount: v.number(),
-		indexedIsDone: v.boolean(),
-		legacyIsDone: v.boolean(),
-		note: v.optional(v.string())
-	}).index('by_detectedAt', ['detectedAt'])
+		.index('by_e2eTag', ['e2eTag'])
 });

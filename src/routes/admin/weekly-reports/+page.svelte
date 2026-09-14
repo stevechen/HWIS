@@ -353,7 +353,7 @@
 												</Table.Head>
 												{#each categoryColumns as cat (cat)}
 													<Table.Head
-														class="bg-muted/50 sticky top-0 z-10 w-16 text-center text-xs leading-tight font-semibold break-words whitespace-normal sm:w-20 sm:text-sm md:w-24"
+														class="bg-muted/50 wrap-break-words sticky top-0 z-10 w-16 text-center text-xs leading-tight font-semibold whitespace-normal sm:w-20 sm:text-sm md:w-24"
 														>{cat}</Table.Head
 													>
 												{/each}
@@ -367,7 +367,7 @@
 													>
 													<Table.Cell class="w-10 text-center">{student.grade}</Table.Cell>
 													<Table.Cell
-														class="w-24 max-w-24 break-words whitespace-normal sm:w-32 sm:max-w-32"
+														class="wrap-break-words w-24 max-w-24 whitespace-normal sm:w-32 sm:max-w-32"
 													>
 														{student.englishName}</Table.Cell
 													>

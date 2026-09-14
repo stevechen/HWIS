@@ -143,5 +143,26 @@ override. In the test runtime the canary is always off so it costs nothing.
 
 - CONTEXT.md: House Sort Order definition
 - students.test.ts: scale regression + exhaustive legacy↔indexed parity matrix
-- src/convex/students.ts: `listPaginatedIndexed` (incl. `shadowCompareEnabled`), `getSystemStatus`, `runParitySelfTest`, `setShadowCompare`
+- src/convex/students.ts: `listPaginatedIndexed`, `getSystemStatus`
 - src/routes/admin/diagnostics: super-only heartbeat page
+
+## Addendum (2026-09-14): Legacy path and shadow-canary removed
+
+After a week-long clean bake-in in production (zero `[shadow-compare]` divergences
+recorded, both the sampled inline canary and the 30-min background parity matrix),
+the legacy path is no longer needed. Per the removal criteria above, the following
+were deleted:
+
+- `listPaginatedLegacy` and the `useIndex` arg/flag — `listPaginated` now calls
+  only `listPaginatedIndexed`.
+- The shadow-canary machinery: `shadowCompareEnabled`, `shadowCanaryConfigured`,
+  `readShadowCompareSetting`, `setShadowCompare`, the inline `[shadow-compare]`
+  sampling in `listPaginatedIndexed`, and the durable checker
+  (`runCanaryCheck`, `runCanaryCheckNow`, `getCanaryDivergences`,
+  `buildParityCombos`/`comparePaths`, `runParitySelfTest`, `recordDivergences`).
+- The `canary-parity-check` cron and the `canary_divergences` table.
+- The canary toggle / divergence UI on the System Diagnostics page (it now shows
+  environment + student counts only).
+
+`getSystemStatus` no longer reports canary fields. Breaking change: any external
+caller of the removed functions or the `useIndex` arg will fail validation.

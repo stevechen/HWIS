@@ -819,7 +819,6 @@ describe('students.listPaginated', () => {
 			house?: string;
 			sortBy: 'studentId' | 'englishName' | 'chineseName' | 'grade' | 'house';
 			sortDirection: 'asc' | 'desc';
-			useIndex: boolean;
 		}
 	) {
 		const ids: string[] = [];
@@ -839,8 +838,7 @@ describe('students.listPaginated', () => {
 					| '__unassigned'
 					| undefined,
 				sortBy: args.sortBy,
-				sortDirection: args.sortDirection,
-				useIndex: args.useIndex
+				sortDirection: args.sortDirection
 			});
 			for (const s of r.page) ids.push(s.studentId);
 			cursor = r.isDone ? null : r.continueCursor;
@@ -1134,156 +1132,6 @@ describe('students.listPaginated', () => {
 		]);
 	});
 
-	it('index-based path (useIndex) matches legacy results', async () => {
-		const t = convexTest(schema, modules);
-
-		// Create test data with various combinations
-		await t.mutation(api.students.create, {
-			englishName: 'Alice Heracles',
-			chineseName: '陳艾莉',
-			studentId: 'IDX001',
-			grade: 10,
-			class: '1',
-			status: 'Enrolled',
-			house: 'Heracles'
-		});
-		await t.mutation(api.students.create, {
-			englishName: 'Bob Heracles',
-			chineseName: '陳鮑勃',
-			studentId: 'IDX002',
-			grade: 10,
-			class: '2',
-			status: 'Enrolled',
-			house: 'Heracles'
-		});
-		await t.mutation(api.students.create, {
-			englishName: 'Charlie Wukong',
-			chineseName: '王查理',
-			studentId: 'IDX003',
-			grade: 10,
-			class: '1',
-			status: 'Enrolled',
-			house: 'Wukong'
-		});
-		await t.mutation(api.students.create, {
-			englishName: 'David NoHouse',
-			chineseName: '李大衛',
-			studentId: 'IDX004',
-			grade: 11,
-			class: '1',
-			status: 'Enrolled'
-		});
-		await t.mutation(api.students.create, {
-			englishName: 'Eve NotEnrolled',
-			chineseName: '伊芙',
-			studentId: 'IDX005',
-			grade: 10,
-			class: '1',
-			status: 'Not Enrolled',
-			house: 'Heracles'
-		});
-
-		// Test 1: status filter only
-		const legacy1 = await t.query(api.students.listPaginated, {
-			paginationOpts: { numItems: 50, cursor: null },
-			status: 'Enrolled',
-			sortBy: 'englishName',
-			sortDirection: 'asc'
-		});
-		const indexed1 = await t.query(api.students.listPaginated, {
-			paginationOpts: { numItems: 50, cursor: null },
-			status: 'Enrolled',
-			sortBy: 'englishName',
-			sortDirection: 'asc',
-			useIndex: true
-		});
-		expect(indexed1.page.map((s: { englishName: string }) => s.englishName)).toEqual(
-			legacy1.page.map((s: { englishName: string }) => s.englishName)
-		);
-
-		// Test 2: status + house filter
-		const legacy2 = await t.query(api.students.listPaginated, {
-			paginationOpts: { numItems: 50, cursor: null },
-			status: 'Enrolled',
-			house: 'Heracles',
-			sortBy: 'englishName',
-			sortDirection: 'asc'
-		});
-		const indexed2 = await t.query(api.students.listPaginated, {
-			paginationOpts: { numItems: 50, cursor: null },
-			status: 'Enrolled',
-			house: 'Heracles',
-			sortBy: 'englishName',
-			sortDirection: 'asc',
-			useIndex: true
-		});
-		expect(indexed2.page.map((s: { englishName: string }) => s.englishName)).toEqual(
-			legacy2.page.map((s: { englishName: string }) => s.englishName)
-		);
-
-		// Test 3: sort by studentId asc
-		const legacy3 = await t.query(api.students.listPaginated, {
-			paginationOpts: { numItems: 50, cursor: null },
-			sortBy: 'studentId',
-			sortDirection: 'asc'
-		});
-		const indexed3 = await t.query(api.students.listPaginated, {
-			paginationOpts: { numItems: 50, cursor: null },
-			sortBy: 'studentId',
-			sortDirection: 'asc',
-			useIndex: true
-		});
-		expect(indexed3.page.map((s: { studentId: string }) => s.studentId)).toEqual(
-			legacy3.page.map((s: { studentId: string }) => s.studentId)
-		);
-
-		// Test 4: sort by house
-		const legacy4 = await t.query(api.students.listPaginated, {
-			paginationOpts: { numItems: 50, cursor: null },
-			sortBy: 'house',
-			sortDirection: 'asc'
-		});
-		const indexed4 = await t.query(api.students.listPaginated, {
-			paginationOpts: { numItems: 50, cursor: null },
-			sortBy: 'house',
-			sortDirection: 'asc',
-			useIndex: true
-		});
-		expect(indexed4.page.map((s: { house?: string }) => s.house ?? '__unassigned')).toEqual(
-			legacy4.page.map((s: { house?: string }) => s.house ?? '__unassigned')
-		);
-
-		// Test 5: pagination with cursor
-		const legacyPage1 = await t.query(api.students.listPaginated, {
-			paginationOpts: { numItems: 2, cursor: null },
-			sortBy: 'englishName',
-			sortDirection: 'asc'
-		});
-		const legacyPage2 = await t.query(api.students.listPaginated, {
-			paginationOpts: { numItems: 2, cursor: legacyPage1.continueCursor },
-			sortBy: 'englishName',
-			sortDirection: 'asc'
-		});
-		const indexedPage1 = await t.query(api.students.listPaginated, {
-			paginationOpts: { numItems: 2, cursor: null },
-			sortBy: 'englishName',
-			sortDirection: 'asc',
-			useIndex: true
-		});
-		const indexedPage2 = await t.query(api.students.listPaginated, {
-			paginationOpts: { numItems: 2, cursor: indexedPage1.continueCursor },
-			sortBy: 'englishName',
-			sortDirection: 'asc',
-			useIndex: true
-		});
-		expect(indexedPage1.page.map((s: { englishName: string }) => s.englishName)).toEqual(
-			legacyPage1.page.map((s: { englishName: string }) => s.englishName)
-		);
-		expect(indexedPage2.page.map((s: { englishName: string }) => s.englishName)).toEqual(
-			legacyPage2.page.map((s: { englishName: string }) => s.englishName)
-		);
-	});
-
 	it('creates and reuses an imported class section', async () => {
 		const t = convexTest(schema, modules);
 
@@ -1458,7 +1306,7 @@ describe('students.listPaginated', () => {
 			}
 		});
 
-		const countAll = async (useIndex: boolean) => {
+		const countAll = async () => {
 			let cursor: string | null = null;
 			let total = 0;
 			let pages = 0;
@@ -1467,8 +1315,7 @@ describe('students.listPaginated', () => {
 					paginationOpts: { numItems: 50, cursor },
 					search: 'Match',
 					sortBy: 'studentId',
-					sortDirection: 'asc',
-					useIndex
+					sortDirection: 'asc'
 				});
 				total += r.page.length;
 				cursor = r.isDone ? null : r.continueCursor;
@@ -1477,91 +1324,59 @@ describe('students.listPaginated', () => {
 			return total;
 		};
 
-		const legacy = await countAll(false);
-		const indexed = await countAll(true);
-		expect(legacy).toBe(600);
-		expect(indexed).toBe(600);
+		expect(await countAll()).toBe(600);
 	});
 
-	it('returns all status+search matches at scale via the index path (useIndex)', async () => {
+	it('returns all status+search matches at scale', async () => {
 		const t = convexTest(schema, modules);
 		await seedScaledStudents(t, 600);
 
-		const legacy = await collectIds(t, {
+		const ids = await collectIds(t, {
 			status: 'Enrolled',
 			search: 'Match',
 			sortBy: 'studentId',
-			sortDirection: 'asc',
-			useIndex: false
-		});
-		const indexed = await collectIds(t, {
-			status: 'Enrolled',
-			search: 'Match',
-			sortBy: 'studentId',
-			sortDirection: 'asc',
-			useIndex: true
+			sortDirection: 'asc'
 		});
 
 		// 60 of 600 are Not Enrolled, so 540 Enrolled should match 'Match'.
-		expect(legacy.length).toBe(540);
-		expect(indexed.length).toBe(540);
-		expect(new Set(indexed)).toEqual(new Set(legacy));
+		expect(ids.length).toBe(540);
 	});
 
 	it('returns all grade-filtered matches at scale (never-indexed field)', async () => {
 		const t = convexTest(schema, modules);
 		await seedScaledStudents(t, 600);
 
-		const legacy = await collectIds(t, {
+		const ids = await collectIds(t, {
 			grade: 9,
 			sortBy: 'studentId',
-			sortDirection: 'asc',
-			useIndex: false
-		});
-		const indexed = await collectIds(t, {
-			grade: 9,
-			sortBy: 'studentId',
-			sortDirection: 'asc',
-			useIndex: true
+			sortDirection: 'asc'
 		});
 
 		// Students are spread round-robin across grades 7-12.
-		expect(legacy.length).toBe(100);
-		expect(indexed.length).toBe(100);
-		expect(new Set(indexed)).toEqual(new Set(legacy));
+		expect(ids.length).toBe(100);
 	});
 
 	it('returns all __unassigned house matches at scale via full scan', async () => {
 		const t = convexTest(schema, modules);
 		await seedScaledStudents(t, 600);
 
-		const legacy = await collectIds(t, {
+		const ids = await collectIds(t, {
 			house: '__unassigned',
 			sortBy: 'studentId',
-			sortDirection: 'asc',
-			useIndex: false
-		});
-		const indexed = await collectIds(t, {
-			house: '__unassigned',
-			sortBy: 'studentId',
-			sortDirection: 'asc',
-			useIndex: true
+			sortDirection: 'asc'
 		});
 
 		// i%6 === 0 -> no house, so 100 unassigned of 600.
-		expect(legacy.length).toBe(100);
-		expect(indexed.length).toBe(100);
-		expect(new Set(indexed)).toEqual(new Set(legacy));
+		expect(ids.length).toBe(100);
 	});
 
-	it('paginates the full scaled set without gaps or duplicates (useIndex)', async () => {
+	it('paginates the full scaled set without gaps or duplicates', async () => {
 		const t = convexTest(schema, modules);
 		await seedScaledStudents(t, 600);
 
 		const ids = await collectIds(t, {
 			sortBy: 'studentId',
-			sortDirection: 'asc',
-			useIndex: true
+			sortDirection: 'asc'
 		});
 
 		expect(ids.length).toBe(600);
@@ -1569,106 +1384,6 @@ describe('students.listPaginated', () => {
 		expect(new Set(ids).size).toBe(600);
 		const expected = Array.from({ length: 600 }, (_, i) => `SCALE${String(i).padStart(4, '0')}`);
 		expect([...ids].sort()).toEqual(expected);
-	});
-
-	it('dispatcher default (no useIndex) routes to the legacy path', async () => {
-		const t = convexTest(schema, modules);
-		await seedScaledStudents(t, 200);
-
-		const args = {
-			status: 'Enrolled' as const,
-			house: 'Heracles' as const,
-			search: 'Match',
-			sortBy: 'studentId' as const,
-			sortDirection: 'asc' as const
-		};
-		const withoutFlag = await collectIds(t, { ...args, useIndex: false as const });
-		// Omit the flag entirely to exercise the dispatcher's default branch.
-		const defaultBranch = await (async () => {
-			const ids: string[] = [];
-			let cursor: string | null = null;
-			let pages = 0;
-			do {
-				const r = await t.query(api.students.listPaginated, {
-					paginationOpts: { numItems: 50, cursor },
-					status: args.status,
-					house: args.house,
-					search: args.search,
-					sortBy: args.sortBy,
-					sortDirection: args.sortDirection
-				});
-				for (const s of r.page) ids.push(s.studentId);
-				cursor = r.isDone ? null : r.continueCursor;
-				pages++;
-			} while (cursor && pages < 100);
-			return ids;
-		})();
-
-		expect(new Set(defaultBranch)).toEqual(new Set(withoutFlag));
-	});
-
-	it('legacy and indexed paths produce identical ordered results across the full arg matrix', async () => {
-		const t = convexTest(schema, modules);
-		await seedScaledStudents(t, 600);
-
-		const sortBys = ['studentId', 'englishName', 'chineseName', 'grade', 'house'] as const;
-		const dirs = ['asc', 'desc'] as const;
-		type Scenario = {
-			status?: 'Enrolled' | 'Not Enrolled';
-			house?: 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna' | '__unassigned';
-			grade?: number;
-			class?: string;
-			search?: string;
-		};
-		const scenarios: Scenario[] = [
-			{},
-			{ status: 'Enrolled' },
-			{ status: 'Not Enrolled' },
-			{ house: 'Heracles' },
-			{ house: 'Ixbalam' },
-			{ house: '__unassigned' },
-			{ status: 'Enrolled', house: 'Wukong' },
-			{ grade: 8 },
-			{ grade: 11, house: 'Setna' },
-			{ class: '1' },
-			{ search: 'Match 1' },
-			{ status: 'Enrolled', search: 'Match' },
-			{ grade: 9, status: 'Enrolled', house: 'Heracles', search: 'Match 3' }
-		];
-
-		for (const sortBy of sortBys) {
-			for (const sortDirection of dirs) {
-				for (const f of scenarios) {
-					const legacy = await t.query(api.students.listPaginated, {
-						paginationOpts: { numItems: 1000, cursor: null },
-						sortBy,
-						sortDirection,
-						status: f.status,
-						house: f.house,
-						grade: f.grade,
-						class: f.class,
-						search: f.search,
-						useIndex: false
-					});
-					const indexed = await t.query(api.students.listPaginated, {
-						paginationOpts: { numItems: 1000, cursor: null },
-						sortBy,
-						sortDirection,
-						status: f.status,
-						house: f.house,
-						grade: f.grade,
-						class: f.class,
-						search: f.search,
-						useIndex: true
-					});
-					const label = `sortBy=${sortBy} dir=${sortDirection} f=${JSON.stringify(f)}`;
-					expect(
-						indexed.page.map((s: { _id: string }) => s._id),
-						label
-					).toEqual(legacy.page.map((s: { _id: string }) => s._id));
-				}
-			}
-		}
 	});
 });
 
@@ -1986,7 +1701,7 @@ describe('students.getSystemStatus', () => {
 	beforeEach(() => setTestAuthRole('admin'));
 	afterEach(() => setTestAuthRole('admin'));
 
-	it('reports counts and the canary flag', async () => {
+	it('reports counts', async () => {
 		setTestAuthRole('super');
 		const t = convexTest(schema, modules);
 
@@ -2011,108 +1726,12 @@ describe('students.getSystemStatus', () => {
 		expect(d.counts.total).toBe(2);
 		expect(d.counts.enrolled).toBe(1);
 		expect(d.counts.notEnrolled).toBe(1);
-		expect(d.environment.canaryEnabled).toBe(false);
 	});
 
 	it('denies non-super callers', async () => {
 		const t = convexTest(schema, modules);
 
 		await expect(t.query(api.students.getSystemStatus, {})).rejects.toThrow(
-			/Forbidden: Super role required/
-		);
-	});
-});
-
-describe('students.runParitySelfTest', () => {
-	beforeEach(() => setTestAuthRole('admin'));
-	afterEach(() => setTestAuthRole('admin'));
-
-	it('reports allMatch across the matrix', async () => {
-		setTestAuthRole('super');
-		const t = convexTest(schema, modules);
-
-		await createStudentWithClass(t, {
-			englishName: 'Amy',
-			chineseName: '阿美',
-			studentId: '7000001',
-			grade: 7,
-			classNum: '1',
-			status: 'Enrolled'
-		});
-		await createStudentWithClass(t, {
-			englishName: 'Bob',
-			chineseName: '鮑伯',
-			studentId: '7000002',
-			grade: 7,
-			classNum: '1',
-			status: 'Not Enrolled'
-		});
-
-		const d = await t.query(api.students.runParitySelfTest, {});
-		expect(d.allMatch).toBe(true);
-		expect(d.combos.length).toBeGreaterThan(0);
-	});
-
-	it('denies non-super callers', async () => {
-		const t = convexTest(schema, modules);
-
-		await expect(t.query(api.students.runParitySelfTest, {})).rejects.toThrow(
-			/Forbidden: Super role required/
-		);
-	});
-});
-
-describe('students.getCanaryDivergences / runCanaryCheckNow', () => {
-	beforeEach(() => setTestAuthRole('admin'));
-	afterEach(() => setTestAuthRole('admin'));
-
-	it('records the last-run timestamp when a super runs the check', async () => {
-		setTestAuthRole('super');
-		const t = convexTest(schema, modules);
-
-		expect((await t.query(api.students.getCanaryDivergences, {})).lastRunAt).toBeNull();
-
-		await t.mutation(api.students.runCanaryCheckNow, {});
-
-		const result = await t.query(api.students.getCanaryDivergences, {});
-		expect(result.lastRunAt).not.toBeNull();
-		// Test data agrees, so no divergences are recorded.
-		expect(result.total).toBe(0);
-	});
-
-	it('denies non-super callers', async () => {
-		const t = convexTest(schema, modules);
-
-		await expect(t.query(api.students.getCanaryDivergences, {})).rejects.toThrow(
-			/Forbidden: Super role required/
-		);
-		await expect(t.mutation(api.students.runCanaryCheckNow, {})).rejects.toThrow(
-			/Forbidden: Super role required/
-		);
-	});
-});
-
-describe('students.setShadowCompare', () => {
-	beforeEach(() => setTestAuthRole('admin'));
-	afterEach(() => setTestAuthRole('admin'));
-
-	it('super can toggle the persisted canary flag', async () => {
-		setTestAuthRole('super');
-		const t = convexTest(schema, modules);
-
-		expect((await t.query(api.students.getSystemStatus, {})).environment.canaryEnabled).toBe(false);
-
-		await t.mutation(api.students.setShadowCompare, { enabled: true });
-		expect((await t.query(api.students.getSystemStatus, {})).environment.canaryEnabled).toBe(true);
-
-		await t.mutation(api.students.setShadowCompare, { enabled: false });
-		expect((await t.query(api.students.getSystemStatus, {})).environment.canaryEnabled).toBe(false);
-	});
-
-	it('denies non-super callers', async () => {
-		const t = convexTest(schema, modules);
-
-		await expect(t.mutation(api.students.setShadowCompare, { enabled: true })).rejects.toThrow(
 			/Forbidden: Super role required/
 		);
 	});
