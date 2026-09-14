@@ -171,13 +171,13 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="bg-black/50" data-testid="weekly-reports.dialog.backdrop" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 max-h-[85vh] w-[calc(100vw-1rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 rounded-lg border-0 p-0 shadow-xl sm:w-[calc(100vw-2rem)]"
+			class="fixed top-1/2 left-1/2 max-h-[85vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border-0 p-0 shadow-xl sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)]"
 			data-testid="weekly-reports.dialog"
 			showCloseButton={false}
 		>
 			{#if selectedReport}
 				<div
-					class="flex max-h-[85vh] w-full max-w-5xl flex-col"
+					class="flex max-h-[85vh] w-full max-w-[calc(100vw-1rem)] flex-col sm:max-w-[calc(100vw-2rem)]"
 					data-testid="weekly-reports.dialog.content"
 				>
 					<header
