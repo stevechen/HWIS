@@ -9,6 +9,13 @@ dialog::backdrop {
 
 @custom-variant dark (&:is(.dark *));
 
+@theme {
+	/* Ultra-high-resolution TV & Monitor Breakpoints (1rem = 16px) */
+	--breakpoint-fhd: 120rem; /* 1920px - HDTV / Full HD */
+	--breakpoint-qhd: 160rem; /* 2560px - 2K / QHD */
+	--breakpoint-uhd: 240rem; /* 3840px - 4K UHD TV */
+}
+
 :root {
 	--radius: 0.625rem;
 	--background: oklch(1 0 0);
@@ -122,6 +129,27 @@ dialog::backdrop {
 	}
 	body {
 		@apply bg-background text-foreground;
+	}
+
+	/*
+		Proportional interface upscaling for the leaderboard TV shell (kiosk UI).
+		Scales the root font-size so every rem-based size grows with the screen,
+		keeping identical layout proportions on 1080p → 4K displays. Scoped with
+		:has() so staff desktops at exactly 1920px are unaffected.
+		Baseline: 1080p ≈ 16px (1rem); 4K ≈ 2× (2rem = 32px).
+	*/
+	:root:has(.leaderboard-tvshell) {
+		font-size: clamp(1rem, 0.833vw, 2rem); /* 16px @1920 → 32px @3840 */
+	}
+	@media (min-width: 120rem) {
+		:root:has(.leaderboard-tvshell) {
+			font-size: 0.833vw; /* proportional 1920p+ */
+		}
+	}
+	@media (min-width: 240rem) {
+		:root:has(.leaderboard-tvshell) {
+			font-size: 0.833vw; /* hold the ratio at 4K+ */
+		}
 	}
 }
 

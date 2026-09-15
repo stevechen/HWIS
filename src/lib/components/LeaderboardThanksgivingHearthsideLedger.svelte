@@ -35,7 +35,7 @@
 </svelte:head>
 
 <section
-	class="parchment font-hand min-h-[calc(100vh_2rem)] px-[clamp(1rem,3vw,2.5rem)] py-[clamp(1rem,2.5vw,2rem)] {theme.font}"
+	class="parchment font-hand min-h-screen px-[clamp(1rem,3vw,2.5rem)] py-[clamp(1rem,2.5vw,2rem)] {theme.font}"
 >
 	<svg style="position: absolute; width: 0; height: 0;" aria-hidden="true">
 		<defs>
