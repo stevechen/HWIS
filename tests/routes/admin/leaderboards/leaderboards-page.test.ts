@@ -89,13 +89,14 @@ describe('Admin Leaderboards Page', () => {
 				.element(page.getByRole('img', { name: `${themeLabel(theme)} theme preview` }).first())
 				.toBeInTheDocument();
 		}
-		expect(captureBoardThumbnail).toHaveBeenCalledWith(
-			'/leaderboard/houses?display=1&theme=christmas'
-		);
-		expect(captureBoardThumbnail).toHaveBeenCalledWith(
-			'/leaderboard/classes?display=1&theme=default'
-		);
-		expect(captureBoardThumbnail).toHaveBeenCalledTimes(10);
+		for (const board of ['houses', 'classes']) {
+			for (const theme of THEME_IDS) {
+				expect(captureBoardThumbnail).toHaveBeenCalledWith(
+					`/leaderboard/${board}?display=1&theme=${theme}`,
+					{ settleMs: 4000 }
+				);
+			}
+		}
 	});
 
 	it('persists each captured screenshot to the config', async () => {
@@ -119,9 +120,7 @@ describe('Admin Leaderboards Page', () => {
 					board: 'houses',
 					enabled: true,
 					theme: 'default',
-					themes: Object.fromEntries(
-						THEME_IDS.map((t) => [t, `data:image/png;base64,STORED_${t}`])
-					)
+					themes: Object.fromEntries(THEME_IDS.map((t) => [t, `data:image/png;base64,STORED_${t}`]))
 				}
 			],
 			isLoading: false,
@@ -149,12 +148,21 @@ describe('Admin Leaderboards Page', () => {
 		}
 	});
 
-	it('shows a fallback tile when a capture fails', async () => {
+	it('shows a fallback tile with retry when a capture fails', async () => {
 		vi.mocked(captureBoardThumbnail).mockRejectedValueOnce(new Error('boom'));
 		render(LeaderboardsPage);
 		await expect
 			.element(page.getByText('Preview unavailable', { exact: true }).first())
 			.toBeInTheDocument();
-		expect(mockMutation).not.toHaveBeenCalled();
+		const retry = page.getByTestId('admin-leaderboards.retry-houses-default');
+		await expect.element(retry).toBeInTheDocument();
+		await retry.click();
+		await expect
+			.element(
+				page
+					.getByTestId('admin-leaderboards.theme-tile-houses-default')
+					.getByRole('img', { name: 'Enchanted Ceiling theme preview' })
+			)
+			.toBeInTheDocument();
 	});
 });

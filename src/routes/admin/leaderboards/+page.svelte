@@ -83,6 +83,36 @@
 		return `${board}:${themeId}`;
 	}
 
+	async function captureOneThumb(board: Board, boardPath: string, themeId: LeaderboardThemeId) {
+		const key = thumbKey(board, themeId);
+		const previous = thumbCache.get(key);
+		try {
+			// Bulk recaptures hammer the Convex backend with two parallel iframe
+			// loads, which often leaves `toPng` painting too early (blank shot)
+			// or throws on a webfont fetch race. Keep the previous (stale)
+			// screenshot visible while retrying so a bad capture never flips a
+			// good tile to "unavailable".
+			const url = await captureBoardThumbnail(`${displayPath(boardPath)}&theme=${themeId}`, {
+				settleMs: 4000
+			});
+			thumbCache.set(key, url);
+			thumbs[key] = { url };
+			await client.mutation(api.leaderboards.update, {
+				board,
+				themeScreenshot: { theme: themeId, url }
+			});
+			return true;
+		} catch (err) {
+			console.warn(`Preview capture failed for ${key}:`, err);
+			if (previous) {
+				thumbs[key] = { url: previous };
+			} else {
+				thumbs[key] = { error: true };
+			}
+			return false;
+		}
+	}
+
 	async function captureThemeThumbs(board: Board, boardPath: string, force = false) {
 		capturingBoard = board;
 		try {
@@ -93,20 +123,10 @@
 					thumbs[key] = { url: cached };
 					continue;
 				}
-				thumbs[key] = {};
-				try {
-					const url = await captureBoardThumbnail(
-						`${displayPath(boardPath)}&theme=${option.value}`
-					);
-					thumbCache.set(key, url);
-					thumbs[key] = { url };
-					await client.mutation(api.leaderboards.update, {
-						board,
-						themeScreenshot: { theme: option.value, url }
-					});
-				} catch {
-					thumbs[key] = { error: true };
+				if (!cached) {
+					thumbs[key] = {};
 				}
+				await captureOneThumb(board, boardPath, option.value);
 			}
 		} finally {
 			capturingBoard = null;
@@ -118,23 +138,32 @@
 		if (configsQuery.data && !capturesStarted) {
 			capturesStarted = true;
 			// Seed tiles from stored screenshots, then capture only the missing
-			// ones (both boards concurrently, themes sequentially per board).
-			for (const config of configsQuery.data) {
-				const board = config.board as Board;
-				for (const option of LEADERBOARD_THEME_OPTIONS) {
-					const stored = config.themes[option.value];
-					if (stored) {
-						thumbCache.set(thumbKey(board, option.value), stored);
-						thumbs[thumbKey(board, option.value)] = { url: stored };
+			// ones. Boards run sequentially (not concurrently) so two iframe
+			// loads don't fight over the Convex connection.
+			void (async () => {
+				for (const config of configsQuery.data ?? []) {
+					const board = config.board as Board;
+					for (const option of LEADERBOARD_THEME_OPTIONS) {
+						const stored = config.themes[option.value];
+						if (stored) {
+							thumbCache.set(thumbKey(board, option.value), stored);
+							thumbs[thumbKey(board, option.value)] = { url: stored };
+						}
 					}
+					await captureThemeThumbs(board, BOARD_META[board].path);
 				}
-				void captureThemeThumbs(board, BOARD_META[board].path);
-			}
+			})();
 		}
 	});
 </script>
 
-{#snippet ThemeTile(themeId: LeaderboardThemeId, board: Board, selected: boolean, busy: boolean)}
+{#snippet ThemeTile(
+	themeId: LeaderboardThemeId,
+	board: Board,
+	boardPath: string,
+	selected: boolean,
+	busy: boolean
+)}
 	{@const thumb = thumbs[thumbKey(board, themeId)]}
 	<button
 		type="button"
@@ -155,7 +184,28 @@
 					class="size-full object-cover"
 				/>
 			{:else if thumb?.error}
-				<span class="text-muted-foreground p-2 text-center text-[10px]">Preview unavailable</span>
+				<span class="flex flex-col items-center gap-1 p-2 text-center">
+					<span class="text-muted-foreground text-[10px]">Preview unavailable</span>
+					<span
+						role="button"
+						tabindex="0"
+						class="text-primary text-[10px] font-semibold underline"
+						data-testid="admin-leaderboards.retry-{board}-{themeId}"
+						onclick={(e) => {
+							e.stopPropagation();
+							void captureOneThumb(board, boardPath, themeId);
+						}}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								e.stopPropagation();
+								void captureOneThumb(board, boardPath, themeId);
+							}
+						}}
+					>
+						Retry
+					</span>
+				</span>
 			{:else}
 				<div
 					class="border-primary/30 border-b-primary size-5 animate-spin rounded-full border-2"
@@ -274,7 +324,13 @@
 					</p>
 					<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
 						{#each LEADERBOARD_THEME_OPTIONS as option (option.value)}
-							{@render ThemeTile(option.value, board, option.value === config.theme, busy)}
+							{@render ThemeTile(
+								option.value,
+								board,
+								meta.path,
+								option.value === config.theme,
+								busy
+							)}
 						{/each}
 					</div>
 				</section>
