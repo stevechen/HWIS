@@ -228,12 +228,6 @@
 
 <svelte:head>
 	<title>HWIS House Points</title>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cormorant+Garamond:wght@400;500;600;700&display=swap"
-		rel="stylesheet"
-	/>
 </svelte:head>
 
 <section
@@ -594,7 +588,6 @@
 		inset: 0;
 		border: 1.5px solid rgba(199, 210, 254, 0.24);
 		border-radius: inherit;
-		filter: url(#hand-drawn-heracles);
 		pointer-events: none;
 		z-index: 2;
 	}
@@ -602,25 +595,21 @@
 		border-radius: 24px 14px 22px 16px / 16px 22px 14px 24px;
 	}
 	.house-Heracles.organic-border::before {
-		filter: url(#hand-drawn-heracles);
 	}
 	.house-Wukong.organic-border {
 		border-radius: 18px 24px 14px 20px / 20px 14px 24px 18px;
 	}
 	.house-Wukong.organic-border::before {
-		filter: url(#hand-drawn-wukong);
 	}
 	.house-Ixbalam.organic-border {
 		border-radius: 20px 18px 26px 12px / 12px 26px 18px 20px;
 	}
 	.house-Ixbalam.organic-border::before {
-		filter: url(#hand-drawn-ixbalam);
 	}
 	.house-Setna.organic-border {
 		border-radius: 16px 20px 18px 24px / 24px 18px 20px 16px;
 	}
 	.house-Setna.organic-border::before {
-		filter: url(#hand-drawn-setna);
 	}
 
 	.vignette {

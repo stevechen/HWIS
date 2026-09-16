@@ -19,6 +19,16 @@
 
 	let isFs = $state(false);
 	let container: HTMLDivElement | undefined = $state(undefined);
+	// Auto-fullscreen is desktop-only: it makes no sense in a 1280×720 capture
+	// iframe (and on touch devices a programmatic request can steal the real
+	// fullscreen state). The fullscreen toggle buttons still work manually.
+	/** Skip fullscreen when capture is running (`?no-fullscreen=1`) or inside an
+	 * iframe / on touch devices. */
+	const skipAutoFullscreen =
+		browser &&
+		(window.self !== window.top ||
+			window.matchMedia('(pointer: coarse)').matches ||
+			new URL(window.location.href, window.location.origin).searchParams.has('no-fullscreen'));
 
 	function syncFs() {
 		isFs = !!document.fullscreenElement;
@@ -44,9 +54,12 @@
 
 	onMount(() => {
 		if (!browser) return;
-		const t = setTimeout(() => {
-			void enterFullscreen();
-		}, 300);
+		let t: ReturnType<typeof setTimeout> | undefined;
+		if (!skipAutoFullscreen) {
+			t = setTimeout(() => {
+				void enterFullscreen();
+			}, 300);
+		}
 
 		document.addEventListener('fullscreenchange', syncFs);
 		syncFs();
@@ -61,12 +74,12 @@
 		document.addEventListener('keydown', onKey);
 
 		const onFirstClick = () => {
-			if (!document.fullscreenElement) void enterFullscreen();
+			if (!skipAutoFullscreen && !document.fullscreenElement) void enterFullscreen();
 		};
 		document.addEventListener('click', onFirstClick, { once: true });
 
 		return () => {
-			clearTimeout(t);
+			if (t) clearTimeout(t);
 			document.removeEventListener('fullscreenchange', syncFs);
 			document.removeEventListener('keydown', onKey);
 		};

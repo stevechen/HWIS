@@ -53,12 +53,7 @@
 </script>
 
 <svelte:head>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cormorant+Garamond:wght@400;500;600;700&display=swap"
-		rel="stylesheet"
-	/>
+	<title>HWIS House Points</title>
 </svelte:head>
 
 <section class="relative flex h-full min-h-0 flex-col {theme.section} px-[3vw] py-[1.5vh]">

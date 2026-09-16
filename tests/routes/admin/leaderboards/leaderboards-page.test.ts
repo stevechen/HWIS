@@ -20,7 +20,7 @@ vi.mock('convex-svelte', () => ({
 }));
 
 vi.mock('$lib/thumbnail', () => ({
-	captureBoardThumbnail: vi.fn().mockResolvedValue('data:image/png;base64,FAKE')
+	captureBoardThumbnail: vi.fn().mockResolvedValue('data:image/jpeg;base64,FAKE')
 }));
 
 import LeaderboardsPage from '$src/routes/admin/leaderboards/+page.svelte';
@@ -93,7 +93,7 @@ describe('Admin Leaderboards Page', () => {
 			for (const theme of THEME_IDS) {
 				expect(captureBoardThumbnail).toHaveBeenCalledWith(
 					`/leaderboard/${board}?display=1&theme=${theme}`,
-					{ settleMs: 4000 }
+					{ settleMs: 4000, format: 'jpeg', jpegQuality: 0.7 }
 				);
 			}
 		}
@@ -107,7 +107,7 @@ describe('Admin Leaderboards Page', () => {
 		await vi.waitFor(() => {
 			expect(mockMutation).toHaveBeenCalledWith(expect.anything(), {
 				board: 'houses',
-				themeScreenshot: { theme: 'cny', url: 'data:image/png;base64,FAKE' }
+				themeScreenshot: { theme: 'cny', url: 'data:image/jpeg;base64,FAKE' }
 			});
 		});
 		expect(mockMutation).toHaveBeenCalledTimes(10);
@@ -120,7 +120,7 @@ describe('Admin Leaderboards Page', () => {
 					board: 'houses',
 					enabled: true,
 					theme: 'default',
-					themes: Object.fromEntries(THEME_IDS.map((t) => [t, `data:image/png;base64,STORED_${t}`]))
+					themes: Object.fromEntries(THEME_IDS.map((t) => [t, `data:image/jpeg;base64,STORED_${t}`]))
 				}
 			],
 			isLoading: false,

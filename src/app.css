@@ -2,6 +2,18 @@
 
 @import 'tw-animate-css';
 
+/* Local font bundle — bundled from @fontsource packages (WOFF2 files, no
+ * cross-origin stylesheet requests). Enables offline screenshot capture on
+ * Chromium without the SecurityError that cross-origin Google Fonts triggers.
+ *
+ * The CNY Lantern Row component swaps the decorative 福 / 祿 / 壽 glyphs for
+ * inline SVG so thumbnails never depend on any Chinese font either.
+ */
+
+@import '@fontsource/cinzel';
+@import '@fontsource/cormorant-garamond';
+@import '@fontsource/caveat';
+
 /* Dialog backdrop styling */
 dialog::backdrop {
 	background: rgba(0, 0, 0, 0.5);

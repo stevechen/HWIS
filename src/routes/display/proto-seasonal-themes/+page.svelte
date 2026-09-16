@@ -167,12 +167,6 @@
 
 <svelte:head>
 	<title>PROTOTYPE — Seasonal Leaderboard Themes</title>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Ma+Shan+Zheng&display=swap"
-		rel="stylesheet"
-	/>
 </svelte:head>
 
 <section class="relative min-h-screen overflow-hidden">

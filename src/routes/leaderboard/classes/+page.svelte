@@ -154,12 +154,6 @@
 
 <svelte:head>
 	<title>HWIS Class Leaderboard</title>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cormorant+Garamond:wght@400;500;600;700&display=swap"
-		rel="stylesheet"
-	/>
 </svelte:head>
 
 <section
@@ -419,16 +413,12 @@
 		z-index: 2;
 	}
 	.filter-c1.organic-border::before {
-		filter: url(#hand-drawn-c1);
 	}
 	.filter-c2.organic-border::before {
-		filter: url(#hand-drawn-c2);
 	}
 	.filter-c3.organic-border::before {
-		filter: url(#hand-drawn-c3);
 	}
 	.filter-c4.organic-border::before {
-		filter: url(#hand-drawn-c4);
 	}
 	.vignette {
 		background: radial-gradient(

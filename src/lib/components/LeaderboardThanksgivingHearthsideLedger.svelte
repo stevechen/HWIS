@@ -28,10 +28,7 @@
 </script>
 
 <svelte:head>
-	<link
-		href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&display=swap"
-		rel="stylesheet"
-	/>
+	<title>HWIS House Points</title>
 </svelte:head>
 
 <section
@@ -131,14 +128,13 @@
 			radial-gradient(ellipse at 20% 8%, rgba(120, 72, 20, 0.14), transparent 50%),
 			radial-gradient(ellipse at 82% 92%, rgba(120, 72, 20, 0.16), transparent 55%),
 			radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(101, 67, 33, 0.28) 100%),
-			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.4 0 0 0 0 0.28 0 0 0 0 0.12 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23c4a46a' opacity='0.05'/%3E%3C/svg%3E");
 		box-shadow: inset 0 0 120px rgba(101, 67, 33, 0.45);
 	}
 	.scribble-line {
 		height: 3px;
 		background: #6b4a26;
 		border-radius: 9999px;
-		filter: url(#proto-scribble);
 		opacity: 0.65;
 	}
 </style>

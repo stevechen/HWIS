@@ -93,7 +93,9 @@
 			// screenshot visible while retrying so a bad capture never flips a
 			// good tile to "unavailable".
 			const url = await captureBoardThumbnail(`${displayPath(boardPath)}&theme=${themeId}`, {
-				settleMs: 4000
+				settleMs: 4000,
+				format: 'jpeg',
+				jpegQuality: 0.7
 			});
 			thumbCache.set(key, url);
 			thumbs[key] = { url };

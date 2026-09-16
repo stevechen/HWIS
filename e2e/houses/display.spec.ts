@@ -55,6 +55,35 @@ test.describe('House Display Page - E2E', () => {
 	});
 
 	test('verifies radar chart renders with categories', async () => {
-		await expect(displayPage.getArticles().first()).toBeVisible();
+		await displayPage.expectArticleCount(4);
+		for (const article of await displayPage.getArticles().all()) {
+			// RadarChart currently exposes no accessible name; scope its SVG to each card.
+			const chart = article.locator('.radar-chart-container > svg');
+			await expect(chart).toBeVisible();
+			// A vertical SVG axis has a zero-width bounding box despite its visible stroke.
+			await expect(chart.locator('line').first()).toBeAttached();
+			await expect(
+				chart
+					.locator('text')
+					.filter({ hasText: /^[A-Z]$/ })
+					.first()
+			).toBeVisible();
+		}
+	});
+
+	test('displays four houses in the Lantern Row theme', async ({ page }) => {
+		await displayPage.goto('cny');
+		await expect(page.getByRole('heading', { name: 'Lantern Row', exact: true })).toBeVisible();
+		const houses = page.getByRole('application').getByRole('img', {
+			name: /^(Heracles|Wukong|Ixbalam|Setna): -?\d+ points, rank [1-4]$/
+		});
+		await expect(houses).toHaveCount(4);
+		for (const house of ['Heracles', 'Wukong', 'Ixbalam', 'Setna']) {
+			await expect(
+				page.getByRole('application').getByRole('img', {
+					name: new RegExp(`^${house}: -?\\d+ points, rank [1-4]$`)
+				})
+			).toBeVisible();
+		}
 	});
 });
