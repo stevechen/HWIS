@@ -594,22 +594,14 @@
 	.house-Heracles.organic-border {
 		border-radius: 24px 14px 22px 16px / 16px 22px 14px 24px;
 	}
-	.house-Heracles.organic-border::before {
-	}
 	.house-Wukong.organic-border {
 		border-radius: 18px 24px 14px 20px / 20px 14px 24px 18px;
-	}
-	.house-Wukong.organic-border::before {
 	}
 	.house-Ixbalam.organic-border {
 		border-radius: 20px 18px 26px 12px / 12px 26px 18px 20px;
 	}
-	.house-Ixbalam.organic-border::before {
-	}
 	.house-Setna.organic-border {
 		border-radius: 16px 20px 18px 24px / 24px 18px 20px 16px;
-	}
-	.house-Setna.organic-border::before {
 	}
 
 	.vignette {

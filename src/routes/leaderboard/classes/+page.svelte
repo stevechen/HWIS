@@ -412,14 +412,6 @@
 		pointer-events: none;
 		z-index: 2;
 	}
-	.filter-c1.organic-border::before {
-	}
-	.filter-c2.organic-border::before {
-	}
-	.filter-c3.organic-border::before {
-	}
-	.filter-c4.organic-border::before {
-	}
 	.vignette {
 		background: radial-gradient(
 			circle at 50% 0%,

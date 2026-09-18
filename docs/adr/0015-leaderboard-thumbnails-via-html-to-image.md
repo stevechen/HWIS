@@ -40,6 +40,12 @@ Candidates evaluated (ticket #115):
    existing `leaderboards.update` mutation — no schema change. A 320px PNG is
    tens of KB, far under the 1MB Convex string limit. If thumbnails grow (more
    boards, larger sizes), migrate to Convex file storage.
+
+   > Superseded by ADR-0019: keeping screenshots in the board config row meant
+   > every live board re-read ~700 KB to learn two flags, which exhausted the
+   > free-tier database I/O budget. Screenshots now live in
+   > `leaderboard_thumbnails`.
+
 3. **Refresh is a manual admin action**, not a cron: previews go stale only when
    an admin changes a theme or re-enables a board, and the admin is already on
    the page to click Refresh.

@@ -164,6 +164,28 @@ export default defineSchema({
 		updatedBy: v.optional(v.id('users'))
 	}).index('by_key', ['key']),
 
+	/**
+	 * Admin-only board preview screenshots. Deliberately a separate table from
+	 * `settings`: the live TV boards subscribe to `settings['leaderboard.<board>']`
+	 * for their enabled/theme flags, so base64 screenshots must never live in that
+	 * row — reading them on every board load (and on every capture write) burned
+	 * most of the free-tier database I/O budget. See ADR-0019.
+	 */
+	leaderboard_thumbnails: defineTable({
+		board: v.union(v.literal('houses'), v.literal('classes')),
+		theme: v.union(
+			v.literal('default'),
+			v.literal('thanksgiving-1'),
+			v.literal('thanksgiving-2'),
+			v.literal('christmas'),
+			v.literal('cny')
+		),
+		url: v.string(),
+		updatedAt: v.number()
+	})
+		.index('by_board_theme', ['board', 'theme'])
+		.index('by_board', ['board']),
+
 	house_events: defineTable({
 		title: v.string(),
 		startDate: v.number(),
