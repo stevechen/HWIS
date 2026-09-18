@@ -1,4 +1,4 @@
-import { query, mutation } from './_generated/server';
+import { query, mutation, type MutationCtx } from './_generated/server';
 import type { Id } from './_generated/dataModel';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
@@ -18,6 +18,7 @@ import { projectWeeklyReport } from './shared/weekly_report_read_model';
 import type { RecentBatch, RecentBatchEvaluation } from './shared/recentActions';
 import { derivedBatchKey } from './shared/recentActions';
 import { resolveStudentFromEmail, isStudentEmailAddress } from './shared/student';
+import { internal } from './_generated/api';
 import {
 	canReadTeacherHistory,
 	requireEvaluationCreate,
@@ -27,6 +28,16 @@ import {
 	getEvaluationCapabilities,
 	type AuthorizationActor
 } from './shared/authorization';
+
+// Boards read precomputed snapshots (ADR-0020); every evaluation write
+// schedules a debounced snapshot refresh so they update within ~45s. Skipped
+// under unit tests: convex-test's fake scheduler can't execute chained
+// scheduled functions (refresh → schedule → refresh) and raises unhandled
+// errors. Real deployments (dev/prod/e2e) always schedule.
+function scheduleSnapshotRefresh(ctx: MutationCtx) {
+	if (isTestRuntime) return;
+	void ctx.scheduler.runAfter(0, internal.board_snapshots.scheduleRefresh, {});
+}
 
 export const getUserByAuthId = query({
 	args: { authId: v.string() },
@@ -103,6 +114,7 @@ export const create = mutation({
 			});
 		}
 
+		scheduleSnapshotRefresh(ctx);
 		return evaluationIds;
 	}
 });
@@ -143,6 +155,7 @@ export const remove = mutation({
 			timestamp: Date.now(),
 			e2eTag: evaluation.e2eTag
 		});
+		scheduleSnapshotRefresh(ctx);
 	}
 });
 
@@ -567,6 +580,7 @@ export const update = mutation({
 			timestamp: Date.now()
 		});
 
+		scheduleSnapshotRefresh(ctx);
 		return { success: true };
 	}
 });
@@ -627,6 +641,7 @@ export const updateMany = mutation({
 			});
 		}
 
+		scheduleSnapshotRefresh(ctx);
 		return { success: true, count: args.ids.length };
 	}
 });
@@ -673,6 +688,7 @@ export const removeMany = mutation({
 			});
 		}
 
+		scheduleSnapshotRefresh(ctx);
 		return { success: true, count: args.ids.length };
 	}
 });

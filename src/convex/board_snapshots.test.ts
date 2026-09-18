@@ -188,6 +188,50 @@ describe('board_snapshots', () => {
 		expect(cls?.totalPoints).toBe(1);
 	});
 
+	it('value-only edits dirty the watermark via audit logs', async () => {
+		const t = convexTest(schema, modules);
+		const teacherId = await seedTeacher(t);
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'Snap Six',
+			chineseName: '快照六',
+			studentId: '7100006',
+			grade: 9,
+			classNum: '2',
+			status: 'Enrolled'
+		});
+		await t.run(async (ctx) => {
+			const categoryId = await ctx.db.insert('point_categories', { name: 'Academic' });
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId,
+				value: 2,
+				categoryId,
+				details: 'Snapshot test evaluation',
+				timestamp: Date.now(),
+				semesterId: '2024-1'
+			});
+		});
+		await t.mutation(internal.board_snapshots.refresh, { board: 'classes' });
+
+		// Simulate the audit log that evaluations.update writes on a value edit:
+		// the evaluation's timestamp is unchanged, only the audit row moves.
+		await t.run(async (ctx) => {
+			await ctx.db.insert('audit_logs', {
+				action: 'update_evaluation',
+				performerId: teacherId,
+				targetTable: 'evaluations',
+				targetId: 'simulated',
+				oldValue: null,
+				newValue: { value: 7 },
+				timestamp: Date.now()
+			});
+		});
+
+		// A non-forced refresh must recompute (not skip) because the watermark moved.
+		const result = await t.mutation(internal.board_snapshots.refresh, { board: 'classes' });
+		expect(result).toEqual({ skipped: false });
+	});
+
 	it('tracks the houses board independently from classes', async () => {
 		const t = convexTest(schema, modules);
 		await seedTeacher(t);

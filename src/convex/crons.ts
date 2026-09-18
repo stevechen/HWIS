@@ -17,11 +17,12 @@ crons.daily(
 	{}
 );
 
-// Recompute leaderboard snapshots when evaluations changed since the last run
-// (ADR-0020). Watermark check makes this a no-op (no writes) when nothing did.
+// Safety-net cron: event-driven refreshes (scheduled by evaluation mutations)
+// keep snapshots fresh within ~45s of a write; this slow cron only heals
+// anything that slipped past (e.g. direct data changes outside the app).
 crons.interval(
 	'leaderboard-snapshot-refresh',
-	{ minutes: 5 },
+	{ minutes: 30 },
 	internal.board_snapshots.refreshAll,
 	{}
 );

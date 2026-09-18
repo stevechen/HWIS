@@ -22,11 +22,19 @@ a leaderboard that lags a few minutes behind is acceptable.
 - Store precomputed board stats in a new `leaderboard_snapshots` table, one
   row per board (`houses` | `classes`), as a JSON payload with exactly the
   shape the old live queries returned.
-- A cron (`board_snapshots.refreshAll`) runs every 5 minutes. Each refresh
-  first computes an O(1) watermark (max `evaluations.timestamp` via the
-  `by_timestamp` index) and skips entirely — zero writes — when evaluations
-  haven't changed. A nightly forced rebuild is the safety net for changes the
-  watermark can't see (value-only edits, deletes of older rows).
+- A cron (`board_snapshots.refreshAll`) runs every 30 minutes as a safety net.
+  Freshness comes from **event-driven refreshes**: every evaluation mutation
+  (`create`/`remove`/`update`/`updateMany`/`removeMany`) schedules
+  `board_snapshots.scheduleRefresh`, which runs `refreshAll` after a 45s
+  debounce, so boards update within roughly a minute of a write. Overlapping
+  schedules from write bursts are harmless — the watermark check turns
+  redundant runs into two indexed reads and no writes.
+- Each refresh first computes an O(1) watermark (max of the latest
+  `evaluations.timestamp` and latest `audit_logs.timestamp`, both via
+  descending index takes) and skips entirely — zero writes — when nothing
+  changed. Audit logs cover every evaluation create/edit/delete, so value
+  edits and deletes of older rows are caught too. A nightly forced rebuild is
+  the last-resort safety net.
 - `board_snapshots.getHouseStats` / `getClassStats` (public, same auth gate as
   the old queries) read the snapshot. Their payload types are derived from the
   exported `fetch*Stats` functions, so the stored JSON shape can't drift from
@@ -41,11 +49,12 @@ a leaderboard that lags a few minutes behind is acceptable.
 ## Consequences
 
 - Board reads drop from O(all evaluations) to a single small-document read.
-- Boards lag evaluations by up to 5 minutes (plus cron delay). The points-pop
-  animation on the boards no longer fires on every evaluation; it fires when
-  the cron publishes a new snapshot.
-- The cron runs 288×/day but does real work only on days when points are
-  actually awarded; on idle days it performs two indexed reads per board.
+- Boards lag evaluations by ~45–60s (scheduled refresh debounce). The
+  points-pop animation on the boards fires on the debounced refresh, not on
+  every evaluation.
+- The 30-minute cron and nightly rebuild are safety nets; on a normal day all
+  freshness comes from the event-driven schedules, and redundant runs are
+  near-free (two indexed reads, no writes).
 - If a snapshot ever goes stale or wrong (e.g. an edit the watermark missed),
   the nightly forced rebuild heals it, or run
   `bunx convex run board_snapshots:refreshAll '{"force":true}'` manually for

@@ -25,13 +25,25 @@ const boardValidator = v.union(v.literal('houses'), v.literal('classes'));
 export type HousesStats = Awaited<ReturnType<typeof fetchHouseStats>>;
 export type ClassStats = Awaited<ReturnType<typeof fetchClassStats>>;
 
-// Cheap O(1) change detection: max evaluation timestamp via the by_timestamp
-// index (catches inserts and deletes of the newest row). Value-only edits and
-// deletes of older rows are missed here, but the nightly forced rebuild
-// (crons.ts) catches anything that slips past.
+// Cheap O(1) change detection. The watermark is the max of the latest
+// evaluation timestamp and the latest audit-log timestamp. Audit logs cover
+// every evaluation create/edit/delete, so this catches value edits and
+// deletes of older rows that the evaluation timestamp alone would miss.
 async function computeWatermark(ctx: QueryCtx): Promise<number> {
-	const latest = await ctx.db.query('evaluations').withIndex('by_timestamp').order('desc').take(1);
-	return latest.length > 0 ? latest[0].timestamp : 0;
+	const latestEval = await ctx.db
+		.query('evaluations')
+		.withIndex('by_timestamp')
+		.order('desc')
+		.take(1);
+	const latestAudit = await ctx.db
+		.query('audit_logs')
+		.withIndex('by_timestamp')
+		.order('desc')
+		.take(1);
+	return Math.max(
+		latestEval.length > 0 ? latestEval[0].timestamp : 0,
+		latestAudit.length > 0 ? latestAudit[0].timestamp : 0
+	);
 }
 
 // Snapshot-first read with the live computation as a lazy fallback (fresh
@@ -114,5 +126,16 @@ export const refreshAll = internalMutation({
 			board: 'classes',
 			force: args.force
 		});
+	}
+});
+
+// Debounced event-driven refresh: evaluation mutations schedule this so the
+// boards update within ~45s of a write instead of waiting for the cron.
+// Overlapping schedules from write bursts are fine — the watermark check in
+// `refresh` turns redundant runs into two indexed reads and no writes.
+export const scheduleRefresh = internalMutation({
+	args: {},
+	handler: async (ctx) => {
+		await ctx.scheduler.runAfter(45_000, internal.board_snapshots.refreshAll, {});
 	}
 });
