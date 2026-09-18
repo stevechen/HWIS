@@ -186,6 +186,20 @@ export default defineSchema({
 		.index('by_board_theme', ['board', 'theme'])
 		.index('by_board', ['board']),
 
+	/**
+	 * Precomputed leaderboard stats, refreshed by cron (ADR-0020). The public
+	 * boards used to call fetchHouseStats/fetchClassStats on every page load,
+	 * which full-scanned `evaluations` each time and burned the free-tier
+	 * database I/O budget. Boards now subscribe to the precomputed snapshot
+	 * instead; the cron recomputes only when evaluations actually changed.
+	 */
+	leaderboard_snapshots: defineTable({
+		board: v.union(v.literal('houses'), v.literal('classes')),
+		stats: v.string(), // JSON payload mirroring the live fetch*Stats return shape
+		generatedAt: v.number(),
+		watermark: v.number() // max evaluations.timestamp seen at last refresh
+	}).index('by_board', ['board']),
+
 	house_events: defineTable({
 		title: v.string(),
 		startDate: v.number(),

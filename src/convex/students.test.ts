@@ -1737,7 +1737,7 @@ describe('students.getSystemStatus', () => {
 	});
 });
 
-describe('students.getPublicClassStats display names', () => {
+describe('board_snapshots.getClassStats display names', () => {
 	beforeEach(() => {
 		mockAuthUser({ authId: 'board-admin', name: 'Board Admin', role: 'admin', status: 'active' });
 	});
@@ -1777,7 +1777,7 @@ describe('students.getPublicClassStats display names', () => {
 			status: 'Enrolled'
 		});
 
-		const stats = await t.query(api.students.getPublicClassStats, {});
+		const stats = await t.query(api.board_snapshots.getClassStats, {});
 		const names = stats.classes
 			.filter((c: { grade: number }) => c.grade === 10)
 			.map((c: { displayName: string }) => c.displayName);
@@ -1806,7 +1806,7 @@ describe('students.getPublicClassStats display names', () => {
 			status: 'Enrolled'
 		});
 
-		const stats = await t.query(api.students.getPublicClassStats, {});
+		const stats = await t.query(api.board_snapshots.getClassStats, {});
 		const names = stats.classes
 			.filter((c: { grade: number }) => c.grade === 9)
 			.map((c: { displayName: string }) => c.displayName);

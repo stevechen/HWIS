@@ -154,7 +154,7 @@
 	const session = useViewer();
 	const isAuthLoading = $derived(session.status === 'loading');
 
-	const housesQuery = useQuery(api.students.getPublicHouseStats, () =>
+	const housesQuery = useQuery(api.board_snapshots.getHouseStats, () =>
 		session.isApproved ? {} : 'skip'
 	);
 

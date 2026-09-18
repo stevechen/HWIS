@@ -30,7 +30,7 @@ the `list` subscription and both boards: roughly **17 MB of I/O per screenshot
 sweep**. Fixed by moving screenshots to `leaderboard_thumbnails` (see ADR-0019);
 the config row is now ~60 B.
 
-### 2. [Open — dominant] The house/class stats queries scan the whole `evaluations` table
+### 2. [Fixed in ADR-0020] The house/class stats queries scan the whole `evaluations` table
 
 `src/convex/students.ts`:
 
@@ -59,14 +59,11 @@ Options, cheapest-to-strongest:
 | (b) Denormalized per-student / per-entity totals    | ~500 small student rows or ~20 entity rows | instant (recommended)    | high (integrity)           |
 | (c) Scope the board to the current semester         | one semester of evaluations                | instant                  | product decision           |
 
-(a) is the smallest safe step, but the cron's own full scan must run rarely
-(daily at most) or it just moves the cost. A cron that processes only
-evaluations newer than a stored watermark (`by_timestamp`) and does a nightly
-full rebuild keeps both the scan and the staleness bounded. (b) preserves the
-instant updates the boards are designed around (see the `{#key totalPoints}`
-pop animation) and needs one delta helper called from `evaluations.create`,
-`remove`, and the edit/batch paths, plus `shared/restore_plan.ts` and
-`shared/migration_plan.ts`.
+(a) was chosen (see ADR-0020): boards now read a precomputed snapshot row
+(`leaderboard_snapshots`) that a cron refreshes only when the evaluations
+watermark (max `timestamp` via `by_timestamp`) has moved, with a nightly forced
+rebuild as the safety net. (b) remains the follow-up if the 5-minute staleness
+turns out to matter.
 
 ### 3. [Open — cheap] The 30-day "recent" dimension is computed and never rendered
 
@@ -82,13 +79,11 @@ the seed of a future "last 30 days" board).
 ### 4. [Open — cheap] The admin screenshot sweep runs the full aggregation 10×
 
 `src/routes/admin/leaderboards/+page.svelte` captures 2 boards × 5 themes by
-loading the real board in a hidden iframe. Each iframe subscribes to the heavy
-stats query, so a sweep that finds missing previews runs the full table scan ten
-times (the code already notes bulk recaptures "hammer the Convex backend").
-Screenshots are persisted, so this is a first-visit / forced-refresh cost, not a
-per-visit one. Options: capture only the currently selected theme, gate the
-sweep behind an explicit button, or serve previews from a cheap snapshot query
-(option 2a).
+loading the real board in a hidden iframe. Each iframe now subscribes to the
+snapshot query (ADR-0020), so a sweep's aggregation cost is gone; what remains
+is the iframe render + screenshot payload itself. A sweep that finds missing
+previews still runs ten iframe loads — gate it behind an explicit button or
+capture only the currently selected theme if it needs trimming further.
 
 ### 5. [Open — minor] House board reads non-enrolled students
 
@@ -123,3 +118,22 @@ finding 3 rather than being an independent win.
 - `src/convex/leaderboards.test.ts` gained quota guards: the config row stays
   under 200 bytes when a 50 KB screenshot is stored, `getPublicConfig` exposes
   exactly four keys, and the migration is verified to compact legacy rows.
+
+## What changed in the snapshot pass (ADR-0020)
+
+- New `leaderboard_snapshots` table; `board_snapshots.getHouseStats` /
+  `getClassStats` (public) serve the boards from a precomputed row with a
+  live-compute fallback until the first cron refresh.
+- `board_snapshots.refresh` / `refreshAll` (internal, cron-driven every
+  5 minutes): O(1) watermark check via `by_timestamp`, full recompute only when
+  evaluations changed, `force` flag for the nightly rebuild and manual healing:
+
+  ```bash
+  bunx convex run board_snapshots:refreshAll '{"force":true}'
+  ```
+
+- `getPublicHouseStats`/`getPublicClassStats` removed; their duplicated auth
+  gate extracted into `students.assertBoardViewer`. Admin queries
+  (`getHouseStats`/`getClassStats`) still compute live on demand.
+- Board read set per subscription update: one small row (was: every evaluation
+  ever recorded). Board staleness: up to ~5 minutes.

@@ -11,6 +11,7 @@
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as backup from "../backup.js";
+import type * as board_snapshots from "../board_snapshots.js";
 import type * as categories from "../categories.js";
 import type * as classes from "../classes.js";
 import type * as clearJwks from "../clearJwks.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   audit: typeof audit;
   auth: typeof auth;
   backup: typeof backup;
+  board_snapshots: typeof board_snapshots;
   categories: typeof categories;
   classes: typeof classes;
   clearJwks: typeof clearJwks;

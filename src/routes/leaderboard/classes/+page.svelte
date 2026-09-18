@@ -97,7 +97,7 @@
 	const session = useViewer();
 	const isAuthLoading = $derived(session.status === 'loading');
 
-	const classesQuery = useQuery(api.students.getPublicClassStats, () =>
+	const classesQuery = useQuery(api.board_snapshots.getClassStats, () =>
 		session.isApproved ? {} : 'skip'
 	);
 

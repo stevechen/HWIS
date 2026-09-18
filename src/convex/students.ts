@@ -1065,7 +1065,10 @@ export const assignHouse = mutation({
 });
 
 // Houses competition page - get statistics for all houses (internal shared logic)
-async function fetchHouseStats(ctx: QueryCtx) {
+// Exported so the snapshot cron (board_snapshots.refresh) can reuse the exact
+// same aggregation the boards used to run inline — the snapshot payload must
+// be byte-compatible with what the pre-snapshot getPublicHouseStats returned.
+export async function fetchHouseStats(ctx: QueryCtx) {
 	const HOUSES = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
 
 	// Use by_house index to fetch only housed students (4 indexed queries)
@@ -1347,56 +1350,56 @@ export const getHouseStats = query({
 	}
 });
 
-export const getPublicHouseStats = query({
-	args: {},
-	handler: async (ctx) => {
-		const authUser = (await getAuthenticatedUser(ctx)) as
-			| (Doc<'users'> & { email?: string })
-			| ({ email?: string; role?: string; status?: string; authId?: string; id?: string } & Record<
-					string,
-					unknown
-			  >)
-			| null;
-		if (!authUser) throw new Error('Unauthorized');
+// Auth gate shared by the public leaderboard queries (admin leaderboard pages
+// use getClassStats/getHouseStats instead). Exported so board_snapshots'
+// public reader applies the identical rules the old getPublic*Stats enforced.
+export async function assertBoardViewer(ctx: QueryCtx) {
+	const authUser = (await getAuthenticatedUser(ctx)) as
+		| (Doc<'users'> & { email?: string })
+		| ({ email?: string; role?: string; status?: string; authId?: string; id?: string } & Record<
+				string,
+				unknown
+		  >)
+		| null;
+	if (!authUser) throw new Error('Unauthorized');
 
-		const email = (authUser as { email?: string }).email?.toLowerCase();
-		if (email && isStudentEmail(email)) {
-			const student = await resolveStudentFromEmail(email, ctx);
-			if (!student || student.status !== 'Enrolled') {
-				throw new Error('Forbidden: Student not enrolled');
+	const email = (authUser as { email?: string }).email?.toLowerCase();
+	if (email && isStudentEmail(email)) {
+		const student = await resolveStudentFromEmail(email, ctx);
+		if (!student || student.status !== 'Enrolled') {
+			throw new Error('Forbidden: Student not enrolled');
+		}
+	} else {
+		// Staff path — require active staff (teacher/admin/super, status active)
+		const candidate = authUser as Doc<'users'>;
+		if (candidate.role && candidate.status) {
+			if (!hasApplicationAccess(candidate)) {
+				throw new Error('Forbidden: Active staff access required');
 			}
 		} else {
-			// Staff path — require active staff (teacher/admin/super, status active)
-			const candidate = authUser as Doc<'users'>;
-			if (candidate.role && candidate.status) {
-				if (!hasApplicationAccess(candidate)) {
-					throw new Error('Forbidden: Active staff access required');
-				}
-			} else {
-				const authId =
-					(authUser as { authId?: string }).authId ||
-					(authUser as { id?: string }).id ||
-					(typeof (authUser as { _id?: string })._id === 'string'
-						? (authUser as { _id?: string })._id
-						: undefined);
-				if (!authId) throw new Error('Unauthorized');
-				const dbUser = await ctx.db
-					.query('users')
-					.withIndex('by_authId', (q) => q.eq('authId', authId))
-					.first();
-				if (!dbUser || !hasApplicationAccess(dbUser)) {
-					throw new Error('Forbidden: Active staff access required');
-				}
+			const authId =
+				(authUser as { authId?: string }).authId ||
+				(authUser as { id?: string }).id ||
+				(typeof (authUser as { _id?: string })._id === 'string'
+					? (authUser as { _id?: string })._id
+					: undefined);
+			if (!authId) throw new Error('Unauthorized');
+			const dbUser = await ctx.db
+				.query('users')
+				.withIndex('by_authId', (q) => q.eq('authId', authId))
+				.first();
+			if (!dbUser || !hasApplicationAccess(dbUser)) {
+				throw new Error('Forbidden: Active staff access required');
 			}
 		}
-
-		return fetchHouseStats(ctx);
 	}
-});
+}
 
 // Class leaderboard — aggregate evaluation points per class (Enrolled students only, all-time)
 // Shared logic so public + admin queries stay identical.
-async function fetchClassStats(ctx: QueryCtx) {
+// Exported so the snapshot cron (board_snapshots.refresh) can reuse the exact
+// same aggregation the boards used to run inline.
+export async function fetchClassStats(ctx: QueryCtx) {
 	const allClasses = await ctx.db.query('classes').take(100);
 	const categories = await ctx.db.query('point_categories').take(100);
 	const categoryMap = new Map(categories.map((c) => [c._id, c]));
@@ -1514,52 +1517,6 @@ export const getClassStats = query({
 	args: {},
 	handler: async (ctx) => {
 		await requireAdminForSensitiveOperation(ctx);
-		return fetchClassStats(ctx);
-	}
-});
-
-export const getPublicClassStats = query({
-	args: {},
-	handler: async (ctx) => {
-		const authUser = (await getAuthenticatedUser(ctx)) as
-			| (Doc<'users'> & { email?: string })
-			| ({ email?: string; role?: string; status?: string; authId?: string; id?: string } & Record<
-					string,
-					unknown
-			  >)
-			| null;
-		if (!authUser) throw new Error('Unauthorized');
-
-		const email = (authUser as { email?: string }).email?.toLowerCase();
-		if (email && isStudentEmail(email)) {
-			const student = await resolveStudentFromEmail(email, ctx);
-			if (!student || student.status !== 'Enrolled') {
-				throw new Error('Forbidden: Student not enrolled');
-			}
-		} else {
-			const candidate = authUser as Doc<'users'>;
-			if (candidate.role && candidate.status) {
-				if (!hasApplicationAccess(candidate)) {
-					throw new Error('Forbidden: Active staff access required');
-				}
-			} else {
-				const authId =
-					(authUser as { authId?: string }).authId ||
-					(authUser as { id?: string }).id ||
-					(typeof (authUser as { _id?: string })._id === 'string'
-						? (authUser as { _id?: string })._id
-						: undefined);
-				if (!authId) throw new Error('Unauthorized');
-				const dbUser = await ctx.db
-					.query('users')
-					.withIndex('by_authId', (q) => q.eq('authId', authId))
-					.first();
-				if (!dbUser || !hasApplicationAccess(dbUser)) {
-					throw new Error('Forbidden: Active staff access required');
-				}
-			}
-		}
-
 		return fetchClassStats(ctx);
 	}
 });
