@@ -2,6 +2,7 @@
 import { convexTest, modules, mockAuthUser, seedUser, createStudentWithClass } from './test.setup';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, internal } from './_generated/api';
+import type { Id } from './_generated/dataModel';
 import schema from './schema';
 
 /**
@@ -215,6 +216,8 @@ describe('board_snapshots', () => {
 
 		// Simulate the audit log that evaluations.update writes on a value edit:
 		// the evaluation's timestamp is unchanged, only the audit row moves.
+		// (Timestamp is bumped past the evaluation's: Date.now() has 1ms
+		// resolution and the two writes can land on the same millisecond.)
 		await t.run(async (ctx) => {
 			await ctx.db.insert('audit_logs', {
 				action: 'update_evaluation',
@@ -223,13 +226,59 @@ describe('board_snapshots', () => {
 				targetId: 'simulated',
 				oldValue: null,
 				newValue: { value: 7 },
-				timestamp: Date.now()
+				timestamp: Date.now() + 5000
 			});
 		});
 
 		// A non-forced refresh must recompute (not skip) because the watermark moved.
 		const result = await t.mutation(internal.board_snapshots.refresh, { board: 'classes' });
 		expect(result).toEqual({ skipped: false });
+	});
+
+	it('getRecentActivity enriches the latest evaluations with names and labels', async () => {
+		const t = convexTest(schema, modules);
+		const teacherId = await seedTeacher(t);
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'Feed One',
+			chineseName: '互动一',
+			studentId: '7100007',
+			grade: 9,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+		await t.run(async (ctx) => {
+			const categoryId = await ctx.db.insert('point_categories', { name: 'Kindness' });
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId,
+				value: 5,
+				categoryId,
+				details: 'Feed test evaluation',
+				timestamp: Date.now(),
+				semesterId: '2024-1'
+			});
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId,
+				value: -2,
+				categoryId,
+				details: 'Feed test evaluation 2',
+				timestamp: Date.now() - 1000,
+				semesterId: '2024-1'
+			});
+		});
+		await t.run((ctx) =>
+			ctx.db.patch(studentId as unknown as Id<'students'>, { house: 'Heracles' })
+		);
+
+		const activity = await t.query(api.board_snapshots.getRecentActivity, {});
+		expect(activity).toHaveLength(2);
+		expect(activity[0].value).toBe(5); // newest first
+		expect(activity[0].englishName).toBe('Feed One');
+		expect(activity[0].chineseName).toBe('互动一');
+		expect(activity[0].categoryName).toBe('Kindness');
+		expect(activity[0].house).toBe('Heracles');
+		expect(activity[0].classLabel).toBeTruthy();
 	});
 
 	it('tracks the houses board independently from classes', async () => {

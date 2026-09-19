@@ -7,6 +7,7 @@
 	import { CircleAlert, Medal, Trophy } from '@lucide/svelte';
 	import RadarChart from '$lib/components/RadarChart.svelte';
 	import LeaderboardDisabled from '$lib/components/LeaderboardDisabled.svelte';
+	import LeaderboardActivityFeed from '$lib/components/LeaderboardActivityFeed.svelte';
 	import { resolveLeaderboardTheme, resolveLeaderboardThemeId } from '$lib/leaderboard-themes';
 	import { useViewer } from '$lib/viewer.svelte';
 
@@ -98,6 +99,11 @@
 	const isAuthLoading = $derived(session.status === 'loading');
 
 	const classesQuery = useQuery(api.board_snapshots.getClassStats, () =>
+		session.isApproved ? {} : 'skip'
+	);
+	// Live feed overlay: instant per-evaluation pops while the snapshot totals
+	// catch up on the debounced refresh (ADR-0020, option 3).
+	const activityQuery = useQuery(api.board_snapshots.getRecentActivity, () =>
 		session.isApproved ? {} : 'skip'
 	);
 
@@ -348,6 +354,9 @@
 				{/each}
 			</div>
 		</div>
+	{/if}
+	{#if session.isApproved && !isAuthLoading && !isBoardDisabled}
+		<LeaderboardActivityFeed items={activityQuery.data ?? []} mode="classes" />
 	{/if}
 </section>
 

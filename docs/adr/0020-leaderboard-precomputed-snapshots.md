@@ -60,3 +60,10 @@ a leaderboard that lags a few minutes behind is acceptable.
   `bunx convex run board_snapshots:refreshAll '{"force":true}'` manually for
   an immediate heal (the CLI authenticates with the deployment's admin key,
   so internal functions are runnable from a dev checkout).
+- **Instant-but-cheap feel (option 3):** totals still lag ~45–60s, but both
+  boards also subscribe to `board_snapshots.getRecentActivity` — the last 10
+  evaluations with names/labels attached (one indexed take + a handful of
+  point-gets, near-free). A shared `LeaderboardActivityFeed` component pops a
+  `＋5 Alice` chip the moment a write lands, while the debounced snapshot
+  catches the totals up ~45s later. The feed ignores anything older than the
+  page load so a refresh never replays old evaluations.

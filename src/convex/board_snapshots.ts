@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { QueryCtx } from './_generated/server';
 import { assertBoardViewer, fetchClassStats, fetchHouseStats } from './students';
+import { countClassesByGrade, getDisplayName } from './shared/class_roster';
 import type { Id } from './_generated/dataModel';
 
 /**
@@ -137,5 +138,62 @@ export const scheduleRefresh = internalMutation({
 	args: {},
 	handler: async (ctx) => {
 		await ctx.scheduler.runAfter(45_000, internal.board_snapshots.refreshAll, {});
+	}
+});
+
+export type RecentActivityItem = {
+	evaluationId: string;
+	englishName: string;
+	chineseName: string;
+	house: string | null;
+	classLabel: string | null;
+	value: number;
+	categoryName: string;
+	timestamp: number;
+};
+
+// Lightweight live feed for the boards' activity overlay (ADR-0020): the last
+// few evaluations with names/labels attached. A `by_timestamp` desc take plus
+// a handful of indexed point-gets keeps this near-free even when reactive.
+export const getRecentActivity = query({
+	args: {},
+	handler: async (ctx): Promise<RecentActivityItem[]> => {
+		await assertBoardViewer(ctx);
+		const recent = await ctx.db
+			.query('evaluations')
+			.withIndex('by_timestamp')
+			.order('desc')
+			.take(10);
+		if (recent.length === 0) return [];
+
+		const studentIds = [...new Set(recent.map((e) => e.studentId))];
+		const categoryIds = [...new Set(recent.map((e) => e.categoryId))];
+		const [studentDocs, categoryDocs, allClasses] = await Promise.all([
+			Promise.all(studentIds.map((id) => ctx.db.get(id))),
+			Promise.all(categoryIds.map((id) => ctx.db.get(id))),
+			ctx.db.query('classes').take(100)
+		]);
+		const studentMap = new Map(studentDocs.filter((s) => s !== null).map((s) => [s._id, s]));
+		const categoryMap = new Map(categoryDocs.filter((c) => c !== null).map((c) => [c._id, c]));
+		const classMap = new Map(allClasses.map((c) => [c._id, c]));
+		const gradeCounts = countClassesByGrade(allClasses);
+
+		return recent.map((ev) => {
+			const student = studentMap.get(ev.studentId);
+			const cls = student?.classId ? classMap.get(student.classId) : undefined;
+			return {
+				evaluationId: ev._id,
+				englishName: student?.englishName ?? 'Unknown',
+				chineseName: student?.chineseName ?? '',
+				house: student?.house ?? null,
+				classLabel:
+					cls !== undefined
+						? getDisplayName(cls.grade, cls.class, gradeCounts.get(cls.grade) ?? 1)
+						: null,
+				value: ev.value,
+				categoryName: categoryMap.get(ev.categoryId)?.name ?? 'Unknown',
+				timestamp: ev.timestamp
+			};
+		});
 	}
 });

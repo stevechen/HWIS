@@ -15,6 +15,7 @@
 
 	import LeaderboardChristmasWorkshop from '$lib/components/LeaderboardChristmasWorkshop.svelte';
 	import LeaderboardCnyLanternRow from '$lib/components/LeaderboardCnyLanternRow.svelte';
+	import LeaderboardActivityFeed from '$lib/components/LeaderboardActivityFeed.svelte';
 	let viewportWidth = $state(1920);
 
 	const loadingMessages = [
@@ -155,6 +156,11 @@
 	const isAuthLoading = $derived(session.status === 'loading');
 
 	const housesQuery = useQuery(api.board_snapshots.getHouseStats, () =>
+		session.isApproved ? {} : 'skip'
+	);
+	// Live feed overlay: instant per-evaluation pops while the snapshot totals
+	// catch up on the debounced refresh (ADR-0020, option 3).
+	const activityQuery = useQuery(api.board_snapshots.getRecentActivity, () =>
 		session.isApproved ? {} : 'skip'
 	);
 
@@ -498,6 +504,9 @@
 				{/each}
 			</div>
 		</div>
+	{/if}
+	{#if session.isApproved && !isAuthLoading && !isBoardDisabled}
+		<LeaderboardActivityFeed items={activityQuery.data ?? []} mode="houses" />
 	{/if}
 </section>
 
