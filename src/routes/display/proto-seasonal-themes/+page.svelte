@@ -14,14 +14,12 @@
 	import type { House } from '$lib/constants/houses';
 
 	type Contributor = { studentId: string; englishName: string; totalPoints: number };
-	type Growth = { studentId: string; englishName: string; pointsLost: number };
 	type HouseEntry = {
 		house: string;
 		rank: number;
 		totalPoints: number;
 		pointsByCategory?: Record<string, number>;
 		topContributors?: Contributor[];
-		growthOpportunities?: Growth[];
 	};
 
 	const CATEGORIES = ['Academics', 'Service', 'Athletics', 'Citizenship'];
@@ -38,10 +36,6 @@
 				{ studentId: 'w4', englishName: 'Marcus Wu', totalPoints: 158 },
 				{ studentId: 'w5', englishName: 'Aisha Khan', totalPoints: 142 }
 			],
-			growthOpportunities: [
-				{ studentId: 'w9', englishName: 'Liam Walsh', pointsLost: 32 },
-				{ studentId: 'w8', englishName: 'Noah Kim', pointsLost: 27 }
-			]
 		},
 		{
 			house: 'Heracles',
@@ -54,10 +48,6 @@
 				{ studentId: 'h4', englishName: 'Omar Haddad', totalPoints: 149 },
 				{ studentId: 'h5', englishName: 'Ivy Zhang', totalPoints: 133 }
 			],
-			growthOpportunities: [
-				{ studentId: 'h9', englishName: 'Ben Carter', pointsLost: 41 },
-				{ studentId: 'h8', englishName: 'Ella Novak', pointsLost: 22 }
-			]
 		},
 		{
 			house: 'Ixbalam',
@@ -70,10 +60,6 @@
 				{ studentId: 'i4', englishName: 'Mia Santos', totalPoints: 150 },
 				{ studentId: 'i5', englishName: 'Raj Patel', totalPoints: 138 }
 			],
-			growthOpportunities: [
-				{ studentId: 'i9', englishName: 'Jack Moore', pointsLost: 29 },
-				{ studentId: 'i8', englishName: 'Yuki Tanaka', pointsLost: 18 }
-			]
 		},
 		{
 			house: 'Setna',
@@ -86,10 +72,6 @@
 				{ studentId: 's4', englishName: 'Ethan Brooks', totalPoints: 147 },
 				{ studentId: 's5', englishName: 'Hana Sato', totalPoints: 131 }
 			],
-			growthOpportunities: [
-				{ studentId: 's9', englishName: 'Max Weber', pointsLost: 35 },
-				{ studentId: 's8', englishName: 'Ruby Lane', pointsLost: 20 }
-			]
 		}
 	];
 
@@ -366,14 +348,7 @@
 								</div>
 							{/each}
 							<p class="mt-2 mb-1 font-bold tracking-widest text-red-300/70 uppercase">
-								🪵 Watch list
 							</p>
-							{#each (h.growthOpportunities ?? []).slice(0, 2) as g (g.studentId)}
-								<div class="flex justify-between gap-2">
-									<span class="truncate text-red-100/60">{g.englishName}</span>
-									<span class="text-red-300/90">{g.pointsLost}</span>
-								</div>
-							{/each}
 						</div>
 					</article>
 				{/each}

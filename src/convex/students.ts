@@ -1182,8 +1182,6 @@ export async function fetchHouseStats(ctx: QueryCtx) {
 			recentPointsByCategory: Record<string, number>;
 			topContributors: { studentId: string; englishName: string; totalPoints: number }[];
 			topContributorsRecent: { studentId: string; englishName: string; totalPoints: number }[];
-			growthOpportunities: { studentId: string; englishName: string; pointsLost: number }[];
-			growthOpportunitiesRecent: { studentId: string; englishName: string; pointsLost: number }[];
 		}
 	> = {};
 
@@ -1196,8 +1194,6 @@ export async function fetchHouseStats(ctx: QueryCtx) {
 			recentPointsByCategory: {},
 			topContributors: [],
 			topContributorsRecent: [],
-			growthOpportunities: [],
-			growthOpportunitiesRecent: []
 		};
 	}
 
@@ -1270,7 +1266,7 @@ export async function fetchHouseStats(ctx: QueryCtx) {
 		houseStats[house].topContributors = houseStudents
 			.filter((s) => s.totalPoints > 0)
 			.sort((a, b) => b.totalPoints - a.totalPoints)
-			.slice(0, 6)
+			.slice(0, 10)
 			.map((s) => ({
 				studentId: s.studentId,
 				englishName: s.englishName,
@@ -1281,34 +1277,13 @@ export async function fetchHouseStats(ctx: QueryCtx) {
 		houseStats[house].topContributorsRecent = houseStudents
 			.filter((s) => s.recentTotalPoints > 0)
 			.sort((a, b) => b.recentTotalPoints - a.recentTotalPoints)
-			.slice(0, 6)
+			.slice(0, 10)
 			.map((s) => ({
 				studentId: s.studentId,
 				englishName: s.englishName,
 				totalPoints: s.recentTotalPoints
 			}));
 
-		// Growth opportunities - All Time (students with negative points)
-		houseStats[house].growthOpportunities = houseStudents
-			.filter((s) => s.negativePoints < 0)
-			.sort((a, b) => a.negativePoints - b.negativePoints)
-			.slice(0, 6)
-			.map((s) => ({
-				studentId: s.studentId,
-				englishName: s.englishName,
-				pointsLost: Math.abs(s.negativePoints)
-			}));
-
-		// Growth opportunities - Most Recent (last 30 days)
-		houseStats[house].growthOpportunitiesRecent = houseStudents
-			.filter((s) => s.recentNegativePoints < 0)
-			.sort((a, b) => a.recentNegativePoints - b.recentNegativePoints)
-			.slice(0, 6)
-			.map((s) => ({
-				studentId: s.studentId,
-				englishName: s.englishName,
-				pointsLost: Math.abs(s.recentNegativePoints)
-			}));
 	}
 
 	const allCategories = [...new Set(categories.map((c) => c.name))];
@@ -1328,8 +1303,6 @@ export async function fetchHouseStats(ctx: QueryCtx) {
 		recentPointsByCategory: houseStats[house].recentPointsByCategory,
 		topContributors: houseStats[house].topContributors,
 		topContributorsRecent: houseStats[house].topContributorsRecent,
-		growthOpportunities: houseStats[house].growthOpportunities,
-		growthOpportunitiesRecent: houseStats[house].growthOpportunitiesRecent,
 		rank: ranking.indexOf(house) + 1,
 		recentRank: recentRanking.indexOf(house) + 1
 	}));

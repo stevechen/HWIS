@@ -17,7 +17,7 @@
 	const BOARD_META: Record<Board, { title: string; description: string; path: string }> = {
 		houses: {
 			title: 'House Points',
-			description: 'TV board ranking the four houses with radar, contributors, and growth.',
+			description: 'TV board ranking the four houses with radar charts and an expanded contributors list.',
 			path: '/leaderboard/houses'
 		},
 		classes: {

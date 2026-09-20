@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import { CircleAlert, Medal, Star, TrendingUp, Trophy } from '@lucide/svelte';
+	import { CircleAlert, Medal, Star, Trophy } from '@lucide/svelte';
 	import RadarChart from '$lib/components/RadarChart.svelte';
 	import LeaderboardDisabled from '$lib/components/LeaderboardDisabled.svelte';
 	import { houseLogos } from '$lib/assets/house-logos';
@@ -167,6 +167,11 @@
 	const categories = $derived(housesQuery.data?.categories || []);
 	const houses = $derived(housesQuery.data?.houses || []);
 
+	// Cards fill their height with the contributors the backend exposes. Mirrors
+	// the `topContributors` cap in src/convex/students.ts (10) so a future bump
+	// there cannot silently overflow the card.
+	const TOP_CONTRIBUTOR_LIMIT = 10;
+
 	const radarSize = $derived(Math.round(Math.min(Math.max(viewportWidth * 0.24, 280), 920)));
 
 	const globalMax = $derived(
@@ -216,19 +221,6 @@
 		}
 
 		return [{ label: houseData.house || 'Unknown', ...data }];
-	}
-
-	function toColumnMajor<T>(items: T[]): T[] {
-		if (items.length <= 2) return items;
-		const rows = Math.ceil(items.length / 2);
-		const result: T[] = [];
-		for (let r = 0; r < rows; r++) {
-			for (let c = 0; c < 2; c++) {
-				const idx = c * rows + r;
-				if (idx < items.length) result.push(items[idx]);
-			}
-		}
-		return result;
 	}
 </script>
 
@@ -381,7 +373,7 @@
 					{@const hc = houseTheme[house]}
 					{@const isFirst = houseData.rank === 1}
 					<article
-						class="house-{house} relative z-10 grid min-h-0 max-w-full min-w-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)_clamp(6rem,8vw,100rem)_clamp(6rem,10vw,100rem)] overflow-hidden border {isFirst
+						class="house-{house} relative z-10 grid min-h-0 max-w-full min-w-0 grid-cols-1 grid-rows-[auto_auto_1fr] overflow-hidden border {isFirst
 							? `organic-border ${firstPlaceCard[house]} backdrop-blur-2xl`
 							: theme.card}"
 					>
@@ -439,20 +431,25 @@
 						</div>
 
 						<div
-							class="min-h-0 overflow-hidden border-b px-[clamp(0.75rem,1vw,100rem)] py-[clamp(0.6rem,1vw,100rem)] pb-4 {theme.divider}"
+							class="flex min-h-0 flex-col overflow-hidden px-[clamp(0.75rem,1vw,100rem)] py-[clamp(0.6rem,1vw,100rem)]"
 						>
 							<h3
-								class="mb-1 flex items-center gap-2 text-[clamp(1rem,1.2vw,100rem)] font-black {theme.panelTitle} {theme.titleFont}"
+								class="mb-2 flex shrink-0 items-center justify-center gap-1.5 text-[clamp(1.1rem,1.3vw,100rem)] font-black {theme.panelTitle} {theme.titleFont}"
+								data-testid="houses.top-contributors-title"
 							>
-								<Star class="size-[clamp(1.2rem,1.5vw,100rem)] text-yellow-400" aria-label="Star" />
+								<Star
+									class="size-[clamp(1.2rem,1.5vw,100rem)] shrink-0 text-yellow-400"
+									aria-label="Star"
+								/>
 								Top Contributors
 							</h3>
 							{#if houseData.topContributors && houseData.topContributors.length > 0}
 								<ul
-									class="relative grid grid-cols-2 gap-x-3 gap-y-1.5 pr-0 pl-0 text-[clamp(0.6rem,1vw,100rem)] leading-tight"
+									class="relative flex min-h-0 flex-1 flex-col items-center gap-1 pr-0 pl-0 text-[clamp(0.8rem,1.1vw,100rem)] leading-tight"
+									data-testid="houses.top-contributors"
 								>
-									{#each toColumnMajor(houseData.topContributors) as contributor (contributor.studentId)}
-										<li class="animate-list-item flex min-w-0 items-center gap-2">
+									{#each houseData.topContributors.slice(0, TOP_CONTRIBUTOR_LIMIT) as contributor (contributor.studentId)}
+										<li class="animate-list-item flex min-h-0 min-w-0 flex-1 items-center gap-3">
 											<span class="shrink-0 font-black {hc.accentText}">
 												{#key contributor.totalPoints}
 													<span class="animate-scale-in">+{contributor.totalPoints}</span>
@@ -463,40 +460,10 @@
 									{/each}
 								</ul>
 							{:else}
-								<p class="text-[clamp(1rem,1.3vw,100rem)] font-medium text-indigo-200/60">
-									No contributions yet
-								</p>
-							{/if}
-						</div>
-
-						<div class="min-h-0 overflow-hidden px-[clamp(0.75rem,1vw,100rem)] py-3 pb-5">
-							<h3
-								class="mb-1 flex items-center gap-2 text-[clamp(1rem,1.2vw,100rem)] font-black {theme.panelTitle} {theme.titleFont}"
-							>
-								<TrendingUp
-									class="size-[clamp(1.2rem,1.5vw,100rem)] text-emerald-400"
-									aria-label="Trending"
-								/>
-								Growth Opportunities
-							</h3>
-							{#if houseData.growthOpportunities.length > 0}
-								<ul
-									class="relative grid grid-cols-2 gap-x-3 gap-y-1.5 pr-0 pl-0 text-[clamp(0.6rem,1vw,100rem)] leading-tight"
+								<p
+									class="flex flex-1 items-center justify-center px-2 text-center text-[clamp(1rem,1.3vw,100rem)] font-medium text-indigo-200/60"
 								>
-									{#each toColumnMajor(houseData.growthOpportunities) as student (student.studentId)}
-										<li class="animate-list-item flex min-w-0 items-center gap-2">
-											<span class="shrink-0 font-bold text-red-400">
-												{#key student.pointsLost}
-													<span class="animate-scale-in">{student.pointsLost}</span>
-												{/key}
-											</span>
-											<span class="min-w-0 truncate font-semibold">{student.englishName}</span>
-										</li>
-									{/each}
-								</ul>
-							{:else}
-								<p class="text-[clamp(1rem,1.2vw,100rem)] font-medium text-indigo-200/60">
-									No points to recover
+									No contributions yet
 								</p>
 							{/if}
 						</div>

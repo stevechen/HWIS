@@ -13,7 +13,6 @@ type HouseStatsData = {
 	studentCount: number;
 	pointsByCategory: Record<string, number>;
 	topContributors: { studentId: string; englishName: string; totalPoints: number }[];
-	growthOpportunities: { studentId: string; englishName: string; pointsLost: number }[];
 	rank: number;
 };
 

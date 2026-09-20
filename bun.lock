@@ -9,8 +9,6 @@
         "@fontsource/caveat": "^5.3.0",
         "@fontsource/cinzel": "^5.3.0",
         "@fontsource/cormorant-garamond": "^5.3.0",
-        "@fontsource/lxgw-wenkai-tc": "^5.3.0",
-        "@fontsource/ma-shan-zheng": "^5.3.1",
         "@mmailaender/convex-better-auth-svelte": "^0.5.3",
         "@types/d3": "^7.4.3",
         "better-auth": "1.4.9",
@@ -235,10 +233,6 @@
     "@fontsource/cinzel": ["@fontsource/cinzel@5.3.0", "", {}, "sha512-KEOYTsrRppW0uRIPWBDPrQgunCS6f8u4nzZxYRBfo9SCknKojLYjK7B0ZoVmJhyVLefz271ZQRF9EOpHZlfhRw=="],
 
     "@fontsource/cormorant-garamond": ["@fontsource/cormorant-garamond@5.3.0", "", {}, "sha512-weuGsCirGVWBWqpt6YUp0yLThTe4G8YO45noq8wxeJCRvEpq5lFrxNMFSTxcyOyV5k5otzJ8guDzYegdYlcLMQ=="],
-
-    "@fontsource/lxgw-wenkai-tc": ["@fontsource/lxgw-wenkai-tc@5.3.0", "", {}, "sha512-uH/YIfs+B6onN1JfvqzXG6of1i9so9/LCXQkblPWWqBSAoU6PzUELjBMEaLeOi5thnoFR68DqCfdlfA72oxHZw=="],
-
-    "@fontsource/ma-shan-zheng": ["@fontsource/ma-shan-zheng@5.3.1", "", {}, "sha512-cGGn7Yje2RSduXVxEk+rCfNZyD/T/7FMGj03LNPiK8TRL9Sing0tq1zJF3n+W29szPqgb2RNs5oIvmm+ikeI+Q=="],
 
     "@hexagon/base64": ["@hexagon/base64@1.1.28", "", {}, "sha512-lhqDEAvWixy3bZ+UOYbPwUbBkwBq5C1LAJ/xPC8Oi+lL54oyakv/npbA0aU2hgCsx/1NUd4IBvV03+aUBWxerw=="],
 

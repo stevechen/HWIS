@@ -5,14 +5,12 @@
 	import { resolveLeaderboardTheme } from '$lib/leaderboard-themes';
 
 	type Contributor = { studentId: string; englishName: string; totalPoints: number };
-	type Growth = { studentId: string; englishName: string; pointsLost: number };
 	type HouseEntry = {
 		house: string;
 		rank: number;
 		totalPoints: number;
 		pointsByCategory?: Record<string, number>;
 		topContributors?: Contributor[];
-		growthOpportunities?: Growth[];
 	};
 
 	let {
@@ -53,7 +51,7 @@
 		{#each sorted as h (h.house)}
 			{@const Crest = houseLogos[h.house as House]}
 			<article
-				class="overflow-hidden rounded-3xl border bg-amber-950/60 px-[clamp(1rem,1.4vw,2.5rem)] py-[1.2vh] text-center shadow-[0_20px_60px_-20px_rgba(217,119,6,0.5)] {h.rank ===
+				class="flex flex-1 flex-col overflow-hidden rounded-3xl border bg-amber-950/60 px-[clamp(1rem,1.4vw,2.5rem)] py-[1.2vh] text-center shadow-[0_20px_60px_-20px_rgba(217,119,6,0.5)] {h.rank ===
 				1
 					? 'border-yellow-300/70 shadow-[0_0_50px_-10px_rgba(251,191,36,0.55)]'
 					: 'border-amber-200/30'}"
@@ -106,33 +104,20 @@
 					</ul>
 				{/if}
 				<ul
-					class="mt-auto min-h-0 border-t border-amber-200/15 pt-[1.4vh] text-left text-[clamp(0.9rem,1vw,1.8rem)] leading-tight"
+					class="flex flex-1 flex-col justify-center min-h-0 border-t border-amber-200/15 pt-[1.4vh] text-left text-[clamp(0.9rem,1vw,1.8rem)] leading-tight"
 				>
 					<p
 						class="mb-[0.5vh] text-[clamp(0.8rem,0.9vw,1.6rem)] font-bold tracking-widest text-amber-300/70 uppercase"
 					>
 						Top carvers
 					</p>
-					{#each (h.topContributors ?? []).slice(0, 5) as c (c.studentId)}
+					{#each (h.topContributors ?? []).slice(0, 10) as c (c.studentId)}
 						<li class="flex justify-between gap-2">
 							<span class="truncate">{c.englishName}</span><b>+{c.totalPoints}</b>
 						</li>
 					{/each}
 				</ul>
-				<p
-					class="mt-[1vh] mb-[0.5vh] text-[clamp(0.8rem,0.9vw,1.6rem)] font-bold tracking-widest text-red-300/70 uppercase"
-				>
-					🍂 Second helpings
-				</p>
-				<ul class="text-left text-[clamp(0.9rem,1vw,1.8rem)] leading-tight text-red-300/80">
-					{#each (h.growthOpportunities ?? []).slice(0, 3) as g (g.studentId)}
-						<li class="flex justify-between gap-2">
-							<span class="truncate">{g.englishName}</span><span>{g.pointsLost}</span>
-						</li>
-					{:else}
-						<li class="text-amber-200/50 italic">Everyone earned their pie 🥧</li>
-					{/each}
-				</ul>
+			
 			</article>
 		{/each}
 	</div>
