@@ -2,6 +2,8 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { houseLogos } from '$lib/assets/house-logos';
+	import CnyGlyph from '$lib/components/CnyGlyph.svelte';
+	import { cnyGlyphs } from '$lib/components/cny-glyphs';
 	import type { House } from '$lib/constants/houses';
 	import { resolveLeaderboardTheme } from '$lib/leaderboard-themes';
 
@@ -140,22 +142,25 @@
 				</div>
 			{/each}
 		</div>
-		<svg
-			class="absolute top-[18%] left-[1.5vw] hidden h-[clamp(1.4rem,2.6vw,4rem)] w-8 xl:block"
-			viewBox="0 0 70 110"
+		<div
+			class="absolute top-[18%] left-[1.5vw] hidden flex-col items-center gap-[0.4rem] text-yellow-300/80 xl:flex"
 			aria-hidden="true"
-			preserveAspectRatio="xMidYMid meet"
 		>
-			<!-- decorative vertical seal motif in place of 福 · 祿 · 壽 (no Chinese font needed on capture) -->
-			<rect x="8" y="4" width="54" height="102" rx="6" fill="none" stroke="currentColor" stroke-width="1.6" />
-			<rect x="16" y="12" width="38" height="86" rx="3" fill="none" stroke="currentColor" stroke-width="1.2" />
-			<circle cx="35" cy="30" r="7" fill="currentColor" opacity="0.18" />
-			<circle cx="35" cy="30" r="3" fill="currentColor" />
-			<circle cx="35" cy="55" r="7" fill="currentColor" opacity="0.18" />
-			<circle cx="35" cy="55" r="3" fill="currentColor" />
-			<circle cx="35" cy="80" r="7" fill="currentColor" opacity="0.18" />
-			<circle cx="35" cy="80" r="3" fill="currentColor" />
-		</svg>
+			<!-- 福 · 祿 · 壽 — calligraphy outlines, no Chinese font needed on capture -->
+			<div class="flex h-8 w-8 items-center justify-center rounded-md border border-current">
+				<CnyGlyph glyph={cnyGlyphs.fu} class="size-6" />
+			</div>
+			<div
+				class="flex h-8 w-8 items-center justify-center rounded-md border border-current opacity-85"
+			>
+				<CnyGlyph glyph={cnyGlyphs.lu} class="size-6" />
+			</div>
+			<div
+				class="flex h-8 w-8 items-center justify-center rounded-md border border-current opacity-70"
+			>
+				<CnyGlyph glyph={cnyGlyphs.shou} class="size-6" />
+			</div>
+		</div>
 		<p
 			class="absolute top-[18%] -right-1 hidden w-8 text-center text-[clamp(1.4rem,2.6vw,4rem)] text-yellow-300/80 [writing-mode:vertical-rl] xl:block"
 			aria-hidden="true"
@@ -163,20 +168,13 @@
 			fortune · luck · prosperity
 		</p>
 	</div>
-	<svg
-		class="absolute right-6 bottom-6 z-10 rotate-180 h-[clamp(2rem,5vw,6rem)] text-yellow-300/70 w-[clamp(2rem,5vw,6rem)]"
-		viewBox="0 0 120 120"
+	<div
+		class="absolute right-6 bottom-6 z-10 flex size-[clamp(2rem,5vw,6rem)] rotate-180 items-center justify-center rounded-xl border-2 border-yellow-300/70 text-yellow-300/70"
 		aria-hidden="true"
-		preserveAspectRatio="xMidYMid meet"
 	>
-		<!-- decorative circular seal in place of 福 (no Chinese font needed on capture) -->
-		<rect x="6" y="6" width="108" height="108" rx="10" fill="none" stroke="currentColor" stroke-width="3" />
-		<rect x="20" y="20" width="80" height="80" rx="6" fill="none" stroke="currentColor" stroke-width="1.8" />
-		<circle cx="60" cy="60" r="26" fill="currentColor" opacity="0.18" />
-		<circle cx="60" cy="60" r="10" fill="currentColor" />
-		<line x1="60" y1="22" x2="60" y2="98" stroke="currentColor" stroke-width="1.4" opacity="0.7" />
-		<line x1="22" y1="60" x2="98" y2="60" stroke="currentColor" stroke-width="1.4" opacity="0.7" />
-	</svg>
+		<!-- 福 — calligraphy outline, no Chinese font needed on capture -->
+		<CnyGlyph glyph={cnyGlyphs.fu} class="size-[70%]" />
+	</div>
 </section>
 
 <style>
