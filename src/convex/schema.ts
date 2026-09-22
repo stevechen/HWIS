@@ -178,7 +178,8 @@ export default defineSchema({
 			v.literal('thanksgiving-1'),
 			v.literal('thanksgiving-2'),
 			v.literal('christmas'),
-			v.literal('cny')
+			v.literal('cny'),
+			v.literal('halloween')
 		),
 		url: v.string(),
 		updatedAt: v.number()

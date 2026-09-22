@@ -15,6 +15,7 @@
 
 	import LeaderboardChristmasWorkshop from '$lib/components/LeaderboardChristmasWorkshop.svelte';
 	import LeaderboardCnyLanternRow from '$lib/components/LeaderboardCnyLanternRow.svelte';
+	import LeaderboardHalloweenHouseWeb from '$lib/components/LeaderboardHalloweenHouseWeb.svelte';
 	import LeaderboardActivityFeed from '$lib/components/LeaderboardActivityFeed.svelte';
 	let viewportWidth = $state(1920);
 
@@ -364,6 +365,8 @@
 		<LeaderboardChristmasWorkshop {houses} {categories} />
 	{:else if boardThemeId === 'cny' && houses.length > 0}
 		<LeaderboardCnyLanternRow {houses} />
+	{:else if boardThemeId === 'halloween' && houses.length > 0}
+		<LeaderboardHalloweenHouseWeb {houses} {categories} />
 	{:else if housesQuery.data}
 		<div class="relative z-10 flex h-full min-h-0 w-full max-w-full min-w-0 flex-col">
 			<div class="relative z-10 grid min-h-0 min-w-0 flex-1 grid-cols-4 grid-rows-1 gap-3 sm:gap-4">

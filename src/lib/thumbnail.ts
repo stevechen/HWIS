@@ -66,7 +66,11 @@ export async function captureBoardThumbnail(path: string, opts?: CaptureOptions)
 		const doc = iframe.contentDocument;
 		if (!doc?.documentElement) throw new Error('Thumbnail capture was blocked');
 		if (format === 'jpeg') {
-			return await toJpeg(doc.documentElement, { pixelRatio, quality: jpegQuality, cacheBust: false });
+			return await toJpeg(doc.documentElement, {
+				pixelRatio,
+				quality: jpegQuality,
+				cacheBust: false
+			});
 		}
 		return await toPng(doc.documentElement, { pixelRatio, cacheBust: false });
 	} finally {

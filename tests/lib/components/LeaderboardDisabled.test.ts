@@ -25,7 +25,8 @@ describe('LeaderboardDisabled', () => {
 		{ theme: 'thanksgiving-1', title: 'The turkeys ate the scoreboard…' },
 		{ theme: 'thanksgiving-2', title: 'By the hearth, the ink is drying…' },
 		{ theme: 'christmas', title: 'Santa is checking the list… twice' },
-		{ theme: 'cny', title: 'The lions are dancing past the scoreboard…' }
+		{ theme: 'cny', title: 'The lions are dancing past the scoreboard…' },
+		{ theme: 'halloween', title: 'The spider rewove the scoreboard…' }
 	] as const)('renders the $theme witty title', async ({ theme, title }) => {
 		render(LeaderboardDisabled, { boardLabel: 'House Points', theme });
 		await expect.element(page.getByRole('heading', { name: title })).toBeInTheDocument();

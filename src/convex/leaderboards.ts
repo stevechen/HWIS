@@ -10,7 +10,8 @@ const themeValidator = v.union(
 	v.literal('thanksgiving-1'),
 	v.literal('thanksgiving-2'),
 	v.literal('christmas'),
-	v.literal('cny')
+	v.literal('cny'),
+	v.literal('halloween')
 );
 
 export type LeaderboardBoard = 'houses' | 'classes';
@@ -19,7 +20,8 @@ export type LeaderboardTheme =
 	| 'thanksgiving-1'
 	| 'thanksgiving-2'
 	| 'christmas'
-	| 'cny';
+	| 'cny'
+	| 'halloween';
 
 /**
  * Flags + layout the public boards need. Deliberately excludes screenshots: the
@@ -45,7 +47,8 @@ const THEME_IDS: readonly string[] = [
 	'thanksgiving-1',
 	'thanksgiving-2',
 	'christmas',
-	'cny'
+	'cny',
+	'halloween'
 ];
 
 function isTheme(value: unknown): value is LeaderboardTheme {

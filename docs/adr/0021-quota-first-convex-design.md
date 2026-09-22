@@ -9,7 +9,7 @@ Accepted
 This project runs on the Convex free tier (2,000 GB-hours / 100 GB of database
 storage / 25,000 read units / 10,000 write units per month). The leaderboard
 boards stay open all day on classroom displays, so any query they touch is
-invoked on every page load *and* re-runs on every reactive dependency change.
+invoked on every page load _and_ re-runs on every reactive dependency change.
 ADR-0019 and ADR-0020 fixed a class of regressions (full-table scans on every
 board load) after the free quota was exceeded.
 

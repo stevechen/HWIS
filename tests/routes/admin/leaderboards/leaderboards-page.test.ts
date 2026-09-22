@@ -33,7 +33,8 @@ const THEME_IDS: LeaderboardThemeId[] = [
 	'thanksgiving-1',
 	'thanksgiving-2',
 	'christmas',
-	'cny'
+	'cny',
+	'halloween'
 ];
 
 describe('Admin Leaderboards Page', () => {
@@ -68,7 +69,14 @@ describe('Admin Leaderboards Page', () => {
 	it('renders theme tiles for every theme of both boards', async () => {
 		render(LeaderboardsPage);
 		for (const board of ['houses', 'classes']) {
-			for (const theme of ['default', 'thanksgiving-1', 'thanksgiving-2', 'christmas', 'cny']) {
+			for (const theme of [
+				'default',
+				'thanksgiving-1',
+				'thanksgiving-2',
+				'christmas',
+				'cny',
+				'halloween'
+			]) {
 				await expect
 					.element(page.getByTestId(`admin-leaderboards.theme-tile-${board}-${theme}`))
 					.toBeInTheDocument();
@@ -110,7 +118,7 @@ describe('Admin Leaderboards Page', () => {
 				themeScreenshot: { theme: 'cny', url: 'data:image/jpeg;base64,FAKE' }
 			});
 		});
-		expect(mockMutation).toHaveBeenCalledTimes(10);
+		expect(mockMutation).toHaveBeenCalledTimes(12);
 	});
 
 	it('renders stored screenshots without re-capturing them', async () => {
@@ -120,7 +128,9 @@ describe('Admin Leaderboards Page', () => {
 					board: 'houses',
 					enabled: true,
 					theme: 'default',
-					themes: Object.fromEntries(THEME_IDS.map((t) => [t, `data:image/jpeg;base64,STORED_${t}`]))
+					themes: Object.fromEntries(
+						THEME_IDS.map((t) => [t, `data:image/jpeg;base64,STORED_${t}`])
+					)
 				}
 			],
 			isLoading: false,

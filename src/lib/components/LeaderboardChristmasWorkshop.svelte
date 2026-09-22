@@ -142,7 +142,7 @@
 					</ul>
 				{/if}
 				<div
-					class="flex flex-1 flex-col justify-center min-h-0 border-t border-red-200/15 px-[clamp(0.75rem,1vw,1.8rem)] py-[0.5vh] text-left text-[clamp(0.9rem,0.95vw,1.8rem)]"
+					class="flex min-h-0 flex-1 flex-col justify-center border-t border-red-200/15 px-[clamp(0.75rem,1vw,1.8rem)] py-[0.5vh] text-left text-[clamp(0.9rem,0.95vw,1.8rem)]"
 				>
 					<p
 						class="mb-[0.6vh] text-[clamp(0.85rem,0.9vw,1.7rem)] font-bold tracking-widest text-yellow-200/80 uppercase"

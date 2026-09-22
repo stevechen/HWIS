@@ -104,7 +104,7 @@
 					</ul>
 				{/if}
 				<ul
-					class="flex flex-1 flex-col justify-center min-h-0 border-t border-amber-200/15 pt-[1.4vh] text-left text-[clamp(0.9rem,1vw,1.8rem)] leading-tight"
+					class="flex min-h-0 flex-1 flex-col justify-center border-t border-amber-200/15 pt-[1.4vh] text-left text-[clamp(0.9rem,1vw,1.8rem)] leading-tight"
 				>
 					<p
 						class="mb-[0.5vh] text-[clamp(0.8rem,0.9vw,1.6rem)] font-bold tracking-widest text-amber-300/70 uppercase"
@@ -117,7 +117,6 @@
 						</li>
 					{/each}
 				</ul>
-			
 			</article>
 		{/each}
 	</div>

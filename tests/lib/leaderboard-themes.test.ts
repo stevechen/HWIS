@@ -13,12 +13,13 @@ const THEME_IDS: LeaderboardThemeId[] = [
 	'thanksgiving-1',
 	'thanksgiving-2',
 	'christmas',
-	'cny'
+	'cny',
+	'halloween'
 ];
 const DEFAULT_LABEL = LEADERBOARD_THEMES.default.label;
 
 describe('leaderboard theme registry', () => {
-	it('offers exactly the five seasonal themes', async () => {
+	it('offers exactly the six seasonal themes', async () => {
 		expect(LEADERBOARD_THEME_OPTIONS.map((o) => o.value).sort()).toEqual([...THEME_IDS].sort());
 	});
 

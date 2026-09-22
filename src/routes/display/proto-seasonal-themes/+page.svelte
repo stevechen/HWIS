@@ -4,12 +4,14 @@
 	// pages look like? (Thanksgiving has two bespoke full-page designs;
 	// `christmas` / `cny` only have registry color bundles today.)
 	// Four variants switchable via ?v= + the floating bar. Mock data, no Convex.
+	// HALLOWEEN ROUND: spider-web (hal-web) + hand-drawn graveyard (hal-graveyard).
 	// Route lives under /display so the root layout hides its header chrome.
 
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { resolveLeaderboardTheme } from '$lib/leaderboard-themes';
+	import { SPIDER_WEB_PATH, SPIDER_WEB_VIEWBOX } from '$lib/components/spider-web-art';
 	import { houseLogos } from '$lib/assets/house-logos';
 	import type { House } from '$lib/constants/houses';
 
@@ -22,56 +24,96 @@
 		topContributors?: Contributor[];
 	};
 
-	const CATEGORIES = ['Academics', 'Service', 'Athletics', 'Citizenship'];
+	const CATEGORIES = [
+		'Responsibility',
+		'Excellence',
+		'Service',
+		'Persistence',
+		'Enthusiasm',
+		'Collaboration',
+		'Trustworthiness'
+	];
 
 	const MOCK_ROWS: Omit<HouseEntry, 'rank'>[] = [
 		{
 			house: 'Wukong',
 			totalPoints: 2431,
-			pointsByCategory: { Academics: 812, Service: 640, Athletics: 590, Citizenship: 389 },
+			pointsByCategory: {
+				Responsibility: 382,
+				Excellence: 415,
+				Service: 330,
+				Persistence: 355,
+				Enthusiasm: 340,
+				Collaboration: 322,
+				Trustworthiness: 287
+			},
 			topContributors: [
 				{ studentId: 'w1', englishName: 'Emily Chen', totalPoints: 214 },
 				{ studentId: 'w2', englishName: 'Daniel Park', totalPoints: 186 },
 				{ studentId: 'w3', englishName: 'Sofia Reyes', totalPoints: 171 },
 				{ studentId: 'w4', englishName: 'Marcus Wu', totalPoints: 158 },
 				{ studentId: 'w5', englishName: 'Aisha Khan', totalPoints: 142 }
-			],
+			]
 		},
 		{
 			house: 'Heracles',
 			totalPoints: 2214,
-			pointsByCategory: { Academics: 740, Service: 590, Athletics: 520, Citizenship: 364 },
+			pointsByCategory: {
+				Responsibility: 348,
+				Excellence: 378,
+				Service: 302,
+				Persistence: 320,
+				Enthusiasm: 312,
+				Collaboration: 296,
+				Trustworthiness: 258
+			},
 			topContributors: [
 				{ studentId: 'h1', englishName: 'Maya Thompson', totalPoints: 198 },
 				{ studentId: 'h2', englishName: 'Leo Martins', totalPoints: 175 },
 				{ studentId: 'h3', englishName: 'Grace Liu', totalPoints: 160 },
 				{ studentId: 'h4', englishName: 'Omar Haddad', totalPoints: 149 },
 				{ studentId: 'h5', englishName: 'Ivy Zhang', totalPoints: 133 }
-			],
+			]
 		},
 		{
 			house: 'Ixbalam',
 			totalPoints: 1980,
-			pointsByCategory: { Academics: 660, Service: 520, Athletics: 470, Citizenship: 330 },
+			pointsByCategory: {
+				Responsibility: 310,
+				Excellence: 335,
+				Service: 270,
+				Persistence: 288,
+				Enthusiasm: 278,
+				Collaboration: 262,
+				Trustworthiness: 237
+			},
 			topContributors: [
 				{ studentId: 'i1', englishName: 'Kai Nakamura', totalPoints: 205 },
 				{ studentId: 'i2', englishName: 'Luna Vargas', totalPoints: 177 },
 				{ studentId: 'i3', englishName: 'Tom Becker', totalPoints: 164 },
 				{ studentId: 'i4', englishName: 'Mia Santos', totalPoints: 150 },
 				{ studentId: 'i5', englishName: 'Raj Patel', totalPoints: 138 }
-			],
+			]
 		},
 		{
 			house: 'Setna',
 			totalPoints: 1730,
-			pointsByCategory: { Academics: 580, Service: 450, Athletics: 410, Citizenship: 290 },
+			pointsByCategory: {
+				Responsibility: 268,
+				Excellence: 292,
+				Service: 236,
+				Persistence: 250,
+				Enthusiasm: 244,
+				Collaboration: 228,
+				Trustworthiness: 212
+			},
 			topContributors: [
 				{ studentId: 's1', englishName: 'Zara Ali', totalPoints: 192 },
 				{ studentId: 's2', englishName: 'Sam Rivera', totalPoints: 170 },
 				{ studentId: 's3', englishName: 'Nina Kowalski', totalPoints: 155 },
 				{ studentId: 's4', englishName: 'Ethan Brooks', totalPoints: 147 },
 				{ studentId: 's5', englishName: 'Hana Sato', totalPoints: 131 }
-			],
+			]
 		}
 	];
 
@@ -108,6 +150,8 @@
 	};
 
 	const VARIANTS = [
+		{ id: 'hal-web', label: 'Spider Web', emoji: '🕸️', theme: 'default' },
+		{ id: 'hal-graveyard', label: 'Graveyard Row', emoji: '🪦', theme: 'default' },
 		{ id: 'xmas-tree', label: 'Ornaments on a Tree', emoji: '🎄', theme: 'christmas' },
 		{ id: 'xmas-workshop', label: 'Workshop Ledger', emoji: '🛠️', theme: 'christmas' },
 		{ id: 'cny-lanterns', label: 'Lantern Row', emoji: '🏮', theme: 'cny' },
@@ -128,6 +172,99 @@
 	);
 	const variantId = $derived(variant.id);
 	const theme = $derived(resolveLeaderboardTheme(variant.theme));
+	// Spider-web radar: R·E·S·P·E·C·T axes (Responsibility, Excellence,
+	// Service, Persistence, Enthusiasm, Collaboration, Trustworthiness).
+	// Rings cave inward between spokes like real silk; every strand gets its
+	// own curvature + width so no two segments look stamped out.
+	const WEB_RINGS = [0.3, 0.55, 0.8, 1];
+	const webMax = Math.max(
+		...houses.flatMap((h) => CATEGORIES.map((c) => h.pointsByCategory?.[c] ?? 0)),
+		1
+	);
+
+	function webAngle(i: number, n: number): number {
+		return Math.PI / 2 - (2 * Math.PI * i) / n;
+	}
+
+	function webPoint(cx: number, cy: number, angle: number, r: number) {
+		return { x: cx + r * Math.cos(angle), y: cy - r * Math.sin(angle) };
+	}
+
+	function webRingSegment(
+		cx: number,
+		cy: number,
+		R: number,
+		t: number,
+		i: number,
+		seed: number
+	): { d: string; w: number; o: number } {
+		const n = CATEGORIES.length;
+		const jitter = (idx: number) => R * t * (1 + 0.018 * Math.sin(seed * 2.4 + idx * 2.1));
+		const a = webPoint(cx, cy, webAngle(i % n, n), jitter(i % n));
+		const b = webPoint(cx, cy, webAngle((i + 1) % n, n), jitter((i + 1) % n));
+		// Cave inward: control radius dips toward the hub, uniquely per strand.
+		const sag = 0.74 + 0.1 * Math.abs(Math.sin(seed * 1.7 + i * 3.3));
+		const c = webPoint(cx, cy, webAngle(i + 0.5, n), R * t * sag);
+		return {
+			d: `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} Q ${c.x.toFixed(1)} ${c.y.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`,
+			w: 0.5 + 0.8 * Math.abs(Math.sin(seed * 0.9 + i * 2.4 + t * 5)),
+			o: 0.22 + 0.18 * Math.abs(Math.sin(seed * 1.3 + i * 1.1 + t * 7))
+		};
+	}
+
+	/** A single spoke: bowed with its own curvature + width, never a ruler line.
+	 * Spokes extend past the outer ring (overshoot) so anchor threads stick
+	 * out like a real web instead of stopping dead at the rim. */
+	function webSpokePath(
+		cx: number,
+		cy: number,
+		R: number,
+		i: number,
+		seed: number,
+		overshoot = 14
+	): string {
+		const n = CATEGORIES.length;
+		const angle = webAngle(i, n);
+		const end = webPoint(cx, cy, angle, R + overshoot);
+		// Control point at mid-radius, nudged perpendicular — visible organic bend.
+		const mid = webPoint(cx, cy, angle, R * 0.52);
+		const perp = angle + Math.PI / 2;
+		const bow = 5 * Math.sin(seed * 3.1 + i * 1.9);
+		const c = { x: mid.x + bow * Math.cos(perp), y: mid.y - bow * Math.sin(perp) };
+		return `M ${cx} ${cy} Q ${c.x.toFixed(1)} ${c.y.toFixed(1)} ${end.x.toFixed(1)} ${end.y.toFixed(1)}`;
+	}
+
+	/** Organic stroke width for a strand: varies with the strand and the house. */
+	function webStrandWidth(i: number, seed: number): number {
+		return 0.5 + 0.8 * Math.abs(Math.sin(i * 2.7 + seed * 1.3));
+	}
+
+	function webDataPath(cx: number, cy: number, R: number, h: HouseEntry, cats: string[]): string {
+		const n = cats.length;
+		let d = '';
+		for (let i = 0; i <= n; i++) {
+			const idx = i % n;
+			const r = R * ((h.pointsByCategory?.[cats[idx]] ?? 0) / webMax);
+			const p = webPoint(cx, cy, webAngle(idx, n), r);
+			if (i === 0) {
+				d = `M ${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
+			} else {
+				const rPrev = R * ((h.pointsByCategory?.[cats[i - 1]] ?? 0) / webMax);
+				const c = webPoint(cx, cy, webAngle(i - 0.5, n), ((r + rPrev) / 2) * 0.94);
+				d += ` Q ${c.x.toFixed(1)} ${c.y.toFixed(1)} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
+			}
+		}
+		return `${d} Z`;
+	}
+
+	// Hand-drawn graveyard: every stone tilts and is shaped a little differently
+	const TOMB_RADII = [
+		'50% 50% 7px 7px / 62% 58% 7px 7px',
+		'54% 46% 5px 5px / 66% 60% 5px 5px',
+		'47% 53% 8px 8px / 60% 64% 8px 8px',
+		'52% 48% 6px 6px / 64% 62% 6px 6px'
+	];
+	const TOMB_TILT = [-1.4, 1.1, -0.7, 1.6];
 
 	// Ambient particles (snow / embers) — browser only, like the stars on /leaderboard/houses
 	type Particle = { left: number; top: number; size: number; delay: number; dur: number };
@@ -275,7 +412,7 @@
 				<div class="candy mx-auto mt-3 h-1.5 w-2/3 rounded-full" aria-hidden="true"></div>
 			</header>
 			<div
-				class="z-10 mx-auto mt-6 grid w-full max-w-[96rem] flex-1 grid-cols-1 content-start gap-[clamp(1rem,2vw,1.75rem)] sm:grid-cols-2 xl:grid-cols-4"
+				class="z-10 mx-auto mt-6 grid w-full max-w-384 flex-1 grid-cols-1 content-start gap-[clamp(1rem,2vw,1.75rem)] sm:grid-cols-2 xl:grid-cols-4"
 			>
 				{#each houses as h (h.house)}
 					{@const Crest = houseLogos[h.house as House]}
@@ -347,8 +484,7 @@
 									<b class="text-yellow-200">+{c.totalPoints}</b>
 								</div>
 							{/each}
-							<p class="mt-2 mb-1 font-bold tracking-widest text-red-300/70 uppercase">
-							</p>
+							<p class="mt-2 mb-1 font-bold tracking-widest text-red-300/70 uppercase"></p>
 						</div>
 					</article>
 				{/each}
@@ -587,6 +723,395 @@
 				年年有餘
 			</p>
 		</div>
+	{:else if variantId === 'hal-web'}
+		<div
+			class="relative flex min-h-screen flex-col items-center overflow-hidden {theme.section} px-[3vw] pt-8 pb-32"
+		>
+			{#snippet cornerWeb(cls: string, flip: string)}
+				<svg class={flip ? `${cls} ${flip}` : cls} viewBox={SPIDER_WEB_VIEWBOX} aria-hidden="true">
+					<path d={SPIDER_WEB_PATH} fill="#c7d2fe" fill-opacity="0.32" />
+				</svg>
+			{/snippet}
+			<!-- The svgrepo icon is drawn for the TOP-RIGHT corner: its hub sits on
+				the right edge (~x=272) with anchors running to the top/bottom/left.
+				So: top-right renders as-is; the other corners mirror it. Sizes,
+				offsets and rotations deliberately vary (some bleed off-screen)
+				so the four corners don't read as a stamped pattern. -->
+			{@render cornerWeb(
+				'pointer-events-none absolute -top-8 right-0 w-[20vw] max-w-72 opacity-90',
+				''
+			)}
+			{@render cornerWeb(
+				'pointer-events-none absolute -top-10 left-0 -ml-6 w-[13vw] max-w-44 rotate-6 opacity-70',
+				'-scale-x-100'
+			)}
+			{@render cornerWeb(
+				'pointer-events-none absolute -right-3 -bottom-8 w-[16vw] max-w-56 -rotate-3 opacity-80',
+				'-scale-y-100'
+			)}
+			{@render cornerWeb(
+				'pointer-events-none absolute -mb-12 -ml-12 bottom-0 left-0 w-[23vw] max-w-80 rotate-3 opacity-75',
+				'-scale-100'
+			)}
+			<!-- Faint oversized web behind each house card (watermark, same icon).
+				Position/size vary per card so the four don't mirror each other. -->
+			{#snippet cardWeb(cls: string)}
+				<svg
+					class="pointer-events-none absolute opacity-[0.13] {cls}"
+					viewBox={SPIDER_WEB_VIEWBOX}
+					aria-hidden="true"
+				>
+					<path d={SPIDER_WEB_PATH} fill="#c7d2fe" />
+				</svg>
+			{/snippet}
+			<!-- Extra hanging spiders: left-of-center small, right-of-center tiny.
+				Anatomy (same as the hunter): thread pays out of the spinnerets at
+				the rear of the abdomen, so abdomen sits on top, head points down.
+				8 jointed legs (4 pairs): rear pair sweeps UP toward the thread,
+				middle pairs reach sideways, front pair reaches DOWN. -->
+			{#snippet hangingSpider(cls: string, threadLen: number, flip: boolean)}
+				<svg
+					class={cls}
+					viewBox="0 0 32 180"
+					aria-hidden="true"
+					style={flip ? 'transform: translateX(-50%) scaleX(-1)' : ''}
+				>
+					<line
+						x1="16"
+						y1="0"
+						x2="16"
+						y2={threadLen}
+						stroke="#a5b4fc"
+						stroke-width="1.5"
+						stroke-opacity="0.7"
+					/>
+					<ellipse cx="16" cy={threadLen + 10} rx="6.5" ry="9" fill="#818cf8" />
+					<circle cx="16" cy={threadLen + 24} r="4" fill="#818cf8" />
+					<g
+						stroke="#a5b4fc"
+						stroke-width="1.6"
+						stroke-opacity="0.9"
+						fill="none"
+						stroke-linecap="round"
+						transform={`translate(0 ${threadLen})`}
+					>
+						<path d="M12 8 L7 2 Q4 -1 2 -4" />
+						<path d="M20 8 L25 2 Q28 -1 30 -4" />
+						<path d="M10 14 L3 12 Q0 12 -2 16" />
+						<path d="M22 14 L29 12 Q32 12 34 16" />
+						<path d="M10 20 L3 24 Q1 26 2 30" />
+						<path d="M22 20 L29 24 Q31 26 30 30" />
+						<path d="M12 25 L7 33 Q5 36 6 40" />
+						<path d="M20 25 L25 33 Q27 36 26 40" />
+					</g>
+				</svg>
+			{/snippet}
+			{@render hangingSpider(
+				'pointer-events-none absolute top-0 left-[22%] hidden w-6 opacity-80 lg:block',
+				120,
+				false
+			)}
+			{@render hangingSpider(
+				'pointer-events-none absolute top-0 right-[20%] hidden w-5 opacity-70 lg:block',
+				80,
+				true
+			)}
+			<!-- Center spider: same abdomen-up, head-down anatomy, 8 jointed legs. -->
+			<svg
+				class="pointer-events-none absolute top-0 left-1/2 h-[18vh] w-8 -translate-x-1/2"
+				viewBox="0 0 32 180"
+				aria-hidden="true"
+			>
+				<line x1="16" y1="0" x2="16" y2="102" stroke="#a5b4fc" stroke-width="1.5" />
+				<ellipse cx="16" cy="112" rx="6.5" ry="9" fill="#818cf8" />
+				<circle cx="16" cy="126" r="4" fill="#818cf8" />
+				<g stroke="#a5b4fc" stroke-width="1.6" fill="none" stroke-linecap="round">
+					<path d="M12 110 L7 104 Q4 101 2 98" />
+					<path d="M20 110 L25 104 Q28 101 30 98" />
+					<path d="M10 116 L3 114 Q0 114 -2 118" />
+					<path d="M22 116 L29 114 Q32 114 34 118" />
+					<path d="M10 122 L3 126 Q1 128 2 132" />
+					<path d="M22 122 L29 126 Q31 128 30 132" />
+					<path d="M12 127 L7 135 Q5 138 6 142" />
+					<path d="M20 127 L25 135 Q27 138 26 142" />
+				</g>
+			</svg>
+			{#each particles as p, i (i)}
+				<span
+					class="particle"
+					style="left:{p.left}%; --size:{p.size}px; --delay:{p.delay}s; --dur:{p.dur}s"
+					aria-hidden="true"
+				></span>
+			{/each}
+			<header class="z-10 text-center">
+				<p class="text-[clamp(1.5rem,2.5vw,2.5rem)]" aria-hidden="true">🕸️🕷️</p>
+				<h1
+					class="font-cinzel mt-1 text-[clamp(2rem,3.5vw,3.5rem)] leading-none font-black tracking-wide"
+				>
+					The House Web
+				</h1>
+				<p class="mt-1 text-[clamp(1rem,1.4vw,1.3rem)] text-indigo-200/70 italic">
+					every house spins its own web — the strongest silk holds the crown
+				</p>
+			</header>
+			<div
+				class="relative z-10 mt-4 grid w-full flex-1 grid-cols-1 items-stretch gap-[clamp(1rem,2.5vw,2.5rem)] sm:grid-cols-2 xl:grid-cols-4"
+			>
+				{#each houses as h (h.house)}
+					{@const Crest = houseLogos[h.house as House]}
+					{@const a = ACCENT[h.house as House]}
+					<article
+						class="relative flex flex-1 flex-col overflow-hidden rounded-2xl {theme.card} {h.rank ===
+						1
+							? 'ring-2 ring-orange-300/60'
+							: ''}"
+					>
+						{@render cardWeb(
+							h.rank === 1
+								? '-top-12 -right-12 w-52 -scale-x-100'
+								: h.rank === 2
+									? '-bottom-8 -left-8 w-36 -scale-100 opacity-[0.1]'
+									: h.rank === 3
+										? '-top-6 -left-10 w-44 rotate-6'
+										: '-right-8 -bottom-10 w-40 -scale-y-100'
+						)}
+						{#if h.rank === 1}
+							<!-- The hunter: drops onto the leader's card on a thread,
+								legs paddling, then retracts back into the ceiling. Loops.
+								Anatomy: thread pays out of the spinnerets at the rear of
+								the abdomen, so the abdomen sits on top and the head
+								(eyes) points DOWN as she descends. -->
+							<div
+								class="spider-thread pointer-events-none absolute top-0 left-1/2 z-0"
+								aria-hidden="true"
+							></div>
+							<div
+								class="spider-drop pointer-events-none absolute top-0 left-1/2 z-10"
+								aria-hidden="true"
+							>
+								<svg viewBox="0 0 32 180" class="spider-svg">
+									<ellipse cx="16" cy="118" rx="7" ry="10" fill="#f1f5f9" />
+									<circle cx="16" cy="132" r="4.5" fill="#f1f5f9" />
+									<circle cx="14" cy="133" r="1" fill="#ef4444" />
+									<circle cx="18" cy="133" r="1" fill="#ef4444" />
+									<g stroke="#cbd5e1" stroke-width="1.8" fill="none" stroke-linecap="round">
+										<path class="spider-leg" d="M11 114 L6 108 Q3 105 1 102" />
+										<path class="spider-leg alt" d="M21 114 L26 108 Q29 105 31 102" />
+										<path class="spider-leg" d="M10 121 L3 119 Q0 119 -2 123" />
+										<path class="spider-leg alt" d="M22 121 L29 119 Q32 119 34 123" />
+										<path class="spider-leg" d="M10 128 Q 2 134 3 144" />
+										<path class="spider-leg alt" d="M22 128 Q 30 134 29 144" />
+										<path class="spider-leg" d="M12 134 Q 7 143 10 152" />
+										<path class="spider-leg alt" d="M20 134 Q 25 143 22 152" />
+									</g>
+								</svg>
+							</div>
+						{/if}
+						<div
+							class="border-b {theme.cardHeader} px-[clamp(0.75rem,1.1vw,2rem)] py-[clamp(0.6rem,1vh,1.5rem)]"
+						>
+							<div class="flex items-center justify-between gap-2">
+								<div class="flex items-center gap-2">
+									<span
+										class="flex size-7 items-center justify-center rounded-full text-xs font-black {h.rank ===
+										1
+											? 'bg-amber-300 text-indigo-950'
+											: 'bg-white/10 text-indigo-100/80'}"
+									>
+										{h.rank}
+									</span>
+									<div
+										class="flex size-[clamp(3rem,7vw,14rem)] items-center justify-center p-2 {a.text}"
+									>
+										<Crest />
+									</div>
+								</div>
+								<p
+									class="text-[clamp(1.6rem,2.6vw,2.6rem)] leading-none font-black {theme.pointsGlow}"
+								>
+									{h.totalPoints}
+								</p>
+							</div>
+							<p
+								class="font-cinzel truncate text-[clamp(1rem,1.5vw,1.5rem)] font-bold text-indigo-50"
+							>
+								{h.house}
+							</p>
+						</div>
+						<svg
+							viewBox="0 0 200 200"
+							class="min-h-0 w-full flex-1"
+							role="img"
+							aria-label="{h.house} web chart"
+						>
+							<!-- Axis legend: full names, like the default theme -->
+							<g font-size="8" font-weight="600" fill="#c7d2fe" fill-opacity="0.75">
+								{#each CATEGORIES as cat, ci (cat)}
+									{@const la = webPoint(100, 100, webAngle(ci, CATEGORIES.length), 72)}
+									<text x={la.x} y={la.y} text-anchor="middle" dominant-baseline="middle">
+										{cat}
+									</text>
+								{/each}
+							</g>
+							{#each CATEGORIES as cat, ci (cat)}
+								<path
+									d={webSpokePath(100, 100, 112, ci, h.rank)}
+									fill="none"
+									stroke="#a5b4fc"
+									stroke-opacity="0.35"
+									stroke-width={webStrandWidth(ci, h.rank)}
+									stroke-linecap="round"
+								/>
+							{/each}
+							{#each WEB_RINGS as t, ri (t)}
+								{#each CATEGORIES.keys() as ci (ci)}
+									{@const seg = webRingSegment(100, 100, 62, t, ci, h.rank + ri * 0.7)}
+									<path
+										d={seg.d}
+										fill="none"
+										stroke="#a5b4fc"
+										stroke-opacity={seg.o}
+										stroke-width={seg.w}
+										stroke-linecap="round"
+									/>
+								{/each}
+							{/each}
+							<path
+								d={webDataPath(100, 100, 62, h, CATEGORIES)}
+								fill="{a.hex}40"
+								stroke={a.hex}
+								stroke-width="2"
+								stroke-opacity="0.9"
+								stroke-linejoin="round"
+							/>
+						</svg>
+						<div
+							class="border-t {theme.divider} px-[clamp(0.75rem,1vw,1.8rem)] py-2 text-left text-[clamp(0.8rem,0.9vw,1.3rem)]"
+						>
+							{#each (h.topContributors ?? []).slice(0, 4) as c (c.studentId)}
+								<div class="flex justify-between gap-2 leading-snug">
+									<span class="truncate text-indigo-50/80">{c.englishName}</span>
+									<b class="text-indigo-200">+{c.totalPoints}</b>
+								</div>
+							{/each}
+						</div>
+					</article>
+				{/each}
+			</div>
+		</div>
+	{:else if variantId === 'hal-graveyard'}
+		<div
+			class="relative flex min-h-screen flex-col items-center overflow-hidden bg-[linear-gradient(#050510,#12082a_55%,#1e0b3a)] px-4 pt-8 pb-32"
+		>
+			<div
+				class="absolute top-[6%] right-[8%] size-[clamp(4rem,10vw,9rem)] rounded-full bg-[#f5f3ce] shadow-[0_0_80px_30px_rgba(245,243,206,0.25)]"
+				aria-hidden="true"
+			></div>
+			<header class="z-10 text-center text-stone-100">
+				<h1 class="font-caveat text-[clamp(2.75rem,5vw,5rem)] leading-none font-bold tracking-wide">
+					🪦 Graveyard Row 🌕
+				</h1>
+				<svg
+					viewBox="0 0 220 14"
+					class="mx-auto mt-1 w-[clamp(9rem,16vw,16rem)]"
+					aria-hidden="true"
+				>
+					<path
+						d="M4 9 Q 34 3 66 8 T 128 8 T 216 6"
+						fill="none"
+						stroke="#fbbf24"
+						stroke-width="3"
+						stroke-linecap="round"
+					/>
+				</svg>
+				<p
+					class="font-caveat mt-2 text-[clamp(1.4rem,2.2vw,2.2rem)] leading-tight text-stone-300/80"
+				>
+					here lie the standings — points glow brighter than any ghost
+				</p>
+			</header>
+			<div
+				class="relative z-10 mt-[7vh] grid w-full flex-1 grid-cols-2 content-stretch items-stretch gap-[clamp(1rem,2.5vw,2.25rem)] px-[3vw] pb-[6vh] xl:grid-cols-4"
+			>
+				{#each houses as h, i (h.house)}
+					{@const Crest = houseLogos[h.house as House]}
+					{@const a = ACCENT[h.house as House]}
+					<article
+						class="tomb stone relative flex h-full flex-col items-center border-2 border-[#6b6557]/60 px-[clamp(0.75rem,1.5vw,1.5rem)] pt-[clamp(1.5rem,2.5vh,2.5rem)] pb-[clamp(0.75rem,1.5vh,1.5rem)] text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
+						style="border-radius:{TOMB_RADII[i % 4]}; transform: rotate({TOMB_TILT[i % 4]}deg)"
+					>
+						<span
+							class="font-caveat absolute -top-4 -left-2 flex size-9 items-center justify-center border-2 border-[#6b6557] text-xl font-bold {i ===
+							0
+								? 'bg-[#fbbf24] text-[#3d3a30]'
+								: 'bg-[#e9e5d6] text-[#6b6557]'}"
+							style="border-radius: 47% 53% 50% 50% / 55% 48% 52% 45%"
+						>
+							{h.rank}
+						</span>
+						<span class="text-2xl" aria-hidden="true">{i === 0 ? '👑' : '🕯️'}</span>
+						<div
+							class="mt-2 flex size-[clamp(2.75rem,4vw,4rem)] items-center justify-center p-2 {a.text}"
+						>
+							<Crest />
+						</div>
+						<h2
+							class="font-caveat mt-2 text-[clamp(1.6rem,2.4vw,2.4rem)] leading-none font-bold text-[#3d3a30]"
+						>
+							{h.house}
+						</h2>
+						<p
+							class="font-caveat mt-2 text-[clamp(2.5rem,4vw,4rem)] leading-none font-bold text-[#c2410c] [text-shadow:1px_1px_0_rgba(107,101,87,0.35)]"
+						>
+							{h.totalPoints}
+						</p>
+						<p class="font-caveat mt-1 text-[1.1rem] text-[#6b6557]">points tally</p>
+						<div
+							class="mt-3 w-full space-y-2 border-t-2 border-dashed border-[#6b6557]/40 pt-3 text-left"
+						>
+							<p class="font-caveat text-[1.1rem] leading-none text-[#6b6557]">by subject</p>
+							{#each CATEGORIES as cat (cat)}
+								{@const val = h.pointsByCategory?.[cat] ?? 0}
+								<div>
+									<div class="font-caveat flex justify-between text-[1rem] leading-tight">
+										<span class="text-[#3d3a30]/80">{cat}</span>
+										<b class="text-[#3d3a30]">{val}</b>
+									</div>
+									<div
+										class="h-2.5 border-2 border-dashed border-[#6b6557]/50"
+										style="border-radius:{TOMB_RADII[(i + 1) % 4]}"
+									>
+										<div
+											class="h-full bg-[#ea580c]/70"
+											style="width:{Math.round(
+												(val / Math.max(...houses.map((x) => x.pointsByCategory?.[cat] ?? 0), 1)) *
+													100
+											)}%; border-radius:{TOMB_RADII[(i + 2) % 4]}"
+										></div>
+									</div>
+								</div>
+							{/each}
+						</div>
+						<div class="mt-3 w-full border-t-2 border-dashed border-[#6b6557]/40 pt-2 text-left">
+							<p class="font-caveat text-[1.1rem] leading-none text-[#6b6557]">footnotes</p>
+							{#each (h.topContributors ?? []).slice(0, 4) as c (c.studentId)}
+								<div class="font-caveat flex justify-between gap-2 text-[1.05rem] leading-snug">
+									<span class="truncate text-[#3d3a30]/85">{c.englishName}</span>
+									<b class="shrink-0 text-[#c2410c]">+{c.totalPoints}</b>
+								</div>
+							{/each}
+						</div>
+						<p class="font-caveat mt-auto pt-3 text-[1.05rem] text-[#6b6557]/80">
+							✎ {i === 0 ? 'crowned in spirit' : 'resting until next tally'}
+						</p>
+					</article>
+				{/each}
+			</div>
+			<div
+				class="fog pointer-events-none absolute bottom-0 left-0 h-24 w-full"
+				aria-hidden="true"
+			></div>
+		</div>
 	{/if}
 </section>
 
@@ -615,6 +1140,24 @@
 <style>
 	.font-cinzel {
 		font-family: 'Cinzel', Georgia, serif;
+	}
+	.font-caveat {
+		font-family: 'Caveat', 'Comic Sans MS', cursive;
+	}
+	/* Realistic weathered stone: light from top-left, darker foot, grain speckle */
+	.stone {
+		background:
+			radial-gradient(circle at 28% 8%, rgba(255, 255, 255, 0.55), transparent 42%),
+			radial-gradient(circle at 78% 90%, rgba(61, 58, 48, 0.22), transparent 46%),
+			radial-gradient(circle at 15% 70%, rgba(61, 58, 48, 0.1), transparent 30%),
+			radial-gradient(rgba(107, 101, 87, 0.22) 1px, transparent 1.4px),
+			linear-gradient(#d9d4c3, #b3ac99);
+		background-size:
+			auto,
+			auto,
+			auto,
+			7px 7px,
+			auto;
 	}
 	.font-cny {
 		font-family: 'Ma Shan Zheng', 'Cinzel', serif;
@@ -647,5 +1190,159 @@
 	}
 	.candy {
 		background: repeating-linear-gradient(135deg, #ef4444 0 8px, #fff1f2 8px 16px);
+	}
+	.particle.ember {
+		background: #fb923c;
+		box-shadow: 0 0 8px #ea580c;
+	}
+	.fog {
+		background: linear-gradient(to top, rgba(167, 139, 250, 0.18), transparent);
+		animation: protoFog 9s ease-in-out infinite alternate;
+	}
+	@keyframes protoFog {
+		from {
+			transform: translateX(-2%);
+		}
+		to {
+			transform: translateX(2%);
+		}
+	}
+	/* Spider drop: descends on its thread, dangles, then retracts. Loops.
+		Two elements: a ceiling-anchored silk strand (own element, stays glued to
+		the card top) and the spider body (SVG) that travels down/up on the strand.
+		Scale for TV: spider grows on large screens and travels a longer arc. */
+	.spider-thread {
+		--silk: 236px;
+		--spider-x: 32px; /* shift right by one spider width so the crest stays clear */
+		position: absolute;
+		inset: 0 0 auto 50%;
+		left: calc(50% + var(--spider-x));
+		transform: translate(-50%, 0);
+		width: 1.2px;
+		height: var(--silk);
+		background: #e2e8f0;
+		opacity: 0.85;
+		transform-origin: top center;
+		animation: spiderSilk 16s ease-in-out infinite;
+	}
+	.spider-drop {
+		--silk: 236px;
+		--spider-x: 32px;
+		--body: 108px; /* SVG-top → thread-attachment point (top of abdomen) */
+		position: absolute;
+		/* Only top+left: with `right: 0` the div stretches to the full card
+			width and translate(-50%) would shove the SVG half a card away
+			from the thread (the horizontal detachment). */
+		top: 0;
+		left: calc(50% + var(--spider-x));
+		transform: translate(-50%, calc(var(--silk, 164px) * 0.05 - var(--body, 108px)));
+		animation: spiderDrop 16s ease-in-out infinite;
+	}
+	.spider-svg {
+		width: 32px;
+		height: auto;
+	}
+	.spider-leg {
+		transform-box: fill-box;
+		transform-origin: 90% 80%;
+		animation: legPaddle 0.9s ease-in-out infinite alternate;
+	}
+	.spider-leg.alt {
+		animation-delay: 0.45s;
+	}
+	/* Larger screens: bigger spider, longer arc, longer silk. Vars keep the
+		keyframes single-sourced (duplicate @keyframes resolve last-wins and
+		would clobber these values). */
+	@media (min-width: 1280px) {
+		.spider-thread {
+			--silk: 330px;
+			--spider-x: 48px;
+			width: 1.6px;
+		}
+		.spider-drop {
+			--silk: 330px;
+			--spider-x: 48px;
+			--body: 162px; /* 48px SVG → 270px tall → abdomen-top offset 162 */
+		}
+		.spider-svg {
+			width: 48px;
+		}
+	}
+	@media (min-width: 1921px) {
+		.spider-thread {
+			--silk: 440px;
+			--spider-x: 64px;
+			width: 2px;
+		}
+		.spider-drop {
+			--silk: 440px;
+			--spider-x: 64px;
+			--body: 216px; /* 64px SVG → 360px tall → abdomen-top offset 216 */
+		}
+		.spider-svg {
+			width: 64px;
+		}
+	}
+	/* The spider's position is derived from the SAME silk scale (0.05 ↔ 1)
+		times --silk, minus the SVG-top→attachment offset — so thread end and
+		spider abdomen coincide at every instant, at every breakpoint. */
+	@keyframes spiderDrop {
+		0%,
+		8% {
+			transform: translate(-50%, calc(var(--silk, 164px) * 0.05 - var(--body, 108px)));
+		}
+		32%,
+		62% {
+			transform: translate(-50%, calc(var(--silk, 164px) - var(--body, 108px)));
+		}
+		86%,
+		100% {
+			transform: translate(-50%, calc(var(--silk, 164px) * 0.05 - var(--body, 108px)));
+		}
+	}
+	@keyframes spiderSilk {
+		0%,
+		8% {
+			transform: translate(-50%, 0) scaleY(0.05);
+		}
+		32%,
+		62% {
+			transform: translate(-50%, 0) scaleY(1);
+		}
+		86%,
+		100% {
+			transform: translate(-50%, 0) scaleY(0.05);
+		}
+	}
+	@keyframes legPaddle {
+		from {
+			transform: rotate(-5deg);
+		}
+		to {
+			transform: rotate(5deg);
+		}
+	}
+	/* 4K: scale every rem-based size proportionally (text, badges, padding). */
+	@media (min-width: 1921px) {
+		:global(html) {
+			font-size: 1.75rem;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.spider-drop,
+		.spider-thread,
+		.spider-svg,
+		.spider-leg {
+			animation: none;
+		}
+		.spider-thread {
+			transform: translate(-50%, 0) scaleY(1);
+		}
+		.spider-drop {
+			transform: translate(-50%, calc(var(--silk, 164px) - var(--body, 108px)));
+		}
+		.spider-svg {
+			transform: none;
+		}
 	}
 </style>

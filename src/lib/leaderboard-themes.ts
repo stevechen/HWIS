@@ -3,7 +3,8 @@ export type LeaderboardThemeId =
 	| 'thanksgiving-1'
 	| 'thanksgiving-2'
 	| 'christmas'
-	| 'cny';
+	| 'cny'
+	| 'halloween';
 
 export type WittyMessage = {
 	title: string;
@@ -41,7 +42,8 @@ export const LEADERBOARD_THEME_OPTIONS: { value: LeaderboardThemeId; label: stri
 		label: 'Thanksgiving Hearthside Ledger'
 	},
 	{ value: 'christmas', label: 'Christmas' },
-	{ value: 'cny', label: 'Chinese New Year' }
+	{ value: 'cny', label: 'Chinese New Year' },
+	{ value: 'halloween', label: 'Halloween House Web' }
 ];
 
 export function themeLabel(theme: LeaderboardThemeId): string {
@@ -178,6 +180,31 @@ export const LEADERBOARD_THEMES: Record<LeaderboardThemeId, LeaderboardTheme> = 
 			}
 		],
 		mote: '🏮'
+	},
+	halloween: {
+		label: 'Halloween House Web',
+		section: 'bg-[#050510] text-indigo-50',
+		...baseFonts,
+		card: 'border-indigo-200/25 bg-[#0b0b22]/80 shadow-[0_25px_80px_-20px_rgba(129,140,248,0.4)]',
+		cardHeader: 'border-b border-indigo-200/15',
+		divider: 'border-indigo-200/10',
+		panelTitle: 'text-indigo-100',
+		pointsGlow: 'text-orange-200 drop-shadow-[0_0_24px_rgba(251,146,60,0.85)]',
+		ink: 'text-indigo-200/60',
+		wittyTitle: 'The spider rewove the scoreboard…',
+		wittySubtitle: 'silk first, standings second — she is very thorough',
+		wittyEmoji: '🕷️',
+		wittyExtras: [
+			{
+				title: 'The web caught the wrong rankings…',
+				subtitle: 'the strongest silk holds the crown, she insists'
+			},
+			{
+				title: 'A pumpkin rolled over the scores…',
+				subtitle: 'jack is unrolling them now'
+			}
+		],
+		mote: '🕸️'
 	}
 };
 
@@ -202,7 +229,8 @@ export function resolveLeaderboardThemeId(theme: string | undefined): Leaderboar
 		theme === 'thanksgiving-1' ||
 		theme === 'thanksgiving-2' ||
 		theme === 'christmas' ||
-		theme === 'cny'
+		theme === 'cny' ||
+		theme === 'halloween'
 	) {
 		return theme;
 	}

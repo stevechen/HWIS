@@ -1193,7 +1193,7 @@ export async function fetchHouseStats(ctx: QueryCtx) {
 			pointsByCategory: {},
 			recentPointsByCategory: {},
 			topContributors: [],
-			topContributorsRecent: [],
+			topContributorsRecent: []
 		};
 	}
 
@@ -1283,7 +1283,6 @@ export async function fetchHouseStats(ctx: QueryCtx) {
 				englishName: s.englishName,
 				totalPoints: s.recentTotalPoints
 			}));
-
 	}
 
 	const allCategories = [...new Set(categories.map((c) => c.name))];
