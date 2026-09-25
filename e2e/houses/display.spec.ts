@@ -60,10 +60,14 @@ test.describe('House Display Page - E2E', () => {
 		// propagates through Convex reactivity (cards show "No contributions yet"
 		// until then). Wait for the data-driven charts before asserting per card,
 		// otherwise the test races reactivity on slower runners (CI flake).
-		await expect(page.locator('.radar-chart-container > svg').first()).toBeAttached();
+		await expect(page.getByTestId('radar-chart').locator('svg').first()).toBeAttached();
 		for (const article of await displayPage.getArticles().all()) {
-			// RadarChart currently exposes no accessible name; scope its SVG to each card.
-			const chart = article.locator('.radar-chart-container > svg');
+			// RadarChart exposes a test id; use a descendant selector so the
+			// assertion survives wrapper elements inside the container.
+			const chartContainer = article.getByTestId('radar-chart');
+			await expect(chartContainer).toBeVisible();
+
+			const chart = chartContainer.locator('svg').first();
 			await expect(chart).toBeVisible();
 			// A vertical SVG axis has a zero-width bounding box despite its visible stroke.
 			await expect(chart.locator('line').first()).toBeAttached();

@@ -163,7 +163,11 @@
 	}
 </script>
 
-<div class="radar-chart-container" style="width: {size}px; height: {size}px;">
+<div
+	class="radar-chart-container"
+	data-testid="radar-chart"
+	style="width: {size}px; height: {size}px;"
+>
 	<svg width={size} height={size}>
 		<!-- Draw circles for ticks -->
 		{#each uniqueTicks as tick (tick)}
