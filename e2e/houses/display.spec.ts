@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures';
 import { getTestSuffix } from '../helpers';
-import { cleanupByTag, createStudent, createCategory, getE2EUtilsClient } from '../convex-client';
+import { cleanupByTag, createHouseEvent } from '../convex-client';
 import { HouseEventsDisplayPage } from '../pages';
 
 test.describe('House Display Page - E2E', () => {
@@ -15,27 +15,15 @@ test.describe('House Display Page - E2E', () => {
 		suffix = getTestSuffix('display');
 		e2eTag = `e2e-display-${suffix}`;
 
-		await createStudent({
-			studentId: `STU_DISP_${suffix}`,
-			englishName: `TestStudent_${suffix}`,
-			chineseName: '測試生',
-			grade: 9,
-			status: 'Enrolled',
-			e2eTag
-		});
-
-		await createCategory({
-			name: `TestCat_${suffix}`,
-			e2eTag
-		});
-
-		await createCategory({
-			name: `EvalCat_${suffix}`,
-			e2eTag
-		});
-
-		await getE2EUtilsClient().createEvaluationForStudent({
-			studentId: `STU_DISP_${suffix}`,
+		// Seed house points via a house event: the display board aggregates
+		// per-house points from house_events (fetchHouseStats), so a student
+		// evaluation alone can never make a radar chart appear. House events
+		// are read live (no snapshot delay), unlike evaluation-driven stats.
+		await createHouseEvent({
+			title: `Display Points ${suffix}`,
+			startDate: Date.now() - 24 * 60 * 60 * 1000,
+			endDate: Date.now() + 24 * 60 * 60 * 1000,
+			housePoints: { Heracles: 10, Wukong: 8, Ixbalam: 6, Setna: 4 },
 			e2eTag
 		});
 
@@ -56,11 +44,15 @@ test.describe('House Display Page - E2E', () => {
 
 	test('verifies radar chart renders with categories', async ({ page }) => {
 		await displayPage.expectArticleCount(4);
-		// The radar chart only renders once the evaluation created in beforeEach
-		// propagates through Convex reactivity (cards show "No contributions yet"
-		// until then). Wait for the data-driven charts before asserting per card,
-		// otherwise the test races reactivity on slower runners (CI flake).
-		await expect(page.getByTestId('radar-chart').locator('svg').first()).toBeAttached();
+
+		const radarCharts = page.getByTestId('radar-chart');
+
+		// Wait for Convex data to propagate and all house charts to render.
+		await expect(radarCharts).toHaveCount(4, { timeout: 15_000 });
+
+		const radarSvgs = radarCharts.locator('svg');
+		await expect(radarSvgs).toHaveCount(4, { timeout: 15_000 });
+
 		for (const article of await displayPage.getArticles().all()) {
 			// RadarChart exposes a test id; use a descendant selector so the
 			// assertion survives wrapper elements inside the container.

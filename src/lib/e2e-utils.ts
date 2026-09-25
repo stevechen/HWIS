@@ -66,6 +66,14 @@ export interface CreateClassOptions {
 	e2eTag?: string;
 }
 
+export interface CreateHouseEventOptions {
+	title: string;
+	startDate: number;
+	endDate: number;
+	housePoints?: { Heracles?: number; Wukong?: number; Ixbalam?: number; Setna?: number };
+	e2eTag?: string;
+}
+
 export interface CreateEvaluationForStudentData {
 	studentId: string;
 	e2eTag?: string;
@@ -103,6 +111,7 @@ export interface E2EUtils {
 	cleanupAllE2eTaggedData: () => Promise<unknown>;
 	cleanupByTag: (dataType: CleanupScope, e2eTag: string) => Promise<unknown>;
 	cleanupAllHouseEvents: () => Promise<unknown>;
+	createHouseEvent: (opts: CreateHouseEventOptions) => Promise<unknown>;
 	seedBaseline: () => Promise<SeedBaselineResult>;
 	cleanupTestUsers: () => Promise<unknown>;
 	cleanupAuditLogs: (authIdString?: string) => Promise<unknown>;
@@ -328,6 +337,17 @@ export function getE2EUtils(): E2EUtils {
 
 		async tagHouseEventsByTitle(titlePart: string, e2eTag: string) {
 			return await c.mutation(api.dataFactory.tagHouseEventsByTitle, { titlePart, e2eTag });
+		},
+
+		async createHouseEvent(opts: CreateHouseEventOptions) {
+			try {
+				return await c.mutation(api.houseEvents.create, {
+					...opts
+				});
+			} catch (e) {
+				console.log('Create house event error:', e);
+				return { error: e instanceof Error ? e.message : String(e) };
+			}
 		},
 
 		async createCategory(opts?: CreateCategoryOptions) {

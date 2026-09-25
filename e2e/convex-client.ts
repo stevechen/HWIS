@@ -2,6 +2,7 @@ import {
 	getE2EUtils,
 	type CleanupScope,
 	type CreateStudentOptions,
+	type CreateHouseEventOptions,
 	refreshClient
 } from '../src/lib/e2e-utils';
 import { CONVEX_JWT_COOKIE_NAME } from '../src/lib/e2e/session-keys';
@@ -275,6 +276,11 @@ export async function cleanupTestBackupsByTimestamp(since: number) {
 	return await withTeardownRetry('cleanupTestBackupsByTimestamp', () =>
 		utils.cleanupTestBackupsByTimestamp(since)
 	);
+}
+
+export async function createHouseEvent(opts: CreateHouseEventOptions) {
+	const utils = getUtils();
+	return await utils.createHouseEvent(opts);
 }
 
 export async function createWeeklyReportTestData(tag?: string) {
