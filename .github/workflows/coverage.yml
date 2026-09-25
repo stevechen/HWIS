@@ -37,6 +37,17 @@ jobs:
       - name: E2E coverage
         run: bun run test:coverage:e2e
 
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-e2e-failure-artifacts
+          path: |
+            test-results/
+            coverage/e2e/
+            e2e/.auth/
+          retention-days: 7
+
       - name: Merge coverage
         run: bun run coverage:merge
 
