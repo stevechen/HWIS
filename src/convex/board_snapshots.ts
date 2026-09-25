@@ -59,13 +59,26 @@ async function readSnapshot<T>(ctx: QueryCtx, board: BoardName, fallback: () => 
 	return fallback();
 }
 
+// `categories` feeds the boards' radar axes AND the `{#if categories.length > 0}`
+// gate that decides whether RadarChart renders at all. The snapshot bakes the
+// list in at compute time, but the watermark only moves on evaluation/audit
+// writes — a snapshot computed before any category existed (or before a later
+// category was added) would freeze the boards on a stale, possibly empty axis
+// list indefinitely. `point_categories` is tiny (<100 rows), so read it live on
+// every board read; the expensive evaluations scan stays behind the snapshot.
+async function liveCategoryNames(ctx: QueryCtx): Promise<string[]> {
+	const categories = await ctx.db.query('point_categories').take(100);
+	return [...new Set(categories.map((c) => c.name))];
+}
+
 // Two narrow public queries (not one union-returning query) so the boards get
 // the exact house/class shapes instead of a widened union.
 export const getHouseStats = query({
 	args: {},
 	handler: async (ctx): Promise<HousesStats> => {
 		await assertBoardViewer(ctx);
-		return readSnapshot(ctx, 'houses', () => fetchHouseStats(ctx));
+		const stats = await readSnapshot(ctx, 'houses', () => fetchHouseStats(ctx));
+		return { ...stats, categories: await liveCategoryNames(ctx) };
 	}
 });
 
@@ -73,7 +86,8 @@ export const getClassStats = query({
 	args: {},
 	handler: async (ctx): Promise<ClassStats> => {
 		await assertBoardViewer(ctx);
-		return readSnapshot(ctx, 'classes', () => fetchClassStats(ctx));
+		const stats = await readSnapshot(ctx, 'classes', () => fetchClassStats(ctx));
+		return { ...stats, categories: await liveCategoryNames(ctx) };
 	}
 });
 

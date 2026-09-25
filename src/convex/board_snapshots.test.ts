@@ -60,6 +60,41 @@ describe('board_snapshots', () => {
 		expect(rows).toHaveLength(0);
 	});
 
+	it('serves live category names even when the stored snapshot predates them', async () => {
+		const t = convexTest(schema, modules);
+		await seedTeacher(t);
+		// A snapshot computed while point_categories was empty freezes an empty
+		// axis list in its payload; category-only writes never move the
+		// watermark, so the boards would otherwise stay on that stale list
+		// forever — and the UI gates the radar charts on it.
+		await t.run(async (ctx) => {
+			await ctx.db.insert('leaderboard_snapshots', {
+				board: 'houses',
+				stats: JSON.stringify({
+					houses: [],
+					ranking: [],
+					recentRanking: [],
+					categories: []
+				}),
+				generatedAt: Date.now(),
+				watermark: 0
+			});
+			await ctx.db.insert('leaderboard_snapshots', {
+				board: 'classes',
+				stats: JSON.stringify({ classes: [], categories: [] }),
+				generatedAt: Date.now(),
+				watermark: 0
+			});
+			await ctx.db.insert('point_categories', { name: 'Kindness' });
+		});
+
+		const houseStats = await t.query(api.board_snapshots.getHouseStats, {});
+		expect(houseStats.categories).toEqual(['Kindness']);
+
+		const classStats = await t.query(api.board_snapshots.getClassStats, {});
+		expect(classStats.categories).toEqual(['Kindness']);
+	});
+
 	it('serves the stored snapshot after refresh and skips refresh when unchanged', async () => {
 		const t = convexTest(schema, modules);
 		const teacherId = await seedTeacher(t);

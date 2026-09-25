@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures';
 import { getTestSuffix } from '../helpers';
-import { cleanupByTag, createHouseEvent } from '../convex-client';
+import { cleanupByTag, createCategory, createHouseEvent } from '../convex-client';
 import { HouseEventsDisplayPage } from '../pages';
 
 test.describe('House Display Page - E2E', () => {
@@ -15,10 +15,16 @@ test.describe('House Display Page - E2E', () => {
 		suffix = getTestSuffix('display');
 		e2eTag = `e2e-display-${suffix}`;
 
+		// The board renders RadarChart only while `getHouseStats().categories`
+		// is non-empty ({#if categories.length > 0}); those names come from
+		// point_categories, so seed two axes for the charts to draw.
+		await createCategory({ name: `TestCat_${suffix}`, e2eTag });
+		await createCategory({ name: `EvalCat_${suffix}`, e2eTag });
+
 		// Seed house points via a house event: the display board aggregates
-		// per-house points from house_events (fetchHouseStats), so a student
-		// evaluation alone can never make a radar chart appear. House events
-		// are read live (no snapshot delay), unlike evaluation-driven stats.
+		// per-house points from house_events (fetchHouseStats), giving every
+		// house a distinct, non-zero total (a student evaluation alone never
+		// reaches the board — students without a house are skipped).
 		await createHouseEvent({
 			title: `Display Points ${suffix}`,
 			startDate: Date.now() - 24 * 60 * 60 * 1000,
