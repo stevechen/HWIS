@@ -265,4 +265,121 @@ describe('compressResults — edge cases', () => {
 		});
 		expect(result).toContain('All 0 tests');
 	});
+
+	it('handles the real Playwright JSON shape (status=unexpected, nested results)', () => {
+		const result = compressResults({
+			stats: { expected: 129, unexpected: 1, flaky: 0, skipped: 0, ok: false },
+			suites: [
+				{
+					title: 'e2e/smoke.spec.ts',
+					specs: [
+						{
+							title: 'loads the homepage',
+							file: 'e2e/smoke.spec.ts',
+							line: 10,
+							column: 5,
+							ok: false,
+							tests: [
+								{
+									status: 'unexpected',
+									expectedStatus: 'passed',
+									results: [
+										{
+											status: 'failed',
+											errors: [
+												{
+													message: `Error: expect(locator).toBeVisible() failed\n\nLocator: getByTestId('admin-users.root')\nTimeout: 5000ms`,
+													stack: `Error: expect(locator).toBeVisible() failed\n    at e2e/smoke.spec.ts:12:18`
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		});
+		expect(result).toContain('## Failures (1/130)');
+		expect(result).toContain('loads the homepage');
+		expect(result).toContain('e2e/smoke.spec.ts:10');
+		expect(result).toContain('toBeVisible');
+	});
+
+	it('handles the singular error field on nested results', () => {
+		const result = compressResults({
+			stats: { expected: 0, unexpected: 1, flaky: 0, skipped: 0, ok: false },
+			suites: [
+				{
+					title: 'root',
+					specs: [
+						{
+							title: 'singular error shape',
+							file: 'e2e/singular.spec.ts',
+							line: 7,
+							column: 3,
+							ok: false,
+							tests: [
+								{
+									status: 'unexpected',
+									expectedStatus: 'passed',
+									results: [
+										{
+											status: 'failed',
+											error: { message: 'Error: worker crashed mid-test' }
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		});
+		expect(result).toContain('worker crashed');
+	});
+
+	it('falls back to a placeholder when a not-ok spec has no error payload', () => {
+		const result = compressResults({
+			stats: { expected: 129, unexpected: 1, flaky: 0, skipped: 0, ok: false },
+			suites: [
+				{
+					title: 'root',
+					specs: [
+						{
+							title: 'crashed spec',
+							file: 'e2e/crash.spec.ts',
+							line: 3,
+							column: 1,
+							ok: false,
+							tests: [{ status: 'unexpected', expectedStatus: 'passed', results: [] }]
+						}
+					]
+				}
+			]
+		});
+		expect(result).toContain('## Failures (1/130)');
+		expect(result).toContain('crashed spec');
+		expect(result).toContain('no error details');
+	});
+
+	it('surfaces report-level errors when no per-spec payload exists', () => {
+		const result = compressResults({
+			stats: { expected: 129, unexpected: 1, flaky: 0, skipped: 0, ok: false },
+			suites: [],
+			errors: [{ message: 'Error: worker process exited unexpectedly' }]
+		});
+		expect(result).toContain('## Failures (1/130)');
+		expect(result).toContain('worker process exited unexpectedly');
+	});
+
+	it('never emits an empty failure section when stats report failures', () => {
+		const result = compressResults({
+			stats: { expected: 129, unexpected: 1, flaky: 0, skipped: 0, ok: false },
+			suites: []
+		});
+		expect(result).toContain('## Failures (1/130)');
+		expect(result).toContain('failure details missing');
+	});
 });

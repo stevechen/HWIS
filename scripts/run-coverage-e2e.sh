@@ -32,7 +32,6 @@ cleanup() {
         wait "$CONVEX_PID" 2>/dev/null || true
     fi
     echo -e "\033[1;32mCoverage e2e servers stopped\033[0m"
-    exit 0
 }
 trap cleanup EXIT INT TERM
 

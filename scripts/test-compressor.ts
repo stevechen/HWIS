@@ -3,6 +3,9 @@ type TestError = { message: string; stack?: string };
 export type JsonReport = {
 	stats?: { expected: number; unexpected: number; flaky: number; skipped: number; ok: boolean };
 	suites?: Suite[];
+	// Fatal run-level errors (worker crash, interrupted run) reported via
+	// reporter onError rather than attached to any single spec.
+	errors?: TestError[];
 };
 
 type Suite = {
@@ -17,12 +20,32 @@ type Spec = {
 	file: string;
 	line: number;
 	column?: number;
+	ok?: boolean;
 	tests?: TestResult[];
 };
 
+type JsonReportTestResult = {
+	status?: 'passed' | 'failed' | 'timedOut' | 'skipped' | 'interrupted';
+	errors?: TestError[];
+	error?: TestError;
+};
+
 type TestResult = {
-	status: 'passed' | 'failed' | 'timedOut' | 'skipped' | 'interrupted';
+	// Real Playwright JSON uses the test outcome here ('expected' | 'unexpected' |
+	// 'flaky' | 'skipped'); legacy fixtures/tests use per-result statuses.
+	status:
+		| 'passed'
+		| 'failed'
+		| 'timedOut'
+		| 'skipped'
+		| 'interrupted'
+		| 'expected'
+		| 'unexpected'
+		| 'flaky';
 	expectedStatus?: 'passed' | 'failed';
+	// Real Playwright JSON nests attempt details here; legacy fixtures put errors
+	// directly on the test object.
+	results?: JsonReportTestResult[];
 	errors?: TestError[];
 };
 
@@ -33,10 +56,39 @@ type FlatSpec = {
 	errors: TestError[];
 };
 
+function isFailedStatus(status: TestResult['status'] | undefined): boolean {
+	return (
+		status === 'failed' ||
+		status === 'timedOut' ||
+		status === 'interrupted' ||
+		status === 'unexpected'
+	);
+}
+
+function collectErrorsFromResult(result: JsonReportTestResult): TestError[] {
+	const errors: TestError[] = [];
+	if (result.errors) {
+		errors.push(...result.errors);
+	}
+	if (result.error && !result.errors?.includes(result.error)) {
+		errors.push(result.error);
+	}
+	return errors;
+}
+
 function collectErrors(tests: TestResult[]): TestError[] {
 	const errors: TestError[] = [];
 	for (const test of tests) {
-		if (test.status === 'failed' || test.status === 'timedOut' || test.status === 'interrupted') {
+		// Real Playwright JSON shape: nested attempt results.
+		if (test.results) {
+			for (const result of test.results) {
+				if (isFailedStatus(result.status)) {
+					errors.push(...collectErrorsFromResult(result));
+				}
+			}
+		}
+		// Legacy/flat shape used by fixtures: errors directly on the test.
+		if (isFailedStatus(test.status)) {
 			if (test.errors) {
 				errors.push(...test.errors);
 			}
@@ -58,6 +110,17 @@ function collectFailedSpecs(suites: Suite[], parentTitles: string[] = []): FlatS
 						file: spec.file,
 						line: spec.line,
 						errors
+					});
+				} else if (spec.ok === false) {
+					// Defensive fallback: a spec the reporter marks not-ok but that
+					// carries no extractable error payload (e.g. worker crash or a
+					// truncated report). Emit a placeholder so the failure section
+					// is never silently empty when stats.unexpected > 0.
+					specs.push({
+						title: [...titles, spec.title].join(' › '),
+						file: spec.file,
+						line: spec.line,
+						errors: [{ message: `Error: test failed (no error details in JSON report)` }]
 					});
 				}
 			}
@@ -172,6 +235,27 @@ export function compressResults(report: JsonReport): string {
 	const lines: string[] = [];
 	lines.push(`## Failures (${failed}/${total})`);
 	lines.push('');
+
+	if (failedSpecs.length === 0) {
+		// stats.unexpected > 0 but no per-spec error payload could be extracted
+		// (e.g. report-level error, worker crash, truncated JSON). Never emit an
+		// empty failure section — that is what hid the 1/130 CI flake.
+		if (report.errors?.length) {
+			for (const err of report.errors) {
+				const details = parseErrorDetails(err.message);
+				lines.push(...formatErrorLines(details));
+				if (err.stack) {
+					const frame = firstRelevantStackFrame(err.stack);
+					if (frame) {
+						lines.push(`  at \`${frame}\``);
+					}
+				}
+			}
+		} else {
+			lines.push('- Error: failure details missing from JSON report (no per-spec errors found)');
+		}
+		return lines.join('\n').trimEnd();
+	}
 
 	for (const spec of failedSpecs) {
 		lines.push(`### ${spec.title}`);

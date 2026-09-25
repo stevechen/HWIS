@@ -1,9 +1,5 @@
 import { spawn } from 'child_process';
-import { compressResults } from './test-compressor';
-
-type JsonReport = {
-	stats?: { expected: number; unexpected: number; flaky: number; skipped: number; ok: boolean };
-};
+import { compressResults, type JsonReport } from './test-compressor';
 
 function isJsonReport(value: unknown): value is JsonReport {
 	return typeof value === 'object' && value !== null && 'stats' in (value as object);
