@@ -44,13 +44,28 @@ if lsof -ti "tcp:${VITE_PORT}" >/dev/null 2>&1; then
     sleep 1
 fi
 
-# Force local Convex for the run (same as scripts/start-dev-servers.sh).
+# Force local Convex for the run (same as scripts/run-e2e.sh).
 export CONVEX_URL="${CONVEX_URL:-http://127.0.0.1:3210}"
 export PUBLIC_CONVEX_URL="${PUBLIC_CONVEX_URL:-$CONVEX_URL}"
-export CONVEX_DEPLOYMENT="${CONVEX_DEPLOYMENT:-local:local-steve_chen-hwis_31a3d}"
+# Convex and Vite run as separate processes, so provide the same local auth
+# configuration to both instead of letting each generate its own secret.
+export SITE_URL="${SITE_URL:-http://localhost:${VITE_PORT}}"
+export VITE_SITE_URL="${VITE_SITE_URL:-$SITE_URL}"
+export PUBLIC_SITE_URL="${PUBLIC_SITE_URL:-$SITE_URL}"
+export BETTER_AUTH_SECRET="${BETTER_AUTH_SECRET:-e2e-local-better-auth-secret-change-me}"
+# Leave deployment selection unset so non-interactive CI uses Convex's
+# anonymous local deployment instead of prompting for account login.
+# (Do NOT default this to a machine-specific local deployment name: that name
+# only exists on the developer machine that created it and breaks CI.)
+unset CONVEX_DEPLOYMENT
 unset CONVEX_AUTH_TOKEN
 
-if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:3211 >/dev/null 2>&1; then
+convex_ready() {
+	curl -s --max-time 2 http://localhost:3210 >/dev/null 2>&1 &&
+		curl -s --max-time 2 http://localhost:3211 >/dev/null 2>&1
+}
+
+if convex_ready; then
     echo -e "\033[1;33mConvex dev server already running, reusing it...\033[0m"
 else
     echo -e "\033[1;32mStarting Convex dev server...\033[0m"
@@ -62,7 +77,7 @@ echo -e "\033[1;33mWaiting for Convex to be ready...\033[0m"
 MAX_RETRIES=60
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if curl -s http://localhost:3210 >/dev/null 2>&1 || curl -s http://localhost:3211 >/dev/null 2>&1; then
+    if convex_ready; then
         echo -e "\033[1;32mConvex is ready!\033[0m"
         break
     fi

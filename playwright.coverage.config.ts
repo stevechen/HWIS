@@ -15,6 +15,13 @@ import baseConfig from './playwright.config';
 // (e.g. sign-out) with a 403 CSRF error.
 const config: PlaywrightTestConfig = {
 	...baseConfig,
+	// Same reasoning as playwright.e2e.config.ts: the wrapper script owns the
+	// instrumented Vite server, so Playwright must not manage its own. This
+	// matters especially in CI, where the base config's
+	// reuseExistingServer:false makes Playwright refuse to start when port
+	// 5173 is already occupied by the script's server (locally it silently
+	// reuses it, which is why coverage passes locally but fails in CI).
+	webServer: undefined,
 	use: {
 		...baseConfig.use,
 		baseURL: 'http://localhost:5173'
