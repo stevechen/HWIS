@@ -54,8 +54,13 @@ test.describe('House Display Page - E2E', () => {
 		await displayPage.expectRankVisible('4th');
 	});
 
-	test('verifies radar chart renders with categories', async () => {
+	test('verifies radar chart renders with categories', async ({ page }) => {
 		await displayPage.expectArticleCount(4);
+		// The radar chart only renders once the evaluation created in beforeEach
+		// propagates through Convex reactivity (cards show "No contributions yet"
+		// until then). Wait for the data-driven charts before asserting per card,
+		// otherwise the test races reactivity on slower runners (CI flake).
+		await expect(page.locator('.radar-chart-container > svg').first()).toBeAttached();
 		for (const article of await displayPage.getArticles().all()) {
 			// RadarChart currently exposes no accessible name; scope its SVG to each card.
 			const chart = article.locator('.radar-chart-container > svg');
