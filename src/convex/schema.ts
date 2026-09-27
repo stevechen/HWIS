@@ -227,5 +227,79 @@ export default defineSchema({
 		e2eTag: v.optional(v.string())
 	})
 		.index('by_startDate', ['startDate'])
-		.index('by_e2eTag', ['e2eTag'])
+		.index('by_e2eTag', ['e2eTag']),
+
+	// ---------------------------------------------------------------------
+	// ESL department (bounded context, isolated from International)
+	// ---------------------------------------------------------------------
+	// ESL students have no houses, no CAS tags and no point evaluations, so
+	// they live in their own tables rather than in the International
+	// `students`/`classes`/`evaluations` graph (ADR-0012).
+
+	/**
+	 * A student cohort: the group of ESL students who move through the
+	 * programme together (school year + grade + ability level + class
+	 * number). Cohorts own the roster (`esl_students`) and the classes that
+	 * teach them (`esl_classes`).
+	 *
+	 * G7 and G8 cohorts are deliberately shared by their CLIL and Comm
+	 * classes: both classes draw from the same cohort roster, which is what
+	 * `esl/classes.getRoster` relies on.
+	 */
+	esl_cohorts: defineTable({
+		/** School year in `YYYY-YYYY` form, e.g. `2025-2026`. */
+		year: v.string(),
+		/** Grade the cohort belongs to (7-10). */
+		grade: v.number(),
+		/** Ability level within the grade. */
+		level: v.string(),
+		/** Cohort number within the grade/level group. */
+		classNumber: v.union(v.literal('1'), v.literal('2')),
+		/** `archived` cohorts are read-only history; only `active` accepts new students. */
+		status: v.union(v.literal('active'), v.literal('archived')),
+		createdAt: v.number()
+	})
+		.index('by_year', ['year'])
+		.index('by_year_grade', ['year', 'grade'])
+		.index('by_status', ['status'])
+		.index('by_year_grade_level_classNumber', ['year', 'grade', 'level', 'classNumber']),
+
+	/**
+	 * A class that teaches a cohort. `CLIL` and `Comm` classes for a G7/G8
+	 * cohort always point at the same cohort, so they share one roster;
+	 * `G9`/`H10` classes have their own cohort.
+	 */
+	esl_classes: defineTable({
+		cohortId: v.id('esl_cohorts'),
+		type: v.union(v.literal('CLIL'), v.literal('Comm'), v.literal('G9'), v.literal('H10')),
+		name: v.string(),
+		teacherId: v.optional(v.id('users')),
+		/** `archived` classes are kept for history but hidden from active lists. */
+		status: v.union(v.literal('active'), v.literal('archived')),
+		createdAt: v.number()
+	})
+		.index('by_cohortId', ['cohortId'])
+		.index('by_teacherId', ['teacherId']),
+
+	/**
+	 * An ESL student, enrolled into exactly one cohort. Transfer status is
+	 * tracked in place (`active` ⇄ `disabled` with a reason) rather than by
+	 * moving rows between cohorts, so the history of a cohort stays stable.
+	 */
+	esl_students: defineTable({
+		cohortId: v.id('esl_cohorts'),
+		englishName: v.string(),
+		chineseName: v.string(),
+		/** School student ID — 6 or 7 digits. */
+		schoolStudentId: v.string(),
+		status: v.union(v.literal('active'), v.literal('disabled')),
+		enrolledAt: v.number(),
+		disabledAt: v.optional(v.number()),
+		/** Why the student is disabled (required when disabling). */
+		statusReason: v.optional(v.string())
+	})
+		.index('by_cohortId', ['cohortId'])
+		.index('by_cohortId_schoolStudentId', ['cohortId', 'schoolStudentId'])
+		.index('by_schoolStudentId', ['schoolStudentId'])
+		.index('by_status', ['status'])
 });
