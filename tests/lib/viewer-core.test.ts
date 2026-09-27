@@ -188,3 +188,88 @@ describe('settleViewer', () => {
 		expect(session.viewer?.status).toBe('active');
 	});
 });
+
+const eslOnlyTeacher: Viewer = {
+	_id: 'user_4' as Id<'users'>,
+	name: 'ESL Teacher',
+	email: 'four@hwhs.tc.edu.tw',
+	role: 'teacher',
+	status: 'active',
+	departmentRoles: { esl: 'teacher' },
+	profileExists: true
+};
+
+const hybridTeacher: Viewer = {
+	_id: 'user_5' as Id<'users'>,
+	name: 'Hybrid Teacher',
+	email: 'five@hwhs.tc.edu.tw',
+	role: 'teacher',
+	status: 'active',
+	departmentRoles: { international: 'teacher', esl: 'admin' },
+	profileExists: true
+};
+
+const activeSuper: Viewer = {
+	_id: 'user_6' as Id<'users'>,
+	name: 'Super Admin',
+	email: 'super@hwhs.tc.edu.tw',
+	role: 'super',
+	status: 'active',
+	profileExists: true
+};
+
+describe('settleViewer department derivation', () => {
+	it('treats legacy staff rows as International-only (role fallback)', () => {
+		const teacher = settleViewer(settledAuth(), profileFor(activeTeacher));
+		expect(teacher.isInternationalStaff).toBe(true);
+		expect(teacher.isEslStaff).toBe(false);
+		expect(teacher.isHybridStaff).toBe(false);
+
+		const admin = settleViewer(settledAuth(), profileFor(activeAdmin));
+		expect(admin.isInternationalStaff).toBe(true);
+		expect(admin.isEslStaff).toBe(false);
+		expect(admin.isHybridStaff).toBe(false);
+	});
+
+	it('marks an ESL-only teacher as ESL without International access', () => {
+		const session = settleViewer(settledAuth(), profileFor(eslOnlyTeacher));
+		expect(session.status).toBe('active');
+		expect(session.isEslStaff).toBe(true);
+		expect(session.isInternationalStaff).toBe(false);
+		expect(session.isHybridStaff).toBe(false);
+	});
+
+	it('marks a hybrid teacher as spanning both departments', () => {
+		const session = settleViewer(settledAuth(), profileFor(hybridTeacher));
+		expect(session.isInternationalStaff).toBe(true);
+		expect(session.isEslStaff).toBe(true);
+		expect(session.isHybridStaff).toBe(true);
+	});
+
+	it('gives Super universal access to both departments', () => {
+		const session = settleViewer(settledAuth(), profileFor(activeSuper));
+		expect(session.isInternationalStaff).toBe(true);
+		expect(session.isEslStaff).toBe(true);
+		expect(session.isHybridStaff).toBe(true);
+	});
+
+	it('marks students, pending users, and anonymous viewers with no department', () => {
+		const student = settleViewer(settledAuth(), profileFor(enrolledStudent));
+		expect(student.isInternationalStaff).toBe(false);
+		expect(student.isEslStaff).toBe(false);
+
+		const pending = settleViewer(settledAuth(), profileFor(pendingUser));
+		expect(pending.isInternationalStaff).toBe(true);
+		expect(pending.isEslStaff).toBe(false);
+
+		const signedOut = settleViewer({ isLoading: false, isAuthenticated: false }, profileFor(null));
+		expect(signedOut.isInternationalStaff).toBe(false);
+		expect(signedOut.isEslStaff).toBe(false);
+		expect(signedOut.isHybridStaff).toBe(false);
+
+		const noProfile = settleViewer(settledAuth(), profileFor(newUser));
+		expect(noProfile.isInternationalStaff).toBe(false);
+		expect(noProfile.isEslStaff).toBe(false);
+		expect(noProfile.isHybridStaff).toBe(false);
+	});
+});

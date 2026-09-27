@@ -9,6 +9,17 @@ export default defineSchema({
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
+		/**
+		 * Per-department staff assignment. Absent on legacy rows, which fall back
+		 * to `{ international: role }` through `resolveDepartmentRoles`. Super
+		 * users keep universal access whatever this field holds.
+		 */
+		departmentRoles: v.optional(
+			v.object({
+				international: v.optional(v.union(v.literal('admin'), v.literal('teacher'))),
+				esl: v.optional(v.union(v.literal('admin'), v.literal('teacher')))
+			})
+		),
 		/** Registration timestamp (ms) — set once when the profile is created. */
 		createdAt: v.optional(v.number()),
 		/** Set when an active user's access is removed (status -> 'pending'); cleared on restore. */

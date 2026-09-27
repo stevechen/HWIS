@@ -4,6 +4,21 @@ export type Role = 'super' | 'admin' | 'teacher' | 'student';
 export type UserStatus = 'pending' | 'active';
 export type StudentStatus = 'Enrolled' | 'Not Enrolled';
 
+/** Departments a staff member can be assigned to. */
+export type Department = 'international' | 'esl';
+
+/** Department-scoped staff rank. */
+export type DepartmentRole = 'admin' | 'teacher';
+
+/**
+ * Per-department staff assignment, mirroring the `users.departmentRoles`
+ * column. A department is absent when the user has no access to it.
+ */
+export type DepartmentRoles = {
+	international?: DepartmentRole;
+	esl?: DepartmentRole;
+};
+
 export type EvaluationCapabilities = {
 	viewAnyEvaluation: boolean;
 	viewOwnEvaluation: boolean;
@@ -26,6 +41,7 @@ export type AccessSubject = {
 	role?: Role;
 	status?: UserStatus;
 	enrollmentStatus?: StudentStatus;
+	departmentRoles?: DepartmentRoles;
 };
 
 export const noEvaluationCapabilities: EvaluationCapabilities = {
@@ -92,6 +108,70 @@ export function isActiveStaff(subject: AccessSubject): boolean {
 /** True when the subject may enter the Admin area: Admin/Super role and Active status. */
 export function canAccessAdminArea(subject: AccessSubject): boolean {
 	return isAdmin(subject) && subject.status === 'active';
+}
+
+/**
+ * Normalizes the department assignment of a subject.
+ *
+ * Legacy rows (and the test-token profiles) only carry the global `role`, so a
+ * staff role is read as an International assignment. An explicit
+ * `departmentRoles` object always wins, which is what lets an ESL-only admin
+ * exist without inheriting International access.
+ *
+ * Note that this resolver does not widen access: the base `role` column keeps
+ * feeding the legacy `isAdmin`/`isActiveStaff` predicates, so ESL-only staff are
+ * stored with base role `teacher`. Super users are handled by the department
+ * predicates below rather than by fabricating roles here.
+ */
+export function resolveDepartmentRoles(subject: AccessSubject): DepartmentRoles {
+	const explicit = subject.departmentRoles;
+	if (explicit && (explicit.international || explicit.esl)) {
+		return {
+			international: explicit.international,
+			esl: explicit.esl
+		};
+	}
+	if (subject.role === 'admin' || subject.role === 'teacher') {
+		return { international: subject.role };
+	}
+	return {};
+}
+
+/** True when the subject works in the International department. Super has universal access. */
+export function isInternationalStaff(subject: AccessSubject): boolean {
+	return isSuper(subject) || resolveDepartmentRoles(subject).international !== undefined;
+}
+
+/** True when the subject administers the International department. Super has universal access. */
+export function isInternationalAdmin(subject: AccessSubject): boolean {
+	return isSuper(subject) || resolveDepartmentRoles(subject).international === 'admin';
+}
+
+/** True when the subject works in the ESL department. Super has universal access. */
+export function isEslStaff(subject: AccessSubject): boolean {
+	return isSuper(subject) || resolveDepartmentRoles(subject).esl !== undefined;
+}
+
+/** True when the subject administers the ESL department. Super has universal access. */
+export function isEslAdmin(subject: AccessSubject): boolean {
+	return isSuper(subject) || resolveDepartmentRoles(subject).esl === 'admin';
+}
+
+/** True when the subject spans both departments and therefore needs a department switcher. */
+export function isHybridStaff(subject: AccessSubject): boolean {
+	if (isSuper(subject)) return true;
+	const roles = resolveDepartmentRoles(subject);
+	return roles.international !== undefined && roles.esl !== undefined;
+}
+
+/** True when the subject is an Active member of the International department. */
+export function isActiveInternationalStaff(subject: AccessSubject): boolean {
+	return isInternationalStaff(subject) && subject.status === 'active';
+}
+
+/** True when the subject is an Active member of the ESL department. */
+export function isActiveEslStaff(subject: AccessSubject): boolean {
+	return isEslStaff(subject) && subject.status === 'active';
 }
 
 /** True when the subject is a Student whose record is Enrolled. */

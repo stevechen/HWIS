@@ -3,6 +3,7 @@ import { vi } from 'vitest';
 import { convexTest as originalConvexTest } from 'convex-test';
 import type { Id } from './_generated/dataModel';
 import { authComponent, type AuthenticatedUserLike } from './auth';
+import type { DepartmentRoles } from './shared/authorization';
 
 export const modules = import.meta.glob('./**/*.ts');
 type ConvexTestSchema = Parameters<typeof originalConvexTest>[0];
@@ -27,6 +28,7 @@ export async function seedUser(
 		name?: string;
 		role?: 'super' | 'admin' | 'teacher' | 'student';
 		status?: 'pending' | 'active';
+		departmentRoles?: DepartmentRoles;
 	}
 ): Promise<Id<'users'>> {
 	return t.run((ctx) =>
@@ -34,7 +36,8 @@ export async function seedUser(
 			authId: overrides.authId,
 			name: overrides.name ?? 'Test User',
 			role: overrides.role ?? 'teacher',
-			status: overrides.status ?? 'active'
+			status: overrides.status ?? 'active',
+			...(overrides.departmentRoles ? { departmentRoles: overrides.departmentRoles } : {})
 		})
 	);
 }
