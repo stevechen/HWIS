@@ -174,6 +174,53 @@ function entryYearOf(schoolStudentId: string): number | null {
 }
 
 /**
+ * The grade 10 ID space a student ID belongs to, or `null` if it is not on that
+ * scheme at all.
+ *
+ * Grade 10 sits on a numbering space of its own, one per school year, which moves
+ * `4xxxxx` → `5xxxxx` → `6xxxxx` and is unrelated to when anyone entered. So the
+ * ID does not say *which* year a grade 10 student is in — but it does say which
+ * grade, because no other grade is numbered this way, and it carries the year in
+ * its leading digit.
+ *
+ * Six or seven digits starting `4`, `5` or `6` is that space, because the
+ * school's numbering has run in both lengths and which one grade 10 uses is not
+ * something to hardcode from one year's file. The levelled grades are
+ * `115xxx`/`1150xxx`-style, always leading `1`, so nothing else collides.
+ */
+function grade10SpaceOf(schoolStudentId: string): number | null {
+	if (!/^[456]\d{5,6}$/.test(schoolStudentId)) return null;
+	return Number(schoolStudentId[0]);
+}
+
+/** The school year whose grade 10 space is `5xxxxx`. */
+const GRADE10_SPACE_5_YEAR = '2026-2027';
+
+/**
+ * The grade 10 ID space a given school year is numbered in, or `null` if the year
+ * is not one the space has reached.
+ *
+ * The space advances by one every school year, so the year is recoverable from
+ * the space and back. That is the only thing tying a grade 10 file to a year: its
+ * IDs name no intake year, so the arithmetic that places a levelled file does
+ * nothing here.
+ */
+export function grade10SpaceForSchoolYear(year: string): number | null {
+	const [from, to] = year.split('-').map((part) => Number(part));
+	if (!Number.isInteger(from) || !Number.isInteger(to) || to - from !== 1) return null;
+	const [anchorFrom, anchorTo] = GRADE10_SPACE_5_YEAR.split('-').map(Number);
+	if (to - anchorTo !== from - anchorFrom) return null;
+	return 5 + (to - anchorTo);
+}
+
+/** The school year a grade 10 ID space belongs to. */
+export function schoolYearForGrade10Space(space: number): string | null {
+	const [anchorFrom, anchorTo] = GRADE10_SPACE_5_YEAR.split('-').map(Number);
+	const to = anchorTo + (space - 5);
+	return `${anchorFrom + (to - anchorTo)}-${to}`;
+}
+
+/**
  * What a file's IDs say about which school year it belongs to.
  *
  * `current` — every ID agrees on one school year.
@@ -242,13 +289,15 @@ export function deriveSchoolYear(
 /**
  * What a workbook's IDs say about which grade of which year it is.
  *
- * `grade` — every ID places in the same levelled grade of the given year, so the
- *   grade follows from the year the admin confirmed and there is nothing to ask.
+ * `grade` — every ID places in the same grade of the given year, so the grade
+ *   follows from the year the admin confirmed and there is nothing to ask. That
+ *   covers all four: the three levelled grades from their intake-year prefixes, and
+ *   grade 10 from its own ID space.
  * `twoYears` — the IDs span two intake years, so the file has two school years
  *   merged into it. Reported, not resolved: importing it would scatter the cohort
- *   irrecoverably.
- * `unknown` — the IDs name no intake year at all, which in practice means grade 10
- *   and its separate `5xxxxx` scheme. The admin has to say which grade it is.
+ *   irrecoverably. Also covers a file mixing the levelled and grade 10 schemes,
+ *   which has no single grade either.
+ * `unknown` — the IDs are on no scheme this can read, so nothing places them.
  */
 export type DerivedGrade =
 	| { kind: 'grade'; grade: number }
@@ -277,12 +326,18 @@ export function deriveGradeForSchoolYear(
 	}
 
 	// Only prefixes that place a student in a levelled grade of this year are
-	// intake years at all. This is what keeps grade 10 out of the arithmetic: its
-	// `511101` and `512101` have three leading digits like any other ID, but they
-	// are not intake years, and reading them as two of them would report a grade 10
-	// file as holding school years 2422-2423 and 2423-2424.
+	// intake years at all. Grade 10 is on its own scheme, so it is set aside and
+	// read separately below: its `511101` and `512101` have three leading digits like
+	// any other ID, but they are not intake years, and counting them would report a
+	// grade 10 file as holding school years 2422-2423 and 2423-2424.
 	const grades = new Map<number, number>();
+	const grade10Spaces = new Set<number>();
 	for (const id of schoolStudentIds) {
+		const space = grade10SpaceOf(id);
+		if (space !== null) {
+			grade10Spaces.add(space);
+			continue;
+		}
 		const entryYear = entryYearOf(id);
 		if (entryYear === null) continue;
 		const grade = 7 + (intake - entryYear);
@@ -290,8 +345,20 @@ export function deriveGradeForSchoolYear(
 		grades.set(grade, entryYear);
 	}
 
-	// None in range: not on the intake-year scheme, which in practice means grade 10
-	// and its separate `5xxxxx` scheme, or a file of unusable IDs.
+	// A file on the grade 10 space says so outright — no other grade is numbered
+	// this way — so it needs nothing asked of the admin, the same as a levelled file.
+	if (grades.size === 0 && grade10Spaces.size > 0) {
+		return { kind: 'grade', grade: 10 };
+	}
+
+	// A file holding both schemes has no single grade. Reporting it as a merged file
+	// is the honest answer: importing it would file one of the two halves under the
+	// other's grade.
+	if (grades.size > 0 && grade10Spaces.size > 0) {
+		return { kind: 'twoYears', years: [] };
+	}
+
+	// Neither scheme: a file of unusable numbers.
 	if (grades.size === 0) return { kind: 'unknown' };
 
 	// One grade across the whole file: the ordinary case, and nothing to ask.
@@ -305,6 +372,29 @@ export function deriveGradeForSchoolYear(
 		kind: 'twoYears',
 		years: [...grades.values()].map((entryYear) => schoolYearFromRocEntry(entryYear)).sort()
 	};
+}
+
+/**
+ * The school year a grade 10 file's IDs place it in, or that they cannot.
+ *
+ * The counterpart to `deriveGradeForSchoolYear` for the one grade whose IDs carry
+ * the year rather than an intake: the space moves one step per school year, so
+ * `5xxxxx` is one year and `6xxxxx` the next. That is what lets a grade 10 file be
+ * checked against the page's year the same way a levelled file is — its IDs name no
+ * intake year, so the arithmetic that places a levelled file does nothing here.
+ */
+export function deriveGrade10SchoolYear(
+	schoolStudentIds: readonly string[]
+): { kind: 'current'; year: string } | { kind: 'conflict' } | { kind: 'unknown' } {
+	const spaces = new Set<number>();
+	for (const id of schoolStudentIds) {
+		const space = grade10SpaceOf(id);
+		if (space !== null) spaces.add(space);
+	}
+	if (spaces.size === 0) return { kind: 'unknown' };
+	if (spaces.size > 1) return { kind: 'conflict' };
+	const year = schoolYearForGrade10Space([...spaces][0]);
+	return year === null ? { kind: 'unknown' } : { kind: 'current', year };
 }
 
 /**

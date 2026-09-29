@@ -196,6 +196,22 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 		await expect(page.getByTestId('esl-import.status.g7.state')).toHaveText('Staged');
 	});
 
+	test('places a grade 10 workbook itself, with no grade asked for', async ({ page }) => {
+		// Grade 10's IDs are numbered on a space of their own — `5xxxxx` in 2026-2027 —
+		// that no other grade is numbered in, so the file says which grade it is. The
+		// page used to ask for this, and it was the one thing it asked: answer it wrong
+		// and the whole import is filed under the wrong grade. Now there is nothing to
+		// answer.
+		await openImportPage(page);
+		await uploadWorkbook(page, 10);
+
+		// The control does not exist at any point, so there is no way to get this wrong
+		// by answering.
+		await expect(page.getByTestId('esl-import.grade')).toHaveCount(0);
+		await expect(page.getByTestId('esl-import.error')).toHaveCount(0);
+		await expect(page.getByTestId('esl-import.status.g10.state')).toHaveText('Staged');
+	});
+
 	test('refuses a workbook holding two school years, and says which', async ({ page }) => {
 		// A different failure from the one above, and the more dangerous of the two:
 		// here the page's year is *correct*, so there is nothing to prompt about and

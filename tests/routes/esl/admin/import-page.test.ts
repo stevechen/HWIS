@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { getFunctionName } from 'convex/server';
 import { useQuery } from 'convex-svelte';
-import { selectOption } from '../../../lib/select';
 import type { ParsedRosterWorkbook } from '$convex/shared/esl_import';
 
 const mockMutation = vi.fn();
@@ -146,19 +145,17 @@ async function setYear(value: string) {
 }
 
 /**
- * Uploads a grade 10 file, which is the one file the page cannot place itself.
+ * Uploads a grade 10 file, which places itself from its own ID space.
  *
- * The first upload is what reveals the grade control: grade 10's `5xxxxx` IDs name
- * no intake year, so no school year puts them in a levelled grade and the admin has
- * to say. The second upload is the one that stages.
+ * No grade control is involved: `5xxxxx` is a space no other grade is numbered in,
+ * so one upload stages and there is nothing to answer. The IDs' leading digit also
+ * says which year the file is for, which is what the page checks the year above
+ * against.
  */
 async function uploadGrade10(name = 'g10.xlsx') {
-	// Grade 10's scheme: `5xxxxx`, with no three-digit intake prefix, which is the
-	// whole reason the page has to be told rather than working it out.
+	// Grade 10's scheme: `5xxxxx`, with no three-digit intake prefix, which is how
+	// the page knows the grade without being told.
 	fileIds.mockReturnValue(['511101', '512101']);
-	upload(name);
-	await expect.element(page.getByTestId('esl-import.grade')).toBeInTheDocument();
-	await chooseGrade('10');
 	upload(name);
 }
 
@@ -188,11 +185,6 @@ function givenNextYearsFile() {
 			]
 		})
 	);
-}
-
-/** Chooses the grade the next file is taken to be. */
-async function chooseGrade(value: string) {
-	await selectOption(page.getByTestId('esl-import.grade'), value);
 }
 
 describe('ESL admin import page', () => {
@@ -296,9 +288,10 @@ describe('ESL admin import page', () => {
 			await expect.element(page.getByTestId('esl-import.grade')).not.toBeInTheDocument();
 		});
 
-		it('asks which grade a grade 10 file is, and takes the answer', async () => {
-			// The one case the arithmetic cannot place. Grade 10's `5xxxxx` IDs carry no
-			// intake year, so no school year puts them in a levelled grade.
+		it('places a grade 10 file itself, with nothing asked', async () => {
+			// Grade 10 is numbered `4xxxxx`, then `5xxxxx`, then `6xxxxx` — a space no
+			// other grade uses. So the ID says the grade outright, and the page has
+			// nothing to ask the admin about it.
 			render(ImportPage);
 			fileIds.mockReturnValue(['511024', '511355']);
 			givenParsed(
@@ -318,20 +311,26 @@ describe('ESL admin import page', () => {
 			await setYear(YEAR);
 			upload('g10.xlsx');
 
-			// Asked, with the reason that applies rather than a generic refusal.
-			await expect
-				.element(page.getByTestId('esl-import.error'))
-				.toHaveTextContent('do not say which grade it is');
-			expect(readRosterWorkbook).not.toHaveBeenCalled();
-
-			// The admin answers, and the same file goes through.
-			await chooseGrade('10');
-			upload('g10.xlsx');
-
 			await expect
 				.element(page.getByTestId('esl-import.status.g10.state'))
 				.toHaveTextContent('Staged');
 			expect(readRosterWorkbook).toHaveBeenCalledWith(10);
+		});
+
+		it('never shows a grade control, whatever the file', async () => {
+			// The control existed only for grade 10, and grade 10 now places itself. A
+			// file the IDs cannot place at all is refused, which is a different outcome
+			// from asking a question the IDs can answer.
+			render(ImportPage);
+			fileIds.mockReturnValue(['12', '99']);
+			await setYear(YEAR);
+			upload('junk.xlsx');
+
+			await expect.element(page.getByTestId('esl-import.grade')).not.toBeInTheDocument();
+			await expect
+				.element(page.getByTestId('esl-import.error'))
+				.toHaveTextContent('no scheme this can read');
+			expect(readRosterWorkbook).not.toHaveBeenCalled();
 		});
 
 		it('asks before staging a file whose IDs place it in another year', async () => {

@@ -6,6 +6,8 @@ import {
 	deriveSchoolYear,
 	detectColumns,
 	deriveGradeForSchoolYear,
+	deriveGrade10SchoolYear,
+	grade10SpaceForSchoolYear,
 	gradesNamedInWorkbook,
 	normalizeSchoolStudentId,
 	parseRosterGroup,
@@ -437,20 +439,66 @@ describe('grade derivation from a confirmed year', () => {
 		expect(gradeIn('2027-2028')).toBe(9);
 	});
 
-	it('cannot place a grade 10 file, whose IDs name no intake year', () => {
-		// This is why the grade is still asked for, and only for this case.
-		expect(deriveGradeForSchoolYear('2026-2027', ['511024', '511355'])).toEqual({
-			kind: 'unknown'
+	it('places a grade 10 file from its own ID space, with nothing asked', () => {
+		// Grade 10 is numbered on a space of its own — `4xxxxx`, then `5xxxxx`,
+		// then `6xxxxx` — that no other grade uses. So the ID says which grade it is,
+		// which is what lets the page stop asking for one.
+		expect(deriveGradeForSchoolYear('2026-2027', ['5100001', '5100002'])).toEqual({
+			kind: 'grade',
+			grade: 10
 		});
+	});
+
+	it('places a grade 10 file in either of the two ID lengths', () => {
+		// The school has numbered in six and seven digits, so which one grade 10 uses
+		// is not something to pin from one year's file. Both are the space.
+		expect(deriveGradeForSchoolYear('2026-2027', ['510001'])).toEqual({
+			kind: 'grade',
+			grade: 10
+		});
+		expect(deriveGradeForSchoolYear('2026-2027', ['5100001'])).toEqual({
+			kind: 'grade',
+			grade: 10
+		});
+	});
+
+	it('places a grade 10 file whatever year the page is set to', () => {
+		// The space says the grade; the year above says the year. Neither is derived
+		// from the other, so a file that is plainly grade 10 stays grade 10 instead of
+		// being told it is some levelled grade.
+		for (const year of ['2025-2026', '2026-2027', '2027-2028']) {
+			expect(deriveGradeForSchoolYear(year, ['5100001'])).toEqual({
+				kind: 'grade',
+				grade: 10
+			});
+		}
 	});
 
 	it('does not read a grade 10 file as holding two years', () => {
 		// A regression with a real failure behind it. `511101` and `512101` have
 		// three leading digits like any other ID, so counting prefixes without
 		// checking they place a student in a levelled grade reported this file as
-		// holding school years 2422-2423 and 2423-2424 — and the admin was asked to
-		// split a perfectly good grade 10 file in two.
+		// holding two absurd school years, and the admin was asked to split a
+		// perfectly good grade 10 file in two.
 		expect(deriveGradeForSchoolYear('2026-2027', ['511101', '512101'])).toEqual({
+			kind: 'grade',
+			grade: 10
+		});
+	});
+
+	it('reports a file holding both schemes as unplaceable, not as one grade', () => {
+		// There is no single grade here, and picking either would file half the
+		// students under the other's grade.
+		expect(deriveGradeForSchoolYear('2026-2027', ['1150001', '5100001'])).toEqual({
+			kind: 'twoYears',
+			years: []
+		});
+	});
+
+	it('still refuses IDs on no scheme it can read', () => {
+		// Two digits, and a five-digit number, which is neither the levelled prefix
+		// shape nor the grade 10 space.
+		expect(deriveGradeForSchoolYear('2026-2027', ['12', '12345'])).toEqual({
 			kind: 'unknown'
 		});
 	});
@@ -467,6 +515,46 @@ describe('grade derivation from a confirmed year', () => {
 	it('is unknown rather than throwing on a year that is not one', () => {
 		expect(deriveGradeForSchoolYear('not-a-year', ['1150001'])).toEqual({ kind: 'unknown' });
 		expect(deriveGradeForSchoolYear('2026-2027', [])).toEqual({ kind: 'unknown' });
+	});
+});
+
+describe('the grade 10 ID space', () => {
+	// Grade 10's space moves one step per school year: `4xxxxx`, then `5xxxxx`, then
+	// `6xxxxx`. That is the only thing tying a grade 10 file to a year, since its IDs
+	// name no intake year, so it is what lets the page check a grade 10 file against
+	// the year above the same way it checks a levelled one.
+
+	it('maps each school year to the space it is numbered in', () => {
+		expect(grade10SpaceForSchoolYear('2025-2026')).toBe(4);
+		expect(grade10SpaceForSchoolYear('2026-2027')).toBe(5);
+		expect(grade10SpaceForSchoolYear('2027-2028')).toBe(6);
+		expect(grade10SpaceForSchoolYear('2028-2029')).toBe(7);
+	});
+
+	it('refuses a year that is not shaped like a school year', () => {
+		expect(grade10SpaceForSchoolYear('not-a-year')).toBeNull();
+		expect(grade10SpaceForSchoolYear('2026')).toBeNull();
+		expect(grade10SpaceForSchoolYear('2026-2028')).toBeNull();
+	});
+
+	it('reads the year back out of a grade 10 file', () => {
+		expect(deriveGrade10SchoolYear(['5100001', '5100002'])).toEqual({
+			kind: 'current',
+			year: '2026-2027'
+		});
+		expect(deriveGrade10SchoolYear(['6000001'])).toEqual({
+			kind: 'current',
+			year: '2027-2028'
+		});
+	});
+
+	it('reports a file holding two spaces as a conflict', () => {
+		expect(deriveGrade10SchoolYear(['5100001', '6000001'])).toEqual({ kind: 'conflict' });
+	});
+
+	it('is unknown for a file on no grade 10 space', () => {
+		expect(deriveGrade10SchoolYear(['1150001'])).toEqual({ kind: 'unknown' });
+		expect(deriveGrade10SchoolYear([])).toEqual({ kind: 'unknown' });
 	});
 });
 

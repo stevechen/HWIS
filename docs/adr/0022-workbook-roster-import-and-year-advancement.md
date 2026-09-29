@@ -181,6 +181,15 @@ automatically. Disagreements are reported as warnings.
 `6xxxxx`, so a graduating G9 student cannot be linked to a G10 record even in principle.
 Treating it as all-new is forced by the data, not chosen as a simplification.
 
+**That same space is what identifies grade 10.** No other grade is numbered `4xxxxx`–`6xxxxx`
+— the levelled grades are `115xxx`-style, always leading `1` — so a file's IDs say which
+grade they are, and no grade is ever asked of the admin. It also means the _year_ is
+readable for grade 10 where it is not for the levelled grades: the space advances one step
+per school year, so `5xxxxx` is 2026-2027 and `6xxxxx` the year after. That is how a grade
+10 file is checked against the year on the page, the way a levelled file's `ESL Group`
+column is. The two signals are deliberately different, and neither is a second opinion on
+the grade.
+
 ### Reportable changes
 
 The dry-run report is the safety mechanism, and every difference is a distinct category
