@@ -104,6 +104,7 @@
 		"d3": "^7.9.0",
 		"d3-scale-chromatic": "^3.1.0",
 		"googleapis": "^171.4.0",
-		"html-to-image": "^1.11.13"
+		"html-to-image": "^1.11.13",
+		"xlsx": "^0.18.5"
 	}
 }

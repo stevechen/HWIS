@@ -7,6 +7,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { useViewer } from '$lib/viewer.svelte';
+	import { computeRootRedirect, readLastDepartment } from '$lib/department';
 
 	const session = browser
 		? authClient.useSession()
@@ -59,14 +60,8 @@
 	});
 
 	$effect(() => {
-		if (status === 'active' && viewerSession.viewer) {
-			const viewer = viewerSession.viewer;
-			if (viewerSession.isStudent && viewer.studentId) {
-				void goto(`/evaluations/student/${viewer.studentId}`);
-			} else {
-				void goto(viewerSession.isAdmin ? '/admin' : '/evaluations');
-			}
-		}
+		const redirect = computeRootRedirect(viewerSession, readLastDepartment());
+		if (redirect) void goto(redirect);
 	});
 
 	async function signOut() {

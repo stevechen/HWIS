@@ -25,6 +25,10 @@ const SCOPE = v.union(
 	v.literal('houseEvents'),
 	v.literal('backups'),
 	v.literal('auditLogs'),
+	// The ESL department's own tables. A roster import writes cohorts, students
+	// and classes in one transaction and is invisible to every other scope, so
+	// without this a spec that imports a workbook leaves its year behind.
+	v.literal('esl'),
 	v.literal('all')
 );
 
@@ -251,6 +255,38 @@ export const teardownByTag = mutation({
 		};
 		const hasTag = args.e2eTag !== undefined;
 		const isAll = scope === 'all';
+
+		if (isAll || scope === 'esl') {
+			// Students before cohorts: a cohort cannot go while a student points at
+			// it, and the classes that teach it go with it.
+			const taggedStudents = await ctx.db
+				.query('esl_students')
+				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+				.collect();
+			for (const student of taggedStudents) {
+				await ctx.db.delete(student._id);
+			}
+			if (taggedStudents.length > 0) teardown.deleted.eslStudents = taggedStudents.length;
+
+			const taggedCohorts = await ctx.db
+				.query('esl_cohorts')
+				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+				.collect();
+			let eslClasses = 0;
+			for (const cohort of taggedCohorts) {
+				const classes = await ctx.db
+					.query('esl_classes')
+					.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
+					.collect();
+				for (const cls of classes) {
+					await ctx.db.delete(cls._id);
+				}
+				eslClasses += classes.length;
+				await ctx.db.delete(cohort._id);
+			}
+			if (taggedCohorts.length > 0) teardown.deleted.eslCohorts = taggedCohorts.length;
+			if (eslClasses > 0) teardown.deleted.eslClasses = eslClasses;
+		}
 
 		if (scope === 'auditLogs' && !hasTag) {
 			await deleteUntaggedAuditLogs(teardown);

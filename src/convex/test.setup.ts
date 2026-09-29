@@ -3,6 +3,7 @@ import { vi } from 'vitest';
 import { convexTest as originalConvexTest } from 'convex-test';
 import type { Id } from './_generated/dataModel';
 import { authComponent, type AuthenticatedUserLike } from './auth';
+import type { DepartmentRoles } from './shared/authorization';
 
 export const modules = import.meta.glob('./**/*.ts');
 type ConvexTestSchema = Parameters<typeof originalConvexTest>[0];
@@ -27,6 +28,7 @@ export async function seedUser(
 		name?: string;
 		role?: 'super' | 'admin' | 'teacher' | 'student';
 		status?: 'pending' | 'active';
+		departmentRoles?: DepartmentRoles;
 	}
 ): Promise<Id<'users'>> {
 	return t.run((ctx) =>
@@ -34,7 +36,8 @@ export async function seedUser(
 			authId: overrides.authId,
 			name: overrides.name ?? 'Test User',
 			role: overrides.role ?? 'teacher',
-			status: overrides.status ?? 'active'
+			status: overrides.status ?? 'active',
+			...(overrides.departmentRoles ? { departmentRoles: overrides.departmentRoles } : {})
 		})
 	);
 }
@@ -89,6 +92,53 @@ export async function createStudentWithClass(
 
 	return { classId, studentId: studentIdResult };
 }
+
+/**
+ * Seeds an ESL-department staff profile and, by default, signs them in.
+ *
+ * ESL rows live in their own tables behind `requireEslStaff`/`requireEslAdmin`
+ * (#130). Tests that touch them need an identity carrying an `esl` department
+ * assignment — a plain teacher falls back to International and is refused.
+ *
+ * Pass `signIn: false` to seed a second profile (e.g. a class teacher) without
+ * displacing the identity the test is already acting as.
+ */
+export async function seedEslStaff(
+	t: ReturnType<typeof convexTest>,
+	overrides: {
+		authId: string;
+		name?: string;
+		eslRole?: 'admin' | 'teacher';
+		status?: 'pending' | 'active';
+		signIn?: boolean;
+	}
+): Promise<Id<'users'>> {
+	const authId = overrides.authId;
+	const id = await seedUser(t, {
+		authId,
+		name: overrides.name,
+		role: 'teacher',
+		status: overrides.status ?? 'active',
+		departmentRoles: { esl: overrides.eslRole ?? 'teacher' }
+	});
+	if (overrides.signIn !== false) {
+		mockAuthUser({ authId });
+	}
+	return id;
+}
+
+/** Two ESL students used across the roster/transfer tests. */
+export const ESL_ALICE = {
+	englishName: 'Alice Chan',
+	chineseName: '陳小美',
+	schoolStudentId: '7001001'
+};
+
+export const ESL_BOB = {
+	englishName: 'Bob Lee',
+	chineseName: '李大文',
+	schoolStudentId: '8123456'
+};
 
 export function convexTest(schema: ConvexTestSchema, modules: ConvexTestModules) {
 	const t = originalConvexTest(schema, modules);

@@ -9,6 +9,17 @@ export default defineSchema({
 			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
 		),
 		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
+		/**
+		 * Per-department staff assignment. Absent on legacy rows, which fall back
+		 * to `{ international: role }` through `resolveDepartmentRoles`. Super
+		 * users keep universal access whatever this field holds.
+		 */
+		departmentRoles: v.optional(
+			v.object({
+				international: v.optional(v.union(v.literal('admin'), v.literal('teacher'))),
+				esl: v.optional(v.union(v.literal('admin'), v.literal('teacher')))
+			})
+		),
 		/** Registration timestamp (ms) — set once when the profile is created. */
 		createdAt: v.optional(v.number()),
 		/** Set when an active user's access is removed (status -> 'pending'); cleared on restore. */
@@ -216,5 +227,123 @@ export default defineSchema({
 		e2eTag: v.optional(v.string())
 	})
 		.index('by_startDate', ['startDate'])
+		.index('by_e2eTag', ['e2eTag']),
+
+	// ---------------------------------------------------------------------
+	// ESL department (bounded context, isolated from International)
+	// ---------------------------------------------------------------------
+	// ESL students have no houses, no CAS tags and no point evaluations, so
+	// they live in their own tables rather than in the International
+	// `students`/`classes`/`evaluations` graph (ADR-0012).
+
+	/**
+	 * A student cohort: the group of ESL students who move through the
+	 * programme together. Cohorts own the roster (`esl_students`) and the
+	 * classes that teach them (`esl_classes`).
+	 *
+	 * A cohort is shared by two classes that draw the same roster: G7/G8 by
+	 * their CLIL and Comm classes, G10 by the A and B sections of one base
+	 * class (H101 → H101A, H101B). G9 is taught by a single class. Sharing is
+	 * what `esl/classes.getRoster` relies on.
+	 *
+	 * Levelled grades identify a cohort by level + number; grade 10 is not
+	 * levelled and identifies it by base-class number alone, so its `level`
+	 * is absent.
+	 */
+	esl_cohorts: defineTable({
+		/** School year in `YYYY-YYYY` form, e.g. `2025-2026`. */
+		year: v.string(),
+		/** Grade the cohort belongs to (7-10). */
+		grade: v.number(),
+		/**
+		 * Ability level within the grade. Absent for grade 10, which is not
+		 * levelled — its cohorts are the base classes H101…H110, split into
+		 * A/B sections rather than ability bands.
+		 */
+		level: v.optional(v.string()),
+		/**
+		 * Cohort number within its grade: `1`/`2` for the levelled grades, and a
+		 * base-class number for grade 10 — however many the school runs that
+		 * year, so this is not a fixed set. Stored zero-padded for grade 10 so
+		 * that lexical comparison orders it numerically.
+		 */
+		classNumber: v.string(),
+		/**
+		 * Set only by end-to-end runs, so a test's cohorts can be removed
+		 * afterwards on the same tag pattern the other tables use. Absent in
+		 * every real import.
+		 */
+		e2eTag: v.optional(v.string()),
+
+		/** `archived` cohorts are read-only history; only `active` accepts new students. */
+		status: v.union(v.literal('active'), v.literal('archived')),
+		createdAt: v.number()
+	})
+		.index('by_year', ['year'])
+		.index('by_year_grade', ['year', 'grade'])
+		.index('by_status', ['status'])
+		.index('by_year_grade_level_classNumber', ['year', 'grade', 'level', 'classNumber'])
+		.index('by_e2eTag', ['e2eTag']),
+
+	/**
+	 * A class that teaches a cohort. G7/G8 cohorts are shared by their `CLIL`
+	 * and `Comm` classes and G10 cohorts by their `H10A`/`H10B` sections — both
+	 * halves point at the same cohort, so they share one roster. A `G9` cohort
+	 * is taught by a single class.
+	 */
+	esl_classes: defineTable({
+		cohortId: v.id('esl_cohorts'),
+		type: v.union(
+			v.literal('CLIL'),
+			v.literal('Comm'),
+			v.literal('G9'),
+			v.literal('H10A'),
+			v.literal('H10B')
+		),
+		name: v.string(),
+		teacherId: v.optional(v.id('users')),
+		/** `archived` classes are kept for history but hidden from active lists. */
+		status: v.union(v.literal('active'), v.literal('archived')),
+		createdAt: v.number()
+	})
+		.index('by_cohortId', ['cohortId'])
+		.index('by_teacherId', ['teacherId']),
+
+	/**
+	 * An ESL student, enrolled into exactly one cohort. Transfer status is
+	 * tracked in place (`active` ⇄ `disabled` with a reason) rather than by
+	 * moving rows between cohorts, so the history of a cohort stays stable.
+	 */
+	esl_students: defineTable({
+		cohortId: v.id('esl_cohorts'),
+		/**
+		 * Absent when the student has no English name yet.
+		 *
+		 * A G7 intake arrives before the English names are filled in, and the
+		 * workbook's column is empty for a whole grade. Requiring one would mean
+		 * refusing the September import or inventing a name, so the column is
+		 * optional and the name is added afterwards. Manual entry through
+		 * `esl/students` still requires one, because there a human is typing it.
+		 */
+		englishName: v.optional(v.string()),
+		chineseName: v.string(),
+		/** School student ID — 6 or 7 digits. */
+		schoolStudentId: v.string(),
+		status: v.union(v.literal('active'), v.literal('disabled')),
+		enrolledAt: v.number(),
+		disabledAt: v.optional(v.number()),
+		/** Why the student is disabled (required when disabling). */
+		statusReason: v.optional(v.string()),
+		/**
+		 * Set only by end-to-end runs, so a test's roster can be removed
+		 * afterwards on the same tag pattern the other tables use. Absent in
+		 * every real import.
+		 */
+		e2eTag: v.optional(v.string())
+	})
+		.index('by_cohortId', ['cohortId'])
+		.index('by_cohortId_schoolStudentId', ['cohortId', 'schoolStudentId'])
+		.index('by_schoolStudentId', ['schoolStudentId'])
+		.index('by_status', ['status'])
 		.index('by_e2eTag', ['e2eTag'])
 });

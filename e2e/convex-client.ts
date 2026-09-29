@@ -32,7 +32,7 @@ export function isAuthInitialized(): boolean {
 	return authInitialized;
 }
 
-export function useRole(role: 'admin' | 'teacher' | 'super') {
+export function useRole(role: 'admin' | 'teacher' | 'super' | 'esladmin') {
 	const authPath = path.join(process.cwd(), 'e2e', '.auth', `${role}.json`);
 	if (fs.existsSync(authPath)) {
 		try {
@@ -101,6 +101,20 @@ export async function cleanupByTag(dataType: CleanupScope, e2eTag: string) {
 	return await withTeardownRetry(`cleanupByTag(${dataType}, ${e2eTag})`, () =>
 		utils.cleanupByTag(dataType, e2eTag)
 	);
+}
+
+/**
+ * Where an import put each ESL student, as `schoolStudentId -> cohort label`.
+ *
+ * A read rather than a teardown, so it takes no retry wrapper: the caller is a test
+ * that will report the mismatch itself, and retrying only slows the failure down.
+ */
+export async function eslStudentCohorts(
+	year: string,
+	grade: number
+): Promise<Record<string, string>> {
+	const utils = getUtils();
+	return (await utils.eslStudentCohorts(year, grade)) as Record<string, string>;
 }
 
 export async function setupTestUsers() {

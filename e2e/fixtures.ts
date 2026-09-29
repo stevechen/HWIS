@@ -12,7 +12,7 @@ interface AuthFixtures {
 	authenticatedPage: boolean;
 }
 
-export type Role = 'admin' | 'teacher' | 'super';
+export type Role = 'admin' | 'teacher' | 'super' | 'esladmin';
 
 interface SessionFixtures {
 	role: Role | undefined;
@@ -24,7 +24,10 @@ const rawCoverageDir = process.env.COVERAGE_E2E_RAW_DIR ?? 'coverage/e2e/raw';
 const ROLE_STORAGE: Record<Role, string> = {
 	admin: path.join('e2e', '.auth', 'admin.json'),
 	teacher: path.join('e2e', '.auth', 'teacher.json'),
-	super: path.join('e2e', '.auth', 'super.json')
+	super: path.join('e2e', '.auth', 'super.json'),
+	// The ESL department's own admin, which `/esl/admin` requires and no other
+	// stored role carries.
+	esladmin: path.join('e2e', '.auth', 'esladmin.json')
 };
 
 export const test = base.extend<AuthFixtures & SessionFixtures>({

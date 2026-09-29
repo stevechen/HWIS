@@ -1,5 +1,6 @@
 import {
 	getEvaluationCapabilities,
+	type DepartmentRoles,
 	type Role,
 	type StudentStatus,
 	type UserStatus
@@ -17,6 +18,7 @@ export interface ViewerSessionConfig {
 	role?: Role;
 	status?: UserStatus;
 	enrollmentStatus?: StudentStatus;
+	departmentRoles?: DepartmentRoles;
 	profileExists?: boolean;
 	name?: string;
 	email?: string;
@@ -55,6 +57,7 @@ function buildUser(config: ViewerSessionConfig): Viewer {
 		role: config.role,
 		status: config.status,
 		enrollmentStatus: config.enrollmentStatus,
+		departmentRoles: config.departmentRoles,
 		profileExists: config.profileExists ?? true,
 		studentId: config.studentId
 	};

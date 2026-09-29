@@ -21,16 +21,22 @@ setup('seed test data and verify setup', async ({ page }) => {
 	expect(setupResult?.adminSessionToken).toBeTruthy();
 	expect(setupResult?.teacherSessionToken).toBeTruthy();
 	expect(setupResult?.superSessionToken).toBeTruthy();
+	// The ESL department's own admin. `/esl/admin` needs `departmentRoles.esl`,
+	// which only an existing ESL admin can grant, so it is provisioned with the
+	// rest rather than from a captured browser login.
+	expect(setupResult?.eslAdminSessionToken).toBeTruthy();
 
 	const authDir = path.join(__dirname, '.auth');
 	await mkdir(authDir, { recursive: true });
 	const adminStorage = await buildStorageState(setupResult.adminSessionToken as string);
 	const teacherStorage = await buildStorageState(setupResult.teacherSessionToken as string);
 	const superStorage = await buildStorageState(setupResult.superSessionToken as string);
+	const eslAdminStorage = await buildStorageState(setupResult.eslAdminSessionToken as string);
 
 	await writeFile(path.join(authDir, 'admin.json'), JSON.stringify(adminStorage, null, 2));
 	await writeFile(path.join(authDir, 'teacher.json'), JSON.stringify(teacherStorage, null, 2));
 	await writeFile(path.join(authDir, 'super.json'), JSON.stringify(superStorage, null, 2));
+	await writeFile(path.join(authDir, 'esladmin.json'), JSON.stringify(eslAdminStorage, null, 2));
 
 	await page
 		.context()
@@ -39,4 +45,5 @@ setup('seed test data and verify setup', async ({ page }) => {
 	await expect(adminStorage.cookies.length).toBeGreaterThan(0);
 	await expect(teacherStorage.cookies.length).toBeGreaterThan(0);
 	await expect(superStorage.cookies.length).toBeGreaterThan(0);
+	await expect(eslAdminStorage.cookies.length).toBeGreaterThan(0);
 });

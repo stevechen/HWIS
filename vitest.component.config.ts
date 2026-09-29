@@ -53,7 +53,6 @@ export default defineConfig({
 
 		coverage: {
 			provider: 'istanbul',
-			all: true,
 			include: ['src/lib/**/*.{ts,svelte,js}'],
 			exclude: ['src/lib/components/ui/**', 'tests/**', 'node_modules/**', '.svelte-kit/**'],
 			reportsDirectory: 'coverage/component'
