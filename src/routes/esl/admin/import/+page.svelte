@@ -8,7 +8,12 @@
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { ParsedRosterWorkbook } from '$convex/shared/esl_import';
-	import { readRosterWorkbook } from './workbook';
+	import {
+		deriveGradeForSchoolYear,
+		deriveSchoolYear,
+		gradesNamedInWorkbook
+	} from '$convex/shared/esl_import';
+	import { readRosterSheets, collectStudentIds, parseRosterSheets } from './workbook';
 	import {
 		IMPORT_GRADES,
 		clearEntry,
@@ -25,17 +30,25 @@
 	/** The year whose draft `yearDraft` holds, so a change re-reads exactly once. */
 	let loadedYear = initialYear;
 	/**
-	 * The grade of the next file. The workbooks do not state their grade in one
-	 * reliable place — sheet names are abbreviated, and grade 10's sheets are named
-	 * after their base class — so the admin says which file this is.
+	 * The grade of the next file, stated by the admin rather than read from the
+	 * workbook, because the workbook does not say it reliably: sheet names are
+	 * abbreviated, and grade 10's are named after their base class.
+	 *
+	 * Empty until it is needed. The year above is the thing the admin confirms, and
+	 * for the three levelled grades the grade follows from it and the file's ID
+	 * prefixes, so there is nothing to ask. This is only consulted for a file the
+	 * arithmetic cannot place — grade 10, whose `5xxxxx` IDs name no intake year at
+	 * all.
+	 *
+	 * A default here would be worse than an empty one. The page once defaulted to 9,
+	 * so a grade 7 workbook was read as grade 9, and since the year is derived from
+	 * the grade that file's own 2026-27 IDs came out naming 2028-2029 — the admin was
+	 * told their own file belonged to the wrong year, which is both wrong and not
+	 * obviously the page's fault.
 	 */
-	/**
-	 * The grade of the next file, as the select holds it: a string, because that is
-	 * what a `<select>` value is. `grade` below is the number the rest of the page
-	 * uses, so nothing has to remember which of the two it is holding.
-	 */
-	let gradeChoice = $state('9');
-	const grade = $derived(Number(gradeChoice));
+	let gradeChoice = $state('');
+	/** True once the admin has had to state the grade, e.g. for a grade 10 file. */
+	let gradeAsked = $state(false);
 
 	let parsing = $state(false);
 	let error = $state('');
@@ -90,7 +103,37 @@
 		error = '';
 		yearPrompt = null;
 		try {
-			const parsed = await readRosterWorkbook(file, grade);
+			const chosenYear = year.trim();
+			const sheets = await readRosterSheets(file);
+
+			// The grade comes from the year the admin has already confirmed and the
+			// file's own ID prefixes, so a levelled file needs nothing asked of them.
+			const placement = deriveGradeForSchoolYear(chosenYear, collectStudentIds(sheets));
+
+			// Two intake years in one file is the merged-year fault, reported before
+			// anything is parsed. It is not a file that needs its grade stating.
+			if (placement.kind === 'twoYears') {
+				error = `This workbook holds more than one school year (${placement.years.join(' and ')}). Import it as two files, one per year.`;
+				return;
+			}
+
+			// Only reached for a file the arithmetic cannot place, which in practice
+			// means grade 10: its `5xxxxx` IDs name no intake year, so no year puts
+			// them in a levelled grade.
+			const grade =
+				placement.kind === 'grade'
+					? placement.grade
+					: gradeChoice === ''
+						? null
+						: Number(gradeChoice);
+			if (grade === null) {
+				gradeAsked = true;
+				error =
+					"This workbook's student IDs do not say which grade it is, so it has to be told. Grade 10 files cannot be placed this way — their IDs carry no intake year.";
+				return;
+			}
+
+			const parsed = parseRosterSheets(grade, sheets);
 			const derived = parsed.derivedYear;
 
 			if (derived.kind === 'conflict') {
@@ -101,15 +144,25 @@
 				error = derived.reason;
 				return;
 			}
+
+			// Deriving the grade from the year cannot detect a wrong year on its own:
+			// set 2027-2028 and a grade 7 file's `115xxxx` IDs resolve cleanly to grade
+			// 8, with nothing left to object. The file's own `ESL Group` column is the
+			// check — it names the grade outright — and a disagreement means the year
+			// above is the thing that is wrong, not the file.
+			const named = gradesNamedInWorkbook(parsed);
+			if (placement.kind === 'grade' && named.length > 0 && !named.includes(grade)) {
+				yearPrompt = {
+					fileName: file.name,
+					derivedYear: derivedYearFor(parsed),
+					parsed
+				};
+				return;
+			}
+
 			// Grade 10 is the one grade whose IDs cannot name a year, so there is
 			// nothing to check the field against. The year above is the admin's
 			// statement, and it is staged under exactly that — not under a guess.
-			if (derived.kind === 'current' && derived.year !== year.trim()) {
-				// Asked rather than assumed: the arithmetic is shown and the admin
-				// decides, because importing into the wrong year is silent.
-				yearPrompt = { fileName: file.name, derivedYear: derived.year, parsed };
-				return;
-			}
 			stage(file.name, parsed);
 		} catch (cause) {
 			error =
@@ -119,6 +172,24 @@
 		} finally {
 			parsing = false;
 		}
+	}
+
+	/**
+	 * The school year a workbook's own IDs imply, worked out from the grade the file
+	 * names rather than the one it was read as.
+	 *
+	 * Used only to fill in the year prompt, which exists precisely because the two
+	 * disagree — so quoting the derived grade's answer back would just restate the
+	 * wrong number and tell the admin nothing.
+	 */
+	function derivedYearFor(parsed: ParsedRosterWorkbook): string {
+		const named = gradesNamedInWorkbook(parsed);
+		const grade = named.length === 1 ? named[0] : parsed.grade;
+		const derived = deriveSchoolYear(
+			grade,
+			parsed.students.map((student) => student.schoolStudentId)
+		);
+		return derived.kind === 'current' ? derived.year : 'another year';
 	}
 
 	/** True while the year's cohorts are being carried into the next year. */
@@ -177,10 +248,12 @@
 
 	function stage(fileName: string, parsed: ParsedRosterWorkbook) {
 		persistYear();
-		writeEntry(year.trim(), grade, {
+		// `parsed.grade`, not a grade the page is holding: the grade belongs to the
+		// file, and it is whatever this workbook was actually read as.
+		writeEntry(year.trim(), parsed.grade, {
 			status: 'staged',
 			draft: {
-				grade,
+				grade: parsed.grade,
 				fileName,
 				stagedAt: Date.now(),
 				students: parsed.students,
@@ -258,14 +331,23 @@
 					placeholder="2026-2027"
 				/>
 			</div>
-			<div class="space-y-1">
-				<Label for="grade">This file's grade</Label>
-				<NativeSelect.Root data-testid="esl-import.grade" bind:value={gradeChoice}>
-					{#each IMPORT_GRADES as option (option)}
-						<NativeSelect.Option value={String(option)}>Grade {option}</NativeSelect.Option>
-					{/each}
-				</NativeSelect.Root>
-			</div>
+			<!--
+				Only shown when the file's IDs cannot place it, which in practice means
+				grade 10: its `5xxxxx` IDs name no intake year. Every levelled file is
+				placed from the year above and its own ID prefixes, so there is nothing
+				to ask for and nothing to get wrong.
+			-->
+			{#if gradeAsked}
+				<div class="space-y-1">
+					<Label for="grade">This file's grade</Label>
+					<NativeSelect.Root data-testid="esl-import.grade" bind:value={gradeChoice}>
+						<NativeSelect.Option value="" disabled>Which grade is this file?</NativeSelect.Option>
+						{#each IMPORT_GRADES as option (option)}
+							<NativeSelect.Option value={String(option)}>Grade {option}</NativeSelect.Option>
+						{/each}
+					</NativeSelect.Root>
+				</div>
+			{/if}
 			<div class="space-y-1">
 				<Label for="file">Workbook (.xlsx)</Label>
 				<input

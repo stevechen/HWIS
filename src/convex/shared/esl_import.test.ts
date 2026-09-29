@@ -5,6 +5,8 @@ import {
 	cohortOfGroup,
 	deriveSchoolYear,
 	detectColumns,
+	deriveGradeForSchoolYear,
+	gradesNamedInWorkbook,
 	normalizeSchoolStudentId,
 	parseRosterGroup,
 	parseRosterSheet,
@@ -405,6 +407,87 @@ describe('school year derivation', () => {
 
 	it('reports indeterminate when no ID carries a usable prefix', () => {
 		expect(deriveSchoolYear(7, []).kind).toBe('indeterminate');
+	});
+});
+
+describe('grade derivation from a confirmed year', () => {
+	it('places each levelled grade from its own IDs, the inverse of the year', () => {
+		// The admin confirms 2026-2027; the grade follows from the intake prefixes.
+		// This is the pair that was wrong in the field: a grade 7 workbook was read as
+		// grade 9, so its 2026-27 IDs came out naming 2028-2029.
+		expect(deriveGradeForSchoolYear('2026-2027', ['1150001', '1150399'])).toEqual({
+			kind: 'grade',
+			grade: 7
+		});
+		expect(deriveGradeForSchoolYear('2026-2027', ['1140001'])).toEqual({ kind: 'grade', grade: 8 });
+		expect(deriveGradeForSchoolYear('2026-2027', ['1130001'])).toEqual({ kind: 'grade', grade: 9 });
+	});
+
+	it('places a file against whichever year the admin confirmed', () => {
+		// The same ID, a different year, a different grade — which is why the year is
+		// the thing to get right, and why the grade cannot be read off the file alone.
+		// A `114xxxx` student is this year's grade 8, last year's grade 7, and next
+		// year's grade 9, all from the same six digits.
+		const gradeIn = (year: string) => {
+			const placed = deriveGradeForSchoolYear(year, ['1140001']);
+			return placed.kind === 'grade' ? placed.grade : null;
+		};
+		expect(gradeIn('2026-2027')).toBe(8);
+		expect(gradeIn('2025-2026')).toBe(7);
+		expect(gradeIn('2027-2028')).toBe(9);
+	});
+
+	it('cannot place a grade 10 file, whose IDs name no intake year', () => {
+		// This is why the grade is still asked for, and only for this case.
+		expect(deriveGradeForSchoolYear('2026-2027', ['511024', '511355'])).toEqual({
+			kind: 'unknown'
+		});
+	});
+
+	it('does not read a grade 10 file as holding two years', () => {
+		// A regression with a real failure behind it. `511101` and `512101` have
+		// three leading digits like any other ID, so counting prefixes without
+		// checking they place a student in a levelled grade reported this file as
+		// holding school years 2422-2423 and 2423-2424 — and the admin was asked to
+		// split a perfectly good grade 10 file in two.
+		expect(deriveGradeForSchoolYear('2026-2027', ['511101', '512101'])).toEqual({
+			kind: 'unknown'
+		});
+	});
+
+	it('reports a file spanning two intake years rather than guessing a grade', () => {
+		// The merged-year case. Picking the more common prefix would import most of
+		// the file under the wrong year and say nothing about the rest.
+		expect(deriveGradeForSchoolYear('2026-2027', ['1150001', '1150399', '1140001'])).toEqual({
+			kind: 'twoYears',
+			years: ['2025-2026', '2026-2027']
+		});
+	});
+
+	it('is unknown rather than throwing on a year that is not one', () => {
+		expect(deriveGradeForSchoolYear('not-a-year', ['1150001'])).toEqual({ kind: 'unknown' });
+		expect(deriveGradeForSchoolYear('2026-2027', [])).toEqual({ kind: 'unknown' });
+	});
+});
+
+describe('gradesNamedInWorkbook', () => {
+	it('reads the grade off the group column, which names it outright', () => {
+		// The cross-check on a derived grade. Deriving alone cannot catch a wrong
+		// year: set 2027-2028 and a grade 7 file resolves cleanly to grade 8. The
+		// group column is what notices.
+		const parsed = parseRosterWorkbook(7, [
+			{
+				name: 'G7 Basic 1',
+				headerRow: ['Student ID', 'Chinese Name', 'English Name', 'ESL Group'],
+				rows: [['1150001', '陳明', 'Ming Chen', 'G7 Basic 1']]
+			}
+		]);
+		expect(gradesNamedInWorkbook(parsed)).toEqual([7]);
+	});
+
+	it('is empty for a workbook with no readable rows', () => {
+		const parsed = parseRosterWorkbook(7, []);
+		expect(gradesNamedInWorkbook(parsed)).toEqual([]);
 	});
 });
 

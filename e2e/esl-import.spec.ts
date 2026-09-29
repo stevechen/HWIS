@@ -46,10 +46,17 @@ const MISFILED_SCHOOL_ID = misfiledSchoolStudentId(MISFILED_GRADE);
 // and 20 cohorts behind, invisible to every other teardown scope.
 const e2eTag = `e2e-test_${getTestSuffix('esl')}`;
 
-async function openImportPage(page: Page, grade: number) {
+/**
+ * Opens the import page on the year the tests import into.
+ *
+ * The grade is not set here, and deliberately: the page places a levelled file
+ * from the year above and the file's own ID prefixes, so choosing a grade first
+ * would be answering a question the page no longer asks — and the control only
+ * exists once a file the arithmetic cannot place has been uploaded.
+ */
+async function openImportPage(page: Page) {
 	await page.goto(`/esl/admin/import?e2eTag=${e2eTag}`);
 	await page.waitForSelector('body.hydrated');
-	await page.getByTestId('esl-import.grade').selectOption(String(grade));
 	await page.getByTestId('esl-import.year').fill(YEAR);
 }
 
@@ -81,7 +88,7 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 	});
 
 	test('imports a grade 9 workbook and applies its ESL Group column', async ({ page }) => {
-		await openImportPage(page, 9);
+		await openImportPage(page);
 		await uploadWorkbook(page, 9);
 
 		// 20 class sheets, 400 students, and the two summary sheets set aside.
@@ -104,7 +111,7 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 		// budget rather than on anything the app did.
 		test.setTimeout(180_000);
 
-		await openImportPage(page, 9);
+		await openImportPage(page);
 		await uploadWorkbook(page, 9);
 		await expect(page.getByTestId('esl-import.card.g9')).toBeVisible({ timeout: 60_000 });
 		await applyGrade(page, 9);
@@ -138,7 +145,7 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 		// This test applies the whole file rather than only staging it, because the
 		// claim under test is only observable in the applied rows.
 		test.setTimeout(180_000);
-		await openImportPage(page, MISFILED_GRADE);
+		await openImportPage(page);
 		await uploadWorkbook(page, MISFILED_GRADE);
 
 		await expect(page.getByTestId('esl-import.card.g8')).toBeVisible({ timeout: 30_000 });
@@ -174,7 +181,7 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 		// This is a property of the September file itself, not of the fixture, so it
 		// is asserted rather than engineered away: if the department ever fixes the
 		// duplicate, this test fails and says the block is no longer needed.
-		await openImportPage(page, 7);
+		await openImportPage(page);
 		await uploadWorkbook(page, 7);
 
 		await expect(page.getByTestId('esl-import.card.g7')).toBeVisible({ timeout: 30_000 });
@@ -196,7 +203,7 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 		// importing it would scatter the cohort irrecoverably — so the only thing
 		// standing between the admin and that is the refusal, which has to be
 		// visible and has to name both years to be actionable.
-		await openImportPage(page, 7);
+		await openImportPage(page);
 		await uploadWorkbook(page, 7, { mergedYears: true });
 
 		const error = page.getByTestId('esl-import.error');
@@ -216,9 +223,15 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 	test('reports a workbook that belongs to another year rather than importing it', async ({
 		page
 	}) => {
-		// The IDs in the file say one year and the page says another; importing
+		// The page's year and the file disagree: its `113xxxx` IDs place it in grade 8
+		// for 2025-2026, while its groups read G9, which is 2026-2027. Importing
 		// anyway would match the roster against the wrong year, silently.
-		await openImportPage(page, 9);
+		//
+		// The grade is derived from the year above, so this can no longer be a file
+		// that "simply" indicates another year — the arithmetic agrees with whatever
+		// year is typed. What disagrees is the file's own account of itself, and that
+		// is what raises the question.
+		await openImportPage(page);
 		await page.getByTestId('esl-import.year').fill('2025-2026');
 		await uploadWorkbook(page, 9);
 

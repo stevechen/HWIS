@@ -239,6 +239,89 @@ export function deriveSchoolYear(
 	return { kind: 'current', year, entryYear };
 }
 
+/**
+ * What a workbook's IDs say about which grade of which year it is.
+ *
+ * `grade` — every ID places in the same levelled grade of the given year, so the
+ *   grade follows from the year the admin confirmed and there is nothing to ask.
+ * `twoYears` — the IDs span two intake years, so the file has two school years
+ *   merged into it. Reported, not resolved: importing it would scatter the cohort
+ *   irrecoverably.
+ * `unknown` — the IDs name no intake year at all, which in practice means grade 10
+ *   and its separate `5xxxxx` scheme. The admin has to say which grade it is.
+ */
+export type DerivedGrade =
+	| { kind: 'grade'; grade: number }
+	| { kind: 'twoYears'; years: string[] }
+	| { kind: 'unknown' };
+
+/**
+ * The grade a file's IDs place in, for a school year the admin has confirmed.
+ *
+ * The inverse of `deriveSchoolYear`: for 2026-2027 a `113xxxx` ID is a student who
+ * entered in ROC 113, two years after the 2026 intake, so they are in grade 9.
+ *
+ * Deliberately refuses to guess. A file that straddles two intake years is a fault
+ * to report rather than a grade to pick, and picking the more common prefix would
+ * quietly import the majority of it under the wrong year.
+ */
+export function deriveGradeForSchoolYear(
+	year: string,
+	schoolStudentIds: readonly string[]
+): DerivedGrade {
+	let intake;
+	try {
+		intake = rocEntryYearForSchoolYear(year);
+	} catch {
+		return { kind: 'unknown' };
+	}
+
+	// Only prefixes that place a student in a levelled grade of this year are
+	// intake years at all. This is what keeps grade 10 out of the arithmetic: its
+	// `511101` and `512101` have three leading digits like any other ID, but they
+	// are not intake years, and reading them as two of them would report a grade 10
+	// file as holding school years 2422-2423 and 2423-2424.
+	const grades = new Map<number, number>();
+	for (const id of schoolStudentIds) {
+		const entryYear = entryYearOf(id);
+		if (entryYear === null) continue;
+		const grade = 7 + (intake - entryYear);
+		if (grade < 7 || grade > 9) continue;
+		grades.set(grade, entryYear);
+	}
+
+	// None in range: not on the intake-year scheme, which in practice means grade 10
+	// and its separate `5xxxxx` scheme, or a file of unusable IDs.
+	if (grades.size === 0) return { kind: 'unknown' };
+
+	// One grade across the whole file: the ordinary case, and nothing to ask.
+	if (grades.size === 1) return { kind: 'grade', grade: [...grades.keys()][0] };
+
+	// Two or more levelled grades, so two intake years merged into one file.
+	// Reported by the school years those cohorts entered on, which is the way the
+	// admin thinks about it. Guessing the majority instead would import most of the
+	// file under one year and say nothing about the rest.
+	return {
+		kind: 'twoYears',
+		years: [...grades.values()].map((entryYear) => schoolYearFromRocEntry(entryYear)).sort()
+	};
+}
+
+/**
+ * The grades a workbook names for itself, read from its `ESL Group` column.
+ *
+ * The strongest signal the file carries: every levelled group is written `G7`,
+ * `G8` or `G9 …`, and grade 10's are `H1nn`. Used to check a grade derived from the
+ * year against the file's own account of itself, because deriving alone cannot
+ * detect a wrong year — set the year to 2027-2028 and a grade 7 file's `115xxxx` IDs
+ * resolve cleanly to grade 8, with nothing left to object.
+ */
+export function gradesNamedInWorkbook(workbook: ParsedRosterWorkbook): number[] {
+	const grades = new Set<number>();
+	for (const student of workbook.students) grades.add(student.group.grade);
+	return [...grades].sort((a, b) => a - b);
+}
+
 /** Header spellings that identify each column, matched case- and space-insensitively. */
 const COLUMN_ALIASES = {
 	schoolStudentId: ['student id', 'std id#', 'std id', 'id', 'studentid', '學號', '学号'],

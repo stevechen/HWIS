@@ -1,6 +1,7 @@
 import {
 	detectColumns,
 	isReadableRosterSheet,
+	normalizeSchoolStudentId,
 	parseRosterWorkbook,
 	type ParsedRosterWorkbook
 	// Relative rather than `$convex`: Convex's own typecheck of the function graph
@@ -98,22 +99,26 @@ export function splitSheet(name: string, grid: unknown[][]): SplitSheet {
 }
 
 /**
- * Reads a grade's workbook in the browser and returns it parsed.
+ * Reads a grade's workbook into split sheets, without deciding what grade it is.
+ *
+ * Separate from `readRosterWorkbook` because the grade cannot be read off the file
+ * reliably enough to assume, and the honest answer is derived from the ID prefixes
+ * against the year the admin has already confirmed. That needs the IDs before
+ * anything is parsed, so the sheets are handed back first and the file is read once
+ * either way.
  *
  * The bytes never reach the server: a workbook is uploaded a few times a year, so
  * parsing it in Convex would be bandwidth and execution time billed against a
- * free-tier quota for work the browser does for nothing (ADR-0021). The apply
- * mutation re-reads the staged rows with the same functions, so the preview and the
- * apply cannot disagree about what the file said.
+ * free-tier quota for work the browser does for nothing (ADR-0021).
  *
  * SheetJS is imported dynamically so it is fetched only when a file is actually
  * chosen, and never bundled into a server-side module.
  */
-export async function readRosterWorkbook(file: File, grade: number): Promise<ParsedRosterWorkbook> {
+export async function readRosterSheets(file: File): Promise<SplitSheet[]> {
 	const XLSX = await import('xlsx');
 	const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
 
-	const sheets = workbook.SheetNames.map((name) => {
+	return workbook.SheetNames.map((name) => {
 		const sheet = workbook.Sheets[name];
 		if (sheet === undefined) return { name, headerRow: [], rows: [], rowOffset: 1 };
 		const grid = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
@@ -125,9 +130,46 @@ export async function readRosterWorkbook(file: File, grade: number): Promise<Par
 		});
 		return splitSheet(name, grid);
 	});
+}
 
+/**
+ * Every student ID a workbook carries, for deriving its grade.
+ *
+ * Read straight off the header each sheet was split on, so it needs no grade and no
+ * parsing — which is the point, since the grade is what is being worked out. A sheet
+ * whose header has no ID column contributes nothing rather than failing, because
+ * not every summary sheet in the school's workbooks carries one.
+ */
+export function collectStudentIds(sheets: readonly SplitSheet[]): string[] {
+	const ids: string[] = [];
+	for (const sheet of sheets) {
+		const column = detectColumns(sheet.headerRow).schoolStudentId;
+		if (column === null) continue;
+		for (const row of sheet.rows) {
+			const id = normalizeSchoolStudentId(row[column] ?? '');
+			if (id !== null) ids.push(id);
+		}
+	}
+	return ids;
+}
+
+/**
+ * Parses already-read sheets as a grade.
+ *
+ * The apply mutation re-reads the staged rows with the same functions, so the
+ * preview and the apply cannot disagree about what the file said.
+ */
+export function parseRosterSheets(
+	grade: number,
+	sheets: readonly SplitSheet[]
+): ParsedRosterWorkbook {
 	return parseRosterWorkbook(
 		grade,
 		sheets.map(({ name, headerRow, rows, rowOffset }) => ({ name, headerRow, rows, rowOffset }))
 	);
+}
+
+/** Reads a grade's workbook in the browser and returns it parsed, in one step. */
+export async function readRosterWorkbook(file: File, grade: number): Promise<ParsedRosterWorkbook> {
+	return parseRosterSheets(grade, await readRosterSheets(file));
 }

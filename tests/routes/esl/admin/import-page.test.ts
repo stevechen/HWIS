@@ -8,7 +8,34 @@ import type { ParsedRosterWorkbook } from '$convex/shared/esl_import';
 
 const mockMutation = vi.fn();
 const advanceMock = vi.fn();
+/** The workbook the parse step returns, as the file under test describes it. */
 const readRosterWorkbook = vi.fn();
+/**
+ * The parsed workbook, held synchronously.
+ *
+ * `parseRosterSheets` is synchronous in the real module, so the mock cannot hand
+ * back a promise: the page reads `parsed.derivedYear` straight off the return value
+ * and a promise would leave it undefined. `givenParsed` keeps the mock fn and this
+ * in step, so tests still set one thing.
+ */
+let parsedForTest: ParsedRosterWorkbook | undefined;
+
+function givenParsed(workbook: ParsedRosterWorkbook) {
+	parsedForTest = workbook;
+	readRosterWorkbook.mockResolvedValue(workbook);
+}
+
+/**
+ * The student IDs the uploaded file carries, which is what the grade is derived
+ * from. Kept separate from the parsed workbook so a test can place a file's IDs
+ * and the groups it names independently — the two disagreeing is a case of its own.
+ */
+const fileIds = vi.fn<() => string[]>(() => ['1130001', '1130002']);
+
+/** The file read, which is where an unreadable workbook fails. */
+const readSheets = vi.fn<() => Promise<unknown[]>>(async () => [
+	{ name: 'G9 Adv 1', headerRow: [], rows: [] }
+]);
 
 vi.mock('convex-svelte', () => ({
 	useQuery: vi.fn(() => ({ data: [], isLoading: false, error: null })),
@@ -26,6 +53,15 @@ vi.mock('convex-svelte', () => ({
 }));
 
 vi.mock('$src/routes/esl/admin/import/workbook', () => ({
+	// The page reads the file once, places the grade from the IDs, then parses.
+	// Each step is mocked so a test can disagree with the others deliberately.
+	readRosterSheets: (...args: unknown[]) => readSheets(...(args as [])),
+	collectStudentIds: () => fileIds(),
+	parseRosterSheets: (grade: number) => {
+		readRosterWorkbook(grade);
+		if (!parsedForTest) throw new Error('the test set no parsed workbook');
+		return parsedForTest;
+	},
 	readRosterWorkbook: (...args: unknown[]) => readRosterWorkbook(...args)
 }));
 
@@ -109,6 +145,51 @@ async function setYear(value: string) {
 	await page.getByTestId('esl-import.year').fill(value);
 }
 
+/**
+ * Uploads a grade 10 file, which is the one file the page cannot place itself.
+ *
+ * The first upload is what reveals the grade control: grade 10's `5xxxxx` IDs name
+ * no intake year, so no school year puts them in a levelled grade and the admin has
+ * to say. The second upload is the one that stages.
+ */
+async function uploadGrade10(name = 'g10.xlsx') {
+	// Grade 10's scheme: `5xxxxx`, with no three-digit intake prefix, which is the
+	// whole reason the page has to be told rather than working it out.
+	fileIds.mockReturnValue(['511101', '512101']);
+	upload(name);
+	await expect.element(page.getByTestId('esl-import.grade')).toBeInTheDocument();
+	await chooseGrade('10');
+	upload(name);
+}
+
+/**
+ * A workbook that belongs to the year after the page's, so the year question is
+ * raised.
+ *
+ * It has to disagree with itself to get there. The grade is derived from the year
+ * on the page and the file's IDs, so a self-consistent file can no longer merely
+ * "indicate another year" — it agrees by construction. What raises the question is
+ * the file's own account differing from the arithmetic: `114xxxx` IDs place a 2026-27
+ * import in grade 8, while these name grade 9, which puts them in 2027-2028.
+ */
+function givenNextYearsFile() {
+	fileIds.mockReturnValue(['1140001']);
+	givenParsed(
+		workbook({
+			grade: 9,
+			derivedYear: { kind: 'current', year: '2027-2028', entryYear: 114 },
+			students: [
+				{
+					schoolStudentId: '1140001',
+					chineseName: '王芃頵',
+					englishName: 'Yoyo Lam',
+					group: { grade: 9, level: 'Advanced', classNumber: '1' }
+				}
+			]
+		})
+	);
+}
+
 /** Chooses the grade the next file is taken to be. */
 async function chooseGrade(value: string) {
 	await selectOption(page.getByTestId('esl-import.grade'), value);
@@ -119,7 +200,15 @@ describe('ESL admin import page', () => {
 		vi.clearAllMocks();
 		window.localStorage.clear();
 		mockQueries({ 'esl/import:rosterSnapshot': SNAPSHOT });
-		readRosterWorkbook.mockResolvedValue(workbook());
+		givenParsed(workbook());
+		// Reset explicitly: `clearAllMocks` clears recorded calls but leaves a
+		// `mockReturnValue` in place, so a test that sets the file's IDs would
+		// otherwise hand them to every test after it.
+		fileIds.mockReturnValue(['1130001', '1130002']);
+		// `mockRejectedValue` in one test would otherwise persist: `clearAllMocks`
+		// clears recorded calls but keeps whatever implementation was last set.
+		readSheets.mockReset();
+		readSheets.mockImplementation(async () => [{ name: 'G9 Adv 1', headerRow: [], rows: [] }]);
 		advanceMock.mockResolvedValue({
 			advanced: false,
 			reason: 'nothing to carry'
@@ -168,8 +257,119 @@ describe('ESL admin import page', () => {
 			expect(mockMutation).not.toHaveBeenCalled();
 		});
 
+		it('places a grade 7 file from the year and its IDs, with nothing asked', async () => {
+			// The bug this replaces: the page defaulted the grade to 9, so a grade 7
+			// workbook was read as grade 9, and since the year is derived from the grade
+			// that file's own 2026-27 IDs came out naming 2028-2029. The admin was told
+			// their file belonged to the wrong year: wrong, and delivered as though the
+			// page were right and the file at fault.
+			//
+			// The year is the only thing the admin states; the grade follows from it and
+			// the file's `115xxxx` IDs.
+			render(ImportPage);
+			fileIds.mockReturnValue(['1150001', '1150399']);
+			givenParsed(
+				workbook({
+					grade: 7,
+					derivedYear: { kind: 'current', year: YEAR, entryYear: 115 },
+					students: [
+						{
+							schoolStudentId: '1150001',
+							chineseName: '陳明',
+							group: { grade: 7, level: 'Basic', classNumber: '1' }
+						}
+					]
+				})
+			);
+
+			await setYear(YEAR);
+			upload('G7 class Roster 09012026.xlsx');
+
+			// Await the outcome first: the handler is async, so asserting the call
+			// synchronously would run before the parse had happened.
+			await expect
+				.element(page.getByTestId('esl-import.status.g7.state'))
+				.toHaveTextContent('Staged');
+			// Placed as grade 7 without the admin having said so.
+			expect(readRosterWorkbook).toHaveBeenCalledWith(7);
+			// And no grade control was ever shown, because there was nothing to ask.
+			await expect.element(page.getByTestId('esl-import.grade')).not.toBeInTheDocument();
+		});
+
+		it('asks which grade a grade 10 file is, and takes the answer', async () => {
+			// The one case the arithmetic cannot place. Grade 10's `5xxxxx` IDs carry no
+			// intake year, so no school year puts them in a levelled grade.
+			render(ImportPage);
+			fileIds.mockReturnValue(['511024', '511355']);
+			givenParsed(
+				workbook({
+					grade: 10,
+					derivedYear: { kind: 'unsupported', reason: 'separate ID scheme' },
+					students: [
+						{
+							schoolStudentId: '511024',
+							chineseName: '林明',
+							group: { grade: 10, baseClass: '01' }
+						}
+					]
+				})
+			);
+
+			await setYear(YEAR);
+			upload('g10.xlsx');
+
+			// Asked, with the reason that applies rather than a generic refusal.
+			await expect
+				.element(page.getByTestId('esl-import.error'))
+				.toHaveTextContent('do not say which grade it is');
+			expect(readRosterWorkbook).not.toHaveBeenCalled();
+
+			// The admin answers, and the same file goes through.
+			await chooseGrade('10');
+			upload('g10.xlsx');
+
+			await expect
+				.element(page.getByTestId('esl-import.status.g10.state'))
+				.toHaveTextContent('Staged');
+			expect(readRosterWorkbook).toHaveBeenCalledWith(10);
+		});
+
+		it('asks before staging a file whose IDs place it in another year', async () => {
+			// The safeguard on deriving. Set the year to 2027-2028 and a grade 7 file's
+			// `115xxxx` IDs resolve cleanly to grade 8: consistent, and wrong. The
+			// file's own `ESL Group` column is the check, because it names the grade.
+			render(ImportPage);
+			fileIds.mockReturnValue(['1150001']);
+			givenParsed(
+				workbook({
+					grade: 7,
+					derivedYear: { kind: 'current', year: YEAR, entryYear: 115 },
+					students: [
+						{
+							schoolStudentId: '1150001',
+							chineseName: '陳明',
+							group: { grade: 7, level: 'Basic', classNumber: '1' }
+						}
+					]
+				})
+			);
+
+			await setYear('2027-2028');
+			upload('G7 class Roster 09012026.xlsx');
+
+			// The prompt names the year the file actually says, not the one derived
+			// from the year field, which would just restate the wrong number.
+			const prompt = page.getByTestId('esl-import.yearPrompt');
+			await expect.element(prompt).toBeVisible();
+			await expect.element(prompt).toHaveTextContent(YEAR);
+			await expect.element(prompt).toHaveTextContent('2027-2028');
+			await expect
+				.element(page.getByTestId('esl-import.status.g7.state'))
+				.toHaveTextContent('Not yet provided');
+		});
+
 		it('reports a file it could not read, and stages nothing', async () => {
-			readRosterWorkbook.mockRejectedValue(new Error('the file is password protected'));
+			readSheets.mockRejectedValue(new Error('the file is password protected'));
 			render(ImportPage);
 
 			upload();
@@ -186,7 +386,7 @@ describe('ESL admin import page', () => {
 			// Grade 10's IDs cannot name a year, so there is nothing to check the
 			// field against and nothing to prompt about. The admin's year is the
 			// only statement available, and the file is staged under exactly it.
-			readRosterWorkbook.mockResolvedValue(
+			givenParsed(
 				workbook({
 					grade: 10,
 					derivedYear: {
@@ -210,10 +410,9 @@ describe('ESL admin import page', () => {
 				})
 			);
 			render(ImportPage);
-			await chooseGrade('10');
 			await setYear(YEAR);
 
-			upload();
+			await uploadGrade10();
 
 			await expect.element(page.getByTestId('esl-import.card.g10')).toBeInTheDocument();
 			// No year prompt: there is no derived year to disagree with.
@@ -225,7 +424,7 @@ describe('ESL admin import page', () => {
 		});
 
 		it('shows one cohort with both sections for a grade 10 base class', async () => {
-			readRosterWorkbook.mockResolvedValue(
+			givenParsed(
 				workbook({
 					grade: 10,
 					derivedYear: { kind: 'unsupported', reason: 'no year scheme' },
@@ -244,8 +443,7 @@ describe('ESL admin import page', () => {
 				})
 			);
 			render(ImportPage);
-			await chooseGrade('10');
-			upload();
+			await uploadGrade10();
 
 			// One cohort, two sections, one shared roster — the thing the parser
 			// used to get wrong by reading the sheet as two classes.
@@ -256,7 +454,7 @@ describe('ESL admin import page', () => {
 		});
 
 		it('sends grade 10 section text, so the server re-reads what it parsed', async () => {
-			readRosterWorkbook.mockResolvedValue(
+			givenParsed(
 				workbook({
 					grade: 10,
 					derivedYear: { kind: 'unsupported', reason: 'no year scheme' },
@@ -276,8 +474,7 @@ describe('ESL admin import page', () => {
 				})
 			);
 			render(ImportPage);
-			await chooseGrade('10');
-			upload();
+			await uploadGrade10();
 			await expect.element(page.getByTestId('esl-import.card.g10')).toBeInTheDocument();
 
 			await page.getByTestId('esl-import.apply.10').click();
@@ -290,9 +487,7 @@ describe('ESL admin import page', () => {
 		});
 
 		it('refuses a workbook holding two school years', async () => {
-			readRosterWorkbook.mockResolvedValue(
-				workbook({ derivedYear: { kind: 'conflict', years: [YEAR, '2027-2028'] } })
-			);
+			givenParsed(workbook({ derivedYear: { kind: 'conflict', years: [YEAR, '2027-2028'] } }));
 			render(ImportPage);
 
 			upload();
@@ -361,9 +556,29 @@ describe('ESL admin import page', () => {
 	});
 
 	describe('the year question', () => {
-		it('asks before staging a file whose IDs indicate another year', async () => {
-			readRosterWorkbook.mockResolvedValue(
-				workbook({ derivedYear: { kind: 'current', year: '2027-2028', entryYear: 114 } })
+		it('asks before staging a file whose IDs and group column disagree', async () => {
+			// The year question survives the change in how the grade is worked out, but
+			// not in the form it used to take. A file can no longer merely "indicate
+			// another year" — the grade is derived from the year on the page, so it
+			// agrees by construction. What can still disagree is the file's own account
+			// of itself: here its `114xxxx` IDs place it in grade 8, while its groups
+			// read G7. Something is wrong, and the admin is asked rather than told.
+			//
+			// The grade 7 case is in the "choosing a file" group, where the year field is
+			// set to the following year; this one pins the disagreement itself.
+			fileIds.mockReturnValue(['1140001']);
+			givenParsed(
+				workbook({
+					grade: 7,
+					derivedYear: { kind: 'current', year: YEAR, entryYear: 115 },
+					students: [
+						{
+							schoolStudentId: '1140001',
+							chineseName: '陳明',
+							group: { grade: 7, level: 'Basic', classNumber: '1' }
+						}
+					]
+				})
 			);
 			render(ImportPage);
 			await setYear(YEAR);
@@ -371,11 +586,13 @@ describe('ESL admin import page', () => {
 			upload();
 
 			const prompt = page.getByTestId('esl-import.yearPrompt');
-			await expect.element(prompt).toHaveTextContent('2027-2028');
+			// The year the file's own IDs imply for the grade it names, and the year on
+			// the page, so the mismatch reads either way round.
+			await expect.element(prompt).toHaveTextContent('2025-2026');
 			await expect.element(prompt).toHaveTextContent(YEAR);
 			// Asked, not assumed: nothing is staged until the admin answers.
 			await expect
-				.element(page.getByTestId('esl-import.status.g9.state'))
+				.element(page.getByTestId('esl-import.status.g7.state'))
 				.toHaveTextContent('Not yet provided');
 		});
 
@@ -388,8 +605,24 @@ describe('ESL admin import page', () => {
 					? { advanced: true, fromGrade: 7, toGrade: 8, cohortsCreated: 20, studentsCarried: 408 }
 					: { advanced: true, fromGrade: 8, toGrade: 9, cohortsCreated: 20, studentsCarried: 413 }
 			);
-			readRosterWorkbook.mockResolvedValue(
-				workbook({ derivedYear: { kind: 'current', year: '2027-2028', entryYear: 114 } })
+			// The file names grade 9, so its `114xxxx` IDs imply 2027-2028 — and for
+			// 2026-2027 those same IDs place it in grade 8, which is the disagreement
+			// that raises the year question and makes advancing the year the right
+			// answer.
+			fileIds.mockReturnValue(['1140001']);
+			givenParsed(
+				workbook({
+					grade: 9,
+					derivedYear: { kind: 'current', year: '2027-2028', entryYear: 114 },
+					students: [
+						{
+							schoolStudentId: '1140001',
+							chineseName: '王芃頵',
+							englishName: 'Yoyo Lam',
+							group: { grade: 9, level: 'Advanced', classNumber: '1' }
+						}
+					]
+				})
 			);
 			render(ImportPage);
 			await setYear(YEAR);
@@ -431,9 +664,7 @@ describe('ESL admin import page', () => {
 								'No grade 8 cohorts exist in 2026-2027, so there is nothing to carry into grade 9.'
 						}
 			);
-			readRosterWorkbook.mockResolvedValue(
-				workbook({ derivedYear: { kind: 'current', year: '2027-2028', entryYear: 114 } })
-			);
+			givenNextYearsFile();
 			render(ImportPage);
 			await setYear(YEAR);
 			upload();
@@ -456,9 +687,7 @@ describe('ESL admin import page', () => {
 					'Year advance refused. 2027-2028 grade 8 already has 1 cohort(s) this carry-forward does not account for.'
 				)
 			);
-			readRosterWorkbook.mockResolvedValue(
-				workbook({ derivedYear: { kind: 'current', year: '2027-2028', entryYear: 114 } })
-			);
+			givenNextYearsFile();
 			render(ImportPage);
 			await setYear(YEAR);
 			upload();
@@ -475,9 +704,7 @@ describe('ESL admin import page', () => {
 		});
 
 		it('stages under the year the IDs indicate once accepted', async () => {
-			readRosterWorkbook.mockResolvedValue(
-				workbook({ derivedYear: { kind: 'current', year: '2027-2028', entryYear: 114 } })
-			);
+			givenNextYearsFile();
 			render(ImportPage);
 			await setYear(YEAR);
 			upload();
@@ -489,14 +716,16 @@ describe('ESL admin import page', () => {
 			// The draft is namespaced by the year it was parsed for, so the year input
 			// and the draft cannot disagree.
 			const stored = window.localStorage.getItem('esl-import:2027-2028');
-			expect(stored).toContain('1130001');
+			// The ID the helper's file carries, not the default one: that file is the
+			// `114xxxx` one, so its draft holds its student.
+			expect(stored).toContain('1140001');
 			expect(window.localStorage.getItem(`esl-import:${YEAR}`)).toBeNull();
 		});
 	});
 
 	describe('the dry run', () => {
 		it('blocks applying a file with a repeated student ID', async () => {
-			readRosterWorkbook.mockResolvedValue(
+			givenParsed(
 				workbook({
 					students: [
 						{
@@ -535,7 +764,7 @@ describe('ESL admin import page', () => {
 		});
 
 		it('shows the skipped sheets and rejected rows with their Excel line', async () => {
-			readRosterWorkbook.mockResolvedValue(
+			givenParsed(
 				workbook({
 					skipped: [
 						{
