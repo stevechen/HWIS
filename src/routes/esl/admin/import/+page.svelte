@@ -145,11 +145,17 @@
 				return;
 			}
 
-			// Deriving the grade from the year cannot detect a wrong year on its own:
-			// set 2027-2028 and a grade 7 file's `115xxxx` IDs resolve cleanly to grade
-			// 8, with nothing left to object. The file's own `ESL Group` column is the
-			// check — it names the grade outright — and a disagreement means the year
-			// above is the thing that is wrong, not the file.
+			// The grade above is settled by the IDs and nothing else — they are
+			// unique and their relationship to the ROC year is fixed, so there is no
+			// second opinion to take on it.
+			//
+			// What the IDs alone cannot say is whether the *year* on this page is the
+			// one the admin means: set it to 2027-2028 and a grade 7 file's `115xxxx`
+			// IDs resolve cleanly to grade 8, consistently and wrongly. The file's own
+			// `ESL Group` column is what notices, because it names the grade outright.
+			//
+			// So this is a signal about the year, not about the grade — it exists to
+			// offer the year advance before staging, not to second-guess the import.
 			const named = gradesNamedInWorkbook(parsed);
 			if (placement.kind === 'grade' && named.length > 0 && !named.includes(grade)) {
 				yearPrompt = {

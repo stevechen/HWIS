@@ -310,11 +310,19 @@ export function deriveGradeForSchoolYear(
 /**
  * The grades a workbook names for itself, read from its `ESL Group` column.
  *
- * The strongest signal the file carries: every levelled group is written `G7`,
- * `G8` or `G9 …`, and grade 10's are `H1nn`. Used to check a grade derived from the
- * year against the file's own account of itself, because deriving alone cannot
- * detect a wrong year — set the year to 2027-2028 and a grade 7 file's `115xxxx` IDs
- * resolve cleanly to grade 8, with nothing left to object.
+ * Every levelled group is written `G7`, `G8` or `G9 …`, and grade 10's are `H1nn`,
+ * so this is the file's own account of which grade it holds.
+ *
+ * It has no bearing on *which* grade a file is — that comes from the student IDs,
+ * which are unique and whose relationship to the ROC year is fixed, so
+ * `deriveGradeForSchoolYear` settles it on its own. This exists so the page can
+ * notice that a file and the year on the page disagree, which is what lets it offer
+ * to advance the year before staging. Reading the grade from the IDs alone cannot
+ * surface that: set the year to 2027-2028 and a grade 7 file's `115xxxx` IDs resolve
+ * cleanly to grade 8, consistently and wrongly, with nothing left to object.
+ *
+ * So it is a signal about the *year*, not a second opinion on the grade, and it
+ * never changes the grade a file is imported as.
  */
 export function gradesNamedInWorkbook(workbook: ParsedRosterWorkbook): number[] {
 	const grades = new Set<number>();

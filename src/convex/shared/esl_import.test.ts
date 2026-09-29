@@ -472,9 +472,9 @@ describe('grade derivation from a confirmed year', () => {
 
 describe('gradesNamedInWorkbook', () => {
 	it('reads the grade off the group column, which names it outright', () => {
-		// The cross-check on a derived grade. Deriving alone cannot catch a wrong
-		// year: set 2027-2028 and a grade 7 file resolves cleanly to grade 8. The
-		// group column is what notices.
+		// Not a second opinion on which grade the file is — the IDs settle that on
+		// their own. This is the file's account of itself, which is how the page
+		// notices that the year it was given is not the year the file is for.
 		const parsed = parseRosterWorkbook(7, [
 			{
 				name: 'G7 Basic 1',
