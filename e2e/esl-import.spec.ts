@@ -1,51 +1,48 @@
 /**
- * The roster import, driven by the real workbooks.
+ * The roster import, driven through the browser by workbooks shaped like the
+ * department's real ones.
  *
- * The fixtures under `e2e/fixtures/` are the September workbooks with only the
- * students replaced (see `scripts/build-esl-fixtures.mjs`), so this covers the
- * shapes a hand-written fixture would have passed: per-grade column order, the
- * bare `Pre-Ele` group, the malformed `G9 Elementary1`, the misfiled row, and the
- * summary sheets.
+ * The shapes come from `src/lib/esl-roster-fixtures.ts`, measured against the
+ * September 2026 workbooks: per-grade column order, the bare `Pre-Ele` group, the
+ * malformed `G9 Elementary1`, the misfiled row, and the summary sheets. The data
+ * is synthetic, so no student is ever involved.
  *
- * The counts asserted here are the ones measured from the real files, so a sheet
- * dropped or double-counted fails in CI rather than in September.
+ * The counts asserted here are exact, so a sheet dropped or double-counted fails
+ * in CI rather than in September.
  */
-import { readFile } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { cleanupByTag, eslStudentCohorts } from './convex-client';
 import { getTestSuffix } from './helpers';
-
-const FIXTURES = 'e2e/fixtures';
+import {
+	rosterWorkbookBuffer,
+	misfiledSchoolStudentId,
+	DUPLICATED_SCHOOL_ID
+} from '../src/lib/esl-roster-fixtures';
 
 /** The school year the fixtures' IDs place them in. */
 const YEAR = '2026-2027';
 
 /**
- * The one grade 8 student whose `ESL Group` disagrees with the sheet it sits in.
- *
- * `scripts/build-esl-fixtures.mjs` writes this row into the `G8 Inter 1` sheet with
- * `G8 Intermediate 2` in its group column — a level change whose column was not
- * updated, and the row the real September workbook actually contains. Measured
- * from the fixture, not guessed: it is the only row in the file whose group names a
- * cohort other than the sheet's own.
- */
-const MISFILED_SCHOOL_ID = '1141242';
-
-/**
  * Why the misfiled-row claim is asserted on grade 8 rather than grade 7.
  *
  * Grade 7's workbook carries the same defect — `G7 Basic 5` holds one `G7
- * Elementary 4` row — but it also lists student `1150141` on two class sheets at
- * once, so its plan is permanently blocked and there is no applied data to read
- * back. That is a real property of the real file, covered by its own test below
- * rather than worked around here. Grade 8 has the identical misfiled row and no
+ * Elementary 4` row — but it also lists one student on two class sheets at once,
+ * so its plan is permanently blocked and there is no applied data to read back.
+ * That is a real property of the real file, covered by its own test below rather
+ * than worked around here. Grade 8 has the identical misfiled row and no
  * duplicate, so the claim under test is observable.
  */
 const MISFILED_GRADE = 8;
 
+/**
+ * The misfiled student, read out of the generated workbook rather than pinned
+ * here, so the id cannot drift from the fixture.
+ */
+const MISFILED_SCHOOL_ID = misfiledSchoolStudentId(MISFILED_GRADE);
+
 // Every apply carries this tag, so the year it wrote can be removed afterwards
-// on the same pattern the other tables use. Without it a spec leaves ~420 students
+// on the same pattern the other tables use. Without it a spec leaves ~400 students
 // and 20 cohorts behind, invisible to every other teardown scope.
 const e2eTag = `e2e-test_${getTestSuffix('esl')}`;
 
@@ -57,11 +54,12 @@ async function openImportPage(page: Page, grade: number) {
 }
 
 /** Hands the page a workbook, the way a drag-and-drop or a picker would. */
-async function uploadWorkbook(page: Page, grade: number, file = `roster-g${grade}.xlsx`) {
+async function uploadWorkbook(page: Page, grade: 7 | 8 | 9 | 10, options = {}) {
+	const { fileName, buffer } = rosterWorkbookBuffer(grade, options);
 	await page.getByTestId('esl-import.file').setInputFiles({
-		name: file,
+		name: fileName,
 		mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-		buffer: await readFile(`${FIXTURES}/${file}`)
+		buffer
 	});
 }
 
@@ -86,7 +84,7 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 		await openImportPage(page, 9);
 		await uploadWorkbook(page, 9);
 
-		// 20 class sheets, 420 students, and the two summary sheets set aside.
+		// 20 class sheets, 400 students, and the two summary sheets set aside.
 		const card = page.getByTestId('esl-import.card.g9');
 		await expect(card).toBeVisible({ timeout: 30_000 });
 		await expect(card.getByTestId('esl-import.card.file')).toHaveText('roster-g9.xlsx');
@@ -134,7 +132,7 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 	test('files a misfiled student under the class their column names', async ({ page }) => {
 		// `G8 Inter 1` holds one student whose `ESL Group` reads `G8 Intermediate 2`:
 		// a level change whose column was not updated. Read strictly, that single row
-		// made the sheet look like a summary and its other 21 students were
+		// made the sheet look like a summary and its other 19 students were
 		// discarded.
 		//
 		// This test applies the whole file rather than only staging it, because the
@@ -183,7 +181,7 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 		// The block is reported with the offending ID in it, not just a red panel.
 		const blocked = page.getByTestId('esl-import.plan.blocked');
 		await expect(blocked).toBeVisible();
-		await expect(blocked).toContainText('1151353');
+		await expect(blocked).toContainText(DUPLICATED_SCHOOL_ID);
 		// And the control that would cause the damage is disabled, not merely warned
 		// about.
 		await expect(page.getByTestId('esl-import.apply.7')).toBeDisabled();
@@ -199,7 +197,7 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 		// standing between the admin and that is the refusal, which has to be
 		// visible and has to name both years to be actionable.
 		await openImportPage(page, 7);
-		await uploadWorkbook(page, 7, 'roster-g7-merged-years.xlsx');
+		await uploadWorkbook(page, 7, { mergedYears: true });
 
 		const error = page.getByTestId('esl-import.error');
 		await expect(error).toBeVisible({ timeout: 30_000 });

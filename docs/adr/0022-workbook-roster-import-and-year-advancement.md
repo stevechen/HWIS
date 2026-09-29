@@ -77,6 +77,13 @@ Six measured facts drive the decision:
    "class of record" reason; G9 and G10 are absent from that list for the reasons
    above, which is the check that this paragraph is still true.
 
+   The workbooks the tests drive are **synthetic** — built by
+   `src/lib/esl-roster-fixtures.ts` from the shapes measured here, with invented
+   names, IDs and rosters. The measurement is what carries over; no student data
+   does. They are generated in memory rather than committed, so there is no file in
+   the repository that could hold a real name, and a fixture that cannot change
+   underneath its own assertions.
+
 6. **One student appears on two class sheets in the grade 7 workbook** — the
    same ID, C Class and seat on both `G7 Elementary 2` and `G7 Pre-Elementary`. The
    file is otherwise clean, but this makes it unappliable: the importer refuses a file
