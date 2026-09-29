@@ -8,8 +8,7 @@
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Upload, UserPlus, UserX, UserCheck, X } from '@lucide/svelte';
-	import { parseEslRoster, type ParsedRoster } from './import-utils';
+	import { UserPlus, UserX, UserCheck, X } from '@lucide/svelte';
 
 	const client = useConvexClient();
 
@@ -36,12 +35,6 @@
 	let formError = $state('');
 	let notice = $state('');
 
-	// Bulk import
-	let importText = $state('');
-	let importing = $state(false);
-	let importSummary = $state('');
-	let importError = $state('');
-
 	// Transfer status
 	let pendingTransfer = $state<{ id: Id<'esl_students'>; name: string } | null>(null);
 	let transferReason = $state('');
@@ -49,10 +42,6 @@
 	let transferError = $state('');
 
 	let busyId = $state<string | null>(null);
-
-	const parsed = $derived<ParsedRoster | null>(
-		importText.trim() ? parseEslRoster(importText) : null
-	);
 
 	function cohortLabelFor(id: Id<'esl_cohorts'>): string {
 		return cohorts.find((c) => c._id === id)?.label ?? 'cohort';
@@ -82,35 +71,6 @@
 			formError = error instanceof Error ? error.message : 'Could not enrol the student';
 		} finally {
 			enrolling = false;
-		}
-	}
-
-	async function runImport() {
-		importError = '';
-		importSummary = '';
-		if (!selectedCohortId) {
-			importError = 'Choose a cohort first';
-			return;
-		}
-		if (!parsed || parsed.students.length === 0) {
-			importError = 'No valid rows to import';
-			return;
-		}
-		importing = true;
-		try {
-			const result = await client.mutation(api.esl.students.bulkImport, {
-				cohortId: selectedCohortId,
-				students: parsed.students
-			});
-			importSummary = `Imported ${result.imported} student(s)`;
-			if (result.rejected.length > 0) {
-				importSummary += `, ${result.rejected.length} row(s) rejected by the server`;
-			}
-			importText = '';
-		} catch (error) {
-			importError = error instanceof Error ? error.message : 'Import failed';
-		} finally {
-			importing = false;
 		}
 	}
 
@@ -285,86 +245,20 @@
 		class="rounded-lg border bg-white p-6 shadow-sm"
 		data-testid="esl-admin-students.import"
 	>
-		<h2 id="esl-admin-students-import-heading" class="text-lg font-semibold">
-			Bulk import from CSV or TSV
-		</h2>
+		<h2 id="esl-admin-students-import-heading" class="text-lg font-semibold">Import a roster</h2>
 		<p class="text-muted-foreground mt-1 text-sm">
-			Paste a spreadsheet range, or choose a file. The first line must be a header; columns matching <em
-				>English name</em
-			>, <em>Chinese name</em>, and <em>School student ID</em> are used, and anything else is ignored.
+			Rosters come in as a workbook, one sheet per class, and
+			<a
+				class="font-medium underline"
+				href="/esl/admin/import"
+				data-testid="esl-admin-students.import.link"
+			>
+				the import page
+			</a>
+			reads it. It takes the class each student belongs to from the sheet they are on, which a pasted
+			list of names cannot say — so a column of names pasted here leaves every student's class unassigned.
+			Use it to add one student to a class you have already chosen above.
 		</p>
-		<label class="mt-4 block text-sm font-medium" for="esl-students-import-file">Import file</label>
-		<Input
-			id="esl-students-import-file"
-			type="file"
-			data-testid="esl-admin-students.import.file"
-			accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
-			onchange={async (event) => {
-				const file = event.currentTarget.files?.[0];
-				importText = file ? await file.text() : '';
-			}}
-		/>
-		<label class="mt-4 block text-sm font-medium" for="esl-students-import-text">
-			Or paste rows
-		</label>
-		<textarea
-			id="esl-students-import-text"
-			data-testid="esl-admin-students.import.textarea"
-			class="border-input focus-visible:border-ring focus-visible:ring-ring/50 mt-1 min-h-32 w-full rounded-md border bg-transparent p-3 font-mono text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-			placeholder="School Student ID&#9;English Name&#9;Chinese Name"
-			bind:value={importText}
-		></textarea>
-
-		{#if parsed}
-			<p data-testid="esl-admin-students.import.preview" class="mt-3 text-sm">
-				{parsed.students.length} valid row(s) ready to import
-				{#if parsed.rejected.length > 0}
-					· {parsed.rejected.length} row(s) rejected
-				{/if}
-				{#if parsed.ignoredHeaders.length > 0}
-					· ignoring column(s): {parsed.ignoredHeaders.join(', ')}
-				{/if}
-			</p>
-			{#if parsed.rejected.length > 0}
-				<ul
-					data-testid="esl-admin-students.import.rejected"
-					class="mt-2 list-disc pl-5 text-sm text-red-700"
-				>
-					{#each parsed.rejected as rejection (rejection.rowNumber)}
-						<li>Row {rejection.rowNumber}: {rejection.reason}</li>
-					{/each}
-				</ul>
-			{/if}
-		{/if}
-
-		{#if importError}
-			<p
-				data-testid="esl-admin-students.import.error"
-				class="mt-3 rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
-			>
-				{importError}
-			</p>
-		{/if}
-		{#if importSummary}
-			<p
-				data-testid="esl-admin-students.import.summary"
-				class="mt-3 rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800"
-			>
-				{importSummary}
-			</p>
-		{/if}
-
-		<div class="mt-4">
-			<Button
-				type="button"
-				disabled={importing || !selectedCohortId || !parsed || parsed.students.length === 0}
-				onclick={runImport}
-				testId="esl-admin-students.import.submit"
-			>
-				<Upload class="size-4" />
-				{importing ? 'Importing…' : 'Import students'}
-			</Button>
-		</div>
 	</section>
 
 	<section aria-labelledby="esl-admin-students-roster-heading" class="space-y-4">

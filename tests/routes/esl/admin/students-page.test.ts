@@ -71,8 +71,6 @@ function withRoster(students: unknown[] = ROSTER) {
 	mockQueries({ 'esl/cohorts:list': COHORTS, 'esl/students:listByCohort': students });
 }
 
-const TSV_HEADER = 'School Student ID\tEnglish Name\tChinese Name';
-
 describe('ESL admin students page', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -189,65 +187,29 @@ describe('ESL admin students page', () => {
 		});
 	});
 
-	describe('bulk import', () => {
-		beforeEach(async () => {
+	describe('roster import', () => {
+		// The CSV/TSV paste path is gone (#140). A pasted list of names has no class
+		// column, so it cannot say the one thing the workbook does, and the page now
+		// points at the importer instead of offering a worse version of it.
+		beforeEach(() => {
 			render(StudentsPage);
-			await selectOption(page.getByTestId('esl-admin-students.cohort'), 'cohort_g7');
 		});
 
-		it('previews how many pasted rows are importable', async () => {
-			await page
-				.getByTestId('esl-admin-students.import.textarea')
-				.fill(`${TSV_HEADER}\n7002001\tDana Wu\t吳大美`);
-
+		it('offers no paste box', async () => {
 			await expect
-				.element(page.getByTestId('esl-admin-students.import.preview'))
-				.toHaveTextContent('1 valid row(s) ready to import');
+				.element(page.getByTestId('esl-admin-students.import.textarea'))
+				.not.toBeInTheDocument();
 		});
 
-		it('lists rejected rows with their reason', async () => {
-			await page
-				.getByTestId('esl-admin-students.import.textarea')
-				.fill('English Name\tChinese Name\tStudent ID\nDana Wu\t吳大美\t12');
+		it('sends the admin to the workbook importer for rosters', async () => {
+			const link = page.getByTestId('esl-admin-students.import.link');
+			await expect.element(link).toHaveAttribute('href', '/esl/admin/import');
+		});
 
+		it('explains why a pasted list of names cannot stand in', async () => {
 			await expect
-				.element(page.getByTestId('esl-admin-students.import.rejected'))
-				.toHaveTextContent('Row 2: School student ID must be a 6- or 7-digit number');
-		});
-
-		it('disables the import button when there is nothing to send', async () => {
-			await expect.element(page.getByTestId('esl-admin-students.import.submit')).toBeDisabled();
-		});
-
-		it('sends only the valid rows to the backend', async () => {
-			await page
-				.getByTestId('esl-admin-students.import.textarea')
-				.fill(`${TSV_HEADER}\n7002001\tDana Wu\t吳大美\nBad Row\t李大文\t12`);
-			await page.getByTestId('esl-admin-students.import.submit').click();
-
-			await vi.waitFor(() =>
-				expect(mockMutation).toHaveBeenCalledWith(api.esl.students.bulkImport, {
-					cohortId: 'cohort_g7',
-					students: [{ englishName: 'Dana Wu', chineseName: '吳大美', schoolStudentId: '7002001' }]
-				})
-			);
-		});
-
-		it('reports the backend rejection count', async () => {
-			mockMutation.mockResolvedValueOnce({
-				imported: 1,
-				ids: ['student_dana'],
-				rejected: [{ index: 0, schoolStudentId: '7002001', reason: 'Already enrolled' }]
-			});
-
-			await page
-				.getByTestId('esl-admin-students.import.textarea')
-				.fill(`${TSV_HEADER}\n7002001\tDana Wu\t吳大美`);
-			await page.getByTestId('esl-admin-students.import.submit').click();
-
-			await expect
-				.element(page.getByTestId('esl-admin-students.import.summary'))
-				.toHaveTextContent('Imported 1 student(s), 1 row(s) rejected by the server');
+				.element(page.getByTestId('esl-admin-students.import'))
+				.toHaveTextContent('from the sheet they are on');
 		});
 	});
 
