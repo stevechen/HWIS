@@ -228,7 +228,7 @@
 						? {
 								fromGrade,
 								advanced: true,
-								detail: `G${fromGrade} → G${result.toGrade}: ${result.cohortsCreated} cohort(s), ${result.studentsCarried} student(s)`
+								detail: `G${fromGrade} → G${result.toGrade}: ${result.cohortsCreated} cohorts, ${result.studentsCarried} students`
 							}
 						: { fromGrade, advanced: false, detail: result.reason }
 				);
@@ -359,8 +359,8 @@
 				<p>
 					{yearPrompt.fileName} holds IDs that indicate school year
 					<strong>{yearPrompt.derivedYear}</strong>, but this page is set to
-					<strong>{year.trim()}</strong>. Its {yearPrompt.parsed.students.length} student(s) would be
-					matched against the wrong year.
+					<strong>{year.trim()}</strong>. Its {yearPrompt.parsed.students.length} students would be matched
+					against the wrong year.
 				</p>
 				<div class="mt-2 flex gap-2">
 					<Button

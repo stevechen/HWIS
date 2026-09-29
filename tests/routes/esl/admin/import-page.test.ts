@@ -422,7 +422,7 @@ describe('ESL admin import page', () => {
 			expect(window.localStorage.getItem(`esl-import:${YEAR}`)).toContain('511101');
 		});
 
-		it('shows one cohort with both sections for a grade 10 base class', async () => {
+		it('lists a grade 10 base class as two classes, one per section', async () => {
 			givenParsed(
 				workbook({
 					grade: 10,
@@ -444,12 +444,16 @@ describe('ESL admin import page', () => {
 			render(ImportPage);
 			await uploadGrade10();
 
-			// One cohort, two sections, one shared roster — the thing the parser
-			// used to get wrong by reading the sheet as two classes.
-			const row = page.getByTestId('esl-import.plan.cohort.10::01');
-			await expect.element(row).toHaveTextContent('2 student(s)');
-			await expect.element(row).toHaveTextContent('sections A and B');
-			await expect.element(row).toHaveTextContent('one shared roster');
+			// Two classes, each counting only its own section. The cohort behind them
+			// is still one — that is the parser's job and it is unchanged — but the
+			// admin reads `H101A` and `H101B` as the two classes they are, not as one
+			// class of two students that does not exist.
+			const sectionA = page.getByTestId('esl-import.plan.cohort.10::01:A');
+			const sectionB = page.getByTestId('esl-import.plan.cohort.10::01:B');
+			await expect.element(sectionA).toHaveTextContent('H101A');
+			await expect.element(sectionA).toHaveTextContent('1 students');
+			await expect.element(sectionB).toHaveTextContent('H101B');
+			await expect.element(sectionB).toHaveTextContent('1 students');
 		});
 
 		it('sends grade 10 section text, so the server re-reads what it parsed', async () => {

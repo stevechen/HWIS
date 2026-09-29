@@ -177,47 +177,71 @@ function entryYearOf(schoolStudentId: string): number | null {
  * The grade 10 ID space a student ID belongs to, or `null` if it is not on that
  * scheme at all.
  *
- * Grade 10 sits on a numbering space of its own, one per school year, which moves
- * `4xxxxx` → `5xxxxx` → `6xxxxx` and is unrelated to when anyone entered. So the
- * ID does not say *which* year a grade 10 student is in — but it does say which
- * grade, because no other grade is numbered this way, and it carries the year in
- * its leading digit.
+ * Grade 10 sits on a numbering space of its own that no other grade uses, and the
+ * ID does say which grade it is because of that. A grade 10 ID is six digits: a
+ * two-digit space, then four digits of sequence. The space advances one step per
+ * school year, so it also carries the year — see `grade10SpaceForSchoolYear`.
  *
- * Six or seven digits starting `4`, `5` or `6` is that space, because the
- * school's numbering has run in both lengths and which one grade 10 uses is not
- * something to hardcode from one year's file. The levelled grades are
- * `115xxx`/`1150xxx`-style, always leading `1`, so nothing else collides.
+ * Told apart from a levelled ID by the third digit. A levelled ID is
+ * `115001` — three-digit ROC entry year, always `1xx` — while a grade 10 ID's
+ * first three digits run `500`–`599` and up. So the two never collide, and the
+ * grade 10 space is read as two digits off an ID that is not `1xx`.
  */
 function grade10SpaceOf(schoolStudentId: string): number | null {
-	if (!/^[456]\d{5,6}$/.test(schoolStudentId)) return null;
-	return Number(schoolStudentId[0]);
+	if (!/^\d{6}$/.test(schoolStudentId)) return null;
+	const leading = Number(schoolStudentId.slice(0, 3));
+	if (leading >= 100 && leading <= 199) return null;
+	return Number(schoolStudentId.slice(0, 2));
 }
 
-/** The school year whose grade 10 space is `5xxxxx`. */
-const GRADE10_SPACE_5_YEAR = '2026-2027';
+/**
+ * The two-digit grade 10 ID space used in 2026-2027.
+ *
+ * That year's G10 workbook numbers every student `51xxxx`. The school confirmed
+ * the space is two digits rather than one because a single leading digit runs out
+ * at ROC 119 (2030-2031) — the year after `5`, `6`, `7`, `8`, `9` — and what
+ * happens after that is not yet known. Two digits buys decades instead, and the
+ * only open question is whether the school restarts from `00` when the space
+ * passes `99`, which `spaceOffset` handles by wrapping rather than by failing.
+ */
+const GRADE10_SPACE_ANCHOR = 51;
+
+/** The school year whose grade 10 space is `51xxxx`. */
+const GRADE10_SPACE_ANCHOR_YEAR = '2026-2027';
+
+/**
+ * How many school years after the anchor a space sits, wrapping at 100.
+ *
+ * Wrapping because the space is two digits and the school may well run `99` then
+ * `00`; a space below the anchor is read as the next cycle rather than as a
+ * negative offset, so the year still moves forward one step at a time.
+ */
+function spaceOffset(space: number): number {
+	return (space - GRADE10_SPACE_ANCHOR + 100) % 100;
+}
 
 /**
  * The grade 10 ID space a given school year is numbered in, or `null` if the year
- * is not one the space has reached.
+ * is not shaped like a school year.
  *
- * The space advances by one every school year, so the year is recoverable from
- * the space and back. That is the only thing tying a grade 10 file to a year: its
- * IDs name no intake year, so the arithmetic that places a levelled file does
- * nothing here.
+ * The inverse of the school's own numbering, and the only thing tying a grade 10
+ * file to a year: its IDs name no intake year, so the arithmetic that places a
+ * levelled file does nothing here.
  */
 export function grade10SpaceForSchoolYear(year: string): number | null {
 	const [from, to] = year.split('-').map((part) => Number(part));
 	if (!Number.isInteger(from) || !Number.isInteger(to) || to - from !== 1) return null;
-	const [anchorFrom, anchorTo] = GRADE10_SPACE_5_YEAR.split('-').map(Number);
+	const [anchorFrom, anchorTo] = GRADE10_SPACE_ANCHOR_YEAR.split('-').map(Number);
 	if (to - anchorTo !== from - anchorFrom) return null;
-	return 5 + (to - anchorTo);
+	return (GRADE10_SPACE_ANCHOR + to - anchorTo + 100) % 100;
 }
 
 /** The school year a grade 10 ID space belongs to. */
 export function schoolYearForGrade10Space(space: number): string | null {
-	const [anchorFrom, anchorTo] = GRADE10_SPACE_5_YEAR.split('-').map(Number);
-	const to = anchorTo + (space - 5);
-	return `${anchorFrom + (to - anchorTo)}-${to}`;
+	if (!Number.isInteger(space) || space < 0 || space > 99) return null;
+	const [anchorFrom] = GRADE10_SPACE_ANCHOR_YEAR.split('-').map(Number);
+	const start = anchorFrom + spaceOffset(space);
+	return `${start}-${start + 1}`;
 }
 
 /**

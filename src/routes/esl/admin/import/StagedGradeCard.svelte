@@ -87,35 +87,37 @@
 	}
 
 	/**
-	 * The cohorts this file fills, with the class sections each one carries.
+	 * The classes this file fills, each with its own student count.
 	 *
-	 * Grade 10 needs this because one cohort is taught by two sections: showing
-	 * `H101A` and `H101B` as separate classes would be the same wrong shape the
-	 * parser used to read, and the admin could not tell that the 45 students
-	 * behind them are one roster.
+	 * Grade 10 needs the split because a base class is taught twice, as two sections
+	 * of the same cohort. Listed as one row the admin reads 45 students behind
+	 * `H101A` and `H101B` as a single class of 45 that does not exist; listed as two
+	 * rows they read as what they are — two classes, one roster — so the section
+	 * letter goes on the label and the count is the section's own.
+	 *
+	 * The levelled grades have no sections, so their rows carry an empty one and
+	 * read exactly as before.
 	 */
-	const sectionsByCohort = $derived.by(() => {
+	const classesByCohort = $derived.by(() => {
 		// A plain list rather than a Map: a file asks for about 20 cohorts, and
 		// the accumulator is local to this derivation, so there is nothing to
 		// gain from a reactive collection here.
-		const rows: { key: string; count: number; sections: string[] }[] = [];
+		const rows: { key: string; section: string; count: number }[] = [];
 		for (const student of draft.students) {
 			const request = cohortOfGroup(student.group);
-			const key = `${request.grade}:${request.level ?? ''}:${request.classNumber}`;
+			const cohortKey = `${request.grade}:${request.level ?? ''}:${request.classNumber}`;
 			const section = isGrade10Group(student.group) ? student.group.section : undefined;
+			const key = `${cohortKey}:${section ?? ''}`;
 			const existing = rows.find((row) => row.key === key);
 			if (existing === undefined) {
-				rows.push({ key, count: 1, sections: section ? [section] : [] });
+				rows.push({ key, section: section ?? '', count: 1 });
 				continue;
 			}
 			existing.count += 1;
-			if (section && !existing.sections.includes(section)) existing.sections.push(section);
 		}
-		// Sorted, so the two sections of a base class always read A then B, and so
-		// the list does not depend on the order the sheets happened to arrive in.
-		return rows
-			.map((row) => ({ ...row, sections: row.sections.sort() }))
-			.sort((a, b) => a.key.localeCompare(b.key));
+		// Sorted by cohort, then A before B, so the list reads in the order the
+		// school names them rather than the order the sheets happened to arrive in.
+		return rows.sort((a, b) => a.key.localeCompare(b.key));
 	});
 
 	/** The renames in the plan, or none while it is still loading.
@@ -212,7 +214,7 @@
 		<h3 class="font-semibold">Grade {draft.grade}</h3>
 		<Badge variant="secondary" data-testid="esl-import.card.file">{draft.fileName}</Badge>
 		<span class="text-muted-foreground text-sm">
-			{draft.students.length} student(s) staged
+			{draft.students.length} students staged
 		</span>
 	</header>
 
@@ -287,26 +289,16 @@
 
 		<details class="mb-3 text-sm" data-testid="esl-import.plan.cohorts">
 			<summary class="cursor-pointer font-medium">
-				{sectionsByCohort.length} cohort(s) this file fills
+				{classesByCohort.length}
+				{classesByCohort.length === 1 ? 'class' : 'classes'} this file fills
 			</summary>
 			<ul class="mt-2 space-y-1">
-				{#each sectionsByCohort as entry (entry.key)}
+				{#each classesByCohort as entry (entry.key)}
 					<li data-testid="esl-import.plan.cohort.{entry.key}">
 						<span class="font-medium">
-							{cohortLabelOf(entry.key)}
+							{cohortLabelOf(entry.key)}{entry.section}
 						</span>
-						— {entry.count} student(s)
-						{#if entry.sections.length > 0}
-							<!--
-                                                            The two sections are two classes taught by one
-                                                            cohort, so they share a roster. Saying so is the
-                                                            point: without it the admin reads 45 students as
-                                                            two classes of 24 and 21.
-                                                    -->
-							<span class="text-muted-foreground">
-								· sections {entry.sections.join(' and ')} (one shared roster)
-							</span>
-						{/if}
+						— {entry.count} students
 					</li>
 				{/each}
 			</ul>

@@ -45,6 +45,9 @@
  *   unappliable and is the real defect tracked in #141.
  * - **Float-formatted and numeric IDs.** G10 stores its IDs as Excel numbers and
  *   the levelled grades as text, and the importer has to read both.
+ * - **Grade 10's own six-digit ID space** (`51xxxx` for 2026-2027), which is what
+ *   identifies the grade, against the levelled grades' `115xxx`-style ROC entry
+ *   year. Generated here so the shapes match the numbering and not just the layout.
  */
 import XLSX from 'xlsx';
 
@@ -350,8 +353,13 @@ function buildGrade10(): RosterFixture {
 		for (const section of ['A', 'B'] as const) {
 			for (let s = 0; s < PER_CLASS; s++) {
 				// A number, not a string: G10 stores its IDs as Excel numbers where
-				// the levelled grades store text.
-				rows.push({ id: Number(`5${100000 + index}`), group: `${base}${section}`, index });
+				// the levelled grades store text. Six digits, `51` being this year's
+				// grade 10 space, so `510001` upwards.
+				rows.push({
+					id: Number(`51${String(index).padStart(4, '0')}`),
+					group: `${base}${section}`,
+					index
+				});
 				index++;
 			}
 		}

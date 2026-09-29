@@ -95,8 +95,8 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 		const card = page.getByTestId('esl-import.card.g9');
 		await expect(card).toBeVisible({ timeout: 30_000 });
 		await expect(card.getByTestId('esl-import.card.file')).toHaveText('roster-g9.xlsx');
-		// One cohort per class, so every group in the file has a cohort of its own.
-		await expect(page.getByTestId('esl-import.plan.cohorts')).toContainText('20 cohort(s)');
+		// One class per sheet, so every group in the file has a class of its own.
+		await expect(page.getByTestId('esl-import.plan.cohorts')).toContainText('20 classes');
 		// Reading the file wrote nothing: the grade is staged, not applied.
 		await expect(page.getByTestId('esl-import.status.g9.state')).toHaveText('Staged');
 
@@ -150,7 +150,7 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 
 		await expect(page.getByTestId('esl-import.card.g8')).toBeVisible({ timeout: 30_000 });
 		// 20 classes, so `G8 Inter 1` was read as a class rather than set aside.
-		await expect(page.getByTestId('esl-import.plan.cohorts')).toContainText('20 cohort(s)');
+		await expect(page.getByTestId('esl-import.plan.cohorts')).toContainText('20 classes');
 		// And the disagreement is reported rather than applied silently.
 		await expect(page.getByTestId('esl-import.card.g8')).toContainText('G8 Intermediate 2');
 
@@ -197,7 +197,7 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 	});
 
 	test('places a grade 10 workbook itself, with no grade asked for', async ({ page }) => {
-		// Grade 10's IDs are numbered on a space of their own — `5xxxxx` in 2026-2027 —
+		// Grade 10's IDs are numbered on a space of their own — `51xxxx` in 2026-2027 —
 		// that no other grade is numbered in, so the file says which grade it is. The
 		// page used to ask for this, and it was the one thing it asked: answer it wrong
 		// and the whole import is filed under the wrong grade. Now there is nothing to
@@ -210,8 +210,13 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 		await expect(page.getByTestId('esl-import.grade')).toHaveCount(0);
 		await expect(page.getByTestId('esl-import.error')).toHaveCount(0);
 		await expect(page.getByTestId('esl-import.status.g10.state')).toHaveText('Staged');
-	});
 
+		// The two sections of a base class are listed as the two classes they are:
+		// 11 base classes, each taught as an A and a B section.
+		await expect(page.getByTestId('esl-import.plan.cohorts')).toContainText('22 classes');
+		await expect(page.getByTestId('esl-import.plan.cohort.10::01:A')).toContainText('H101A');
+		await expect(page.getByTestId('esl-import.plan.cohort.10::01:B')).toContainText('H101B');
+	});
 	test('refuses a workbook holding two school years, and says which', async ({ page }) => {
 		// A different failure from the one above, and the more dangerous of the two:
 		// here the page's year is *correct*, so there is nothing to prompt about and
