@@ -49,7 +49,7 @@ describe('esl cohorts', () => {
 			const { cohortId, classIds } = await t.mutation(api.esl.cohorts.create, {
 				year: '2025-2026',
 				grade: 9,
-				level: 'Int',
+				level: 'Intermediate',
 				classNumber: '1'
 			});
 
@@ -59,17 +59,184 @@ describe('esl cohorts', () => {
 			expect(classes[0].type).toBe('G9');
 		});
 
-		it('auto-composes a single H10 class for a G10 cohort', async () => {
+		/**
+		 * Grade 10 is not levelled: its cohort is a base class (H101) taught by
+		 * two sections, H101A and H101B, which share that one roster.
+		 */
+		it('auto-composes paired A and B section classes for a G10 cohort', async () => {
 			const t = await asEslAdmin();
 
-			const { classIds } = await t.mutation(api.esl.cohorts.create, {
+			const { cohortId, classIds } = await t.mutation(api.esl.cohorts.create, {
 				year: '2025-2026',
 				grade: 10,
-				level: 'Adv',
-				classNumber: '1'
+				classNumber: '01'
 			});
 
-			expect(classIds).toHaveLength(1);
+			expect(classIds).toHaveLength(2);
+			const classes = await t.query(api.esl.classes.listByCohort, { cohortId });
+			expect(classes.map((c: { name: string }) => c.name).sort()).toEqual(['H101A', 'H101B']);
+			// Both sections point at one cohort — that is what shares the roster.
+			expect(classes.every((c: { cohortId: string }) => c.cohortId === cohortId)).toBe(true);
+		});
+
+		it('names G10 classes H10<base><section> across the whole base-class range', async () => {
+			const t = await asEslAdmin();
+
+			const { cohortId } = await t.mutation(api.esl.cohorts.create, {
+				year: '2025-2026',
+				grade: 10,
+				classNumber: '10'
+			});
+
+			const classes = await t.query(api.esl.classes.listByCohort, { cohortId });
+			expect(classes.map((c: { name: string }) => c.name).sort()).toEqual(['H110A', 'H110B']);
+		});
+
+		it('stores no level on a G10 cohort', async () => {
+			const t = await asEslAdmin();
+
+			const { cohortId } = await t.mutation(api.esl.cohorts.create, {
+				year: '2025-2026',
+				grade: 10,
+				classNumber: '03'
+			});
+
+			const cohort = await t.query(api.esl.cohorts.getById, { id: cohortId });
+			expect(cohort?.level ?? null).toBeNull();
+			// `code` is derived per read, not a stored column.
+			expect(cohort?.code).toBe('G10-03');
+		});
+
+		it('accepts a base class beyond the old fixed list', async () => {
+			// The school decides how many base classes it runs each year.
+			const t = await asEslAdmin();
+
+			const { cohortId } = await t.mutation(api.esl.cohorts.create, {
+				year: '2025-2026',
+				grade: 10,
+				classNumber: '12'
+			});
+
+			const classes = await t.query(api.esl.classes.listByCohort, { cohortId });
+			expect(classes.map((c: { name: string }) => c.name).sort()).toEqual(['H112A', 'H112B']);
+		});
+
+		it('accepts an unpadded base class and stores it padded', async () => {
+			const t = await asEslAdmin();
+
+			const { cohortId } = await t.mutation(api.esl.cohorts.create, {
+				year: '2025-2026',
+				grade: 10,
+				classNumber: '2'
+			});
+
+			const cohort = await t.query(api.esl.cohorts.getById, { id: cohortId });
+			expect(cohort?.classNumber).toBe('02');
+			expect(cohort?.code).toBe('G10-02');
+		});
+
+		it('treats a padded and unpadded base class as the same cohort', async () => {
+			const t = await asEslAdmin();
+			await t.mutation(api.esl.cohorts.create, {
+				year: '2025-2026',
+				grade: 10,
+				classNumber: '05'
+			});
+
+			await expect(
+				t.mutation(api.esl.cohorts.create, {
+					year: '2025-2026',
+					grade: 10,
+					classNumber: '5'
+				})
+			).rejects.toThrow('already exists');
+		});
+
+		it('rejects a grade 10 base class beyond the name-format bound', async () => {
+			const t = await asEslAdmin();
+
+			await expect(
+				t.mutation(api.esl.cohorts.create, {
+					year: '2025-2026',
+					grade: 10,
+					classNumber: '100'
+				})
+			).rejects.toThrow('Class number must be 1-99');
+		});
+
+		it('rejects a level on a G10 cohort — grade 10 is not levelled', async () => {
+			const t = await asEslAdmin();
+
+			await expect(
+				t.mutation(api.esl.cohorts.create, {
+					year: '2025-2026',
+					grade: 10,
+					level: 'Advanced',
+					classNumber: '01'
+				})
+			).rejects.toThrow('Grade 10 has no levels');
+		});
+
+		it('rejects a grade 10 base class outside the name-format bound', async () => {
+			const t = await asEslAdmin();
+
+			await expect(
+				t.mutation(api.esl.cohorts.create, {
+					year: '2025-2026',
+					grade: 10,
+					classNumber: '100'
+				})
+			).rejects.toThrow('Class number must be 1-99');
+		});
+
+		it('rejects a G10 base class number on a levelled grade', async () => {
+			const t = await asEslAdmin();
+
+			await expect(
+				t.mutation(api.esl.cohorts.create, {
+					year: '2025-2026',
+					grade: 7,
+					level: 'Basic',
+					classNumber: '03'
+				})
+			).rejects.toThrow('Class number must be one of 1, 2');
+		});
+
+		it('rejects a missing level on a levelled grade', async () => {
+			const t = await asEslAdmin();
+
+			await expect(
+				t.mutation(api.esl.cohorts.create, {
+					year: '2025-2026',
+					grade: 9,
+					classNumber: '1'
+				})
+			).rejects.toThrow('Level must be one of');
+		});
+
+		it('keeps each G10 base class distinct within a year', async () => {
+			const t = await asEslAdmin();
+			await t.mutation(api.esl.cohorts.create, {
+				year: '2025-2026',
+				grade: 10,
+				classNumber: '01'
+			});
+
+			// A different base class is a different cohort, not a duplicate.
+			const second = await t.mutation(api.esl.cohorts.create, {
+				year: '2025-2026',
+				grade: 10,
+				classNumber: '02'
+			});
+			expect(second.cohortId).toBeDefined();
+
+			await expect(
+				t.mutation(api.esl.cohorts.create, {
+					year: '2025-2026',
+					grade: 10,
+					classNumber: '01'
+				})
+			).rejects.toThrow('already exists');
 		});
 
 		it('names the auto-composed classes after the cohort', async () => {
@@ -204,7 +371,7 @@ describe('esl cohorts', () => {
 			const g7Adv = await t.mutation(api.esl.cohorts.create, {
 				year: '2025-2026',
 				grade: 7,
-				level: 'Adv',
+				level: 'Advanced',
 				classNumber: '1'
 			});
 			const g7Basic = await createG7(t);

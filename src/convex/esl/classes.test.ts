@@ -121,7 +121,7 @@ describe('esl classes', () => {
 			const { cohortId, classIds } = await t.mutation(api.esl.cohorts.create, {
 				year: '2025-2026',
 				grade: 9,
-				level: 'Int',
+				level: 'Intermediate',
 				classNumber: '1'
 			});
 			await t.mutation(api.esl.students.create, { cohortId, ...ESL_ALICE });

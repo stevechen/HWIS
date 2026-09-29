@@ -10,7 +10,12 @@ interface TestUser {
 
 // Core infrastructure users that should not be deleted during test teardowns
 // because they are shared across parallel tests and have valid storageState.
-const PROTECTED_EMAILS = new Set(['teacher@hwis.test', 'admin@hwis.test', 'super@hwis.test']);
+const PROTECTED_EMAILS = new Set([
+	'teacher@hwis.test',
+	'admin@hwis.test',
+	'super@hwis.test',
+	'esladmin@hwis.test'
+]);
 
 export const setupTestUsers = mutation({
 	args: {
@@ -54,6 +59,11 @@ export const setupTestUsers = mutation({
 		const teacherUser = await findOrCreate('teacher@hwis.test', 'Test Teacher');
 		const adminUser = await findOrCreate('admin@hwis.test', 'Test Admin');
 		const superUser = await findOrCreate('super@hwis.test', 'Test Super Admin');
+		// The ESL department's own administrator. `/esl/admin` refuses anyone
+		// without `departmentRoles.esl`, and the only mutation that grants it
+		// requires an existing ESL admin — so the role has to be provisioned here,
+		// or no e2e test can reach the department's pages at all.
+		const eslAdminUser = await findOrCreate('esladmin@hwis.test', 'Test ESL Admin');
 
 		const existingTeacher = await ctx.db
 			.query('users')
@@ -103,9 +113,34 @@ export const setupTestUsers = mutation({
 			await ctx.db.patch(existingSuper._id, { role: 'super', status: 'active' });
 		}
 
+		const existingEslAdmin = await ctx.db
+			.query('users')
+			.withIndex('by_authId', (q) => q.eq('authId', eslAdminUser.id))
+			.first();
+
+		// `departmentRoles` is set on the patch as well as the insert, so a user who
+		// once held a different department role does not keep it: a stale grant
+		// would silently widen what a test can reach.
+		if (!existingEslAdmin) {
+			await ctx.db.insert('users', {
+				authId: eslAdminUser.id,
+				name: 'Test ESL Admin',
+				role: 'admin',
+				status: 'active',
+				departmentRoles: { esl: 'admin' }
+			});
+		} else {
+			await ctx.db.patch(existingEslAdmin._id, {
+				role: 'admin',
+				status: 'active',
+				departmentRoles: { esl: 'admin' }
+			});
+		}
+
 		const teacherSessionToken = `test_teacher_session_${Date.now()}`;
 		const adminSessionToken = `test_admin_session_${Date.now()}`;
 		const superSessionToken = `test_super_session_${Date.now()}`;
+		const eslAdminSessionToken = `test_esladmin_session_${Date.now()}`;
 		const expiresAt = new Date(now + 24 * 60 * 60 * 1000);
 
 		await adapter.deleteMany({
@@ -160,13 +195,33 @@ export const setupTestUsers = mutation({
 			}
 		});
 
+		await adapter.deleteMany({
+			model: 'session',
+			where: [{ field: 'userId', value: eslAdminUser.id }]
+		});
+
+		await adapter.create({
+			model: 'session',
+			data: {
+				userId: eslAdminUser.id,
+				token: eslAdminSessionToken,
+				ipAddress: '127.0.0.1',
+				userAgent: 'Playwright E2E',
+				expiresAt,
+				createdAt: new Date(now),
+				updatedAt: new Date(now)
+			}
+		});
+
 		return {
 			teacherUserId: teacherUser.id,
 			adminUserId: adminUser.id,
 			superUserId: superUser.id,
+			eslAdminUserId: eslAdminUser.id,
 			teacherSessionToken,
 			adminSessionToken,
 			superSessionToken,
+			eslAdminSessionToken,
 			expiresAt: expiresAt.getTime()
 		};
 	}

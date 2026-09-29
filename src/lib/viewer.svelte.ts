@@ -43,6 +43,9 @@ export function useViewer(): ViewerSession {
 		get isEslStaff() {
 			return settled.isEslStaff;
 		},
+		get isEslAdmin() {
+			return settled.isEslAdmin;
+		},
 		get isHybridStaff() {
 			return settled.isHybridStaff;
 		},

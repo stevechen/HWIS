@@ -1,0 +1,235 @@
+/**
+ * The roster import, driven by the real workbooks.
+ *
+ * The fixtures under `e2e/fixtures/` are the September workbooks with only the
+ * students replaced (see `scripts/build-esl-fixtures.mjs`), so this covers the
+ * shapes a hand-written fixture would have passed: per-grade column order, the
+ * bare `Pre-Ele` group, the malformed `G9 Elementary1`, the misfiled row, and the
+ * summary sheets.
+ *
+ * The counts asserted here are the ones measured from the real files, so a sheet
+ * dropped or double-counted fails in CI rather than in September.
+ */
+import { readFile } from 'node:fs/promises';
+import type { Page } from '@playwright/test';
+import { test, expect } from './fixtures';
+import { cleanupByTag, eslStudentCohorts } from './convex-client';
+import { getTestSuffix } from './helpers';
+
+const FIXTURES = 'e2e/fixtures';
+
+/** The school year the fixtures' IDs place them in. */
+const YEAR = '2026-2027';
+
+/**
+ * The one grade 8 student whose `ESL Group` disagrees with the sheet it sits in.
+ *
+ * `scripts/build-esl-fixtures.mjs` writes this row into the `G8 Inter 1` sheet with
+ * `G8 Intermediate 2` in its group column — a level change whose column was not
+ * updated, and the row the real September workbook actually contains. Measured
+ * from the fixture, not guessed: it is the only row in the file whose group names a
+ * cohort other than the sheet's own.
+ */
+const MISFILED_SCHOOL_ID = '1141242';
+
+/**
+ * Why the misfiled-row claim is asserted on grade 8 rather than grade 7.
+ *
+ * Grade 7's workbook carries the same defect — `G7 Basic 5` holds one `G7
+ * Elementary 4` row — but it also lists student `1150141` on two class sheets at
+ * once, so its plan is permanently blocked and there is no applied data to read
+ * back. That is a real property of the real file, covered by its own test below
+ * rather than worked around here. Grade 8 has the identical misfiled row and no
+ * duplicate, so the claim under test is observable.
+ */
+const MISFILED_GRADE = 8;
+
+// Every apply carries this tag, so the year it wrote can be removed afterwards
+// on the same pattern the other tables use. Without it a spec leaves ~420 students
+// and 20 cohorts behind, invisible to every other teardown scope.
+const e2eTag = `e2e-test_${getTestSuffix('esl')}`;
+
+async function openImportPage(page: Page, grade: number) {
+	await page.goto(`/esl/admin/import?e2eTag=${e2eTag}`);
+	await page.waitForSelector('body.hydrated');
+	await page.getByTestId('esl-import.grade').selectOption(String(grade));
+	await page.getByTestId('esl-import.year').fill(YEAR);
+}
+
+/** Hands the page a workbook, the way a drag-and-drop or a picker would. */
+async function uploadWorkbook(page: Page, grade: number, file = `roster-g${grade}.xlsx`) {
+	await page.getByTestId('esl-import.file').setInputFiles({
+		name: file,
+		mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+		buffer: await readFile(`${FIXTURES}/${file}`)
+	});
+}
+
+/** Applies the staged grade and waits for the year view to record it. */
+async function applyGrade(page: Page, grade: number) {
+	await page.getByTestId(`esl-import.apply.${grade}`).click();
+	await expect(page.getByTestId(`esl-import.status.g${grade}.state`)).toHaveText('Imported', {
+		timeout: 60_000
+	});
+}
+
+test.describe('ESL roster import @esl-import @sequential', () => {
+	test.use({ role: 'esladmin' });
+
+	// Removes whatever this run wrote: the tag reaches the import through the
+	// URL, so the cohorts, students and classes it created all carry it.
+	test.afterEach(async () => {
+		await cleanupByTag('esl', e2eTag);
+	});
+
+	test('imports a grade 9 workbook and applies its ESL Group column', async ({ page }) => {
+		await openImportPage(page, 9);
+		await uploadWorkbook(page, 9);
+
+		// 20 class sheets, 420 students, and the two summary sheets set aside.
+		const card = page.getByTestId('esl-import.card.g9');
+		await expect(card).toBeVisible({ timeout: 30_000 });
+		await expect(card.getByTestId('esl-import.card.file')).toHaveText('roster-g9.xlsx');
+		// One cohort per class, so every group in the file has a cohort of its own.
+		await expect(page.getByTestId('esl-import.plan.cohorts')).toContainText('20 cohort(s)');
+		// Reading the file wrote nothing: the grade is staged, not applied.
+		await expect(page.getByTestId('esl-import.status.g9.state')).toHaveText('Staged');
+
+		await applyGrade(page, 9);
+		await expect(page.getByTestId('esl-import.status.g9')).toContainText('new,');
+	});
+
+	test('re-uploading the same workbook changes nothing', async ({ page }) => {
+		// The property that makes it safe to run the import twice in September.
+		// The whole test is given room: applying a 420-student workbook is one
+		// transaction, and the first version of this test failed on the default 30s
+		// budget rather than on anything the app did.
+		test.setTimeout(180_000);
+
+		await openImportPage(page, 9);
+		await uploadWorkbook(page, 9);
+		await expect(page.getByTestId('esl-import.card.g9')).toBeVisible({ timeout: 60_000 });
+		await applyGrade(page, 9);
+
+		// Asserted present before clicking, so a missing control fails naming itself
+		// rather than as an opaque click timeout. The `g` prefix matches the other
+		// grade-keyed ids on this page (`status.g9`, `card.g9`).
+		const discard = page.getByTestId('esl-import.discard.g9');
+		await expect(discard).toBeVisible({ timeout: 30_000 });
+		await discard.click();
+
+		await uploadWorkbook(page, 9);
+		await expect(page.getByTestId('esl-import.card.g9')).toBeVisible({ timeout: 60_000 });
+
+		// Every student the file names is already enrolled exactly where the file
+		// puts them, so the plan is entirely unchanged: nothing new, moved or
+		// disabled.
+		await expect(page.getByTestId('esl-import.plan.total.New')).toHaveText('0');
+		await expect(page.getByTestId('esl-import.plan.total.Moved')).toHaveText('0');
+		await expect(page.getByTestId('esl-import.plan.total.Disabled')).toHaveText('0');
+
+		await applyGrade(page, 9);
+	});
+
+	test('files a misfiled student under the class their column names', async ({ page }) => {
+		// `G8 Inter 1` holds one student whose `ESL Group` reads `G8 Intermediate 2`:
+		// a level change whose column was not updated. Read strictly, that single row
+		// made the sheet look like a summary and its other 21 students were
+		// discarded.
+		//
+		// This test applies the whole file rather than only staging it, because the
+		// claim under test is only observable in the applied rows.
+		test.setTimeout(180_000);
+		await openImportPage(page, MISFILED_GRADE);
+		await uploadWorkbook(page, MISFILED_GRADE);
+
+		await expect(page.getByTestId('esl-import.card.g8')).toBeVisible({ timeout: 30_000 });
+		// 20 classes, so `G8 Inter 1` was read as a class rather than set aside.
+		await expect(page.getByTestId('esl-import.plan.cohorts')).toContainText('20 cohort(s)');
+		// And the disagreement is reported rather than applied silently.
+		await expect(page.getByTestId('esl-import.card.g8')).toContainText('G8 Intermediate 2');
+
+		// The row lands where its **column** says, not where its sheet says. The
+		// staging plan above only reports the disagreement; this reads the applied
+		// data back, which is the only place the importer's actual choice is visible.
+		await applyGrade(page, MISFILED_GRADE);
+		const placed = await eslStudentCohorts(YEAR, MISFILED_GRADE);
+
+		expect(placed[MISFILED_SCHOOL_ID]).toContain('Intermediate 2');
+		expect(placed[MISFILED_SCHOOL_ID]).not.toContain('Intermediate 1');
+		// And the sheet it was read from is still a whole class rather than trimmed
+		// to the rows that agreed — the data loss the majority rule prevents.
+		const inInter1 = Object.values(placed).filter((label) =>
+			label.includes('Intermediate 1')
+		).length;
+		expect(inInter1).toBeGreaterThan(1);
+	});
+
+	test('refuses to apply a workbook that lists one student on two class sheets', async ({
+		page
+	}) => {
+		// The real grade 7 workbook lists student `1150141` on both `G7 Elementary 2`
+		// and `G7 Pre-Elementary`. Applying it would enrol the student in one cohort
+		// and disable them in the other, so the plan blocks and names the ID — the
+		// admin fixes the workbook and re-uploads.
+		//
+		// This is a property of the September file itself, not of the fixture, so it
+		// is asserted rather than engineered away: if the department ever fixes the
+		// duplicate, this test fails and says the block is no longer needed.
+		await openImportPage(page, 7);
+		await uploadWorkbook(page, 7);
+
+		await expect(page.getByTestId('esl-import.card.g7')).toBeVisible({ timeout: 30_000 });
+		// The block is reported with the offending ID in it, not just a red panel.
+		const blocked = page.getByTestId('esl-import.plan.blocked');
+		await expect(blocked).toBeVisible();
+		await expect(blocked).toContainText('1151353');
+		// And the control that would cause the damage is disabled, not merely warned
+		// about.
+		await expect(page.getByTestId('esl-import.apply.7')).toBeDisabled();
+		// Nothing is applied, so there is no roster to read back.
+		await expect(page.getByTestId('esl-import.status.g7.state')).toHaveText('Staged');
+	});
+
+	test('refuses a workbook holding two school years, and says which', async ({ page }) => {
+		// A different failure from the one above, and the more dangerous of the two:
+		// here the page's year is *correct*, so there is nothing to prompt about and
+		// no year field to disagree with. The file itself names two years, and
+		// importing it would scatter the cohort irrecoverably — so the only thing
+		// standing between the admin and that is the refusal, which has to be
+		// visible and has to name both years to be actionable.
+		await openImportPage(page, 7);
+		await uploadWorkbook(page, 7, 'roster-g7-merged-years.xlsx');
+
+		const error = page.getByTestId('esl-import.error');
+		await expect(error).toBeVisible({ timeout: 30_000 });
+		await expect(error).toContainText('2025-2026');
+		await expect(error).toContainText('2026-2027');
+		// And the fix, not just the diagnosis.
+		await expect(error).toContainText('two files, one per year');
+
+		// Nothing is staged and nothing is applied: a refusal that left a draft
+		// behind would be importable by the next click.
+		await expect(page.getByTestId('esl-import.status.g7.state')).toHaveText('Not yet provided');
+		// And the year field is untouched, because there was no year to change.
+		await expect(page.getByTestId('esl-import.year')).toHaveValue(YEAR);
+	});
+
+	test('reports a workbook that belongs to another year rather than importing it', async ({
+		page
+	}) => {
+		// The IDs in the file say one year and the page says another; importing
+		// anyway would match the roster against the wrong year, silently.
+		await openImportPage(page, 9);
+		await page.getByTestId('esl-import.year').fill('2025-2026');
+		await uploadWorkbook(page, 9);
+
+		const prompt = page.getByTestId('esl-import.yearPrompt');
+		await expect(prompt).toBeVisible();
+		// Both years are named, so the admin can see which way round the mismatch is.
+		await expect(prompt).toContainText('2026-2027');
+		await expect(prompt).toContainText('2025-2026');
+		// And nothing is staged until they answer.
+		await expect(page.getByTestId('esl-import.status.g9.state')).toHaveText('Not yet provided');
+	});
+});

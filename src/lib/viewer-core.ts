@@ -1,5 +1,6 @@
 import {
 	hasApplicationAccess,
+	isEslAdmin,
 	isEslStaff,
 	isHybridStaff,
 	isInternationalStaff,
@@ -40,6 +41,7 @@ export type ViewerSession = {
 	isEnrolled: boolean;
 	isInternationalStaff: boolean;
 	isEslStaff: boolean;
+	isEslAdmin: boolean;
 	isHybridStaff: boolean;
 	isApproved: boolean;
 	needsProfileCreation: boolean;
@@ -106,6 +108,7 @@ export function settleViewer(auth: AuthInput, profile: ProfileInput): ViewerSess
 		// `{ international: role }`.
 		isInternationalStaff: user !== null && isInternationalStaff(user),
 		isEslStaff: user !== null && isEslStaff(user),
+		isEslAdmin: user !== null && isEslAdmin(user),
 		isHybridStaff: user !== null && isHybridStaff(user),
 		isApproved: user !== null && hasApplicationAccess(user),
 		needsProfileCreation:
