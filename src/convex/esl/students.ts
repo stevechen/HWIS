@@ -3,16 +3,27 @@ import { v } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
 import { requireEslAdmin, requireEslStaff } from '../auth';
 import {
+	chineseClassCode,
 	cohortEnrollmentBlocker,
 	compareEslStudents,
 	isValidSchoolStudentId,
+	parseChineseClass,
 	statusTransitionBlocker
 } from '../shared/esl';
 
+/**
+ * The fields a person types when enrolling or editing a student by hand.
+ *
+ * `chineseClass` is the full homeroom name as the school writes it (`J101`), not
+ * the bare number that is stored: an admin typing into a form has no reason to
+ * know the storage splits the code in two, and the value is checked against the
+ * cohort's grade on the way in so a `J201` cannot be filed on a grade 7 student.
+ */
 const studentArgs = {
 	englishName: v.string(),
 	chineseName: v.string(),
-	schoolStudentId: v.string()
+	schoolStudentId: v.string(),
+	chineseClass: v.string()
 };
 
 /** Rejects roster rows that would make the roster unusable. */
@@ -20,12 +31,32 @@ function assertValidStudent(args: {
 	englishName: string;
 	chineseName: string;
 	schoolStudentId: string;
+	chineseClass: string;
 }): void {
 	if (!args.englishName.trim()) throw new Error('English name is required');
 	if (!args.chineseName.trim()) throw new Error('Chinese name is required');
 	if (!isValidSchoolStudentId(args.schoolStudentId)) {
 		throw new Error('School student ID must be a 6- or 7-digit number');
 	}
+	if (args.chineseClass.trim() === '') {
+		throw new Error('Chinese class is required — the Communication Slip prints it');
+	}
+}
+
+/**
+ * The stored class number for a hand-typed homeroom, checked against the grade.
+ *
+ * Same rule the workbook import applies, so a value that would be refused from a
+ * file is refused from a form too rather than admitted by the back door.
+ */
+function storedChineseClass(raw: string, grade: number): string {
+	const parsed = parseChineseClass(raw, grade);
+	if ('error' in parsed) {
+		throw new Error(
+			`"${raw.trim()}" is not a grade ${grade} Chinese class. It should read like ${chineseClassCode(grade, '01')}.`
+		);
+	}
+	return parsed.classNumber;
 }
 
 /**
@@ -115,7 +146,7 @@ export const create = mutation({
 
 		const duplicate = await findEnrolled(ctx, args.cohortId, args.schoolStudentId);
 		if (duplicate) {
-			throw new Error(`Student ${args.schoolStudentId} is already enrolled in this cohort`);
+			throw new Error(`Student ${args.schoolStudentId} is already enrolled in this class`);
 		}
 
 		return await ctx.db.insert('esl_students', {
@@ -123,6 +154,7 @@ export const create = mutation({
 			englishName: args.englishName.trim(),
 			chineseName: args.chineseName.trim(),
 			schoolStudentId: args.schoolStudentId,
+			chineseClass: storedChineseClass(args.chineseClass, cohort.grade),
 			status: 'active',
 			enrolledAt: Date.now()
 		});
@@ -165,8 +197,12 @@ export const bulkImport = mutation({
 		const seen = new Set(existing.map((student) => student.schoolStudentId));
 
 		const rejected: Array<{ index: number; schoolStudentId: string; reason: string }> = [];
-		const accepted: Array<{ englishName: string; chineseName: string; schoolStudentId: string }> =
-			[];
+		const accepted: Array<{
+			englishName: string;
+			chineseName: string;
+			schoolStudentId: string;
+			chineseClass: string;
+		}> = [];
 
 		args.students.forEach((student, index) => {
 			try {
@@ -188,11 +224,23 @@ export const bulkImport = mutation({
 				return;
 			}
 			seen.add(student.schoolStudentId);
-			accepted.push({
-				englishName: student.englishName.trim(),
-				chineseName: student.chineseName.trim(),
-				schoolStudentId: student.schoolStudentId
-			});
+			try {
+				accepted.push({
+					englishName: student.englishName.trim(),
+					chineseName: student.chineseName.trim(),
+					schoolStudentId: student.schoolStudentId,
+					chineseClass: storedChineseClass(student.chineseClass, cohort.grade)
+				});
+			} catch (error) {
+				// The homeroom is checked against the cohort's grade separately from the
+				// field validations above, so a mistyped `J201` on a grade 7 row is
+				// rejected as this row rather than failing the whole batch.
+				rejected.push({
+					index,
+					schoolStudentId: student.schoolStudentId,
+					reason: error instanceof Error ? error.message : 'Invalid Chinese class'
+				});
+			}
 		});
 
 		const now = Date.now();
@@ -204,6 +252,7 @@ export const bulkImport = mutation({
 					englishName: student.englishName,
 					chineseName: student.chineseName,
 					schoolStudentId: student.schoolStudentId,
+					chineseClass: student.chineseClass,
 					status: 'active',
 					enrolledAt: now
 				})
@@ -250,7 +299,7 @@ export const updateStatus = mutation({
 	}
 });
 
-/** Correct a student's name or school ID. cost: 1 point read + 1 patch. */
+/** Correct a student's name, school ID, or homeroom. cost: 1 point read + 1 patch. */
 export const update = mutation({
 	args: {
 		id: v.id('esl_students'),
@@ -263,10 +312,18 @@ export const update = mutation({
 		const student = await ctx.db.get(args.id);
 		if (!student) throw new Error('Student not found');
 
+		// Read through the student's own cohort rather than accepting the homeroom
+		// as typed: the grade is what decides whether `J201` is a valid class here,
+		// and a form cannot know it. An advancement-created row with no homeroom is
+		// given one here, which is the first point a value is known for it.
+		const cohort = await ctx.db.get(student.cohortId);
+		if (!cohort) throw new Error("Student's cohort not found");
+
 		await ctx.db.patch(args.id, {
 			englishName: args.englishName.trim(),
 			chineseName: args.chineseName.trim(),
-			schoolStudentId: args.schoolStudentId
+			schoolStudentId: args.schoolStudentId,
+			chineseClass: storedChineseClass(args.chineseClass, cohort.grade)
 		});
 
 		return { success: true, studentId: args.id };

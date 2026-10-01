@@ -124,7 +124,7 @@ describe('esl classes', () => {
 				level: 'Intermediate',
 				classNumber: '1'
 			});
-			await t.mutation(api.esl.students.create, { cohortId, ...ESL_ALICE });
+			await t.mutation(api.esl.students.create, { cohortId, ...ESL_ALICE, chineseClass: 'J301' });
 
 			const roster = await t.query(api.esl.classes.getRoster, { classId: classIds[0] });
 

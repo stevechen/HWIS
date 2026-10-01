@@ -131,13 +131,17 @@ export async function seedEslStaff(
 export const ESL_ALICE = {
 	englishName: 'Alice Chan',
 	chineseName: '陳小美',
-	schoolStudentId: '7001001'
+	schoolStudentId: '7001001',
+	// The homeroom, as the school writes it — required by every write that knows
+	// one, and stored as the bare number (ADR-0025).
+	chineseClass: 'J101'
 };
 
 export const ESL_BOB = {
 	englishName: 'Bob Lee',
 	chineseName: '李大文',
-	schoolStudentId: '8123456'
+	schoolStudentId: '8123456',
+	chineseClass: 'J101'
 };
 
 export function convexTest(schema: ConvexTestSchema, modules: ConvexTestModules) {

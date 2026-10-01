@@ -4,12 +4,11 @@
 	import type { Id } from '$convex/_generated/dataModel';
 	import {
 		cohortOfGroup,
-		isGrade10Group,
 		planRosterImport,
 		rosterGroupText,
 		type RequestedCohort
 	} from '$convex/shared/esl_import';
-	import { cohortLabel } from '$convex/shared/esl';
+	import { chineseClassCode, cohortLabel } from '$convex/shared/esl';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { AlertTriangle, Check } from '@lucide/svelte';
@@ -102,21 +101,22 @@
 		// A plain list rather than a Map: a file asks for about 20 cohorts, and
 		// the accumulator is local to this derivation, so there is nothing to
 		// gain from a reactive collection here.
-		const rows: { key: string; section: string; count: number }[] = [];
+		const rows: { key: string; count: number }[] = [];
 		for (const student of draft.students) {
 			const request = cohortOfGroup(student.group);
-			const cohortKey = `${request.grade}:${request.level ?? ''}:${request.classNumber}`;
-			const section = isGrade10Group(student.group) ? student.group.section : undefined;
-			const key = `${cohortKey}:${section ?? ''}`;
+			// The cohort key already carries the grade 10 level, so `H101A` and
+			// `H101B` are two rows here: they are two cohorts with two rosters,
+			// not one cohort's two sections (ADR-0023).
+			const key = `${request.grade}:${request.level ?? ''}:${request.classNumber}`;
 			const existing = rows.find((row) => row.key === key);
 			if (existing === undefined) {
-				rows.push({ key, section: section ?? '', count: 1 });
+				rows.push({ key, count: 1 });
 				continue;
 			}
 			existing.count += 1;
 		}
-		// Sorted by cohort, then A before B, so the list reads in the order the
-		// school names them rather than the order the sheets happened to arrive in.
+		// Sorted by key, so the list reads in the order the school names them
+		// rather than the order the sheets happened to arrive in.
 		return rows.sort((a, b) => a.key.localeCompare(b.key));
 	});
 
@@ -151,16 +151,18 @@
 	 * which is what it re-reads rather than trusting.
 	 *
 	 * The `ESL Group` cell is rebuilt in the canonical spelling the workbook uses.
-	 * A misfiled row is filed by its column, so a student whose group text disagrees
-	 * with the sheet it sits in is sent with that row's own group — which is the
-	 * point of reading the column rather than the sheet name.
+	 * The `C Class` cell is sent back in the form the school writes it, rebuilt
+	 * through the same shared helper the reader used — so the server re-derives the
+	 * number from the cell it would have seen, rather than from a value the browser
+	 * chose to send (ADR-0022, ADR-0025).
 	 */
 	function rowsToSend() {
 		return draft.students.map((student) => ({
 			schoolStudentId: student.schoolStudentId,
 			chineseName: student.chineseName,
 			...(student.englishName === undefined ? {} : { englishName: student.englishName }),
-			group: rosterGroupText(student.group)
+			group: rosterGroupText(student.group),
+			chineseClass: chineseClassCode(draft.grade, student.chineseClass)
 		}));
 	}
 
@@ -194,6 +196,7 @@
 				added: result.added,
 				moved: result.moved,
 				renamed: result.renamed,
+				rehomed: result.rehomed,
 				disabled: result.disabled,
 				declinedRenames: result.declinedRenames
 			});
@@ -296,7 +299,7 @@
 				{#each classesByCohort as entry (entry.key)}
 					<li data-testid="esl-import.plan.cohort.{entry.key}">
 						<span class="font-medium">
-							{cohortLabelOf(entry.key)}{entry.section}
+							{cohortLabelOf(entry.key)}
 						</span>
 						— {entry.count} students
 					</li>

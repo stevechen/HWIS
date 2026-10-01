@@ -12,12 +12,25 @@
  */
 
 import {
+	chineseClassCode,
 	grade10BaseClass,
 	grade10ClassName,
 	isValidSchoolStudentId,
 	normalizeEslLevel,
+	parseChineseClass,
+	type ChineseClassReadError,
 	type EslLevel
 } from './esl';
+
+/**
+ * Re-exported so the import surface stays one module.
+ *
+ * `esl_import` is the vocabulary the import mutation and the browser both speak
+ * (ADR-0022), and the homeroom rules belong to that vocabulary rather than to a
+ * caller that happens to know which file they live in.
+ */
+export { chineseClassCode, parseChineseClass } from './esl';
+export type { ChineseClassReadError } from './esl';
 
 /**
  * A school student ID as read from a workbook cell.
@@ -449,7 +462,8 @@ const COLUMN_ALIASES = {
 	schoolStudentId: ['student id', 'std id#', 'std id', 'id', 'studentid', '學號', '学号'],
 	chineseName: ['chinese name', 'name', '中文姓名', '中文姓名'],
 	englishName: ['english name', '英文姓名'],
-	group: ['esl group', 'eslgroup', 'group', 'esl 組別']
+	group: ['esl group', 'eslgroup', 'group', 'esl 組別'],
+	chineseClass: ['c class', 'class', 'cclass']
 } as const;
 
 type RosterColumn = keyof typeof COLUMN_ALIASES;
@@ -476,7 +490,8 @@ export function detectColumns(headerRow: readonly string[]): SheetColumns {
 		schoolStudentId: null,
 		chineseName: null,
 		englishName: null,
-		group: null
+		group: null,
+		chineseClass: null
 	};
 
 	headerRow.forEach((header, index) => {
@@ -499,7 +514,12 @@ export function detectColumns(headerRow: readonly string[]): SheetColumns {
 
 /** Whether a sheet carries enough columns to be read as a class sheet at all. */
 export function isReadableRosterSheet(columns: SheetColumns): boolean {
-	return columns.schoolStudentId !== null && columns.group !== null;
+	if (columns.schoolStudentId === null || columns.group === null) return false;
+	// The Chinese-class column is required, so a sheet without one is not readable
+	// as a roster — the rows would be rejected one by one for the same missing
+	// column, burying the real problem under 400 identical messages. Reported once
+	// per sheet instead (ADR-0025).
+	return columns.chineseClass !== null;
 }
 
 /** One student row, already normalised, with the group resolved to a cohort key. */
@@ -508,8 +528,38 @@ export type RosterStudent = {
 	chineseName: string;
 	/** Absent when the file has no English name yet — students may arrive without one. */
 	englishName?: string;
+	/**
+	 * The Chinese homeroom's two-digit class number, e.g. `01` in a grade 7 cohort.
+	 *
+	 * Read out of the workbook's `C Class` / `Class` column and required: the
+	 * Communication Slip prints the homeroom so a teacher can reach the right
+	 * homeroom teacher, and a student with no homeroom cannot be given one
+	 * (ADR-0025). The `J1`/`J2`/`J3`/`H1` marker is not stored — it is derived
+	 * from the cohort's grade by `chineseClassCode`.
+	 */
+	chineseClass: string;
 	group: ParsedRosterGroup;
 };
+
+/**
+ * What to tell the admin about a `C Class` cell that could not be read.
+ *
+ * Phrased as the cell's actual contents beside the form the school uses, for the
+ * same reason `describeUnreadableId` is: the admin's job is to fix the cell in
+ * Excel, so the message has to say what is in it and what belongs there.
+ */
+export function describeUnreadableChineseClass(
+	error: ChineseClassReadError,
+	grade: number
+): string {
+	if (error === 'empty') {
+		return `The Chinese class cell is empty. It should hold the student's homeroom, e.g. "${chineseClassCode(grade, '01')}".`;
+	}
+	if (error === 'shape') {
+		return `The Chinese class cell is not in the school's form. It should read a grade marker and a two-digit class number, e.g. "${chineseClassCode(grade, '01')}".`;
+	}
+	return `The Chinese class starts "${error.found}", which is not a grade ${grade} homeroom — this is a grade ${grade} file, so it should read like "${chineseClassCode(grade, '01')}".`;
+}
 
 /**
  * What to tell the admin about a student ID cell that could not be read.
@@ -555,10 +605,11 @@ export type ParsedRosterSheet = {
 /**
  * Read one sheet's rows into students, resolving each row's group.
  *
- * The `ESL Group` column is the class of record, not the sheet name: sheet names
- * are abbreviated and do not round-trip (`G9 Adv 1` holds `G9 Advanced 1`), and
- * exactly one row in each grade workbook is filed under a group that disagrees
- * with the sheet it sits in. Reading the column files those correctly.
+ * The `ESL Group` column is read, not the sheet name: sheet names are abbreviated
+ * and do not round-trip (`G9 Adv 1` holds `G9 Advanced 1`). A row whose group
+ * disagrees with the rest of its sheet is read here and refused by `classifySheet`
+ * rather than adjudicated here, because there is no basis for choosing which of two
+ * disagreeing columns is right (ADR-0025).
  *
  * `rowOffset` is the 1-based number of the first data row in the sheet, so
  * rejections point at the line the admin sees in Excel.
@@ -646,6 +697,20 @@ export function parseRosterSheet(
 			return;
 		}
 
+		// The Chinese class is read last, so a row that is already unreadable for a
+		// stronger reason — an unusable ID, no group — reports that reason alone
+		// rather than three at once for one cell.
+		const rawChineseClass = cell(row, columns.chineseClass);
+		const chineseClass = parseChineseClass(rawChineseClass, grade);
+		if ('error' in chineseClass) {
+			rejected.push({
+				rowNumber,
+				reason: describeUnreadableChineseClass(chineseClass.error, grade),
+				raw: row
+			});
+			return;
+		}
+
 		// A blank English name is legitimate — G7 may arrive before teachers fill
 		// them in — so it is left absent rather than stored as an empty string.
 		const englishName = cell(row, columns.englishName);
@@ -653,6 +718,7 @@ export function parseRosterSheet(
 			schoolStudentId,
 			chineseName,
 			...(englishName === '' ? {} : { englishName }),
+			chineseClass: chineseClass.classNumber,
 			group: parsed
 		});
 	});
@@ -671,7 +737,19 @@ export type ClassifiedSheet =
 			reason?: string;
 	  }
 	| { kind: 'summary'; sheetName: string; reason: string; columns: SheetColumns }
-	| { kind: 'unreadable'; sheetName: string; reason: string };
+	| { kind: 'unreadable'; sheetName: string; reason: string }
+	| {
+			/**
+			 * A class sheet that disagrees with itself — a row filed under another
+			 * class, or a grade 10 homeroom that is not its cohort's. Refused whole:
+			 * the file is not applied until the workbook is fixed (ADR-0025).
+			 */
+			kind: 'misfiled';
+			sheetName: string;
+			reason: string;
+			columns: SheetColumns;
+			parsed: ParsedRosterSheet;
+	  };
 
 /** A group's identity after parsing, so spelling drift does not split one class. */
 function groupKey(group: ParsedRosterGroup): string {
@@ -706,10 +784,71 @@ function classKeyOf(group: ParsedRosterGroup): string {
  * A half is enough to tell the two apart without a maintained list of sheet names: a
  * class sheet is one class by a wide margin, while a summary sheet that restates the
  * grade has no majority at all — the largest group in the grade 10 `Chinese Class`
- * sheet is 52 of 495, about a tenth. The misfiled row is then filed by its column,
- * which is the class of record, and reported.
+ * sheet is 52 of 495, about a tenth.
+ *
+ * A sheet that clears this bar is still refused if it disagrees with itself, which is
+ * what the misfiled-row check below is for (ADR-0025).
  */
 const MAJORITY_CLASS_SHARE = 0.5;
+
+/**
+ * The class a sheet's rows mostly name, spelled the way the workbook spells it.
+ *
+ * Read back out of the sheet's own `ESL Group` cells rather than composed from the
+ * cohort key, so the message quotes the file back to the admin verbatim — the same
+ * principle as `describeUnreadableId`, and the reason a sheet whose name is
+ * abbreviated (`G8 Inter 1`) still reports the full form the column holds.
+ */
+function describeLeadingClass(parsed: ParsedRosterSheet, leadingClass: string): string | null {
+	const written = parsed.groups.find((raw) => {
+		const group = parseRosterGroup(raw);
+		return group !== null && classKeyOf(group) === leadingClass;
+	});
+	// Null rather than a guess: a sheet always has such a cell by this point, since
+	// `leadingClass` came from one of them. If it somehow does not, the odd groups
+	// alone still name what to fix.
+	return written ?? null;
+}
+
+/**
+ * Why a grade 10 sheet's homerooms disagree with its own cohort, or null when
+ * they agree.
+ *
+ * Grade 10's cohorts are keyed by Chinese class, so a sheet's `Class` column and
+ * the base class in its `ESL Group` column are the same fact stated twice
+ * (ADR-0023). Levelled grades are deliberately mixed across homerooms, so there
+ * is nothing to check them against and they are left alone.
+ *
+ * Every homeroom in the sheet must match, not just the majority: one student in
+ * the wrong homeroom is the same silent error as one in the wrong ability band.
+ */
+function describeChineseClassMismatch(
+	parsed: ParsedRosterSheet,
+	grade: number,
+	leadingClass: string
+): string | null {
+	if (grade !== 10) return null;
+	// `classKeyOf` keys grade 10 as `10:<baseClass>` with the base class unpadded,
+	// so it is read from index 1 and normalised through the shared padding helper
+	// before being compared to a stored two-digit class number.
+	const rawNumber = leadingClass.split(':')[1];
+	if (rawNumber === undefined) return null;
+	const cohortNumber = grade10BaseClass(rawNumber);
+
+	const wrong = [
+		...new Set(
+			parsed.students
+				.filter((student) => student.chineseClass !== cohortNumber)
+				.map(
+					(student) =>
+						`${student.schoolStudentId} (${chineseClassCode(grade, student.chineseClass)})`
+				)
+		)
+	];
+	if (wrong.length === 0) return null;
+
+	return `A grade 10 class draws students from exactly one Chinese class, but this sheet's class is ${chineseClassCode(grade, cohortNumber)} while ${wrong.join(', ')} name a different one. Fix the Class cell in the workbook, or the ESL Group cell if that is the wrong one — the file is not applied until they agree.`;
+}
 
 /**
  * Decide whether a sheet is one class or a whole-grade summary.
@@ -737,7 +876,10 @@ export function classifySheet(
 		return {
 			kind: 'unreadable',
 			sheetName,
-			reason: 'No student ID or ESL group column was found in the header row.'
+			reason:
+				columns.schoolStudentId === null || columns.group === null
+					? 'No student ID or ESL group column was found in the header row.'
+					: 'No Chinese class column was found in the header row. It should be headed "C Class" or "Class", holding each student\'s homeroom such as J101.'
 		};
 	}
 
@@ -783,11 +925,12 @@ export function classifySheet(
 		};
 	}
 
-	// Rows naming a class other than the sheet's leading one are misfiled: a student
-	// whose `ESL Group` disagrees with the sheet they sit in, which happens when a
-	// student changes level and the column is not updated. The column is the class
-	// of record, so the student is filed under the class their column names, and the
-	// disagreement is reported so the workbook can be fixed at source.
+	// Rows naming a class other than the sheet's leading one are misfiled: a row
+	// whose `ESL Group` disagrees with the class the rest of its sheet holds. The
+	// department has confirmed these are typos they will fix, and a wrong ability
+	// band is silent — every count still adds up and the roster is quietly wrong —
+	// so the file is refused rather than filed by whichever column looks right
+	// (ADR-0025).
 	//
 	// A mere misspelling — `G9 Elementary1` beside `G9 Elementary 1` — is not
 	// reported here: both parse to the same class, so the sheet is simply that class
@@ -802,10 +945,37 @@ export function classifySheet(
 	];
 
 	if (misfiled.length > 0) {
+		// Refused, not warned about. A wrong ability band is silent — every count
+		// still adds up and the roster is quietly wrong — so the department
+		// confirmed these are typos they will fix, and the fix belongs in the
+		// workbook rather than in a rule that guesses which column is right
+		// (ADR-0025).
+		//
+		// The message names both sides of the disagreement, because the admin's job
+		// is to find one cell: the class the sheet otherwise holds, and the value
+		// sitting in the column that contradicts it.
+		//
+		// The majority test above is what keeps this from swallowing class sheets:
+		// a sheet is only judged once one class already accounts for its rows.
 		return {
-			kind: 'class',
+			kind: 'misfiled',
 			sheetName,
-			reason: `${misfiled.join(', ')} filed by its own ESL Group column rather than by the sheet it sits in, which is the class of record.`,
+			reason: `This sheet's ESL Group column holds ${misfiled.join(' and ')} beside ${describeLeadingClass(parsed, leadingClass) ?? sheetName}. Fix the ESL Group cell on the odd row${misfiled.length === 1 ? '' : 's'} in the workbook and import again — the file is not applied until the sheet agrees with itself.`,
+			columns,
+			parsed
+		};
+	}
+
+	// A grade 10 cohort is one Chinese class by construction (ADR-0023), so the
+	// homeroom the file states and the cohort its group names are the same fact
+	// said twice. A disagreement means one is a typo, and there is no basis for
+	// choosing which — refused for the same reason as the misfiled rows above.
+	const chineseClassMismatch = describeChineseClassMismatch(parsed, grade, leadingClass);
+	if (chineseClassMismatch !== null) {
+		return {
+			kind: 'misfiled',
+			sheetName,
+			reason: chineseClassMismatch,
 			columns,
 			parsed
 		};
@@ -905,6 +1075,12 @@ export type ExistingStudent = {
 	schoolStudentId: string;
 	chineseName: string;
 	englishName?: string;
+	/**
+	 * Absent only on a row created by a year advance, whose next homeroom is not
+	 * yet known — so a diff against it is never reported, since there is nothing
+	 * on file to have changed from (ADR-0025).
+	 */
+	chineseClass?: string;
 	status: 'active' | 'disabled';
 };
 
@@ -948,9 +1124,17 @@ export function rosterGroupText(group: ParsedRosterGroup): string {
  * taught by two classes.
  */
 export function cohortOfGroup(group: ParsedRosterGroup): RequestedCohort {
-	return isGrade10Group(group)
+	if (!isGrade10Group(group)) {
+		return { grade: group.grade, level: group.level, classNumber: group.classNumber };
+	}
+	// Grade 10's cohort is one Chinese class at one ability level, so the level
+	// letter is part of its identity: `H101A` and `H101B` are two cohorts with two
+	// rosters, not one cohort with two classes (ADR-0023). Keying on the base class
+	// alone is what merged the two levels together.
+	const { section } = group;
+	return section === undefined
 		? { grade: 10, classNumber: grade10BaseClass(group.baseClass) }
-		: { grade: group.grade, level: group.level, classNumber: group.classNumber };
+		: { grade: 10, level: section, classNumber: grade10BaseClass(group.baseClass) };
 }
 
 /**
@@ -977,6 +1161,23 @@ export type PlannedStudentChange =
 			kind: 'nameChange';
 			schoolStudentId: string;
 			studentId: string;
+			from: string;
+			to: string;
+	  }
+	| {
+			/**
+			 * A student who moved Chinese homeroom mid-year.
+			 *
+			 * Reported rather than folded into `unchanged`, because the import
+			 * summary is the only place the department learns a transfer happened —
+			 * and unlike a name change it needs no approval, since a homeroom that
+			 * differs from the one on file is simply the truth arriving late
+			 * (ADR-0025).
+			 */
+			kind: 'classChange';
+			schoolStudentId: string;
+			studentId: string;
+			grade: number;
 			from: string;
 			to: string;
 	  }
@@ -1013,6 +1214,7 @@ export type ImportPlan = {
 		new: number;
 		levelChange: number;
 		nameChange: number;
+		classChange: number;
 		disabled: number;
 		unchanged: number;
 	};
@@ -1142,6 +1344,23 @@ export function planRosterImport(
 				to: incoming
 			});
 		}
+		// A homeroom change is reported independently of a group change, on the same
+		// terms as a name change: a student who moved Chinese class and moved ESL
+		// level is two separate facts.
+		//
+		// Skipped when the stored row has no homeroom, which happens only on a
+		// year-advance row: there is nothing on file to have changed from, and the
+		// file simply fills it in.
+		if (existing.chineseClass !== undefined && student.chineseClass !== existing.chineseClass) {
+			changes.push({
+				kind: 'classChange',
+				schoolStudentId: id,
+				studentId: existing.id,
+				grade: cohortShapeOf(existing.cohortId, existingCohorts).grade,
+				from: existing.chineseClass,
+				to: student.chineseClass
+			});
+		}
 	}
 
 	// Anyone in this year's cohorts but absent from the file is disabled, unless
@@ -1160,7 +1379,14 @@ export function planRosterImport(
 		}
 	}
 
-	const totals = { new: 0, levelChange: 0, nameChange: 0, disabled: 0, unchanged: 0 };
+	const totals = {
+		new: 0,
+		levelChange: 0,
+		nameChange: 0,
+		classChange: 0,
+		disabled: 0,
+		unchanged: 0
+	};
 	for (const change of changes) totals[change.kind] += 1;
 
 	const grade = requested[0]?.grade;

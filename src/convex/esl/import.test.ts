@@ -305,12 +305,15 @@ async function asAdmin(authId = 'esl-admin') {
 function row(
 	schoolStudentId: string,
 	group: string,
-	over: { chineseName?: string; englishName?: string } = {}
+	over: { chineseName?: string; englishName?: string; chineseClass?: string } = {}
 ) {
 	return {
 		schoolStudentId,
 		chineseName: over.chineseName ?? '王芃頵',
 		...(over.englishName === undefined ? {} : { englishName: over.englishName }),
+		// The `C Class` cell, sent as the school writes it. Grade 9 here, so
+		// `J301` — stored as the number `01` (ADR-0025).
+		chineseClass: over.chineseClass ?? 'J301',
 		group
 	};
 }
@@ -338,6 +341,7 @@ async function enrol(
 	return t.mutation(api.esl.students.create, {
 		cohortId,
 		schoolStudentId,
+		chineseClass: 'J301',
 		chineseName: '王芃頵',
 		englishName
 	});
@@ -625,17 +629,33 @@ describe('what it refuses', () => {
 		// confirmed year against. The admin year is the only statement available,
 		// and the rows are applied into exactly that year.
 		const t = await asAdmin();
-		const result = await applyRoster(t, [row('511024', 'H101A'), row('512024', 'H101B')], {
-			grade: 10,
-			year: YEAR
-		});
+		const result = await applyRoster(
+			t,
+			[
+				// Grade 10's homerooms are `H1nn`, and a G10 class draws from exactly
+				// one of them — so both sections of H101 say `H101`.
+				row('511024', 'H101A', { chineseClass: 'H101' }),
+				row('512024', 'H101B', { chineseClass: 'H101' })
+			],
+			{
+				grade: 10,
+				year: YEAR
+			}
+		);
 
 		expect(result.added).toBe(2);
-		// One cohort, because both sections name the same base class.
+		// Two cohorts, one per level: A and B are ability bands holding different
+		// students, so they do not share a roster (ADR-0023). This was one cohort,
+		// which merged the two bands while the counts still added up.
 		const cohorts = await t.query(api.esl.cohorts.list, { year: YEAR, grade: 10 });
-		expect(cohorts).toHaveLength(1);
-		expect(cohorts[0].classNumber).toBe('01');
-		expect(cohorts[0].level).toBeUndefined();
+		expect(cohorts).toHaveLength(2);
+		expect(cohorts.map((c: { classNumber: string }) => c.classNumber)).toEqual(['01', '01']);
+		expect(cohorts.map((c: { level?: string }) => c.level).sort()).toEqual(['A', 'B']);
+		// And each is taught by its own single class.
+		for (const cohort of cohorts) {
+			const classes = await t.query(api.esl.classes.listByCohort, { cohortId: cohort._id });
+			expect(classes, `${cohort.level} should have one class`).toHaveLength(1);
+		}
 	});
 
 	it('refuses a school year that is not a year', async () => {

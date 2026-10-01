@@ -62,20 +62,25 @@ Six measured facts drive the decision:
 5. **Exactly one row in each of the two levelled workbooks that have one is
    misfiled** — a row whose `ESL Group` names a different class from the
    sheet it sits in. Measured across the 2026-27 files there are **two** such
-   rows: `G7 Basic 5` holds a `G7 Elementary 4` (a student moved down a level and
-   the column was not updated), and `G8 Inter 1` holds a `G8 Intermediate 2` (the
-   same kind of level change). Both are filed by their **column**, which is the
-   class of record — the sheet only identifies which sheet it is.
+   rows: `G7 Basic 5` holds a `G7 Elementary 4`, and `G8 Inter 1` holds a
+   `G8 Intermediate 2`. Both were filed by their **column**, which was the
+   class of record, with the disagreement reported.
+   **Superseded by [ADR-0025](0025-record-the-chinese-class-per-esl-student.md)**:
+   the file is now **refused** rather than imported with a warning. The department
+   confirmed both are typos they will fix, and a wrong ability band is silent —
+   every count still adds up and the roster is quietly wrong — so there is no
+   longer any rule choosing which of two disagreeing columns is right.
 
    Grade 9 and grade 10 have none. G9's malformed `G9 Elementary1` is a
    _typo_, not a misfiling: it parses to the same class as `G9 Elementary 1`, so
    the sheet is simply that class and every row in it is already filed correctly.
    G10 is unlevelled, so its groups name base classes rather than levels and the
-   question does not arise.
+   question does not arise — though ADR-0025 adds a separate G10 check between the
+   `Class` column and the `H1nn` cohort, which are the same fact stated twice.
 
-   The fixture unit tests assert these counts by flagging sheets that carry the
-   "class of record" reason; G9 and G10 are absent from that list for the reasons
-   above, which is the check that this paragraph is still true.
+   The fixture unit tests assert these counts by finding the sheets classified
+   `misfiled`; G9 and G10 are absent from that list for the reasons above, which
+   is the check that this paragraph is still true.
 
    The workbooks the tests drive are **synthetic** — built by
    `src/lib/esl-roster-fixtures.ts` from the shapes measured here, with invented
@@ -156,11 +161,20 @@ differs between G7 and G10 and G10 uses different header spellings (`Std ID#`, `
 
 **Classify sheets** — a sheet is a class sheet when its `ESL Group` values resolve to a
 single group. **For grade 10 the unit is the base class, not the group**: a G10 sheet holds
-both of one base class's sections, so it is a class sheet when its rows resolve to a single
+both of one base class's levels, so it is a class sheet when its rows resolve to a single
 base class (`H101A` and `H101B` are one class; `H101A` and `H102A` are not). Summary sheets
 hold many groups — and, for G10, many base classes — so they fail this test naturally, no
 maintained exclusion list is needed, and a class sheet the school adds later still works.
-A genuinely multi-class sheet is surfaced for review.
+
+> **Corrected by ADR-0023**, which keeps the sheet-level half and rejects the
+> cohort-level conclusion. One G10 sheet is one Chinese class, so it is one sheet; but
+> `A` and `B` are **levels** — ability bands, A higher than B, holding different
+> students — not sections of one class. So that sheet yields _two_ cohorts, `H101A` and
+> `H101B`, each with its own roster, and a grade 10 cohort is `(Chinese class, level)`
+> rather than the base class alone. The grouping rules for grades 7–9 are unaffected:
+> their classes are mixed across Chinese classes, and their `CLIL`/`Comm` pair draws
+> one roster because it is two lessons to one group, not two groups.
+> A genuinely multi-class sheet is surfaced for review.
 
 **The `ESL Group` column is the class of record, not the sheet name.** Sheet names are
 abbreviated and do not round-trip (`G9 Adv 1` holds `G9 Advanced 1`; `G9 Ele 1` holds

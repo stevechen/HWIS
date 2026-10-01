@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	ESL_GRADE10_MAX_CLASS_NUMBER,
+	ESL_GRADE10_LEVELS,
 	classTypesForCohort,
 	cohortCode,
 	cohortLabel,
@@ -35,34 +36,85 @@ describe('ESL grade 10 class naming', () => {
 		expect(grade10BaseClass('10')).toBe('10');
 	});
 
-	it('produces no level in a grade 10 class name', () => {
+	it('produces no level word in a grade 10 class name', () => {
 		// The bug this guards: a grade 10 class once rendered as "H10 Basic 1".
 		for (const classNumber of ['01', '05', '10', '12', '99']) {
-			for (const type of classTypesForCohort(10)) {
-				expect(defaultClassName({ ...G10, classNumber }, type)).not.toMatch(
-					/Basic|Intermediate|Advanced/
-				);
+			for (const level of ESL_GRADE10_LEVELS) {
+				for (const type of classTypesForCohort({ grade: 10, level })) {
+					expect(defaultClassName({ ...G10, classNumber, level }, type)).not.toMatch(
+						/Basic|Intermediate|Advanced/
+					);
+				}
 			}
 		}
 	});
 
-	it('rejects a non-section type when naming a grade 10 class', () => {
+	it('rejects a non-grade-10 type when naming a grade 10 class', () => {
 		expect(() => grade10ClassName('01', 'G9')).toThrow('not a grade 10 class type');
 	});
 });
 
 describe('ESL grade 10 levelling', () => {
-	it('treats grade 10 as not levelled and the others as levelled', () => {
+	it('bounds grade 10 class numbers by Chinese class, the others by class number', () => {
 		expect(isLevelledGrade(10)).toBe(false);
 		expect([7, 8, 9].map(isLevelledGrade)).toEqual([true, true, true]);
 	});
 
-	it('treats grade 10 as a shared-roster grade, taught by its A and B sections', () => {
-		expect(isSharedRosterGrade(10)).toBe(true);
-		expect(classTypesForCohort(10)).toEqual(['H10A', 'H10B']);
-		// G9 is still taught by a single class.
+	it('gives each grade 10 level its own cohort, roster and single class', () => {
+		// ADR-0023: A and B are ability levels holding different students, so they
+		// are two cohorts rather than two classes over one roster. Keying the class
+		// types on the grade alone is what merged them.
+		expect(isSharedRosterGrade(10)).toBe(false);
+		expect(classTypesForCohort({ grade: 10, level: 'A' })).toEqual(['H10A']);
+		expect(classTypesForCohort({ grade: 10, level: 'B' })).toEqual(['H10B']);
+		// G7/G8 still share one roster across their two lessons; G9 is single-classed.
+		expect(isSharedRosterGrade(7)).toBe(true);
+		expect(isSharedRosterGrade(8)).toBe(true);
 		expect(isSharedRosterGrade(9)).toBe(false);
-		expect(classTypesForCohort(9)).toEqual(['G9']);
+		expect(classTypesForCohort({ grade: 9 })).toEqual(['G9']);
+	});
+
+	it('refuses a grade 10 cohort with no level rather than guessing one', () => {
+		// Guessing would put half a grade 10 roster in the wrong ability band, and
+		// the counts would still add up.
+		expect(() => classTypesForCohort({ grade: 10 })).toThrow('no ability level');
+		expect(() => classTypesForCohort({ grade: 10, level: 'C' })).toThrow('no ability level');
+	});
+
+	it('labels a grade 10 cohort with its level, so H101 and H101A differ', () => {
+		// Without the level the label named two different cohorts identically.
+		expect(cohortLabel({ ...G10, level: 'A' })).toContain('H101A');
+		expect(cohortLabel({ ...G10, level: 'B' })).toContain('H101B');
+	});
+});
+
+describe('ESL levelled class names', () => {
+	it('names a grade 7/8 class grade, level, number, then lesson', () => {
+		// The order the school uses. The lesson goes last because it is the only part
+		// that differs between the two classes one cohort is taught by.
+		expect(defaultClassName({ ...G7, level: 'Elementary' }, 'CLIL')).toBe('G7 Elementary 1 CLIL');
+		expect(defaultClassName({ ...G7, level: 'Elementary' }, 'Comm')).toBe('G7 Elementary 1 Comm');
+		expect(
+			defaultClassName({ year: '2025-2026', grade: 8, level: 'Advanced', classNumber: '3' }, 'Comm')
+		).toBe('G8 Advanced 3 Comm');
+	});
+
+	it('never spells the levelled grades as one "G7/8"', () => {
+		// The bug this guards: names once read "G7/8 CLIL Basic 1", which names
+		// neither grade on its own and does not match how the school writes them.
+		for (const grade of [7, 8]) {
+			for (const type of classTypesForCohort({ grade, level: 'Basic' })) {
+				expect(defaultClassName({ ...G7, grade, classNumber: '2' }, type)).not.toContain('7/8');
+			}
+		}
+	});
+
+	it('leaves the lesson off a grade 9 class, which has only one', () => {
+		// Grade 9's type is named after the grade, so appending it would give
+		// "G9 Elementary 1 G9".
+		expect(defaultClassName({ ...G7, grade: 9, level: 'Advanced', classNumber: '1' }, 'G9')).toBe(
+			'G9 Advanced 1'
+		);
 	});
 });
 
@@ -252,8 +304,8 @@ describe('planLegacyGrade10Repair', () => {
 		const plan = planLegacyGrade10Repair(
 			[{ _id: 'c7', grade: 7, classNumber: '1', level: 'Basic' }],
 			[
-				{ _id: 'cl', cohortId: 'c7', type: 'CLIL', name: 'G7/8 CLIL Basic 1' },
-				{ _id: 'cm', cohortId: 'c7', type: 'Comm', name: 'G7/8 Comm Basic 1' }
+				{ _id: 'cl', cohortId: 'c7', type: 'CLIL', name: 'G7 Basic 1 CLIL' },
+				{ _id: 'cm', cohortId: 'c7', type: 'Comm', name: 'G7 Basic 1 Comm' }
 			]
 		);
 

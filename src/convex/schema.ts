@@ -329,6 +329,23 @@ export default defineSchema({
 		chineseName: v.string(),
 		/** School student ID — 6 or 7 digits. */
 		schoolStudentId: v.string(),
+		/**
+		 * The student's Chinese homeroom, as the two-digit class number only —
+		 * `01` in a grade 7 cohort is `J101`.
+		 *
+		 * The `J1`/`J2`/`J3`/`H1` marker is derivable from the cohort's grade, so
+		 * it is rebuilt by `chineseClassCode` on read rather than stored
+		 * redundantly against a rule the school can change (ADR-0025).
+		 *
+		 * Optional, and required everywhere a value is actually known: the roster
+		 * import refuses a file with no Chinese-class column and rejects a blank
+		 * cell, and manual entry demands one. The only rows that may lack it are
+		 * those `advanceGrade` creates, because next year's homeroom number is the
+		 * Chinese department's September decision and is unknowable when a year is
+		 * carried forward. Grade 10 has no such path — `advancementTargetGrade`
+		 * returns null for grades 9 and 10 — so the apply enforces presence there.
+		 */
+		chineseClass: v.optional(v.string()),
 		status: v.union(v.literal('active'), v.literal('disabled')),
 		enrolledAt: v.number(),
 		disabledAt: v.optional(v.number()),

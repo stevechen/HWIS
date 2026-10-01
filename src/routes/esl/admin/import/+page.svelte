@@ -452,7 +452,8 @@
 								{entry.draft.students.length} staged
 							{:else if entry?.status === 'imported'}
 								{entry.result.added} new, {entry.result.moved} moved,
-								{entry.result.renamed} renamed, {entry.result.disabled} disabled
+								{entry.result.renamed} renamed, {entry.result.rehomed} rehomed,
+								{entry.result.disabled} disabled
 							{:else}
 								<span class="text-muted-foreground">—</span>
 							{/if}

@@ -123,6 +123,79 @@ export function isValidGrade10ClassNumber(classNumber: string): boolean {
 	return value >= 1 && value <= ESL_GRADE10_MAX_CLASS_NUMBER;
 }
 
+/**
+ * The Chinese homeroom marker each grade's class names carry.
+ *
+ * A rule of the school system rather than a shape measured from one workbook: a
+ * junior high homeroom is `J` followed by the grade it belongs to — `J101` is
+ * grade 7 class 01, `J201` is grade 8 class 01 — and senior high uses the 高一
+ * marker `H1`, exactly as `grade10ClassName` already reads (ADR-0025).
+ *
+ * So the marker is fully derivable from the grade a cohort belongs to, which is
+ * why only the class number is stored and the full name is rebuilt on read.
+ */
+const CHINESE_CLASS_MARKERS: Readonly<Record<number, string>> = {
+	7: 'J1',
+	8: 'J2',
+	9: 'J3',
+	10: 'H1'
+};
+
+/**
+ * A Chinese homeroom's full name, rebuilt from a grade and a class number.
+ *
+ * The inverse of `parseChineseClass`, and the only place the two halves are
+ * joined — so if the school's naming ever changes there is one function to fix
+ * rather than several hundred stored strings to migrate.
+ */
+export function chineseClassCode(grade: number, classNumber: string): string {
+	const marker = CHINESE_CLASS_MARKERS[grade];
+	if (marker === undefined) return `${classNumber}`;
+	return `${marker}${String(Number(classNumber)).padStart(2, '0')}`;
+}
+
+/** Why a `C Class` cell could not be read, phrased for the admin fixing the cell. */
+export type ChineseClassReadError =
+	| 'empty'
+	| 'shape'
+	| { kind: 'wrongGrade'; expected: string; found: string };
+
+/**
+ * Read a `C Class` / `Class` cell down to the number that is stored.
+ *
+ * Only the school's own full form is accepted — `J1nn`, `J2nn`, `J3nn`, `H1nn`.
+ * A bare `1`, a bare `701`, or anything else is refused rather than guessed at:
+ * `7` in `701` could be the grade or the first digit of the number, and a silent
+ * misread would file a student in a homeroom they are not in, which is the one
+ * error on this field that no later check would catch (ADR-0025).
+ *
+ * A marker that disagrees with the file's grade is refused separately, because
+ * it is the check the derivation buys us: a `J201` cell in a grade 7 workbook is
+ * provably wrong, and saying so names the fix.
+ */
+export function parseChineseClass(
+	raw: string,
+	grade: number
+): { classNumber: string } | { error: ChineseClassReadError } {
+	const trimmed = raw.trim();
+	if (trimmed === '') return { error: 'empty' };
+
+	const match = /^([A-Z][0-9])([0-9]{2})$/.exec(trimmed.toUpperCase());
+	if (!match) return { error: 'shape' };
+
+	const [, marker, digits] = match;
+	const expected = CHINESE_CLASS_MARKERS[grade];
+	if (expected === undefined) return { error: 'shape' };
+	if (marker !== expected) {
+		return { error: { kind: 'wrongGrade', expected, found: marker } };
+	}
+	// `00` is not a class the school runs; the number is checked as a number so
+	// `00` cannot be stored and later sort ahead of every real class.
+	if (Number(digits) < 1) return { error: 'shape' };
+
+	return { classNumber: digits };
+}
+
 /** The lifecycle state of a cohort or class. Archived rows are read-only history. */
 export const ESL_STATUSES = ['active', 'archived'] as const;
 export type EslStatus = (typeof ESL_STATUSES)[number];
@@ -147,16 +220,35 @@ export type EslCohortKey = {
 /**
  * Grades whose cohort is taught by two classes sharing one roster.
  *
- * G7/G8 pair a `CLIL` with a `Comm` class. Grade 10 pairs sections `A` and `B`
- * of the same base class — the cohort is the base class (H101) and both
- * sections draw its students, meeting in different rooms under different
- * teachers.
+ * G7/G8 pair a `CLIL` with a `Comm` class. Grade 10 does **not** qualify: `A` and
+ * `B` are its ability levels, holding different students, so they are two cohorts
+ * with two rosters rather than two lessons to one group (ADR-0023).
  */
 export function isSharedRosterGrade(grade: number): boolean {
-	return grade === 7 || grade === 8 || grade === 10;
+	return grade === 7 || grade === 8;
 }
 
-/** Grade 10 is not levelled: it splits by section, not by ability. */
+/**
+ * Grade 10's ability levels, `A` higher in capability than `B`.
+ *
+ * These are levels, not sections: the school's sorting test puts each student in
+ * one, and the two hold different students (ADR-0023).
+ */
+export const ESL_GRADE10_LEVELS = ['A', 'B'] as const;
+export type EslGrade10Level = (typeof ESL_GRADE10_LEVELS)[number];
+
+/** Whether a letter names one of grade 10's levels. */
+export function isGrade10Level(value: string): value is EslGrade10Level {
+	return (ESL_GRADE10_LEVELS as readonly string[]).includes(value);
+}
+
+/**
+ * Grade 10 splits by ability level and Chinese class; grades 7–9 split by ability
+ * level and a class number.
+ *
+ * Named for how the class number is bounded: the levelled grades number their
+ * classes `1`–`7`, while grade 10's is a Chinese-class number (ADR-0023).
+ */
 export function isLevelledGrade(grade: number): boolean {
 	return grade === 7 || grade === 8 || grade === 9;
 }
@@ -171,15 +263,42 @@ export function grade10SectionOf(type: EslClassType): EslGrade10Section | null {
 /**
  * The class types a cohort is taught as, in canonical order.
  *
- * G7/G8 cohorts are shared by a `CLIL` and a `Comm` class — both draw the
- * same roster. Grade 10 is shared by its `A` and `B` sections. G9 is taught as
- * a single class.
+ * Only the grade and level are needed: what a cohort is taught as does not depend
+ * on the year it belongs to.
+ *
+ * G7/G8 cohorts are shared by a `CLIL` and a `Comm` class — both draw the same
+ * roster, because they are two lessons to one group. G9 is taught as a single class.
+ *
+ * Grade 10 takes the level rather than just the grade, because which type it gets
+ * depends on that: a cohort is one ability band of one Chinese class and is taught
+ * by exactly one class, `H10A` or `H10B` (ADR-0023). Keying this on the grade alone
+ * is what put both levels on one cohort in the first place.
  */
-export function classTypesForCohort(grade: number): EslClassType[] {
+export function classTypesForCohort(cohort: { grade: number; level?: string }): EslClassType[] {
+	const { grade } = cohort;
 	if (grade === 7 || grade === 8) return ['CLIL', 'Comm'];
 	if (grade === 9) return ['G9'];
-	if (grade === 10) return ['H10A', 'H10B'];
+	if (grade === 10) {
+		const level = cohort.level;
+		if (level === undefined || !isGrade10Level(level)) {
+			throw new Error(`Grade 10 cohort has no ability level: ${JSON.stringify(cohort)}`);
+		}
+		return [level === 'A' ? 'H10A' : 'H10B'];
+	}
 	throw new Error(`Unsupported ESL grade: ${grade}. Expected 7, 8, 9 or 10`);
+}
+
+/**
+ * The lesson token a class name ends with, or `null` when it has none.
+ *
+ * Grade 7/8 classes are `CLIL` or `Comm`; grade 9's single class is already
+ * identified by the grade, so repeating `G9` in its name would be noise. Grade 10
+ * names are a single token and carry no lesson.
+ */
+function classNameLesson(type: EslClassType): 'CLIL' | 'Comm' | null {
+	if (type === 'CLIL') return 'CLIL';
+	if (type === 'Comm') return 'Comm';
+	return null;
 }
 
 /** Human label for a class type, e.g. `CLIL` -> `G7/8 CLIL`. */
@@ -199,10 +318,11 @@ export function classTypeLabel(type: EslClassType): string {
 }
 
 /**
- * The class name for a grade 10 cohort's section, e.g. `H101A` / `H101B`.
+ * The class name for a grade 10 cohort's class, e.g. `H101A` / `H101B`.
  *
- * Grade 10 class names carry the grade (`H10`), the zero-padded base-class
- * number, and the section letter — there is no ability level in them.
+ * Grade 10 class names carry the grade (`H10`), the zero-padded Chinese-class
+ * number, and the level letter — there is no ability-level *word* in them, because
+ * the level is what distinguishes the two classes of one Chinese class.
  */
 export function grade10ClassName(classNumber: string, type: EslClassType): string {
 	const section = grade10SectionOf(type);
@@ -215,23 +335,32 @@ export function grade10ClassName(classNumber: string, type: EslClassType): strin
 /**
  * The default name for a class auto-composed onto a cohort.
  *
- * Grade 10 names encode the base class and section (H101A); the levelled
- * grades name ability level and class number (G7/8 CLIL Basic 1).
+ * The levelled grades name a class the way the school does: grade, level, class
+ * number, then the kind of lesson — `G7 Elementary 1 CLIL`, `G8 Advanced 3 Comm`.
+ * The lesson comes last because it is the only part that differs between the two
+ * classes a cohort is taught by; the rest identifies the cohort they share.
+ *
+ * Grade 10 is named by the school as a single token, `H101A`, and is left alone.
  */
 export function defaultClassName(cohort: EslCohortKey, type: EslClassType): string {
 	if (!isLevelledGrade(cohort.grade)) {
 		return grade10ClassName(cohort.classNumber, type);
 	}
-	return `${classTypeLabel(type)} ${cohort.level} ${cohort.classNumber}`;
+	const lesson = classNameLesson(type);
+	return `G${cohort.grade} ${cohort.level} ${cohort.classNumber}${lesson ? ` ${lesson}` : ''}`;
 }
 
 /**
  * The default display name for a cohort, e.g. `2025-2026 G7 Basic 1` or
- * `2025-2026 G10 H101`.
+ * `2025-2026 G10 H101A`.
+ *
+ * A grade 10 cohort is one Chinese class at one level, so its label carries the
+ * level: `H101` alone would name two cohorts (ADR-0023).
  */
 export function cohortLabel(cohort: EslCohortKey): string {
 	if (!isLevelledGrade(cohort.grade)) {
-		return `${cohort.year} G${cohort.grade} H1${grade10BaseClass(cohort.classNumber)}`;
+		const level = cohort.level ?? '';
+		return `${cohort.year} G${cohort.grade} H1${grade10BaseClass(cohort.classNumber)}${level}`;
 	}
 	return `${cohort.year} G${cohort.grade} ${cohort.level} ${cohort.classNumber}`;
 }
@@ -245,9 +374,9 @@ export function cohortLabel(cohort: EslCohortKey): string {
  */
 export function cohortCode(cohort: EslCohortKey): string {
 	if (!isLevelledGrade(cohort.grade)) {
-		// Padded so `G10-02` and `G10-10` compare in numeric order, and so the
-		// same base class cannot be recorded twice under two spellings.
-		return `G${cohort.grade}-${grade10BaseClass(cohort.classNumber)}`;
+		// Padded so `G10-02` and `G10-10` compare in numeric order, and carrying the
+		// level so `H101A` and `H101B` are two codes rather than one (ADR-0023).
+		return `G${cohort.grade}-${grade10BaseClass(cohort.classNumber)}${cohort.level ?? ''}`;
 	}
 	return `G${cohort.grade}-${cohort.level}-${cohort.classNumber}`;
 }
@@ -407,7 +536,7 @@ export type LegacyGrade10Repair = {
  * The old model had one `H10` class type and a level on every cohort. Grade 10
  * is not levelled and is taught by two sections, so a legacy `H10` class becomes
  * the cohort's `A` section — renamed to the `H1nnA` form — and the cohort drops
- * its level. The matching `B` section is left to `pairClasses`.
+ * its level. The matching `B` section has to be created by hand.
  *
  * Pure so the plan is testable without a database, and so the mutation stays a
  * thin applier. Idempotent: rows already in the new shape plan no writes.

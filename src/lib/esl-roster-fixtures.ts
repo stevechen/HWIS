@@ -39,8 +39,9 @@
  * - **The malformed `G9 Elementary1`**, missing a space, which must resolve to the
  *   same class rather than splitting the sheet.
  * - **The two misfiled rows**, in G7 and G8: a row whose `ESL Group` names a
- *   different class from the sheet it sits in, because a student changed level and
- *   the column was not updated. The column is the class of record.
+ *   different class from the sheet it sits in. The importer refuses the sheet
+ *   rather than filing the row by its column, since a wrong ability band is
+ *   silent and the department will fix the workbook (ADR-0025).
  * - **One student listed on two G7 class sheets**, which makes that file
  *   unappliable and is the real defect tracked in #141.
  * - **Float-formatted and numeric IDs.** G10 stores its IDs as Excel numbers and
@@ -154,9 +155,18 @@ function fakeName(n: number): string {
 	return `Test Student ${String(n).padStart(4, '0')}`;
 }
 
-/** A C Class code, which is the school's Chinese class, not an ESL cohort. */
-function fakeChineseClass(n: number): string {
-	return `J${100 + (n % 90)}`;
+/**
+ * A Chinese homeroom code, which is the school's Chinese class, not an ESL cohort.
+ *
+ * Written the way the school writes it: the grade's marker followed by a two-digit
+ * class number — `J101` is grade 7 class 01. The old `J${100 + n}` shape produced
+ * codes like `J100`, which no parse would accept, so a fixture built on it would
+ * have made every row a rejection and tested nothing but the error path (ADR-0025).
+ */
+function fakeChineseClass(grade: 7 | 8 | 9 | 10, n: number): string {
+	const marker = grade === 10 ? 'H1' : `J${grade - 6}`;
+	// 1–99 so the class number is always a real class, never `00`.
+	return `${marker}${String((n % 99) + 1).padStart(2, '0')}`;
 }
 
 /**
@@ -172,7 +182,11 @@ function studentRow(
 ): FixtureCell[] {
 	return header.map((cell) => {
 		if (/std\s*id|student\s*id/i.test(cell)) return row.id;
-		if (/^c class|^班級$/i.test(cell)) return row.classCode;
+		// `C Class` for the levelled grades, bare `Class` for grade 10 — the same
+		// column under two headings, and both carry the homeroom. Matching `^class`
+		// alone would also catch a `Chinese Class` heading, which is a summary
+		// sheet's name and not a column, so the two are anchored separately.
+		if (/^c class|^class$|^班級$/i.test(cell)) return row.classCode;
 		if (/seat|座號/i.test(cell)) return row.seat;
 		if (/group|組別/i.test(cell)) return row.group;
 		if (/english|英文/i.test(cell)) return `${fakeName(row.index)} EN`;
@@ -190,7 +204,8 @@ function summarySheet(
 	name: string,
 	header: string[],
 	groups: string[],
-	firstIndex: number
+	firstIndex: number,
+	grade: 7 | 8 | 9 | 10
 ): RosterFixtureSheet {
 	const rows: FixtureCell[][] = [header.slice()];
 	let n = firstIndex;
@@ -201,7 +216,7 @@ function summarySheet(
 					id: `5${100000 + n}`,
 					group,
 					index: n,
-					classCode: fakeChineseClass(n),
+					classCode: fakeChineseClass(grade, n),
 					seat: String((n % 40) + 1).padStart(2, '0')
 				})
 			);
@@ -250,14 +265,18 @@ function levelledClasses(grade: 7 | 8 | 9): ClassSheet[] {
 /** Lays student rows out under `header`. */
 function buildRows(
 	header: string[],
-	rows: { id: FixtureCell; group: string; index: number }[]
+	rows: { id: FixtureCell; group: string; index: number; classCode?: string }[],
+	grade: 7 | 8 | 9 | 10
 ): FixtureCell[][] {
 	return rows.map((row) =>
 		studentRow(header, {
 			id: row.id,
 			group: row.group,
 			index: row.index,
-			classCode: fakeChineseClass(row.index),
+			// Grade 10 passes the homeroom explicitly, because there the Chinese
+			// class and the cohort are the same fact and must agree — deriving it
+			// from a counter would let a fixture disagree with itself.
+			classCode: row.classCode ?? fakeChineseClass(grade, row.index),
 			seat: String((row.index % 40) + 1).padStart(2, '0')
 		})
 	);
@@ -303,7 +322,10 @@ function buildLevelled(grade: 7 | 8 | 9, options: RosterFixtureOptions): RosterF
 			rows.push({ id: `${prefix}9999`, group, index: 9999 });
 		}
 
-		sheets.push({ name: sheet, grid: [header.slice(), ...buildRows(header, rows)] });
+		sheets.push({
+			name: sheet,
+			grid: [header.slice(), ...buildRows(header, rows, grade)]
+		});
 	}
 
 	// Grade 7's first summary sheet leaves A1 blank, so it has no ID header at
@@ -315,9 +337,9 @@ function buildLevelled(grade: 7 | 8 | 9, options: RosterFixtureOptions): RosterF
 		grade === 9 ? 'G9 Chinese' : grade === 8 ? 'Chinese Class' : 'Chinese class ';
 	const groups = classes.map((c) => c.group);
 	const built: RosterFixtureSheet[] = [
-		summarySheet(firstSummaryName, summaryHeader, groups, 9000),
+		summarySheet(firstSummaryName, summaryHeader, groups, 9000, grade),
 		// The second summary sheet is named with a trailing space, as the school's is.
-		summarySheet('ESL Class ', header.slice(), groups, 9500),
+		summarySheet('ESL Class ', header.slice(), groups, 9500, grade),
 		...sheets
 	];
 
@@ -347,7 +369,7 @@ function buildGrade10(): RosterFixture {
 	for (let c = 1; c <= G10_CLASSES; c++) {
 		const base = `H1${String(c).padStart(2, '0')}`;
 		groups.push(base);
-		const rows: { id: FixtureCell; group: string; index: number }[] = [];
+		const rows: { id: FixtureCell; group: string; index: number; classCode?: string }[] = [];
 		// Both sections, because one base class is taught twice and the importer
 		// must read them as a single cohort sharing one roster.
 		for (const section of ['A', 'B'] as const) {
@@ -355,22 +377,30 @@ function buildGrade10(): RosterFixture {
 				// A number, not a string: G10 stores its IDs as Excel numbers where
 				// the levelled grades store text. Six digits, `51` being this year's
 				// grade 10 space, so `510001` upwards.
+				//
+				// The homeroom is this sheet's own base class, because a grade 10 ESL
+				// class draws from exactly one Chinese class (ADR-0023) — which is
+				// what the importer cross-checks.
 				rows.push({
 					id: Number(`51${String(index).padStart(4, '0')}`),
 					group: `${base}${section}`,
-					index
+					index,
+					classCode: base
 				});
 				index++;
 			}
 		}
-		sheets.push({ name: base, grid: [header.slice(), ...buildRows(header, rows)] });
+		sheets.push({
+			name: base,
+			grid: [header.slice(), ...buildRows(header, rows, 10)]
+		});
 	}
 
 	// The summary sheet restates every base class, so no one of them has a
 	// majority and it is set aside rather than imported as one enormous class.
 	return {
 		fileName: 'roster-g10.xlsx',
-		sheets: [summarySheet('Chinese Class', header.slice(), groups, 9000), ...sheets]
+		sheets: [summarySheet('Chinese Class', header.slice(), groups, 9000, 10), ...sheets]
 	};
 }
 

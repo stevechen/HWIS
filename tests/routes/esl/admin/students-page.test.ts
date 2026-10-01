@@ -82,7 +82,7 @@ describe('ESL admin students page', () => {
 		it('prompts for a cohort before showing a roster', async () => {
 			render(StudentsPage);
 
-			await expect.element(page.getByTestId('esl-admin-students.no-cohort')).toBeInTheDocument();
+			await expect.element(page.getByTestId('esl-admin-students.no-class')).toBeInTheDocument();
 		});
 
 		it('lists the cohorts to choose from', async () => {
@@ -97,7 +97,7 @@ describe('ESL admin students page', () => {
 			withRoster([]);
 			render(StudentsPage);
 
-			await selectOption(page.getByTestId('esl-admin-students.cohort'), 'cohort_g7');
+			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 
 			await expect.element(page.getByTestId('esl-admin-students.empty')).toBeInTheDocument();
 		});
@@ -106,7 +106,7 @@ describe('ESL admin students page', () => {
 	describe('roster table', () => {
 		it('renders each student with their status and reason', async () => {
 			render(StudentsPage);
-			await selectOption(page.getByTestId('esl-admin-students.cohort'), 'cohort_g7');
+			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 
 			await expect.element(page.getByTestId('esl-admin-students.row').first()).toBeInTheDocument();
 			await expect.element(page.getByText('Alice Chan')).toBeInTheDocument();
@@ -116,7 +116,7 @@ describe('ESL admin students page', () => {
 
 		it('counts only active students', async () => {
 			render(StudentsPage);
-			await selectOption(page.getByTestId('esl-admin-students.cohort'), 'cohort_g7');
+			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 
 			await expect
 				.element(page.getByTestId('esl-admin-students.active-count'))
@@ -125,7 +125,7 @@ describe('ESL admin students page', () => {
 
 		it('offers a re-enrol action for a transferred-out student', async () => {
 			render(StudentsPage);
-			await selectOption(page.getByTestId('esl-admin-students.cohort'), 'cohort_g7');
+			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 
 			await expect.element(page.getByTestId('esl-admin-students.reactivate')).toBeInTheDocument();
 		});
@@ -138,14 +138,14 @@ describe('ESL admin students page', () => {
 			await expect.element(page.getByTestId('esl-admin-students.form.submit')).toBeDisabled();
 			await expect
 				.element(page.getByTestId('esl-admin-students.form.hint'))
-				.toHaveTextContent('Choose a cohort first');
+				.toHaveTextContent('Choose a class first');
 			expect(mockMutation).not.toHaveBeenCalled();
 		});
 
 		it('enables enrolment once a cohort is chosen', async () => {
 			render(StudentsPage);
 
-			await selectOption(page.getByTestId('esl-admin-students.cohort'), 'cohort_g7');
+			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 
 			await expect.element(page.getByTestId('esl-admin-students.form.submit')).toBeEnabled();
 		});
@@ -153,10 +153,11 @@ describe('ESL admin students page', () => {
 		it('submits the student fields to the enrolment mutation', async () => {
 			render(StudentsPage);
 
-			await selectOption(page.getByTestId('esl-admin-students.cohort'), 'cohort_g7');
+			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 			await page.getByTestId('esl-admin-students.form.englishName').fill('Carol Ho');
 			await page.getByTestId('esl-admin-students.form.chineseName').fill('何家明');
 			await page.getByTestId('esl-admin-students.form.schoolStudentId').fill('100234');
+			await page.getByTestId('esl-admin-students.form.chineseClass').fill('J101');
 			await page.getByTestId('esl-admin-students.form.submit').click();
 
 			await vi.waitFor(() =>
@@ -164,26 +165,28 @@ describe('ESL admin students page', () => {
 					cohortId: 'cohort_g7',
 					englishName: 'Carol Ho',
 					chineseName: '何家明',
-					schoolStudentId: '100234'
+					schoolStudentId: '100234',
+					chineseClass: 'J101'
 				})
 			);
 		});
 
 		it('surfaces a rejected enrolment', async () => {
 			mockMutation.mockRejectedValueOnce(
-				new Error('Student 100234 is already enrolled in this cohort')
+				new Error('Student 100234 is already enrolled in this class')
 			);
 			render(StudentsPage);
 
-			await selectOption(page.getByTestId('esl-admin-students.cohort'), 'cohort_g7');
+			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 			await page.getByTestId('esl-admin-students.form.englishName').fill('Carol Ho');
 			await page.getByTestId('esl-admin-students.form.chineseName').fill('何家明');
 			await page.getByTestId('esl-admin-students.form.schoolStudentId').fill('100234');
+			await page.getByTestId('esl-admin-students.form.chineseClass').fill('J101');
 			await page.getByTestId('esl-admin-students.form.submit').click();
 
 			await expect
 				.element(page.getByTestId('esl-admin-students.form.error'))
-				.toHaveTextContent('already enrolled in this cohort');
+				.toHaveTextContent('already enrolled in this class');
 		});
 	});
 
@@ -216,7 +219,7 @@ describe('ESL admin students page', () => {
 	describe('transfer status', () => {
 		beforeEach(async () => {
 			render(StudentsPage);
-			await selectOption(page.getByTestId('esl-admin-students.cohort'), 'cohort_g7');
+			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 		});
 
 		it('prompts for a reason before recording a transfer', async () => {

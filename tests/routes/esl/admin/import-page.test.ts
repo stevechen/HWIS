@@ -69,7 +69,7 @@ import ImportPage from '$src/routes/esl/admin/import/+page.svelte';
 const YEAR = '2026-2027';
 
 /** The columns a readable sheet reports, as the classifier found them. */
-const COLUMNS = { schoolStudentId: 0, chineseName: 1, englishName: 2, group: 3 };
+const COLUMNS = { schoolStudentId: 0, chineseName: 1, englishName: 2, group: 3, chineseClass: 4 };
 
 const SNAPSHOT = {
 	cohorts: [{ id: 'c_adv1', grade: 9, level: 'Advanced', classNumber: '1' }],
@@ -107,11 +107,13 @@ function workbook(over: Partial<ParsedRosterWorkbook> = {}): ParsedRosterWorkboo
 				schoolStudentId: '1130001',
 				chineseName: '王芃頵',
 				englishName: 'Yoyo Lam',
+				chineseClass: '01',
 				group: { grade: 9, level: 'Advanced', classNumber: '1' }
 			},
 			{
 				schoolStudentId: '1130002',
 				chineseName: '李大文',
+				chineseClass: '01',
 				group: { grade: 9, level: 'Advanced', classNumber: '1' }
 			}
 		],
@@ -180,6 +182,7 @@ function givenNextYearsFile() {
 					schoolStudentId: '1140001',
 					chineseName: '王芃頵',
 					englishName: 'Yoyo Lam',
+					chineseClass: '01',
 					group: { grade: 9, level: 'Advanced', classNumber: '1' }
 				}
 			]
@@ -268,6 +271,7 @@ describe('ESL admin import page', () => {
 						{
 							schoolStudentId: '1150001',
 							chineseName: '陳明',
+							chineseClass: '01',
 							group: { grade: 7, level: 'Basic', classNumber: '1' }
 						}
 					]
@@ -302,6 +306,7 @@ describe('ESL admin import page', () => {
 						{
 							schoolStudentId: '511024',
 							chineseName: '林明',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '01' }
 						}
 					]
@@ -347,6 +352,7 @@ describe('ESL admin import page', () => {
 						{
 							schoolStudentId: '1150001',
 							chineseName: '陳明',
+							chineseClass: '01',
 							group: { grade: 7, level: 'Basic', classNumber: '1' }
 						}
 					]
@@ -397,12 +403,14 @@ describe('ESL admin import page', () => {
 							schoolStudentId: '511101',
 							chineseName: '林承叡',
 							englishName: 'Remy Lin',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '01', section: 'A' }
 						},
 						{
 							schoolStudentId: '512101',
 							chineseName: '李大文',
 							englishName: 'Jeremy Wu',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '01', section: 'B' }
 						}
 					]
@@ -422,7 +430,7 @@ describe('ESL admin import page', () => {
 			expect(window.localStorage.getItem(`esl-import:${YEAR}`)).toContain('511101');
 		});
 
-		it('lists a grade 10 base class as two classes, one per section', async () => {
+		it('lists each grade 10 level as its own cohort', async () => {
 			givenParsed(
 				workbook({
 					grade: 10,
@@ -431,11 +439,13 @@ describe('ESL admin import page', () => {
 						{
 							schoolStudentId: '511101',
 							chineseName: '林承叡',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '01', section: 'A' }
 						},
 						{
 							schoolStudentId: '512101',
 							chineseName: '李大文',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '01', section: 'B' }
 						}
 					]
@@ -444,16 +454,15 @@ describe('ESL admin import page', () => {
 			render(ImportPage);
 			await uploadGrade10();
 
-			// Two classes, each counting only its own section. The cohort behind them
-			// is still one — that is the parser's job and it is unchanged — but the
-			// admin reads `H101A` and `H101B` as the two classes they are, not as one
-			// class of two students that does not exist.
-			const sectionA = page.getByTestId('esl-import.plan.cohort.10::01:A');
-			const sectionB = page.getByTestId('esl-import.plan.cohort.10::01:B');
-			await expect.element(sectionA).toHaveTextContent('H101A');
-			await expect.element(sectionA).toHaveTextContent('1 students');
-			await expect.element(sectionB).toHaveTextContent('H101B');
-			await expect.element(sectionB).toHaveTextContent('1 students');
+			// Two cohorts, one per level, each counting only its own students. They were
+			// one row with a per-section suffix while A and B were read as
+			// sections of one cohort; they are two rosters now (ADR-0023).
+			const levelA = page.getByTestId('esl-import.plan.cohort.10:A:01');
+			const levelB = page.getByTestId('esl-import.plan.cohort.10:B:01');
+			await expect.element(levelA).toHaveTextContent('H101A');
+			await expect.element(levelA).toHaveTextContent('1 students');
+			await expect.element(levelB).toHaveTextContent('H101B');
+			await expect.element(levelB).toHaveTextContent('1 students');
 		});
 
 		it('sends grade 10 section text, so the server re-reads what it parsed', async () => {
@@ -466,11 +475,13 @@ describe('ESL admin import page', () => {
 							schoolStudentId: '511101',
 							chineseName: '林承叡',
 							englishName: 'Remy Lin',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '01', section: 'A' }
 						},
 						{
 							schoolStudentId: '512101',
 							chineseName: '李大文',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '11', section: 'B' }
 						}
 					]
@@ -578,6 +589,7 @@ describe('ESL admin import page', () => {
 						{
 							schoolStudentId: '1140001',
 							chineseName: '陳明',
+							chineseClass: '01',
 							group: { grade: 7, level: 'Basic', classNumber: '1' }
 						}
 					]
@@ -622,6 +634,7 @@ describe('ESL admin import page', () => {
 							schoolStudentId: '1140001',
 							chineseName: '王芃頵',
 							englishName: 'Yoyo Lam',
+							chineseClass: '01',
 							group: { grade: 9, level: 'Advanced', classNumber: '1' }
 						}
 					]
@@ -734,11 +747,13 @@ describe('ESL admin import page', () => {
 						{
 							schoolStudentId: '1130001',
 							chineseName: '王芃頵',
+							chineseClass: '01',
 							group: { grade: 9, level: 'Advanced', classNumber: '1' }
 						},
 						{
 							schoolStudentId: '1130001',
 							chineseName: '王芃頵',
+							chineseClass: '01',
 							group: { grade: 9, level: 'Advanced', classNumber: '2' }
 						}
 					]
@@ -818,9 +833,15 @@ describe('ESL admin import page', () => {
 					schoolStudentId: '1130001',
 					chineseName: '王芃頵',
 					englishName: 'Yoyo Lam',
+					chineseClass: 'J301',
 					group: 'G9 Advanced 1'
 				},
-				{ schoolStudentId: '1130002', chineseName: '李大文', group: 'G9 Advanced 1' }
+				{
+					schoolStudentId: '1130002',
+					chineseName: '李大文',
+					group: 'G9 Advanced 1',
+					chineseClass: 'J301'
+				}
 			]);
 			expect(args.approvedNameChanges).toEqual([]);
 		});
