@@ -4,6 +4,7 @@ import type { Id } from '../_generated/dataModel';
 import { requireEslAdmin, requireEslStaff } from '../auth';
 import {
 	ESL_CLASS_NUMBERS,
+	ESL_GRADE10_LEVELS,
 	ESL_GRADE10_MAX_CLASS_NUMBER,
 	ESL_LEVELS,
 	classTypesForCohort,
@@ -12,6 +13,7 @@ import {
 	cohortLabel,
 	defaultClassName,
 	grade10BaseClass,
+	isGrade10Level,
 	isLevelledGrade,
 	isValidEslClassNumber,
 	isValidEslGrade,
@@ -49,11 +51,13 @@ function assertValidCohortKey(key: {
 		}
 		return;
 	}
-	// Grade 10 is not levelled: a level would be meaningless, and a class
-	// number outside its base classes would produce a class name that does
-	// not exist in the programme.
-	if (key.level) {
-		throw new Error('Grade 10 has no levels');
+	// Grade 10 is levelled too, by A or B rather than by name: the level is part of
+	// the cohort's identity, since one Chinese class at one level is one cohort
+	// with one roster (ADR-0023). The class number is the Chinese class, and one
+	// outside the range the school runs would produce a class name that does not
+	// exist in the programme.
+	if (!isGrade10Level(key.level ?? '')) {
+		throw new Error(`Grade 10 level must be one of ${ESL_GRADE10_LEVELS.join(', ')}`);
 	}
 	if (!isValidGrade10ClassNumber(key.classNumber)) {
 		throw new Error(`Class number must be 1-${ESL_GRADE10_MAX_CLASS_NUMBER}`);
@@ -154,7 +158,8 @@ export const create = mutation({
 		const key = {
 			year: args.year,
 			grade: args.grade,
-			// Grade 10 stores no level at all rather than an empty string.
+			// Grade 10's level is A or B, and it is part of the identity like the
+			// levelled grades' level name is.
 			...(args.level ? { level: args.level } : {}),
 			// The base class is stored zero-padded, so `2` and `02` are one cohort
 			// rather than two.
@@ -162,34 +167,18 @@ export const create = mutation({
 				? args.classNumber
 				: grade10BaseClass(args.classNumber)
 		};
-		const code = cohortCode(key);
-
-		// Uniqueness. The levelled grades have a level to match on, so the
-		// four-column index answers directly. Grade 10 has none, so its
-		// (year, grade) cohorts are compared in memory — bounded by the
-		// cohort count for one grade, not the table size (ADR-0021).
-		if (isLevelledGrade(args.grade)) {
-			const duplicate = await ctx.db
-				.query('esl_cohorts')
-				.withIndex('by_year_grade_level_classNumber', (q) =>
-					q
-						.eq('year', args.year)
-						.eq('grade', args.grade)
-						.eq('level', key.level)
-						.eq('classNumber', key.classNumber)
-				)
-				.first();
-			if (duplicate) {
-				throw new Error(`Cohort ${cohortLabel(key)} already exists`);
-			}
-		} else {
-			const sameGrade = await ctx.db
-				.query('esl_cohorts')
-				.withIndex('by_year_grade', (q) => q.eq('year', args.year).eq('grade', args.grade))
-				.collect();
-			if (sameGrade.some((cohort) => cohortCode(cohort) === code)) {
-				throw new Error(`Cohort ${cohortLabel(key)} already exists`);
-			}
+		const duplicate = await ctx.db
+			.query('esl_cohorts')
+			.withIndex('by_year_grade_level_classNumber', (q) =>
+				q
+					.eq('year', args.year)
+					.eq('grade', args.grade)
+					.eq('level', key.level)
+					.eq('classNumber', key.classNumber)
+			)
+			.first();
+		if (duplicate) {
+			throw new Error(`Cohort ${cohortLabel(key)} already exists`);
 		}
 
 		const now = Date.now();
@@ -202,7 +191,7 @@ export const create = mutation({
 		});
 
 		const classIds: Id<'esl_classes'>[] = [];
-		for (const type of classTypesForCohort(args.grade)) {
+		for (const type of classTypesForCohort(key)) {
 			classIds.push(
 				await ctx.db.insert('esl_classes', {
 					cohortId,
@@ -225,8 +214,8 @@ export const create = mutation({
  * including grade 10. Grade 10 is not levelled and is taught by two sections,
  * `H10A` and `H10B`, so:
  *
- *  - every `H10` class becomes its cohort's `A` section (the `B` section is
- *    then created by `pairClasses`), renamed to the `H10nA` form; and
+ *  - every `H10` class becomes its cohort's `A` section, renamed to the `H10nA`
+ *    form; and
  *  - every grade 10 cohort drops its level, which no longer exists for it.
  *
  * Idempotent: rows already in the new shape produce no writes. Run once per
@@ -363,71 +352,5 @@ export const update = mutation({
 		await ctx.db.patch(args.id, { status: args.status });
 
 		return { success: true, cohortId: args.id };
-	}
-});
-
-/**
- * Ensure the cohort's classes match what its grade is taught as.
- *
- * Idempotent: existing classes are kept, missing ones created, archived ones
- * restored, and classes of types the grade no longer runs are archived. This
- * is how a G7/G8 CLIL/Comm pair — or a G10 cohort's H10A/H10B sections — is
- * repaired when one half went missing.
- *
- * cost: 1 point read + 1 indexed read + O(#classes) inserts/patches.
- */
-export const pairClasses = mutation({
-	args: { cohortId: v.id('esl_cohorts') },
-	handler: async (ctx, args) => {
-		await requireEslAdmin(ctx);
-
-		const cohort = await ctx.db.get(args.cohortId);
-		if (!cohort) throw new Error('Cohort not found');
-
-		const expectedTypes = classTypesForCohort(cohort.grade);
-		const existing = await ctx.db
-			.query('esl_classes')
-			.withIndex('by_cohortId', (q) => q.eq('cohortId', args.cohortId))
-			.collect();
-
-		const byType = new Map(existing.map((cls) => [cls.type, cls]));
-		const now = Date.now();
-		const key = {
-			year: cohort.year,
-			grade: cohort.grade,
-			// Keep the absence of a level: grade 10 cohorts store none.
-			...(cohort.level ? { level: cohort.level } : {}),
-			classNumber: cohort.classNumber
-		};
-
-		const created: Id<'esl_classes'>[] = [];
-		const restored: Id<'esl_classes'>[] = [];
-		for (const type of expectedTypes) {
-			const existingClass = byType.get(type);
-			if (!existingClass) {
-				created.push(
-					await ctx.db.insert('esl_classes', {
-						cohortId: args.cohortId,
-						type,
-						name: defaultClassName(key, type),
-						status: 'active',
-						createdAt: now
-					})
-				);
-			} else if (existingClass.status === 'archived') {
-				await ctx.db.patch(existingClass._id, { status: 'active' });
-				restored.push(existingClass._id);
-			}
-		}
-
-		const archived: Id<'esl_classes'>[] = [];
-		for (const existingClass of existing) {
-			if (!expectedTypes.includes(existingClass.type) && existingClass.status === 'active') {
-				await ctx.db.patch(existingClass._id, { status: 'archived' });
-				archived.push(existingClass._id);
-			}
-		}
-
-		return { created, restored, archived };
 	}
 });

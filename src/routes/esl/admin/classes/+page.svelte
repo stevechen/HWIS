@@ -8,19 +8,21 @@
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Plus, RefreshCw, Wrench } from '@lucide/svelte';
+	import { Plus, RefreshCw } from '@lucide/svelte';
 	import {
 		ESL_CLASS_NUMBERS,
 		ESL_GRADE10_MAX_CLASS_NUMBER,
 		ESL_GRADES,
 		ESL_LEVELS,
+		ESL_GRADE10_LEVELS,
 		classTypeLabel,
 		classTypesForCohort,
 		grade10BaseClass,
-		grade10ClassName,
+		defaultClassName,
 		isLevelledGrade,
 		isSharedRosterGrade,
-		isValidGrade10ClassNumber
+		isValidGrade10ClassNumber,
+		type EslGrade10Level
 	} from '$convex/shared/esl';
 
 	const client = useConvexClient();
@@ -47,6 +49,10 @@
 	let newYear = $state(currentSchoolYear());
 	let newGrade = $state<number>(7);
 	let newLevel = $state<string>('Basic');
+	// Grade 10 is levelled too, but by A/B rather than by name, and its level is
+	// part of the cohort's identity — one Chinese class at one level is one
+	// cohort with one roster (ADR-0023).
+	let newGrade10Level = $state<EslGrade10Level>('A');
 	// The levelled grades pick from a fixed list (a select binds a string);
 	// grade 10 types a base class (a number input binds a number). Both are
 	// read through `newClassNumberText`.
@@ -127,15 +133,16 @@
 			await client.mutation(api.esl.cohorts.create, {
 				year: newYear.trim(),
 				grade: newGrade,
-				// Grade 10 is not levelled: the field is omitted, not blanked.
-				...(levelled ? { level: newLevel } : {}),
+				// Grade 10's level is A or B, and it identifies the cohort just as the
+				// levelled grades' level name does (ADR-0023).
+				...(levelled ? { level: newLevel } : { level: newGrade10Level }),
 				// Grade 10's base class is typed, so it is normalised to text first
 				// (a number input binds a number).
 				classNumber: newClassNumberText
 			});
 			notice = `Created ${cohortSummary} for ${newYear.trim()}`;
 		} catch (error) {
-			createError = error instanceof Error ? error.message : 'Could not create the cohort';
+			createError = error instanceof Error ? error.message : 'Could not create the class';
 		} finally {
 			creating = false;
 		}
@@ -154,14 +161,6 @@
 				}),
 			classId,
 			teacherId ? 'Class teacher assigned' : 'Class teacher cleared'
-		);
-	}
-
-	function repairClasses(cohortId: Id<'esl_cohorts'>, label: string) {
-		run(
-			() => client.mutation(api.esl.cohorts.pairClasses, { cohortId }),
-			cohortId,
-			`Repaired the classes for ${label}`
 		);
 	}
 
@@ -184,38 +183,33 @@
 
 <div class="mx-auto w-full max-w-6xl space-y-8 p-8">
 	<header>
-		<h1 data-testid="esl-admin-cohorts.title" class="text-2xl font-bold text-emerald-900">
-			Cohorts
+		<h1 data-testid="esl-admin-classes.title" class="text-2xl font-bold text-emerald-900">
+			Classes
 		</h1>
-		<p class="text-muted-foreground mt-1">
-			A cohort owns its roster and the classes that teach it. Grade 7 and 8 cohorts are taught by a
-			paired CLIL and Comm class; grade 10 is not levelled and is taught by the A and B sections of
-			one base class (H101A and H101B).
-		</p>
 	</header>
 
 	<section
-		aria-labelledby="esl-admin-cohorts-create-heading"
+		aria-labelledby="esl-admin-classes-create-heading"
 		class="rounded-lg border bg-white p-6 shadow-sm"
-		data-testid="esl-admin-cohorts.create"
+		data-testid="esl-admin-classes.create"
 	>
-		<h2 id="esl-admin-cohorts-create-heading" class="text-lg font-semibold">New cohort</h2>
+		<h2 id="esl-admin-classes-create-heading" class="text-lg font-semibold">New class</h2>
 		<form class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" onsubmit={createCohort}>
 			<div class="space-y-1">
-				<Label for="esl-cohort-year">School year</Label>
+				<Label for="esl-class-year">School year</Label>
 				<Input
-					id="esl-cohort-year"
-					data-testid="esl-admin-cohorts.form.year"
+					id="esl-class-year"
+					data-testid="esl-admin-classes.form.year"
 					bind:value={newYear}
 					placeholder="2025-2026"
 					required
 				/>
 			</div>
 			<div class="space-y-1">
-				<Label for="esl-cohort-grade">Grade</Label>
+				<Label for="esl-class-grade">Grade</Label>
 				<NativeSelect.Root
-					id="esl-cohort-grade"
-					data-testid="esl-admin-cohorts.form.grade"
+					id="esl-class-grade"
+					data-testid="esl-admin-classes.form.grade"
 					bind:value={newGrade}
 				>
 					{#each ESL_GRADES as grade (grade)}
@@ -225,10 +219,10 @@
 			</div>
 			{#if levelled}
 				<div class="space-y-1">
-					<Label for="esl-cohort-level">Level</Label>
+					<Label for="esl-class-level">Level</Label>
 					<NativeSelect.Root
-						id="esl-cohort-level"
-						data-testid="esl-admin-cohorts.form.level"
+						id="esl-class-level"
+						data-testid="esl-admin-classes.form.level"
 						bind:value={newLevel}
 					>
 						{#each ESL_LEVELS as level (level)}
@@ -236,15 +230,33 @@
 						{/each}
 					</NativeSelect.Root>
 				</div>
+			{:else}
+				<!--
+					Grade 10 is levelled too, but by A/B rather than by name, and the level is
+					part of the cohort: one Chinese class at one level is one cohort with its
+					 own roster, so H101A and H101B are two cohorts (ADR-0023).
+				-->
+				<div class="space-y-1">
+					<Label for="esl-class-level10">Level</Label>
+					<NativeSelect.Root
+						id="esl-class-level10"
+						data-testid="esl-admin-classes.form.level"
+						bind:value={newGrade10Level}
+					>
+						{#each ESL_GRADE10_LEVELS as level (level)}
+							<NativeSelect.Option value={level}>{level}</NativeSelect.Option>
+						{/each}
+					</NativeSelect.Root>
+				</div>
 			{/if}
 			<div class="space-y-1">
-				<Label for="esl-cohort-number">
-					{levelled ? 'Class number' : 'Base class'}
+				<Label for="esl-class-number">
+					{levelled ? 'Class number' : 'Chinese class'}
 				</Label>
 				{#if levelled}
 					<NativeSelect.Root
-						id="esl-cohort-number"
-						data-testid="esl-admin-cohorts.form.classNumber"
+						id="esl-class-number"
+						data-testid="esl-admin-classes.form.classNumber"
 						bind:value={newClassNumber}
 					>
 						{#each levelledNumbers as number (number)}
@@ -253,22 +265,22 @@
 					</NativeSelect.Root>
 				{:else}
 					<Input
-						id="esl-cohort-number"
-						data-testid="esl-admin-cohorts.form.classNumber"
+						id="esl-class-number"
+						data-testid="esl-admin-classes.form.classNumber"
 						type="number"
 						min="1"
 						max={ESL_GRADE10_MAX_CLASS_NUMBER}
 						inputmode="numeric"
-						aria-describedby="esl-cohort-number-hint"
+						aria-describedby="esl-class-number-hint"
 						bind:value={newClassNumber}
 					/>
 					<p
-						id="esl-cohort-number-hint"
-						data-testid="esl-admin-cohorts.form.classNumberHint"
+						id="esl-class-number-hint"
+						data-testid="esl-admin-classes.form.classNumberHint"
 						class="text-muted-foreground text-xs"
 					>
-						1–{ESL_GRADE10_MAX_CLASS_NUMBER}. How many base classes the school runs varies by year,
-						so this is typed in rather than chosen from a fixed list.
+						1–{ESL_GRADE10_MAX_CLASS_NUMBER}. How many Chinese classes the school runs varies by
+						year, so this is typed in rather than chosen from a fixed list.
 					</p>
 				{/if}
 			</div>
@@ -276,26 +288,35 @@
 				<Button
 					type="submit"
 					disabled={creating || !grade10NumberValid}
-					testId="esl-admin-cohorts.form.submit"
+					testId="esl-admin-classes.form.submit"
 				>
 					<Plus class="size-4" />
-					{creating ? 'Creating…' : 'Create cohort'}
+					{creating ? 'Creating…' : 'Create class'}
 				</Button>
-				<p data-testid="esl-admin-cohorts.form.preview" class="text-muted-foreground text-sm">
-					Creates {levelled
-						? classTypesForCohort(newGrade)
-								.map((type) => classTypeLabel(type))
-								.join(' + ')
-						: classTypesForCohort(newGrade)
-								.map((type) => grade10ClassName(newClassNumberText, type))
-								.join(' + ')}
+				<p data-testid="esl-admin-classes.form.preview" class="text-muted-foreground text-sm">
+					Creates {classTypesForCohort({
+						grade: newGrade,
+						level: levelled ? newLevel : newGrade10Level
+					})
+						.map((type) =>
+							defaultClassName(
+								{
+									year: newYear,
+									grade: newGrade,
+									level: levelled ? newLevel : newGrade10Level,
+									classNumber: newClassNumberText
+								},
+								type
+							)
+						)
+						.join(' + ')}
 					{isSharedRosterGrade(newGrade) ? 'sharing one roster' : 'with its own roster'}.
 				</p>
 			</div>
 		</form>
 		{#if createError}
 			<p
-				data-testid="esl-admin-cohorts.form.error"
+				data-testid="esl-admin-classes.form.error"
 				class="mt-3 rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
 			>
 				{createError}
@@ -303,7 +324,7 @@
 		{/if}
 		{#if notice}
 			<p
-				data-testid="esl-admin-cohorts.form.notice"
+				data-testid="esl-admin-classes.form.notice"
 				class="mt-3 rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800"
 			>
 				{notice}
@@ -311,20 +332,20 @@
 		{/if}
 	</section>
 
-	<section aria-labelledby="esl-admin-cohorts-list-heading" class="space-y-4">
+	<section aria-labelledby="esl-admin-classes-list-heading" class="space-y-4">
 		<div class="flex flex-wrap items-end justify-between gap-4">
-			<h2 id="esl-admin-cohorts-list-heading" class="text-lg font-semibold">
-				Cohorts
-				<span data-testid="esl-admin-cohorts.count" class="text-muted-foreground font-normal">
+			<h2 id="esl-admin-classes-list-heading" class="text-lg font-semibold">
+				Classes
+				<span data-testid="esl-admin-classes.count" class="text-muted-foreground font-normal">
 					({visibleCohorts.length})
 				</span>
 			</h2>
 			<div class="flex gap-3">
 				<div class="space-y-1">
-					<Label for="esl-cohorts-filter-year">Filter by year</Label>
+					<Label for="esl-classes-filter-year">Filter by year</Label>
 					<NativeSelect.Root
-						id="esl-cohorts-filter-year"
-						data-testid="esl-admin-cohorts.filter.year"
+						id="esl-classes-filter-year"
+						data-testid="esl-admin-classes.filter.year"
 						bind:value={yearFilter}
 					>
 						<NativeSelect.Option value="">All years</NativeSelect.Option>
@@ -334,10 +355,10 @@
 					</NativeSelect.Root>
 				</div>
 				<div class="space-y-1">
-					<Label for="esl-cohorts-filter-grade">Filter by grade</Label>
+					<Label for="esl-classes-filter-grade">Filter by grade</Label>
 					<NativeSelect.Root
-						id="esl-cohorts-filter-grade"
-						data-testid="esl-admin-cohorts.filter.grade"
+						id="esl-classes-filter-grade"
+						data-testid="esl-admin-classes.filter.grade"
 						bind:value={gradeFilter}
 					>
 						<NativeSelect.Option value="">All grades</NativeSelect.Option>
@@ -351,7 +372,7 @@
 
 		{#if rowError}
 			<p
-				data-testid="esl-admin-cohorts.error"
+				data-testid="esl-admin-classes.error"
 				class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
 			>
 				{rowError}
@@ -359,7 +380,7 @@
 		{/if}
 		{#if notice}
 			<p
-				data-testid="esl-admin-cohorts.notice"
+				data-testid="esl-admin-classes.notice"
 				class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800"
 			>
 				{notice}
@@ -367,22 +388,22 @@
 		{/if}
 
 		{#if cohortsQuery.isLoading}
-			<p class="text-muted-foreground py-8 text-center" data-testid="esl-admin-cohorts.loading">
-				Loading cohorts…
+			<p class="text-muted-foreground py-8 text-center" data-testid="esl-admin-classes.loading">
+				Loading classes…
 			</p>
 		{:else if visibleCohorts.length === 0}
 			<p
 				class="text-muted-foreground rounded-lg border border-dashed bg-white py-12 text-center"
-				data-testid="esl-admin-cohorts.empty"
+				data-testid="esl-admin-classes.empty"
 			>
-				No cohorts yet. Create the first one above.
+				No classes yet. Create the first one above.
 			</p>
 		{:else}
 			<div class="space-y-4">
 				{#each visibleCohorts as cohort (cohort._id)}
 					{@const key = cohort.code}
 					<article
-						data-testid={`esl-admin-cohorts.cohort.${key}`}
+						data-testid={`esl-admin-classes.cohort.${key}`}
 						class="rounded-lg border bg-white p-5 shadow-sm"
 					>
 						<div class="flex flex-wrap items-center justify-between gap-3">
@@ -391,30 +412,15 @@
 								<Badge variant={cohort.status === 'active' ? 'default' : 'secondary'}>
 									{cohort.status}
 								</Badge>
-								{#if isSharedRosterGrade(cohort.grade)}
-									<Badge variant="outline" data-testid="esl-admin-cohorts.shared-roster">
-										Shared roster
-									</Badge>
-								{/if}
 							</div>
 							<div class="flex gap-2">
-								<Button
-									variant="outline"
-									size="sm"
-									disabled={busyId === cohort._id}
-									onclick={() => repairClasses(cohort._id, cohort.label)}
-									testId={`esl-admin-cohorts.repair.${key}`}
-								>
-									<Wrench class="size-4" />
-									Repair classes
-								</Button>
 								{#if cohort.status === 'active'}
 									<Button
 										variant="outline"
 										size="sm"
 										disabled={busyId === cohort._id}
 										onclick={() => archiveCohort(cohort._id, cohort.label)}
-										testId={`esl-admin-cohorts.archive.${key}`}
+										testId={`esl-admin-classes.archive.${key}`}
 									>
 										Archive
 									</Button>
@@ -424,7 +430,7 @@
 										size="sm"
 										disabled={busyId === cohort._id}
 										onclick={() => restoreCohort(cohort._id, cohort.label)}
-										testId={`esl-admin-cohorts.restore.${key}`}
+										testId={`esl-admin-classes.restore.${key}`}
 									>
 										<RefreshCw class="size-4" />
 										Restore
@@ -444,14 +450,14 @@
 							</Table.Header>
 							<Table.Body>
 								{#each cohort.classes as cls (cls._id)}
-									<Table.Row data-testid={`esl-admin-cohorts.class.${cls.type}`}>
+									<Table.Row data-testid={`esl-admin-classes.class.${cls.type}`}>
 										<Table.Cell class="font-medium">{cls.name}</Table.Cell>
 										<Table.Cell>{classTypeLabel(cls.type)}</Table.Cell>
 										<Table.Cell>{cls.status}</Table.Cell>
 										<Table.Cell>
 											<NativeSelect.Root
 												aria-label="Class teacher for {cls.name}"
-												data-testid={`esl-admin-cohorts.teacher.${cls.type}`}
+												data-testid={`esl-admin-classes.teacher.${cls.type}`}
 												value={cls.teacherId ?? ''}
 												disabled={busyId === cls._id}
 												onchange={(event) => assignTeacher(cls._id, event.currentTarget.value)}

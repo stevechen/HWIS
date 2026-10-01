@@ -122,7 +122,7 @@ describe('esl admin layout auth gate', () => {
 		renderLayout();
 
 		await expect.element(page.getByTestId('esl-admin.nav.overview')).toBeInTheDocument();
-		await expect.element(page.getByTestId('esl-admin.nav.cohorts')).toBeInTheDocument();
+		await expect.element(page.getByTestId('esl-admin.nav.classes')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl-admin.nav.students')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl-admin.nav.users')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl-admin.nav.back')).toBeInTheDocument();
