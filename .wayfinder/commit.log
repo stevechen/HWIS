@@ -1,2 +1,0 @@
-$ eslint . && prettier --check .
-error: script "lint" was terminated by signal SIGHUP (Terminal hung up)

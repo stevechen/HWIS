@@ -1,9 +1,0 @@
-Checking formatting...
-[warn] .wayfinder/map.md
-[warn] .wayfinder/t1.md
-[warn] .wayfinder/t2-findings.md
-[warn] .wayfinder/t2.md
-[warn] .wayfinder/t3.md
-[warn] .wayfinder/t5.md
-[warn] .wayfinder/t6.md
-[warn] Code style issues found in 7 files. Run Prettier with --write to fix.

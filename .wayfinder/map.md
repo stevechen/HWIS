@@ -15,10 +15,11 @@ An ADR (plus implementation tickets) specifying how an ESL school year is archiv
 
 <!-- the index: one line per closed ticket, enough to judge relevance, then zoom the link for the detail the ticket holds -->
 
-_None yet._
+- [Repair Google Drive auth so the archive is actually writable](https://github.com/stevechen/HWIS/issues/144): the Drive path is dead on **prod**, not just locally (`invalid_grant`, expired shared token); sharing one folder needs no second folder id; and this whole map is **blocked by #133** (Drive per-environment separation) or a dev archive lands in the production folder.
 
 ## Not yet specified
 
+- **The `drive.file` vs `drive` scope fork** — surfaced by #144. `drive.file` sees only files the app created (enough for archives, cannot enumerate the shared folder); `drive` sees the whole folder (needed if the browser lists the folder as its index). Graduated into #147.
 - **Interaction with `purgeOrphanedClasses`** (`src/convex/esl/cohorts.ts`) — it deletes `esl_classes` whose cohort is absent. Once archiving deletes cohorts, this mutation becomes a deletion mechanism we did not design. Its exact blast radius is only clear once the deletion set is settled.
 - **The archive browser's read cost** — ADR-0021 is quota-first, and the browser fetches a whole year file. Whether that reads as a small indexed query or a large blob fetch depends on the file shape.
 - **Whether archived years are ever needed before writing one** — the first real archive cannot happen until a year has ended, so the whole path stays untested against real data until roughly June. What stands in for that is a build-time question.
