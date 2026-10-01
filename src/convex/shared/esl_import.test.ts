@@ -1073,7 +1073,9 @@ describe('planRosterImport', () => {
 				`${prefix}0001`,
 				'王芃頵',
 				'Yoyo Lin',
-				grade === 10 ? 'H101A' : 'G7 Basic 1',
+				// The group names the same grade the row is read as, so the helper
+				// tests the cell rather than a mismatch between the two.
+				grade === 10 ? 'H101A' : `G${grade} Basic 1`,
 				classCell
 			];
 			return parseRosterSheet([row], detectColumns(HEADER), 2, grade);
@@ -1188,6 +1190,50 @@ describe('planRosterImport', () => {
 				'02',
 				'03'
 			]);
+		});
+
+		it('reads a file as the grade its own group names, not the one it is read as', () => {
+			// The regression the import page's year prompt turned on. When the page's
+			// year derives the wrong grade, the file is read as that grade — and the
+			// homeroom marker was checked against it. A grade 9 file's `J301` then failed
+			// grade 8's `J2` check, so every row was rejected, `students` came back
+			// empty, and the year the file actually claims could not be derived to raise
+			// the prompt. The file was staged under the wrong grade instead of reported.
+			//
+			// The marker answers to the group beside it: a `G9` row's homeroom is a
+			// grade 9 homeroom whatever the page derived.
+			const parsed = parseRosterSheet(
+				[['1130001', '王芃頵', 'Yoyo Lin', 'G9 Advanced 1', 'J301']],
+				detectColumns(HEADER),
+				2,
+				// Read as grade 8 — the year-mismatch case, deliberately.
+				8
+			);
+
+			expect(parsed.rejected).toEqual([]);
+			expect(parsed.students).toHaveLength(1);
+			expect(parsed.students[0].chineseClass).toBe('01');
+			// And the row is still filed under the class its own group names, which is
+			// what lets the page notice the year disagrees.
+			expect(parsed.students[0].group).toEqual({
+				grade: 9,
+				level: 'Advanced',
+				classNumber: '1'
+			});
+		});
+
+		it('still refuses a marker that disagrees with the row its own group names', () => {
+			// The check is not weakened by the case above: it moves to the row's own
+			// account of itself, so a `J201` homeroom on a `G9` row is still wrong.
+			const parsed = parseRosterSheet(
+				[['1130001', '王芃頵', 'Yoyo Lin', 'G9 Advanced 1', 'J201']],
+				detectColumns(HEADER),
+				2,
+				9
+			);
+
+			expect(parsed.students).toEqual([]);
+			expect(parsed.rejected[0].reason).toContain('J301');
 		});
 	});
 });

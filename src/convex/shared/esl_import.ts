@@ -700,12 +700,24 @@ export function parseRosterSheet(
 		// The Chinese class is read last, so a row that is already unreadable for a
 		// stronger reason — an unusable ID, no group — reports that reason alone
 		// rather than three at once for one cell.
+		//
+		// The marker is checked against the grade **this row's own group names**,
+		// not the grade the file is being read as. The two agree in the ordinary
+		// case, and differ exactly when the page derived the wrong grade from the
+		// year — which is the year-mismatch case the import page's year prompt
+		// exists to catch. Validating against the derived grade there rejected
+		// every row, which emptied `students` and silenced the prompt it should
+		// have raised, filing the file under the wrong grade instead (ADR-0025).
+		//
+		// A grade 10 group carries no grade of its own in the levelled sense, so
+		// the file's grade is its only account of itself and stays the reference.
+		const markerGrade = isGrade10Group(parsed) ? grade : parsed.grade;
 		const rawChineseClass = cell(row, columns.chineseClass);
-		const chineseClass = parseChineseClass(rawChineseClass, grade);
+		const chineseClass = parseChineseClass(rawChineseClass, markerGrade);
 		if ('error' in chineseClass) {
 			rejected.push({
 				rowNumber,
-				reason: describeUnreadableChineseClass(chineseClass.error, grade),
+				reason: describeUnreadableChineseClass(chineseClass.error, markerGrade),
 				raw: row
 			});
 			return;
