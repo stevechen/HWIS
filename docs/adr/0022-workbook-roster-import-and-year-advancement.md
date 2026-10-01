@@ -36,8 +36,8 @@ Six measured facts drive the decision:
 1. **The first three digits of a school student ID are the ROC year the student entered
    grade 7**, not their current grade. G7 is `115xxx`, G8 `114xxx`, G9 `113xxx`. A
    student's ID is stable for life; the per-grade disjointness is just entry cohorts
-   sitting at different stages. Grade 10 uses a separate scheme (`5xxxxx` this year,
-   `4xxxxx` last year, `6xxxxx` next).
+   sitting at different stages. Grade 10 uses a separate scheme (`411xxx` this year,
+   `511xxx` next, `311xxx` last).
 2. **Grade 10's A/B section split is carried in the `ESL Group` column** (`H101A` /
    `H101B`), 22 sections of ~20–26 students. The sheet holds both sections. No
    post-import splitting is needed, and the file is the roster of record.
@@ -139,9 +139,33 @@ prefixes has had two years merged into one spreadsheet; importing it would scatt
 students across cohorts in a way nothing could later reconcile, so it is refused.
 
 - **G7, G8 and G9** may detect a year and prompt on mismatch.
-- **G10 never prompts** — its prefix scheme carries no grade arithmetic.
+- **G10 detects a year too**, from a different reading of its IDs — see below.
 - A mismatch shows the arithmetic to the admin ("these IDs indicate 2027-2028, you are
   on 2026-2027") rather than asserting a conclusion.
+
+**Grade 10 reads its year by reversal.** Its IDs are six digits: the ROC year of the
+school year _itself_, digit-reversed, then three of sequence. `411019` is `114` — ROC 114,
+which is 2025-2026. So there is no `+ (7 - G)` to apply, and no anchor to be off by one;
+the reversal is a bijection with ROC years, and `021` is simply ROC 120 backwards with no
+special case for it.
+
+> **Corrected.** This ADR previously described grade 10's scheme as a two-digit "space"
+> advancing one step per year (`50xxxx`, `51xxxx`, `52xxxx`), anchored at `51` = 2026-2027
+> and wrapping at 99. That reading was wrong on both counts and produced a real fault: the
+> 2025-2026 workbook's `411xxx` IDs were read as space `41`, which sits _below_ the anchor,
+> so the wrap turned it into +90 years and the file was reported as belonging to **2116-2117**.
+> The wrap was also load-bearing for a year the school has not reached, which is how an
+> unconfirmed guess ended up answering as fact. The sequence `211` / `311` / `411` / `511`
+> is the school's own, ascending by one first digit as the ROC year ascends.
+>
+> The consequence for identity below is unchanged — grade 10 is still all-new each year —
+> but the _reason_ is corrected: not that its space moves arbitrarily, but that a grade 10
+> ID names the school year rather than an intake, so a graduating student's ID can never
+> equal a future grade 10 student's.
+>
+> Grade 10's year is now also **enforced server-side**. It previously skipped the check
+> entirely on the claim that its IDs name no year, which left the browser prompt as the only
+> guard on an entire roster.
 
 ### Import pipeline
 
@@ -191,18 +215,20 @@ automatically. Disagreements are reported as warnings.
 | Group change     | n/a          | applied, reported             | n/a     |
 | Absent from file | n/a          | → `disabled`, reason recorded | n/a     |
 
-**Grade 10 is never matched across years.** Its ID space moves `4xxxxx` → `5xxxxx` →
-`6xxxxx`, so a graduating G9 student cannot be linked to a G10 record even in principle.
-Treating it as all-new is forced by the data, not chosen as a simplification.
+**Grade 10 is never matched across years.** Its IDs name the school year itself rather
+than an intake, so a graduating G9 student's ID can never equal a future grade 10
+student's. Treating it as all-new is forced by the data, not chosen as a simplification.
 
-**That same space is what identifies grade 10.** No other grade is numbered `4xxxxx`–`6xxxxx`
-— the levelled grades are `115xxx`-style, always leading `1` — so a file's IDs say which
-grade they are, and no grade is ever asked of the admin. It also means the _year_ is
-readable for grade 10 where it is not for the levelled grades: the space advances one step
-per school year, so `5xxxxx` is 2026-2027 and `6xxxxx` the year after. That is how a grade
-10 file is checked against the year on the page, the way a levelled file's `ESL Group`
-column is. The two signals are deliberately different, and neither is a second opinion on
-the grade.
+**Its ID _length_ is what identifies grade 10.** Grade 10 IDs are six digits and every
+levelled ID is seven — measured across the September 2025 workbooks, 487 of 487 and
+3,800 of 3,800, with no exceptions. Length rather than the leading digits, because a
+reversed grade 10 prefix beginning `1` is indistinguishable from a levelled ROC entry
+year (`110019` vs `1100019`). So a file's IDs say which grade they are, and no grade is
+ever asked of the admin. It also means the _year_ is
+readable for grade 10 directly rather than by offset: `411xxx` is 2025-2026 and `511xxx`
+the year after. That is how a grade 10 file is checked against the year on the page, the
+way a levelled file's `ESL Group` column is. The two signals are deliberately different,
+and neither is a second opinion on the grade.
 
 ### Reportable changes
 

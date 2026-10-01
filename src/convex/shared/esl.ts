@@ -410,7 +410,14 @@ export function isValidClassNumberForGrade(grade: number, classNumber: string): 
 		: isValidGrade10ClassNumber(classNumber);
 }
 
-/** School student IDs are 6 or 7 digits (both eras of the school's numbering). */
+/**
+ * School student IDs are 6 or 7 digits.
+ *
+ * Which is which is the discriminator between grade 10 and the levelled grades:
+ * grade 10 is six, every levelled grade seven, measured across the September 2025
+ * workbooks with no exceptions (ADR-0022 §Context). So this accepts both, and
+ * `isGrade10StudentId` in `esl_import` is what tells them apart.
+ */
 export function isValidSchoolStudentId(schoolStudentId: string): boolean {
 	return /^\d{6,7}$/.test(schoolStudentId);
 }

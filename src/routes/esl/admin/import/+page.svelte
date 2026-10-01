@@ -8,7 +8,6 @@
 	import { api } from '$convex/_generated/api';
 	import type { ParsedRosterWorkbook } from '$convex/shared/esl_import';
 	import {
-		deriveGrade10SchoolYear,
 		deriveGradeForSchoolYear,
 		deriveSchoolYear,
 		gradesNamedInWorkbook
@@ -117,7 +116,7 @@
 				error = `This workbook holds more than one school year (${derived.years.join(' and ')}). Import it as two files, one per year.`;
 				return;
 			}
-			if (derived.kind === 'unsupported' && grade !== 10) {
+			if (derived.kind === 'unsupported') {
 				error = derived.reason;
 				return;
 			}
@@ -178,16 +177,16 @@
 	}
 
 	/**
-	 * The school year a grade 10 workbook claims, from the space its IDs are
-	 * numbered in, or `null` when they name no space.
+	 * The school year a grade 10 workbook claims, from the reversed ROC year its
+	 * IDs are written with, or `null` when they name no such year.
 	 *
-	 * Grade 10's space moves one step per school year, so unlike the levelled
-	 * grades — whose IDs name an intake year the page's year is then read against —
-	 * this one reads the year straight out of the IDs. `5xxxxx` is 2026-2027,
-	 * `6xxxxx` the year after.
+	 * Grade 10's IDs name the school year itself rather than an intake year, so
+	 * unlike the levelled grades there is no offset to apply: `411xxx` is
+	 * 2025-2026 outright. That is what lets a grade 10 file be checked against
+	 * the year on the page the same way a levelled file is.
 	 */
 	function grade10YearFor(ids: readonly string[]): string | null {
-		const derived = deriveGrade10SchoolYear(ids);
+		const derived = deriveSchoolYear(10, ids);
 		return derived.kind === 'current' ? derived.year : null;
 	}
 

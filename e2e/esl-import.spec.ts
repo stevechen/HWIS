@@ -212,8 +212,8 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 	});
 
 	test('places a grade 10 workbook itself, with no grade asked for', async ({ page }) => {
-		// Grade 10's IDs are numbered on a space of their own — `51xxxx` in 2026-2027 —
-		// that no other grade is numbered in, so the file says which grade it is. The
+		// Grade 10's IDs are six digits where no levelled grade is numbered that way
+		// — `511xxx` in 2026-2027 — so the file says which grade it is. The
 		// page used to ask for this, and it was the one thing it asked: answer it wrong
 		// and the whole import is filed under the wrong grade. Now there is nothing to
 		// answer.

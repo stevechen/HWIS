@@ -624,10 +624,10 @@ describe('what it refuses', () => {
 		).rejects.toThrow(/appear more than once in the file/);
 	});
 
-	it('applies a grade 10 file, which names no year of its own', async () => {
-		// Grade 10 IDs carry no intake year, so there is nothing to check the
-		// confirmed year against. The admin year is the only statement available,
-		// and the rows are applied into exactly that year.
+	it('applies a grade 10 file, whose IDs name the year it belongs to', async () => {
+		// Grade 10's IDs name the school year itself rather than an intake, so the
+		// year is derived from them and checked like any other grade's. Both rows
+		// are `511xxx` — ROC 115 reversed, which is 2026-2027 — matching `YEAR`.
 		const t = await asAdmin();
 		const result = await applyRoster(
 			t,
@@ -635,7 +635,7 @@ describe('what it refuses', () => {
 				// Grade 10's homerooms are `H1nn`, and a G10 class draws from exactly
 				// one of them — so both sections of H101 say `H101`.
 				row('511024', 'H101A', { chineseClass: 'H101' }),
-				row('512024', 'H101B', { chineseClass: 'H101' })
+				row('511025', 'H101B', { chineseClass: 'H101' })
 			],
 			{
 				grade: 10,
@@ -656,6 +656,24 @@ describe('what it refuses', () => {
 			const classes = await t.query(api.esl.classes.listByCohort, { cohortId: cohort._id });
 			expect(classes, `${cohort.level} should have one class`).toHaveLength(1);
 		}
+	});
+
+	it('refuses a grade 10 file whose IDs are for a different year', async () => {
+		// The server-side half of the fix. Grade 10's IDs name the school year, so
+		// the apply checks them the way it always checked the levelled grades. It
+		// used to skip grade 10 entirely on the claim that its IDs name no year,
+		// which left the browser prompt as the only guard on a whole roster.
+		//
+		// `411xxx` is ROC 114 reversed — 2025-2026 — but the import is confirmed for
+		// 2026-2027.
+		const t = await asAdmin();
+
+		await expect(
+			applyRoster(t, [row('411024', 'H101A', { chineseClass: 'H101' })], {
+				grade: 10,
+				year: YEAR
+			})
+		).rejects.toThrow(/indicate school year 2025-2026/);
 	});
 
 	it('refuses a school year that is not a year', async () => {

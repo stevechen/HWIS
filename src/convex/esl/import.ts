@@ -523,9 +523,11 @@ export const applyRosterImport = mutation({
 			);
 		}
 
-		// The IDs carry the school year, so a file for the wrong year is caught by
-		// arithmetic rather than by the admin noticing. G10 cannot be checked this
-		// way, which is why it needs a year confirmed by hand.
+		// The IDs carry the school year for all four grades, so a file for the wrong
+		// year is caught by arithmetic rather than by the admin noticing. The
+		// levelled grades read an intake year and add the grade's offset; grade 10
+		// names the school year itself, reversed. Both land in `deriveSchoolYear`,
+		// so the server and the browser read a file the same way.
 		const derived = deriveSchoolYear(
 			args.grade,
 			roster.map((student) => student.schoolStudentId)
@@ -535,10 +537,7 @@ export const applyRosterImport = mutation({
 				`These rows carry two different school years (${derived.years.join(' and ')}), which usually means two years were saved into one workbook.`
 			);
 		}
-		// Grade 10's IDs name no year, so there is nothing to check the
-		// confirmed year against. The admin's word is the only statement
-		// available, and it is the year these rows are applied into.
-		if (derived.kind === 'unsupported' && args.grade !== 10) {
+		if (derived.kind === 'unsupported') {
 			throw new Error(derived.reason);
 		}
 		if (derived.kind === 'current' && derived.year !== args.year) {

@@ -107,14 +107,24 @@ const SHEET_ABBREVIATION: Record<7 | 8 | 9, Record<string, string>> = {
 };
 
 /**
- * The leading ROC entry year of each grade's IDs, which is how the importer
- * derives the school year a file belongs to.
+ * The leading ROC entry year of each levelled grade's IDs, which is how the
+ * importer derives the school year a file belongs to.
  *
  * Grade 7 is the intake year, so for a student in grade `g` the year follows from
- * `entryYear + (g - 7)`. Grade 10 uses a separate scheme that names no year, so
- * its IDs carry none and the year is confirmed by the admin instead.
+ * `entryYear + (g - 7)`. Grade 10 is absent because it does not use this: its IDs
+ * name the school year itself, digit-reversed, so it has no single ROC prefix to
+ * share across years. See `G10_ROC_PREFIX`.
  */
-const ROC_PREFIX: Record<7 | 8 | 9 | 10, string> = { 7: '115', 8: '114', 9: '113', 10: '5' };
+const ROC_PREFIX: Record<7 | 8 | 9, string> = { 7: '115', 8: '114', 9: '113' };
+
+/**
+ * Grade 10's ID prefix: the school's own school year, digit-reversed.
+ *
+ * `511` is ROC 115 reversed, which is 2026-2027 — the year these fixtures stand
+ * for. A different year is a different prefix, which is what lets the importer
+ * read a grade 10 file's year off its IDs the way it reads a levelled one.
+ */
+const G10_ROC_PREFIX = '511';
 
 /** The grade 7 class whose one row is filed under another class. */
 const MISFILED_SHEET_G7 = 'G7 Basic 5';
@@ -375,14 +385,14 @@ function buildGrade10(): RosterFixture {
 		for (const section of ['A', 'B'] as const) {
 			for (let s = 0; s < PER_CLASS; s++) {
 				// A number, not a string: G10 stores its IDs as Excel numbers where
-				// the levelled grades store text. Six digits, `51` being this year's
-				// grade 10 space, so `510001` upwards.
+				// the levelled grades store text. Six digits — the reversed ROC year
+				// `511` (2026-2027) then three of sequence, so `511001` upwards.
 				//
 				// The homeroom is this sheet's own base class, because a grade 10 ESL
 				// class draws from exactly one Chinese class (ADR-0023) — which is
 				// what the importer cross-checks.
 				rows.push({
-					id: Number(`51${String(index).padStart(4, '0')}`),
+					id: Number(`${G10_ROC_PREFIX}${String(index).padStart(3, '0')}`),
 					group: `${base}${section}`,
 					index,
 					classCode: base

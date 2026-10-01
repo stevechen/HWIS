@@ -10,10 +10,10 @@
  *
  * What is *not* carried, and why:
  *
- * - **G9 does not carry into G10.** Grade 10's ID space is disjoint from G9's
- *   (`4xxxxx` → `5xxxxx` → `6xxxxx`), so a graduating student cannot be linked
- *   to their next-year record even in principle. Treating G10 as all-new is
- *   forced by the school's numbering, not chosen as a simplification.
+ * - **G9 does not carry into G10.** Grade 10's IDs name the school year itself rather
+ *   than an intake, so a graduating student's ID can never equal a future grade 10
+ *   student's. Treating G10 as all-new is forced by the school's numbering, not
+ *   chosen as a simplification.
  * - **Disabled students are not carried.** A disabled row records someone who
  *   left the programme; copying them forward would put a student the school has
  *   already said goodbye to into the new year's roster. If the workbook lists

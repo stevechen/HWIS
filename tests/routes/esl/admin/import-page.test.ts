@@ -147,17 +147,17 @@ async function setYear(value: string) {
 }
 
 /**
- * Uploads a grade 10 file, which places itself from its own ID space.
+ * Uploads a grade 10 file, which places itself from its own ID length.
  *
- * No grade control is involved: `5xxxxx` is a space no other grade is numbered in,
- * so one upload stages and there is nothing to answer. The IDs' leading digit also
- * says which year the file is for, which is what the page checks the year above
- * against.
+ * No grade control is involved: grade 10 IDs are six digits where no levelled
+ * grade is numbered that way, so one upload stages and there is nothing to answer.
+ * The IDs' reversed ROC year also says which year the file is for, which is what
+ * the page checks the year above against.
  */
 async function uploadGrade10(name = 'g10.xlsx') {
-	// Grade 10's scheme: `5xxxxx`, with no three-digit intake prefix, which is how
-	// the page knows the grade without being told.
-	fileIds.mockReturnValue(['511101', '512101']);
+	// Grade 10's scheme: `511xxx`, six digits, which is how the page knows the
+	// grade without being told.
+	fileIds.mockReturnValue(['511101', '511102']);
 	upload(name);
 }
 
@@ -293,15 +293,15 @@ describe('ESL admin import page', () => {
 		});
 
 		it('places a grade 10 file itself, with nothing asked', async () => {
-			// Grade 10 is numbered `4xxxxx`, then `5xxxxx`, then `6xxxxx` — a space no
-			// other grade uses. So the ID says the grade outright, and the page has
-			// nothing to ask the admin about it.
+			// Grade 10 IDs are six digits where no levelled grade is numbered that
+			// way, so the ID says the grade outright and the page has nothing to ask
+			// the admin about it.
 			render(ImportPage);
 			fileIds.mockReturnValue(['511024', '511355']);
 			givenParsed(
 				workbook({
 					grade: 10,
-					derivedYear: { kind: 'unsupported', reason: 'separate ID scheme' },
+					derivedYear: { kind: 'current', year: YEAR, entryYear: 115 },
 					students: [
 						{
 							schoolStudentId: '511024',
@@ -395,8 +395,9 @@ describe('ESL admin import page', () => {
 				workbook({
 					grade: 10,
 					derivedYear: {
-						kind: 'unsupported',
-						reason: 'Grade 10 uses a separate ID scheme that does not identify a school year.'
+						kind: 'current',
+						year: YEAR,
+						entryYear: 115
 					},
 					students: [
 						{
@@ -407,7 +408,7 @@ describe('ESL admin import page', () => {
 							group: { grade: 10, baseClass: '01', section: 'A' }
 						},
 						{
-							schoolStudentId: '512101',
+							schoolStudentId: '511102',
 							chineseName: '李大文',
 							englishName: 'Jeremy Wu',
 							chineseClass: '01',
@@ -434,7 +435,7 @@ describe('ESL admin import page', () => {
 			givenParsed(
 				workbook({
 					grade: 10,
-					derivedYear: { kind: 'unsupported', reason: 'no year scheme' },
+					derivedYear: { kind: 'current', year: YEAR, entryYear: 115 },
 					students: [
 						{
 							schoolStudentId: '511101',
@@ -443,7 +444,7 @@ describe('ESL admin import page', () => {
 							group: { grade: 10, baseClass: '01', section: 'A' }
 						},
 						{
-							schoolStudentId: '512101',
+							schoolStudentId: '511102',
 							chineseName: '李大文',
 							chineseClass: '01',
 							group: { grade: 10, baseClass: '01', section: 'B' }
@@ -469,7 +470,7 @@ describe('ESL admin import page', () => {
 			givenParsed(
 				workbook({
 					grade: 10,
-					derivedYear: { kind: 'unsupported', reason: 'no year scheme' },
+					derivedYear: { kind: 'current', year: YEAR, entryYear: 115 },
 					students: [
 						{
 							schoolStudentId: '511101',
@@ -479,7 +480,7 @@ describe('ESL admin import page', () => {
 							group: { grade: 10, baseClass: '01', section: 'A' }
 						},
 						{
-							schoolStudentId: '512101',
+							schoolStudentId: '511102',
 							chineseName: '李大文',
 							chineseClass: '01',
 							group: { grade: 10, baseClass: '11', section: 'B' }

@@ -139,8 +139,10 @@ describe('the roster workbooks', () => {
 		}
 	});
 
-	it('derives each levelled file year from its own IDs, and cannot for grade 10', () => {
-		// The IDs keep their ROC prefix, so the year arithmetic runs for real.
+	it('derives every file year from its own IDs, grade 10 included', () => {
+		// The levelled grades keep their ROC prefix, so the intake arithmetic runs
+		// for real. Grade 10 names the school year itself, reversed, and lands on
+		// the same answer from the other direction.
 		expect(readFixture(7).derivedYear).toEqual({
 			kind: 'current',
 			year: '2026-2027',
@@ -148,8 +150,15 @@ describe('the roster workbooks', () => {
 		});
 		expect(readFixture(8).derivedYear).toMatchObject({ kind: 'current', entryYear: 114 });
 		expect(readFixture(9).derivedYear).toMatchObject({ kind: 'current', entryYear: 113 });
-		// Grade 10's ID space names no year, so the admin confirms it.
-		expect(readFixture(10).derivedYear.kind).toBe('unsupported');
+		// The fixture writes `511xxx`, which is ROC 115 reversed — 2026-2027, the
+		// year these fixtures stand for. It used to be reported as `unsupported`,
+		// which is what left the browser prompt as the only year check on a grade
+		// 10 file.
+		expect(readFixture(10).derivedYear).toEqual({
+			kind: 'current',
+			year: '2026-2027',
+			entryYear: 115
+		});
 	});
 
 	it('names both years when one workbook has two of them merged in', () => {

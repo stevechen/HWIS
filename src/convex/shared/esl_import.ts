@@ -187,74 +187,78 @@ function entryYearOf(schoolStudentId: string): number | null {
 }
 
 /**
- * The grade 10 ID space a student ID belongs to, or `null` if it is not on that
- * scheme at all.
+ * Whether a student ID is on grade 10's numbering scheme.
  *
- * Grade 10 sits on a numbering space of its own that no other grade uses, and the
- * ID does say which grade it is because of that. A grade 10 ID is six digits: a
- * two-digit space, then four digits of sequence. The space advances one step per
- * school year, so it also carries the year — see `grade10SpaceForSchoolYear`.
+ * Grade 10 IDs are six digits and every levelled ID is seven. Measured across
+ * the September 2025 workbooks: 487 of 487 grade 10 IDs are six digits, and
+ * 3,800 of 3,800 levelled IDs are seven, with no exceptions in either direction
+ * (ADR-0022 §Context). The sequence length differs too — three digits after the
+ * prefix against the levelled four — so length is the discriminator twice over.
  *
- * Told apart from a levelled ID by the third digit. A levelled ID is
- * `115001` — three-digit ROC entry year, always `1xx` — while a grade 10 ID's
- * first three digits run `500`–`599` and up. So the two never collide, and the
- * grade 10 space is read as two digits off an ID that is not `1xx`.
+ * Length rather than the leading digits, because the leading digits cannot
+ * discriminate: a reversed grade 10 prefix beginning `1` is indistinguishable
+ * from a levelled ROC entry year. `110019` is a 2021-2022 grade 10 student and
+ * `1100019` a grade 7 intake, told apart by the digit after the prefix, not by
+ * what the prefix says.
+ *
+ * Deliberately independent of any year. Whether a file is grade 10 is settled
+ * by its shape alone, so this needs no constants and no ROC arithmetic — which
+ * is what stops a bad anchor hiding inside the grade classifier.
  */
-function grade10SpaceOf(schoolStudentId: string): number | null {
-	if (!/^\d{6}$/.test(schoolStudentId)) return null;
-	const leading = Number(schoolStudentId.slice(0, 3));
-	if (leading >= 100 && leading <= 199) return null;
-	return Number(schoolStudentId.slice(0, 2));
+export function isGrade10StudentId(schoolStudentId: string): boolean {
+	return /^\d{6}$/.test(schoolStudentId);
 }
 
 /**
- * The two-digit grade 10 ID space used in 2026-2027.
+ * The three-digit ROC year a grade 10 ID carries, digit-reversed, or `null`.
  *
- * That year's G10 workbook numbers every student `51xxxx`. The school confirmed
- * the space is two digits rather than one because a single leading digit runs out
- * at ROC 119 (2030-2031) — the year after `5`, `6`, `7`, `8`, `9` — and what
- * happens after that is not yet known. Two digits buys decades instead, and the
- * only open question is whether the school restarts from `00` when the space
- * passes `99`, which `spaceOffset` handles by wrapping rather than by failing.
- */
-const GRADE10_SPACE_ANCHOR = 51;
-
-/** The school year whose grade 10 space is `51xxxx`. */
-const GRADE10_SPACE_ANCHOR_YEAR = '2026-2027';
-
-/**
- * How many school years after the anchor a space sits, wrapping at 100.
+ * Grade 10 writes the ROC year of the school year itself rather than the year
+ * the student entered grade 7, and writes it reversed: `411019` is `114`, which
+ * is ROC 114, which is 2025-2026. The school's own sequence runs `211` (ROC 112,
+ * 2023-2024), `311` (ROC 113), `411` (ROC 114), `511` (ROC 115).
  *
- * Wrapping because the space is two digits and the school may well run `99` then
- * `00`; a space below the anchor is read as the next cycle rather than as a
- * negative offset, so the year still moves forward one step at a time.
+ * Reversal is a bijection with ROC years, so there is no anchor that can be off
+ * by one and no wrap to run off the end — the two ways the previous reading
+ * produced a confident wrong year out of a correct file. It also needs no
+ * special case past ROC 119: `021` is simply ROC 120 reversed, and
+ * `reversedPrefixForRocYear` says so without being told.
+ *
+ * A reversed `000` is ROC 0, which is not a year, and is refused rather than
+ * read as 1911.
  */
-function spaceOffset(space: number): number {
-	return (space - GRADE10_SPACE_ANCHOR + 100) % 100;
+function rocYearFromReversedPrefix(schoolStudentId: string): number | null {
+	if (!isGrade10StudentId(schoolStudentId)) return null;
+	const reversed = schoolStudentId.slice(0, 3).split('').reverse().join('');
+	if (!/^[1-9]\d{2}$/.test(reversed)) return null;
+	return Number(reversed);
 }
 
 /**
- * The grade 10 ID space a given school year is numbered in, or `null` if the year
- * is not shaped like a school year.
+ * The grade 10 prefix a ROC year is written as, or `null` if it is not a
+ * three-digit year.
  *
  * The inverse of the school's own numbering, and the only thing tying a grade 10
  * file to a year: its IDs name no intake year, so the arithmetic that places a
  * levelled file does nothing here.
  */
-export function grade10SpaceForSchoolYear(year: string): number | null {
-	const [from, to] = year.split('-').map((part) => Number(part));
-	if (!Number.isInteger(from) || !Number.isInteger(to) || to - from !== 1) return null;
-	const [anchorFrom, anchorTo] = GRADE10_SPACE_ANCHOR_YEAR.split('-').map(Number);
-	if (to - anchorTo !== from - anchorFrom) return null;
-	return (GRADE10_SPACE_ANCHOR + to - anchorTo + 100) % 100;
+export function reversedPrefixForRocYear(rocYear: number): string | null {
+	if (!Number.isInteger(rocYear) || rocYear < 100 || rocYear > 999) return null;
+	return String(rocYear).split('').reverse().join('');
 }
 
-/** The school year a grade 10 ID space belongs to. */
-export function schoolYearForGrade10Space(space: number): string | null {
-	if (!Number.isInteger(space) || space < 0 || space > 99) return null;
-	const [anchorFrom] = GRADE10_SPACE_ANCHOR_YEAR.split('-').map(Number);
-	const start = anchorFrom + spaceOffset(space);
-	return `${start}-${start + 1}`;
+/**
+ * The school year a grade 10 ID belongs to, or `null` when its ID is not on that
+ * scheme.
+ *
+ * The counterpart to `schoolYearFromRocEntry` for the one grade whose IDs carry
+ * the year rather than an intake: `411xxx` is 2025-2026 and `511xxx` the year
+ * after. That is what lets a grade 10 file be checked against the page's year
+ * the same way a levelled file is — its IDs name no intake year, so the
+ * arithmetic that places a levelled file does nothing here.
+ */
+export function schoolYearFromGrade10Id(schoolStudentId: string): string | null {
+	const rocYear = rocYearFromReversedPrefix(schoolStudentId);
+	return rocYear === null ? null : schoolYearFromRocEntry(rocYear);
 }
 
 /**
@@ -265,9 +269,7 @@ export function schoolYearForGrade10Space(space: number): string | null {
  *   merged into it. Importing it would scatter students across cohorts in a way
  *   nothing could later reconcile, so it is refused rather than guessed at.
  * `indeterminate` — too few usable IDs to say.
- * `unsupported` — the grade cannot carry the arithmetic (grade 10 uses a
- *   separate numbering scheme with no grade relationship, so its file never
- *   determines a year).
+ * `unsupported` — the grade is not one this can read IDs for.
  */
 export type DerivedSchoolYear =
 	| { kind: 'current'; year: string; entryYear: number }
@@ -278,29 +280,47 @@ export type DerivedSchoolYear =
 /**
  * Work out which school year a file belongs to from its student IDs.
  *
- * The first three digits of an ID are the ROC year the student entered grade 7,
- * and grade 7 is the intake year — so for a student in grade `g` the school year
- * is `entryYear + (g - 7)`. For 2026-27 that gives G7 → `115`, G8 → `114`,
- * G9 → `113`, which is exactly the range layout measured in the workbooks.
+ * The levelled grades put the ROC year the student entered grade 7 in the first
+ * three digits, and grade 7 is the intake year — so for a student in grade `g`
+ * the school year is `entryYear + (g - 7)`. For 2026-27 that gives G7 → `115`,
+ * G8 → `114`, G9 → `113`, which is exactly the range layout measured in the
+ * workbooks.
  *
  * This derives the year from the data rather than inferring it. The obvious
  * alternative — treating "all G7 IDs are new" as a new school year — carries no
  * information at all, because grade 7 has an entirely new intake every year, so
  * it is equally true of a September import and of a mid-year re-import.
  *
- * Grade 10 is unsupported: its IDs move `4xxxxx` → `5xxxxx` → `6xxxxx` year to
- * year with no relationship to the intake year, so a G10 file follows whatever
- * year is current rather than determining one.
+ * Grade 10 is read differently, and the difference is the point. Its IDs name
+ * the school year itself rather than an intake, digit-reversed, so there is no
+ * `+ (g - 7)` to apply: `411xxx` is 2025-2026 outright. This was previously
+ * reported as `unsupported` on the grounds that grade 10 IDs "do not identify a
+ * school year", which was never true — it was what reading the reversed prefix as
+ * a two-digit "space" implied, and that reading sent a real 2025-2026 file to
+ * 2116-2117. The year is derived here so the server can enforce it too, rather
+ * than trusting the browser's prompt as the only guard.
  */
 export function deriveSchoolYear(
 	grade: number,
 	schoolStudentIds: readonly string[]
 ): DerivedSchoolYear {
 	if (grade === 10) {
-		return {
-			kind: 'unsupported',
-			reason: 'Grade 10 uses a separate ID scheme that does not identify a school year.'
-		};
+		const years = new Map<string, number>();
+		for (const id of schoolStudentIds) {
+			const rocYear = rocYearFromReversedPrefix(id);
+			if (rocYear === null) continue;
+			// A Map keyed by year rather than a Set, so the `current` shape matches
+			// the levelled grades': callers read `entryYear` without narrowing on
+			// which grade produced the result. For grade 10 the ROC year is the
+			// school year's own, not an intake, but it is the same number.
+			years.set(schoolYearFromRocEntry(rocYear), rocYear);
+		}
+
+		if (years.size === 0) return { kind: 'indeterminate' };
+		if (years.size > 1) return { kind: 'conflict', years: [...years.keys()].sort() };
+
+		const [[year, entryYear]] = [...years];
+		return { kind: 'current', year, entryYear };
 	}
 	if (grade < 7 || grade > 9) {
 		return { kind: 'unsupported', reason: `Grade ${grade} does not carry the intake-year scheme.` };
@@ -363,16 +383,15 @@ export function deriveGradeForSchoolYear(
 	}
 
 	// Only prefixes that place a student in a levelled grade of this year are
-	// intake years at all. Grade 10 is on its own scheme, so it is set aside and
-	// read separately below: its `511101` and `512101` have three leading digits like
-	// any other ID, but they are not intake years, and counting them would report a
-	// grade 10 file as holding school years 2422-2423 and 2423-2424.
+	// intake years at all. Grade 10 IDs are six digits where a levelled ID is
+	// seven, so they are set aside by length and read separately below: their
+	// first three digits are a reversed ROC year, not an intake, and counting
+	// them would place a grade 10 file in a levelled grade.
 	const grades = new Map<number, number>();
-	const grade10Spaces = new Set<number>();
+	let sawGrade10 = false;
 	for (const id of schoolStudentIds) {
-		const space = grade10SpaceOf(id);
-		if (space !== null) {
-			grade10Spaces.add(space);
+		if (isGrade10StudentId(id)) {
+			sawGrade10 = true;
 			continue;
 		}
 		const entryYear = entryYearOf(id);
@@ -382,16 +401,16 @@ export function deriveGradeForSchoolYear(
 		grades.set(grade, entryYear);
 	}
 
-	// A file on the grade 10 space says so outright — no other grade is numbered
-	// this way — so it needs nothing asked of the admin, the same as a levelled file.
-	if (grades.size === 0 && grade10Spaces.size > 0) {
+	// A file of six-digit IDs says so outright — no levelled grade is numbered that
+	// way — so it needs nothing asked of the admin, the same as a levelled file.
+	if (grades.size === 0 && sawGrade10) {
 		return { kind: 'grade', grade: 10 };
 	}
 
 	// A file holding both schemes has no single grade. Reporting it as a merged file
 	// is the honest answer: importing it would file one of the two halves under the
 	// other's grade.
-	if (grades.size > 0 && grade10Spaces.size > 0) {
+	if (grades.size > 0 && sawGrade10) {
 		return { kind: 'twoYears', years: [] };
 	}
 
@@ -409,29 +428,6 @@ export function deriveGradeForSchoolYear(
 		kind: 'twoYears',
 		years: [...grades.values()].map((entryYear) => schoolYearFromRocEntry(entryYear)).sort()
 	};
-}
-
-/**
- * The school year a grade 10 file's IDs place it in, or that they cannot.
- *
- * The counterpart to `deriveGradeForSchoolYear` for the one grade whose IDs carry
- * the year rather than an intake: the space moves one step per school year, so
- * `5xxxxx` is one year and `6xxxxx` the next. That is what lets a grade 10 file be
- * checked against the page's year the same way a levelled file is — its IDs name no
- * intake year, so the arithmetic that places a levelled file does nothing here.
- */
-export function deriveGrade10SchoolYear(
-	schoolStudentIds: readonly string[]
-): { kind: 'current'; year: string } | { kind: 'conflict' } | { kind: 'unknown' } {
-	const spaces = new Set<number>();
-	for (const id of schoolStudentIds) {
-		const space = grade10SpaceOf(id);
-		if (space !== null) spaces.add(space);
-	}
-	if (spaces.size === 0) return { kind: 'unknown' };
-	if (spaces.size > 1) return { kind: 'conflict' };
-	const year = schoolYearForGrade10Space([...spaces][0]);
-	return year === null ? { kind: 'unknown' } : { kind: 'current', year };
 }
 
 /**

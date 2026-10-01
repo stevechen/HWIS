@@ -7,17 +7,18 @@ import {
 	deriveSchoolYear,
 	detectColumns,
 	deriveGradeForSchoolYear,
-	deriveGrade10SchoolYear,
-	grade10SpaceForSchoolYear,
 	gradesNamedInWorkbook,
+	isGrade10StudentId,
 	isReadableRosterSheet,
 	normalizeSchoolStudentId,
 	parseRosterGroup,
 	parseRosterSheet,
 	parseRosterWorkbook,
 	planRosterImport,
+	reversedPrefixForRocYear,
 	rocEntryYearForSchoolYear,
 	rosterGroupText,
+	schoolYearFromGrade10Id,
 	schoolYearFromRocEntry,
 	type ExistingCohort,
 	type ExistingStudent,
@@ -44,14 +45,23 @@ const LEVELLED_CHINESE_HEADER = [
 	'ESL Group'
 ];
 
-/** A `H101` sheet as the school writes it: 24 of section A, then 21 of section B. */
+/**
+ * A `H101` sheet as the school writes it: 24 of section A, then 21 of section B.
+ *
+ * Every ID is `511xxx` — the reversed ROC year of 2026-2027, then three of
+ * sequence — and both sections share it. A previous fixture gave section B a
+ * `512` prefix, which was a fabrication the old two-digit reading could not
+ * detect because it only ever read two digits; under the three-digit reversal it
+ * resolves to ROC 215 and would report the class as holding two school years.
+ * All 487 IDs in the real 2025-2026 G10 workbook are `411xxx` with no exception.
+ */
 function h101Rows(): string[][] {
 	const rows: string[][] = [];
 	for (let seat = 1; seat <= 24; seat++) {
 		rows.push(['H101A', `511${String(100 + seat)}`, 'H101', `王${seat}`, `Remy ${seat}`]);
 	}
 	for (let seat = 1; seat <= 21; seat++) {
-		rows.push(['H101B', `512${String(100 + seat)}`, 'H101', `李${seat}`, `Jeremy ${seat}`]);
+		rows.push(['H101B', `511${String(200 + seat)}`, 'H101', `李${seat}`, `Jeremy ${seat}`]);
 	}
 	return rows;
 }
@@ -194,7 +204,7 @@ describe('grade 10 sheets', () => {
 		// choosing which of the two columns is right.
 		const straddling = classifySheet(
 			'H101',
-			[...h101Rows(), ['H102A', '513001', 'H102', '陳小明', 'Ming Chen']],
+			[...h101Rows(), ['H102A', '511301', 'H102', '陳小明', 'Ming Chen']],
 			G10_HEADER,
 			2,
 			10
@@ -215,9 +225,13 @@ describe('grade 10 sheets', () => {
 		expect(parsed.classes).toHaveLength(1);
 		expect(parsed.students).toHaveLength(45);
 		expect(parsed.skipped.map((s) => s.sheetName)).toEqual(['Chinese Class']);
-		// Grade 10's ID space identifies no school year, so the year is confirmed
-		// by the admin rather than derived.
-		expect(parsed.derivedYear.kind).toBe('unsupported');
+		// Grade 10's IDs name the school year itself, reversed, so the year is
+		// derived from them like any other grade's.
+		expect(parsed.derivedYear).toEqual({
+			kind: 'current',
+			year: '2026-2027',
+			entryYear: 115
+		});
 	});
 
 	it('gives each level of a base class its own cohort', () => {
@@ -429,9 +443,16 @@ describe('school year derivation', () => {
 		});
 	});
 
-	it('never derives a year for grade 10', () => {
-		// Grade 10's IDs move 4xxxxx → 5xxxxx → 6xxxxx, unrelated to intake.
-		expect(deriveSchoolYear(10, ['511024', '511355']).kind).toBe('unsupported');
+	it('derives grade 10’s year from its own IDs', () => {
+		// Grade 10 names the school year itself, reversed, so there is no intake
+		// offset to apply. Previously this returned `unsupported` on the claim that
+		// grade 10 IDs identify no year at all, which sent a real 2025-2026 file to
+		// 2116-2117; see the "reversed ROC year" block for that reading.
+		expect(deriveSchoolYear(10, ['511024', '511355'])).toEqual({
+			kind: 'current',
+			year: '2026-2027',
+			entryYear: 115
+		});
 	});
 
 	it('reports indeterminate when no ID carries a usable prefix', () => {
@@ -466,37 +487,37 @@ describe('grade derivation from a confirmed year', () => {
 		expect(gradeIn('2027-2028')).toBe(9);
 	});
 
-	it('places a grade 10 file from its own ID space, with nothing asked', () => {
-		// Grade 10 is numbered `51xxxx` in 2026-2027, on a space no other grade uses.
-		// So the ID says which grade it is, which is what lets the page stop asking
-		// for one.
-		expect(deriveGradeForSchoolYear('2026-2027', ['510001', '510002'])).toEqual({
+	it('places a grade 10 file from its own ID length, with nothing asked', () => {
+		// Grade 10 is numbered `511xxx` in 2026-2027, six digits where no levelled
+		// grade is numbered that way. So the ID says which grade it is, which is what
+		// lets the page stop asking for one.
+		expect(deriveGradeForSchoolYear('2026-2027', ['511001', '511002'])).toEqual({
 			kind: 'grade',
 			grade: 10
 		});
 	});
 
-	it('tells a grade 10 ID from a levelled one of the same length', () => {
-		// Both are six digits, so length says nothing. `511024` is grade 10 on the `51`
-		// space; `115001` is grade 7 entered in ROC 115. The third digit is what tells
-		// them apart, and getting it wrong would file a whole G10 roster as some
-		// levelled grade.
+	it('tells a grade 10 ID from a levelled one that looks similar', () => {
+		// Both begin `115` or `511` in the same positions, so reading the leading
+		// digits would confuse them; only the length separates the schemes.
+		// `511024` is grade 10 in 2026-2027 and `1150024` is grade 7 entered in ROC
+		// 115. Getting it wrong would file a whole G10 roster as a levelled grade.
 		expect(deriveGradeForSchoolYear('2026-2027', ['511024', '511355'])).toEqual({
 			kind: 'grade',
 			grade: 10
 		});
-		expect(deriveGradeForSchoolYear('2026-2027', ['115001'])).toEqual({
+		expect(deriveGradeForSchoolYear('2026-2027', ['1150024'])).toEqual({
 			kind: 'grade',
 			grade: 7
 		});
 	});
 
 	it('places a grade 10 file whatever year the page is set to', () => {
-		// The space says the grade; the year above says the year. Neither is derived
+		// The length says the grade; the year above says the year. Neither is derived
 		// from the other, so a file that is plainly grade 10 stays grade 10 instead of
 		// being told it is some levelled grade.
 		for (const year of ['2025-2026', '2026-2027', '2027-2028']) {
-			expect(deriveGradeForSchoolYear(year, ['510001'])).toEqual({
+			expect(deriveGradeForSchoolYear(year, ['511001'])).toEqual({
 				kind: 'grade',
 				grade: 10
 			});
@@ -547,60 +568,98 @@ describe('grade derivation from a confirmed year', () => {
 	});
 });
 
-describe('the grade 10 ID space', () => {
-	// Grade 10's space is two digits and advances one step per school year:
-	// `50xxxx`, then `51xxxx` for 2026-2027, then `52xxxx`. That is the only thing
-	// tying a grade 10 file to a year, since its IDs name no intake year, so it is
-	// what lets the page check a grade 10 file against the year on the page the same
-	// way it checks a levelled one.
+describe("grade 10's reversed ROC year", () => {
+	// Grade 10's IDs are six digits: the ROC year of the school year itself,
+	// digit-reversed, then three of sequence. `411019` is `114` — ROC 114, which is
+	// 2025-2026. There is no anchor to be wrong about and no wrap to run off the
+	// end, because the reversal is a bijection with ROC years.
 
-	it('maps each school year to the space it is numbered in', () => {
-		expect(grade10SpaceForSchoolYear('2025-2026')).toBe(50);
-		expect(grade10SpaceForSchoolYear('2026-2027')).toBe(51);
-		expect(grade10SpaceForSchoolYear('2027-2028')).toBe(52);
-		expect(grade10SpaceForSchoolYear('2030-2031')).toBe(55);
+	it('reads the school year off a grade 10 ID', () => {
+		expect(schoolYearFromGrade10Id('411019')).toBe('2025-2026');
+		expect(schoolYearFromGrade10Id('511024')).toBe('2026-2027');
+		expect(schoolYearFromGrade10Id('611001')).toBe('2027-2028');
 	});
 
-	it('keeps working well past the year a single leading digit would run out', () => {
-		// One digit buys only up to ROC 119, which is 2030-2031. Two digits is the
-		// reason the space is read as two.
-		expect(grade10SpaceForSchoolYear('2050-2051')).toBe(75);
-		expect(grade10SpaceForSchoolYear('2070-2071')).toBe(95);
+	it('reads the years the school has actually used', () => {
+		// The four years of grade 10 files the school has produced, in the order
+		// they were given: `211` (ROC 112), `311`, `411`, `511`.
+		expect(schoolYearFromGrade10Id('211001')).toBe('2023-2024');
+		expect(schoolYearFromGrade10Id('311001')).toBe('2024-2025');
+		expect(schoolYearFromGrade10Id('411001')).toBe('2025-2026');
+		expect(schoolYearFromGrade10Id('511001')).toBe('2026-2027');
 	});
 
-	it('wraps at 99 rather than running off the end', () => {
-		// The open question the school has not confirmed is what happens when the
-		// space passes `99` — whether they restart from `00` or go to three digits.
-		// Reading `00` as the year after `99` is the assumption made here, and it
-		// keeps the year moving forward one step at a time either way.
-		expect(grade10SpaceForSchoolYear('2074-2075')).toBe(99);
-		expect(grade10SpaceForSchoolYear('2075-2076')).toBe(0);
-	});
-
-	it('refuses a year that is not shaped like a school year', () => {
-		expect(grade10SpaceForSchoolYear('not-a-year')).toBeNull();
-		expect(grade10SpaceForSchoolYear('2026')).toBeNull();
-		expect(grade10SpaceForSchoolYear('2026-2028')).toBeNull();
-	});
-
-	it('reads the year back out of a grade 10 file', () => {
-		expect(deriveGrade10SchoolYear(['510001', '510002'])).toEqual({
+	it('reads the 2025-2026 workbook the reported bug came from', () => {
+		// The bug this guards: `411xxx` was read as a two-digit `41` "space" below a
+		// `51` anchor, which the wrap turned into +90 years, so a real 2025-2026
+		// file was reported as belonging to 2116-2117. `41` is not a space; it is
+		// ROC 114 backwards.
+		expect(schoolYearFromGrade10Id('411001')).toBe('2025-2026');
+		expect(deriveSchoolYear(10, ['411001', '411549'])).toEqual({
 			kind: 'current',
-			year: '2026-2027'
-		});
-		expect(deriveGrade10SchoolYear(['520001'])).toEqual({
-			kind: 'current',
-			year: '2027-2028'
+			year: '2025-2026',
+			entryYear: 114
 		});
 	});
 
-	it('reports a file holding two spaces as a conflict', () => {
-		expect(deriveGrade10SchoolYear(['510001', '520001'])).toEqual({ kind: 'conflict' });
+	it('keeps reading years past the point a single leading digit would run out', () => {
+		// One digit would stop at ROC 119 (2030-2031). The reversal needs no special
+		// case: `021` is simply ROC 120 backwards, so 2031-2032 falls out of the same
+		// rule rather than a case written for it.
+		expect(schoolYearFromGrade10Id('911001')).toBe('2030-2031');
+		expect(schoolYearFromGrade10Id('021001')).toBe('2031-2032');
+		expect(schoolYearFromGrade10Id('121001')).toBe('2032-2033');
 	});
 
-	it('is unknown for a file on no grade 10 space', () => {
-		expect(deriveGrade10SchoolYear(['115001'])).toEqual({ kind: 'unknown' });
-		expect(deriveGrade10SchoolYear([])).toEqual({ kind: 'unknown' });
+	it('writes a ROC year back out as the prefix the school uses', () => {
+		expect(reversedPrefixForRocYear(114)).toBe('411');
+		expect(reversedPrefixForRocYear(115)).toBe('511');
+		expect(reversedPrefixForRocYear(120)).toBe('021');
+	});
+
+	it('refuses a ROC year that is not three digits', () => {
+		expect(reversedPrefixForRocYear(99)).toBeNull();
+		expect(reversedPrefixForRocYear(1000)).toBeNull();
+		expect(reversedPrefixForRocYear(114.5)).toBeNull();
+	});
+
+	it('refuses a reversed 000, which is not a year', () => {
+		// `000001` is six digits and so reads as grade 10, but reversed it is ROC 0,
+		// which is not a year. Reading it as 1911 would put a junk ID in 1911-1912.
+		expect(isGrade10StudentId('000001')).toBe(true);
+		expect(schoolYearFromGrade10Id('000001')).toBeNull();
+	});
+
+	it('reports a file holding two school years as a conflict', () => {
+		// The shape the fixed `h101Rows` fixture used to have: section A on `511`
+		// and section B on `512`. Under the two-digit reading both were space `51`
+		// and this was invisible; reversed, `512` is ROC 215, so a class that is
+		// really one cohort reads as two years and the import would split it.
+		expect(deriveSchoolYear(10, ['511101', '512101'])).toEqual({
+			kind: 'conflict',
+			years: ['2026-2027', '2126-2127']
+		});
+	});
+
+	it('is indeterminate for a file with no usable grade 10 IDs', () => {
+		expect(deriveSchoolYear(10, ['1150001'])).toEqual({ kind: 'indeterminate' });
+		expect(deriveSchoolYear(10, [])).toEqual({ kind: 'indeterminate' });
+	});
+
+	it('tells grade 10 from a levelled grade by length, not by leading digits', () => {
+		// Length is the discriminator, because the leading digits cannot be. A
+		// reversed grade 10 prefix beginning `1` looks exactly like a levelled ROC
+		// entry year, and the old reading relied on that never happening.
+		expect(isGrade10StudentId('110019')).toBe(true);
+		expect(isGrade10StudentId('1100019')).toBe(false);
+		expect(deriveGradeForSchoolYear('2021-2022', ['110019', '110020'])).toEqual({
+			kind: 'grade',
+			grade: 10
+		});
+		expect(deriveGradeForSchoolYear('2026-2027', ['1150001'])).toEqual({
+			kind: 'grade',
+			grade: 7
+		});
 	});
 });
 
