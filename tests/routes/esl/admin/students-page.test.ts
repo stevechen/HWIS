@@ -206,7 +206,7 @@ describe('ESL admin students page', () => {
 
 		it('sends the admin to the workbook importer for rosters', async () => {
 			const link = page.getByTestId('esl-admin-students.import.link');
-			await expect.element(link).toHaveAttribute('href', '/esl/admin/import');
+			await expect.element(link).toHaveAttribute('href', '/esl/admin/classes#import');
 		});
 
 		it('explains why a pasted list of names cannot stand in', async () => {

@@ -154,6 +154,34 @@ export function chineseClassCode(grade: number, classNumber: string): string {
 	return `${marker}${String(Number(classNumber)).padStart(2, '0')}`;
 }
 
+/**
+ * The room a stored homeroom suggests, or null when the value is unusable.
+ *
+ * Storage holds the bare class number (`01`) with the marker rebuilt from the
+ * grade on read (ADR-0025), but this also accepts the school's own full form
+ * (`J101`) so a row written before that split — or typed by hand into a cell
+ * somewhere — still yields a suggestion rather than nothing. The stored marker
+ * itself is never trusted: `J201` on a grade 7 cohort is a data error, and the
+ * grade's own marker is the derivable half (ADR-0025), so the digits are taken
+ * and re-rendered through `chineseClassCode`.
+ *
+ * Null for an empty or unparseable value, which is the normal state for rows
+ * `advanceGrade` creates — next year's homeroom number is not knowable when a
+ * year is carried forward, so a missing value is a fact, not a fault.
+ */
+export function deriveHomeroom(grade: number, stored: string): string | null {
+	// No marker, no derivable code: a bare number is only a room when the grade
+	// says which letter it carries.
+	if (CHINESE_CLASS_MARKERS[grade] === undefined) return null;
+	const trimmed = stored.trim();
+	if (trimmed === '') return null;
+	const match = /^(?:[A-Za-z]\d)?(\d{1,2})$/.exec(trimmed);
+	if (match === null) return null;
+	// `00` is not a class the school runs, same as `parseChineseClass` refuses.
+	if (Number(match[1]) < 1) return null;
+	return chineseClassCode(grade, match[1]);
+}
+
 /** Why a `C Class` cell could not be read, phrased for the admin fixing the cell. */
 export type ChineseClassReadError =
 	| 'empty'
@@ -301,6 +329,46 @@ function classNameLesson(type: EslClassType): 'CLIL' | 'Comm' | null {
 	return null;
 }
 
+/**
+ * The short level tag a taught slot carries in the availability grid.
+ *
+ * The grid cells are ~50px wide, so a full `G7 Elementary 1 CLIL` cannot fit —
+ * it reduces to `G7 Ele. 1`, keeping the grade, level and number that tell a
+ * teacher's classes apart and dropping only the lesson. The cell's tooltip keeps
+ * the full name for collisions. Grade 10 names (`H101A`) are short already and
+ * pass through whole.
+ *
+ * Parsed against the canonical forms `defaultClassName` and `grade10ClassName`
+ * build in this same module. A hand-renamed class falls back to a bare level
+ * tag, then to nothing — the gray mark plus tooltip carry those.
+ */
+export const ESL_LEVEL_SHORT: Readonly<Record<string, string>> = {
+	'Pre-Elementary': 'Pre.',
+	Elementary: 'Ele.',
+	Intermediate: 'Int.',
+	Basic: 'Bas.',
+	Advanced: 'Adv.'
+};
+
+/** The few characters a class name reduces to on a timetable-grid cell. */
+export function eslClassShortLabel(name: string): string {
+	const canonical = /^G(\d{1,2}) ([A-Za-z-]+) (\S+?)(?: CLIL| Comm)?$/.exec(name.trim());
+	if (canonical !== null) {
+		const [, grade, level, number] = canonical;
+		const short = ESL_LEVEL_SHORT[level ?? ''];
+		// The level must be official and the number a real class number: a rename
+		// that happens to start with `G7` is not a name this can shorten soundly.
+		if (short !== undefined && /^\d{1,2}$/.test(number ?? '')) {
+			return `G${Number(grade)} ${short} ${Number(number)}`;
+		}
+	}
+	for (const level of ESL_LEVELS) {
+		if (name.includes(level)) return ESL_LEVEL_SHORT[level] ?? '';
+	}
+	if (/^H1\d{2}[AB]$/.test(name.trim())) return name.trim();
+	return '';
+}
+
 /** Human label for a class type, e.g. `CLIL` -> `G7/8 CLIL`. */
 export function classTypeLabel(type: EslClassType): string {
 	switch (type) {
@@ -314,6 +382,536 @@ export function classTypeLabel(type: EslClassType): string {
 			return 'G10 A';
 		case 'H10B':
 			return 'G10 B';
+	}
+}
+
+/**
+ * Days an ESL class can meet, Monday to Friday.
+ *
+ * The department runs no weekend lessons, so a Saturday meeting is a typo rather
+ * than an unusual timetable (ADR-0027).
+ */
+export const ESL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const;
+export type EslDay = (typeof ESL_DAYS)[number];
+
+/**
+ * The day's short label, as it appears on a meeting chip: `Mo`.
+ *
+ * **Two characters, not three.** A chip is a small target inside a narrow card, and
+ * `Wed P2` is two characters wider than `We P2` — which is the difference between a
+ * class's three meetings fitting on one line and wrapping to two. The full day name
+ * is still available where space allows (the picker's column headers are the widest
+ * label here, and they use this same map).
+ */
+export const ESL_DAY_LABELS: Readonly<Record<EslDay, string>> = {
+	Monday: 'Mo',
+	Tuesday: 'Tu',
+	Wednesday: 'We',
+	Thursday: 'Th',
+	Friday: 'Fr'
+};
+
+/** Whether a string names a day an ESL class can meet. */
+export function isEslDay(value: string): value is EslDay {
+	return (ESL_DAYS as readonly string[]).includes(value);
+}
+
+/**
+ * The school's eight ESL periods and their clock times.
+ *
+ * Written out one row per period rather than generated from a pattern, because
+ * the pattern is not the rule: six of the eight run `:10` to `:00` across the
+ * hour, while P5 and P6 run `:05` to `:55`. A generator inferred from the
+ * majority would produce a wrong P3 and a wrong P5, and a timetable that is
+ * silently wrong is worse than one that is visibly absent (ADR-0027).
+ */
+export const ESL_PERIODS = [
+	{ period: 1, start: '08:10', end: '09:00' },
+	{ period: 2, start: '09:10', end: '10:00' },
+	{ period: 3, start: '10:10', end: '11:00' },
+	{ period: 4, start: '11:10', end: '12:00' },
+	{ period: 5, start: '13:05', end: '13:55' },
+	{ period: 6, start: '14:05', end: '14:55' },
+	{ period: 7, start: '15:10', end: '16:00' },
+	{ period: 8, start: '16:10', end: '17:00' }
+] as const;
+
+/**
+ * The period numbers the school runs, for range checks and iteration order.
+ *
+ * Widened to `number` rather than left as the literal union: this is a range
+ * check, and `Array<1|2|3>.includes(someNumber)` is a type error under exactly the
+ * call it exists to serve — deciding whether an arbitrary number is a period.
+ */
+export const ESL_PERIOD_NUMBERS: readonly number[] = ESL_PERIODS.map((slot) => slot.period);
+
+/** Whether a number names one of the school's periods. */
+export function isEslPeriod(period: number): boolean {
+	return ESL_PERIOD_NUMBERS.includes(period);
+}
+
+/** The clock times of a period, or null when the number is not a period. */
+export function eslPeriodTimes(period: number): { start: string; end: string } | null {
+	const slot = ESL_PERIODS.find((candidate) => candidate.period === period);
+	if (slot === undefined) return null;
+	return { start: slot.start, end: slot.end };
+}
+
+/** How a `(day, period)` pair reads on a meeting chip: `Mon P1`. */
+export function eslMeetingLabel(meeting: { day: EslDay; period: number }): string {
+	return `${ESL_DAY_LABELS[meeting.day]} P${meeting.period}`;
+}
+
+/**
+ * How many periods a week each class type meets.
+ *
+ * Every one of those meetings is exactly one period of ESL class. G7 and G8
+ * therefore run five days a week between their `CLIL` and `Comm` classes, which
+ * is what ADR-0023 recorded as "5 days (G7/G8)" and could not express; G9 and
+ * G10 run two.
+ */
+const ESL_MEETINGS_PER_WEEK: Readonly<Record<EslClassType, number>> = {
+	CLIL: 3,
+	Comm: 2,
+	G9: 2,
+	H10A: 2,
+	H10B: 2
+};
+
+/** How many periods a week a class of this type must meet. */
+export function eslMeetingsPerWeek(type: EslClassType): number {
+	return ESL_MEETINGS_PER_WEEK[type];
+}
+
+/** A class's proposed meeting set, as the editor and the mutation both see it. */
+export type EslMeetingInput = { day: EslDay; period: number };
+
+/** Why a set of meetings cannot be saved, phrased for the admin fixing it. */
+export type EslMeetingShapeError =
+	| { kind: 'unknownDay'; day: string }
+	| { kind: 'unknownPeriod'; period: number }
+	| { kind: 'tooMany'; expected: number; actual: number }
+	| { kind: 'tooFew'; expected: number; actual: number }
+	| { kind: 'duplicateDay'; day: EslDay };
+
+/**
+ * Check a class's meetings against its type's shape, or null when they are sound.
+ *
+ * A **shape** failure — the wrong number of meetings, two meetings on one day, a
+ * day or period the school does not run — is a hard error that rejects the write:
+ * each one is a typo, each is detectable here, and each produces a timetable that
+ * is silently wrong otherwise.
+ *
+ * A class with **no** meetings is not malformed. `cohorts.create` composes classes
+ * before anyone has thought about slots and the September import carries no day or
+ * time at all, so absence is a legitimate state to be reported by the schedule
+ * badge and filled in — not an error to be refused (ADR-0027).
+ */
+export function assertValidMeetings(
+	type: EslClassType,
+	meetings: readonly EslMeetingInput[]
+): EslMeetingShapeError | null {
+	// Absence is not malformation. `cohorts.create` composes classes before anyone
+	// has thought about slots and the September import carries no day or time, so a
+	// class with no meetings is a real, reported state rather than an error to be
+	// refused — the schedule badge says "No schedule" and the admin fills it in.
+	if (meetings.length === 0) return null;
+
+	for (const meeting of meetings) {
+		if (!isEslDay(meeting.day)) return { kind: 'unknownDay', day: meeting.day };
+		if (!isEslPeriod(meeting.period)) {
+			return { kind: 'unknownPeriod', period: meeting.period };
+		}
+	}
+
+	const expected = eslMeetingsPerWeek(type);
+	if (meetings.length !== expected) {
+		return meetings.length > expected
+			? { kind: 'tooMany', expected, actual: meetings.length }
+			: { kind: 'tooFew', expected, actual: meetings.length };
+	}
+
+	// Distinct days within the class: a day carries at most one ESL period, so two
+	// meetings on one day is not a double period but a typo.
+	const seen = new Set<EslDay>();
+	for (const meeting of meetings) {
+		if (seen.has(meeting.day)) return { kind: 'duplicateDay', day: meeting.day };
+		seen.add(meeting.day);
+	}
+
+	return null;
+}
+
+/** A shape error as the sentence an admin reads when a save is refused. */
+export function describeMeetingShapeError(type: EslClassType, error: EslMeetingShapeError): string {
+	const classType = classTypeLabel(type);
+	switch (error.kind) {
+		case 'unknownDay':
+			return `${error.day} is not a day the school teaches. Use Monday to Friday.`;
+		case 'unknownPeriod':
+			return `Period ${error.period} is not one of the school's periods (P1-P${ESL_PERIOD_NUMBERS.length}).`;
+		case 'tooMany':
+			return `A ${classType} class meets ${error.expected} periods a week, but ${error.actual} were given.`;
+		case 'tooFew':
+			return `A ${classType} class must meet ${error.expected} periods a week, but only ${error.actual} ${error.actual === 1 ? 'was' : 'were'} given.`;
+		case 'duplicateDay':
+			return `A day carries at most one ESL period, so ${ESL_DAY_LABELS[error.day]} was given twice.`;
+	}
+}
+
+/**
+ * The four ways a class's schedule can be unfinished, computed on read.
+ *
+ * Not a stored flag: validity is **global** — a class is incomplete partly because
+ * of what *other* rows say — so a boolean on the row would go stale the moment a
+ * neighbour is edited. Four states rather than one flag because "invalid" alone
+ * tells a coordinator nothing about what to fix (ADR-0027).
+ */
+export const ESL_SCHEDULE_STATES = [
+	'no-schedule',
+	'incomplete',
+	'missing-room',
+	'conflicting'
+] as const;
+export type EslScheduleState = (typeof ESL_SCHEDULE_STATES)[number];
+
+/**
+ * A class as the schedule badge reads it: who teaches it, where it meets, and when.
+ *
+ * `teacherId` is on the subject rather than only on the neighbour because a clash
+ * is symmetrical: the class being read is as much a part of a teacher double-booking
+ * as the class it collides with.
+ */
+export type EslScheduleSubject = {
+	room?: string;
+	teacherId?: string;
+	meetings: readonly EslMeetingInput[];
+};
+
+/** A class as a clash is reported against: enough to name it and place it. */
+export type EslScheduleNeighbour = EslScheduleSubject & {
+	classId: string;
+	className: string;
+};
+
+/** Why a class is not fully scheduled, in the order a coordinator should fix them. */
+export type EslScheduleProblem =
+	| { state: 'no-schedule' }
+	| { state: 'incomplete' }
+	| { state: 'missing-room' }
+	| {
+			state: 'conflicting';
+			/** What is clashing, so a warning can be worded rather than merely flagged. */
+			dimension: 'cohort' | 'teacher' | 'room';
+			other: EslScheduleNeighbour;
+			day: EslDay;
+			period: number;
+	  };
+
+/**
+ * Why a proposed week cannot be saved, phrased for the person who has to fix it.
+ *
+ * The **write gate**. Every rule the department runs lives behind one function, so
+ * the schedule picker, `setSchedule` and the red chips on a saved card cannot
+ * disagree about what is allowed — and a block the picker cannot explain is a
+ * block the admin cannot avoid.
+ *
+ * This used to sit alongside a second, read-only rule pass that answered "is this
+ * saved class conflicted, and which chips?". That arrangement let the chips and
+ * the card marker come out differently for the same class, so it is gone: a saved
+ * class is gated too, by the same function, with the same rules.
+ */
+export type EslScheduleProblemDetail = {
+	kind:
+		| 'cohort-slot'
+		| 'cohort-days'
+		| 'cohort-teacher'
+		| 'teacher'
+		| 'room'
+		| 'teacher-availability';
+	/** One sentence, already worded for display. */
+	message: string;
+	/** The slot the problem is about, when it is about one. */
+	day?: EslDay;
+	period?: number;
+	/** The other class involved, when there is one. */
+	otherName?: string;
+	/**
+	 * That same class, whole.
+	 *
+	 * Carried so the card's summary badge can be built from a gate result alone.
+	 * The badge has always named the other class, and reaching back through
+	 * `otherName` to find it again would mean running a second, partial rule pass
+	 * to resolve a name into a neighbour — which is the duplication this gate
+	 * replaced. Absent only for `teacher-availability`, which involves no class.
+	 */
+	other?: EslScheduleNeighbour;
+};
+
+/** The class a proposed week belongs to, as the gate needs to see it. */
+export type EslGateSubject = {
+	type: EslClassType;
+	cohortId: string;
+	teacherId?: string;
+	room?: string;
+	meetings: readonly EslMeetingInput[];
+};
+
+/** A slot a teacher has been marked unavailable for. */
+export type EslUnavailableSlot = { day: EslDay; period: number; note?: string };
+
+/**
+ * Every rule that refuses a proposed week, each with a sentence naming the fix.
+ *
+ * Runs over the *draft* rather than the saved schedule, so the picker can call it on
+ * every edit and grey out the slots that will not be accepted. That is what makes a
+ * hard block invisible as a failure: the admin is told before they commit.
+ *
+ * Rules, in the order an admin should resolve them — most structural first:
+ *
+ * 1. `cohort-slot` — a cohort's two classes at one slot. They share a roster, so
+ *    both at once is twenty students in two rooms (ADR-0023).
+ * 2. `cohort-days` — the same two classes on the same *day*, at different times.
+ * 3. `cohort-teacher` — one teacher set to teach both classes of a cohort.
+ * 4. `teacher` — one teacher in two rooms at once.
+ * 5. `room` — one room holding two classes at once.
+ * 6. `teacher-availability` — a slot the teacher is marked unavailable for.
+ *
+ * An empty week is not a problem here: an unscheduled class is a real state the
+ * picker fills in, and `assertValidMeetings` already owns the shape rules.
+ */
+export function findScheduleProblems(
+	subject: EslGateSubject,
+	others: readonly (EslScheduleNeighbour & { cohortId: string })[],
+	unavailable: readonly EslUnavailableSlot[] = []
+): EslScheduleProblemDetail[] {
+	const problems: EslScheduleProblemDetail[] = [];
+	const slotKey = (day: EslDay, period: number) => `${day} ${period}`;
+	const siblings = others.filter((other) => other.cohortId === subject.cohortId);
+
+	for (const meeting of subject.meetings) {
+		for (const other of siblings) {
+			const clashed = other.meetings.some(
+				(candidate) => candidate.day === meeting.day && candidate.period === meeting.period
+			);
+			if (clashed) {
+				problems.push({
+					kind: 'cohort-slot',
+					message: `${other.className} draws the same students and already meets then.`,
+					day: meeting.day,
+					period: meeting.period,
+					otherName: other.className,
+					other
+				});
+			}
+		}
+	}
+
+	problems.push(...findCohortDayOverlap(subject, siblings));
+
+	if (subject.teacherId !== undefined && subject.teacherId !== '') {
+		for (const other of siblings) {
+			if (other.teacherId === subject.teacherId) {
+				problems.push({
+					kind: 'cohort-teacher',
+					message: `${other.className} has the same teacher; the two classes need different ones.`,
+					otherName: other.className,
+					other
+				});
+			}
+		}
+	}
+
+	for (const meeting of subject.meetings) {
+		for (const other of others) {
+			const atSlot = other.meetings.some(
+				(candidate) => candidate.day === meeting.day && candidate.period === meeting.period
+			);
+			if (!atSlot) continue;
+			if (other.teacherId !== undefined && other.teacherId === subject.teacherId) {
+				problems.push({
+					kind: 'teacher',
+					message: `${other.className} has the same teacher at this time, in a different room.`,
+					day: meeting.day,
+					period: meeting.period,
+					otherName: other.className,
+					other
+				});
+			}
+			if (other.room !== undefined && other.room === subject.room) {
+				problems.push({
+					kind: 'room',
+					message: `${subject.room} is taken by ${other.className} at this time.`,
+					day: meeting.day,
+					period: meeting.period,
+					otherName: other.className,
+					other
+				});
+			}
+		}
+	}
+
+	if (subject.teacherId !== undefined && subject.teacherId !== '') {
+		const blocked = new Map(unavailable.map((slot) => [slotKey(slot.day, slot.period), slot]));
+		for (const meeting of subject.meetings) {
+			const slot = blocked.get(slotKey(meeting.day, meeting.period));
+			if (slot === undefined) continue;
+			problems.push({
+				kind: 'teacher-availability',
+				message:
+					slot.note === undefined
+						? 'The teacher is not available at this time.'
+						: `The teacher is not available: ${slot.note}`,
+				day: meeting.day,
+				period: meeting.period
+			});
+		}
+	}
+
+	return problems;
+}
+
+/**
+ * Rule 2 on its own: a cohort's two classes sharing a *day*.
+ *
+ * **Provisional.** The department is not certain this holds; it is a policy rather
+ * than a physical impossibility, since a student can attend two lessons on one day.
+ * Isolated here so that if the school decides otherwise, deleting this function and
+ * its one call in `findScheduleProblems` removes the rule outright.
+ *
+ * It also *subsumes* the same-slot rule for grades 7 and 8 — two classes on a shared
+ * day cannot also share a slot — so it skips the slots rule 1 already reported,
+ * which words the clash better.
+ */
+function findCohortDayOverlap(
+	subject: EslGateSubject,
+	siblings: readonly (EslScheduleNeighbour & { cohortId: string })[]
+): EslScheduleProblemDetail[] {
+	const out: EslScheduleProblemDetail[] = [];
+	for (const meeting of subject.meetings) {
+		for (const other of siblings) {
+			// An unscheduled sibling is not a clash. The guard below asks "does the
+			// sibling meet on a *different* day", and `some` over an empty list is
+			// vacuously false — so without this, the rule reported every slot of the
+			// subject as sharing a day with a class that meets on no days at all, and
+			// blocked saving the first class of a fresh year.
+			if (other.meetings.length === 0) continue;
+			if (other.meetings.some((c) => c.day !== meeting.day)) continue;
+			const sharedSlot = other.meetings.some(
+				(c) => c.day === meeting.day && c.period === meeting.period
+			);
+			if (sharedSlot) continue;
+			out.push({
+				kind: 'cohort-days',
+				message: `${other.className} already meets that day; the two classes take different days.`,
+				day: meeting.day,
+				period: meeting.period,
+				otherName: other.className,
+				other
+			});
+			break;
+		}
+	}
+	return out;
+}
+
+/**
+ * The clash half of `EslScheduleProblem`.
+ */
+export type EslScheduleConflict = Extract<EslScheduleProblem, { state: 'conflicting' }>;
+
+/**
+ * The department's rooms, offered as suggestions.
+ *
+ * A **suggestion list, never a whitelist**. The rooms vary year to year and the
+ * school adding an `ESL H` next year is not a data error, so nothing rejects a
+ * name outside this list — a rule encoding "the most rooms we have ever had" is
+ * exactly the brittle convention ADR-0025 warns against. `setRoom` accepts any
+ * string (ADR-0027).
+ *
+ * `settings['esl.rooms.<year>']` is where a per-year vocabulary belongs; it is
+ * not read or written here, because no settings editor exists yet.
+ */
+export const ESL_ROOM_SUGGESTIONS = [
+	'ESL A',
+	'ESL B',
+	'ESL C',
+	'ESL D',
+	'ESL E',
+	'ESL F',
+	'ESL G'
+] as const;
+
+/**
+ * Classify a class's schedule, or null when it is sound.
+ *
+ * Ordered so the badge names the *first* thing wrong: an unscheduled class is
+ * reported as such rather than as also missing a room, because scheduling it is
+ * what has to happen before the room means anything.
+ *
+ * Takes the **gate's own output** rather than the neighbours, so the badge and
+ * the red chips are derived from one rule pass. They used to come from two
+ * functions covering overlapping rules, which is the arrangement that let a chip
+ * stay green while the card marker said conflicted.
+ */
+export function classifySchedule(
+	subject: EslScheduleSubject & { type: EslClassType; cohortId: string },
+	problems: readonly EslScheduleProblemDetail[]
+): EslScheduleProblem | null {
+	if (subject.meetings.length === 0) return { state: 'no-schedule' };
+	if (assertValidMeetings(subject.type, subject.meetings) !== null) {
+		return { state: 'incomplete' };
+	}
+	if (subject.room === undefined || subject.room === '') return { state: 'missing-room' };
+
+	// The *first* conflict only. This is the single badge label, and a class can
+	// carry several; the card turns every clashing chip red from `problems`, so
+	// nothing is hidden by summarising here.
+	//
+	// A problem with no slot or no other class — `cohort-teacher`, which is about
+	// the pair rather than a meeting — has no badge shape to become. The card
+	// marker still reports it, which is where a class-wide fault belongs: there is
+	// no one chip to redden.
+	for (const problem of problems) {
+		if (problem.day === undefined || problem.period === undefined || problem.other === undefined) {
+			continue;
+		}
+		const dimension =
+			problem.kind === 'cohort-slot' || problem.kind === 'cohort-days'
+				? 'cohort'
+				: problem.kind === 'teacher'
+					? 'teacher'
+					: 'room';
+		return {
+			state: 'conflicting',
+			dimension,
+			other: problem.other,
+			day: problem.day,
+			period: problem.period
+		};
+	}
+	return null;
+}
+
+/** The badge text for a schedule problem, phrased for a coordinator. */
+export function describeScheduleProblem(problem: EslScheduleProblem): string {
+	switch (problem.state) {
+		case 'no-schedule':
+			return 'No schedule';
+		case 'incomplete':
+			return 'Incomplete';
+		case 'missing-room':
+			return 'Missing room';
+		case 'conflicting': {
+			const slot = eslMeetingLabel({ day: problem.day, period: problem.period });
+			const what =
+				problem.dimension === 'cohort'
+					? 'shares its roster'
+					: problem.dimension === 'teacher'
+						? 'shares its teacher'
+						: 'shares its room';
+			return `${slot} — ${problem.other.className} ${what}`;
+		}
 	}
 }
 
@@ -466,10 +1064,33 @@ export function compareEslStudents(
 	return byEnglish !== 0 ? byEnglish : a.chineseName.localeCompare(b.chineseName);
 }
 
+/**
+ * How a level sorts within its grade, easiest first.
+ *
+ * **Grade 10 is handled explicitly, because it is not levelled by these names.**
+ * Its levels are the ability bands `A` and `B` (ADR-0023), and neither appears in
+ * `ESL_LEVELS`, so `indexOf` returned -1 for both and they ranked *identically*.
+ * Sorting then fell through to the class number alone, leaving `H101A` and
+ * `H101B` in whatever order the database returned — which is how a page grouping
+ * by level can end up with the same level twice.
+ *
+ * `A` is the higher band (ESL_GRADE10_LEVELS is declared `A` higher in capability
+ * than `B`), and `ESL_LEVELS` runs easiest-first, so the index is reversed to keep
+ * `B` ahead of `A`.
+ *
+ * These ranks deliberately overlap the levelled ones. `compareEslCohorts` only ever
+ * compares within a single grade, and a grade never mixes `A`/`B` with the levelled
+ * names, so there is nothing for the overlap to confuse.
+ *
+ * An unrecognised level ranks last, with a missing one: a cohort with a level the
+ * school has renamed should sort after every known level rather than before them.
+ */
 function levelRank(level: string | undefined): number {
 	if (!level) return ESL_LEVELS.length;
-	const rank = ESL_LEVELS.indexOf(level as EslLevel);
-	return rank === -1 ? ESL_LEVELS.length : rank;
+	const asLevel = ESL_LEVELS.indexOf(level as EslLevel);
+	if (asLevel !== -1) return asLevel;
+	if (isGrade10Level(level)) return ESL_GRADE10_LEVELS.length - ESL_GRADE10_LEVELS.indexOf(level);
+	return ESL_LEVELS.length;
 }
 
 /**
@@ -586,11 +1207,58 @@ export function planLegacyGrade10Repair(
  * Grade 10 has no level, so its cohorts sort by class number alone — the codes
  * are zero-padded, so comparing them keeps H101 before H102.
  */
+/**
+ * The other section of a grade 10 Chinese class: `A` ↔ `B`.
+ *
+ * Null for a levelled grade's level, and for a section letter the school has
+ * renamed — in both cases there is no partner to keep in step, and guessing one
+ * would refuse writes against a class that does not exist.
+ */
+export function grade10SiblingLevel(level: string | undefined): EslGrade10Level | null {
+	if (!level) return null;
+	const index = ESL_GRADE10_LEVELS.indexOf(level as EslGrade10Level);
+	if (index === -1) return null;
+	return ESL_GRADE10_LEVELS[ESL_GRADE10_LEVELS.length - 1 - index] ?? null;
+}
+
 export function compareEslCohorts(
 	a: { grade: number; level?: string; classNumber: string },
 	b: { grade: number; level?: string; classNumber: string }
 ): number {
 	if (a.grade !== b.grade) return a.grade - b.grade;
+
+	// Grade 10 leads with the Chinese class, not the section: H101A, H101B,
+	// H102A, H102B.
+	//
+	// This is the opposite of what it was, when the section was the primary key
+	// and every `A` cohort sorted ahead of every `B`. That order is correct for
+	// levelled grades — the level *is* the band a reader scans for — but a grade 10
+	// `A` and `B` are two sections of one Chinese class, not two ability bands. The
+	// class number already puts a class's two sections together, so leading with it
+	// interleaves `A`/`B` within each class rather than separating them by a page.
+	if (!isLevelledGrade(a.grade)) {
+		const byClass = a.classNumber.localeCompare(b.classNumber);
+		return byClass !== 0 ? byClass : grade10SectionRank(a.level) - grade10SectionRank(b.level);
+	}
+
 	const byLevel = levelRank(a.level) - levelRank(b.level);
 	return byLevel !== 0 ? byLevel : a.classNumber.localeCompare(b.classNumber);
+}
+
+/**
+ * `A` before `B` within one grade 10 Chinese class.
+ *
+ * The deliberate opposite of `levelRank`'s handling of the same two letters. There
+ * they are ranked as ability bands and `B` leads, matching easiest-first; here they
+ * are two sections of a class whose number has already been compared, so `A` leads
+ * because that is the order the class names read in.
+ *
+ * An unrecognised or missing section sorts last, for the reason `levelRank` does: a
+ * section the school has renamed should end up at the end rather than displace a
+ * real one.
+ */
+function grade10SectionRank(level: string | undefined): number {
+	if (!level) return ESL_GRADE10_LEVELS.length;
+	const index = ESL_GRADE10_LEVELS.indexOf(level as EslGrade10Level);
+	return index === -1 ? ESL_GRADE10_LEVELS.length : index;
 }

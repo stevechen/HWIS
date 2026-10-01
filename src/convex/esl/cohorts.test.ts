@@ -63,48 +63,77 @@ describe('esl cohorts', () => {
 		 * Grade 10 is not levelled: its cohort is a base class (H101) taught by
 		 * two sections, H101A and H101B, which share that one roster.
 		 */
-		it('auto-composes paired A and B section classes for a G10 cohort', async () => {
+		it('composes one class for a G10 cohort, named for its level', async () => {
 			const t = await asEslAdmin();
 
 			const { cohortId, classIds } = await t.mutation(api.esl.cohorts.create, {
 				year: '2025-2026',
 				grade: 10,
+				level: 'A',
 				classNumber: '01'
 			});
 
-			expect(classIds).toHaveLength(2);
+			expect(classIds).toHaveLength(1);
 			const classes = await t.query(api.esl.classes.listByCohort, { cohortId });
-			expect(classes.map((c: { name: string }) => c.name).sort()).toEqual(['H101A', 'H101B']);
-			// Both sections point at one cohort — that is what shares the roster.
+			expect(classes.map((c: { name: string }) => c.name)).toEqual(['H101A']);
+			// One class: a cohort is one ability band of one Chinese class, and B is a
+			// different cohort with a different roster (ADR-0023).
 			expect(classes.every((c: { cohortId: string }) => c.cohortId === cohortId)).toBe(true);
 		});
 
-		it('names G10 classes H10<base><section> across the whole base-class range', async () => {
+		it('creates a separate cohort and class for each level of one base class', async () => {
+			// The property that matters most here, and the one that was wrong: A and B
+			// are ability bands, so they are two cohorts with two rosters rather than one
+			// cohort with two classes over it (ADR-0023).
+			const t = await asEslAdmin();
+
+			const a = await t.mutation(api.esl.cohorts.create, {
+				year: '2025-2026',
+				grade: 10,
+				level: 'A',
+				classNumber: '01'
+			});
+			const b = await t.mutation(api.esl.cohorts.create, {
+				year: '2025-2026',
+				grade: 10,
+				level: 'B',
+				classNumber: '01'
+			});
+
+			expect(a.cohortId).not.toBe(b.cohortId);
+			const aClasses = await t.query(api.esl.classes.listByCohort, { cohortId: a.cohortId });
+			const bClasses = await t.query(api.esl.classes.listByCohort, { cohortId: b.cohortId });
+			expect(aClasses.map((c: { name: string }) => c.name)).toEqual(['H101A']);
+			expect(bClasses.map((c: { name: string }) => c.name)).toEqual(['H101B']);
+		});
+		it('names G10 classes H10<base><level> across the whole base-class range', async () => {
 			const t = await asEslAdmin();
 
 			const { cohortId } = await t.mutation(api.esl.cohorts.create, {
 				year: '2025-2026',
 				grade: 10,
+				level: 'A',
 				classNumber: '10'
 			});
 
 			const classes = await t.query(api.esl.classes.listByCohort, { cohortId });
-			expect(classes.map((c: { name: string }) => c.name).sort()).toEqual(['H110A', 'H110B']);
+			expect(classes.map((c: { name: string }) => c.name)).toEqual(['H110A']);
 		});
 
-		it('stores no level on a G10 cohort', async () => {
+		it('stores the ability level on a G10 cohort', async () => {
 			const t = await asEslAdmin();
 
 			const { cohortId } = await t.mutation(api.esl.cohorts.create, {
 				year: '2025-2026',
 				grade: 10,
+				level: 'A',
 				classNumber: '03'
 			});
 
 			const cohort = await t.query(api.esl.cohorts.getById, { id: cohortId });
-			expect(cohort?.level ?? null).toBeNull();
+			expect(cohort?.level).toBe('A');
 			// `code` is derived per read, not a stored column.
-			expect(cohort?.code).toBe('G10-03');
+			expect(cohort?.code).toBe('G10-03A');
 		});
 
 		it('accepts a base class beyond the old fixed list', async () => {
@@ -114,11 +143,12 @@ describe('esl cohorts', () => {
 			const { cohortId } = await t.mutation(api.esl.cohorts.create, {
 				year: '2025-2026',
 				grade: 10,
+				level: 'A',
 				classNumber: '12'
 			});
 
 			const classes = await t.query(api.esl.classes.listByCohort, { cohortId });
-			expect(classes.map((c: { name: string }) => c.name).sort()).toEqual(['H112A', 'H112B']);
+			expect(classes.map((c: { name: string }) => c.name)).toEqual(['H112A']);
 		});
 
 		it('accepts an unpadded base class and stores it padded', async () => {
@@ -127,12 +157,13 @@ describe('esl cohorts', () => {
 			const { cohortId } = await t.mutation(api.esl.cohorts.create, {
 				year: '2025-2026',
 				grade: 10,
+				level: 'A',
 				classNumber: '2'
 			});
 
 			const cohort = await t.query(api.esl.cohorts.getById, { id: cohortId });
 			expect(cohort?.classNumber).toBe('02');
-			expect(cohort?.code).toBe('G10-02');
+			expect(cohort?.code).toBe('G10-02A');
 		});
 
 		it('treats a padded and unpadded base class as the same cohort', async () => {
@@ -140,6 +171,7 @@ describe('esl cohorts', () => {
 			await t.mutation(api.esl.cohorts.create, {
 				year: '2025-2026',
 				grade: 10,
+				level: 'A',
 				classNumber: '05'
 			});
 
@@ -147,6 +179,7 @@ describe('esl cohorts', () => {
 				t.mutation(api.esl.cohorts.create, {
 					year: '2025-2026',
 					grade: 10,
+					level: 'A',
 					classNumber: '5'
 				})
 			).rejects.toThrow('already exists');
@@ -159,12 +192,13 @@ describe('esl cohorts', () => {
 				t.mutation(api.esl.cohorts.create, {
 					year: '2025-2026',
 					grade: 10,
+					level: 'A',
 					classNumber: '100'
 				})
 			).rejects.toThrow('Class number must be 1-99');
 		});
 
-		it('rejects a level on a G10 cohort — grade 10 is not levelled', async () => {
+		it('rejects a level a G10 cohort cannot have', async () => {
 			const t = await asEslAdmin();
 
 			await expect(
@@ -174,7 +208,7 @@ describe('esl cohorts', () => {
 					level: 'Advanced',
 					classNumber: '01'
 				})
-			).rejects.toThrow('Grade 10 has no levels');
+			).rejects.toThrow('Grade 10 level must be one of A, B');
 		});
 
 		it('rejects a grade 10 base class outside the name-format bound', async () => {
@@ -184,6 +218,7 @@ describe('esl cohorts', () => {
 				t.mutation(api.esl.cohorts.create, {
 					year: '2025-2026',
 					grade: 10,
+					level: 'A',
 					classNumber: '100'
 				})
 			).rejects.toThrow('Class number must be 1-99');
@@ -219,6 +254,7 @@ describe('esl cohorts', () => {
 			await t.mutation(api.esl.cohorts.create, {
 				year: '2025-2026',
 				grade: 10,
+				level: 'A',
 				classNumber: '01'
 			});
 
@@ -226,6 +262,7 @@ describe('esl cohorts', () => {
 			const second = await t.mutation(api.esl.cohorts.create, {
 				year: '2025-2026',
 				grade: 10,
+				level: 'A',
 				classNumber: '02'
 			});
 			expect(second.cohortId).toBeDefined();
@@ -234,6 +271,7 @@ describe('esl cohorts', () => {
 				t.mutation(api.esl.cohorts.create, {
 					year: '2025-2026',
 					grade: 10,
+					level: 'A',
 					classNumber: '01'
 				})
 			).rejects.toThrow('already exists');
@@ -246,8 +284,8 @@ describe('esl cohorts', () => {
 			const classes = await t.query(api.esl.classes.listByCohort, { cohortId });
 
 			expect(classes.map((c: { name: string }) => c.name).sort()).toEqual([
-				'G7/8 CLIL Basic 1',
-				'G7/8 Comm Basic 1'
+				'G7 Basic 1 CLIL',
+				'G7 Basic 1 Comm'
 			]);
 		});
 
@@ -425,60 +463,6 @@ describe('esl cohorts', () => {
 
 			await expect(t.query(api.esl.cohorts.list, {})).rejects.toThrow(
 				'Forbidden: ESL staff access required'
-			);
-		});
-	});
-
-	describe('pairClasses', () => {
-		it('recreates a missing Comm class so the G7 pair is whole again', async () => {
-			const t = await asEslAdmin();
-			const { cohortId, classIds } = await createG7(t);
-			const commId = await t.run(async (ctx) => {
-				const comm = await ctx.db.get(classIds[1]);
-				if (comm?.type !== 'Comm') throw new Error('expected the second class to be Comm');
-				await ctx.db.delete(comm._id);
-				return comm._id;
-			});
-
-			const result = await t.mutation(api.esl.cohorts.pairClasses, { cohortId });
-
-			expect(result.created).toHaveLength(1);
-			const classes = await t.query(api.esl.classes.listByCohort, { cohortId });
-			expect(classes.map((c: { type: string }) => c.type).sort()).toEqual(['CLIL', 'Comm']);
-			expect(classes.some((c: { _id: string }) => c._id === commId)).toBe(false);
-		});
-
-		it('is idempotent — re-pairing an intact cohort changes nothing', async () => {
-			const t = await asEslAdmin();
-			const { cohortId } = await createG7(t);
-
-			const result = await t.mutation(api.esl.cohorts.pairClasses, { cohortId });
-
-			expect(result).toEqual({ created: [], restored: [], archived: [] });
-			const classes = await t.query(api.esl.classes.listByCohort, { cohortId });
-			expect(classes).toHaveLength(2);
-		});
-
-		it('restores an archived class rather than duplicating it', async () => {
-			const t = await asEslAdmin();
-			const { cohortId, classIds } = await createG7(t);
-			await t.mutation(api.esl.classes.setStatus, { id: classIds[0], status: 'archived' });
-
-			const result = await t.mutation(api.esl.cohorts.pairClasses, { cohortId });
-
-			expect(result.restored).toEqual([classIds[0]]);
-			const classes = await t.query(api.esl.classes.listByCohort, { cohortId });
-			expect(classes).toHaveLength(2);
-			expect(classes.every((c: { status: string }) => c.status === 'active')).toBe(true);
-		});
-
-		it('rejects pairing from an ESL teacher', async () => {
-			const admin = await asEslAdmin();
-			const { cohortId } = await createG7(admin);
-			const t = await asEslTeacher();
-
-			await expect(t.mutation(api.esl.cohorts.pairClasses, { cohortId })).rejects.toThrow(
-				'Forbidden: ESL admin access required'
 			);
 		});
 	});

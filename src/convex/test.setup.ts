@@ -1,6 +1,11 @@
 /// <reference types="vite/client" />
 import { vi } from 'vitest';
-import { convexTest as originalConvexTest } from 'convex-test';
+import {
+	convexTest as originalConvexTest,
+	type TestConvexForDataModelAndIdentity
+} from 'convex-test';
+import schema from './schema';
+import type { DataModelFromSchemaDefinition } from 'convex/server';
 import type { Id } from './_generated/dataModel';
 import { authComponent, type AuthenticatedUserLike } from './auth';
 import type { DepartmentRoles } from './shared/authorization';
@@ -8,6 +13,23 @@ import type { DepartmentRoles } from './shared/authorization';
 export const modules = import.meta.glob('./**/*.ts');
 type ConvexTestSchema = Parameters<typeof originalConvexTest>[0];
 type ConvexTestModules = Parameters<typeof originalConvexTest>[1];
+
+/**
+ * A test instance that keeps its schema generic.
+ *
+ * `ReturnType<typeof convexTest>` erases the generics — they fall back to their
+ * constraints, so `ctx.db` inside a `t.run` callback knows only the *system*
+ * tables, and every `query('some_table')` or `.withIndex(...)` fails to typecheck.
+ * Test files live inside `src/convex/`, so that failure also fails the Convex
+ * push and withholds the whole deployment.
+ *
+ * Built from the real `schema`, which is what every ESL test passes to
+ * `convexTest`. `DataModelFromSchemaDefinition` is what `TestConvex` computes
+ * internally, so naming these two reproduces the real return type exactly.
+ */
+export type ConvexTestInstance = TestConvexForDataModelAndIdentity<
+	DataModelFromSchemaDefinition<typeof schema>
+>;
 
 /**
  * Mocks the better-auth getAuthUser query for a test.

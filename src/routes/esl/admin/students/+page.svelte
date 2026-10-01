@@ -313,10 +313,10 @@
 			Rosters come in as a workbook, one sheet per class, and
 			<a
 				class="font-medium underline"
-				href="/esl/admin/import"
+				href="/esl/admin/classes#import"
 				data-testid="esl-admin-students.import.link"
 			>
-				the import page
+				the importer on the Classes page
 			</a>
 			reads it. It takes the class each student belongs to from the sheet they are on, which a pasted
 			list of names cannot say — so a column of names pasted here leaves every student's class unassigned.

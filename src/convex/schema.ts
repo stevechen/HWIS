@@ -302,12 +302,116 @@ export default defineSchema({
 		),
 		name: v.string(),
 		teacherId: v.optional(v.id('users')),
+		/**
+		 * The department room this class meets in, for all of its days.
+		 *
+		 * One room per class rather than one per meeting: ADR-0027 considered and
+		 * rejected a class that moves rooms mid-week, so if that ever changes this
+		 * field moves onto `esl_class_meetings` and the ADR is amended.
+		 *
+		 * Optional because a room is genuinely undecidable until the year's
+		 * timetable exists — `cohorts.create` writes no room, so a freshly
+		 * imported year starts unscheduled and unroomed.
+		 */
+		room: v.optional(v.string()),
 		/** `archived` classes are kept for history but hidden from active lists. */
 		status: v.union(v.literal('active'), v.literal('archived')),
 		createdAt: v.number()
 	})
 		.index('by_cohortId', ['cohortId'])
 		.index('by_teacherId', ['teacherId']),
+
+	/**
+	 * One weekly meeting of an ESL class: the day and period it meets.
+	 *
+	 * Meetings are rows rather than an array on the class because conflict
+	 * detection needs them indexed, and a meeting is a genuine fact with its own
+	 * identity — it is what a clash is *about* (ADR-0027). Convex cannot index
+	 * into an array, so an inline array would full-scan in the teacher-timetable
+	 * query on every subscription push.
+	 *
+	 * Three rows per G7/G8 `CLIL` class and two per everything else, across a few
+	 * hundred classes a year, so the table is small.
+	 */
+	esl_class_meetings: defineTable({
+		classId: v.id('esl_classes'),
+		/**
+		 * The class's school year, e.g. `2025-2026`.
+		 *
+		 * Stored rather than derived — ADR-0027's one named exception. A meeting's
+		 * year is two joins away (meeting → class → cohort → year), and the
+		 * conflict check needs every meeting in a year indexed by
+		 * `(year, day, period)`, which an index without a stored year cannot
+		 * serve. It cannot drift: a meeting's class is never repointed, and
+		 * `advanceGrade` creates new rows rather than moving existing ones.
+		 */
+		year: v.string(),
+		/** Monday to Friday. A day carries at most one ESL period. */
+		day: v.union(
+			v.literal('Monday'),
+			v.literal('Tuesday'),
+			v.literal('Wednesday'),
+			v.literal('Thursday'),
+			v.literal('Friday')
+		),
+		/** Period number, 1–8, against the school's bell schedule. */
+		period: v.number(),
+		/**
+		 * Copied from the class's cohort at write time, so end-to-end teardown is
+		 * one indexed read rather than a per-meeting hop through class and cohort.
+		 * Absent in every real write. Cannot drift, for the same reason `year`
+		 * cannot: a meeting's class is never repointed.
+		 */
+		e2eTag: v.optional(v.string())
+	})
+		.index('by_classId', ['classId'])
+		.index('by_year_day_period', ['year', 'day', 'period'])
+		.index('by_e2eTag', ['e2eTag']),
+
+	/**
+	 * A `(day, period)` a teacher cannot teach.
+	 *
+	 * **Blocked slots, not available ones.** Availability is the default, so a
+	 * teacher with no rows is available everywhere — which is the correct state for
+	 * every teacher until someone says otherwise, and cannot be wrong by omission.
+	 * The alternative would need a row per teacher per slot (35 a year), where a
+	 * missing row would silently mean "unavailable".
+	 *
+	 * Per year, because availability follows a timetable: next year's part-time load
+	 * is not this year's.
+	 *
+	 * No class on the row. Availability is a property of the *person*, so it holds
+	 * whether or not any class is assigned to them yet — which is what lets the
+	 * scheduler refuse a slot before a timetable exists.
+	 */
+	esl_teacher_availability: defineTable({
+		teacherId: v.id('users'),
+		/** The school year the block applies to, e.g. `2025-2026`. */
+		year: v.string(),
+		/** Monday to Friday, as on a meeting. */
+		day: v.union(
+			v.literal('Monday'),
+			v.literal('Tuesday'),
+			v.literal('Wednesday'),
+			v.literal('Thursday'),
+			v.literal('Friday')
+		),
+		/** Period number, 1–8, against the school's bell schedule. */
+		period: v.number(),
+		/**
+		 * Optional free text, so an admin can say *why* — "lunch duty", "part-time".
+		 * The rule does not read it; it is for the human reading the picker.
+		 */
+		note: v.optional(v.string()),
+		/**
+		 * Copied from the same tag scheme as every other ESL table, so end-to-end
+		 * teardown stays one indexed read.
+		 */
+		e2eTag: v.optional(v.string())
+	})
+		.index('by_teacher_year', ['teacherId', 'year'])
+		.index('by_year', ['year'])
+		.index('by_e2eTag', ['e2eTag']),
 
 	/**
 	 * An ESL student, enrolled into exactly one cohort. Transfer status is

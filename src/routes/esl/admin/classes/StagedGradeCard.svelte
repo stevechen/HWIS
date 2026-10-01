@@ -11,6 +11,7 @@
 	import { chineseClassCode, cohortLabel } from '$convex/shared/esl';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
+	import { e2eTagFromUrl } from '$lib/e2e-tag';
 	import { AlertTriangle, Check } from '@lucide/svelte';
 	import type { ImportedGrade, StagedGrade } from './staging';
 
@@ -164,18 +165,6 @@
 			group: rosterGroupText(student.group),
 			chineseClass: chineseClassCode(draft.grade, student.chineseClass)
 		}));
-	}
-
-	/**
-	 * The tag an end-to-end run passes on the URL, so the cohorts and students an
-	 * import writes can be removed afterwards by tag.
-	 *
-	 * Read from the query string rather than stored anywhere server-side, so it is
-	 * present only when a test asks for it and absent from every real visit.
-	 */
-	function e2eTagFromUrl(): string | undefined {
-		if (typeof window === 'undefined') return undefined;
-		return new URLSearchParams(window.location.search).get('e2eTag') ?? undefined;
 	}
 
 	async function apply() {

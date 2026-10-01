@@ -47,15 +47,18 @@ const MISFILED_SCHOOL_ID = misfiledSchoolStudentId(MISFILED_GRADE);
 const e2eTag = `e2e-test_${getTestSuffix('esl')}`;
 
 /**
- * Opens the import page on the year the tests import into.
+ * Opens the import section on the year the tests import into.
  *
  * The grade is not set here, and deliberately: the page places a levelled file
  * from the year above and the file's own ID prefixes, so choosing a grade first
  * would be answering a question the page no longer asks — and the control only
  * exists once a file the arithmetic cannot place has been uploaded.
+ *
+ * `?import=1` is what the Classes page reads to open the section itself, so this
+ * walks the same path the Students page's roster link and any old bookmark take.
  */
 async function openImportPage(page: Page) {
-	await page.goto(`/esl/admin/import?e2eTag=${e2eTag}`);
+	await page.goto(`/esl/admin/classes?import=1&e2eTag=${e2eTag}`);
 	await page.waitForSelector('body.hydrated');
 	await page.getByTestId('esl-import.year').fill(YEAR);
 }
