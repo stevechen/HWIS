@@ -223,7 +223,7 @@
 
 	{#if draft.rejected.length > 0 || draft.skipped.length > 0}
 		<details class="mb-3 rounded border border-amber-300 bg-amber-50 p-2 text-sm">
-			<summary class="cursor-pointer font-medium">
+			<summary class="cursor-pointer font-medium" data-testid="esl-import.problems.toggle">
 				{draft.rejected.length} row(s) could not be read,
 				{draft.skipped.length} sheet(s) set aside
 			</summary>

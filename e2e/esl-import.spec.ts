@@ -154,7 +154,16 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 		// 19 classes, not 20: the one sheet that disagrees with itself is set aside
 		// rather than read as a class.
 		await expect(page.getByTestId('esl-import.plan.cohorts')).toContainText('19 classes');
-		// And the refusal names the sheet and the disagreeing value, so the admin can find
+
+		// The set-aside list lives in a collapsed disclosure, so the summary reports the
+		// count and the per-sheet reasons are read after opening it — the two steps an
+		// admin takes. A visibility assertion without opening first would time out
+		// against an element that is present but folded away.
+		const toggle = page.getByTestId('esl-import.problems.toggle');
+		await expect(toggle).toContainText('3 sheet(s) set aside');
+		await toggle.click();
+
+		// The refusal names the sheet and the disagreeing value, so the admin can find
 		// the one cell to fix rather than guess among 400 rows.
 		const refused = page.getByTestId('esl-import.skipped.G8 Inter 1');
 		await expect(refused).toBeVisible();
