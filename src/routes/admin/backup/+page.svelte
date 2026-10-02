@@ -21,6 +21,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { useViewer } from '$lib/viewer.svelte';
 	import { sanitizeFilename } from '$lib/utils/backup';
+	import { e2eTagFromUrl } from '$lib/e2e-tag';
 	import * as Calendar from '$lib/components/ui/calendar';
 	import { getLocalTimeZone, today, type DateValue } from '@internationalized/date';
 
@@ -194,8 +195,12 @@
 		isForcingBackup = true;
 		backupResult = null;
 		try {
+			// The tag rides in on the URL so a test-created backup can be removed by
+			// tag; it is absent from every real visit, leaving backups untagged.
+			const e2eTag = e2eTagFromUrl();
 			const result = await client.mutation(api.backup.createBackup, {
-				name: customBackupName.trim() || undefined
+				name: customBackupName.trim() || undefined,
+				...(e2eTag === undefined ? {} : { e2eTag })
 			});
 			backupResult = result;
 			customBackupName = '';
@@ -259,8 +264,12 @@
 		if (!parsedBackup || fileRestoreConfirmText !== 'RESTORE') return;
 		isFileRestoring = true;
 		try {
+			// The pre-restore safety snapshot is a second row this page creates, so it
+			// carries the same tag the Force Backup path does.
+			const e2eTag = e2eTagFromUrl();
 			const res = await client.mutation(api.backup.restoreFromBackupPayload, {
-				backupData: parsedBackup
+				backupData: parsedBackup,
+				...(e2eTag === undefined ? {} : { e2eTag })
 			});
 			backupResult = res;
 			showFileRestoreDialog = false;
