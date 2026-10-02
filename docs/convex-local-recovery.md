@@ -39,14 +39,30 @@ Keep `convex dev` running, open a second terminal, then run:
 bun run convex:local:env-sync
 ```
 
-This sets the local deployment env vars needed for Better Auth login:
+This sets the local deployment env vars needed for Better Auth login and for the
+local backup path:
 
 - `SITE_URL`
 - `BETTER_AUTH_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
+- `CRON_SECRET` (guards `exportDataForCron`; previously unmanaged locally)
+- `GOOGLE_DRIVE_FOLDER_ID` — read from `LOCAL_GOOGLE_DRIVE_FOLDER_ID`, **not**
+  from `GOOGLE_DRIVE_FOLDER_ID`
+- `ALLOW_NONPROD_DRIVE_BACKUP` — set to `true` only alongside a scratch folder
 
 Values are read from `.env.local`, then `.env` as fallback.
+
+`GOOGLE_REFRESH_TOKEN` is deliberately **not** synced. It is a long-lived
+credential, and copying it here is how a local cron run came to write into the
+production Drive backup folder. A local deployment that does not set
+`ALLOW_NONPROD_DRIVE_BACKUP=true` skips the Drive upload with a logged reason and
+still writes its database row, so nothing local is lost. See
+`docs/drive-backup-targets.md` for the full per-deployment source of truth.
+
+If the local backend logs a Drive failure like `invalid_grant`, that is the shared
+prod refresh token being rejected — it is dead and must be re-minted on the prod
+deployment. The guard means local no longer depends on it.
 
 ## If Users Exist in Better Auth but Not in app `users`
 

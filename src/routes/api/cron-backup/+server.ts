@@ -3,6 +3,11 @@ import { env } from '$env/dynamic/private';
 import { createConvexHttpClient } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 import { api } from '$convex/_generated/api';
 import { canAccessAdminArea } from '$convex/shared/authorization';
+import {
+	buildDriveBackupFilename,
+	decideDriveUpload,
+	resolveDriveEnvironmentFromEnv
+} from '$convex/shared/drive_backup_target';
 import { getConvexUrlFromToken } from '$lib/server/convex-url';
 import type { RequestEvent } from '@sveltejs/kit';
 
@@ -64,6 +69,40 @@ async function fetchBackupDataForAdmin(token: string): Promise<BackupExportPaylo
 
 export async function GET(event: RequestEvent) {
 	try {
+		// The same environment gate the Convex cron applies (ADR-0026), evaluated
+		// against the Vercel env. This route reads its own copy of the Drive
+		// credentials, so without this it stays an unguarded way to write an
+		// un-prefixed backup-<date>.json into the production folder — the exact
+		// duplicate-name failure the gate exists to prevent.
+		//
+		// `BACKUP_DEPLOYMENT` names the deployment here because a Vercel function
+		// has no `CONVEX_DEPLOYMENT`. With it unset this classifies as `unknown`
+		// and refuses, which is the safe default for an unlabelled environment.
+		const environment = resolveDriveEnvironmentFromEnv({
+			CONVEX_DEPLOYMENT: env.CONVEX_DEPLOYMENT,
+			BACKUP_DEPLOYMENT: env.BACKUP_DEPLOYMENT
+		});
+		const filename = buildDriveBackupFilename(environment, new Date());
+		const decision = decideDriveUpload({
+			environment,
+			nonProdUploadOptIn: env.ALLOW_NONPROD_DRIVE_BACKUP === 'true',
+			folderId: env.GOOGLE_DRIVE_FOLDER_ID
+		});
+
+		if (!decision.allowed) {
+			console.warn(`[cron-backup] Skipping Drive upload of ${filename}: ${decision.reason}`);
+			return new Response(
+				JSON.stringify({
+					success: false,
+					skipped: true,
+					filename,
+					environment,
+					reason: decision.reason
+				}),
+				{ headers: { 'Content-Type': 'application/json' } }
+			);
+		}
+
 		if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REFRESH_TOKEN) {
 			return new Response(JSON.stringify({ success: false, error: 'Missing Google credentials' }), {
 				status: 500,
@@ -85,7 +124,6 @@ export async function GET(event: RequestEvent) {
 			? await fetchBackupDataForCron()
 			: await fetchBackupDataForAdmin(event.locals.token!);
 
-		const filename = `backup-${new Date().toISOString().split('T')[0]}.json`;
 		const fileContent = JSON.stringify(backup, null, 2);
 
 		const auth = new google.auth.OAuth2(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET);
