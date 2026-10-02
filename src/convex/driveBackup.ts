@@ -2,11 +2,15 @@
 
 import { action, internalAction } from './_generated/server';
 import { anyApi } from 'convex/server';
+import { JWT } from 'google-auth-library';
 import { canAccessAdminArea, type AccessSubject } from './shared/authorization';
 import type { BackupSnapshot } from './shared/backup_snapshot';
 import {
 	buildDriveBackupFilename,
 	decideDriveUpload,
+	describeMissingDriveCredential,
+	DRIVE_SERVICE_ACCOUNT_SCOPES,
+	resolveDriveCredential,
 	resolveDriveEnvironmentFromEnv,
 	type DriveEnvironment
 } from './shared/drive_backup_target';
@@ -23,26 +27,57 @@ function currentEnvironment(): DriveEnvironment {
 }
 
 async function getAccessToken(): Promise<string> {
-	const clientId = readEnv('GOOGLE_CLIENT_ID');
-	const clientSecret = readEnv('GOOGLE_CLIENT_SECRET');
-	const refreshToken = readEnv('GOOGLE_REFRESH_TOKEN');
+	const credential = resolveDriveCredential({
+		GOOGLE_SERVICE_ACCOUNT_EMAIL: readEnv('GOOGLE_SERVICE_ACCOUNT_EMAIL'),
+		GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: readEnv('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY'),
+		GOOGLE_CLIENT_ID: readEnv('GOOGLE_CLIENT_ID'),
+		GOOGLE_CLIENT_SECRET: readEnv('GOOGLE_CLIENT_SECRET'),
+		GOOGLE_REFRESH_TOKEN: readEnv('GOOGLE_REFRESH_TOKEN')
+	});
 
-	if (!clientId || !clientSecret || !refreshToken) {
-		throw new Error('Missing Google OAuth credentials');
+	if (!credential) {
+		throw new Error(
+			describeMissingDriveCredential({
+				GOOGLE_SERVICE_ACCOUNT_EMAIL: readEnv('GOOGLE_SERVICE_ACCOUNT_EMAIL'),
+				GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: readEnv('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY')
+			})
+		);
 	}
 
+	if (credential.kind === 'service_account') {
+		// A signed JWT exchanged directly for an access token. No refresh token, no
+		// consent screen, no expiry to lapse — see `resolveDriveCredential`.
+		const auth = new JWT({
+			email: credential.email,
+			key: credential.privateKey,
+			scopes: DRIVE_SERVICE_ACCOUNT_SCOPES
+		});
+		await auth.authorize();
+		// google-auth-library v11 returns `{ token }` from this call, where v9 and
+		// earlier returned a bare string. Both shapes are handled so a dependency
+		// bump cannot silently turn every nightly backup into a thrown error.
+		const result = await auth.getAccessToken();
+		const token = typeof result === 'string' ? result : result?.token;
+		if (!token) {
+			throw new Error('Failed to get access token for the Drive service account');
+		}
+		return token;
+	}
+
+	// Migration bridge only: a user refresh token issued under an OAuth consent
+	// screen in Testing status expires after 7 days. See `resolveDriveCredential`.
 	const response = await fetch('https://oauth2.googleapis.com/token', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 		body: new URLSearchParams({
-			client_id: clientId,
-			client_secret: clientSecret,
-			refresh_token: refreshToken,
+			client_id: credential.clientId,
+			client_secret: credential.clientSecret,
+			refresh_token: credential.refreshToken,
 			grant_type: 'refresh_token'
 		})
 	});
 
-	const data = await response.json();
+	const data = (await response.json()) as { access_token?: string; error_description?: string };
 	if (!data.access_token) {
 		throw new Error('Failed to get access token: ' + JSON.stringify(data));
 	}

@@ -102,3 +102,90 @@ export function decideDriveUpload(options: {
 
 	return { allowed: true, environment };
 }
+
+// How a deployment proves it may write to Drive.
+//
+// A service account is the intended credential: it authenticates with a private
+// key, never expires, needs no consent screen, and does not stop working when the
+// person who created it leaves. The user-refresh-token path is kept only as a
+// migration bridge, because it silently dies on a 7-day clock while the OAuth
+// consent screen sits in Testing status (`refresh_token_expires_in: 604799`) —
+// which is exactly how the Drive archive went a month without an upload while the
+// database backups looked perfectly healthy.
+//
+// Do not "fix" a dead refresh token by minting another one under a Testing consent
+// screen. It will fail again within a week, silently. Migrate to the service
+// account instead.
+
+export type DriveCredential =
+	| {
+			kind: 'service_account';
+			email: string;
+			privateKey: string;
+	  }
+	| {
+			kind: 'user_refresh_token';
+			clientId: string;
+			clientSecret: string;
+			refreshToken: string;
+	  };
+
+/**
+ * Full `drive`, not `drive.file`. `drive.file` grants access only to files the
+ * app itself created, which is a useful least-privilege choice for a user token
+ * but leaves a service account unable to write into a folder its human owner
+ * created and merely shared. Since the backup folder is exactly such a folder,
+ * the broader scope is required — bounded in practice by sharing the folder with
+ * this one service account and nothing else.
+ */
+export const DRIVE_SERVICE_ACCOUNT_SCOPES = ['https://www.googleapis.com/auth/drive'];
+
+function normalizePrivateKey(key: string): string {
+	// A PEM pasted into an env var, or set through a JSON key file, usually keeps
+	// its newlines escaped as literal "\n". google-auth-library signs the JWT with
+	// this string, and a broken PEM fails with an opaque parse error rather than
+	// saying "your newlines are escaped" — so they are unescaped here.
+	return key.includes('\\n') ? key.replace(/\\n/g, '\n') : key;
+}
+
+/**
+ * Which credential this deployment has, preferring the service account.
+ *
+ * Returns null when neither is configured, so the caller can report a missing
+ * credential rather than half-configured one.
+ */
+export function resolveDriveCredential(env: {
+	GOOGLE_SERVICE_ACCOUNT_EMAIL?: string;
+	GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?: string;
+	GOOGLE_CLIENT_ID?: string;
+	GOOGLE_CLIENT_SECRET?: string;
+	GOOGLE_REFRESH_TOKEN?: string;
+}): DriveCredential | null {
+	const email = env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
+	const privateKey = env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.trim();
+	if (email && privateKey) {
+		return { kind: 'service_account', email, privateKey: normalizePrivateKey(privateKey) };
+	}
+
+	const clientId = env.GOOGLE_CLIENT_ID?.trim();
+	const clientSecret = env.GOOGLE_CLIENT_SECRET?.trim();
+	const refreshToken = env.GOOGLE_REFRESH_TOKEN?.trim();
+	if (clientId && clientSecret && refreshToken) {
+		return { kind: 'user_refresh_token', clientId, clientSecret, refreshToken };
+	}
+
+	return null;
+}
+
+/**
+ * What is missing when no credential resolves, named explicitly so an operator
+ * reading a cron failure knows which env vars to set.
+ */
+export function describeMissingDriveCredential(env: {
+	GOOGLE_SERVICE_ACCOUNT_EMAIL?: string;
+	GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?: string;
+}): string {
+	return env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim()
+		? 'Missing Google service account credentials: GOOGLE_SERVICE_ACCOUNT_EMAIL is set but GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY is empty'
+		: 'Missing Google credentials: set GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY (preferred), or GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET + GOOGLE_REFRESH_TOKEN';
+}
