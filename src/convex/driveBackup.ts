@@ -1,6 +1,6 @@
 'use node';
 
-import { action, internalAction } from './_generated/server';
+import { action, internalAction, type ActionCtx } from './_generated/server';
 import { anyApi } from 'convex/server';
 import { JWT } from 'google-auth-library';
 import { canAccessAdminArea, type AccessSubject } from './shared/authorization';
@@ -152,7 +152,7 @@ function snapshotStats(snapshot: BackupSnapshot) {
  * regardless, and a cron that throws on every non-prod deployment would bury the
  * real failure in noise.
  */
-async function uploadSnapshotBackup(snapshot: BackupSnapshot) {
+async function uploadSnapshotBackup(ctx: ActionCtx, snapshot: BackupSnapshot) {
 	const environment = currentEnvironment();
 	const decision = decideDriveUpload({
 		environment,
@@ -176,6 +176,15 @@ async function uploadSnapshotBackup(snapshot: BackupSnapshot) {
 	const fileContent = JSON.stringify(snapshot, null, 2);
 	const accessToken = await getAccessToken();
 	const { fileId, createdTime } = await uploadToDrive(accessToken, fileContent, filename);
+
+	// Heartbeat only after Drive returned a real file id, so a row here always
+	// means an upload that genuinely landed. A failed upload throws above and
+	// leaves no row, which is exactly what the watchdog needs to see.
+	await ctx.runMutation(anyApi.backupWatchdog.recordBackupSuccess, {
+		filename,
+		environment,
+		fileId
+	});
 
 	return {
 		success: true as const,
@@ -208,7 +217,7 @@ export const backupToDrive = action({
 		const snapshot = (await ctx.runQuery(anyApi.backup.exportDataForCron, {
 			cronSecret
 		})) as BackupSnapshot;
-		return uploadSnapshotBackup(snapshot);
+		return uploadSnapshotBackup(ctx, snapshot);
 	}
 });
 
@@ -216,6 +225,6 @@ export const scheduledBackup = internalAction({
 	args: {},
 	handler: async (ctx) => {
 		const result = await ctx.runMutation(anyApi.backup.createDailyBackup, {});
-		return uploadSnapshotBackup(result.snapshot);
+		return uploadSnapshotBackup(ctx, result.snapshot);
 	}
 });

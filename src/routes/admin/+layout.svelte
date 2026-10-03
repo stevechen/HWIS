@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { setContext, type Snippet } from 'svelte';
 	import { useViewer } from '$lib/viewer.svelte';
+	import BackupStaleBanner from '$lib/components/admin/BackupStaleBanner.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -35,5 +36,8 @@
 		></div>
 	</div>
 {:else if isAdmin}
-	{@render children()}
+	<div class="flex min-h-screen flex-col">
+		<BackupStaleBanner />
+		{@render children()}
+	</div>
 {/if}
