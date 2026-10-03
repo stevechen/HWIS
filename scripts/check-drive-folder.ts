@@ -77,13 +77,27 @@ const files = await fetch(
 );
 const f = (await files.json()) as { files?: Array<{ name: string; size: string }> };
 const list = f.files ?? [];
-const total = list.reduce((n, x) => n + Number(x.size), 0);
 
-console.log(`\nfolder reachable with the current prod token: ${list.length > 0 ? 'yes' : 'no'}`);
-console.log(`files: ${list.length}, total ${(total / 1024 / 1024).toFixed(2)} MB`);
-console.log(`GOOGLE_DRIVE_FOLDER_ID in prod env: ${folderId}`);
+console.log(`\nGOOGLE_DRIVE_FOLDER_ID in prod env: ${folderId}`);
+console.log(`token exchanged successfully: yes`);
+
+// Deliberately not collapsing this into a single yes/no. The children query
+// returns an empty list both when the token cannot see the folder at all and
+// when the folder is simply empty, so an earlier version of this script printed
+// "reachable: no" for a perfectly healthy empty folder — and that was misread as
+// an access failure during the 2026-10-03 folder migration. The empty case is
+// the expected one right after a migration: `drive.file` only sees files the app
+// created, so files copied in by hand do not appear here.
+//
+// A non-empty list is the only affirmative proof the token has write access to
+// this folder. Until one app-created file exists, run a backup and look for the
+// file in Drive.
 if (list.length > 0) {
 	const byName = [...list].sort((a, b) => a.name.localeCompare(b.name));
+	const total = list.reduce((n, x) => n + Number(x.size), 0);
+	console.log(`files written by this app: ${list.length}, ${(total / 1024 / 1024).toFixed(2)} MB`);
 	console.log(`  oldest: ${byName[0].name}`);
 	console.log(`  newest: ${byName[byName.length - 1].name}`);
+} else {
+	console.log('files written by this app: 0 (expected until the first backup runs)');
 }
