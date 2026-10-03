@@ -80,7 +80,8 @@ export async function GET(event: RequestEvent) {
 		// and refuses, which is the safe default for an unlabelled environment.
 		const environment = resolveDriveEnvironmentFromEnv({
 			CONVEX_DEPLOYMENT: env.CONVEX_DEPLOYMENT,
-			BACKUP_DEPLOYMENT: env.BACKUP_DEPLOYMENT
+			BACKUP_DEPLOYMENT: env.BACKUP_DEPLOYMENT,
+			NODE_ENV: env.NODE_ENV
 		});
 		const filename = buildDriveBackupFilename(environment, new Date());
 		const decision = decideDriveUpload({
