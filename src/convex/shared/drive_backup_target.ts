@@ -45,6 +45,64 @@ export function buildDriveBackupFilename(environment: DriveEnvironment, now: Dat
 }
 
 /**
+ * How old a backup heartbeat may be before the archive counts as stale.
+ *
+ * 26 hours rather than 24. The nightly cron is scheduled at 20:00 UTC, so a
+ * heartbeat is normally ~24h old when checked. A threshold of exactly 24h would
+ * sit on the boundary and flap red for an hour every night on ordinary
+ * scheduling jitter. The extra two hours absorb that jitter while still
+ * catching a genuinely missed night — a backup that skipped once is ~48h old
+ * and fails by a wide margin.
+ */
+export const STALE_AFTER_MS = 26 * 60 * 60 * 1000;
+
+export type BackupFreshness =
+	| { ok: true; lastCompletedAt: number; ageMs: number }
+	| { ok: false; reason: 'never'; ageMs: null }
+	| { ok: false; reason: 'stale'; ageMs: number };
+
+/**
+ * Classify how recently a backup last succeeded.
+ *
+ * `now` is a parameter rather than `Date.now()` so the boundary is testable
+ * without freezing time.
+ *
+ * A heartbeat is fresh while it is at most `STALE_AFTER_MS` old and stale past
+ * that. The boundary itself counts as fresh — the extra two hours of headroom
+ * mean an exactly-26h-old backup is not a failure worth alerting on.
+ */
+export function assessBackupFreshness(
+	lastCompletedAt: number | undefined | null,
+	now: number
+): BackupFreshness {
+	// A missing heartbeat is reported as stale rather than as a distinct
+	// operational state, because "no backup has ever succeeded" and "the last
+	// backup was too old" are the same problem to whoever must fix it: the
+	// archive is not being maintained. `never` rides along so the banner can
+	// explain itself.
+	if (lastCompletedAt === undefined || lastCompletedAt === null) {
+		return { ok: false, reason: 'never', ageMs: null };
+	}
+
+	const ageMs = now - lastCompletedAt;
+	if (ageMs > STALE_AFTER_MS) {
+		return { ok: false, reason: 'stale', ageMs };
+	}
+
+	return { ok: true, lastCompletedAt, ageMs };
+}
+
+/** Whole hours since a heartbeat, floored, for display. */
+export function formatBackupAge(ageMs: number | null): string {
+	if (ageMs === null) return 'never';
+	const hours = Math.floor(ageMs / (60 * 60 * 1000));
+	if (hours < 1) return 'less than an hour';
+	if (hours < 48) return `${hours} hour${hours === 1 ? '' : 's'}`;
+	const days = Math.floor(hours / 24);
+	return `${days} day${days === 1 ? '' : 's'}`;
+}
+
+/**
  * The deployment to classify, from the env vars that might name it.
  *
  * Neither name is set automatically inside a Convex deployment. `CONVEX_DEPLOYMENT`

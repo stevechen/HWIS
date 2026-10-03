@@ -36,6 +36,32 @@ Two layers prevent a repeat:
    folder, its name says so before anyone opens it. A bare
    `backup-YYYY-MM-DD.json` no longer exists on any deployment.
 
+## Knowing when it breaks
+
+A backup that silently stops is worse than one that fails loudly, because the
+archive looks healthy right up until it is needed. Two mechanisms cover this:
+
+1. **The admin banner.** `BackupStaleBanner`
+   (`src/lib/components/admin/BackupStaleBanner.svelte`) renders on every admin
+   page when no backup has succeeded within the stale window. It is shown to
+   _every_ admin rather than only super users on purpose: the banner is not a
+   tool for fixing the credential, it is a signal that some human should notice
+   and say so.
+2. **The watchdog cron.** `backup-freshness-watchdog` runs at 23:17 UTC and
+   throws when the archive is stale, which shows up in the Convex dashboard logs
+   view. Convex has no built-in email or webhook for cron failures, so the logs
+   view is the only machine-readable signal it offers — worth checking
+   occasionally.
+
+Both read the `backupHeartbeats` table, written by `recordBackupSuccess` after
+Drive returns a file id. They deliberately do **not** list the Drive folder: a
+check that needs the Drive credential fails for the same reason the backup
+failed and cannot tell "the archive is stale" from "I cannot see anything".
+Reading our own table keeps detection working precisely when Drive is what broke.
+
+The one failure this cannot catch is a total Convex outage, where no cron runs at
+all. Covering that needs an external scheduler, which is not in place.
+
 ## Per-deployment source of truth
 
 | Var                          | prod                                      | dev                               | local                               |

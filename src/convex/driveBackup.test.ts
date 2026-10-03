@@ -4,12 +4,15 @@ import { api } from './_generated/api';
 import { buildSnapshot } from './shared/backup_snapshot';
 import type { BackupSnapshot } from './shared/backup_snapshot';
 import {
+	assessBackupFreshness,
 	buildDriveBackupFilename,
 	decideDriveUpload,
 	describeMissingDriveCredential,
+	formatBackupAge,
 	resolveDriveCredential,
 	resolveDriveEnvironment,
-	resolveDriveEnvironmentFromEnv
+	resolveDriveEnvironmentFromEnv,
+	STALE_AFTER_MS
 } from './shared/drive_backup_target';
 import schema from './schema';
 
@@ -248,6 +251,59 @@ describe('resolveDriveEnvironment', () => {
 		[undefined, 'unknown']
 	])('classifies %s as %s', (deployment, expected) => {
 		expect(resolveDriveEnvironment(deployment)).toBe(expected);
+	});
+});
+
+describe('assessBackupFreshness', () => {
+	const now = Date.parse('2026-10-03T12:00:00.000Z');
+
+	it('treats a heartbeat from minutes ago as fresh', () => {
+		expect(assessBackupFreshness(now - 60 * 60 * 1000, now)).toMatchObject({ ok: true });
+	});
+
+	// The nightly cron runs at 20:00 UTC, so a heartbeat is ~24h old when the
+	// watchdog next runs. Without headroom this would flap red every morning.
+	it('tolerates a heartbeat one full day old', () => {
+		expect(assessBackupFreshness(now - 24 * 60 * 60 * 1000, now)).toMatchObject({ ok: true });
+	});
+
+	it('is still fresh just inside the 26h window', () => {
+		expect(assessBackupFreshness(now - STALE_AFTER_MS + 1000, now)).toMatchObject({ ok: true });
+	});
+
+	it('is still fresh at exactly the window boundary', () => {
+		expect(assessBackupFreshness(now - STALE_AFTER_MS, now)).toMatchObject({ ok: true });
+	});
+
+	it('is stale one millisecond past the window boundary', () => {
+		expect(assessBackupFreshness(now - STALE_AFTER_MS - 1, now)).toMatchObject({
+			ok: false,
+			reason: 'stale'
+		});
+	});
+
+	// This is the July failure: the refresh token expired and no night succeeded.
+	it('is stale when the last success was two nights ago', () => {
+		expect(assessBackupFreshness(now - 48 * 60 * 60 * 1000, now)).toMatchObject({
+			ok: false,
+			reason: 'stale'
+		});
+	});
+
+	it.each([[null], [undefined]])('reports never when no heartbeat exists (%s)', (value) => {
+		expect(assessBackupFreshness(value, now)).toEqual({ ok: false, reason: 'never', ageMs: null });
+	});
+});
+
+describe('formatBackupAge', () => {
+	it('describes a missing heartbeat as never', () => {
+		expect(formatBackupAge(null)).toBe('never');
+	});
+
+	it('pluralizes hours and days', () => {
+		expect(formatBackupAge(60 * 60 * 1000)).toBe('1 hour');
+		expect(formatBackupAge(5 * 60 * 60 * 1000)).toBe('5 hours');
+		expect(formatBackupAge(48 * 60 * 60 * 1000)).toBe('2 days');
 	});
 });
 
