@@ -11,6 +11,7 @@
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as backup from "../backup.js";
+import type * as backupWatchdog from "../backupWatchdog.js";
 import type * as board_snapshots from "../board_snapshots.js";
 import type * as categories from "../categories.js";
 import type * as classes from "../classes.js";
@@ -33,6 +34,7 @@ import type * as seedAdmin from "../seedAdmin.js";
 import type * as shared_authorization from "../shared/authorization.js";
 import type * as shared_backup_snapshot from "../shared/backup_snapshot.js";
 import type * as shared_class_roster from "../shared/class_roster.js";
+import type * as shared_drive_backup_target from "../shared/drive_backup_target.js";
 import type * as shared_enrichment from "../shared/enrichment.js";
 import type * as shared_evaluation_read_model from "../shared/evaluation_read_model.js";
 import type * as shared_evaluation_utils from "../shared/evaluation_utils.js";
@@ -62,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   audit: typeof audit;
   auth: typeof auth;
   backup: typeof backup;
+  backupWatchdog: typeof backupWatchdog;
   board_snapshots: typeof board_snapshots;
   categories: typeof categories;
   classes: typeof classes;
@@ -84,6 +87,7 @@ declare const fullApi: ApiFromModules<{
   "shared/authorization": typeof shared_authorization;
   "shared/backup_snapshot": typeof shared_backup_snapshot;
   "shared/class_roster": typeof shared_class_roster;
+  "shared/drive_backup_target": typeof shared_drive_backup_target;
   "shared/enrichment": typeof shared_enrichment;
   "shared/evaluation_read_model": typeof shared_evaluation_read_model;
   "shared/evaluation_utils": typeof shared_evaluation_utils;
