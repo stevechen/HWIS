@@ -36,7 +36,7 @@
 		></div>
 	</div>
 {:else if isAdmin}
-	<div class="flex min-h-screen flex-col">
+	<div class="min-h-screen">
 		<BackupStaleBanner />
 		{@render children()}
 	</div>

@@ -27,7 +27,7 @@ export default defineSchema({
 		createdAt: v.number(),
 		updatedAt: v.number()
 	}).index('token', ['token']),
-/**
+	/**
 	 * Heartbeat written by a successful Drive backup, read by the freshness
 	 * watchdog and the admin banner.
 	 *
