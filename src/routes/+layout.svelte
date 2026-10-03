@@ -199,7 +199,7 @@
 				</div>
 			</div>
 		{/if}
-		{#if $page.url.pathname !== '/login' && $page.url.pathname !== '/privacy' && !shouldShowModal && !isDisplayPage}
+		{#if $page.url.pathname !== '/login' && $page.url.pathname !== '/privacy' && $page.url.pathname !== '/terms' && !shouldShowModal && !isDisplayPage}
 			{@const houseColor = $headerHouseBadge
 				? houseColors[$headerHouseBadge.house]?.text || ''
 				: ''}
