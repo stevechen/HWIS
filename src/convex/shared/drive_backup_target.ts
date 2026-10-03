@@ -47,21 +47,33 @@ export function buildDriveBackupFilename(environment: DriveEnvironment, now: Dat
 /**
  * The deployment to classify, from the env vars that might name it.
  *
- * `CONVEX_DEPLOYMENT` is the app-wide convention and is what the Convex backend
- * has. `BACKUP_DEPLOYMENT` exists for runtimes that are *not* the Convex backend —
- * the Vercel cron route in `src/routes/api/cron-backup/+server.ts` — where nothing
- * sets `CONVEX_DEPLOYMENT`. Without it that route would classify as `unknown` and
- * refuse every upload, including on production, so the name is declared explicitly
- * rather than inferred.
+ * Neither name is set automatically inside a Convex deployment. `CONVEX_DEPLOYMENT`
+ * is read by the CLI at build time to decide *where* to push; it is not a runtime
+ * env var on the deployment, so a function reading `process.env.CONVEX_DEPLOYMENT`
+ * there sees nothing. `NODE_ENV=production` is set on the deployment and is the
+ * only reliable built-in signal that this is prod.
  *
- * Falling back to `BACKUP_DEPLOYMENT` cannot make a non-prod deployment look like
- * prod: it is set per environment, and the alternative — guessing prod from a
- * hostname — is exactly the kind of inference that let the original bug through.
+ * So prod is recognised two ways, in order:
+ *
+ *  1. `NODE_ENV === 'production'` — what Convex sets on a production deployment.
+ *     Checked first so a prod backup works with no configuration at all, because
+ *     a missing env var must never be the reason the archive goes dark.
+ *  2. `BACKUP_DEPLOYMENT` / `CONVEX_DEPLOYMENT` — an explicit `prod:`-prefixed
+ *     name, for runtimes that are not the Convex backend (the Vercel cron route)
+ *     and for deployments where `NODE_ENV` is customised.
+ *
+ * `BACKUP_DEPLOYMENT` can never promote a non-prod deployment to prod: it is set
+ * per environment, and is only honoured when it names `prod:` explicitly. An
+ * unrecognised environment stays `unknown` and is refused, which is the safe
+ * direction — the cost of guessing wrong is a silent upload into the production
+ * folder, and the cost of guessing "unknown" is one loud log line.
  */
 export function resolveDriveEnvironmentFromEnv(env: {
 	CONVEX_DEPLOYMENT?: string;
 	BACKUP_DEPLOYMENT?: string;
+	NODE_ENV?: string;
 }): DriveEnvironment {
+	if (env.NODE_ENV === 'production') return 'prod';
 	return resolveDriveEnvironment(env.CONVEX_DEPLOYMENT ?? env.BACKUP_DEPLOYMENT);
 }
 

@@ -22,7 +22,8 @@ function readEnv(key: string): string | undefined {
 
 function currentEnvironment(): DriveEnvironment {
 	return resolveDriveEnvironmentFromEnv({
-		CONVEX_DEPLOYMENT: readEnv('CONVEX_DEPLOYMENT')
+		CONVEX_DEPLOYMENT: readEnv('CONVEX_DEPLOYMENT'),
+		NODE_ENV: readEnv('NODE_ENV')
 	});
 }
 

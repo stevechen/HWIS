@@ -208,6 +208,21 @@ describe('describeMissingDriveCredential', () => {
 });
 
 describe('resolveDriveEnvironmentFromEnv', () => {
+	it('recognises prod from NODE_ENV alone, with no deployment name set', () => {
+		// The real prod failure: CONVEX_DEPLOYMENT is a CLI build-time variable and
+		// is NOT set inside a Convex deployment, so relying on it alone made prod
+		// classify as unknown and the guard refused every upload. A backup must not
+		// go dark because an env var is missing.
+		expect(resolveDriveEnvironmentFromEnv({ NODE_ENV: 'production' })).toBe('prod');
+	});
+
+	it('still refuses a non-production NODE_ENV with no deployment name', () => {
+		// NODE_ENV is checked for an exact value, not for presence. A dev or preview
+		// deployment must not be mistaken for prod by carrying the variable at all.
+		expect(resolveDriveEnvironmentFromEnv({ NODE_ENV: 'development' })).toBe('unknown');
+		expect(resolveDriveEnvironmentFromEnv({ NODE_ENV: 'test' })).toBe('unknown');
+	});
+
 	it('prefers CONVEX_DEPLOYMENT, which is what the Convex backend has', () => {
 		expect(
 			resolveDriveEnvironmentFromEnv({ CONVEX_DEPLOYMENT: 'prod:hwis', BACKUP_DEPLOYMENT: 'dev:x' })
@@ -219,9 +234,6 @@ describe('resolveDriveEnvironmentFromEnv', () => {
 	});
 
 	it('refuses an unlabelled environment rather than guessing prod', () => {
-		// The Vercel route has no CONVEX_DEPLOYMENT. With neither var set it must
-		// classify as unknown — an environment that cannot name itself does not get
-		// to write to the production backup folder.
 		expect(resolveDriveEnvironmentFromEnv({})).toBe('unknown');
 	});
 });
