@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	computeAuthRedirect,
+	isPublicPath,
 	toAuthState,
 	validateCallbackUrl,
 	type AuthState
@@ -8,6 +9,25 @@ import {
 import type { SessionStatus } from '$lib/viewer-core';
 
 const url = (pathname: string, search = '') => new URL(`${pathname}${search}`, 'http://localhost');
+
+describe('isPublicPath', () => {
+	it('lets an unauthenticated visitor reach the legal pages', () => {
+		// Google's privacy-policy verifier fetches these URLs from outside a
+		// session. Bouncing either to /login makes the URL unverifiable, and the
+		// login page links to them for the same reason.
+		expect(isPublicPath('/privacy')).toBe(true);
+		expect(isPublicPath('/terms')).toBe(true);
+	});
+
+	it('does not make any application route public', () => {
+		// A prefix or substring match here would expose student records; these are
+		// exact paths only.
+		expect(isPublicPath('/admin')).toBe(false);
+		expect(isPublicPath('/')).toBe(false);
+		expect(isPublicPath('/privacy/extra')).toBe(false);
+		expect(isPublicPath('/terms-of-use')).toBe(false);
+	});
+});
 
 describe('computeAuthRedirect', () => {
 	const unauthSettled: AuthState = { isLoading: false, isAuthenticated: false };

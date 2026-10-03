@@ -52,5 +52,5 @@ export function computeAuthRedirect(url: URL, auth: AuthState): string | null {
  * to /login.
  */
 export function isPublicPath(pathname: string): boolean {
-	return pathname === '/privacy';
+	return pathname === '/privacy' || pathname === '/terms';
 }
