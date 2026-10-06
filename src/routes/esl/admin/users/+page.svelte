@@ -4,8 +4,9 @@
 	import type { Id } from '$convex/_generated/dataModel';
 	import { useViewer } from '$lib/viewer.svelte';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
-	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
+	import UserCard from '$lib/components/users/user-card.svelte';
+	import { initials } from '$lib/utils/names';
 
 	const client = useConvexClient();
 	const session = useViewer();
@@ -49,6 +50,12 @@
 		return session.viewer?._id === id;
 	}
 
+	function eslBadgeClass(role: string): string {
+		if (role === 'admin') return 'border-emerald-300 bg-emerald-100 text-emerald-700';
+		if (role === 'teacher') return 'border-sky-300 bg-sky-100 text-sky-700';
+		return '';
+	}
+
 	function setRole(id: Id<'users'>, name: string, value: string) {
 		overrides[id] = value as 'admin' | 'teacher' | 'none';
 		busyId = id;
@@ -77,10 +84,6 @@
 		<h1 data-testid="esl-admin-users.title" class="text-2xl font-bold text-emerald-900">
 			ESL Department Users
 		</h1>
-		<p class="text-muted-foreground mt-1">
-			Assign the ESL department role to staff. Saving here only changes the ESL slot — a staff
-			member who also works in International keeps that assignment.
-		</p>
 		<p data-testid="esl-admin-users.summary" class="text-muted-foreground mt-2 text-sm">
 			{eslCount} in the department · {adminCount} ESL admin(s) · {staff.length} staff total
 		</p>
@@ -133,33 +136,32 @@
 			No staff match the current filters.
 		</p>
 	{:else}
-		<Table.Root class="rounded-lg border bg-white">
-			<Table.Header>
-				<Table.Row>
-					<Table.Head>Name</Table.Head>
-					<Table.Head>Account status</Table.Head>
-					<Table.Head>International</Table.Head>
-					<Table.Head>ESL role</Table.Head>
-				</Table.Row>
-			</Table.Header>
-			<Table.Body>
-				{#each visibleStaff as person (person._id)}
-					<Table.Row data-testid="esl-admin-users.row">
-						<Table.Cell class="font-medium">
-							{person.name}
-							{#if isSelf(person._id)}
-								<span class="text-muted-foreground text-xs font-normal">(you)</span>
-							{/if}
-						</Table.Cell>
-						<Table.Cell>
-							<Badge variant={person.status === 'active' ? 'default' : 'secondary'}>
-								{person.status}
-							</Badge>
-						</Table.Cell>
-						<Table.Cell class="text-muted-foreground">
-							{person.internationalRole ?? '—'}
-						</Table.Cell>
-						<Table.Cell>
+		<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+			{#each visibleStaff as person (person._id)}
+				<UserCard
+					name={person.name}
+					subtitle={person.internationalRole
+						? `International · ${person.internationalRole}`
+						: 'No international role'}
+					active={person.status === 'active'}
+					initials={initials(person.name)}
+					testId="esl-admin-users.row"
+				>
+					{#snippet titleSuffix()}
+						{#if isSelf(person._id)}
+							<span class="text-muted-foreground text-xs font-normal">(you)</span>
+						{/if}
+					{/snippet}
+					{#snippet badges()}
+						<Badge variant={person.status === 'active' ? 'default' : 'secondary'}>
+							{person.status}
+						</Badge>
+						<Badge variant="outline" class="text-[10px] {eslBadgeClass(person.selected)}">
+							{roleLabel(person.selected)}
+						</Badge>
+					{/snippet}
+					{#snippet footer()}
+						<div class="w-full [&>div]:w-full">
 							<NativeSelect.Root
 								aria-label="ESL role for {person.name}"
 								data-testid="esl-admin-users.role"
@@ -171,15 +173,10 @@
 								<NativeSelect.Option value="teacher">ESL Teacher</NativeSelect.Option>
 								<NativeSelect.Option value="admin">ESL Admin</NativeSelect.Option>
 							</NativeSelect.Root>
-						</Table.Cell>
-					</Table.Row>
-				{/each}
-			</Table.Body>
-		</Table.Root>
+						</div>
+					{/snippet}
+				</UserCard>
+			{/each}
+		</div>
 	{/if}
-
-	<p class="text-muted-foreground text-xs">
-		An ESL Admin may create and edit cohorts, enrol and transfer students, and manage the
-		department's roles. An ESL Teacher sees their own classes and rosters.
-	</p>
 </div>
