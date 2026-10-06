@@ -3,7 +3,8 @@ import { getTestSuffix } from './helpers';
 import {
 	createStudentWithEvaluations,
 	cleanupByTag,
-	cleanupTestBackupsByTimestamp
+	cleanupTestBackupsByTimestamp,
+	countBackupsByTag
 } from './convex-client';
 
 test.describe('Backup Management @backup @sequential', () => {
@@ -24,12 +25,20 @@ test.describe('Backup Management @backup @sequential', () => {
 			status: 'Enrolled',
 			e2eTag
 		});
-		await page.goto('/admin/backup');
+		// The tag rides in on the URL so the rows this page creates (Force Backup and
+		// the pre-restore safety snapshot) are removable by tag. Without it they are
+		// invisible to every teardown scope and only the timestamp sweep can reach
+		// them.
+		await page.goto(`/admin/backup?e2eTag=${encodeURIComponent(e2eTag)}`);
 		await page.waitForSelector('body.hydrated');
 	});
 
 	test.afterEach(async () => {
 		await cleanupByTag('students', e2eTag);
+		// Tag-based teardown first: it is scoped to this run's own rows. The timestamp
+		// sweep stays as the safety net for anything a spec created untagged, and
+		// cannot touch a production backup from before the test started.
+		await cleanupByTag('backups', e2eTag);
 		await cleanupTestBackupsByTimestamp(testStartTime);
 	});
 
@@ -80,6 +89,24 @@ test.describe('Backup Management @backup @sequential', () => {
 
 		const expected = `${customName.replace(/[^a-zA-Z0-9-_.]/g, '_')}.json`;
 		expect(download.suggestedFilename()).toBe(expected);
+	});
+
+	test('tags a UI-created backup so tag-based teardown can reach it', async ({ page }) => {
+		expect(await countBackupsByTag(e2eTag)).toBe(0);
+
+		await page.getByRole('button', { name: 'Force Backup Now' }).click();
+		await expect(page.getByRole('heading', { name: 'Force Backup', level: 2 })).toBeVisible();
+		await page.getByRole('button', { name: 'Confirm' }).click();
+		await expect(page.getByText(/Created backup/)).toBeVisible();
+
+		await expect
+			.poll(() => countBackupsByTag(e2eTag), { message: 'backup row was never tagged' })
+			.toBe(1);
+
+		// Tag-based teardown must be sufficient on its own — the timestamp sweep in
+		// afterEach is only a backstop, so prove the tag alone removes the row.
+		await cleanupByTag('backups', e2eTag);
+		expect(await countBackupsByTag(e2eTag)).toBe(0);
 	});
 
 	test('danger zone section is visible', async ({ page }) => {
@@ -169,6 +196,9 @@ test.describe('Backup Management @backup @sequential', () => {
 		// Verify a pre-restore safety backup was saved in history with system badge
 		await expect(page.getByText(/Pre-Restore Safety Snapshot/).first()).toBeVisible();
 		await expect(page.getByText('System: Safety').first()).toBeVisible();
+
+		// The safety snapshot is a second row this page creates, so it is tagged too.
+		await expect.poll(() => countBackupsByTag(e2eTag)).toBe(1);
 	});
 
 	test('shows error when invalid JSON file is uploaded', async ({ page }) => {

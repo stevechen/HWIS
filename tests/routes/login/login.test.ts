@@ -42,4 +42,13 @@ describe('Login Page', () => {
 		render(LoginPage);
 		await expect.element(page.getByText(/Only for HWIS staffs/i)).toBeInTheDocument();
 	});
+
+	it('links to the legal pages, which are unreachable without a session', async () => {
+		// Google fetches the privacy URL from outside a session, so the only way a
+		// visitor reaches it is this link — or by typing the URL, which would be
+		// bounced to /login if the guard did not exempt it.
+		render(LoginPage);
+		await expect.element(page.getByRole('link', { name: 'Privacy Policy' })).toBeInTheDocument();
+		await expect.element(page.getByRole('link', { name: 'Terms of Service' })).toBeInTheDocument();
+	});
 });

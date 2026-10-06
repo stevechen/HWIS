@@ -560,6 +560,26 @@ export const teardownAllHouseEvents = mutation({
 });
 
 /**
+ * How many `backups` rows carry `e2eTag`. `verifyCleanTeardown` already reports
+ * this as one number among several, but a backup spec needs to assert the
+ * positive direction too — that a row the UI created was *tagged* in the first
+ * place, not merely that nothing tagged is left behind.
+ */
+export const countBackupsByTag = query({
+	args: {
+		e2eTag: v.string()
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const tagged = await ctx.db
+			.query('backups')
+			.withIndex('by_e2eTag', (q) => q.eq('e2eTag', args.e2eTag))
+			.collect();
+		return tagged.length;
+	}
+});
+
+/**
  * Report how many rows still carry `e2eTag` per table. Returns empty once a
  * full teardown has completed.
  */

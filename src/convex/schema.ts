@@ -38,6 +38,29 @@ export default defineSchema({
 		createdAt: v.number(),
 		updatedAt: v.number()
 	}).index('token', ['token']),
+	/**
+	 * Heartbeat written by a successful Drive backup, read by the freshness
+	 * watchdog and the admin banner.
+	 *
+	 * The watchdog deliberately reads this table rather than listing the Drive
+	 * folder. A check that needed the Drive credential would fail for the same
+	 * reason the backup failed — an expired refresh token — and could not tell
+	 * "the archive is stale" from "I cannot see anything". Reading our own table
+	 * keeps detection working exactly when Drive is what is broken.
+	 *
+	 * Rows are appended, not upserted, so the table doubles as a record of which
+	 * nights actually succeeded. They are small and there is one per night, so
+	 * no pruning is scheduled; revisit if the deployment ever needs to retain
+	 * this table through a long-lived restore drill.
+	 */
+	backupHeartbeats: defineTable({
+		completedAt: v.number(),
+		filename: v.string(),
+		environment: v.string(),
+		fileId: v.optional(v.string())
+	})
+		.index('by_completedAt', ['completedAt'])
+		.index('by_environment', ['environment']),
 
 	accounts: defineTable({
 		userId: v.id('users'),

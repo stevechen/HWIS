@@ -292,6 +292,11 @@ export async function cleanupTestBackupsByTimestamp(since: number) {
 	);
 }
 
+export async function countBackupsByTag(e2eTag: string) {
+	const utils = getUtils();
+	return await utils.countBackupsByTag(e2eTag);
+}
+
 export async function createHouseEvent(opts: CreateHouseEventOptions) {
 	const utils = getUtils();
 	return await utils.createHouseEvent(opts);

@@ -18,6 +18,7 @@ reference a tagged parent, but it must not perform global deletion.
 
 - Every data table includes an `e2eTag: v.optional(v.string())` field.
 - Indexes on `e2eTag` exist on `students`, `point_categories`, `evaluations`, and `audit_logs`.
+- Rows a UI action creates take the tag from an `?e2eTag=` query parameter, read through the shared `src/lib/e2e-tag.ts` helper. This covers surfaces the API helpers cannot reach — the admin Force Backup path and its pre-restore safety snapshot, the ESL roster import — which would otherwise be reachable only by a time-window sweep. The parameter is absent from every real visit, so production rows stay untagged and invisible to tag-based teardown.
 - A `testLifecycle` module provides the per-tag teardown interface and owns cascade ordering, retry, and
   verification behavior. The underlying mutation is `teardownByTag`.
 - A `dataFactory.ts` module provides helper mutations (`createStudent`, `createCategory`, `createEvaluationForStudent`) that accept and propagate `e2eTag`.

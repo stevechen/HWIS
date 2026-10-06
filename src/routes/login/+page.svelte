@@ -79,6 +79,12 @@
 			</button>
 
 			<p class="mt-4 text-center text-sm text-gray-500">Only for HWIS staffs</p>
+
+			<p class="mt-3 text-center text-xs text-gray-400">
+				<a href="/privacy" class="underline">Privacy Policy</a>
+				<span class="mx-1">&middot;</span>
+				<a href="/terms" class="underline">Terms of Service</a>
+			</p>
 		</div>
 	{:else}
 		<div class="flex w-full max-w-md flex-col gap-4 rounded-lg bg-white p-6 shadow-md">

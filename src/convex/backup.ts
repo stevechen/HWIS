@@ -84,11 +84,12 @@ export const createDailyBackup = internalMutation({
 
 export const restoreFromBackupPayload = mutation({
 	args: {
-		backupData: v.any()
+		backupData: v.any(),
+		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
-		await createStoredBackup(ctx, { source: 'system_safety' });
+		await createStoredBackup(ctx, { source: 'system_safety', e2eTag: args.e2eTag });
 
 		const data = args.backupData as RestorePayload;
 		const { skippedEvaluations } = await applyRestore(ctx, data);

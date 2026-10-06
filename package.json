@@ -103,6 +103,7 @@
 		"convex-svelte": "^0.0.12",
 		"d3": "^7.9.0",
 		"d3-scale-chromatic": "^3.1.0",
+		"google-auth-library": "^11.1.0",
 		"googleapis": "^171.4.0",
 		"html-to-image": "^1.11.13",
 		"xlsx": "^0.18.5"
