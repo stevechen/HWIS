@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
@@ -48,6 +49,17 @@
 
 	function isSelf(id: Id<'users'>): boolean {
 		return session.viewer?._id === id;
+	}
+
+	function openProfile(id: Id<'users'>) {
+		goto(`/esl/admin/users/${id}`);
+	}
+
+	function openProfileKey(event: KeyboardEvent, id: Id<'users'>) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			openProfile(id);
+		}
 	}
 
 	function eslBadgeClass(role: string): string {
@@ -138,44 +150,56 @@
 	{:else}
 		<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 			{#each visibleStaff as person (person._id)}
-				<UserCard
-					name={person.name}
-					subtitle={person.internationalRole
-						? `International · ${person.internationalRole}`
-						: 'No international role'}
-					active={person.status === 'active'}
-					initials={initials(person.name)}
-					testId="esl-admin-users.row"
+				<div
+					role="link"
+					tabindex={0}
+					aria-label="View profile for {person.name}"
+					data-testid="esl-admin-users.profile-link"
+					class="cursor-pointer rounded-xl focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:outline-none"
+					onclick={() => openProfile(person._id)}
+					onkeydown={(event) => openProfileKey(event, person._id)}
 				>
-					{#snippet titleSuffix()}
-						{#if isSelf(person._id)}
-							<span class="text-muted-foreground text-xs font-normal">(you)</span>
-						{/if}
-					{/snippet}
-					{#snippet badges()}
-						<Badge variant={person.status === 'active' ? 'default' : 'secondary'}>
-							{person.status}
-						</Badge>
-						<Badge variant="outline" class="text-[10px] {eslBadgeClass(person.selected)}">
-							{roleLabel(person.selected)}
-						</Badge>
-					{/snippet}
-					{#snippet footer()}
-						<div class="w-full [&>div]:w-full">
-							<NativeSelect.Root
-								aria-label="ESL role for {person.name}"
-								data-testid="esl-admin-users.role"
-								value={person.selected}
-								disabled={busyId === person._id}
-								onchange={(event) => setRole(person._id, person.name, event.currentTarget.value)}
-							>
-								<NativeSelect.Option value="none">No ESL role</NativeSelect.Option>
-								<NativeSelect.Option value="teacher">ESL Teacher</NativeSelect.Option>
-								<NativeSelect.Option value="admin">ESL Admin</NativeSelect.Option>
-							</NativeSelect.Root>
-						</div>
-					{/snippet}
-				</UserCard>
+					<UserCard
+						name={person.name}
+						subtitle={person.internationalRole
+							? `International · ${person.internationalRole}`
+							: 'No international role'}
+						active={person.status === 'active'}
+						initials={initials(person.name)}
+						testId="esl-admin-users.row"
+					>
+						{#snippet titleSuffix()}
+							{#if isSelf(person._id)}
+								<span class="text-muted-foreground text-xs font-normal">(you)</span>
+							{/if}
+						{/snippet}
+						{#snippet badges()}
+							<Badge variant={person.status === 'active' ? 'default' : 'secondary'}>
+								{person.status}
+							</Badge>
+							<Badge variant="outline" class="text-[10px] {eslBadgeClass(person.selected)}">
+								{roleLabel(person.selected)}
+							</Badge>
+						{/snippet}
+						{#snippet footer()}
+							<div class="w-full [&>div]:w-full">
+								<NativeSelect.Root
+									aria-label="ESL role for {person.name}"
+									data-testid="esl-admin-users.role"
+									value={person.selected}
+									disabled={busyId === person._id}
+									onclick={(event) => event.stopPropagation()}
+									onkeydown={(event) => event.stopPropagation()}
+									onchange={(event) => setRole(person._id, person.name, event.currentTarget.value)}
+								>
+									<NativeSelect.Option value="none">No ESL role</NativeSelect.Option>
+									<NativeSelect.Option value="teacher">ESL Teacher</NativeSelect.Option>
+									<NativeSelect.Option value="admin">ESL Admin</NativeSelect.Option>
+								</NativeSelect.Root>
+							</div>
+						{/snippet}
+					</UserCard>
+				</div>
 			{/each}
 		</div>
 	{/if}
