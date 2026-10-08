@@ -32,6 +32,7 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 }));
 
 import ProfilePage from '$src/routes/esl/admin/users/[userId]/+page.svelte';
+import { schoolYearOf } from '$src/routes/esl/admin/classes/staging';
 
 const CLASSES = [
 	{
@@ -205,8 +206,6 @@ describe('ESL teacher profile page', () => {
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.periods'))
 			.toHaveTextContent('5 periods/week');
-		await expect.element(page.getByText('3 periods/week')).toBeInTheDocument();
-		await expect.element(page.getByText('2 periods/week')).toBeInTheDocument();
 	});
 
 	it('shows the teaching load on one line with the year beside it', async () => {
@@ -215,6 +214,16 @@ describe('ESL teacher profile page', () => {
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.periods'))
 			.toHaveTextContent('5 periods/week · 2025-2026');
+	});
+
+	it('hides the year tail when viewing the current year', async () => {
+		const currentYear = schoolYearOf(new Date());
+		withProfile({ ...PROFILE, years: [currentYear, '2025-2026'] });
+		render(ProfilePage);
+
+		const periods = page.getByTestId('esl-admin-user-profile.periods');
+		await expect.element(periods).toHaveTextContent('5 periods/week');
+		await expect.element(periods).not.toHaveTextContent(currentYear);
 	});
 
 	it('lists classes with rooms, flagging unset rooms', async () => {
@@ -234,10 +243,28 @@ describe('ESL teacher profile page', () => {
 		await expect.element(rows.getByText('Tu P2')).toBeInTheDocument();
 	});
 
+	it('shows each class once, as name plus room without rates or cohort labels', async () => {
+		render(ProfilePage);
+
+		const rows = page.getByTestId('esl-admin-user-profile.class-row');
+		await expect.element(rows.getByText('G7 Basic 1 CLIL')).toBeInTheDocument();
+		// The cohort label repeated the class name; per-class rates moved to the load total.
+		expect(rows.getByText('2025-2026 G7 Basic 1').elements()).toHaveLength(0);
+		expect(rows.getByText(/periods\/week/).elements()).toHaveLength(0);
+	});
+
 	it('renders the live-status section', async () => {
 		render(ProfilePage);
 
 		await expect.element(page.getByTestId('esl-admin-user-profile.now')).toBeInTheDocument();
+	});
+
+	it('shows the past-year notice in the status strip when reviewing an old year', async () => {
+		render(ProfilePage);
+
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.now'))
+			.toHaveTextContent('Current-class status applies to');
 	});
 
 	it('shows the empty state when nothing is assigned', async () => {

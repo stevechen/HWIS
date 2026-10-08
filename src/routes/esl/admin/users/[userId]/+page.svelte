@@ -214,96 +214,100 @@
 			Could not load this profile.
 		</p>
 	{:else}
-		<section
-			data-testid="esl-admin-user-profile.header"
-			class="flex items-start gap-4 rounded-xl border bg-white p-3 shadow-sm"
-		>
-			<div class="shrink-0">
-				{#if profile.image}
-					<img src={profile.image} alt="" class="size-12 rounded-xl object-cover" loading="lazy" />
-				{:else}
-					<div
-						class="bg-primary/10 text-primary flex size-12 items-center justify-center rounded-xl text-base font-semibold"
-					>
-						{initials(profile.name)}
-					</div>
-				{/if}
-			</div>
-			<div class="min-w-0 flex-1">
-				<p class="text-muted-foreground text-xs">
-					{profile.internationalRole
-						? `International · ${profile.internationalRole}`
-						: 'No international role'}
-					<span class="ml-1.5 inline-flex flex-wrap items-center gap-1 align-middle">
-						<Badge variant={profile.status === 'active' ? 'default' : 'secondary'}>
-							{profile.status}
-						</Badge>
-						<Badge variant="outline" class="text-[10px] {eslBadgeClass(profile.eslRole)}">
-							{roleLabel(profile.eslRole)}
-						</Badge>
-					</span>
-				</p>
-				{#if profile.email}
-					<a
-						href="mailto:{profile.email}"
-						data-testid="esl-admin-user-profile.email"
-						class="mt-1 block truncate text-sm text-emerald-800 hover:underline">{profile.email}</a
-					>
-				{:else}
-					<p data-testid="esl-admin-user-profile.email" class="text-muted-foreground mt-1 text-sm">
-						No email on file
-					</p>
-				{/if}
-			</div>
-		</section>
-
-		<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+		<div class="flex flex-col gap-4 sm:flex-row">
 			<section
-				data-testid="esl-admin-user-profile.now"
-				class="rounded-xl border bg-white p-3 shadow-sm"
+				data-testid="esl-admin-user-profile.header"
+				class="flex flex-1 items-start gap-4 rounded-xl border bg-white p-3 shadow-sm"
 			>
-				<h2 class="text-sm font-semibold text-emerald-900">Now</h2>
-				{#if isPastYear}
-					<p class="text-muted-foreground mt-1.5 text-sm">
-						Current-class status applies to {realYear} — you're viewing {displayYear}.
-					</p>
-				{:else if currentEntry}
-					<p class="mt-1.5">
-						<span
-							class="inline-block rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-0.5 text-sm font-medium text-emerald-800"
-							>In class now</span
-						>
-					</p>
-					<p class="text-muted-foreground mt-1 text-xs">{entryLabel(currentEntry)}</p>
-				{:else}
-					<p class="text-muted-foreground mt-1.5 text-sm">Not currently in class.</p>
-					{#if nextEntry}
-						<p class="text-muted-foreground mt-1 text-xs">
-							<span class="font-semibold">Next today:</span>
-							{entryLabel(nextEntry)}
-						</p>
-					{:else if !isSchoolDay(taipei.weekday)}
-						<p class="mt-1 text-sm">Weekend — no classes.</p>
+				<div class="shrink-0">
+					{#if profile.image}
+						<img
+							src={profile.image}
+							alt=""
+							class="size-12 rounded-xl object-cover"
+							loading="lazy"
+						/>
 					{:else}
-						<p class="mt-1 text-sm">No more classes today.</p>
+						<div
+							class="bg-primary/10 text-primary flex size-12 items-center justify-center rounded-xl text-base font-semibold"
+						>
+							{initials(profile.name)}
+						</div>
 					{/if}
-				{/if}
+				</div>
+				<div class="min-w-0 flex-1">
+					<p class="text-muted-foreground text-xs">
+						{profile.internationalRole
+							? `International · ${profile.internationalRole}`
+							: 'No international role'}
+						<span class="ml-1.5 inline-flex flex-wrap items-center gap-1 align-middle">
+							<Badge variant={profile.status === 'active' ? 'default' : 'secondary'}>
+								{profile.status}
+							</Badge>
+							<Badge variant="outline" class="text-[10px] {eslBadgeClass(profile.eslRole)}">
+								{roleLabel(profile.eslRole)}
+							</Badge>
+						</span>
+					</p>
+					{#if profile.email}
+						<a
+							href="mailto:{profile.email}"
+							data-testid="esl-admin-user-profile.email"
+							class="mt-1 block truncate text-sm text-emerald-800 hover:underline"
+							>{profile.email}</a
+						>
+					{:else}
+						<p
+							data-testid="esl-admin-user-profile.email"
+							class="text-muted-foreground mt-1 text-sm"
+						>
+							No email on file
+						</p>
+					{/if}
+				</div>
 			</section>
 
 			<section
 				data-testid="esl-admin-user-profile.periods"
-				class="rounded-xl border bg-white p-3 shadow-sm"
+				class="rounded-xl border bg-white p-3 shadow-sm sm:w-52 sm:shrink-0"
 			>
 				<h2 class="text-sm font-semibold text-emerald-900">Teaching load</h2>
 				<p class="mt-1.5 text-lg font-bold">
 					{totalPeriods}
 					{totalPeriods === 1 ? 'period' : 'periods'}/week
-					<span class="text-muted-foreground text-xs font-normal">
-						· {totalPeriods === 0 ? 'no classes assigned · ' : ''}{displayYear}</span
-					>
+					{#if totalPeriods === 0}
+						<span class="text-muted-foreground text-xs font-normal">· no classes assigned</span>
+					{/if}
+					{#if displayYear !== realYear}
+						<span class="text-muted-foreground text-xs font-normal">· {displayYear}</span>
+					{/if}
 				</p>
 			</section>
 		</div>
+
+		<p data-testid="esl-admin-user-profile.now" class="flex flex-wrap items-center gap-x-2 text-sm">
+			{#if isPastYear}
+				<span class="text-muted-foreground"
+					>Current-class status applies to {realYear} — you're viewing {displayYear}.</span
+				>
+			{:else if currentEntry}
+				<span aria-hidden="true" class="size-2 shrink-0 rounded-full bg-emerald-500"></span>
+				<span
+					><span class="font-medium">In class now</span> — {currentEntry.cls.name} ·
+					{roomLabel(currentEntry.cls.room)}</span
+				>
+			{:else}
+				<span aria-hidden="true" class="size-2 shrink-0 rounded-full bg-gray-300"></span>
+				<span><span class="font-medium">Not currently in class.</span></span>
+				{#if nextEntry}
+					<span class="text-muted-foreground">Next: {entryLabel(nextEntry)}</span>
+				{:else if !isSchoolDay(taipei.weekday)}
+					<span class="text-muted-foreground">Weekend — no classes.</span>
+				{:else}
+					<span class="text-muted-foreground">No more classes today.</span>
+				{/if}
+			{/if}
+		</p>
 
 		<section data-testid="esl-admin-user-profile.classes" class="space-y-2">
 			<h2 class="text-sm font-semibold text-emerald-900">Classes teaching in {displayYear}</h2>
@@ -315,24 +319,19 @@
 					No classes assigned in {displayYear}.
 				</p>
 			{:else}
-				<ul class="space-y-2">
+				<ul class="flex flex-wrap gap-2">
 					{#each classes as cls (cls._id)}
 						<li
 							data-testid="esl-admin-user-profile.class-row"
-							class="rounded-xl border bg-white p-3 shadow-sm"
+							class="min-w-0 flex-1 basis-full rounded-xl border bg-white p-3 shadow-sm sm:min-w-60 sm:basis-72"
 						>
-							<div class="flex flex-wrap items-baseline justify-between gap-2">
-								<p class="text-sm font-semibold">{cls.name}</p>
-								<p class="text-muted-foreground text-xs">
-									{cls.meetings.length}
-									{cls.meetings.length === 1 ? 'period' : 'periods'}/week
-								</p>
-							</div>
-							<div class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs">
-								<p class="text-muted-foreground">
-									{cls.cohortLabel} · {cls.type} ·
-									<span class={!cls.room ? 'italic' : ''}>{roomLabel(cls.room)}</span>
-								</p>
+							<p class="truncate text-sm">
+								<span class="font-semibold">{cls.name}</span>
+								<span class="text-muted-foreground">
+									· <span class={!cls.room ? 'italic' : ''}>{roomLabel(cls.room)}</span></span
+								>
+							</p>
+							<div class="mt-1 flex flex-wrap gap-1">
 								{#each cls.meetings as meeting (meeting.day + meeting.period)}
 									<span
 										class="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-px text-[11px] text-emerald-900"
