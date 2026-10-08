@@ -571,6 +571,55 @@ describe('ScheduleCell floating picker', () => {
 		expect(cells[1].getAttribute('data-blocked')).toBe('false');
 	});
 
+	it('labels teacher-unavailable slots NA, quoting the note in the tooltip', async () => {
+		// Display text only: the NA block still refuses the save through the
+		// unchanged gate, and the cell reads NA with the note on hover.
+		render(ScheduleCell, {
+			props: scheduleProps({
+				classRecord: { ...CLASS_RECORD, teacherId: 'k17teacher' },
+				availabilityByTeacher: {
+					k17teacher: [{ day: 'Thursday', period: 3, note: 'lunch duty' }]
+				}
+			})
+		});
+
+		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
+
+		const cells = page.getByTestId('esl-admin-classes.schedule.cell').elements();
+		// Row-major: Th P3 is period index 2 times five days plus day index 3.
+		const na = cells[2 * 5 + 3];
+		await expect.element(na).toHaveTextContent('NA');
+		expect(na.getAttribute('title')).toContain('lunch duty');
+		// A free slot stays blank.
+		expect(cells[1].textContent?.trim()).toBe('');
+	});
+
+	it('leaves slots blocked for other reasons blank rather than NA', async () => {
+		// NA names the teacher-availability rule only: a room clash keeps its
+		// blank cell, with the reason in the tooltip.
+		render(ScheduleCell, {
+			props: scheduleProps({
+				classRecord: { ...CLASS_RECORD, room: 'ESL A' },
+				neighbours: [
+					{
+						classId: 'other',
+						className: 'G8 Advanced 3 Comm',
+						cohortId: 'other-cohort',
+						room: 'ESL A',
+						teacherId: 'teacher_other',
+						meetings: [{ day: 'Monday', period: 1 }]
+					}
+				]
+			})
+		});
+
+		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
+
+		const cells = page.getByTestId('esl-admin-classes.schedule.cell').elements();
+		expect(cells[0].getAttribute('data-blocked')).toBe('true');
+		expect(cells[0].textContent?.trim()).toBe('');
+	});
+
 	it('resolves a blocked draft with one click of Find free slots', async () => {
 		const onsave = vi.fn();
 		render(ScheduleCell, {
@@ -1245,6 +1294,38 @@ describe('ClassCard availability dialog', () => {
 		const texts = cells.map((cell) => cell.textContent?.trim() ?? '').filter((text) => text !== '');
 		// Own Advanced meetings plus the neighbour's Basic one.
 		expect(texts.sort()).toEqual(['G7 Bas. 1', 'G9 Adv. 1', 'G9 Adv. 1']);
+	});
+
+	it('reads a blocked non-teaching slot as NA, quoting the note in the tooltip', async () => {
+		// Thursday P3 is blocked and taught by nobody: it reads NA rather than
+		// blank, with the note on hover exactly as the picker refusal quotes it.
+		render(ClassCard, {
+			props: availabilityProps({
+				availabilityByTeacher: {
+					k17teacher: [{ day: 'Thursday' as const, period: 3, note: 'lunch duty' }]
+				}
+			})
+		});
+
+		await userEvent.click(page.getByTestId('esl-admin-classes.availability.trigger'));
+
+		const blocked = blockedCells();
+		expect(blocked).toHaveLength(1);
+		await expect.element(blocked[0]).toHaveTextContent('NA');
+		expect(blocked[0].getAttribute('title')).toContain('lunch duty');
+	});
+
+	it('keeps the class tag, not NA, where a block overlaps a taught slot', async () => {
+		// The default fixture blocks Mo P1, which the class itself teaches: the
+		// cell keeps the class tag so the two busy reasons stay distinct.
+		render(ClassCard, { props: availabilityProps() });
+
+		await userEvent.click(page.getByTestId('esl-admin-classes.availability.trigger'));
+
+		const blocked = blockedCells();
+		expect(blocked).toHaveLength(1);
+		await expect.element(blocked[0]).toHaveTextContent('G9 Adv. 1');
+		await expect.element(blocked[0]).not.toHaveTextContent('NA');
 	});
 });
 

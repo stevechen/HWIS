@@ -62,8 +62,8 @@
 		else expanded = true;
 	}
 
-	function isBlocked(day: EslDay, period: number): boolean {
-		return blocks.some((block) => block.day === day && block.period === period);
+	function blockFor(day: EslDay, period: number): EslUnavailableSlot | undefined {
+		return blocks.find((block) => block.day === day && block.period === period);
 	}
 
 	/**
@@ -137,11 +137,25 @@
 					<div class="grid grid-cols-[1.25rem_repeat(5,minmax(0,1fr))]">
 						<span class="text-muted-foreground flex items-center text-xs">P{slot.period}</span>
 						{#each ESL_DAYS as day (day)}
-							{@const blocked = isBlocked(day, slot.period)}
+							{@const block = blockFor(day, slot.period)}
+							{@const blocked = block !== undefined}
 							{@const taught = taughtBy(day, slot.period)}
 							{@const marked = blocked || taught !== null}
 							{@const label = eslMeetingLabel({ day, period: slot.period })}
 							{@const tag = taught === null ? '' : eslClassShortLabel(taught)}
+							{@const showNa = blocked && taught === null}
+							{@const unavailableLabel =
+								taught !== null
+									? `${label} teaches ${taught}`
+									: block?.note
+										? `${label} unavailable: ${block.note}`
+										: `${label} unavailable`}
+							{@const unavailableTitle =
+								taught !== null
+									? `${label} teaches ${taught}.`
+									: block?.note
+										? `${label} unavailable. ${block.note}`
+										: `${label} unavailable.`}
 							<!--
 								Marked cells announce themselves; free cells stay
 								decorative, so a screen reader meets the blocks rather
@@ -159,16 +173,8 @@
 										: 'border-input text-muted-foreground'
 								]}
 								role={marked ? 'img' : undefined}
-								aria-label={marked
-									? blocked
-										? `${label} unavailable`
-										: `${label} teaches ${taught}`
-									: undefined}
-								title={marked
-									? blocked
-										? `${label} unavailable.`
-										: `${label} teaches ${taught}.`
-									: label}
+								aria-label={marked ? unavailableLabel : undefined}
+								title={marked ? unavailableTitle : label}
 								data-testid="esl-admin-classes.availability.cell"
 								data-blocked={blocked}
 								data-taught={taught ?? undefined}
@@ -184,6 +190,8 @@
 								/>
 								{#if tag !== ''}
 									<span class="max-w-full truncate text-[0.625rem] leading-none">{tag}</span>
+								{:else if showNa}
+									<span class="max-w-full truncate text-[0.625rem] leading-none">NA</span>
 								{/if}
 							</span>
 						{/each}

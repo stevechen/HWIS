@@ -315,6 +315,25 @@
 	}
 
 	/**
+	 * Whether the assigned teacher is marked NA at `(day, period)`.
+	 *
+	 * Read straight from the availability lookup — the same rows the gate judges —
+	 * so the label and the refusal always agree. Only NA blocks read `NA`: a slot
+	 * blocked for another reason (room taken, teacher with another class) keeps
+	 * its current blank cell, and the tooltip still carries the full reason.
+	 */
+	function availabilityBlocked(day: EslDay, period: number): boolean {
+		const teacherIds = [classRecord.teacherId, partner?.teacherId].filter(
+			(id): id is string => id !== undefined && id !== ''
+		);
+		return teacherIds.some((teacherId) =>
+			(availabilityByTeacher[teacherId] ?? []).some(
+				(slot) => slot.day === day && slot.period === period
+			)
+		);
+	}
+
+	/**
 	 * Run the department's rules against a *proposed* week and room.
 	 *
 	 * The same function `setSchedule` calls, so the picker cannot offer a slot the
@@ -822,6 +841,7 @@
 								{@const selected = draft.some((m) => m.day === day && m.period === slot.period)}
 								{@const blocked = cellBlocked(day, slot.period)}
 								{@const reasons = cellReasons(day, slot.period)}
+								{@const naBlocked = availabilityBlocked(day, slot.period)}
 								{@const divergent = divergentOwner(day, slot.period) !== null}
 								{@const conflict =
 									selected && draftProblems.some((p) => p.day === day && p.period === slot.period)}
@@ -873,6 +893,9 @@
 										onchange={() => toggle({ day, period: slot.period })}
 										onkeydown={(event) => onSlotKeyDown(event, day, slot.period)}
 									/>
+									{#if naBlocked}
+										<span class="max-w-full truncate text-[0.625rem] leading-none">NA</span>
+									{/if}
 								</label>
 							{/each}
 						</div>
