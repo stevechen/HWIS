@@ -224,12 +224,15 @@ export const setEslRole = mutation({
 		if (!user) throw new Error('User not found');
 		if (user.role === 'student') throw new Error('Students cannot hold ESL roles');
 
-		// An admin must not be able to lock the department out of itself.
-		if (args.userId === actor._id && args.eslRole === null) {
-			throw new Error('You cannot remove your own ESL admin role');
+		const current = resolveDepartmentRoles(user);
+		// An admin must not be able to lock themselves (or the department) out:
+		// granting the mutation requires ESL admin, so any self-directed change
+		// away from the current assignment is a demotion or removal the actor
+		// could never undo. Only an exact no-op write is allowed on yourself.
+		if (args.userId === actor._id && args.eslRole !== (current.esl ?? null)) {
+			throw new Error('You cannot change your own ESL role');
 		}
 
-		const current = resolveDepartmentRoles(user);
 		const international = current.international;
 		const next = {
 			...(international ? { international } : {}),

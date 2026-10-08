@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { convexTest, modules } from './test.setup';
+import { convexTest, modules, mockAuthUser } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
 import type { Id } from './_generated/dataModel';
@@ -51,6 +51,153 @@ describe('users.update', () => {
 		});
 
 		expect(user?.role).toBe('admin');
+	});
+});
+
+describe('users.update self-demotion guard', () => {
+	afterEach(() => mockAuthUser(null));
+
+	async function asAdmin(authId: string) {
+		const t = convexTest(schema, modules);
+		const selfId = (await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId,
+				name: 'Boss Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		})) as Id<'users'>;
+		mockAuthUser({ authId });
+		return { t, selfId };
+	}
+
+	it('refuses an admin demoting their own role', async () => {
+		const { t, selfId } = await asAdmin('boss');
+
+		await expect(t.mutation(api.users.update, { id: selfId, role: 'teacher' })).rejects.toThrow(
+			'You cannot change your own role'
+		);
+
+		const user = await t.run(async (ctx) => {
+			return await ctx.db.get(selfId);
+		});
+		expect(user?.role).toBe('admin');
+	});
+
+	it('refuses an admin deactivating themselves', async () => {
+		const { t, selfId } = await asAdmin('boss');
+
+		await expect(t.mutation(api.users.update, { id: selfId, status: 'pending' })).rejects.toThrow(
+			'You cannot change your own status'
+		);
+
+		const user = await t.run(async (ctx) => {
+			return await ctx.db.get(selfId);
+		});
+		expect(user?.status).toBe('active');
+	});
+
+	it('allows an admin to re-save their own role unchanged', async () => {
+		const { t, selfId } = await asAdmin('boss');
+
+		await t.mutation(api.users.update, { id: selfId, role: 'admin', status: 'active' });
+
+		const user = await t.run(async (ctx) => {
+			return await ctx.db.get(selfId);
+		});
+		expect(user?.role).toBe('admin');
+		expect(user?.status).toBe('active');
+	});
+
+	it('still lets an admin update another user', async () => {
+		const { t } = await asAdmin('boss');
+		const otherId = (await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'other-teacher',
+				name: 'Other Teacher',
+				role: 'teacher',
+				status: 'pending'
+			});
+		})) as Id<'users'>;
+
+		await t.mutation(api.users.update, { id: otherId, role: 'admin', status: 'active' });
+
+		const user = await t.run(async (ctx) => {
+			return await ctx.db.get(otherId);
+		});
+		expect(user?.role).toBe('admin');
+		expect(user?.status).toBe('active');
+	});
+});
+
+describe('users.update audit', () => {
+	afterEach(() => mockAuthUser(null));
+
+	it('logs departmentRoles alongside role changes', async () => {
+		const t = convexTest(schema, modules);
+		await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'boss',
+				name: 'Boss Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+		const otherId = (await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'hybrid-teacher',
+				name: 'Hybrid Teacher',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { international: 'admin' }
+			});
+		})) as Id<'users'>;
+		mockAuthUser({ authId: 'boss' });
+
+		await t.mutation(api.users.update, { id: otherId, role: 'admin' });
+
+		const entries = await t.run(async (ctx) => {
+			return await ctx.db.query('audit_logs').collect();
+		});
+		const roleEntry = entries.find((entry) => entry.action === 'update_user_role');
+		expect(roleEntry?.oldValue).toEqual({
+			role: 'teacher',
+			departmentRoles: { international: 'admin' }
+		});
+		expect(roleEntry?.newValue).toEqual({
+			role: 'admin',
+			departmentRoles: { international: 'admin' }
+		});
+	});
+
+	it('omits departmentRoles for slot-less rows', async () => {
+		const t = convexTest(schema, modules);
+		await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'boss',
+				name: 'Boss Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+		const otherId = (await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'plain-teacher',
+				name: 'Plain Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		})) as Id<'users'>;
+		mockAuthUser({ authId: 'boss' });
+
+		await t.mutation(api.users.update, { id: otherId, role: 'admin' });
+
+		const entries = await t.run(async (ctx) => {
+			return await ctx.db.query('audit_logs').collect();
+		});
+		const roleEntry = entries.find((entry) => entry.action === 'update_user_role');
+		expect(roleEntry?.oldValue).toEqual({ role: 'teacher' });
+		expect(roleEntry?.newValue).toEqual({ role: 'admin' });
 	});
 });
 
@@ -151,57 +298,6 @@ describe('users.update access-removal / restore timestamps', () => {
 		});
 
 		expect(user?.deactivatedAt).toBeUndefined();
-	});
-});
-
-describe('users.setUserRole', () => {
-	it('sets user role to teacher', async () => {
-		const t = convexTest(schema, modules);
-
-		const userId = await t.run(async (ctx) => {
-			return await ctx.db.insert('users', {
-				name: 'New Teacher',
-				role: 'teacher',
-				status: 'active'
-			});
-		});
-
-		await t.mutation(api.users.setUserRole, {
-			userId: userId as Id<'users'>,
-			role: 'teacher',
-			status: 'active'
-		});
-
-		const user = await t.run(async (ctx) => {
-			return await ctx.db.get(userId as Id<'users'>);
-		});
-
-		expect(user?.role).toBe('teacher');
-		expect(user?.status).toBe('active');
-	});
-
-	it('deactivates a user (sets to pending)', async () => {
-		const t = convexTest(schema, modules);
-
-		const userId = await t.run(async (ctx) => {
-			return await ctx.db.insert('users', {
-				name: 'Deactivate Me',
-				role: 'teacher',
-				status: 'active'
-			});
-		});
-
-		await t.mutation(api.users.setUserRole, {
-			userId: userId as Id<'users'>,
-			role: 'teacher',
-			status: 'pending'
-		});
-
-		const user = await t.run(async (ctx) => {
-			return await ctx.db.get(userId as Id<'users'>);
-		});
-
-		expect(user?.status).toBe('pending');
 	});
 });
 
