@@ -32,6 +32,7 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 }));
 
 import ProfilePage from '$src/routes/esl/admin/users/[userId]/+page.svelte';
+import { schoolYearOf } from '$src/routes/esl/admin/classes/staging';
 
 const CLASSES = [
 	{
@@ -154,6 +155,25 @@ describe('ESL teacher profile page', () => {
 		await expect.element(page.getByTestId('esl-admin-user-profile.back')).toBeInTheDocument();
 	});
 
+	it('shows the teacher name once, in the page heading rather than the info card', async () => {
+		render(ProfilePage);
+
+		await expect.element(page.getByRole('heading', { name: 'Theo Teacher' })).toBeInTheDocument();
+		expect(
+			page.getByTestId('esl-admin-user-profile.header').getByText('Theo Teacher').elements()
+		).toHaveLength(0);
+	});
+
+	it('keeps identity, roles, and contact in the info card', async () => {
+		render(ProfilePage);
+
+		const header = page.getByTestId('esl-admin-user-profile.header');
+		await expect.element(header.getByText('International · teacher')).toBeInTheDocument();
+		await expect.element(header.getByText('active')).toBeInTheDocument();
+		await expect.element(header.getByText('ESL Teacher')).toBeInTheDocument();
+		await expect.element(header.getByText('theo@hwhs.tc.edu.tw')).toBeInTheDocument();
+	});
+
 	it('shows the email address as a mail link', async () => {
 		render(ProfilePage);
 
@@ -186,8 +206,24 @@ describe('ESL teacher profile page', () => {
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.periods'))
 			.toHaveTextContent('5 periods/week');
-		await expect.element(page.getByText('3 periods/week')).toBeInTheDocument();
-		await expect.element(page.getByText('2 periods/week')).toBeInTheDocument();
+	});
+
+	it('shows the teaching load on one line with the year beside it', async () => {
+		render(ProfilePage);
+
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.periods'))
+			.toHaveTextContent('5 periods/week · 2025-2026');
+	});
+
+	it('hides the year tail when viewing the current year', async () => {
+		const currentYear = schoolYearOf(new Date());
+		withProfile({ ...PROFILE, years: [currentYear, '2025-2026'] });
+		render(ProfilePage);
+
+		const periods = page.getByTestId('esl-admin-user-profile.periods');
+		await expect.element(periods).toHaveTextContent('5 periods/week');
+		await expect.element(periods).not.toHaveTextContent(currentYear);
 	});
 
 	it('lists classes with rooms, flagging unset rooms', async () => {
@@ -199,10 +235,36 @@ describe('ESL teacher profile page', () => {
 		await expect.element(page.getByText('Room not set')).toBeInTheDocument();
 	});
 
+	it('shows meeting chips inside each class row', async () => {
+		render(ProfilePage);
+
+		const rows = page.getByTestId('esl-admin-user-profile.class-row');
+		await expect.element(rows.getByText('Mo P1')).toBeInTheDocument();
+		await expect.element(rows.getByText('Tu P2')).toBeInTheDocument();
+	});
+
+	it('shows each class once, as name plus room without rates or cohort labels', async () => {
+		render(ProfilePage);
+
+		const rows = page.getByTestId('esl-admin-user-profile.class-row');
+		await expect.element(rows.getByText('G7 Basic 1 CLIL')).toBeInTheDocument();
+		// The cohort label repeated the class name; per-class rates moved to the load total.
+		expect(rows.getByText('2025-2026 G7 Basic 1').elements()).toHaveLength(0);
+		expect(rows.getByText(/periods\/week/).elements()).toHaveLength(0);
+	});
+
 	it('renders the live-status section', async () => {
 		render(ProfilePage);
 
 		await expect.element(page.getByTestId('esl-admin-user-profile.now')).toBeInTheDocument();
+	});
+
+	it('shows the past-year notice in the status strip when reviewing an old year', async () => {
+		render(ProfilePage);
+
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.now'))
+			.toHaveTextContent('Current-class status applies to');
 	});
 
 	it('shows the empty state when nothing is assigned', async () => {
