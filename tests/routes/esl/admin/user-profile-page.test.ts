@@ -524,4 +524,26 @@ describe('ESL teacher profile availability buttons', () => {
 			.element(page.getByTestId('esl-admin-user-profile.schedule.empty'))
 			.toHaveTextContent('No classes or NA blocks in 2025-2026.');
 	});
+
+	it('holds the empty-week notice until the availability query resolves', async () => {
+		// The skip-to-subscribed transition reports no rows while not loading:
+		// with no classes and no resolved blocks the grid renders but the
+		// notice waits, so it cannot flash for one frame.
+		vi.mocked(useQuery).mockImplementation(((reference: unknown) => {
+			const name = getFunctionName(reference as never);
+			if (name === 'esl/availability:listByYear') {
+				return { data: undefined, isLoading: false, error: null };
+			}
+			return {
+				data: name === 'esl/staff:getProfile' ? { ...PROFILE, classes: [] } : [],
+				isLoading: false,
+				error: null
+			};
+		}) as never);
+		render(ProfilePage);
+		await openScheduleDialog();
+
+		expect(page.getByTestId('esl-admin-user-profile.schedule.cell').elements()).toHaveLength(40);
+		expect(page.getByTestId('esl-admin-user-profile.schedule.empty').elements()).toHaveLength(0);
+	});
 });

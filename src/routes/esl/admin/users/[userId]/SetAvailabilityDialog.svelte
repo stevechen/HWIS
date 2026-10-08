@@ -2,7 +2,6 @@
 	import { X } from '@lucide/svelte';
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import type { Id } from '$convex/_generated/dataModel';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { humanConvexErrorMessage } from '$lib/convex-error';
@@ -13,6 +12,11 @@
 		eslMeetingLabel,
 		type EslDay
 	} from '$convex/shared/esl';
+	import {
+		selectTeacherBlocks,
+		type TeacherAvailabilityBlock,
+		type TeacherYearContext
+	} from './teacher-availability';
 
 	let {
 		open = $bindable(false),
@@ -22,13 +26,9 @@
 		onSaved
 	}: {
 		open?: boolean;
-		teacherId: Id<'users'>;
-		teacherName: string;
-		/** The profile's selected school year — the only year this dialog reads and writes. */
-		year: string;
 		/** The page shows the success notice; the dialog closes itself first. */
 		onSaved: (savedYear: string, count: number) => void;
-	} = $props();
+	} & TeacherYearContext = $props();
 
 	const client = useConvexClient();
 
@@ -39,15 +39,11 @@
 	 */
 	const blocksQuery = useQuery(api.esl.availability.listByYear, () => (open ? { year } : 'skip'));
 
-	type StagedBlock = { day: EslDay; period: number; note: string };
-
-	const saved = $derived<StagedBlock[]>(
-		(blocksQuery.data ?? [])
-			.filter((row) => row.teacherId === teacherId)
-			.map((row) => ({ day: row.day, period: row.period, note: row.note ?? '' }))
+	const saved = $derived<TeacherAvailabilityBlock[]>(
+		selectTeacherBlocks(blocksQuery.data ?? [], teacherId)
 	);
 
-	let staged = $state<StagedBlock[]>([]);
+	let staged = $state<TeacherAvailabilityBlock[]>([]);
 	/** Once the admin touches the grid, late server data stops refreshing the draft. */
 	let touched = $state(false);
 	let confirmingDiscard = $state(false);

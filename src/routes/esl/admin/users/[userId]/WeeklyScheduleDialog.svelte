@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import type { Id } from '$convex/_generated/dataModel';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import {
@@ -12,6 +11,7 @@
 		eslMeetingLabel,
 		type EslDay
 	} from '$convex/shared/esl';
+	import { selectTeacherBlocks, type TeacherYearContext } from './teacher-availability';
 
 	type ScheduleClass = {
 		name: string;
@@ -29,13 +29,9 @@
 		classes
 	}: {
 		open?: boolean;
-		teacherId: Id<'users'>;
-		teacherName: string;
-		/** The profile's selected school year — the only year this dialog reads. */
-		year: string;
 		/** The teacher's ESL classes for `year`, with meetings and rooms. */
 		classes: ScheduleClass[];
-	} = $props();
+	} & TeacherYearContext = $props();
 
 	/**
 	 * The teacher's blocked slots for this year only. Subscribed while the
@@ -44,11 +40,7 @@
 	 */
 	const blocksQuery = useQuery(api.esl.availability.listByYear, () => (open ? { year } : 'skip'));
 
-	const blocks = $derived(
-		(blocksQuery.data ?? [])
-			.filter((row) => row.teacherId === teacherId)
-			.map((row) => ({ day: row.day, period: row.period, note: row.note ?? '' }))
-	);
+	const blocks = $derived(selectTeacherBlocks(blocksQuery.data ?? [], teacherId));
 
 	function taughtAt(day: EslDay, period: number): ScheduleClass | null {
 		for (const cls of classes) {
@@ -59,21 +51,51 @@
 		return null;
 	}
 
-	function blockNote(day: EslDay, period: number): string | null {
+	/**
+	 * One cell's state, so the label and the styling read the same verdict.
+	 *
+	 * Taught wins over blocked where the two overlap (story 25): the two busy
+	 * reasons stay distinct, as in the class-timetable picker.
+	 */
+	function cellState(
+		day: EslDay,
+		period: number
+	): {
+		state: 'taught' | 'blocked' | 'free';
+		taught: ScheduleClass | null;
+		note: string | null;
+	} {
+		const taught = taughtAt(day, period);
+		if (taught !== null) return { state: 'taught', taught, note: null };
 		const block = blocks.find((candidate) => candidate.day === day && candidate.period === period);
-		return block ? (block.note.trim() === '' ? null : block.note.trim()) : null;
+		if (block !== undefined) {
+			const note = block.note.trim() === '' ? null : block.note.trim();
+			return { state: 'blocked', taught: null, note };
+		}
+		return { state: 'free', taught: null, note: null };
 	}
 
-	function hasBlock(day: EslDay, period: number): boolean {
-		return blocks.some((candidate) => candidate.day === day && candidate.period === period);
-	}
+	/**
+	 * How each cell state looks, keyed by state so the markup reads the
+	 * verdict rather than a second stack of taught-vs-blocked conditions.
+	 */
+	const CELL_STATE_CLASSES: Record<'taught' | 'blocked' | 'free', string> = {
+		taught: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+		blocked: 'border-gray-300 bg-gray-100 font-medium text-gray-600',
+		free: 'border-input text-muted-foreground'
+	};
 
 	const taughtPeriods = $derived(classes.reduce((count, cls) => count + cls.meetings.length, 0));
 
-	/** A fully unscheduled week reads as unassigned, not as a load error. */
-	const isEmptyWeek = $derived(
-		!blocksQuery.isLoading && taughtPeriods === 0 && blocks.length === 0
-	);
+	/**
+	 * A fully unscheduled week reads as unassigned, not as a load error.
+	 *
+	 * Gated on the query having resolved (data present), not merely on
+	 * `!isLoading`: the skip-to-subscribed transition reports no rows while
+	 * not loading, which would flash the notice for one frame.
+	 */
+	const blocksResolved = $derived(blocksQuery.data !== undefined);
+	const isEmptyWeek = $derived(blocksResolved && taughtPeriods === 0 && blocks.length === 0);
 </script>
 
 <!--
@@ -108,9 +130,10 @@
 				<div class="grid grid-cols-[1.25rem_repeat(5,minmax(0,1fr))]">
 					<span class="text-muted-foreground flex items-center text-xs">P{slot.period}</span>
 					{#each ESL_DAYS as day (day)}
-						{@const taught = taughtAt(day, slot.period)}
-						{@const blocked = taught === null && hasBlock(day, slot.period)}
-						{@const note = blocked ? blockNote(day, slot.period) : null}
+						{@const cell = cellState(day, slot.period)}
+						{@const taught = cell.taught}
+						{@const blocked = cell.state === 'blocked'}
+						{@const note = cell.note}
 						{@const label = eslMeetingLabel({ day, period: slot.period })}
 						{@const marked = taught !== null || blocked}
 						{@const room = taught ? (taught.room ?? 'Room not set') : ''}
@@ -126,11 +149,7 @@
 						<span
 							class={[
 								'-mt-px -ml-px flex h-10 flex-col items-center justify-center border px-0.5 text-xs',
-								taught !== null
-									? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-									: blocked
-										? 'border-gray-300 bg-gray-100 font-medium text-gray-600'
-										: 'border-input text-muted-foreground'
+								CELL_STATE_CLASSES[cell.state]
 							]}
 							role={marked ? 'img' : undefined}
 							aria-label={marked ? cellLabel : undefined}

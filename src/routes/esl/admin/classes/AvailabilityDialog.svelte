@@ -143,6 +143,7 @@
 							{@const marked = blocked || taught !== null}
 							{@const label = eslMeetingLabel({ day, period: slot.period })}
 							{@const tag = taught === null ? '' : eslClassShortLabel(taught)}
+							<!-- Taught wins over NA on overlap (story 25): the class tag reads and NA hides, keeping the two busy reasons distinct. -->
 							{@const showNa = blocked && taught === null}
 							{@const unavailableLabel =
 								taught !== null
