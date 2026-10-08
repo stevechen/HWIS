@@ -218,7 +218,24 @@ describe('esl staff', () => {
 
 			await expect(
 				t.mutation(api.esl.staff.setEslRole, { userId: self, eslRole: null })
-			).rejects.toThrow('You cannot remove your own ESL admin role');
+			).rejects.toThrow('You cannot change your own ESL role');
+		});
+
+		it('rejects demoting your own ESL admin role to teacher', async () => {
+			const { t, id: self } = await asEslAdmin();
+
+			await expect(
+				t.mutation(api.esl.staff.setEslRole, { userId: self, eslRole: 'teacher' })
+			).rejects.toThrow('You cannot change your own ESL role');
+			expect(await storedRoles(t, self)).toEqual({ esl: 'admin' });
+		});
+
+		it('allows re-saving your own ESL admin role unchanged', async () => {
+			const { t, id: self } = await asEslAdmin();
+
+			await t.mutation(api.esl.staff.setEslRole, { userId: self, eslRole: 'admin' });
+
+			expect(await storedRoles(t, self)).toEqual({ esl: 'admin' });
 		});
 
 		it('refuses to promote a student row', async () => {

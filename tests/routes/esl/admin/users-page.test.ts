@@ -140,15 +140,15 @@ describe('ESL admin users page', () => {
 		);
 	});
 
-	it('surfaces a refused change, e.g. removing your own admin role', async () => {
-		mockMutation.mockRejectedValueOnce(new Error('You cannot remove your own ESL admin role'));
+	it('surfaces a refused change, e.g. changing your own ESL role', async () => {
+		mockMutation.mockRejectedValueOnce(new Error('You cannot change your own ESL role'));
 		render(UsersPage);
 
 		await selectOption(page.getByRole('combobox', { name: 'ESL role for Ada Admin' }), 'none');
 
 		await expect
 			.element(page.getByTestId('esl-admin-users.error'))
-			.toHaveTextContent('You cannot remove your own ESL admin role');
+			.toHaveTextContent('You cannot change your own ESL role');
 	});
 
 	it('filters to ESL staff only', async () => {

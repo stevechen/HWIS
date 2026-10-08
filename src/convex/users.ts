@@ -307,6 +307,19 @@ export const update = mutation({
 
 		const { id, ...updates } = args;
 
+		// An admin must not be able to lock themselves (or the site) out of the
+		// admin area: the legacy role column feeds the admin gate, so a self
+		// demotion or self deactivation is unrestorable without another admin.
+		// Only exact no-op writes are allowed on yourself.
+		if (id === currentUser?._id) {
+			if (args.role !== undefined && args.role !== targetUser.role) {
+				throw new Error('You cannot change your own role');
+			}
+			if (args.status !== undefined && args.status !== targetUser.status) {
+				throw new Error('You cannot change your own status');
+			}
+		}
+
 		const timestampUpdates = statusTimestampUpdates(args.status, targetUser.status);
 
 		await ctx.db.patch(id, { ...updates, ...timestampUpdates });

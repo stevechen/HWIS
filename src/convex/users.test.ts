@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { convexTest, modules } from './test.setup';
+import { convexTest, modules, mockAuthUser } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
 import type { Id } from './_generated/dataModel';
@@ -51,6 +51,82 @@ describe('users.update', () => {
 		});
 
 		expect(user?.role).toBe('admin');
+	});
+});
+
+describe('users.update self-demotion guard', () => {
+	afterEach(() => mockAuthUser(null));
+
+	async function asAdmin(authId: string) {
+		const t = convexTest(schema, modules);
+		const selfId = (await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId,
+				name: 'Boss Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		})) as Id<'users'>;
+		mockAuthUser({ authId });
+		return { t, selfId };
+	}
+
+	it('refuses an admin demoting their own role', async () => {
+		const { t, selfId } = await asAdmin('boss');
+
+		await expect(t.mutation(api.users.update, { id: selfId, role: 'teacher' })).rejects.toThrow(
+			'You cannot change your own role'
+		);
+
+		const user = await t.run(async (ctx) => {
+			return await ctx.db.get(selfId);
+		});
+		expect(user?.role).toBe('admin');
+	});
+
+	it('refuses an admin deactivating themselves', async () => {
+		const { t, selfId } = await asAdmin('boss');
+
+		await expect(t.mutation(api.users.update, { id: selfId, status: 'pending' })).rejects.toThrow(
+			'You cannot change your own status'
+		);
+
+		const user = await t.run(async (ctx) => {
+			return await ctx.db.get(selfId);
+		});
+		expect(user?.status).toBe('active');
+	});
+
+	it('allows an admin to re-save their own role unchanged', async () => {
+		const { t, selfId } = await asAdmin('boss');
+
+		await t.mutation(api.users.update, { id: selfId, role: 'admin', status: 'active' });
+
+		const user = await t.run(async (ctx) => {
+			return await ctx.db.get(selfId);
+		});
+		expect(user?.role).toBe('admin');
+		expect(user?.status).toBe('active');
+	});
+
+	it('still lets an admin update another user', async () => {
+		const { t } = await asAdmin('boss');
+		const otherId = (await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'other-teacher',
+				name: 'Other Teacher',
+				role: 'teacher',
+				status: 'pending'
+			});
+		})) as Id<'users'>;
+
+		await t.mutation(api.users.update, { id: otherId, role: 'admin', status: 'active' });
+
+		const user = await t.run(async (ctx) => {
+			return await ctx.db.get(otherId);
+		});
+		expect(user?.role).toBe('admin');
+		expect(user?.status).toBe('active');
 	});
 });
 
