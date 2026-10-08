@@ -1,4 +1,4 @@
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { getFunctionName } from 'convex/server';
@@ -103,6 +103,35 @@ async function signInAsEslAdmin() {
 	);
 }
 
+async function signInAsNonAdmin() {
+	const { useViewer } = await import('$lib/viewer.svelte');
+	vi.mocked(useViewer).mockReturnValue(buildViewerSession({ role: 'teacher', status: 'active' }));
+}
+
+/** Route the availability list query to saved blocks while the profile stays fixed. */
+function withProfileAndBlocks(blocks: unknown[]) {
+	vi.mocked(useQuery).mockImplementation(((reference: unknown) => {
+		const name = getFunctionName(reference as never);
+		return {
+			data:
+				name === 'esl/staff:getProfile'
+					? PROFILE
+					: name === 'esl/availability:listByYear'
+						? blocks
+						: undefined,
+			isLoading: false,
+			error: null
+		};
+	}) as never);
+}
+
+async function openAvailabilityDialog() {
+	await userEvent.click(page.getByTestId('esl-admin-user-profile.availability.trigger'));
+	await expect
+		.element(page.getByTestId('esl-admin-user-profile.availability.dialog'))
+		.toBeInTheDocument();
+}
+
 describe('ESL teacher profile page', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks();
@@ -196,5 +225,159 @@ describe('ESL teacher profile page', () => {
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.not-found'))
 			.toHaveTextContent('Staff member not found.');
+	});
+});
+
+describe('ESL teacher profile availability buttons', () => {
+	beforeEach(async () => {
+		vi.clearAllMocks();
+		await signInAsEslAdmin();
+		withProfile(PROFILE);
+	});
+
+	it('shows both header buttons to ESL admins', async () => {
+		render(ProfilePage);
+
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.availability.trigger'))
+			.toHaveTextContent('Set availability');
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.schedule.trigger'))
+			.toHaveTextContent('View weekly schedule');
+	});
+
+	it('hides both buttons from non-admin viewers', async () => {
+		await signInAsNonAdmin();
+		render(ProfilePage);
+
+		await expect.element(page.getByTestId('esl-admin-user-profile.title')).toBeInTheDocument();
+		expect(page.getByTestId('esl-admin-user-profile.availability.trigger').elements()).toHaveLength(
+			0
+		);
+		expect(page.getByTestId('esl-admin-user-profile.schedule.trigger').elements()).toHaveLength(0);
+	});
+
+	it('opens the availability dialog on an empty grid with the hint and a disabled Save', async () => {
+		render(ProfilePage);
+		await openAvailabilityDialog();
+
+		expect(page.getByTestId('esl-admin-user-profile.availability.cell').elements()).toHaveLength(
+			40
+		);
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.availability.hint'))
+			.toHaveTextContent('All periods available — click a slot to mark NA.');
+		const saveButton = page.getByTestId('esl-admin-user-profile.availability.save');
+		await expect.element(saveButton).toBeDisabled();
+	});
+
+	it('toggles a slot to NA and back, gating Save on dirtiness', async () => {
+		render(ProfilePage);
+		await openAvailabilityDialog();
+
+		const saveButton = page.getByTestId('esl-admin-user-profile.availability.save');
+		const mondayFirst = page
+			.getByTestId('esl-admin-user-profile.availability.cell')
+			.elements()
+			.find((cell) => cell.getAttribute('aria-label') === 'Mo P1 available');
+		if (!mondayFirst) throw new Error('no Mo P1 cell');
+		await userEvent.click(mondayFirst);
+
+		await expect.element(mondayFirst).toHaveTextContent('NA');
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.availability.note'))
+			.toBeInTheDocument();
+		await expect.element(saveButton).not.toBeDisabled();
+
+		await userEvent.click(mondayFirst);
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.availability.hint'))
+			.toBeInTheDocument();
+		await expect.element(saveButton).toBeDisabled();
+	});
+
+	it('saves a toggled slot with its note and confirms on the page', async () => {
+		render(ProfilePage);
+		await openAvailabilityDialog();
+
+		const mondayFirst = page
+			.getByTestId('esl-admin-user-profile.availability.cell')
+			.elements()
+			.find((cell) => cell.getAttribute('aria-label') === 'Mo P1 available');
+		if (!mondayFirst) throw new Error('no Mo P1 cell');
+		await userEvent.click(mondayFirst);
+		await userEvent.fill(
+			page.getByTestId('esl-admin-user-profile.availability.note'),
+			'HWIS homeroom'
+		);
+		await userEvent.click(page.getByTestId('esl-admin-user-profile.availability.save'));
+
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.notice'))
+			.toHaveTextContent('Availability saved for 2025-2026: 1 blocked period');
+		expect(page.getByTestId('esl-admin-user-profile.availability.dialog').elements()).toHaveLength(
+			0
+		);
+	});
+
+	it('asks to confirm discarding when closed with unsaved toggles', async () => {
+		render(ProfilePage);
+		await openAvailabilityDialog();
+
+		const cells = page.getByTestId('esl-admin-user-profile.availability.cell').elements();
+		await userEvent.click(cells[0]);
+		await userEvent.click(page.getByTestId('esl-admin-user-profile.availability.cancel'));
+
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.availability.discard'))
+			.toBeInTheDocument();
+		// Still open: the draft is held for the verdict, not thrown away.
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.availability.dialog'))
+			.toBeInTheDocument();
+
+		await userEvent.click(page.getByTestId('esl-admin-user-profile.availability.discard-yes'));
+		expect(page.getByTestId('esl-admin-user-profile.availability.dialog').elements()).toHaveLength(
+			0
+		);
+	});
+
+	it('loads saved blocks marked NA with the note filled in and Save clean', async () => {
+		withProfileAndBlocks([
+			{
+				teacherId: 'user_teacher',
+				year: '2025-2026',
+				day: 'Monday',
+				period: 1,
+				note: 'HWIS homeroom'
+			}
+		]);
+		render(ProfilePage);
+		await openAvailabilityDialog();
+
+		const blocked = page
+			.getByTestId('esl-admin-user-profile.availability.cell')
+			.elements()
+			.filter((cell) => cell.getAttribute('data-blocked') === 'true');
+		expect(blocked).toHaveLength(1);
+		await expect.element(blocked[0]).toHaveTextContent('NA');
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.availability.note'))
+			.toHaveValue('HWIS homeroom');
+		const saveButton = page.getByTestId('esl-admin-user-profile.availability.save');
+		await expect.element(saveButton).toBeDisabled();
+	});
+
+	it('opens the weekly schedule placeholder', async () => {
+		render(ProfilePage);
+
+		await userEvent.click(page.getByTestId('esl-admin-user-profile.schedule.trigger'));
+
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.schedule.dialog'))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.schedule.placeholder'))
+			.toHaveTextContent('ticket #167');
 	});
 });
