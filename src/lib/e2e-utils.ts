@@ -87,6 +87,13 @@ export interface SeedBaselineResult {
 export interface SetupTestUsersResult {
 	teacherSessionToken?: string;
 	adminSessionToken?: string;
+	/**
+	 * The ESL department's admin. Separate from `adminSessionToken` because
+	 * `/esl/admin` reads `departmentRoles.esl`, which only an existing ESL admin
+	 * can grant — so it has to be provisioned rather than derived.
+	 */
+	eslAdminSessionToken?: string;
+
 	superSessionToken?: string;
 	expiresAt?: number;
 	error?: string;
@@ -100,6 +107,7 @@ export type CleanupScope =
 	| 'houseEvents'
 	| 'backups'
 	| 'auditLogs'
+	| 'esl'
 	| 'all';
 
 export interface E2EUtils {
@@ -143,6 +151,17 @@ export interface E2EUtils {
 	setRoleByToken: (token: string, role: string) => Promise<unknown>;
 	createWeeklyReportTestData: (tag?: string) => Promise<unknown>;
 	cleanupWeeklyReportTestData: (tag?: string) => Promise<unknown>;
+	/**
+	 * Where an import actually put each ESL student, as
+	 * `schoolStudentId -> cohort label`, for one year and grade.
+	 *
+	 * The importer's contract is that a student lands in the cohort their
+	 * `ESL Group` column names, even when the sheet they were read from names a
+	 * different class. That is only visible in the applied rows — the staging plan
+	 * reports the disagreement but does not resolve it — so asserting it has to
+	 * read the data back.
+	 */
+	eslStudentCohorts: (year: string, grade: number) => Promise<Record<string, string>>;
 }
 
 export function getE2EUtils(): E2EUtils {
@@ -455,6 +474,22 @@ export function getE2EUtils(): E2EUtils {
 				scope: 'all',
 				e2eTag: tag || 'weekly-reports-test'
 			});
+		},
+
+		async eslStudentCohorts(year: string, grade: number) {
+			const cohorts = await c.query(api.esl.cohorts.list, { year, grade });
+			const bySchoolStudentId: Record<string, string> = {};
+			// Sequential rather than `Promise.all`: one convex-client already runs its
+			// request queue serially, and a year holds ~20 cohorts of ~20 students.
+			for (const cohort of cohorts) {
+				const students = await c.query(api.esl.students.listByCohort, {
+					cohortId: cohort._id
+				});
+				for (const student of students) {
+					bySchoolStudentId[student.schoolStudentId] = cohort.label;
+				}
+			}
+			return bySchoolStudentId;
 		}
 	};
 }

@@ -2,6 +2,10 @@
 	"files.associations": {
 		"*.css": "tailwindcss"
 	},
+	// Pin the editor to the workspace TypeScript version so diagnostics
+	// match the command line checks.
+	"js/ts.tsdk.path": "node_modules/typescript/lib",
+	"js/ts.tsdk.promptToUseWorkspaceVersion": true,
 	"cSpell.words": [
 		"Casc",
 		"Evals",
@@ -18,5 +22,5 @@
 		"teardowns",
 		"Wukong"
 	],
-	"cSpell.diagnosticLevel": "hint"
+	"cSpell.diagnosticLevel": "Hint"
 }

@@ -1,6 +1,7 @@
 import { page } from 'vitest/browser';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { createRawSnippet } from 'svelte';
 import { buildViewerSession, type ViewerSessionConfig } from '../mocks/route-mocks';
 
 const { mutationMock } = vi.hoisted(() => ({
@@ -39,6 +40,7 @@ vi.mock('$lib/viewer.svelte', () => ({
 }));
 
 import RootPage from '$src/routes/+page.svelte';
+import EslLayout from '$src/routes/esl/+layout.svelte';
 
 function viewerFor(config: ViewerSessionConfig) {
 	return buildViewerSession(config);
@@ -152,5 +154,69 @@ describe('Root Page', () => {
 		renderRootPage();
 
 		expect(mutationMock).not.toHaveBeenCalled();
+	});
+
+	it('redirects ESL-only staff to the ESL shell', async () => {
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(
+			viewerFor({
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { esl: 'teacher' }
+			})
+		);
+
+		renderRootPage();
+
+		await vi.waitFor(() => {
+			expect(gotoMock).toHaveBeenCalledWith('/esl');
+		});
+	});
+
+	it('redirects International-only teachers to /evaluations', async () => {
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(settledAuthenticated());
+
+		renderRootPage();
+
+		await vi.waitFor(() => {
+			expect(gotoMock).toHaveBeenCalledWith('/evaluations');
+		});
+	});
+
+	it('renders the ESL shell with department navigation for ESL staff', async () => {
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(
+			viewerFor({
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { esl: 'teacher' }
+			})
+		);
+
+		render(EslLayout, {
+			props: { children: createRawSnippet(() => ({ render: () => '<span>ESL CONTENT</span>' })) }
+		});
+
+		await expect.element(page.getByTestId('esl.nav')).toBeInTheDocument();
+		await expect.element(page.getByTestId('esl.nav.schedule')).toBeInTheDocument();
+		await expect.element(page.getByTestId('esl.nav.slips')).toBeInTheDocument();
+		await expect.element(page.getByTestId('esl.nav.zipgrade')).toBeInTheDocument();
+		await expect.element(page.getByTestId('esl.nav.admin')).toBeInTheDocument();
+		await expect.element(page.getByText('ESL CONTENT')).toBeInTheDocument();
+	});
+
+	it('bounces International-only staff out of the ESL shell', async () => {
+		const { useViewer } = await import('$lib/viewer.svelte');
+		vi.mocked(useViewer).mockReturnValue(settledAuthenticated());
+
+		render(EslLayout, {
+			props: { children: createRawSnippet(() => ({ render: () => '<span>ESL CONTENT</span>' })) }
+		});
+
+		await expect.element(page.getByText('ESL CONTENT')).not.toBeInTheDocument();
+		await vi.waitFor(() => {
+			expect(gotoMock).toHaveBeenCalledWith('/');
+		});
 	});
 });

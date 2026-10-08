@@ -1,5 +1,9 @@
 import {
 	hasApplicationAccess,
+	isEslAdmin,
+	isEslStaff,
+	isHybridStaff,
+	isInternationalStaff,
 	type AccessSubject,
 	type AuthorizationActor,
 	type EvaluationCapabilities,
@@ -35,6 +39,10 @@ export type ViewerSession = {
 	isTeacher: boolean;
 	isStudent: boolean;
 	isEnrolled: boolean;
+	isInternationalStaff: boolean;
+	isEslStaff: boolean;
+	isEslAdmin: boolean;
+	isHybridStaff: boolean;
 	isApproved: boolean;
 	needsProfileCreation: boolean;
 };
@@ -95,6 +103,13 @@ export function settleViewer(auth: AuthInput, profile: ProfileInput): ViewerSess
 		isAdmin: actor.kind === 'staff' && capabilities.viewAnyEvaluation,
 		isTeacher:
 			actor.kind === 'staff' && capabilities.viewOwnEvaluation && !capabilities.viewAnyEvaluation,
+		// Department access is decided against the shared policy, exactly like the
+		// backend guards: Super is universal, legacy staff fall back to
+		// `{ international: role }`.
+		isInternationalStaff: user !== null && isInternationalStaff(user),
+		isEslStaff: user !== null && isEslStaff(user),
+		isEslAdmin: user !== null && isEslAdmin(user),
+		isHybridStaff: user !== null && isHybridStaff(user),
 		isApproved: user !== null && hasApplicationAccess(user),
 		needsProfileCreation:
 			status !== 'loading' &&

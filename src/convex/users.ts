@@ -177,6 +177,9 @@ export const profile = query({
 			authId: dbUser.authId,
 			role: dbUser.role ?? 'teacher',
 			status: dbUser.status ?? 'pending',
+			// Legacy rows have no departmentRoles; the view derives the
+			// `{ international: role }` fallback via `resolveDepartmentRoles`.
+			departmentRoles: dbUser.departmentRoles,
 			profileExists: true
 		};
 

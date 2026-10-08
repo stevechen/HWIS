@@ -19,6 +19,14 @@ import {
 	requireEvaluationEdit,
 	requireEvaluationCreate,
 	requireEvaluationDelete,
+	isInternationalStaff,
+	isInternationalAdmin,
+	isEslStaff,
+	isEslAdmin,
+	isHybridStaff,
+	isActiveInternationalStaff,
+	isActiveEslStaff,
+	resolveDepartmentRoles,
 	type AccessSubject,
 	type Role,
 	type UserStatus
@@ -419,6 +427,116 @@ describe('requireEvaluationDelete', () => {
 		const authoringTeacher = makeUser({ role: 'teacher', _id: teacherId, status: 'pending' });
 		expect(() => requireEvaluationDelete(authoringTeacher, evaluation)).toThrow(
 			'Not authorized to delete this evaluation'
+		);
+	});
+});
+
+describe('resolveDepartmentRoles', () => {
+	it('falls back to the International department for legacy staff rows', () => {
+		expect(resolveDepartmentRoles(makeUser({ role: 'teacher' }))).toEqual({
+			international: 'teacher'
+		});
+		expect(resolveDepartmentRoles(makeUser({ role: 'admin' }))).toEqual({ international: 'admin' });
+	});
+
+	it('returns no department for super, students, and role-less subjects', () => {
+		expect(resolveDepartmentRoles(makeUser({ role: 'super' }))).toEqual({});
+		expect(resolveDepartmentRoles(makeUser({ role: 'student' }))).toEqual({});
+		expect(resolveDepartmentRoles({})).toEqual({});
+	});
+
+	it('treats an empty departmentRoles object as absent and falls back', () => {
+		expect(resolveDepartmentRoles(makeUser({ role: 'teacher', departmentRoles: {} }))).toEqual({
+			international: 'teacher'
+		});
+	});
+
+	it('prefers an explicit assignment over the legacy role fallback', () => {
+		const roles = resolveDepartmentRoles(
+			makeUser({ role: 'admin', departmentRoles: { esl: 'admin' } })
+		);
+		expect(roles.international).toBeUndefined();
+		expect(roles.esl).toBe('admin');
+	});
+});
+
+describe('department predicates', () => {
+	it('treats legacy staff without an assignment as International-only', () => {
+		const teacher = makeUser({ role: 'teacher', departmentRoles: undefined });
+
+		expect(isInternationalStaff(teacher)).toBe(true);
+		expect(isInternationalAdmin(teacher)).toBe(false);
+		expect(isEslStaff(teacher)).toBe(false);
+		expect(isEslAdmin(teacher)).toBe(false);
+		expect(isHybridStaff(teacher)).toBe(false);
+	});
+
+	it('gives Super universal access to every department', () => {
+		const superUser = makeUser({ role: 'super', departmentRoles: undefined });
+
+		expect(isInternationalStaff(superUser)).toBe(true);
+		expect(isInternationalAdmin(superUser)).toBe(true);
+		expect(isEslStaff(superUser)).toBe(true);
+		expect(isEslAdmin(superUser)).toBe(true);
+		expect(isHybridStaff(superUser)).toBe(true);
+	});
+
+	it('honours an explicit ESL assignment without leaking International access', () => {
+		const eslAdmin = makeUser({ role: 'teacher', departmentRoles: { esl: 'admin' } });
+
+		expect(isEslAdmin(eslAdmin)).toBe(true);
+		expect(isEslStaff(eslAdmin)).toBe(true);
+		expect(isInternationalStaff(eslAdmin)).toBe(false);
+		expect(isInternationalAdmin(eslAdmin)).toBe(false);
+		expect(isHybridStaff(eslAdmin)).toBe(false);
+	});
+
+	it('honours an explicit International assignment', () => {
+		const internationalTeacher = makeUser({
+			role: 'teacher',
+			departmentRoles: { international: 'teacher' }
+		});
+
+		expect(isInternationalStaff(internationalTeacher)).toBe(true);
+		expect(isInternationalAdmin(internationalTeacher)).toBe(false);
+		expect(isEslStaff(internationalTeacher)).toBe(false);
+		expect(isEslAdmin(internationalTeacher)).toBe(false);
+	});
+
+	it('detects hybrid staff assigned to both departments', () => {
+		const hybrid = makeUser({
+			role: 'teacher',
+			departmentRoles: { international: 'teacher', esl: 'admin' }
+		});
+
+		expect(isHybridStaff(hybrid)).toBe(true);
+		expect(isInternationalStaff(hybrid)).toBe(true);
+		expect(isEslAdmin(hybrid)).toBe(true);
+	});
+
+	it('denies every department to students and role-less subjects', () => {
+		for (const denied of [makeUser({ role: 'student' }), makeUser({ role: undefined })]) {
+			expect(isInternationalStaff(denied)).toBe(false);
+			expect(isInternationalAdmin(denied)).toBe(false);
+			expect(isEslStaff(denied)).toBe(false);
+			expect(isEslAdmin(denied)).toBe(false);
+			expect(isHybridStaff(denied)).toBe(false);
+		}
+	});
+
+	it('requires an Active status for the active-staff variants', () => {
+		const pendingEslTeacher = makeUser({
+			role: 'teacher',
+			status: 'pending',
+			departmentRoles: { esl: 'teacher' }
+		});
+
+		expect(isEslStaff(pendingEslTeacher)).toBe(true);
+		expect(isActiveEslStaff(pendingEslTeacher)).toBe(false);
+
+		expect(isActiveInternationalStaff(makeUser({ role: 'teacher' }))).toBe(true);
+		expect(isActiveInternationalStaff(makeUser({ role: 'teacher', status: 'pending' }))).toBe(
+			false
 		);
 	});
 });

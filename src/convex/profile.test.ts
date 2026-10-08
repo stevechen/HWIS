@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { convexTest, modules, mockAuthUser, createStudentWithClass, seedUser } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
-import { noEvaluationCapabilities } from './shared/authorization';
+import { noEvaluationCapabilities, resolveDepartmentRoles } from './shared/authorization';
 
 describe('users.profile (merged viewer + capabilities)', () => {
 	afterEach(() => vi.restoreAllMocks());
@@ -209,6 +209,87 @@ describe('users.profile (merged viewer + capabilities)', () => {
 				editOwnEvaluation: true,
 				editAnyEvaluation: true
 			});
+		});
+	});
+
+	describe('multi-department staff', () => {
+		it('exposes an ESL-only assignment without an International one', async () => {
+			const t = convexTest(schema, modules);
+			await seedUser(t, {
+				authId: 'esl-admin-profile',
+				role: 'teacher',
+				status: 'active',
+				name: 'ESL Admin',
+				departmentRoles: { esl: 'admin' }
+			});
+
+			mockAuthUser({ authId: 'esl-admin-profile' });
+
+			const result = await t.query(api.users.profile, {});
+
+			expect(result.user?.departmentRoles).toEqual({ esl: 'admin' });
+			expect(resolveDepartmentRoles(result.user ?? {})).toEqual({
+				international: undefined,
+				esl: 'admin'
+			});
+		});
+
+		it('exposes a hybrid assignment spanning both departments', async () => {
+			const t = convexTest(schema, modules);
+			await seedUser(t, {
+				authId: 'hybrid-teacher-profile',
+				role: 'teacher',
+				status: 'active',
+				name: 'Hybrid Teacher',
+				departmentRoles: { international: 'teacher', esl: 'teacher' }
+			});
+
+			mockAuthUser({ authId: 'hybrid-teacher-profile' });
+
+			const result = await t.query(api.users.profile, {});
+
+			expect(result.user?.departmentRoles).toEqual({
+				international: 'teacher',
+				esl: 'teacher'
+			});
+			expect(resolveDepartmentRoles(result.user ?? {})).toEqual({
+				international: 'teacher',
+				esl: 'teacher'
+			});
+		});
+
+		it('leaves departmentRoles undefined on legacy rows so the International fallback applies', async () => {
+			const t = convexTest(schema, modules);
+			await seedUser(t, {
+				authId: 'legacy-teacher-profile',
+				role: 'teacher',
+				status: 'active',
+				name: 'Legacy Teacher'
+			});
+
+			mockAuthUser({ authId: 'legacy-teacher-profile' });
+
+			const result = await t.query(api.users.profile, {});
+
+			expect(result.user?.departmentRoles).toBeUndefined();
+			expect(resolveDepartmentRoles(result.user ?? {})).toEqual({ international: 'teacher' });
+		});
+
+		it('exposes no department assignment for Super, which has universal access', async () => {
+			const t = convexTest(schema, modules);
+			await seedUser(t, {
+				authId: 'super-department-profile',
+				role: 'super',
+				status: 'active',
+				name: 'Super Admin'
+			});
+
+			mockAuthUser({ authId: 'super-department-profile' });
+
+			const result = await t.query(api.users.profile, {});
+
+			expect(result.user?.role).toBe('super');
+			expect(resolveDepartmentRoles(result.user ?? {})).toEqual({});
 		});
 	});
 });

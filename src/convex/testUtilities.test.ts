@@ -117,10 +117,37 @@ describe('test utilities', () => {
 		const users = await t.run(async (ctx) => ctx.db.query('users').collect());
 		const authIds = users.map((u) => u.authId).sort();
 
-		expect(authIds).toEqual(['admin-id', 'u_2', 'u_3']);
+		// The three pre-existing infrastructure users survive, the junk user is
+		// deleted, and the four provisioned test users exist. The ESL admin is in
+		// that count because `/esl/admin` needs `departmentRoles.esl` and only an
+		// existing ESL admin can grant it.
+		expect(authIds).toEqual(['admin-id', 'u_2', 'u_3', 'u_4']);
 		expect(mock.state.users.some((u) => u.email === 'e2e-audit-user@hwis.test')).toBe(false);
 		expect(mock.state.users.some((u) => u.email === 'teacher@hwis.test')).toBe(true);
 		expect(mock.state.users.some((u) => u.email === 'super@hwis.test')).toBe(true);
+		expect(mock.state.users.some((u) => u.email === 'esladmin@hwis.test')).toBe(true);
+	});
+
+	it('gives the ESL test admin the department role the ESL admin pages require', async () => {
+		const mock = createMockAdapter([]);
+		vi.spyOn(authComponent, 'adapter').mockImplementation(() => {
+			return (() => Promise.resolve(mock.adapter)) as never;
+		});
+
+		const t = rawConvexTest(schema, modules);
+		await t.mutation(api.testSetup.setupTestUsers, {});
+
+		// Collected and filtered here rather than with `.filter(...)`, which the
+		// query builder does not type for an arbitrary predicate.
+		const eslAdmin = await t.run(async (ctx) => {
+			const users = await ctx.db.query('users').collect();
+			return users.find((user) => user.name === 'Test ESL Admin');
+		});
+
+		// Without this, `/esl/admin` refuses the only user the harness can sign in
+		// as, and no e2e test can reach the department's pages.
+		expect(eslAdmin?.departmentRoles).toEqual({ esl: 'admin' });
+		expect(eslAdmin?.status).toBe('active');
 	});
 
 	it('dedupeUsers keeps newest per authId and is idempotent', async () => {

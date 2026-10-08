@@ -37,6 +37,18 @@ export function useViewer(): ViewerSession {
 		get isTeacher() {
 			return settled.isTeacher;
 		},
+		get isInternationalStaff() {
+			return settled.isInternationalStaff;
+		},
+		get isEslStaff() {
+			return settled.isEslStaff;
+		},
+		get isEslAdmin() {
+			return settled.isEslAdmin;
+		},
+		get isHybridStaff() {
+			return settled.isHybridStaff;
+		},
 		get isApproved() {
 			return settled.isApproved;
 		},

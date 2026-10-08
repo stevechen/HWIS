@@ -14,6 +14,10 @@
 		"paths": {
 			"$lib/*": ["../lib/*"]
 		},
+		/* Convex functions run on Node, so `process.env` is available at
+		 * runtime. List it explicitly instead of relying on ambient
+		 * node_modules/@types auto-discovery. */
+		"types": ["node"],
 
 		/* These compiler options are required by Convex */
 		"target": "ESNext",
