@@ -360,6 +360,12 @@
 			year={displayYear}
 			onSaved={handleAvailabilitySaved}
 		/>
-		<WeeklyScheduleDialog bind:open={scheduleOpen} teacherName={profile.name} year={displayYear} />
+		<WeeklyScheduleDialog
+			bind:open={scheduleOpen}
+			teacherId={profile._id}
+			teacherName={profile.name}
+			year={displayYear}
+			classes={profile.classes}
+		/>
 	{/if}
 </div>
