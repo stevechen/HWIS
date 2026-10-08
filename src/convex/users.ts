@@ -333,13 +333,19 @@ export const update = mutation({
 		const isTestUser = performerId === 'test-user-id' || performerId === 'test-super-user-id';
 		if (performerId && !isTestUser) {
 			if (args.role !== undefined && args.role !== targetUser.role) {
+				// The legacy role feeds the International fallback, so the audit
+				// trail carries the department slots too: a demote that silently
+				// revokes an unlisted fallback is otherwise invisible.
+				const departmentRolesTrail = targetUser.departmentRoles
+					? { departmentRoles: targetUser.departmentRoles }
+					: {};
 				await ctx.db.insert('audit_logs', {
 					action: 'update_user_role',
 					performerId,
 					targetTable: 'users',
 					targetId: id.toString(),
-					oldValue: { role: targetUser.role },
-					newValue: { role: args.role },
+					oldValue: { role: targetUser.role, ...departmentRolesTrail },
+					newValue: { role: args.role, ...departmentRolesTrail },
 					timestamp: Date.now()
 				});
 			}
@@ -395,35 +401,6 @@ export const seedPendingUser = mutation({
 			createdAt: Date.now()
 		});
 		return { success: true, id, name };
-	}
-});
-
-export const setUserRole = mutation({
-	args: {
-		userId: v.id('users'),
-		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
-		status: v.optional(v.union(v.literal('pending'), v.literal('active')))
-	},
-	handler: async (ctx, args) => {
-		// First fetch the target user to check their current role
-		const targetUser = await ctx.db.get(args.userId);
-		if (!targetUser) throw new Error('User not found');
-
-		// If promoting to super role, require super role
-		if (args.role === 'super' && targetUser.role !== 'super') {
-			await requireSuperForSensitiveOperation(ctx);
-		} else {
-			await requireAdminForSensitiveOperation(ctx);
-		}
-
-		await ctx.db.patch(args.userId, {
-			role: args.role,
-			status: args.status
-		});
-
-		if (args.status === 'pending' || args.role !== undefined) {
-			await invalidateUserSessions(ctx, args.userId);
-		}
 	}
 });
 

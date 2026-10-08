@@ -238,6 +238,22 @@ describe('esl staff', () => {
 			expect(await storedRoles(t, self)).toEqual({ esl: 'admin' });
 		});
 
+		it("round-trips a super's explicit department slots on rewrite", async () => {
+			const { t } = await asEslAdmin();
+			const superId = await seedUser(t, {
+				authId: 'super-hybrid',
+				role: 'super',
+				departmentRoles: { international: 'admin', esl: 'admin' }
+			});
+
+			await t.mutation(api.esl.staff.setEslRole, { userId: superId, eslRole: 'teacher' });
+
+			expect(await storedRoles(t, superId)).toEqual({
+				international: 'admin',
+				esl: 'teacher'
+			});
+		});
+
 		it('refuses to promote a student row', async () => {
 			const { t } = await asEslAdmin();
 			const studentId = await seedUser(t, { authId: 'student', role: 'student' });
