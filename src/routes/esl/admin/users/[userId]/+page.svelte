@@ -3,12 +3,16 @@
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
+	import { CalendarClock, CalendarDays } from '@lucide/svelte';
 	import { useViewer } from '$lib/viewer.svelte';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import { initials } from '$lib/utils/names';
 	import { ESL_DAY_LABELS, eslMeetingLabel, eslPeriodTimes, type EslDay } from '$convex/shared/esl';
 	import { schoolYearOf } from '../../classes/staging';
+	import SetAvailabilityDialog from './SetAvailabilityDialog.svelte';
+	import WeeklyScheduleDialog from './WeeklyScheduleDialog.svelte';
 	import {
 		currentEslSlot,
 		isSchoolDay,
@@ -100,6 +104,21 @@
 	function isSelf(): boolean {
 		return session.viewer?._id === userId;
 	}
+
+	let availabilityOpen = $state(false);
+	let scheduleOpen = $state(false);
+	let notice = $state('');
+
+	/**
+	 * The availability dialog's success confirmation: it closes itself on a
+	 * landed write, and the page states what landed for which year.
+	 */
+	function handleAvailabilitySaved(savedYear: string, count: number) {
+		notice =
+			count === 0
+				? `Availability saved for ${savedYear}: all periods available`
+				: `Availability saved for ${savedYear}: ${count} blocked ${count === 1 ? 'period' : 'periods'}`;
+	}
 </script>
 
 <div class="mx-auto w-full max-w-6xl space-y-6 p-8">
@@ -113,22 +132,60 @@
 		<h1 data-testid="esl-admin-user-profile.title" class="text-2xl font-bold text-emerald-900">
 			{profile?.name ?? 'Teacher profile'}
 		</h1>
-		<div class="space-y-1">
-			<label class="text-sm font-medium" for="esl-profile-year">School year</label>
-			<NativeSelect.Root
-				id="esl-profile-year"
-				data-testid="esl-admin-user-profile.year"
-				value={displayYear}
-				onchange={(event) => {
-					selectedYear = event.currentTarget.value;
-				}}
-			>
-				{#each profile?.years ?? [fallbackYear] as year (year)}
-					<NativeSelect.Option value={year}>{year}</NativeSelect.Option>
-				{/each}
-			</NativeSelect.Root>
+		<div class="flex flex-wrap items-end gap-3">
+			{#if session.isEslAdmin}
+				<div class="flex gap-2 pb-0.5">
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={() => {
+							notice = '';
+							availabilityOpen = true;
+						}}
+						testId="esl-admin-user-profile.availability.trigger"
+					>
+						<CalendarClock class="size-3.5" aria-hidden="true" />
+						Set availability
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={() => {
+							scheduleOpen = true;
+						}}
+						testId="esl-admin-user-profile.schedule.trigger"
+					>
+						<CalendarDays class="size-3.5" aria-hidden="true" />
+						View weekly schedule
+					</Button>
+				</div>
+			{/if}
+			<div class="space-y-1">
+				<label class="text-sm font-medium" for="esl-profile-year">School year</label>
+				<NativeSelect.Root
+					id="esl-profile-year"
+					data-testid="esl-admin-user-profile.year"
+					value={displayYear}
+					onchange={(event) => {
+						selectedYear = event.currentTarget.value;
+					}}
+				>
+					{#each profile?.years ?? [fallbackYear] as year (year)}
+						<NativeSelect.Option value={year}>{year}</NativeSelect.Option>
+					{/each}
+				</NativeSelect.Root>
+			</div>
 		</div>
 	</header>
+
+	{#if notice}
+		<p
+			data-testid="esl-admin-user-profile.notice"
+			class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800"
+		>
+			{notice}
+		</p>
+	{/if}
 
 	{#if profileQuery.isLoading}
 		<p class="text-muted-foreground py-8 text-center" data-testid="esl-admin-user-profile.loading">
@@ -293,5 +350,22 @@
 				</ul>
 			{/if}
 		</section>
+	{/if}
+
+	{#if session.isEslAdmin && profile}
+		<SetAvailabilityDialog
+			bind:open={availabilityOpen}
+			teacherId={profile._id}
+			teacherName={profile.name}
+			year={displayYear}
+			onSaved={handleAvailabilitySaved}
+		/>
+		<WeeklyScheduleDialog
+			bind:open={scheduleOpen}
+			teacherId={profile._id}
+			teacherName={profile.name}
+			year={displayYear}
+			classes={profile.classes}
+		/>
 	{/if}
 </div>

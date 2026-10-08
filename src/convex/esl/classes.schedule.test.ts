@@ -1026,6 +1026,29 @@ describe('esl class schedules', () => {
 			).rejects.toThrow(/lunch duty/);
 		});
 
+		it("ignores another year's block when assigning", async () => {
+			// The teacher gate reads the cohort's year, so last year's HWIS duty
+			// must not refuse this year's assignment — mirroring the setSchedule
+			// year filter proved above.
+			const t = await asEslAdmin();
+			const { first } = await twoScheduled(t);
+			const teacher = await seedUser(t, { authId: 'ms-rao', name: 'Ms Rao' });
+
+			await t.run((ctx) =>
+				ctx.db.insert('esl_teacher_availability', {
+					teacherId: teacher,
+					year: '2024-2025',
+					day: 'Monday',
+					period: 1,
+					note: 'lunch duty'
+				})
+			);
+
+			await expect(
+				t.mutation(api.esl.classes.assignTeacher, { id: first, teacherId: teacher })
+			).resolves.toMatchObject({ success: true });
+		});
+
 		it('refuses the one teacher both classes of a cohort are given', async () => {
 			const t = await asEslAdmin();
 			const { classIds } = await createG7(t);
