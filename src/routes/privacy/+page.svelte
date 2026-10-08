@@ -36,7 +36,19 @@
 						We store evaluation records (points awarded to students under categories), including
 						student names and IDs.
 					</li>
+					<li>
+						We store each student's English and Chinese name, student ID, class and grade, enrolment
+						status, house, and any teacher note attached to the record.
+					</li>
 					<li>We record house competition events and point totals.</li>
+					<li>
+						We keep an audit log of administrative and teaching actions — who changed a record,
+						when, and the before and after values — so that changes to student data can be traced.
+					</li>
+					<li>
+						Students are identified from their school email address on each visit. No student
+						password or student account profile is created.
+					</li>
 				</ul>
 			</section>
 
@@ -50,30 +62,54 @@
 			</section>
 
 			<section>
+				<h2 class="mb-1 text-base font-semibold text-gray-800">4. Who can see what</h2>
+				<p>
+					Access depends on your role and is enforced on the server, not in the browser. Teachers
+					see the students in the classes they teach. Administrators may see school-wide student and
+					evaluation data in order to provide oversight. Students may see their own evaluations;
+					teacher names are not shown to students on the student timeline. Public display boards
+					show house and class totals, never individual student records.
+				</p>
+			</section>
+
+			<section>
 				<h2 class="mb-1 text-base font-semibold text-gray-800">
-					4. How we store and protect the data
+					5. Data storage, backups, and protection
 				</h2>
 				<p>
 					Data is stored in a secured cloud database. Access is limited to authenticated staff, with
-					role-based permissions enforced at the server. Backups are taken for disaster recovery
-					and, where required by accreditation, records may be retained for up to five years.
+					role-based permissions enforced at the server. The system is also backed up to a
+					school-controlled Google Drive folder for disaster recovery; those backups are an off-site
+					copy of the same records and are not shared beyond the school's own Drive account.
 				</p>
 			</section>
 
 			<section>
-				<h2 class="mb-1 text-base font-semibold text-gray-800">5. Data retention</h2>
+				<h2 class="mb-1 text-base font-semibold text-gray-800">6. Data retention</h2>
 				<p>
 					Academic and behavioral records are kept for the period required by the school's
 					accreditation obligations (up to five years). User accounts that have been disabled are
-					retained accordingly, after which they may be permanently removed.
+					retained accordingly, after which they may be permanently removed. Daily automatic backups
+					are retained for roughly one month; pre-restore safety snapshots for roughly three months;
+					year-end migration snapshots are kept as the long-term records archive.
 				</p>
 			</section>
 
 			<section>
-				<h2 class="mb-1 text-base font-semibold text-gray-800">6. Your rights and contact</h2>
+				<h2 class="mb-1 text-base font-semibold text-gray-800">7. Your rights and contact</h2>
 				<p>
-					For questions about this policy, to request access to, correction of, or deletion of your
-					personal data, please contact the school administration office.
+					You may request access to, correction of, or deletion of your personal data, subject to
+					the school's record-keeping obligations, by contacting the school administration office.
+					Requests are handled by the administration, and where records must be retained for
+					accreditation, that retention takes precedence over deletion.
+				</p>
+			</section>
+
+			<section>
+				<h2 class="mb-1 text-base font-semibold text-gray-800">8. Terms of use</h2>
+				<p>
+					Rules for using the system are set out in the
+					<a href="/terms" class="underline">Terms of Service</a>.
 				</p>
 			</section>
 		</div>

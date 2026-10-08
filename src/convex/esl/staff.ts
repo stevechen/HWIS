@@ -1,9 +1,17 @@
 import { mutation, query } from '../_generated/server';
 import { v } from 'convex/values';
 import type { Doc, Id } from '../_generated/dataModel';
-import { requireEslAdmin, requireEslStaff } from '../auth';
+import { authComponent, requireEslAdmin, requireEslStaff } from '../auth';
 import { resolveDepartmentRoles, type DepartmentRole } from '../shared/authorization';
 import { displayStaffName, normalizeStaffName } from '../shared/staff_name';
+import { cohortLabel, type EslDay } from '../shared/esl';
+
+type BetterAuthUser = {
+	_id?: string;
+	id?: string;
+	email?: string;
+	image?: string | null;
+};
 
 /** A staff member as the ESL admin screens them: one row per user, never students. */
 type StaffRow = {
@@ -56,6 +64,120 @@ export const list = query({
 	}
 });
 
+/**
+ * A teacher's profile for the ESL admin profile page: identity plus the year's
+ * teaching assignment.
+ *
+ * One read seam backs the whole page so the header, the live-status badge, the
+ * class list, and the periods-per-week total can never disagree about which
+ * year they describe. Email rides the same Better Auth join as the users list
+ * (the `users` table holds no email); it is best-effort and simply absent when
+ * no linked auth identity exists.
+ *
+ * Only active classes in active cohorts are returned — archived rows are
+ * history, not workload. Classes are sorted grade, then class number, then
+ * lesson type, so the page renders them as received.
+ *
+ * cost: 1 point read of the user + 1 indexed take of the teacher's classes +
+ * 1 batched cohort read + 1 indexed meeting read per class + 1 indexed take of
+ * the year's cohorts for the year picker. Bounded by one teacher's caseload.
+ */
+export const getProfile = query({
+	args: {
+		userId: v.id('users'),
+		year: v.string()
+	},
+	handler: async (ctx, args) => {
+		await requireEslAdmin(ctx);
+
+		const user = await ctx.db.get(args.userId);
+		if (!user) throw new Error('User not found');
+		if (staffRole(user.role) === null) throw new Error('Students cannot hold ESL roles');
+
+		const roles = resolveDepartmentRoles(user);
+
+		let email: string | undefined;
+		let image: string | null | undefined;
+		try {
+			const adapter = await authComponent.adapter(ctx)({
+				user: { fields: undefined }
+			});
+			const baUsers = (await adapter.findMany({ model: 'user', where: [] })) as BetterAuthUser[];
+			const match = user.authId
+				? baUsers.find((u) => u._id === user.authId || u.id === user.authId)
+				: undefined;
+			email = match?.email;
+			image = match?.image;
+		} catch (e) {
+			console.error('esl.staff.getProfile: BetterAuth user lookup failed', e);
+		}
+
+		const assigned = await ctx.db
+			.query('esl_classes')
+			.withIndex('by_teacherId', (q) => q.eq('teacherId', args.userId))
+			.take(200);
+
+		const cohorts = await Promise.all(assigned.map((cls) => ctx.db.get(cls.cohortId)));
+
+		const classes = (
+			await Promise.all(
+				assigned.map(async (cls, index) => {
+					const cohort = cohorts[index];
+					if (!cohort || cohort.year !== args.year) return null;
+					if (cls.status !== 'active' || cohort.status !== 'active') return null;
+					const meetings = (
+						await ctx.db
+							.query('esl_class_meetings')
+							.withIndex('by_classId', (q) => q.eq('classId', cls._id))
+							.collect()
+					)
+						.filter((row) => row.year === args.year)
+						.map(({ day, period }) => ({ day: day as EslDay, period }));
+					return {
+						_id: cls._id,
+						name: cls.name,
+						type: cls.type,
+						room: cls.room ?? null,
+						cohortId: cls.cohortId,
+						cohortLabel: cohortLabel(cohort),
+						cohortGrade: cohort.grade,
+						cohortClassNumber: cohort.classNumber,
+						meetings
+					};
+				})
+			)
+		)
+			.filter((row) => row !== null)
+			.sort(
+				(a, b) =>
+					a.cohortGrade - b.cohortGrade ||
+					a.cohortClassNumber.localeCompare(b.cohortClassNumber) ||
+					a.type.localeCompare(b.type)
+			);
+
+		// Every school year on record, newest first, so the page's year picker
+		// offers the teacher's years and the department's history alike.
+		const allCohorts = await ctx.db
+			.query('esl_cohorts')
+			.withIndex('by_year')
+			.order('desc')
+			.take(100);
+		const years = [...new Set(allCohorts.map((cohort) => cohort.year))];
+
+		return {
+			_id: user._id,
+			name: displayStaffName(user.name),
+			role: staffRole(user.role) ?? 'teacher',
+			status: user.status ?? 'active',
+			eslRole: roles.esl ?? null,
+			internationalRole: roles.international ?? null,
+			email,
+			image,
+			years,
+			classes
+		};
+	}
+});
 /**
  * The staff a class teacher may be drawn from.
  *

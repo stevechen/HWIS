@@ -47,15 +47,18 @@ const MISFILED_SCHOOL_ID = misfiledSchoolStudentId(MISFILED_GRADE);
 const e2eTag = `e2e-test_${getTestSuffix('esl')}`;
 
 /**
- * Opens the import page on the year the tests import into.
+ * Opens the import section on the year the tests import into.
  *
  * The grade is not set here, and deliberately: the page places a levelled file
  * from the year above and the file's own ID prefixes, so choosing a grade first
  * would be answering a question the page no longer asks — and the control only
  * exists once a file the arithmetic cannot place has been uploaded.
+ *
+ * `?import=1` is what the Classes page reads to open the section itself, so this
+ * walks the same path the Students page's roster link and any old bookmark take.
  */
 async function openImportPage(page: Page) {
-	await page.goto(`/esl/admin/import?e2eTag=${e2eTag}`);
+	await page.goto(`/esl/admin/classes?import=1&e2eTag=${e2eTag}`);
 	await page.waitForSelector('body.hydrated');
 	await page.getByTestId('esl-import.year').fill(YEAR);
 }
@@ -136,38 +139,53 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 		await applyGrade(page, 9);
 	});
 
-	test('files a misfiled student under the class their column names', async ({ page }) => {
-		// `G8 Inter 1` holds one student whose `ESL Group` reads `G8 Intermediate 2`:
-		// a level change whose column was not updated. Read strictly, that single row
-		// made the sheet look like a summary and its other 19 students were
-		// discarded.
+	test('refuses a sheet whose rows disagree with each other', async ({ page }) => {
+		// `G8 Inter 1` holds one student whose `ESL Group` reads `G8 Intermediate 2`: a
+		// level change whose column was not updated. This used to import the sheet with a
+		// warning, filing that row by its own column — but a wrong ability band is silent,
+		// because every count still adds up and the roster is quietly wrong. The
+		// department confirmed these are typos they will fix, so the file is refused until
+		// the cell does (ADR-0025).
 		//
-		// This test applies the whole file rather than only staging it, because the
-		// claim under test is only observable in the applied rows.
+		// The file is applied rather than only staged, because the claim under test — that
+		// the odd row is not filed anywhere at all — is only observable in applied data.
 		test.setTimeout(180_000);
 		await openImportPage(page);
 		await uploadWorkbook(page, MISFILED_GRADE);
 
 		await expect(page.getByTestId('esl-import.card.g8')).toBeVisible({ timeout: 30_000 });
-		// 20 classes, so `G8 Inter 1` was read as a class rather than set aside.
-		await expect(page.getByTestId('esl-import.plan.cohorts')).toContainText('20 classes');
-		// And the disagreement is reported rather than applied silently.
-		await expect(page.getByTestId('esl-import.card.g8')).toContainText('G8 Intermediate 2');
+		// 19 classes, not 20: the one sheet that disagrees with itself is set aside
+		// rather than read as a class.
+		await expect(page.getByTestId('esl-import.plan.cohorts')).toContainText('19 classes');
 
-		// The row lands where its **column** says, not where its sheet says. The
-		// staging plan above only reports the disagreement; this reads the applied
-		// data back, which is the only place the importer's actual choice is visible.
+		// The set-aside list lives in a collapsed disclosure, so the summary reports the
+		// count and the per-sheet reasons are read after opening it — the two steps an
+		// admin takes. A visibility assertion without opening first would time out
+		// against an element that is present but folded away.
+		const toggle = page.getByTestId('esl-import.problems.toggle');
+		await expect(toggle).toContainText('3 sheet(s) set aside');
+		await toggle.click();
+
+		// The refusal names the sheet and the disagreeing value, so the admin can find
+		// the one cell to fix rather than guess among 400 rows.
+		const refused = page.getByTestId('esl-import.skipped.G8 Inter 1');
+		await expect(refused).toBeVisible();
+		await expect(refused).toContainText('G8 Intermediate 2');
+		await expect(refused).toContainText('ESL Group');
+
 		await applyGrade(page, MISFILED_GRADE);
 		const placed = await eslStudentCohorts(YEAR, MISFILED_GRADE);
 
-		expect(placed[MISFILED_SCHOOL_ID]).toContain('Intermediate 2');
-		expect(placed[MISFILED_SCHOOL_ID]).not.toContain('Intermediate 1');
-		// And the sheet it was read from is still a whole class rather than trimmed
-		// to the rows that agreed — the data loss the majority rule prevents.
+		// The odd student is not enrolled at all — neither in the class their column
+		// names nor the sheet they sit in. Filing them either way would assert a level
+		// change nobody confirmed.
+		expect(placed[MISFILED_SCHOOL_ID]).toBeUndefined();
+		// And the sheet's other 19 students go with it rather than being half-applied:
+		// the whole class is held back until the disagreeing cell is fixed.
 		const inInter1 = Object.values(placed).filter((label) =>
 			label.includes('Intermediate 1')
 		).length;
-		expect(inInter1).toBeGreaterThan(1);
+		expect(inInter1).toBe(0);
 	});
 
 	test('refuses to apply a workbook that lists one student on two class sheets', async ({
@@ -197,8 +215,8 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 	});
 
 	test('places a grade 10 workbook itself, with no grade asked for', async ({ page }) => {
-		// Grade 10's IDs are numbered on a space of their own — `51xxxx` in 2026-2027 —
-		// that no other grade is numbered in, so the file says which grade it is. The
+		// Grade 10's IDs are six digits where no levelled grade is numbered that way
+		// — `511xxx` in 2026-2027 — so the file says which grade it is. The
 		// page used to ask for this, and it was the one thing it asked: answer it wrong
 		// and the whole import is filed under the wrong grade. Now there is nothing to
 		// answer.
@@ -212,10 +230,11 @@ test.describe('ESL roster import @esl-import @sequential', () => {
 		await expect(page.getByTestId('esl-import.status.g10.state')).toHaveText('Staged');
 
 		// The two sections of a base class are listed as the two classes they are:
-		// 11 base classes, each taught as an A and a B section.
+		// 11 base classes, each taught as an A and a B section. The testid is the
+		// cohort key, `grade:level:classNumber` — `10:A:01` is base class 01 at level A.
 		await expect(page.getByTestId('esl-import.plan.cohorts')).toContainText('22 classes');
-		await expect(page.getByTestId('esl-import.plan.cohort.10::01:A')).toContainText('H101A');
-		await expect(page.getByTestId('esl-import.plan.cohort.10::01:B')).toContainText('H101B');
+		await expect(page.getByTestId('esl-import.plan.cohort.10:A:01')).toContainText('H101A');
+		await expect(page.getByTestId('esl-import.plan.cohort.10:B:01')).toContainText('H101B');
 	});
 	test('refuses a workbook holding two school years, and says which', async ({ page }) => {
 		// A different failure from the one above, and the more dangerous of the two:

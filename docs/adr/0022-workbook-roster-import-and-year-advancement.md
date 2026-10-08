@@ -36,8 +36,8 @@ Six measured facts drive the decision:
 1. **The first three digits of a school student ID are the ROC year the student entered
    grade 7**, not their current grade. G7 is `115xxx`, G8 `114xxx`, G9 `113xxx`. A
    student's ID is stable for life; the per-grade disjointness is just entry cohorts
-   sitting at different stages. Grade 10 uses a separate scheme (`5xxxxx` this year,
-   `4xxxxx` last year, `6xxxxx` next).
+   sitting at different stages. Grade 10 uses a separate scheme (`411xxx` this year,
+   `511xxx` next, `311xxx` last).
 2. **Grade 10's A/B section split is carried in the `ESL Group` column** (`H101A` /
    `H101B`), 22 sections of ~20–26 students. The sheet holds both sections. No
    post-import splitting is needed, and the file is the roster of record.
@@ -62,20 +62,25 @@ Six measured facts drive the decision:
 5. **Exactly one row in each of the two levelled workbooks that have one is
    misfiled** — a row whose `ESL Group` names a different class from the
    sheet it sits in. Measured across the 2026-27 files there are **two** such
-   rows: `G7 Basic 5` holds a `G7 Elementary 4` (a student moved down a level and
-   the column was not updated), and `G8 Inter 1` holds a `G8 Intermediate 2` (the
-   same kind of level change). Both are filed by their **column**, which is the
-   class of record — the sheet only identifies which sheet it is.
+   rows: `G7 Basic 5` holds a `G7 Elementary 4`, and `G8 Inter 1` holds a
+   `G8 Intermediate 2`. Both were filed by their **column**, which was the
+   class of record, with the disagreement reported.
+   **Superseded by [ADR-0025](0025-record-the-chinese-class-per-esl-student.md)**:
+   the file is now **refused** rather than imported with a warning. The department
+   confirmed both are typos they will fix, and a wrong ability band is silent —
+   every count still adds up and the roster is quietly wrong — so there is no
+   longer any rule choosing which of two disagreeing columns is right.
 
    Grade 9 and grade 10 have none. G9's malformed `G9 Elementary1` is a
    _typo_, not a misfiling: it parses to the same class as `G9 Elementary 1`, so
    the sheet is simply that class and every row in it is already filed correctly.
    G10 is unlevelled, so its groups name base classes rather than levels and the
-   question does not arise.
+   question does not arise — though ADR-0025 adds a separate G10 check between the
+   `Class` column and the `H1nn` cohort, which are the same fact stated twice.
 
-   The fixture unit tests assert these counts by flagging sheets that carry the
-   "class of record" reason; G9 and G10 are absent from that list for the reasons
-   above, which is the check that this paragraph is still true.
+   The fixture unit tests assert these counts by finding the sheets classified
+   `misfiled`; G9 and G10 are absent from that list for the reasons above, which
+   is the check that this paragraph is still true.
 
    The workbooks the tests drive are **synthetic** — built by
    `src/lib/esl-roster-fixtures.ts` from the shapes measured here, with invented
@@ -134,9 +139,33 @@ prefixes has had two years merged into one spreadsheet; importing it would scatt
 students across cohorts in a way nothing could later reconcile, so it is refused.
 
 - **G7, G8 and G9** may detect a year and prompt on mismatch.
-- **G10 never prompts** — its prefix scheme carries no grade arithmetic.
+- **G10 detects a year too**, from a different reading of its IDs — see below.
 - A mismatch shows the arithmetic to the admin ("these IDs indicate 2027-2028, you are
   on 2026-2027") rather than asserting a conclusion.
+
+**Grade 10 reads its year by reversal.** Its IDs are six digits: the ROC year of the
+school year _itself_, digit-reversed, then three of sequence. `411019` is `114` — ROC 114,
+which is 2025-2026. So there is no `+ (7 - G)` to apply, and no anchor to be off by one;
+the reversal is a bijection with ROC years, and `021` is simply ROC 120 backwards with no
+special case for it.
+
+> **Corrected.** This ADR previously described grade 10's scheme as a two-digit "space"
+> advancing one step per year (`50xxxx`, `51xxxx`, `52xxxx`), anchored at `51` = 2026-2027
+> and wrapping at 99. That reading was wrong on both counts and produced a real fault: the
+> 2025-2026 workbook's `411xxx` IDs were read as space `41`, which sits _below_ the anchor,
+> so the wrap turned it into +90 years and the file was reported as belonging to **2116-2117**.
+> The wrap was also load-bearing for a year the school has not reached, which is how an
+> unconfirmed guess ended up answering as fact. The sequence `211` / `311` / `411` / `511`
+> is the school's own, ascending by one first digit as the ROC year ascends.
+>
+> The consequence for identity below is unchanged — grade 10 is still all-new each year —
+> but the _reason_ is corrected: not that its space moves arbitrarily, but that a grade 10
+> ID names the school year rather than an intake, so a graduating student's ID can never
+> equal a future grade 10 student's.
+>
+> Grade 10's year is now also **enforced server-side**. It previously skipped the check
+> entirely on the claim that its IDs name no year, which left the browser prompt as the only
+> guard on an entire roster.
 
 ### Import pipeline
 
@@ -156,11 +185,20 @@ differs between G7 and G10 and G10 uses different header spellings (`Std ID#`, `
 
 **Classify sheets** — a sheet is a class sheet when its `ESL Group` values resolve to a
 single group. **For grade 10 the unit is the base class, not the group**: a G10 sheet holds
-both of one base class's sections, so it is a class sheet when its rows resolve to a single
+both of one base class's levels, so it is a class sheet when its rows resolve to a single
 base class (`H101A` and `H101B` are one class; `H101A` and `H102A` are not). Summary sheets
 hold many groups — and, for G10, many base classes — so they fail this test naturally, no
 maintained exclusion list is needed, and a class sheet the school adds later still works.
-A genuinely multi-class sheet is surfaced for review.
+
+> **Corrected by ADR-0023**, which keeps the sheet-level half and rejects the
+> cohort-level conclusion. One G10 sheet is one Chinese class, so it is one sheet; but
+> `A` and `B` are **levels** — ability bands, A higher than B, holding different
+> students — not sections of one class. So that sheet yields _two_ cohorts, `H101A` and
+> `H101B`, each with its own roster, and a grade 10 cohort is `(Chinese class, level)`
+> rather than the base class alone. The grouping rules for grades 7–9 are unaffected:
+> their classes are mixed across Chinese classes, and their `CLIL`/`Comm` pair draws
+> one roster because it is two lessons to one group, not two groups.
+> A genuinely multi-class sheet is surfaced for review.
 
 **The `ESL Group` column is the class of record, not the sheet name.** Sheet names are
 abbreviated and do not round-trip (`G9 Adv 1` holds `G9 Advanced 1`; `G9 Ele 1` holds
@@ -177,18 +215,20 @@ automatically. Disagreements are reported as warnings.
 | Group change     | n/a          | applied, reported             | n/a     |
 | Absent from file | n/a          | → `disabled`, reason recorded | n/a     |
 
-**Grade 10 is never matched across years.** Its ID space moves `4xxxxx` → `5xxxxx` →
-`6xxxxx`, so a graduating G9 student cannot be linked to a G10 record even in principle.
-Treating it as all-new is forced by the data, not chosen as a simplification.
+**Grade 10 is never matched across years.** Its IDs name the school year itself rather
+than an intake, so a graduating G9 student's ID can never equal a future grade 10
+student's. Treating it as all-new is forced by the data, not chosen as a simplification.
 
-**That same space is what identifies grade 10.** No other grade is numbered `4xxxxx`–`6xxxxx`
-— the levelled grades are `115xxx`-style, always leading `1` — so a file's IDs say which
-grade they are, and no grade is ever asked of the admin. It also means the _year_ is
-readable for grade 10 where it is not for the levelled grades: the space advances one step
-per school year, so `5xxxxx` is 2026-2027 and `6xxxxx` the year after. That is how a grade
-10 file is checked against the year on the page, the way a levelled file's `ESL Group`
-column is. The two signals are deliberately different, and neither is a second opinion on
-the grade.
+**Its ID _length_ is what identifies grade 10.** Grade 10 IDs are six digits and every
+levelled ID is seven — measured across the September 2025 workbooks, 487 of 487 and
+3,800 of 3,800, with no exceptions. Length rather than the leading digits, because a
+reversed grade 10 prefix beginning `1` is indistinguishable from a levelled ROC entry
+year (`110019` vs `1100019`). So a file's IDs say which grade they are, and no grade is
+ever asked of the admin. It also means the _year_ is
+readable for grade 10 directly rather than by offset: `411xxx` is 2025-2026 and `511xxx`
+the year after. That is how a grade 10 file is checked against the year on the page, the
+way a levelled file's `ESL Group` column is. The two signals are deliberately different,
+and neither is a second opinion on the grade.
 
 ### Reportable changes
 

@@ -26,6 +26,8 @@ export type ImportedGrade = {
 	added: number;
 	moved: number;
 	renamed: number;
+	/** Students whose Chinese class changed, which the import applied unreviewed. */
+	rehomed: number;
 	disabled: number;
 	/** Renames the admin did not approve, so the summary can say what was kept. */
 	declinedRenames: string[];

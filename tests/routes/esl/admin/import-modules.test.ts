@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { splitSheet, readRosterWorkbook } from '$src/routes/esl/admin/import/workbook';
+import { splitSheet, readRosterWorkbook } from '$src/routes/esl/admin/classes/workbook';
 import { isGrade10Group, parseRosterGroup, parseRosterWorkbook } from '$convex/shared/esl_import';
 import { ESL_LEVELS } from '$convex/shared/esl';
 import {
@@ -9,9 +9,21 @@ import {
 	schoolYearOf,
 	writeEntry,
 	type StagedGrade
-} from '$src/routes/esl/admin/import/staging';
+} from '$src/routes/esl/admin/classes/staging';
 
-const HEADER = ['Student ID', 'Chinese Name', 'English Name', 'ESL Group'];
+/**
+ * A header row the importer can read, which since ADR-0025 includes the
+ * Chinese-class column — so the header search finds the real one and not a
+ * title block that happens to sit above it.
+ */
+const HEADER = ['Student ID', 'C Class', 'Chinese Name', 'English Name', 'ESL Group'];
+const ROW = (id: string, name: string, english: string, group: string) => [
+	id,
+	'J301',
+	name,
+	english,
+	group
+];
 
 function draft(over: Partial<StagedGrade> = {}): StagedGrade {
 	return {
@@ -45,7 +57,10 @@ describe('splitSheet', () => {
 	});
 
 	it('reads a header on the first row', () => {
-		const split = splitSheet('G9 Adv 1', [HEADER, ['1130001', '王芃頵', 'Yoyo', 'G9 Advanced 1']]);
+		const split = splitSheet('G9 Adv 1', [
+			HEADER,
+			ROW('1130001', '王芃頵', 'Yoyo', 'G9 Advanced 1')
+		]);
 
 		expect(split.rowOffset).toBe(2);
 		expect(split.rows).toHaveLength(1);
@@ -128,8 +143,8 @@ describe('splitSheet', () => {
 			['2026-2027 Grade 9 ESL Roster'],
 			[],
 			HEADER,
-			['1130001', '王芃頵', 'Yoyo', 'G9 Advanced 1'],
-			['', 'no id here', '', 'G9 Advanced 1']
+			ROW('1130001', '王芃頵', 'Yoyo', 'G9 Advanced 1'),
+			['', 'J301', 'no id here', '', 'G9 Advanced 1']
 		];
 		const split = splitSheet('G9 Adv 1', grid);
 
@@ -198,8 +213,8 @@ describe('readRosterWorkbook', () => {
 			['2026-2027 Grade 9 ESL Roster'],
 			[],
 			HEADER,
-			['1130001', '王芃頵', 'Yoyo', 'G9 Advanced 1'],
-			['', 'no id here', '', 'G9 Advanced 1']
+			ROW('1130001', '王芃頵', 'Yoyo', 'G9 Advanced 1'),
+			['', 'J301', 'no id here', '', 'G9 Advanced 1']
 		]);
 		const book = XLSX.utils.book_new();
 		XLSX.utils.book_append_sheet(book, sheet, 'G9 Adv 1');

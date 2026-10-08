@@ -125,6 +125,8 @@ export interface E2EUtils {
 	cleanupAuditLogs: (authIdString?: string) => Promise<unknown>;
 	setupTestUsers: () => Promise<SetupTestUsersResult>;
 	cleanupTestBackupsByTimestamp: (since: number) => Promise<unknown>;
+	/** How many `backups` rows currently carry `e2eTag`, for tag-hygiene assertions. */
+	countBackupsByTag: (e2eTag: string) => Promise<number>;
 	createStudent: (opts: CreateStudentOptions) => Promise<unknown>;
 	createStudentWithId: (opts: CreateStudentOptions) => Promise<unknown>;
 	seedManyStudents: (opts: {
@@ -272,6 +274,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async cleanupTestBackupsByTimestamp(since: number) {
 			return await c.mutation(api.testLifecycle.teardownBackupsByTimestamp, { since });
+		},
+
+		async countBackupsByTag(e2eTag: string) {
+			return await c.query(api.testLifecycle.countBackupsByTag, { e2eTag });
 		},
 
 		async createStudent(opts: CreateStudentOptions) {

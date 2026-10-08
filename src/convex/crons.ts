@@ -17,6 +17,17 @@ crons.daily(
 	{}
 );
 
+// Watchdog for the Drive archive (issue #151). Runs at 23:17 UTC — hours after the
+// 20:00 backup — so a nightly run has had time to finish or fail before this
+// judges it. Off the top of the hour to avoid the busiest minute. Throws when no
+// backup has succeeded within the stale window, which surfaces in the dashboard
+// logs view; the admin banner is the primary signal.
+crons.daily(
+	'backup-freshness-watchdog',
+	{ hourUTC: 23, minuteUTC: 17 },
+	internal.backupWatchdog.checkBackupFreshness,
+	{}
+);
 // Safety-net cron: event-driven refreshes (scheduled by evaluation mutations)
 // keep snapshots fresh within ~45s of a write; this slow cron only heals
 // anything that slipped past (e.g. direct data changes outside the app).

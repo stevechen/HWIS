@@ -8,7 +8,6 @@
 	import { api } from '$convex/_generated/api';
 	import type { ParsedRosterWorkbook } from '$convex/shared/esl_import';
 	import {
-		deriveGrade10SchoolYear,
 		deriveGradeForSchoolYear,
 		deriveSchoolYear,
 		gradesNamedInWorkbook
@@ -117,7 +116,7 @@
 				error = `This workbook holds more than one school year (${derived.years.join(' and ')}). Import it as two files, one per year.`;
 				return;
 			}
-			if (derived.kind === 'unsupported' && grade !== 10) {
+			if (derived.kind === 'unsupported') {
 				error = derived.reason;
 				return;
 			}
@@ -178,16 +177,16 @@
 	}
 
 	/**
-	 * The school year a grade 10 workbook claims, from the space its IDs are
-	 * numbered in, or `null` when they name no space.
+	 * The school year a grade 10 workbook claims, from the reversed ROC year its
+	 * IDs are written with, or `null` when they name no such year.
 	 *
-	 * Grade 10's space moves one step per school year, so unlike the levelled
-	 * grades — whose IDs name an intake year the page's year is then read against —
-	 * this one reads the year straight out of the IDs. `5xxxxx` is 2026-2027,
-	 * `6xxxxx` the year after.
+	 * Grade 10's IDs name the school year itself rather than an intake year, so
+	 * unlike the levelled grades there is no offset to apply: `411xxx` is
+	 * 2025-2026 outright. That is what lets a grade 10 file be checked against
+	 * the year on the page the same way a levelled file is.
 	 */
 	function grade10YearFor(ids: readonly string[]): string | null {
-		const derived = deriveGrade10SchoolYear(ids);
+		const derived = deriveSchoolYear(10, ids);
 		return derived.kind === 'current' ? derived.year : null;
 	}
 
@@ -302,192 +301,231 @@
 	function stamp(at: number): string {
 		return new Date(at).toLocaleString();
 	}
+
+	let { expanded = false }: { expanded?: boolean } = $props();
+
+	/**
+	 * Whether the import UI is showing.
+	 *
+	 * Seeded from `expanded` and then owned by the admin: arriving with `#import`
+	 * opens the section once, and after that it is the admin's to open and close.
+	 * Tracking `expanded` live would let an unrelated parent re-render push it back
+	 * open, so the request is read once rather than derived — which is also what
+	 * silences the "captures only the initial value" warning.
+	 */
+	let opened = $state(false);
+
+	$effect(() => {
+		if (expanded) opened = true;
+	});
 </script>
 
-<svelte:head>
-	<title>Import roster · ESL admin</title>
-</svelte:head>
+<!--
+	A single button until it is wanted.
 
-<main class="mx-auto max-w-6xl space-y-6 p-4">
-	<header>
-		<h1 class="text-xl font-semibold">Import roster</h1>
-		<p class="text-muted-foreground text-sm">
-			Upload a grade's workbook. Nothing is written until you apply it, and each file is applied on
-			its own.
-		</p>
-	</header>
+	The import used to sit in a bordered panel with a heading and a paragraph of
+	explanation, which put three pieces of chrome above a list of classes for a task
+	most visits never perform. It now takes one button's worth of space, and grows
+	into the full UI only when opened.
 
-	<section class="rounded-lg border border-emerald-200 bg-white p-4">
-		<div class="flex flex-wrap items-end gap-3">
-			<div class="space-y-1">
-				<Label for="year">School year</Label>
-				<Input
-					id="year"
-					data-testid="esl-import.year"
-					class="w-36"
-					bind:value={year}
-					onblur={persistYear}
-					placeholder="2026-2027"
-				/>
-			</div>
-			<!--
+	`basis-full` on the panel is what lets this live inside the page header's flex
+	row and still drop onto its own line: the button sits beside the title, and the
+	expanded panel wraps beneath both rather than squeezing into the header.
+-->
+<Button
+	variant="outline"
+	size="sm"
+	onclick={() => (opened = !opened)}
+	aria-expanded={opened}
+	testId="esl-admin-classes.import.toggle"
+>
+	{opened ? 'Hide import' : 'Import a roster'}
+</Button>
+
+{#if opened}
+	<div class="basis-full space-y-6 rounded-lg border border-emerald-200 bg-white p-4">
+		<div class="space-y-6">
+			<section class="rounded-lg border border-emerald-200 bg-white p-4">
+				<div class="flex flex-wrap items-end gap-3">
+					<div class="space-y-1">
+						<Label for="year">School year</Label>
+						<Input
+							id="year"
+							data-testid="esl-import.year"
+							class="w-36"
+							bind:value={year}
+							onblur={persistYear}
+							placeholder="2026-2027"
+						/>
+					</div>
+					<!--
 				Every grade comes from the file's own IDs, so there is no grade control
 				to show. The levelled grades place from the year above and their
 				intake-year prefixes; grade 10 places from its own ID space.
 			-->
-			<div class="space-y-1">
-				<Label for="file">Workbook (.xlsx)</Label>
-				<input
-					id="file"
-					type="file"
-					accept=".xlsx"
-					data-testid="esl-import.file"
-					onchange={onFilePicked}
-					class="text-sm"
-				/>
-			</div>
-			{#if parsing}
-				<span class="text-muted-foreground pb-2 text-sm">Reading the file…</span>
-			{/if}
-		</div>
-
-		{#if yearPrompt}
-			<div
-				class="mt-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm"
-				data-testid="esl-import.yearPrompt"
-			>
-				<p>
-					{yearPrompt.fileName} holds IDs that indicate school year
-					<strong>{yearPrompt.derivedYear}</strong>, but this page is set to
-					<strong>{year.trim()}</strong>. Its {yearPrompt.parsed.students.length} students would be matched
-					against the wrong year.
-				</p>
-				<div class="mt-2 flex gap-2">
-					<Button
-						size="sm"
-						onclick={advanceAndStage}
-						disabled={advancing}
-						data-testid="esl-import.yearPrompt.advance"
-					>
-						{advancing
-							? 'Advancing…'
-							: `Advance ${year.trim()} into ${yearPrompt.derivedYear} and use it`}
-					</Button>
-					<Button size="sm" onclick={acceptDerivedYear} data-testid="esl-import.yearPrompt.accept">
-						Use {yearPrompt.derivedYear}
-					</Button>
-					<Button
-						size="sm"
-						variant="outline"
-						onclick={() => (yearPrompt = null)}
-						data-testid="esl-import.yearPrompt.dismiss"
-					>
-						Keep {year.trim()}
-					</Button>
+					<div class="space-y-1">
+						<Label for="file">Workbook (.xlsx)</Label>
+						<input
+							id="file"
+							type="file"
+							accept=".xlsx"
+							data-testid="esl-import.file"
+							onchange={onFilePicked}
+							class="text-sm"
+						/>
+					</div>
+					{#if parsing}
+						<span class="text-muted-foreground pb-2 text-sm">Reading the file…</span>
+					{/if}
 				</div>
-			</div>
-		{/if}
-		{#if advanceReport.length > 0}
-			<ul class="mt-2 space-y-1 text-xs" data-testid="esl-import.advanceReport">
-				{#each advanceReport as entry (entry.fromGrade)}
-					<li data-testid="esl-import.advanceReport.g{entry.fromGrade}">
-						<strong>G{entry.fromGrade}</strong> — {entry.detail}
-					</li>
-				{/each}
-			</ul>
-		{/if}
 
-		{#if error}
-			<p
-				class="mt-3 rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900"
-				data-testid="esl-import.error"
-			>
-				{error}
-			</p>
-		{/if}
-	</section>
+				{#if yearPrompt}
+					<div
+						class="mt-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm"
+						data-testid="esl-import.yearPrompt"
+					>
+						<p>
+							{yearPrompt.fileName} holds IDs that indicate school year
+							<strong>{yearPrompt.derivedYear}</strong>, but this page is set to
+							<strong>{year.trim()}</strong>. Its {yearPrompt.parsed.students.length} students would be
+							matched against the wrong year.
+						</p>
+						<div class="mt-2 flex gap-2">
+							<Button
+								size="sm"
+								onclick={advanceAndStage}
+								disabled={advancing}
+								data-testid="esl-import.yearPrompt.advance"
+							>
+								{advancing
+									? 'Advancing…'
+									: `Advance ${year.trim()} into ${yearPrompt.derivedYear} and use it`}
+							</Button>
+							<Button
+								size="sm"
+								onclick={acceptDerivedYear}
+								data-testid="esl-import.yearPrompt.accept"
+							>
+								Use {yearPrompt.derivedYear}
+							</Button>
+							<Button
+								size="sm"
+								variant="outline"
+								onclick={() => (yearPrompt = null)}
+								data-testid="esl-import.yearPrompt.dismiss"
+							>
+								Keep {year.trim()}
+							</Button>
+						</div>
+					</div>
+				{/if}
+				{#if advanceReport.length > 0}
+					<ul class="mt-2 space-y-1 text-xs" data-testid="esl-import.advanceReport">
+						{#each advanceReport as entry (entry.fromGrade)}
+							<li data-testid="esl-import.advanceReport.g{entry.fromGrade}">
+								<strong>G{entry.fromGrade}</strong> — {entry.detail}
+							</li>
+						{/each}
+					</ul>
+				{/if}
 
-	<section aria-label="The year so far" data-testid="esl-import.status">
-		<h2 class="mb-2 font-semibold">{year.trim()}</h2>
-		<Table.Root>
-			<Table.Header>
-				<Table.Row>
-					<Table.Head>Grade</Table.Head>
-					<Table.Head>State</Table.Head>
-					<Table.Head>File</Table.Head>
-					<Table.Head>Counts</Table.Head>
-					<Table.Head>When</Table.Head>
-					<Table.Head></Table.Head>
-				</Table.Row>
-			</Table.Header>
-			<Table.Body>
-				{#each IMPORT_GRADES as row (row)}
-					{@const entry = entryOf(row)}
-					<Table.Row data-testid="esl-import.status.g{row}">
-						<Table.Cell class="font-medium">G{row}</Table.Cell>
-						<Table.Cell>
-							{#if entry === undefined}
-								<span class="text-muted-foreground" data-testid="esl-import.status.g{row}.state">
-									Not yet provided
-								</span>
-							{:else if entry.status === 'staged'}
-								<Badge variant="secondary" data-testid="esl-import.status.g{row}.state">
-									Staged
-								</Badge>
-							{:else}
-								<Badge data-testid="esl-import.status.g{row}.state">Imported</Badge>
-							{/if}
-						</Table.Cell>
-						<Table.Cell>
-							{#if entry?.status === 'staged'}
-								{entry.draft.fileName}
-							{:else if entry?.status === 'imported'}
-								{entry.result.fileName}
-							{:else}
-								<span class="text-muted-foreground">—</span>
-							{/if}
-						</Table.Cell>
-						<Table.Cell>
-							{#if entry?.status === 'staged'}
-								{entry.draft.students.length} staged
-							{:else if entry?.status === 'imported'}
-								{entry.result.added} new, {entry.result.moved} moved,
-								{entry.result.renamed} renamed, {entry.result.disabled} disabled
-							{:else}
-								<span class="text-muted-foreground">—</span>
-							{/if}
-						</Table.Cell>
-						<Table.Cell>
-							{#if entry?.status === 'staged'}
-								staged {stamp(entry.draft.stagedAt)}
-							{:else if entry?.status === 'imported'}
-								applied {stamp(entry.result.appliedAt)}
-							{:else}
-								<span class="text-muted-foreground">—</span>
-							{/if}
-						</Table.Cell>
-						<Table.Cell class="text-right">
-							{#if entry !== undefined}
-								<Button
-									size="sm"
-									variant="outline"
-									onclick={() => discard(row)}
-									data-testid="esl-import.discard.g{row}"
-								>
-									{entry.status === 'staged' ? 'Discard' : 'Clear'}
-								</Button>
-							{/if}
-						</Table.Cell>
-					</Table.Row>
-				{/each}
-			</Table.Body>
-		</Table.Root>
-	</section>
+				{#if error}
+					<p
+						class="mt-3 rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900"
+						data-testid="esl-import.error"
+					>
+						{error}
+					</p>
+				{/if}
+			</section>
 
-	{#each stagedGrades as stagedGrade (stagedGrade)}
-		{@const entry = entryOf(stagedGrade)}
-		{#if entry?.status === 'staged'}
-			<StagedGradeCard year={year.trim()} draft={entry.draft} {onApplied} />
-		{/if}
-	{/each}
-</main>
+			<section aria-label="The year so far" data-testid="esl-import.status">
+				<h2 class="mb-2 font-semibold">{year.trim()}</h2>
+				<Table.Root>
+					<Table.Header>
+						<Table.Row>
+							<Table.Head>Grade</Table.Head>
+							<Table.Head>State</Table.Head>
+							<Table.Head>File</Table.Head>
+							<Table.Head>Counts</Table.Head>
+							<Table.Head>When</Table.Head>
+							<Table.Head></Table.Head>
+						</Table.Row>
+					</Table.Header>
+					<Table.Body>
+						{#each IMPORT_GRADES as row (row)}
+							{@const entry = entryOf(row)}
+							<Table.Row data-testid="esl-import.status.g{row}">
+								<Table.Cell class="font-medium">G{row}</Table.Cell>
+								<Table.Cell>
+									{#if entry === undefined}
+										<span
+											class="text-muted-foreground"
+											data-testid="esl-import.status.g{row}.state"
+										>
+											Not yet provided
+										</span>
+									{:else if entry.status === 'staged'}
+										<Badge variant="secondary" data-testid="esl-import.status.g{row}.state">
+											Staged
+										</Badge>
+									{:else}
+										<Badge data-testid="esl-import.status.g{row}.state">Imported</Badge>
+									{/if}
+								</Table.Cell>
+								<Table.Cell>
+									{#if entry?.status === 'staged'}
+										{entry.draft.fileName}
+									{:else if entry?.status === 'imported'}
+										{entry.result.fileName}
+									{:else}
+										<span class="text-muted-foreground">—</span>
+									{/if}
+								</Table.Cell>
+								<Table.Cell>
+									{#if entry?.status === 'staged'}
+										{entry.draft.students.length} staged
+									{:else if entry?.status === 'imported'}
+										{entry.result.added} new, {entry.result.moved} moved,
+										{entry.result.renamed} renamed, {entry.result.rehomed} rehomed,
+										{entry.result.disabled} disabled
+									{:else}
+										<span class="text-muted-foreground">—</span>
+									{/if}
+								</Table.Cell>
+								<Table.Cell>
+									{#if entry?.status === 'staged'}
+										staged {stamp(entry.draft.stagedAt)}
+									{:else if entry?.status === 'imported'}
+										applied {stamp(entry.result.appliedAt)}
+									{:else}
+										<span class="text-muted-foreground">—</span>
+									{/if}
+								</Table.Cell>
+								<Table.Cell class="text-right">
+									{#if entry !== undefined}
+										<Button
+											size="sm"
+											variant="outline"
+											onclick={() => discard(row)}
+											data-testid="esl-import.discard.g{row}"
+										>
+											{entry.status === 'staged' ? 'Discard' : 'Clear'}
+										</Button>
+									{/if}
+								</Table.Cell>
+							</Table.Row>
+						{/each}
+					</Table.Body>
+				</Table.Root>
+			</section>
+
+			{#each stagedGrades as stagedGrade (stagedGrade)}
+				{@const entry = entryOf(stagedGrade)}
+				{#if entry?.status === 'staged'}
+					<StagedGradeCard year={year.trim()} draft={entry.draft} {onApplied} />
+				{/if}
+			{/each}
+		</div>
+	</div>
+{/if}

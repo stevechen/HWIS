@@ -6,17 +6,17 @@
 		ESL Administration
 	</h1>
 	<p data-testid="esl-admin.subtitle" class="text-muted-foreground mt-2">
-		Manage cohorts, class teachers, rosters, and ESL department staff.
+		Manage classes, class teachers, rosters, and ESL department staff.
 	</p>
 	<nav aria-label="ESL administration sections" class="mt-6 grid gap-4 sm:grid-cols-2">
 		<a
-			href="/esl/admin/cohorts"
-			data-testid="esl-admin.overview.cohorts"
+			href="/esl/admin/classes"
+			data-testid="esl-admin.overview.classes"
 			class="rounded-lg border bg-white p-6 shadow-sm hover:shadow"
 		>
-			<span class="text-lg font-semibold">Cohorts</span>
+			<span class="text-lg font-semibold">Classes</span>
 			<span class="text-muted-foreground mt-1 block text-sm">
-				Create cohorts, pair CLIL/Comm classes, and assign class teachers.
+				Create classes, pair CLIL/Comm classes, and assign class teachers.
 			</span>
 		</a>
 		<a

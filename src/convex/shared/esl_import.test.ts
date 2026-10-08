@@ -1,21 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import {
 	IMPORT_DISABLED_REASON,
+	chineseClassCode,
 	classifySheet,
 	cohortOfGroup,
 	deriveSchoolYear,
 	detectColumns,
 	deriveGradeForSchoolYear,
-	deriveGrade10SchoolYear,
-	grade10SpaceForSchoolYear,
 	gradesNamedInWorkbook,
+	isGrade10StudentId,
+	isReadableRosterSheet,
 	normalizeSchoolStudentId,
 	parseRosterGroup,
 	parseRosterSheet,
 	parseRosterWorkbook,
 	planRosterImport,
+	reversedPrefixForRocYear,
 	rocEntryYearForSchoolYear,
 	rosterGroupText,
+	schoolYearFromGrade10Id,
 	schoolYearFromRocEntry,
 	type ExistingCohort,
 	type ExistingStudent,
@@ -26,14 +29,39 @@ import {
 /** The G10 header order, measured from `G10 roster 0903026.xlsx`. */
 const G10_HEADER = ['ESL group', 'Std ID#', 'Class', 'Name', 'English Name'];
 
-/** A `H101` sheet as the school writes it: 24 of section A, then 21 of section B. */
+/**
+ * The levelled grades' order with the Chinese-class column the import now needs.
+ *
+ * The measured header is `Student ID | C Class | Seat No. | Chinese Name | English
+ * Name | ESL Group | Email`; the seat and email columns are left out because no
+ * rule reads them, and their absence is itself worth covering — a parser that
+ * matched by position instead of by name would be caught here.
+ */
+const LEVELLED_CHINESE_HEADER = [
+	'Student ID',
+	'C Class',
+	'Chinese Name',
+	'English Name',
+	'ESL Group'
+];
+
+/**
+ * A `H101` sheet as the school writes it: 24 of section A, then 21 of section B.
+ *
+ * Every ID is `511xxx` — the reversed ROC year of 2026-2027, then three of
+ * sequence — and both sections share it. A previous fixture gave section B a
+ * `512` prefix, which was a fabrication the old two-digit reading could not
+ * detect because it only ever read two digits; under the three-digit reversal it
+ * resolves to ROC 215 and would report the class as holding two school years.
+ * All 487 IDs in the real 2025-2026 G10 workbook are `411xxx` with no exception.
+ */
 function h101Rows(): string[][] {
 	const rows: string[][] = [];
 	for (let seat = 1; seat <= 24; seat++) {
 		rows.push(['H101A', `511${String(100 + seat)}`, 'H101', `王${seat}`, `Remy ${seat}`]);
 	}
 	for (let seat = 1; seat <= 21; seat++) {
-		rows.push(['H101B', `512${String(100 + seat)}`, 'H101', `李${seat}`, `Jeremy ${seat}`]);
+		rows.push(['H101B', `511${String(200 + seat)}`, 'H101', `李${seat}`, `Jeremy ${seat}`]);
 	}
 	return rows;
 }
@@ -91,18 +119,23 @@ describe('grade 10 sheets', () => {
 		expect(summary.reason).toContain('No single class accounts for its rows');
 	});
 
-	/** The G9 column order, for the row-reading cases below. */
-	const G9_HEADER = ['Student ID', 'Chinese Name', 'English Name', 'ESL Group'];
+	/**
+	 * The G9 column order, for the row-reading cases below.
+	 *
+	 * Carries the Chinese-class column the import now requires, appended at the
+	 * end so the four measured columns keep their positions.
+	 */
+	const G9_HEADER = ['Student ID', 'Chinese Name', 'English Name', 'ESL Group', 'C Class'];
 
 	it('reports an unreadable ID with the value found, so the cell can be fixed', () => {
 		// The admin's job is to open one cell in Excel. A message that only said
 		// "unreadable" would leave them guessing which of 495 rows, and which column.
 		const parsed = parseRosterSheet(
 			[
-				['1150002.5', '王芃頵', 'Yoyo', 'G7 Advanced 1'],
-				['115-0003', '李大文', 'Jeremy', 'G7 Advanced 1'],
-				['', '陳小明', 'Ming', 'G7 Advanced 1'],
-				['1150004', '張美玲', 'Mei', 'G7 Advanced 1']
+				['1150002.5', '王芃頵', 'Yoyo', 'G7 Advanced 1', 'J101'],
+				['115-0003', '李大文', 'Jeremy', 'G7 Advanced 1', 'J101'],
+				['', '陳小明', 'Ming', 'G7 Advanced 1', 'J101'],
+				['1150004', '張美玲', 'Mei', 'G7 Advanced 1', 'J101']
 			],
 			detectColumns(G9_HEADER),
 			2,
@@ -124,9 +157,9 @@ describe('grade 10 sheets', () => {
 	it('reports an unreadable group with the value found, and what to write', () => {
 		const parsed = parseRosterSheet(
 			[
-				['1130001', '王芃頵', 'Yoyo', 'G9 Wizard 1'],
-				['1130002', '李大文', 'Jeremy', ''],
-				['1130003', '陳小明', 'Ming', 'G9 Advanced 1']
+				['1130001', '王芃頵', 'Yoyo', 'G9 Wizard 1', 'J301'],
+				['1130002', '李大文', 'Jeremy', '', 'J301'],
+				['1130003', '陳小明', 'Ming', 'G9 Advanced 1', 'J301']
 			],
 			detectColumns(G9_HEADER),
 			2,
@@ -139,48 +172,48 @@ describe('grade 10 sheets', () => {
 		expect(parsed.rejected[1].reason).toContain('empty');
 	});
 
-	it('keeps a class sheet that holds one misfiled row, filing that row by its column', () => {
+	it('refuses a class sheet that holds one misfiled row, until the workbook agrees with itself', () => {
 		// The measured case: `G7 Basic 5` holds a student whose `ESL Group` reads
-		// `G7 Elementary 4`, because they changed level and the column was not
-		// updated. Read strictly, that one row made the sheet look like a summary
-		// and 18 real students were discarded. The column is the class of record, so
-		// the student is filed under Elementary 4 and the workbook is flagged.
+		// `G7 Elementary 4`. This used to import, filing the row under the class its
+		// column named and warning about it — but a wrong ability band is silent:
+		// every count still adds up and the roster is quietly wrong. The department
+		// confirmed these are typos they will fix, so the file is refused and the
+		// message names the disagreeing group (ADR-0025).
 		const rows: string[][] = [];
 		for (let seat = 1; seat <= 18; seat++) {
-			// Column order follows G9_HEADER: id, Chinese name, English name, group.
-			rows.push([`115${String(1000 + seat)}`, '王', `Yoyo ${seat}`, 'G7 Basic 5']);
+			// Column order follows LEVELLED_CHINESE_HEADER: id, C Class, names, group.
+			rows.push([`115${String(1000 + seat)}`, 'J101', '王', `Yoyo ${seat}`, 'G7 Basic 5']);
 		}
 		// The one student who moved down a level and had their column left behind.
-		rows.push(['1159999', '李', 'Moved', 'G7 Elementary 4']);
+		rows.push(['1159999', 'J101', '李', 'Moved', 'G7 Elementary 4']);
 
-		const sheet = classifySheet('G7 Basic 5', rows, G9_HEADER, 2, 7);
+		const sheet = classifySheet('G7 Basic 5', rows, LEVELLED_CHINESE_HEADER, 2, 7);
 
-		expect(sheet.kind).toBe('class');
-		if (sheet.kind !== 'class') throw new Error('expected a class sheet');
-		// All 19 survive — the sheet is a class, so none of it is discarded.
-		expect(sheet.parsed.students).toHaveLength(19);
-		// And the odd one is filed under the class its column names, not its sheet.
-		const moved = sheet.parsed.students.find((s) => s.schoolStudentId === '1159999');
-		expect(moved?.group).toEqual({ grade: 7, level: 'Elementary', classNumber: '4' });
+		expect(sheet.kind).toBe('misfiled');
+		if (sheet.kind !== 'misfiled') throw new Error('expected a misfiled sheet');
+		// Named, so the admin knows which cell to open.
 		expect(sheet.reason).toContain('G7 Elementary 4');
-		expect(sheet.reason).toContain('class of record');
+		// The rows are still parsed, so the caller can report what was in the file
+		// — but they are never applied.
+		expect(sheet.parsed.students).toHaveLength(19);
 	});
 
-	it('keeps a grade 10 sheet whose one row names another base class', () => {
-		// 45 rows of one base class and a single row of another: a class sheet with a
-		// misfiled row, not a summary. The odd row is filed by its column.
+	it('refuses a grade 10 sheet whose one row names another base class', () => {
+		// 45 rows of one base class and a single row of another. Refused for the
+		// same reason: the workbook disagrees with itself and there is no basis for
+		// choosing which of the two columns is right.
 		const straddling = classifySheet(
 			'H101',
-			[...h101Rows(), ['H102A', '513001', 'H102', '陳小明', 'Ming Chen']],
+			[...h101Rows(), ['H102A', '511301', 'H102', '陳小明', 'Ming Chen']],
 			G10_HEADER,
 			2,
 			10
 		);
 
-		expect(straddling.kind).toBe('class');
-		if (straddling.kind !== 'class') throw new Error('expected a class sheet');
-		expect(straddling.parsed.students).toHaveLength(46);
+		expect(straddling.kind).toBe('misfiled');
+		if (straddling.kind !== 'misfiled') throw new Error('expected a misfiled sheet');
 		expect(straddling.reason).toContain('H102A');
+		expect(straddling.parsed.students).toHaveLength(46);
 	});
 
 	it('reads a grade 10 file end to end, with one cohort per base class', () => {
@@ -192,24 +225,32 @@ describe('grade 10 sheets', () => {
 		expect(parsed.classes).toHaveLength(1);
 		expect(parsed.students).toHaveLength(45);
 		expect(parsed.skipped.map((s) => s.sheetName)).toEqual(['Chinese Class']);
-		// Grade 10's ID space identifies no school year, so the year is confirmed
-		// by the admin rather than derived.
-		expect(parsed.derivedYear.kind).toBe('unsupported');
+		// Grade 10's IDs name the school year itself, reversed, so the year is
+		// derived from them like any other grade's.
+		expect(parsed.derivedYear).toEqual({
+			kind: 'current',
+			year: '2026-2027',
+			entryYear: 115
+		});
 	});
 
-	it('puts both sections of a base class in one cohort', () => {
+	it('gives each level of a base class its own cohort', () => {
 		const a = cohortOfGroup({ grade: 10, baseClass: '01', section: 'A' });
 		const b = cohortOfGroup({ grade: 10, baseClass: '01', section: 'B' });
 		const other = cohortOfGroup({ grade: 10, baseClass: '02', section: 'A' });
 
-		// One cohort, two classes — which is what the schema models and what
-		// `esl/cohorts.create` composes the H101A/H101B pair for.
-		expect(a).toEqual(b);
-		expect(a).toEqual({ grade: 10, classNumber: '01' });
-		// No level: grade 10 is not levelled, and a required one would reject
-		// every G10 cohort.
-		expect(a.level).toBeUndefined();
-		expect(other.classNumber).toBe('02');
+		// Two cohorts, because A and B are ability levels holding different students
+		// (ADR-0023). They shared one cohort when A and B were called sections, which
+		// merged the two bands the sorting test exists to separate — and the student
+		// counts still added up, so nothing downstream could see it.
+		expect(a).toEqual({ grade: 10, level: 'A', classNumber: '01' });
+		expect(b).toEqual({ grade: 10, level: 'B', classNumber: '01' });
+		expect(a).not.toEqual(b);
+
+		// The Chinese class is still part of the identity, so a different base class
+		// is a different cohort again.
+		expect(other).toEqual({ grade: 10, level: 'A', classNumber: '02' });
+		expect(cohortOfGroup({ grade: 10, baseClass: '01' }).level).toBeUndefined();
 	});
 
 	it('rebuilds the workbook section text, so the server re-reads what it parsed', () => {
@@ -402,9 +443,16 @@ describe('school year derivation', () => {
 		});
 	});
 
-	it('never derives a year for grade 10', () => {
-		// Grade 10's IDs move 4xxxxx → 5xxxxx → 6xxxxx, unrelated to intake.
-		expect(deriveSchoolYear(10, ['511024', '511355']).kind).toBe('unsupported');
+	it('derives grade 10’s year from its own IDs', () => {
+		// Grade 10 names the school year itself, reversed, so there is no intake
+		// offset to apply. Previously this returned `unsupported` on the claim that
+		// grade 10 IDs identify no year at all, which sent a real 2025-2026 file to
+		// 2116-2117; see the "reversed ROC year" block for that reading.
+		expect(deriveSchoolYear(10, ['511024', '511355'])).toEqual({
+			kind: 'current',
+			year: '2026-2027',
+			entryYear: 115
+		});
 	});
 
 	it('reports indeterminate when no ID carries a usable prefix', () => {
@@ -439,37 +487,37 @@ describe('grade derivation from a confirmed year', () => {
 		expect(gradeIn('2027-2028')).toBe(9);
 	});
 
-	it('places a grade 10 file from its own ID space, with nothing asked', () => {
-		// Grade 10 is numbered `51xxxx` in 2026-2027, on a space no other grade uses.
-		// So the ID says which grade it is, which is what lets the page stop asking
-		// for one.
-		expect(deriveGradeForSchoolYear('2026-2027', ['510001', '510002'])).toEqual({
+	it('places a grade 10 file from its own ID length, with nothing asked', () => {
+		// Grade 10 is numbered `511xxx` in 2026-2027, six digits where no levelled
+		// grade is numbered that way. So the ID says which grade it is, which is what
+		// lets the page stop asking for one.
+		expect(deriveGradeForSchoolYear('2026-2027', ['511001', '511002'])).toEqual({
 			kind: 'grade',
 			grade: 10
 		});
 	});
 
-	it('tells a grade 10 ID from a levelled one of the same length', () => {
-		// Both are six digits, so length says nothing. `511024` is grade 10 on the `51`
-		// space; `115001` is grade 7 entered in ROC 115. The third digit is what tells
-		// them apart, and getting it wrong would file a whole G10 roster as some
-		// levelled grade.
+	it('tells a grade 10 ID from a levelled one that looks similar', () => {
+		// Both begin `115` or `511` in the same positions, so reading the leading
+		// digits would confuse them; only the length separates the schemes.
+		// `511024` is grade 10 in 2026-2027 and `1150024` is grade 7 entered in ROC
+		// 115. Getting it wrong would file a whole G10 roster as a levelled grade.
 		expect(deriveGradeForSchoolYear('2026-2027', ['511024', '511355'])).toEqual({
 			kind: 'grade',
 			grade: 10
 		});
-		expect(deriveGradeForSchoolYear('2026-2027', ['115001'])).toEqual({
+		expect(deriveGradeForSchoolYear('2026-2027', ['1150024'])).toEqual({
 			kind: 'grade',
 			grade: 7
 		});
 	});
 
 	it('places a grade 10 file whatever year the page is set to', () => {
-		// The space says the grade; the year above says the year. Neither is derived
+		// The length says the grade; the year above says the year. Neither is derived
 		// from the other, so a file that is plainly grade 10 stays grade 10 instead of
 		// being told it is some levelled grade.
 		for (const year of ['2025-2026', '2026-2027', '2027-2028']) {
-			expect(deriveGradeForSchoolYear(year, ['510001'])).toEqual({
+			expect(deriveGradeForSchoolYear(year, ['511001'])).toEqual({
 				kind: 'grade',
 				grade: 10
 			});
@@ -520,60 +568,98 @@ describe('grade derivation from a confirmed year', () => {
 	});
 });
 
-describe('the grade 10 ID space', () => {
-	// Grade 10's space is two digits and advances one step per school year:
-	// `50xxxx`, then `51xxxx` for 2026-2027, then `52xxxx`. That is the only thing
-	// tying a grade 10 file to a year, since its IDs name no intake year, so it is
-	// what lets the page check a grade 10 file against the year on the page the same
-	// way it checks a levelled one.
+describe("grade 10's reversed ROC year", () => {
+	// Grade 10's IDs are six digits: the ROC year of the school year itself,
+	// digit-reversed, then three of sequence. `411019` is `114` — ROC 114, which is
+	// 2025-2026. There is no anchor to be wrong about and no wrap to run off the
+	// end, because the reversal is a bijection with ROC years.
 
-	it('maps each school year to the space it is numbered in', () => {
-		expect(grade10SpaceForSchoolYear('2025-2026')).toBe(50);
-		expect(grade10SpaceForSchoolYear('2026-2027')).toBe(51);
-		expect(grade10SpaceForSchoolYear('2027-2028')).toBe(52);
-		expect(grade10SpaceForSchoolYear('2030-2031')).toBe(55);
+	it('reads the school year off a grade 10 ID', () => {
+		expect(schoolYearFromGrade10Id('411019')).toBe('2025-2026');
+		expect(schoolYearFromGrade10Id('511024')).toBe('2026-2027');
+		expect(schoolYearFromGrade10Id('611001')).toBe('2027-2028');
 	});
 
-	it('keeps working well past the year a single leading digit would run out', () => {
-		// One digit buys only up to ROC 119, which is 2030-2031. Two digits is the
-		// reason the space is read as two.
-		expect(grade10SpaceForSchoolYear('2050-2051')).toBe(75);
-		expect(grade10SpaceForSchoolYear('2070-2071')).toBe(95);
+	it('reads the years the school has actually used', () => {
+		// The four years of grade 10 files the school has produced, in the order
+		// they were given: `211` (ROC 112), `311`, `411`, `511`.
+		expect(schoolYearFromGrade10Id('211001')).toBe('2023-2024');
+		expect(schoolYearFromGrade10Id('311001')).toBe('2024-2025');
+		expect(schoolYearFromGrade10Id('411001')).toBe('2025-2026');
+		expect(schoolYearFromGrade10Id('511001')).toBe('2026-2027');
 	});
 
-	it('wraps at 99 rather than running off the end', () => {
-		// The open question the school has not confirmed is what happens when the
-		// space passes `99` — whether they restart from `00` or go to three digits.
-		// Reading `00` as the year after `99` is the assumption made here, and it
-		// keeps the year moving forward one step at a time either way.
-		expect(grade10SpaceForSchoolYear('2074-2075')).toBe(99);
-		expect(grade10SpaceForSchoolYear('2075-2076')).toBe(0);
-	});
-
-	it('refuses a year that is not shaped like a school year', () => {
-		expect(grade10SpaceForSchoolYear('not-a-year')).toBeNull();
-		expect(grade10SpaceForSchoolYear('2026')).toBeNull();
-		expect(grade10SpaceForSchoolYear('2026-2028')).toBeNull();
-	});
-
-	it('reads the year back out of a grade 10 file', () => {
-		expect(deriveGrade10SchoolYear(['510001', '510002'])).toEqual({
+	it('reads the 2025-2026 workbook the reported bug came from', () => {
+		// The bug this guards: `411xxx` was read as a two-digit `41` "space" below a
+		// `51` anchor, which the wrap turned into +90 years, so a real 2025-2026
+		// file was reported as belonging to 2116-2117. `41` is not a space; it is
+		// ROC 114 backwards.
+		expect(schoolYearFromGrade10Id('411001')).toBe('2025-2026');
+		expect(deriveSchoolYear(10, ['411001', '411549'])).toEqual({
 			kind: 'current',
-			year: '2026-2027'
-		});
-		expect(deriveGrade10SchoolYear(['520001'])).toEqual({
-			kind: 'current',
-			year: '2027-2028'
+			year: '2025-2026',
+			entryYear: 114
 		});
 	});
 
-	it('reports a file holding two spaces as a conflict', () => {
-		expect(deriveGrade10SchoolYear(['510001', '520001'])).toEqual({ kind: 'conflict' });
+	it('keeps reading years past the point a single leading digit would run out', () => {
+		// One digit would stop at ROC 119 (2030-2031). The reversal needs no special
+		// case: `021` is simply ROC 120 backwards, so 2031-2032 falls out of the same
+		// rule rather than a case written for it.
+		expect(schoolYearFromGrade10Id('911001')).toBe('2030-2031');
+		expect(schoolYearFromGrade10Id('021001')).toBe('2031-2032');
+		expect(schoolYearFromGrade10Id('121001')).toBe('2032-2033');
 	});
 
-	it('is unknown for a file on no grade 10 space', () => {
-		expect(deriveGrade10SchoolYear(['115001'])).toEqual({ kind: 'unknown' });
-		expect(deriveGrade10SchoolYear([])).toEqual({ kind: 'unknown' });
+	it('writes a ROC year back out as the prefix the school uses', () => {
+		expect(reversedPrefixForRocYear(114)).toBe('411');
+		expect(reversedPrefixForRocYear(115)).toBe('511');
+		expect(reversedPrefixForRocYear(120)).toBe('021');
+	});
+
+	it('refuses a ROC year that is not three digits', () => {
+		expect(reversedPrefixForRocYear(99)).toBeNull();
+		expect(reversedPrefixForRocYear(1000)).toBeNull();
+		expect(reversedPrefixForRocYear(114.5)).toBeNull();
+	});
+
+	it('refuses a reversed 000, which is not a year', () => {
+		// `000001` is six digits and so reads as grade 10, but reversed it is ROC 0,
+		// which is not a year. Reading it as 1911 would put a junk ID in 1911-1912.
+		expect(isGrade10StudentId('000001')).toBe(true);
+		expect(schoolYearFromGrade10Id('000001')).toBeNull();
+	});
+
+	it('reports a file holding two school years as a conflict', () => {
+		// The shape the fixed `h101Rows` fixture used to have: section A on `511`
+		// and section B on `512`. Under the two-digit reading both were space `51`
+		// and this was invisible; reversed, `512` is ROC 215, so a class that is
+		// really one cohort reads as two years and the import would split it.
+		expect(deriveSchoolYear(10, ['511101', '512101'])).toEqual({
+			kind: 'conflict',
+			years: ['2026-2027', '2126-2127']
+		});
+	});
+
+	it('is indeterminate for a file with no usable grade 10 IDs', () => {
+		expect(deriveSchoolYear(10, ['1150001'])).toEqual({ kind: 'indeterminate' });
+		expect(deriveSchoolYear(10, [])).toEqual({ kind: 'indeterminate' });
+	});
+
+	it('tells grade 10 from a levelled grade by length, not by leading digits', () => {
+		// Length is the discriminator, because the leading digits cannot be. A
+		// reversed grade 10 prefix beginning `1` looks exactly like a levelled ROC
+		// entry year, and the old reading relied on that never happening.
+		expect(isGrade10StudentId('110019')).toBe(true);
+		expect(isGrade10StudentId('1100019')).toBe(false);
+		expect(deriveGradeForSchoolYear('2021-2022', ['110019', '110020'])).toEqual({
+			kind: 'grade',
+			grade: 10
+		});
+		expect(deriveGradeForSchoolYear('2026-2027', ['1150001'])).toEqual({
+			kind: 'grade',
+			grade: 7
+		});
 	});
 });
 
@@ -585,8 +671,8 @@ describe('gradesNamedInWorkbook', () => {
 		const parsed = parseRosterWorkbook(7, [
 			{
 				name: 'G7 Basic 1',
-				headerRow: ['Student ID', 'Chinese Name', 'English Name', 'ESL Group'],
-				rows: [['1150001', '陳明', 'Ming Chen', 'G7 Basic 1']]
+				headerRow: LEVELLED_CHINESE_HEADER,
+				rows: [['1150001', 'J101', '陳明', 'Ming Chen', 'G7 Basic 1']]
 			}
 		]);
 		expect(gradesNamedInWorkbook(parsed)).toEqual([7]);
@@ -613,7 +699,8 @@ describe('detectColumns', () => {
 			schoolStudentId: 0,
 			chineseName: 3,
 			englishName: 4,
-			group: 5
+			group: 5,
+			chineseClass: 1
 		});
 	});
 
@@ -623,7 +710,9 @@ describe('detectColumns', () => {
 			schoolStudentId: 1,
 			chineseName: 3,
 			englishName: 4,
-			group: 0
+			group: 0,
+			// G10 heads the same column `Class` that the levelled grades call `C Class`.
+			chineseClass: 2
 		});
 	});
 });
@@ -642,13 +731,17 @@ describe('parseRosterSheet', () => {
 	it('reads a row, normalising a float ID', () => {
 		const parsed = parseRosterSheet(
 			[['1130501.0', 'J304', '42.0', '石芠瑈', 'Blare Shi', 'G9 Elementary 1']],
-			g7Columns
+			g7Columns,
+			2,
+			9
 		);
 		expect(parsed.students).toEqual([
 			{
 				schoolStudentId: '1130501',
 				chineseName: '石芠瑈',
 				englishName: 'Blare Shi',
+				// Stored as the number only; the `J3` marker is the grade's.
+				chineseClass: '04',
 				group: { grade: 9, level: 'Elementary', classNumber: '1' }
 			}
 		]);
@@ -656,15 +749,19 @@ describe('parseRosterSheet', () => {
 	});
 
 	it('accepts a blank English name, which G7 may arrive with', () => {
-		const parsed = parseRosterSheet([['1150002', '', '1', '王芃頵', '', 'G7 Basic 1']], g7Columns);
+		const parsed = parseRosterSheet(
+			[['1150002', 'J101', '1', '王芃頵', '', 'G7 Basic 1']],
+			g7Columns
+		);
 		expect(parsed.students[0].englishName).toBeUndefined();
+		expect(parsed.rejected).toEqual([]);
 	});
 
 	it('reports an unreadable row against its line in the sheet', () => {
 		const parsed = parseRosterSheet(
 			[
-				['1150002', '', '1', '王芃頵', 'Jenny Wang', 'G7 Basic 1'],
-				['', '', '2', '無名', '', 'G7 Basic 1']
+				['1150002', 'J101', '1', '王芃頵', 'Jenny Wang', 'G7 Basic 1'],
+				['', 'J101', '2', '無名', '', 'G7 Basic 1']
 			],
 			g7Columns
 		);
@@ -675,7 +772,7 @@ describe('parseRosterSheet', () => {
 
 	it('rejects a row whose group it cannot read, without guessing', () => {
 		const parsed = parseRosterSheet(
-			[['1150002', '', '1', '王芃頵', 'Jenny', 'Gifted 1']],
+			[['1150002', 'J101', '1', '王芃頵', 'Jenny', 'Gifted 1']],
 			g7Columns
 		);
 		expect(parsed.students).toEqual([]);
@@ -693,7 +790,9 @@ describe('classifySheet', () => {
 				['1130053', 'J301', '6', '林亭佑', 'Yoyo Lin', 'G9 Advanced 1'],
 				['1130054', 'J301', '7', '林炫晴', 'Elsa Lin', 'G9 Advanced 1']
 			],
-			header
+			header,
+			2,
+			9
 		);
 		expect(classified.kind).toBe('class');
 	});
@@ -709,7 +808,9 @@ describe('classifySheet', () => {
 			for (let seat = 0; seat < 5; seat++) {
 				rows.push([
 					`113${String(groupIndex * 10 + seat).padStart(4, '0')}`,
-					'',
+					// A summary sheet restates every class in the grade, so its
+					// homerooms are spread across all of them.
+					`J3${String(groupIndex + 1).padStart(2, '0')}`,
 					'',
 					`林${groupIndex}${seat}`,
 					`Name ${groupIndex}${seat}`,
@@ -718,7 +819,7 @@ describe('classifySheet', () => {
 			}
 		});
 
-		const classified = classifySheet('G9 Chinese', rows, header);
+		const classified = classifySheet('G9 Chinese', rows, header, 2, 9);
 
 		expect(classified.kind).toBe('summary');
 		if (classified.kind !== 'summary') throw new Error('expected a summary sheet');
@@ -796,12 +897,14 @@ describe('planRosterImport', () => {
 	function student(
 		schoolStudentId: string,
 		group: LevelledRosterGroup,
-		englishName?: string
+		englishName?: string,
+		chineseClass = '01'
 	): RosterStudent {
 		return {
 			schoolStudentId,
 			chineseName: '王芃頵',
 			...(englishName ? { englishName } : {}),
+			chineseClass,
 			group
 		};
 	}
@@ -815,6 +918,7 @@ describe('planRosterImport', () => {
 			schoolStudentId: '1130001',
 			chineseName: '王芃頵',
 			englishName: 'Yoyo Lin',
+			chineseClass: '01',
 			status: 'active',
 			...over
 		};
@@ -841,6 +945,7 @@ describe('planRosterImport', () => {
 			new: 0,
 			levelChange: 0,
 			nameChange: 0,
+			classChange: 0,
 			disabled: 0,
 			unchanged: 1
 		});
@@ -872,6 +977,53 @@ describe('planRosterImport', () => {
 			from: 'Yoyo Lin',
 			to: 'Blair Lin'
 		});
+	});
+
+	it('reports a Chinese class change as its own fact, needing no approval', () => {
+		// A student transferred homeroom mid-year. Unlike a name change this is not
+		// a question of intent — the department's file is simply newer than our
+		// record — so it is applied, but it is still reported so the transfer is
+		// never invisible in the import summary.
+		const plan = planRosterImport([ADV1], [student('1130001', ADV1, 'Yoyo Lin', '02')], COHORTS, [
+			existing({ id: 's1' })
+		]);
+
+		expect(plan.totals.classChange).toBe(1);
+		expect(plan.changes.find((change) => change.kind === 'classChange')).toMatchObject({
+			from: '01',
+			to: '02',
+			// The grade is carried on the change so the report can say `J301 → J302`
+			// without the caller having to resolve the cohort.
+			grade: 9
+		});
+		// Not folded into the other categories: the student is neither moved nor renamed.
+		expect(plan.totals.levelChange).toBe(0);
+		expect(plan.totals.nameChange).toBe(0);
+	});
+
+	it('fills in the homeroom of an advanced student without reporting a change', () => {
+		// A row `advanceGrade` created carries no homeroom, because next year's is
+		// not knowable in June. There is nothing on file to have changed from, so the
+		// September import must record the value rather than report a diff against
+		// an absence.
+		const plan = planRosterImport([ADV1], [student('1130001', ADV1, 'Yoyo Lin', '04')], COHORTS, [
+			{ ...existing({ id: 's1' }), chineseClass: undefined }
+		]);
+
+		expect(plan.totals.classChange).toBe(0);
+		expect(plan.totals.unchanged).toBe(1);
+	});
+
+	it('reports a level move and a homeroom change separately', () => {
+		const plan = planRosterImport(
+			[ADV1, ADV2],
+			[student('1130001', ADV2, 'Yoyo Lin', '07')],
+			COHORTS,
+			[existing({ id: 's1' })]
+		);
+
+		expect(plan.totals.levelChange).toBe(1);
+		expect(plan.totals.classChange).toBe(1);
 	});
 
 	it('never lets a blank name in the file erase a stored one', () => {
@@ -923,6 +1075,7 @@ describe('planRosterImport', () => {
 			new: 0,
 			levelChange: 0,
 			nameChange: 0,
+			classChange: 0,
 			disabled: 0,
 			unchanged: 0
 		});
@@ -965,5 +1118,181 @@ describe('planRosterImport', () => {
 			{ cohortId: 'c_adv2', cohortKey: '9:Advanced:2', added: 0, moved: 1, total: 0 },
 			{ cohortId: 'c_ele1', cohortKey: '9:Elementary:1', added: 0, moved: 0, total: 0 }
 		]);
+	});
+
+	describe('the Chinese homeroom column', () => {
+		// The acceptance table from ADR-0025, one case per row. Only the school's own
+		// full form is accepted, because a bare number cannot be told from a truncated
+		// one and a misfiled homeroom is the one error nothing downstream would catch.
+		const HEADER = ['Student ID', 'Chinese Name', 'English Name', 'ESL Group', 'C Class'];
+
+		function readRow(classCell: string, grade: 7 | 8 | 9 | 10) {
+			const prefix = grade === 10 ? '51' : '115';
+			const row = [
+				`${prefix}0001`,
+				'王芃頵',
+				'Yoyo Lin',
+				// The group names the same grade the row is read as, so the helper
+				// tests the cell rather than a mismatch between the two.
+				grade === 10 ? 'H101A' : `G${grade} Basic 1`,
+				classCell
+			];
+			return parseRosterSheet([row], detectColumns(HEADER), 2, grade);
+		}
+
+		it('stores only the class number, rebuilding the grade marker on demand', () => {
+			const parsed = readRow('J101', 7);
+
+			expect(parsed.rejected).toEqual([]);
+			// `J1` is derivable from the grade, so only `01` is kept.
+			expect(parsed.students[0].chineseClass).toBe('01');
+			expect(chineseClassCode(7, parsed.students[0].chineseClass)).toBe('J101');
+		});
+
+		it('reads each grade in its own marker', () => {
+			// The marker is the grade, so the same class number renders differently per
+			// grade: J101 / J201 / J301 / H101 are all class 01.
+			expect(chineseClassCode(7, '01')).toBe('J101');
+			expect(chineseClassCode(8, '01')).toBe('J201');
+			expect(chineseClassCode(9, '01')).toBe('J301');
+			expect(chineseClassCode(10, '01')).toBe('H101');
+		});
+
+		it('refuses a marker that belongs to another grade', () => {
+			// The check the derivation buys us: a J201 cell in a grade 7 workbook is
+			// provably wrong, so the file says so rather than importing it.
+			const parsed = readRow('J201', 7);
+
+			expect(parsed.students).toEqual([]);
+			expect(parsed.rejected[0].reason).toContain('J101');
+		});
+
+		it('refuses a bare number rather than guessing which part is the grade', () => {
+			// `1` could be class 1 or a truncated `J101`; `701` could be grade 7 class 01
+			// or a three-digit class. Neither is safe to read.
+			for (const cell of ['1', '01', '701', 'J1', 'J1010', '']) {
+				const parsed = readRow(cell, 7);
+				expect(parsed.students, `"${cell}" should not import`).toEqual([]);
+				expect(parsed.rejected, `"${cell}" should be reported`).toHaveLength(1);
+			}
+		});
+
+		it('refuses class 00, which the school does not run', () => {
+			expect(readRow('J100', 7).rejected).toHaveLength(1);
+		});
+
+		it('reports the cell and the form the school uses', () => {
+			// So the admin can fix one cell in Excel, not guess which of 495 rows.
+			expect(readRow('', 7).rejected[0].reason).toContain('J101');
+			expect(readRow('701', 9).rejected[0].reason).toContain('J301');
+		});
+
+		it('treats a sheet with no Chinese-class column as unreadable', () => {
+			// Otherwise every one of its rows is rejected for the same missing column,
+			// burying the real problem under 400 identical messages.
+			const withoutColumn = ['Student ID', 'Chinese Name', 'English Name', 'ESL Group'];
+
+			expect(isReadableRosterSheet(detectColumns(withoutColumn))).toBe(false);
+
+			const sheet = classifySheet(
+				'G7 Basic 1',
+				[['1150001', '王', 'Yoyo', 'G7 Basic 1']],
+				withoutColumn,
+				2,
+				7
+			);
+			expect(sheet.kind).toBe('unreadable');
+			if (sheet.kind !== 'unreadable') throw new Error('expected an unreadable sheet');
+			expect(sheet.reason).toContain('Chinese class');
+		});
+
+		it('refuses a grade 10 sheet whose homeroom is not its cohort', () => {
+			// A grade 10 class draws from exactly one Chinese class (ADR-0023), so the
+			// Class column and the H1nn group are the same fact said twice. One row
+			// disagreeing means a typo in one of them, and there is no basis for
+			// choosing which — so the file is refused whole.
+			const rows = h101Rows();
+			rows[0] = [...rows[0]];
+			rows[0][2] = 'H102';
+			const sheet = classifySheet('H101', rows, G10_HEADER, 2, 10);
+
+			expect(sheet.kind).toBe('misfiled');
+			if (sheet.kind !== 'misfiled') throw new Error('expected a misfiled sheet');
+			expect(sheet.reason).toContain('511101');
+			expect(sheet.reason).toContain('H102');
+			// The row is not silently filed by one column or the other.
+			expect(sheet.parsed.students).toHaveLength(45);
+		});
+
+		it('leaves a levelled grade to its own columns', () => {
+			// Grades 7–9 are deliberately mixed across homerooms (ADR-0023), so a
+			// student sitting in one ESL class with two different homerooms is
+			// correct, not a defect — and there is nothing to cross-check against.
+			const rows: string[][] = [];
+			for (let seat = 1; seat <= 10; seat++) {
+				rows.push([
+					`115${String(1000 + seat)}`,
+					// Ten students drawn from three homerooms, as the school draws them.
+					`J${101 + (seat % 3)}`,
+					'王',
+					`Yoyo ${seat}`,
+					'G7 Basic 1'
+				]);
+			}
+			const sheet = classifySheet('G7 Basic 1', rows, LEVELLED_CHINESE_HEADER, 2, 7);
+
+			expect(sheet.kind).toBe('class');
+			if (sheet.kind !== 'class') throw new Error('expected a class sheet');
+			// All three homerooms recorded, none of them a reason to refuse.
+			expect([...new Set(sheet.parsed.students.map((s) => s.chineseClass))].sort()).toEqual([
+				'01',
+				'02',
+				'03'
+			]);
+		});
+
+		it('reads a file as the grade its own group names, not the one it is read as', () => {
+			// The regression the import page's year prompt turned on. When the page's
+			// year derives the wrong grade, the file is read as that grade — and the
+			// homeroom marker was checked against it. A grade 9 file's `J301` then failed
+			// grade 8's `J2` check, so every row was rejected, `students` came back
+			// empty, and the year the file actually claims could not be derived to raise
+			// the prompt. The file was staged under the wrong grade instead of reported.
+			//
+			// The marker answers to the group beside it: a `G9` row's homeroom is a
+			// grade 9 homeroom whatever the page derived.
+			const parsed = parseRosterSheet(
+				[['1130001', '王芃頵', 'Yoyo Lin', 'G9 Advanced 1', 'J301']],
+				detectColumns(HEADER),
+				2,
+				// Read as grade 8 — the year-mismatch case, deliberately.
+				8
+			);
+
+			expect(parsed.rejected).toEqual([]);
+			expect(parsed.students).toHaveLength(1);
+			expect(parsed.students[0].chineseClass).toBe('01');
+			// And the row is still filed under the class its own group names, which is
+			// what lets the page notice the year disagrees.
+			expect(parsed.students[0].group).toEqual({
+				grade: 9,
+				level: 'Advanced',
+				classNumber: '1'
+			});
+		});
+
+		it('still refuses a marker that disagrees with the row its own group names', () => {
+			// The check is not weakened by the case above: it moves to the row's own
+			// account of itself, so a `J201` homeroom on a `G9` row is still wrong.
+			const parsed = parseRosterSheet(
+				[['1130001', '王芃頵', 'Yoyo Lin', 'G9 Advanced 1', 'J201']],
+				detectColumns(HEADER),
+				2,
+				9
+			);
+
+			expect(parsed.students).toEqual([]);
+			expect(parsed.rejected[0].reason).toContain('J301');
+		});
 	});
 });

@@ -15,9 +15,8 @@
 
 	const sections = [
 		{ href: '/esl/admin', testId: 'esl-admin.nav.overview', label: 'Overview' },
-		{ href: '/esl/admin/cohorts', testId: 'esl-admin.nav.cohorts', label: 'Cohorts' },
+		{ href: '/esl/admin/classes', testId: 'esl-admin.nav.classes', label: 'Classes' },
 		{ href: '/esl/admin/students', testId: 'esl-admin.nav.students', label: 'Students' },
-		{ href: '/esl/admin/import', testId: 'esl-admin.nav.import', label: 'Import' },
 		{ href: '/esl/admin/users', testId: 'esl-admin.nav.users', label: 'Users' }
 	] as const;
 

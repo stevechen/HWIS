@@ -34,6 +34,9 @@ describe('esl students', () => {
 				englishName: 'Alice Chan',
 				chineseName: '陳小美',
 				schoolStudentId: '7001001',
+				// Stored as the bare class number; the `J1` marker is the
+				// grade's and is rebuilt by chineseClassCode on read (ADR-0025).
+				chineseClass: '01',
 				status: 'active'
 			});
 			expect(student?.disabledAt).toBeUndefined();
@@ -47,7 +50,8 @@ describe('esl students', () => {
 				cohortId,
 				englishName: 'Carol Ho',
 				chineseName: '何家明',
-				schoolStudentId: '100234'
+				schoolStudentId: '100234',
+				chineseClass: 'J101'
 			});
 
 			expect(studentId).toBeDefined();
@@ -77,7 +81,7 @@ describe('esl students', () => {
 			await t.mutation(api.esl.students.create, { cohortId, ...ESL_ALICE });
 
 			await expect(t.mutation(api.esl.students.create, { cohortId, ...ESL_ALICE })).rejects.toThrow(
-				'already enrolled in this cohort'
+				'already enrolled in this class'
 			);
 		});
 
@@ -145,8 +149,8 @@ describe('esl students', () => {
 				cohortId,
 				students: [
 					ESL_ALICE,
-					{ englishName: 'Bad Id', chineseName: '錯', schoolStudentId: '12' },
-					{ englishName: '', chineseName: '無名', schoolStudentId: '7001003' }
+					{ englishName: 'Bad Id', chineseName: '錯', schoolStudentId: '12', chineseClass: 'J101' },
+					{ englishName: '', chineseName: '無名', schoolStudentId: '7001003', chineseClass: 'J101' }
 				]
 			});
 

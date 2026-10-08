@@ -305,12 +305,15 @@ async function asAdmin(authId = 'esl-admin') {
 function row(
 	schoolStudentId: string,
 	group: string,
-	over: { chineseName?: string; englishName?: string } = {}
+	over: { chineseName?: string; englishName?: string; chineseClass?: string } = {}
 ) {
 	return {
 		schoolStudentId,
 		chineseName: over.chineseName ?? '王芃頵',
 		...(over.englishName === undefined ? {} : { englishName: over.englishName }),
+		// The `C Class` cell, sent as the school writes it. Grade 9 here, so
+		// `J301` — stored as the number `01` (ADR-0025).
+		chineseClass: over.chineseClass ?? 'J301',
 		group
 	};
 }
@@ -338,6 +341,7 @@ async function enrol(
 	return t.mutation(api.esl.students.create, {
 		cohortId,
 		schoolStudentId,
+		chineseClass: 'J301',
 		chineseName: '王芃頵',
 		englishName
 	});
@@ -620,22 +624,56 @@ describe('what it refuses', () => {
 		).rejects.toThrow(/appear more than once in the file/);
 	});
 
-	it('applies a grade 10 file, which names no year of its own', async () => {
-		// Grade 10 IDs carry no intake year, so there is nothing to check the
-		// confirmed year against. The admin year is the only statement available,
-		// and the rows are applied into exactly that year.
+	it('applies a grade 10 file, whose IDs name the year it belongs to', async () => {
+		// Grade 10's IDs name the school year itself rather than an intake, so the
+		// year is derived from them and checked like any other grade's. Both rows
+		// are `511xxx` — ROC 115 reversed, which is 2026-2027 — matching `YEAR`.
 		const t = await asAdmin();
-		const result = await applyRoster(t, [row('511024', 'H101A'), row('512024', 'H101B')], {
-			grade: 10,
-			year: YEAR
-		});
+		const result = await applyRoster(
+			t,
+			[
+				// Grade 10's homerooms are `H1nn`, and a G10 class draws from exactly
+				// one of them — so both sections of H101 say `H101`.
+				row('511024', 'H101A', { chineseClass: 'H101' }),
+				row('511025', 'H101B', { chineseClass: 'H101' })
+			],
+			{
+				grade: 10,
+				year: YEAR
+			}
+		);
 
 		expect(result.added).toBe(2);
-		// One cohort, because both sections name the same base class.
+		// Two cohorts, one per level: A and B are ability bands holding different
+		// students, so they do not share a roster (ADR-0023). This was one cohort,
+		// which merged the two bands while the counts still added up.
 		const cohorts = await t.query(api.esl.cohorts.list, { year: YEAR, grade: 10 });
-		expect(cohorts).toHaveLength(1);
-		expect(cohorts[0].classNumber).toBe('01');
-		expect(cohorts[0].level).toBeUndefined();
+		expect(cohorts).toHaveLength(2);
+		expect(cohorts.map((c: { classNumber: string }) => c.classNumber)).toEqual(['01', '01']);
+		expect(cohorts.map((c: { level?: string }) => c.level).sort()).toEqual(['A', 'B']);
+		// And each is taught by its own single class.
+		for (const cohort of cohorts) {
+			const classes = await t.query(api.esl.classes.listByCohort, { cohortId: cohort._id });
+			expect(classes, `${cohort.level} should have one class`).toHaveLength(1);
+		}
+	});
+
+	it('refuses a grade 10 file whose IDs are for a different year', async () => {
+		// The server-side half of the fix. Grade 10's IDs name the school year, so
+		// the apply checks them the way it always checked the levelled grades. It
+		// used to skip grade 10 entirely on the claim that its IDs name no year,
+		// which left the browser prompt as the only guard on a whole roster.
+		//
+		// `411xxx` is ROC 114 reversed — 2025-2026 — but the import is confirmed for
+		// 2026-2027.
+		const t = await asAdmin();
+
+		await expect(
+			applyRoster(t, [row('411024', 'H101A', { chineseClass: 'H101' })], {
+				grade: 10,
+				year: YEAR
+			})
+		).rejects.toThrow(/indicate school year 2025-2026/);
 	});
 
 	it('refuses a school year that is not a year', async () => {

@@ -9,6 +9,7 @@
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
 	import { UserPlus, UserX, UserCheck, X } from '@lucide/svelte';
+	import { chineseClassCode } from '$convex/shared/esl';
 
 	const client = useConvexClient();
 
@@ -31,9 +32,49 @@
 	let englishName = $state('');
 	let chineseName = $state('');
 	let schoolStudentId = $state('');
+	/**
+	 * The Chinese homeroom, typed as the school writes it (`J101`).
+	 *
+	 * Required, because the Communication Slip prints it and a teacher needs it to
+	 * reach the right homeroom teacher. Validated against the chosen class's grade
+	 * on the server, so the placeholder follows whichever grade is selected.
+	 */
+	let chineseClass = $state('');
 	let enrolling = $state(false);
 	let formError = $state('');
 	let notice = $state('');
+
+	/** Filters the roster by homeroom; empty shows everyone. */
+	let chineseClassFilter = $state('');
+
+	/** The chosen class's grade, which decides what a valid homeroom looks like. */
+	const selectedGrade = $derived(cohorts.find((c) => c._id === selectedCohortId)?.grade ?? null);
+
+	/**
+	 * The homeroom a student is in, as the school writes it.
+	 *
+	 * Rebuilt from the stored class number and the class's grade, because only the
+	 * number is stored (ADR-0025). A student advanced into this year before the
+	 * September file arrived has none yet, and reads as unknown rather than as last
+	 * year's — a confidently wrong homeroom on a slip is worse than an absent one.
+	 */
+	function chineseClassLabel(student: { chineseClass?: string }): string {
+		if (student.chineseClass === undefined || selectedGrade === null) return '—';
+		return chineseClassCode(selectedGrade, student.chineseClass);
+	}
+
+	/**
+	 * The roster after the homeroom filter.
+	 *
+	 * A text filter rather than a dropdown of known classes: grades 7–9 draw each
+	 * class from three or four different homerooms by design (ADR-0023), so the
+	 * distinct values within one roster are most of the grade.
+	 */
+	const filteredStudents = $derived.by(() => {
+		const wanted = chineseClassFilter.trim().toLowerCase();
+		if (wanted === '') return students;
+		return students.filter((student) => chineseClassLabel(student).toLowerCase().includes(wanted));
+	});
 
 	// Transfer status
 	let pendingTransfer = $state<{ id: Id<'esl_students'>; name: string } | null>(null);
@@ -44,7 +85,7 @@
 	let busyId = $state<string | null>(null);
 
 	function cohortLabelFor(id: Id<'esl_cohorts'>): string {
-		return cohorts.find((c) => c._id === id)?.label ?? 'cohort';
+		return cohorts.find((c) => c._id === id)?.label ?? 'class';
 	}
 
 	async function enrol(event: SubmitEvent) {
@@ -52,7 +93,7 @@
 		formError = '';
 		notice = '';
 		if (!selectedCohortId) {
-			formError = 'Choose a cohort first';
+			formError = 'Choose a class first';
 			return;
 		}
 		enrolling = true;
@@ -61,12 +102,14 @@
 				cohortId: selectedCohortId,
 				englishName: englishName.trim(),
 				chineseName: chineseName.trim(),
-				schoolStudentId: schoolStudentId.trim()
+				schoolStudentId: schoolStudentId.trim(),
+				chineseClass: chineseClass.trim()
 			});
 			notice = `Enrolled ${englishName.trim()} into ${cohortLabelFor(selectedCohortId)}`;
 			englishName = '';
 			chineseName = '';
 			schoolStudentId = '';
+			chineseClass = '';
 		} catch (error) {
 			formError = error instanceof Error ? error.message : 'Could not enrol the student';
 		} finally {
@@ -144,19 +187,19 @@
 				Students
 			</h1>
 			<p class="text-muted-foreground mt-1">
-				Rosters belong to a cohort, and a G7/G8 CLIL class and its Comm partner share one roster.
-				Transfers are recorded in place so a cohort's history stays readable.
+				Rosters belong to a class. Transfers are recorded in place so a class's history stays
+				readable.
 			</p>
 		</div>
 		<div class="flex items-end gap-3">
 			<div class="space-y-1">
-				<Label for="esl-students-cohort">Cohort</Label>
+				<Label for="esl-students-class">Class</Label>
 				<NativeSelect.Root
-					id="esl-students-cohort"
-					data-testid="esl-admin-students.cohort"
+					id="esl-students-class"
+					data-testid="esl-admin-students.class"
 					bind:value={selectedCohortId}
 				>
-					<NativeSelect.Option value="">Select a cohort…</NativeSelect.Option>
+					<NativeSelect.Option value="">Select a class…</NativeSelect.Option>
 					{#each cohorts as cohort (cohort._id)}
 						<NativeSelect.Option value={cohort._id}>{cohort.label}</NativeSelect.Option>
 					{/each}
@@ -170,6 +213,16 @@
 				/>
 				Show transfers out
 			</label>
+			<div class="space-y-1">
+				<Label for="esl-students-chinese-class-filter">Chinese class</Label>
+				<Input
+					id="esl-students-chinese-class-filter"
+					data-testid="esl-admin-students.chinese-class-filter"
+					bind:value={chineseClassFilter}
+					placeholder="Filter by homeroom, e.g. J101"
+					class="w-44"
+				/>
+			</div>
 		</div>
 	</header>
 
@@ -218,6 +271,16 @@
 					required
 				/>
 			</div>
+			<div class="space-y-1">
+				<Label for="esl-student-chinese-class">Chinese class</Label>
+				<Input
+					id="esl-student-chinese-class"
+					data-testid="esl-admin-students.form.chineseClass"
+					bind:value={chineseClass}
+					placeholder={selectedGrade === null ? 'J101' : chineseClassCode(selectedGrade, '01')}
+					required
+				/>
+			</div>
 			<div class="flex items-end gap-3 sm:col-span-3">
 				<Button
 					type="submit"
@@ -229,7 +292,7 @@
 				</Button>
 				{#if !selectedCohortId}
 					<p data-testid="esl-admin-students.form.hint" class="text-muted-foreground text-sm">
-						Choose a cohort first — a roster belongs to one.
+						Choose a class first — a roster belongs to one.
 					</p>
 				{:else if formError}
 					<p data-testid="esl-admin-students.form.error" class="text-sm text-red-700">
@@ -250,10 +313,10 @@
 			Rosters come in as a workbook, one sheet per class, and
 			<a
 				class="font-medium underline"
-				href="/esl/admin/import"
+				href="/esl/admin/classes#import"
 				data-testid="esl-admin-students.import.link"
 			>
-				the import page
+				the importer on the Classes page
 			</a>
 			reads it. It takes the class each student belongs to from the sheet they are on, which a pasted
 			list of names cannot say — so a column of names pasted here leaves every student's class unassigned.
@@ -272,9 +335,9 @@
 		{#if !selectedCohortId}
 			<p
 				class="text-muted-foreground rounded-lg border border-dashed bg-white py-12 text-center"
-				data-testid="esl-admin-students.no-cohort"
+				data-testid="esl-admin-students.no-class"
 			>
-				Choose a cohort to see its roster.
+				Choose a class to see its roster.
 			</p>
 		{:else if studentsQuery.isLoading}
 			<p class="text-muted-foreground py-8 text-center" data-testid="esl-admin-students.loading">
@@ -285,7 +348,14 @@
 				class="text-muted-foreground rounded-lg border border-dashed bg-white py-12 text-center"
 				data-testid="esl-admin-students.empty"
 			>
-				This cohort has no students yet.
+				This class has no students yet.
+			</p>
+		{:else if filteredStudents.length === 0}
+			<p
+				class="text-muted-foreground rounded-lg border border-dashed bg-white py-12 text-center"
+				data-testid="esl-admin-students.filtered-empty"
+			>
+				No student in this class is in {chineseClassFilter.trim()}.
 			</p>
 		{:else}
 			<Table.Root class="rounded-lg border bg-white">
@@ -293,6 +363,7 @@
 					<Table.Row>
 						<Table.Head>English name</Table.Head>
 						<Table.Head>Chinese name</Table.Head>
+						<Table.Head>Chinese class</Table.Head>
 						<Table.Head>School student ID</Table.Head>
 						<Table.Head>Status</Table.Head>
 						<Table.Head>Reason</Table.Head>
@@ -300,10 +371,13 @@
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
-					{#each students as student (student._id)}
+					{#each filteredStudents as student (student._id)}
 						<Table.Row data-testid="esl-admin-students.row">
 							<Table.Cell class="font-medium">{studentName(student)}</Table.Cell>
 							<Table.Cell>{student.chineseName}</Table.Cell>
+							<Table.Cell data-testid="esl-admin-students.row-chinese-class">
+								{chineseClassLabel(student)}
+							</Table.Cell>
 							<Table.Cell>{student.schoolStudentId}</Table.Cell>
 							<Table.Cell>
 								<Badge variant={student.status === 'active' ? 'default' : 'secondary'}>
@@ -369,7 +443,7 @@
 				</Button>
 			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
-				<span class="font-medium">{pendingTransfer.name}</span> stays in this cohort's history, marked
+				<span class="font-medium">{pendingTransfer.name}</span> stays in this class's history, marked
 				as transferred out. The reason is required and is kept on the record.
 			</p>
 			<label class="mt-4 block text-sm font-medium" for="esl-transfer-reason">Status reason</label>

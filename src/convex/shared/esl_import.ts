@@ -12,12 +12,25 @@
  */
 
 import {
+	chineseClassCode,
 	grade10BaseClass,
 	grade10ClassName,
 	isValidSchoolStudentId,
 	normalizeEslLevel,
+	parseChineseClass,
+	type ChineseClassReadError,
 	type EslLevel
 } from './esl';
+
+/**
+ * Re-exported so the import surface stays one module.
+ *
+ * `esl_import` is the vocabulary the import mutation and the browser both speak
+ * (ADR-0022), and the homeroom rules belong to that vocabulary rather than to a
+ * caller that happens to know which file they live in.
+ */
+export { chineseClassCode, parseChineseClass } from './esl';
+export type { ChineseClassReadError } from './esl';
 
 /**
  * A school student ID as read from a workbook cell.
@@ -174,74 +187,78 @@ function entryYearOf(schoolStudentId: string): number | null {
 }
 
 /**
- * The grade 10 ID space a student ID belongs to, or `null` if it is not on that
- * scheme at all.
+ * Whether a student ID is on grade 10's numbering scheme.
  *
- * Grade 10 sits on a numbering space of its own that no other grade uses, and the
- * ID does say which grade it is because of that. A grade 10 ID is six digits: a
- * two-digit space, then four digits of sequence. The space advances one step per
- * school year, so it also carries the year — see `grade10SpaceForSchoolYear`.
+ * Grade 10 IDs are six digits and every levelled ID is seven. Measured across
+ * the September 2025 workbooks: 487 of 487 grade 10 IDs are six digits, and
+ * 3,800 of 3,800 levelled IDs are seven, with no exceptions in either direction
+ * (ADR-0022 §Context). The sequence length differs too — three digits after the
+ * prefix against the levelled four — so length is the discriminator twice over.
  *
- * Told apart from a levelled ID by the third digit. A levelled ID is
- * `115001` — three-digit ROC entry year, always `1xx` — while a grade 10 ID's
- * first three digits run `500`–`599` and up. So the two never collide, and the
- * grade 10 space is read as two digits off an ID that is not `1xx`.
+ * Length rather than the leading digits, because the leading digits cannot
+ * discriminate: a reversed grade 10 prefix beginning `1` is indistinguishable
+ * from a levelled ROC entry year. `110019` is a 2021-2022 grade 10 student and
+ * `1100019` a grade 7 intake, told apart by the digit after the prefix, not by
+ * what the prefix says.
+ *
+ * Deliberately independent of any year. Whether a file is grade 10 is settled
+ * by its shape alone, so this needs no constants and no ROC arithmetic — which
+ * is what stops a bad anchor hiding inside the grade classifier.
  */
-function grade10SpaceOf(schoolStudentId: string): number | null {
-	if (!/^\d{6}$/.test(schoolStudentId)) return null;
-	const leading = Number(schoolStudentId.slice(0, 3));
-	if (leading >= 100 && leading <= 199) return null;
-	return Number(schoolStudentId.slice(0, 2));
+export function isGrade10StudentId(schoolStudentId: string): boolean {
+	return /^\d{6}$/.test(schoolStudentId);
 }
 
 /**
- * The two-digit grade 10 ID space used in 2026-2027.
+ * The three-digit ROC year a grade 10 ID carries, digit-reversed, or `null`.
  *
- * That year's G10 workbook numbers every student `51xxxx`. The school confirmed
- * the space is two digits rather than one because a single leading digit runs out
- * at ROC 119 (2030-2031) — the year after `5`, `6`, `7`, `8`, `9` — and what
- * happens after that is not yet known. Two digits buys decades instead, and the
- * only open question is whether the school restarts from `00` when the space
- * passes `99`, which `spaceOffset` handles by wrapping rather than by failing.
- */
-const GRADE10_SPACE_ANCHOR = 51;
-
-/** The school year whose grade 10 space is `51xxxx`. */
-const GRADE10_SPACE_ANCHOR_YEAR = '2026-2027';
-
-/**
- * How many school years after the anchor a space sits, wrapping at 100.
+ * Grade 10 writes the ROC year of the school year itself rather than the year
+ * the student entered grade 7, and writes it reversed: `411019` is `114`, which
+ * is ROC 114, which is 2025-2026. The school's own sequence runs `211` (ROC 112,
+ * 2023-2024), `311` (ROC 113), `411` (ROC 114), `511` (ROC 115).
  *
- * Wrapping because the space is two digits and the school may well run `99` then
- * `00`; a space below the anchor is read as the next cycle rather than as a
- * negative offset, so the year still moves forward one step at a time.
+ * Reversal is a bijection with ROC years, so there is no anchor that can be off
+ * by one and no wrap to run off the end — the two ways the previous reading
+ * produced a confident wrong year out of a correct file. It also needs no
+ * special case past ROC 119: `021` is simply ROC 120 reversed, and
+ * `reversedPrefixForRocYear` says so without being told.
+ *
+ * A reversed `000` is ROC 0, which is not a year, and is refused rather than
+ * read as 1911.
  */
-function spaceOffset(space: number): number {
-	return (space - GRADE10_SPACE_ANCHOR + 100) % 100;
+function rocYearFromReversedPrefix(schoolStudentId: string): number | null {
+	if (!isGrade10StudentId(schoolStudentId)) return null;
+	const reversed = schoolStudentId.slice(0, 3).split('').reverse().join('');
+	if (!/^[1-9]\d{2}$/.test(reversed)) return null;
+	return Number(reversed);
 }
 
 /**
- * The grade 10 ID space a given school year is numbered in, or `null` if the year
- * is not shaped like a school year.
+ * The grade 10 prefix a ROC year is written as, or `null` if it is not a
+ * three-digit year.
  *
  * The inverse of the school's own numbering, and the only thing tying a grade 10
  * file to a year: its IDs name no intake year, so the arithmetic that places a
  * levelled file does nothing here.
  */
-export function grade10SpaceForSchoolYear(year: string): number | null {
-	const [from, to] = year.split('-').map((part) => Number(part));
-	if (!Number.isInteger(from) || !Number.isInteger(to) || to - from !== 1) return null;
-	const [anchorFrom, anchorTo] = GRADE10_SPACE_ANCHOR_YEAR.split('-').map(Number);
-	if (to - anchorTo !== from - anchorFrom) return null;
-	return (GRADE10_SPACE_ANCHOR + to - anchorTo + 100) % 100;
+export function reversedPrefixForRocYear(rocYear: number): string | null {
+	if (!Number.isInteger(rocYear) || rocYear < 100 || rocYear > 999) return null;
+	return String(rocYear).split('').reverse().join('');
 }
 
-/** The school year a grade 10 ID space belongs to. */
-export function schoolYearForGrade10Space(space: number): string | null {
-	if (!Number.isInteger(space) || space < 0 || space > 99) return null;
-	const [anchorFrom] = GRADE10_SPACE_ANCHOR_YEAR.split('-').map(Number);
-	const start = anchorFrom + spaceOffset(space);
-	return `${start}-${start + 1}`;
+/**
+ * The school year a grade 10 ID belongs to, or `null` when its ID is not on that
+ * scheme.
+ *
+ * The counterpart to `schoolYearFromRocEntry` for the one grade whose IDs carry
+ * the year rather than an intake: `411xxx` is 2025-2026 and `511xxx` the year
+ * after. That is what lets a grade 10 file be checked against the page's year
+ * the same way a levelled file is — its IDs name no intake year, so the
+ * arithmetic that places a levelled file does nothing here.
+ */
+export function schoolYearFromGrade10Id(schoolStudentId: string): string | null {
+	const rocYear = rocYearFromReversedPrefix(schoolStudentId);
+	return rocYear === null ? null : schoolYearFromRocEntry(rocYear);
 }
 
 /**
@@ -252,9 +269,7 @@ export function schoolYearForGrade10Space(space: number): string | null {
  *   merged into it. Importing it would scatter students across cohorts in a way
  *   nothing could later reconcile, so it is refused rather than guessed at.
  * `indeterminate` — too few usable IDs to say.
- * `unsupported` — the grade cannot carry the arithmetic (grade 10 uses a
- *   separate numbering scheme with no grade relationship, so its file never
- *   determines a year).
+ * `unsupported` — the grade is not one this can read IDs for.
  */
 export type DerivedSchoolYear =
 	| { kind: 'current'; year: string; entryYear: number }
@@ -265,29 +280,47 @@ export type DerivedSchoolYear =
 /**
  * Work out which school year a file belongs to from its student IDs.
  *
- * The first three digits of an ID are the ROC year the student entered grade 7,
- * and grade 7 is the intake year — so for a student in grade `g` the school year
- * is `entryYear + (g - 7)`. For 2026-27 that gives G7 → `115`, G8 → `114`,
- * G9 → `113`, which is exactly the range layout measured in the workbooks.
+ * The levelled grades put the ROC year the student entered grade 7 in the first
+ * three digits, and grade 7 is the intake year — so for a student in grade `g`
+ * the school year is `entryYear + (g - 7)`. For 2026-27 that gives G7 → `115`,
+ * G8 → `114`, G9 → `113`, which is exactly the range layout measured in the
+ * workbooks.
  *
  * This derives the year from the data rather than inferring it. The obvious
  * alternative — treating "all G7 IDs are new" as a new school year — carries no
  * information at all, because grade 7 has an entirely new intake every year, so
  * it is equally true of a September import and of a mid-year re-import.
  *
- * Grade 10 is unsupported: its IDs move `4xxxxx` → `5xxxxx` → `6xxxxx` year to
- * year with no relationship to the intake year, so a G10 file follows whatever
- * year is current rather than determining one.
+ * Grade 10 is read differently, and the difference is the point. Its IDs name
+ * the school year itself rather than an intake, digit-reversed, so there is no
+ * `+ (g - 7)` to apply: `411xxx` is 2025-2026 outright. This was previously
+ * reported as `unsupported` on the grounds that grade 10 IDs "do not identify a
+ * school year", which was never true — it was what reading the reversed prefix as
+ * a two-digit "space" implied, and that reading sent a real 2025-2026 file to
+ * 2116-2117. The year is derived here so the server can enforce it too, rather
+ * than trusting the browser's prompt as the only guard.
  */
 export function deriveSchoolYear(
 	grade: number,
 	schoolStudentIds: readonly string[]
 ): DerivedSchoolYear {
 	if (grade === 10) {
-		return {
-			kind: 'unsupported',
-			reason: 'Grade 10 uses a separate ID scheme that does not identify a school year.'
-		};
+		const years = new Map<string, number>();
+		for (const id of schoolStudentIds) {
+			const rocYear = rocYearFromReversedPrefix(id);
+			if (rocYear === null) continue;
+			// A Map keyed by year rather than a Set, so the `current` shape matches
+			// the levelled grades': callers read `entryYear` without narrowing on
+			// which grade produced the result. For grade 10 the ROC year is the
+			// school year's own, not an intake, but it is the same number.
+			years.set(schoolYearFromRocEntry(rocYear), rocYear);
+		}
+
+		if (years.size === 0) return { kind: 'indeterminate' };
+		if (years.size > 1) return { kind: 'conflict', years: [...years.keys()].sort() };
+
+		const [[year, entryYear]] = [...years];
+		return { kind: 'current', year, entryYear };
 	}
 	if (grade < 7 || grade > 9) {
 		return { kind: 'unsupported', reason: `Grade ${grade} does not carry the intake-year scheme.` };
@@ -350,16 +383,15 @@ export function deriveGradeForSchoolYear(
 	}
 
 	// Only prefixes that place a student in a levelled grade of this year are
-	// intake years at all. Grade 10 is on its own scheme, so it is set aside and
-	// read separately below: its `511101` and `512101` have three leading digits like
-	// any other ID, but they are not intake years, and counting them would report a
-	// grade 10 file as holding school years 2422-2423 and 2423-2424.
+	// intake years at all. Grade 10 IDs are six digits where a levelled ID is
+	// seven, so they are set aside by length and read separately below: their
+	// first three digits are a reversed ROC year, not an intake, and counting
+	// them would place a grade 10 file in a levelled grade.
 	const grades = new Map<number, number>();
-	const grade10Spaces = new Set<number>();
+	let sawGrade10 = false;
 	for (const id of schoolStudentIds) {
-		const space = grade10SpaceOf(id);
-		if (space !== null) {
-			grade10Spaces.add(space);
+		if (isGrade10StudentId(id)) {
+			sawGrade10 = true;
 			continue;
 		}
 		const entryYear = entryYearOf(id);
@@ -369,16 +401,16 @@ export function deriveGradeForSchoolYear(
 		grades.set(grade, entryYear);
 	}
 
-	// A file on the grade 10 space says so outright — no other grade is numbered
-	// this way — so it needs nothing asked of the admin, the same as a levelled file.
-	if (grades.size === 0 && grade10Spaces.size > 0) {
+	// A file of six-digit IDs says so outright — no levelled grade is numbered that
+	// way — so it needs nothing asked of the admin, the same as a levelled file.
+	if (grades.size === 0 && sawGrade10) {
 		return { kind: 'grade', grade: 10 };
 	}
 
 	// A file holding both schemes has no single grade. Reporting it as a merged file
 	// is the honest answer: importing it would file one of the two halves under the
 	// other's grade.
-	if (grades.size > 0 && grade10Spaces.size > 0) {
+	if (grades.size > 0 && sawGrade10) {
 		return { kind: 'twoYears', years: [] };
 	}
 
@@ -396,29 +428,6 @@ export function deriveGradeForSchoolYear(
 		kind: 'twoYears',
 		years: [...grades.values()].map((entryYear) => schoolYearFromRocEntry(entryYear)).sort()
 	};
-}
-
-/**
- * The school year a grade 10 file's IDs place it in, or that they cannot.
- *
- * The counterpart to `deriveGradeForSchoolYear` for the one grade whose IDs carry
- * the year rather than an intake: the space moves one step per school year, so
- * `5xxxxx` is one year and `6xxxxx` the next. That is what lets a grade 10 file be
- * checked against the page's year the same way a levelled file is — its IDs name no
- * intake year, so the arithmetic that places a levelled file does nothing here.
- */
-export function deriveGrade10SchoolYear(
-	schoolStudentIds: readonly string[]
-): { kind: 'current'; year: string } | { kind: 'conflict' } | { kind: 'unknown' } {
-	const spaces = new Set<number>();
-	for (const id of schoolStudentIds) {
-		const space = grade10SpaceOf(id);
-		if (space !== null) spaces.add(space);
-	}
-	if (spaces.size === 0) return { kind: 'unknown' };
-	if (spaces.size > 1) return { kind: 'conflict' };
-	const year = schoolYearForGrade10Space([...spaces][0]);
-	return year === null ? { kind: 'unknown' } : { kind: 'current', year };
 }
 
 /**
@@ -449,7 +458,8 @@ const COLUMN_ALIASES = {
 	schoolStudentId: ['student id', 'std id#', 'std id', 'id', 'studentid', '學號', '学号'],
 	chineseName: ['chinese name', 'name', '中文姓名', '中文姓名'],
 	englishName: ['english name', '英文姓名'],
-	group: ['esl group', 'eslgroup', 'group', 'esl 組別']
+	group: ['esl group', 'eslgroup', 'group', 'esl 組別'],
+	chineseClass: ['c class', 'class', 'cclass']
 } as const;
 
 type RosterColumn = keyof typeof COLUMN_ALIASES;
@@ -476,7 +486,8 @@ export function detectColumns(headerRow: readonly string[]): SheetColumns {
 		schoolStudentId: null,
 		chineseName: null,
 		englishName: null,
-		group: null
+		group: null,
+		chineseClass: null
 	};
 
 	headerRow.forEach((header, index) => {
@@ -499,7 +510,12 @@ export function detectColumns(headerRow: readonly string[]): SheetColumns {
 
 /** Whether a sheet carries enough columns to be read as a class sheet at all. */
 export function isReadableRosterSheet(columns: SheetColumns): boolean {
-	return columns.schoolStudentId !== null && columns.group !== null;
+	if (columns.schoolStudentId === null || columns.group === null) return false;
+	// The Chinese-class column is required, so a sheet without one is not readable
+	// as a roster — the rows would be rejected one by one for the same missing
+	// column, burying the real problem under 400 identical messages. Reported once
+	// per sheet instead (ADR-0025).
+	return columns.chineseClass !== null;
 }
 
 /** One student row, already normalised, with the group resolved to a cohort key. */
@@ -508,8 +524,38 @@ export type RosterStudent = {
 	chineseName: string;
 	/** Absent when the file has no English name yet — students may arrive without one. */
 	englishName?: string;
+	/**
+	 * The Chinese homeroom's two-digit class number, e.g. `01` in a grade 7 cohort.
+	 *
+	 * Read out of the workbook's `C Class` / `Class` column and required: the
+	 * Communication Slip prints the homeroom so a teacher can reach the right
+	 * homeroom teacher, and a student with no homeroom cannot be given one
+	 * (ADR-0025). The `J1`/`J2`/`J3`/`H1` marker is not stored — it is derived
+	 * from the cohort's grade by `chineseClassCode`.
+	 */
+	chineseClass: string;
 	group: ParsedRosterGroup;
 };
+
+/**
+ * What to tell the admin about a `C Class` cell that could not be read.
+ *
+ * Phrased as the cell's actual contents beside the form the school uses, for the
+ * same reason `describeUnreadableId` is: the admin's job is to fix the cell in
+ * Excel, so the message has to say what is in it and what belongs there.
+ */
+export function describeUnreadableChineseClass(
+	error: ChineseClassReadError,
+	grade: number
+): string {
+	if (error === 'empty') {
+		return `The Chinese class cell is empty. It should hold the student's homeroom, e.g. "${chineseClassCode(grade, '01')}".`;
+	}
+	if (error === 'shape') {
+		return `The Chinese class cell is not in the school's form. It should read a grade marker and a two-digit class number, e.g. "${chineseClassCode(grade, '01')}".`;
+	}
+	return `The Chinese class starts "${error.found}", which is not a grade ${grade} homeroom — this is a grade ${grade} file, so it should read like "${chineseClassCode(grade, '01')}".`;
+}
 
 /**
  * What to tell the admin about a student ID cell that could not be read.
@@ -555,10 +601,11 @@ export type ParsedRosterSheet = {
 /**
  * Read one sheet's rows into students, resolving each row's group.
  *
- * The `ESL Group` column is the class of record, not the sheet name: sheet names
- * are abbreviated and do not round-trip (`G9 Adv 1` holds `G9 Advanced 1`), and
- * exactly one row in each grade workbook is filed under a group that disagrees
- * with the sheet it sits in. Reading the column files those correctly.
+ * The `ESL Group` column is read, not the sheet name: sheet names are abbreviated
+ * and do not round-trip (`G9 Adv 1` holds `G9 Advanced 1`). A row whose group
+ * disagrees with the rest of its sheet is read here and refused by `classifySheet`
+ * rather than adjudicated here, because there is no basis for choosing which of two
+ * disagreeing columns is right (ADR-0025).
  *
  * `rowOffset` is the 1-based number of the first data row in the sheet, so
  * rejections point at the line the admin sees in Excel.
@@ -646,6 +693,32 @@ export function parseRosterSheet(
 			return;
 		}
 
+		// The Chinese class is read last, so a row that is already unreadable for a
+		// stronger reason — an unusable ID, no group — reports that reason alone
+		// rather than three at once for one cell.
+		//
+		// The marker is checked against the grade **this row's own group names**,
+		// not the grade the file is being read as. The two agree in the ordinary
+		// case, and differ exactly when the page derived the wrong grade from the
+		// year — which is the year-mismatch case the import page's year prompt
+		// exists to catch. Validating against the derived grade there rejected
+		// every row, which emptied `students` and silenced the prompt it should
+		// have raised, filing the file under the wrong grade instead (ADR-0025).
+		//
+		// A grade 10 group carries no grade of its own in the levelled sense, so
+		// the file's grade is its only account of itself and stays the reference.
+		const markerGrade = isGrade10Group(parsed) ? grade : parsed.grade;
+		const rawChineseClass = cell(row, columns.chineseClass);
+		const chineseClass = parseChineseClass(rawChineseClass, markerGrade);
+		if ('error' in chineseClass) {
+			rejected.push({
+				rowNumber,
+				reason: describeUnreadableChineseClass(chineseClass.error, markerGrade),
+				raw: row
+			});
+			return;
+		}
+
 		// A blank English name is legitimate — G7 may arrive before teachers fill
 		// them in — so it is left absent rather than stored as an empty string.
 		const englishName = cell(row, columns.englishName);
@@ -653,6 +726,7 @@ export function parseRosterSheet(
 			schoolStudentId,
 			chineseName,
 			...(englishName === '' ? {} : { englishName }),
+			chineseClass: chineseClass.classNumber,
 			group: parsed
 		});
 	});
@@ -671,7 +745,19 @@ export type ClassifiedSheet =
 			reason?: string;
 	  }
 	| { kind: 'summary'; sheetName: string; reason: string; columns: SheetColumns }
-	| { kind: 'unreadable'; sheetName: string; reason: string };
+	| { kind: 'unreadable'; sheetName: string; reason: string }
+	| {
+			/**
+			 * A class sheet that disagrees with itself — a row filed under another
+			 * class, or a grade 10 homeroom that is not its cohort's. Refused whole:
+			 * the file is not applied until the workbook is fixed (ADR-0025).
+			 */
+			kind: 'misfiled';
+			sheetName: string;
+			reason: string;
+			columns: SheetColumns;
+			parsed: ParsedRosterSheet;
+	  };
 
 /** A group's identity after parsing, so spelling drift does not split one class. */
 function groupKey(group: ParsedRosterGroup): string {
@@ -706,10 +792,71 @@ function classKeyOf(group: ParsedRosterGroup): string {
  * A half is enough to tell the two apart without a maintained list of sheet names: a
  * class sheet is one class by a wide margin, while a summary sheet that restates the
  * grade has no majority at all — the largest group in the grade 10 `Chinese Class`
- * sheet is 52 of 495, about a tenth. The misfiled row is then filed by its column,
- * which is the class of record, and reported.
+ * sheet is 52 of 495, about a tenth.
+ *
+ * A sheet that clears this bar is still refused if it disagrees with itself, which is
+ * what the misfiled-row check below is for (ADR-0025).
  */
 const MAJORITY_CLASS_SHARE = 0.5;
+
+/**
+ * The class a sheet's rows mostly name, spelled the way the workbook spells it.
+ *
+ * Read back out of the sheet's own `ESL Group` cells rather than composed from the
+ * cohort key, so the message quotes the file back to the admin verbatim — the same
+ * principle as `describeUnreadableId`, and the reason a sheet whose name is
+ * abbreviated (`G8 Inter 1`) still reports the full form the column holds.
+ */
+function describeLeadingClass(parsed: ParsedRosterSheet, leadingClass: string): string | null {
+	const written = parsed.groups.find((raw) => {
+		const group = parseRosterGroup(raw);
+		return group !== null && classKeyOf(group) === leadingClass;
+	});
+	// Null rather than a guess: a sheet always has such a cell by this point, since
+	// `leadingClass` came from one of them. If it somehow does not, the odd groups
+	// alone still name what to fix.
+	return written ?? null;
+}
+
+/**
+ * Why a grade 10 sheet's homerooms disagree with its own cohort, or null when
+ * they agree.
+ *
+ * Grade 10's cohorts are keyed by Chinese class, so a sheet's `Class` column and
+ * the base class in its `ESL Group` column are the same fact stated twice
+ * (ADR-0023). Levelled grades are deliberately mixed across homerooms, so there
+ * is nothing to check them against and they are left alone.
+ *
+ * Every homeroom in the sheet must match, not just the majority: one student in
+ * the wrong homeroom is the same silent error as one in the wrong ability band.
+ */
+function describeChineseClassMismatch(
+	parsed: ParsedRosterSheet,
+	grade: number,
+	leadingClass: string
+): string | null {
+	if (grade !== 10) return null;
+	// `classKeyOf` keys grade 10 as `10:<baseClass>` with the base class unpadded,
+	// so it is read from index 1 and normalised through the shared padding helper
+	// before being compared to a stored two-digit class number.
+	const rawNumber = leadingClass.split(':')[1];
+	if (rawNumber === undefined) return null;
+	const cohortNumber = grade10BaseClass(rawNumber);
+
+	const wrong = [
+		...new Set(
+			parsed.students
+				.filter((student) => student.chineseClass !== cohortNumber)
+				.map(
+					(student) =>
+						`${student.schoolStudentId} (${chineseClassCode(grade, student.chineseClass)})`
+				)
+		)
+	];
+	if (wrong.length === 0) return null;
+
+	return `A grade 10 class draws students from exactly one Chinese class, but this sheet's class is ${chineseClassCode(grade, cohortNumber)} while ${wrong.join(', ')} name a different one. Fix the Class cell in the workbook, or the ESL Group cell if that is the wrong one — the file is not applied until they agree.`;
+}
 
 /**
  * Decide whether a sheet is one class or a whole-grade summary.
@@ -737,7 +884,10 @@ export function classifySheet(
 		return {
 			kind: 'unreadable',
 			sheetName,
-			reason: 'No student ID or ESL group column was found in the header row.'
+			reason:
+				columns.schoolStudentId === null || columns.group === null
+					? 'No student ID or ESL group column was found in the header row.'
+					: 'No Chinese class column was found in the header row. It should be headed "C Class" or "Class", holding each student\'s homeroom such as J101.'
 		};
 	}
 
@@ -783,11 +933,12 @@ export function classifySheet(
 		};
 	}
 
-	// Rows naming a class other than the sheet's leading one are misfiled: a student
-	// whose `ESL Group` disagrees with the sheet they sit in, which happens when a
-	// student changes level and the column is not updated. The column is the class
-	// of record, so the student is filed under the class their column names, and the
-	// disagreement is reported so the workbook can be fixed at source.
+	// Rows naming a class other than the sheet's leading one are misfiled: a row
+	// whose `ESL Group` disagrees with the class the rest of its sheet holds. The
+	// department has confirmed these are typos they will fix, and a wrong ability
+	// band is silent — every count still adds up and the roster is quietly wrong —
+	// so the file is refused rather than filed by whichever column looks right
+	// (ADR-0025).
 	//
 	// A mere misspelling — `G9 Elementary1` beside `G9 Elementary 1` — is not
 	// reported here: both parse to the same class, so the sheet is simply that class
@@ -802,10 +953,37 @@ export function classifySheet(
 	];
 
 	if (misfiled.length > 0) {
+		// Refused, not warned about. A wrong ability band is silent — every count
+		// still adds up and the roster is quietly wrong — so the department
+		// confirmed these are typos they will fix, and the fix belongs in the
+		// workbook rather than in a rule that guesses which column is right
+		// (ADR-0025).
+		//
+		// The message names both sides of the disagreement, because the admin's job
+		// is to find one cell: the class the sheet otherwise holds, and the value
+		// sitting in the column that contradicts it.
+		//
+		// The majority test above is what keeps this from swallowing class sheets:
+		// a sheet is only judged once one class already accounts for its rows.
 		return {
-			kind: 'class',
+			kind: 'misfiled',
 			sheetName,
-			reason: `${misfiled.join(', ')} filed by its own ESL Group column rather than by the sheet it sits in, which is the class of record.`,
+			reason: `This sheet's ESL Group column holds ${misfiled.join(' and ')} beside ${describeLeadingClass(parsed, leadingClass) ?? sheetName}. Fix the ESL Group cell on the odd row${misfiled.length === 1 ? '' : 's'} in the workbook and import again — the file is not applied until the sheet agrees with itself.`,
+			columns,
+			parsed
+		};
+	}
+
+	// A grade 10 cohort is one Chinese class by construction (ADR-0023), so the
+	// homeroom the file states and the cohort its group names are the same fact
+	// said twice. A disagreement means one is a typo, and there is no basis for
+	// choosing which — refused for the same reason as the misfiled rows above.
+	const chineseClassMismatch = describeChineseClassMismatch(parsed, grade, leadingClass);
+	if (chineseClassMismatch !== null) {
+		return {
+			kind: 'misfiled',
+			sheetName,
+			reason: chineseClassMismatch,
 			columns,
 			parsed
 		};
@@ -905,6 +1083,12 @@ export type ExistingStudent = {
 	schoolStudentId: string;
 	chineseName: string;
 	englishName?: string;
+	/**
+	 * Absent only on a row created by a year advance, whose next homeroom is not
+	 * yet known — so a diff against it is never reported, since there is nothing
+	 * on file to have changed from (ADR-0025).
+	 */
+	chineseClass?: string;
 	status: 'active' | 'disabled';
 };
 
@@ -948,9 +1132,17 @@ export function rosterGroupText(group: ParsedRosterGroup): string {
  * taught by two classes.
  */
 export function cohortOfGroup(group: ParsedRosterGroup): RequestedCohort {
-	return isGrade10Group(group)
+	if (!isGrade10Group(group)) {
+		return { grade: group.grade, level: group.level, classNumber: group.classNumber };
+	}
+	// Grade 10's cohort is one Chinese class at one ability level, so the level
+	// letter is part of its identity: `H101A` and `H101B` are two cohorts with two
+	// rosters, not one cohort with two classes (ADR-0023). Keying on the base class
+	// alone is what merged the two levels together.
+	const { section } = group;
+	return section === undefined
 		? { grade: 10, classNumber: grade10BaseClass(group.baseClass) }
-		: { grade: group.grade, level: group.level, classNumber: group.classNumber };
+		: { grade: 10, level: section, classNumber: grade10BaseClass(group.baseClass) };
 }
 
 /**
@@ -977,6 +1169,23 @@ export type PlannedStudentChange =
 			kind: 'nameChange';
 			schoolStudentId: string;
 			studentId: string;
+			from: string;
+			to: string;
+	  }
+	| {
+			/**
+			 * A student who moved Chinese homeroom mid-year.
+			 *
+			 * Reported rather than folded into `unchanged`, because the import
+			 * summary is the only place the department learns a transfer happened —
+			 * and unlike a name change it needs no approval, since a homeroom that
+			 * differs from the one on file is simply the truth arriving late
+			 * (ADR-0025).
+			 */
+			kind: 'classChange';
+			schoolStudentId: string;
+			studentId: string;
+			grade: number;
 			from: string;
 			to: string;
 	  }
@@ -1013,6 +1222,7 @@ export type ImportPlan = {
 		new: number;
 		levelChange: number;
 		nameChange: number;
+		classChange: number;
 		disabled: number;
 		unchanged: number;
 	};
@@ -1142,6 +1352,23 @@ export function planRosterImport(
 				to: incoming
 			});
 		}
+		// A homeroom change is reported independently of a group change, on the same
+		// terms as a name change: a student who moved Chinese class and moved ESL
+		// level is two separate facts.
+		//
+		// Skipped when the stored row has no homeroom, which happens only on a
+		// year-advance row: there is nothing on file to have changed from, and the
+		// file simply fills it in.
+		if (existing.chineseClass !== undefined && student.chineseClass !== existing.chineseClass) {
+			changes.push({
+				kind: 'classChange',
+				schoolStudentId: id,
+				studentId: existing.id,
+				grade: cohortShapeOf(existing.cohortId, existingCohorts).grade,
+				from: existing.chineseClass,
+				to: student.chineseClass
+			});
+		}
 	}
 
 	// Anyone in this year's cohorts but absent from the file is disabled, unless
@@ -1160,7 +1387,14 @@ export function planRosterImport(
 		}
 	}
 
-	const totals = { new: 0, levelChange: 0, nameChange: 0, disabled: 0, unchanged: 0 };
+	const totals = {
+		new: 0,
+		levelChange: 0,
+		nameChange: 0,
+		classChange: 0,
+		disabled: 0,
+		unchanged: 0
+	};
 	for (const change of changes) totals[change.kind] += 1;
 
 	const grade = requested[0]?.grade;

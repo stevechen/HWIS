@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { convexTest, modules, mockAuthUser, seedEslStaff, seedUser } from '../test.setup';
+import { authComponent } from '../auth';
 import { api } from '../_generated/api';
 import schema from '../schema';
 import type { Id } from '../_generated/dataModel';
@@ -237,6 +238,224 @@ describe('esl staff', () => {
 			await expect(
 				t.mutation(api.esl.staff.setEslRole, { userId: ghost, eslRole: 'teacher' })
 			).rejects.toThrow('User not found');
+		});
+	});
+
+	describe('getProfile', () => {
+		type ProfileClass = {
+			_id: string;
+			name: string;
+			type: string;
+			room: string | null;
+			cohortLabel: string;
+			cohortGrade: number;
+			meetings: { day: string; period: number }[];
+		};
+
+		/** A G7 cohort's classes (CLIL first, then Comm), for teacher assignment. */
+		async function createG7(t: TestDb, classNumber = '1', year = '2025-2026') {
+			return t.mutation(api.esl.cohorts.create, {
+				year,
+				grade: 7,
+				level: 'Basic',
+				classNumber
+			});
+		}
+
+		/** Meeting rows as the timetable stores them; the profile counts these. */
+		async function seedMeetings(
+			t: TestDb,
+			classId: Id<'esl_classes'>,
+			year: string,
+			slots: { day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday'; period: number }[]
+		) {
+			for (const slot of slots) {
+				await t.run((ctx) =>
+					ctx.db.insert('esl_class_meetings', { classId, year, day: slot.day, period: slot.period })
+				);
+			}
+		}
+
+		function mockBetterAuth(users: { id: string; email: string }[]) {
+			const adapterMock = { findMany: vi.fn().mockResolvedValue(users) };
+			vi.spyOn(authComponent, 'adapter').mockImplementation(() => {
+				return (() => Promise.resolve(adapterMock)) as never;
+			});
+		}
+
+		it('returns identity, email, classes with meetings, and years', async () => {
+			const { t } = await asEslAdmin();
+			const teacherId = await seedEslStaff(t, {
+				authId: 'profile-teacher',
+				name: 'Ms Chan',
+				eslRole: 'teacher',
+				signIn: false
+			});
+			mockBetterAuth([{ id: 'profile-teacher', email: 'chan@hwhs.tc.edu.tw' }]);
+			const { classIds } = await createG7(t);
+			await t.mutation(api.esl.classes.assignTeacher, { id: classIds[0], teacherId });
+			await t.mutation(api.esl.classes.setRoom, { classId: classIds[0], room: 'ESL A' });
+			await seedMeetings(t, classIds[0], '2025-2026', [
+				{ day: 'Monday', period: 1 },
+				{ day: 'Wednesday', period: 2 },
+				{ day: 'Friday', period: 3 }
+			]);
+
+			const profile = await t.query(api.esl.staff.getProfile, {
+				userId: teacherId,
+				year: '2025-2026'
+			});
+
+			expect(profile.name).toBe('Ms Chan');
+			expect(profile.eslRole).toBe('teacher');
+			expect(profile.status).toBe('active');
+			expect(profile.email).toBe('chan@hwhs.tc.edu.tw');
+			expect(profile.years).toContain('2025-2026');
+			expect(profile.classes).toHaveLength(1);
+			const cls = profile.classes[0] as ProfileClass;
+			expect(cls.room).toBe('ESL A');
+			expect(cls.cohortLabel).toBe('2025-2026 G7 Basic 1');
+			expect(cls.meetings).toHaveLength(3);
+		});
+
+		it('counts periods across classes and sorts grade, class number, type', async () => {
+			const { t } = await asEslAdmin();
+			const teacherId = await seedEslStaff(t, {
+				authId: 'busy-teacher',
+				name: 'Mr Lin',
+				eslRole: 'teacher',
+				signIn: false
+			});
+			mockBetterAuth([]);
+			// Two *different* cohorts so one teacher can legally hold both classes.
+			const first = await createG7(t, '1');
+			const second = await createG7(t, '2');
+			await t.mutation(api.esl.classes.assignTeacher, { id: first.classIds[1], teacherId });
+			await t.mutation(api.esl.classes.assignTeacher, { id: second.classIds[0], teacherId });
+			await seedMeetings(t, first.classIds[1], '2025-2026', [
+				{ day: 'Tuesday', period: 1 },
+				{ day: 'Thursday', period: 1 }
+			]);
+			await seedMeetings(t, second.classIds[0], '2025-2026', [
+				{ day: 'Monday', period: 1 },
+				{ day: 'Wednesday', period: 1 },
+				{ day: 'Friday', period: 1 }
+			]);
+
+			const profile = await t.query(api.esl.staff.getProfile, {
+				userId: teacherId,
+				year: '2025-2026'
+			});
+
+			expect(profile.classes).toHaveLength(2);
+			const [comm, clil] = profile.classes as ProfileClass[];
+			expect(comm.cohortLabel).toBe('2025-2026 G7 Basic 1');
+			expect(comm.type).toBe('Comm');
+			expect(comm.meetings).toHaveLength(2);
+			expect(clil.cohortLabel).toBe('2025-2026 G7 Basic 2');
+			expect(clil.type).toBe('CLIL');
+			expect(clil.meetings).toHaveLength(3);
+		});
+
+		it('excludes archived classes and archived cohorts', async () => {
+			const { t } = await asEslAdmin();
+			const teacherId = await seedEslStaff(t, {
+				authId: 'archived-teacher',
+				eslRole: 'teacher',
+				signIn: false
+			});
+			mockBetterAuth([]);
+			// Three *different* cohorts: one teacher may not hold both classes of a
+			// single cohort, so each case gets its own.
+			const live = await createG7(t, '1');
+			const archivedClass = await createG7(t, '2');
+			const retired = await createG7(t, '3', '2024-2025');
+			await t.mutation(api.esl.classes.assignTeacher, { id: live.classIds[0], teacherId });
+			await t.mutation(api.esl.classes.assignTeacher, {
+				id: archivedClass.classIds[0],
+				teacherId
+			});
+			await t.mutation(api.esl.classes.assignTeacher, { id: retired.classIds[0], teacherId });
+			await t.mutation(api.esl.classes.setStatus, {
+				id: archivedClass.classIds[0],
+				status: 'archived'
+			});
+			await t.mutation(api.esl.cohorts.archiveYear, { year: '2024-2025' });
+
+			const profile = await t.query(api.esl.staff.getProfile, {
+				userId: teacherId,
+				year: '2025-2026'
+			});
+
+			// The archived class of the live year and the whole retired year are gone.
+			expect(profile.classes.map((c: ProfileClass) => c._id)).toEqual([live.classIds[0]]);
+			expect(profile.years).toContain('2024-2025');
+			expect(profile.years).toContain('2025-2026');
+		});
+
+		it('leaves email absent without a linked auth identity', async () => {
+			const { t } = await asEslAdmin();
+			const teacherId = await seedEslStaff(t, {
+				authId: 'orphan-teacher',
+				eslRole: 'teacher',
+				signIn: false
+			});
+			mockBetterAuth([]);
+
+			const profile = await t.query(api.esl.staff.getProfile, {
+				userId: teacherId,
+				year: '2025-2026'
+			});
+
+			expect(profile.email).toBeUndefined();
+		});
+
+		it('resolves inactive accounts with their status badge value', async () => {
+			const { t } = await asEslAdmin();
+			const teacherId = await seedEslStaff(t, {
+				authId: 'pending-teacher',
+				eslRole: 'teacher',
+				status: 'pending',
+				signIn: false
+			});
+			mockBetterAuth([]);
+
+			const profile = await t.query(api.esl.staff.getProfile, {
+				userId: teacherId,
+				year: '2025-2026'
+			});
+
+			expect(profile.status).toBe('pending');
+			expect(profile.classes).toHaveLength(0);
+		});
+
+		it('rejects unknown users and student rows', async () => {
+			const { t } = await asEslAdmin();
+			const ghost = await t.run((ctx) => ctx.db.insert('users', { role: 'teacher' }));
+			await t.run((ctx) => ctx.db.delete(ghost));
+			const studentId = await seedUser(t, { authId: 'student', role: 'student' });
+
+			await expect(
+				t.query(api.esl.staff.getProfile, { userId: ghost, year: '2025-2026' })
+			).rejects.toThrow('User not found');
+			await expect(
+				t.query(api.esl.staff.getProfile, { userId: studentId, year: '2025-2026' })
+			).rejects.toThrow('Students cannot hold ESL roles');
+		});
+
+		it('rejects reads from non-admins and strangers', async () => {
+			const { t: admin } = await asEslAdmin();
+			const teacherId = await seedEslStaff(admin, { authId: 'target', signIn: false });
+			const t = await asEslTeacher();
+
+			await expect(
+				t.query(api.esl.staff.getProfile, { userId: teacherId, year: '2025-2026' })
+			).rejects.toThrow('Forbidden: ESL admin access required');
+
+			mockAuthUser(null);
+			await expect(
+				t.query(api.esl.staff.getProfile, { userId: teacherId, year: '2025-2026' })
+			).rejects.toThrow('Unauthorized');
 		});
 	});
 });

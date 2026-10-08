@@ -18,7 +18,7 @@ import { describe, it, expect } from 'vitest';
 import XLSX from 'xlsx';
 // Relative rather than through the `$src` alias: this runs in the unit config,
 // which resolves paths from the file rather than from SvelteKit's aliases.
-import { splitSheet } from '../../routes/esl/admin/import/workbook';
+import { splitSheet } from '../../routes/esl/admin/classes/workbook';
 import { rosterWorkbookBuffer } from '../../lib/esl-roster-fixtures';
 import { parseRosterWorkbook, cohortOfGroup } from './esl_import';
 import type { ParsedRosterWorkbook } from './esl_import';
@@ -43,29 +43,55 @@ function readFixture(
 }
 
 describe('the roster workbooks', () => {
-	it('reads grade 7 whole, keeping the sheet a single misfiled row would lose', () => {
-		const parsed = readFixture(7);
+	/**
+	 * The class sheets a file yields once its own disagreements are set aside.
+	 *
+	 * A grade 7 or 8 workbook contains exactly one sheet whose rows disagree with
+	 * each other, and that sheet is now refused rather than imported with a warning
+	 * (ADR-0025) — so it is neither a class nor a plain skip, it is a `misfiled`.
+	 */
+	function classSheets(grade: 7 | 8 | 9 | 10) {
+		const parsed = readFixture(grade);
+		return {
+			parsed,
+			classes: parsed.classes,
+			misfiled: parsed.skipped.filter((sheet) => sheet.kind === 'misfiled')
+		};
+	}
 
-		// 20 class sheets and 2 summaries. `G7 Basic 5` holds one student whose
-		// `ESL Group` reads `G7 Elementary 4`, which is a level change whose column
-		// was not updated; before the majority rule that one row made the sheet look
-		// like a summary and 19 students were discarded.
-		expect(parsed.classes).toHaveLength(20);
-		// The first summary's name is missing its ID header, and the second carries a
-		// trailing space, exactly as the school's do.
-		expect(parsed.skipped.map((s) => s.sheetName)).toEqual(['Chinese class ', 'ESL Class ']);
+	it('reads grade 7, setting aside the one sheet whose rows disagree', () => {
+		const { parsed, misfiled } = classSheets(7);
+
+		// 20 class sheets, less `G7 Basic 5`, which holds one student whose `ESL
+		// Group` reads `G7 Elementary 4` — a level change whose column was not
+		// updated. Before the majority rule that one row made the sheet look like a
+		// summary and 19 students were discarded; now it is refused, because a wrong
+		// ability band is silent and the department will fix the cell.
+		expect(parsed.classes).toHaveLength(19);
+		expect(misfiled.map((s) => s.sheetName)).toEqual(['G7 Basic 5']);
+		// The three sheets set aside, and for three different reasons: the first has
+		// no ID header at all, the second is a summary whose name carries a trailing
+		// space, and the third disagrees with itself.
+		expect(parsed.skipped.map((s) => s.sheetName)).toEqual([
+			'Chinese class ',
+			'ESL Class ',
+			'G7 Basic 5'
+		]);
+		// Rows are read the same either way; nothing here is a rejection.
 		expect(parsed.rejected).toEqual([]);
-		// 20 per class, plus the student listed on two of them (see #141).
-		expect(parsed.students).toHaveLength(20 * 20 + 2);
 	});
 
-	it('reads grade 8 whole, keeping the sheet one typo would lose', () => {
-		const parsed = readFixture(8);
+	it('reads grade 8, setting aside the one sheet whose rows disagree', () => {
+		const { parsed, misfiled } = classSheets(8);
 
-		expect(parsed.classes).toHaveLength(20);
-		expect(parsed.skipped.map((s) => s.sheetName)).toEqual(['Chinese Class', 'ESL Class ']);
+		expect(parsed.classes).toHaveLength(19);
+		expect(misfiled.map((s) => s.sheetName)).toEqual(['G8 Inter 1']);
+		expect(parsed.skipped.map((s) => s.sheetName)).toEqual([
+			'Chinese Class',
+			'ESL Class ',
+			'G8 Inter 1'
+		]);
 		expect(parsed.rejected).toEqual([]);
-		expect(parsed.students).toHaveLength(20 * 20);
 	});
 
 	it('reads grade 9 whole, and its malformed group does not split the sheet', () => {
@@ -79,7 +105,7 @@ describe('the roster workbooks', () => {
 		expect(parsed.students).toHaveLength(20 * 20);
 	});
 
-	it('reads grade 10 whole, one cohort per base class with both sections', () => {
+	it('reads grade 10 whole, one cohort per base class and level', () => {
 		const parsed = readFixture(10);
 
 		// The `Chinese Class` sheet restates the whole grade across 11 base classes,
@@ -89,8 +115,10 @@ describe('the roster workbooks', () => {
 		expect(parsed.rejected).toEqual([]);
 		expect(parsed.students).toHaveLength(11 * 2 * 20);
 
-		// One cohort per base class, each carrying both of its sections — the
-		// property that the single-group reading of a G10 sheet used to lose.
+		// One cohort per (Chinese class, level): 11 base classes times A and B, each
+		// holding one level's students. They were one cohort per base class when A
+		// and B were read as sections, which put both ability bands into one roster
+		// (ADR-0023).
 		const cohorts = new Map<string, { count: number; sections: Set<string> }>();
 		for (const student of parsed.students) {
 			const request = cohortOfGroup(student.group);
@@ -102,16 +130,19 @@ describe('the roster workbooks', () => {
 			}
 			cohorts.set(key, entry);
 		}
-		expect(cohorts.size).toBe(11);
+		expect(cohorts.size).toBe(11 * 2);
 		for (const [key, value] of cohorts) {
-			expect(value.sections, `${key} should carry both sections`).toEqual(new Set(['A', 'B']));
-			// Grade 10 is not levelled, so no cohort carries a level.
+			// Each cohort is exactly one level, so exactly one section lands in it.
+			expect(value.sections.size, `${key} should carry one level's section`).toBe(1);
+			expect(value.count, `${key} should hold one level's students`).toBe(20);
 			expect(key).not.toContain('undefined');
 		}
 	});
 
-	it('derives each levelled file year from its own IDs, and cannot for grade 10', () => {
-		// The IDs keep their ROC prefix, so the year arithmetic runs for real.
+	it('derives every file year from its own IDs, grade 10 included', () => {
+		// The levelled grades keep their ROC prefix, so the intake arithmetic runs
+		// for real. Grade 10 names the school year itself, reversed, and lands on
+		// the same answer from the other direction.
 		expect(readFixture(7).derivedYear).toEqual({
 			kind: 'current',
 			year: '2026-2027',
@@ -119,8 +150,15 @@ describe('the roster workbooks', () => {
 		});
 		expect(readFixture(8).derivedYear).toMatchObject({ kind: 'current', entryYear: 114 });
 		expect(readFixture(9).derivedYear).toMatchObject({ kind: 'current', entryYear: 113 });
-		// Grade 10's ID space names no year, so the admin confirms it.
-		expect(readFixture(10).derivedYear.kind).toBe('unsupported');
+		// The fixture writes `511xxx`, which is ROC 115 reversed — 2026-2027, the
+		// year these fixtures stand for. It used to be reported as `unsupported`,
+		// which is what left the browser prompt as the only year check on a grade
+		// 10 file.
+		expect(readFixture(10).derivedYear).toEqual({
+			kind: 'current',
+			year: '2026-2027',
+			entryYear: 115
+		});
 	});
 
 	it('names both years when one workbook has two of them merged in', () => {
@@ -132,23 +170,34 @@ describe('the roster workbooks', () => {
 		const parsed = readFixture(7, { mergedYears: true });
 
 		expect(parsed.derivedYear).toEqual({ kind: 'conflict', years: ['2025-2026', '2026-2027'] });
-		// Still a full read, so the refusal is about the year and nothing else.
-		expect(parsed.classes).toHaveLength(20);
+		// Still a full read, so the refusal is about the year and nothing else —
+		// the same 19 sheets a clean grade 7 file yields, misfiled sheet aside.
+		expect(parsed.classes).toHaveLength(19);
 		expect(parsed.rejected).toEqual([]);
 	});
 
-	it('files a misfiled student under the class their column names, not their sheet', () => {
-		const parsed = readFixture(7);
-		const flagged = parsed.classes.filter((sheet) => sheet.reason?.includes('class of record'));
+	it('refuses the sheet whose rows disagree, naming the group to fix', () => {
+		const { misfiled } = classSheets(7);
 
-		// The level change the workbook really contains, in G7 and G8 alike.
-		expect(flagged.map((s) => s.sheetName)).toEqual(['G7 Basic 5']);
-		expect(
-			readFixture(8).classes.filter((s) => s.reason?.includes('class of record'))
-		).toHaveLength(1);
-		// And the flagged sheet is imported in full, not trimmed.
-		const basic5 = flagged.find((s) => s.sheetName === 'G7 Basic 5')!;
-		expect(basic5.parsed.students.length).toBeGreaterThan(1);
+		// The level change the real workbooks contain, in G7 and G8 alike: one row
+		// whose `ESL Group` names a class its sheet does not. It used to import,
+		// filed by its own column, with a warning — but a wrong ability band is
+		// silent, so the file is now refused until the cell is fixed (ADR-0025).
+		expect(misfiled).toHaveLength(1);
+		const sheet = misfiled[0];
+		if (sheet.kind !== 'misfiled') throw new Error('expected a misfiled sheet');
+		expect(sheet.sheetName).toBe('G7 Basic 5');
+		// Both sides of the disagreement, so the admin can find the one cell: the
+		// odd value and the class the rest of the sheet holds. Which one is the
+		// odd one is decided by the majority, not asserted here.
+		expect(sheet.reason).toContain('G7 Basic 5');
+		expect(sheet.reason).toContain('G7 Elementary 4');
+		expect(sheet.reason).toContain('ESL Group');
+		// The rows are still read, so the admin can be told what the file held —
+		// they are simply never applied.
+		expect(sheet.parsed.students.length).toBeGreaterThan(1);
+
+		expect(readFixture(8).skipped.filter((s) => s.kind === 'misfiled')).toHaveLength(1);
 	});
 
 	it('reads the bare Pre-Ele group as grade 7 pre-elementary class 1', () => {

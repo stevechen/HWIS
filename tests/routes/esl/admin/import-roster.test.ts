@@ -51,7 +51,7 @@ vi.mock('convex-svelte', () => ({
 	}))
 }));
 
-vi.mock('$src/routes/esl/admin/import/workbook', () => ({
+vi.mock('$src/routes/esl/admin/classes/workbook', () => ({
 	// The page reads the file once, places the grade from the IDs, then parses.
 	// Each step is mocked so a test can disagree with the others deliberately.
 	readRosterSheets: (...args: unknown[]) => readSheets(...(args as [])),
@@ -64,12 +64,12 @@ vi.mock('$src/routes/esl/admin/import/workbook', () => ({
 	readRosterWorkbook: (...args: unknown[]) => readRosterWorkbook(...args)
 }));
 
-import ImportPage from '$src/routes/esl/admin/import/+page.svelte';
+import ImportRoster from '$src/routes/esl/admin/classes/ImportRoster.svelte';
 
 const YEAR = '2026-2027';
 
 /** The columns a readable sheet reports, as the classifier found them. */
-const COLUMNS = { schoolStudentId: 0, chineseName: 1, englishName: 2, group: 3 };
+const COLUMNS = { schoolStudentId: 0, chineseName: 1, englishName: 2, group: 3, chineseClass: 4 };
 
 const SNAPSHOT = {
 	cohorts: [{ id: 'c_adv1', grade: 9, level: 'Advanced', classNumber: '1' }],
@@ -107,11 +107,13 @@ function workbook(over: Partial<ParsedRosterWorkbook> = {}): ParsedRosterWorkboo
 				schoolStudentId: '1130001',
 				chineseName: '王芃頵',
 				englishName: 'Yoyo Lam',
+				chineseClass: '01',
 				group: { grade: 9, level: 'Advanced', classNumber: '1' }
 			},
 			{
 				schoolStudentId: '1130002',
 				chineseName: '李大文',
+				chineseClass: '01',
 				group: { grade: 9, level: 'Advanced', classNumber: '1' }
 			}
 		],
@@ -145,17 +147,17 @@ async function setYear(value: string) {
 }
 
 /**
- * Uploads a grade 10 file, which places itself from its own ID space.
+ * Uploads a grade 10 file, which places itself from its own ID length.
  *
- * No grade control is involved: `5xxxxx` is a space no other grade is numbered in,
- * so one upload stages and there is nothing to answer. The IDs' leading digit also
- * says which year the file is for, which is what the page checks the year above
- * against.
+ * No grade control is involved: grade 10 IDs are six digits where no levelled
+ * grade is numbered that way, so one upload stages and there is nothing to answer.
+ * The IDs' reversed ROC year also says which year the file is for, which is what
+ * the page checks the year above against.
  */
 async function uploadGrade10(name = 'g10.xlsx') {
-	// Grade 10's scheme: `5xxxxx`, with no three-digit intake prefix, which is how
-	// the page knows the grade without being told.
-	fileIds.mockReturnValue(['511101', '512101']);
+	// Grade 10's scheme: `511xxx`, six digits, which is how the page knows the
+	// grade without being told.
+	fileIds.mockReturnValue(['511101', '511102']);
 	upload(name);
 }
 
@@ -180,6 +182,7 @@ function givenNextYearsFile() {
 					schoolStudentId: '1140001',
 					chineseName: '王芃頵',
 					englishName: 'Yoyo Lam',
+					chineseClass: '01',
 					group: { grade: 9, level: 'Advanced', classNumber: '1' }
 				}
 			]
@@ -218,7 +221,7 @@ describe('ESL admin import page', () => {
 
 	describe('the year so far', () => {
 		it('shows all four grades as not yet provided on a fresh year', async () => {
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 
 			for (const grade of [7, 8, 9, 10]) {
 				await expect
@@ -230,7 +233,7 @@ describe('ESL admin import page', () => {
 
 	describe('choosing a file', () => {
 		it('stages the file and shows a dry run without writing anything', async () => {
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 
 			upload();
 
@@ -258,7 +261,7 @@ describe('ESL admin import page', () => {
 			//
 			// The year is the only thing the admin states; the grade follows from it and
 			// the file's `115xxxx` IDs.
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			fileIds.mockReturnValue(['1150001', '1150399']);
 			givenParsed(
 				workbook({
@@ -268,6 +271,7 @@ describe('ESL admin import page', () => {
 						{
 							schoolStudentId: '1150001',
 							chineseName: '陳明',
+							chineseClass: '01',
 							group: { grade: 7, level: 'Basic', classNumber: '1' }
 						}
 					]
@@ -289,19 +293,20 @@ describe('ESL admin import page', () => {
 		});
 
 		it('places a grade 10 file itself, with nothing asked', async () => {
-			// Grade 10 is numbered `4xxxxx`, then `5xxxxx`, then `6xxxxx` — a space no
-			// other grade uses. So the ID says the grade outright, and the page has
-			// nothing to ask the admin about it.
-			render(ImportPage);
+			// Grade 10 IDs are six digits where no levelled grade is numbered that
+			// way, so the ID says the grade outright and the page has nothing to ask
+			// the admin about it.
+			render(ImportRoster, { expanded: true });
 			fileIds.mockReturnValue(['511024', '511355']);
 			givenParsed(
 				workbook({
 					grade: 10,
-					derivedYear: { kind: 'unsupported', reason: 'separate ID scheme' },
+					derivedYear: { kind: 'current', year: YEAR, entryYear: 115 },
 					students: [
 						{
 							schoolStudentId: '511024',
 							chineseName: '林明',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '01' }
 						}
 					]
@@ -321,7 +326,7 @@ describe('ESL admin import page', () => {
 			// The control existed only for grade 10, and grade 10 now places itself. A
 			// file the IDs cannot place at all is refused, which is a different outcome
 			// from asking a question the IDs can answer.
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			fileIds.mockReturnValue(['12', '99']);
 			await setYear(YEAR);
 			upload('junk.xlsx');
@@ -337,7 +342,7 @@ describe('ESL admin import page', () => {
 			// The safeguard on deriving. Set the year to 2027-2028 and a grade 7 file's
 			// `115xxxx` IDs resolve cleanly to grade 8: consistent, and wrong. The
 			// file's own `ESL Group` column is the check, because it names the grade.
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			fileIds.mockReturnValue(['1150001']);
 			givenParsed(
 				workbook({
@@ -347,6 +352,7 @@ describe('ESL admin import page', () => {
 						{
 							schoolStudentId: '1150001',
 							chineseName: '陳明',
+							chineseClass: '01',
 							group: { grade: 7, level: 'Basic', classNumber: '1' }
 						}
 					]
@@ -369,7 +375,7 @@ describe('ESL admin import page', () => {
 
 		it('reports a file it could not read, and stages nothing', async () => {
 			readSheets.mockRejectedValue(new Error('the file is password protected'));
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 
 			upload();
 
@@ -389,26 +395,29 @@ describe('ESL admin import page', () => {
 				workbook({
 					grade: 10,
 					derivedYear: {
-						kind: 'unsupported',
-						reason: 'Grade 10 uses a separate ID scheme that does not identify a school year.'
+						kind: 'current',
+						year: YEAR,
+						entryYear: 115
 					},
 					students: [
 						{
 							schoolStudentId: '511101',
 							chineseName: '林承叡',
 							englishName: 'Remy Lin',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '01', section: 'A' }
 						},
 						{
-							schoolStudentId: '512101',
+							schoolStudentId: '511102',
 							chineseName: '李大文',
 							englishName: 'Jeremy Wu',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '01', section: 'B' }
 						}
 					]
 				})
 			);
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 
 			await uploadGrade10();
@@ -422,61 +431,64 @@ describe('ESL admin import page', () => {
 			expect(window.localStorage.getItem(`esl-import:${YEAR}`)).toContain('511101');
 		});
 
-		it('lists a grade 10 base class as two classes, one per section', async () => {
+		it('lists each grade 10 level as its own cohort', async () => {
 			givenParsed(
 				workbook({
 					grade: 10,
-					derivedYear: { kind: 'unsupported', reason: 'no year scheme' },
+					derivedYear: { kind: 'current', year: YEAR, entryYear: 115 },
 					students: [
 						{
 							schoolStudentId: '511101',
 							chineseName: '林承叡',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '01', section: 'A' }
 						},
 						{
-							schoolStudentId: '512101',
+							schoolStudentId: '511102',
 							chineseName: '李大文',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '01', section: 'B' }
 						}
 					]
 				})
 			);
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			await uploadGrade10();
 
-			// Two classes, each counting only its own section. The cohort behind them
-			// is still one — that is the parser's job and it is unchanged — but the
-			// admin reads `H101A` and `H101B` as the two classes they are, not as one
-			// class of two students that does not exist.
-			const sectionA = page.getByTestId('esl-import.plan.cohort.10::01:A');
-			const sectionB = page.getByTestId('esl-import.plan.cohort.10::01:B');
-			await expect.element(sectionA).toHaveTextContent('H101A');
-			await expect.element(sectionA).toHaveTextContent('1 students');
-			await expect.element(sectionB).toHaveTextContent('H101B');
-			await expect.element(sectionB).toHaveTextContent('1 students');
+			// Two cohorts, one per level, each counting only its own students. They were
+			// one row with a per-section suffix while A and B were read as
+			// sections of one cohort; they are two rosters now (ADR-0023).
+			const levelA = page.getByTestId('esl-import.plan.cohort.10:A:01');
+			const levelB = page.getByTestId('esl-import.plan.cohort.10:B:01');
+			await expect.element(levelA).toHaveTextContent('H101A');
+			await expect.element(levelA).toHaveTextContent('1 students');
+			await expect.element(levelB).toHaveTextContent('H101B');
+			await expect.element(levelB).toHaveTextContent('1 students');
 		});
 
 		it('sends grade 10 section text, so the server re-reads what it parsed', async () => {
 			givenParsed(
 				workbook({
 					grade: 10,
-					derivedYear: { kind: 'unsupported', reason: 'no year scheme' },
+					derivedYear: { kind: 'current', year: YEAR, entryYear: 115 },
 					students: [
 						{
 							schoolStudentId: '511101',
 							chineseName: '林承叡',
 							englishName: 'Remy Lin',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '01', section: 'A' }
 						},
 						{
-							schoolStudentId: '512101',
+							schoolStudentId: '511102',
 							chineseName: '李大文',
+							chineseClass: '01',
 							group: { grade: 10, baseClass: '11', section: 'B' }
 						}
 					]
 				})
 			);
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			await uploadGrade10();
 			await expect.element(page.getByTestId('esl-import.card.g10')).toBeInTheDocument();
 
@@ -491,7 +503,7 @@ describe('ESL admin import page', () => {
 
 		it('refuses a workbook holding two school years', async () => {
 			givenParsed(workbook({ derivedYear: { kind: 'conflict', years: [YEAR, '2027-2028'] } }));
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 
 			upload();
 
@@ -511,7 +523,7 @@ describe('ESL admin import page', () => {
 					grades: { '8': { status: 'imported', result: IMPORTED_G8 } }
 				})
 			);
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			await setYear('2027-2028');
 
 			// The re-read is what makes a second visit useful: last year's import is
@@ -529,7 +541,7 @@ describe('ESL admin import page', () => {
 					grades: { '8': { status: 'imported', result: IMPORTED_G8 } }
 				})
 			);
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			await setYear('2027-2028');
 			await expect
 				.element(page.getByTestId('esl-import.status.g8.state'))
@@ -545,7 +557,7 @@ describe('ESL admin import page', () => {
 		});
 
 		it('leaves the year field alone when a draft is applied', async () => {
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 			upload();
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
@@ -578,12 +590,13 @@ describe('ESL admin import page', () => {
 						{
 							schoolStudentId: '1140001',
 							chineseName: '陳明',
+							chineseClass: '01',
 							group: { grade: 7, level: 'Basic', classNumber: '1' }
 						}
 					]
 				})
 			);
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 
 			upload();
@@ -622,12 +635,13 @@ describe('ESL admin import page', () => {
 							schoolStudentId: '1140001',
 							chineseName: '王芃頵',
 							englishName: 'Yoyo Lam',
+							chineseClass: '01',
 							group: { grade: 9, level: 'Advanced', classNumber: '1' }
 						}
 					]
 				})
 			);
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 			upload();
 			await expect.element(page.getByTestId('esl-import.yearPrompt')).toBeInTheDocument();
@@ -668,7 +682,7 @@ describe('ESL admin import page', () => {
 						}
 			);
 			givenNextYearsFile();
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 			upload();
 			await expect.element(page.getByTestId('esl-import.yearPrompt')).toBeInTheDocument();
@@ -691,7 +705,7 @@ describe('ESL admin import page', () => {
 				)
 			);
 			givenNextYearsFile();
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 			upload();
 			await expect.element(page.getByTestId('esl-import.yearPrompt')).toBeInTheDocument();
@@ -708,7 +722,7 @@ describe('ESL admin import page', () => {
 
 		it('stages under the year the IDs indicate once accepted', async () => {
 			givenNextYearsFile();
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 			upload();
 			await expect.element(page.getByTestId('esl-import.yearPrompt')).toBeInTheDocument();
@@ -734,17 +748,19 @@ describe('ESL admin import page', () => {
 						{
 							schoolStudentId: '1130001',
 							chineseName: '王芃頵',
+							chineseClass: '01',
 							group: { grade: 9, level: 'Advanced', classNumber: '1' }
 						},
 						{
 							schoolStudentId: '1130001',
 							chineseName: '王芃頵',
+							chineseClass: '01',
 							group: { grade: 9, level: 'Advanced', classNumber: '2' }
 						}
 					]
 				})
 			);
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 
 			upload();
 
@@ -753,7 +769,7 @@ describe('ESL admin import page', () => {
 		});
 
 		it('leaves a name change unticked until the admin ticks it', async () => {
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			upload();
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
 
@@ -787,7 +803,7 @@ describe('ESL admin import page', () => {
 					]
 				})
 			);
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 
 			upload();
 
@@ -802,7 +818,7 @@ describe('ESL admin import page', () => {
 
 	describe('applying', () => {
 		it('sends the file cell text and no unapproved renames', async () => {
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			upload();
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
 
@@ -818,15 +834,21 @@ describe('ESL admin import page', () => {
 					schoolStudentId: '1130001',
 					chineseName: '王芃頵',
 					englishName: 'Yoyo Lam',
+					chineseClass: 'J301',
 					group: 'G9 Advanced 1'
 				},
-				{ schoolStudentId: '1130002', chineseName: '李大文', group: 'G9 Advanced 1' }
+				{
+					schoolStudentId: '1130002',
+					chineseName: '李大文',
+					group: 'G9 Advanced 1',
+					chineseClass: 'J301'
+				}
 			]);
 			expect(args.approvedNameChanges).toEqual([]);
 		});
 
 		it('sends the ticked student once ticked', async () => {
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			upload();
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
 
@@ -839,7 +861,7 @@ describe('ESL admin import page', () => {
 		});
 
 		it('records the grade as imported and drops the staged file', async () => {
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			upload();
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
 
@@ -857,7 +879,7 @@ describe('ESL admin import page', () => {
 
 		it('keeps the file staged when the server refuses it', async () => {
 			mockMutation.mockRejectedValue(new Error('Import refused: rows could not be read.'));
-			render(ImportPage);
+			render(ImportRoster, { expanded: true });
 			upload();
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
 

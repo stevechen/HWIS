@@ -9,13 +9,18 @@ async function asEslAdmin(authId = 'esl-admin') {
 	return t;
 }
 
-/** Creates a G7 cohort and returns `{ cohortId, classIds }` (CLIL first, then Comm). */
-async function createG7(t: ReturnType<typeof convexTest>) {
+/**
+ * Creates a G7 cohort and returns `{ cohortId, classIds }` (CLIL first, then Comm).
+ *
+ * `classNumber` defaults to `1` so the common case stays a bare call; a test that
+ * needs a second, distinct cohort in the same year passes `'2'`.
+ */
+async function createG7(t: ReturnType<typeof convexTest>, classNumber = '1') {
 	return t.mutation(api.esl.cohorts.create, {
 		year: '2025-2026',
 		grade: 7,
 		level: 'Basic',
-		classNumber: '1'
+		classNumber
 	});
 }
 
@@ -31,9 +36,14 @@ describe('esl classes', () => {
 				eslRole: 'teacher',
 				signIn: false
 			});
-			const { classIds } = await createG7(t);
-			await t.mutation(api.esl.classes.assignTeacher, { id: classIds[0], teacherId });
-			await t.mutation(api.esl.classes.assignTeacher, { id: classIds[1], teacherId });
+			// Two *different* cohorts, so one teacher can legally hold both. The two
+			// classes of a single cohort cannot share a teacher (ADR-0027), and
+			// `assignTeacher` now enforces it — a rule that made this fixture
+			// invalid rather than merely unrealistic.
+			const first = await createG7(t, '1');
+			const second = await createG7(t, '2');
+			await t.mutation(api.esl.classes.assignTeacher, { id: first.classIds[0], teacherId });
+			await t.mutation(api.esl.classes.assignTeacher, { id: second.classIds[0], teacherId });
 
 			const classes = await t.query(api.esl.classes.listByTeacher, { teacherId });
 
@@ -124,7 +134,7 @@ describe('esl classes', () => {
 				level: 'Intermediate',
 				classNumber: '1'
 			});
-			await t.mutation(api.esl.students.create, { cohortId, ...ESL_ALICE });
+			await t.mutation(api.esl.students.create, { cohortId, ...ESL_ALICE, chineseClass: 'J301' });
 
 			const roster = await t.query(api.esl.classes.getRoster, { classId: classIds[0] });
 

@@ -6,9 +6,11 @@ import { requireEslAdmin, requireEslStaff } from '../auth';
 import { isValidEslGrade, isValidSchoolYear } from '../shared/esl';
 import {
 	cohortOfGroup,
+	describeUnreadableChineseClass,
 	deriveSchoolYear,
 	isGrade10Group,
 	normalizeSchoolStudentId,
+	parseChineseClass,
 	parseRosterGroup,
 	planRosterImport,
 	type ExistingCohort,
@@ -51,7 +53,9 @@ const stagedRowArgs = v.object({
 	chineseName: v.string(),
 	englishName: v.optional(v.string()),
 	/** The `ESL Group` cell, e.g. `G9 Advanced 1`. */
-	group: v.string()
+	group: v.string(),
+	/** The `C Class` / `Class` cell, e.g. `J101`. */
+	chineseClass: v.string()
 });
 
 /** The cohorts of one grade in one year, and the students enrolled in them. */
@@ -87,6 +91,7 @@ async function loadSnapshot(
 				schoolStudentId: student.schoolStudentId,
 				chineseName: student.chineseName,
 				englishName: student.englishName,
+				...(student.chineseClass === undefined ? {} : { chineseClass: student.chineseClass }),
 				status: student.status
 			});
 		}
@@ -109,6 +114,8 @@ type StagedRow = {
 	chineseName: string;
 	englishName?: string;
 	group: string;
+	/** The `C Class` / `Class` cell text, e.g. `J101`. */
+	chineseClass: string;
 };
 
 /**
@@ -168,12 +175,25 @@ function readRows(
 		}
 
 		const englishName = row.englishName?.trim();
+		// Re-read rather than trusted: the payload carries the cell text, and the
+		// server derives the stored number the same way the browser did. A browser
+		// that sent a different number than the file holds would produce a roster
+		// the admin never saw, which is the whole reason this is re-derived
+		// (ADR-0022).
+		const chineseClass = parseChineseClass(row.chineseClass, grade);
+		if ('error' in chineseClass) {
+			problems.push(
+				`Row ${rowNumber} (${schoolStudentId}): ${describeUnreadableChineseClass(chineseClass.error, grade)}`
+			);
+			return;
+		}
 		roster.push({
 			schoolStudentId,
 			chineseName,
 			// A blank English name is left absent rather than stored empty, so a name
 			// filled in later reads as adding one rather than editing `""`.
 			...(englishName === undefined || englishName === '' ? {} : { englishName }),
+			chineseClass: chineseClass.classNumber,
 			group
 		});
 	});
@@ -503,9 +523,11 @@ export const applyRosterImport = mutation({
 			);
 		}
 
-		// The IDs carry the school year, so a file for the wrong year is caught by
-		// arithmetic rather than by the admin noticing. G10 cannot be checked this
-		// way, which is why it needs a year confirmed by hand.
+		// The IDs carry the school year for all four grades, so a file for the wrong
+		// year is caught by arithmetic rather than by the admin noticing. The
+		// levelled grades read an intake year and add the grade's offset; grade 10
+		// names the school year itself, reversed. Both land in `deriveSchoolYear`,
+		// so the server and the browser read a file the same way.
 		const derived = deriveSchoolYear(
 			args.grade,
 			roster.map((student) => student.schoolStudentId)
@@ -515,10 +537,7 @@ export const applyRosterImport = mutation({
 				`These rows carry two different school years (${derived.years.join(' and ')}), which usually means two years were saved into one workbook.`
 			);
 		}
-		// Grade 10's IDs name no year, so there is nothing to check the
-		// confirmed year against. The admin's word is the only statement
-		// available, and it is the year these rows are applied into.
-		if (derived.kind === 'unsupported' && args.grade !== 10) {
+		if (derived.kind === 'unsupported') {
 			throw new Error(derived.reason);
 		}
 		if (derived.kind === 'current' && derived.year !== args.year) {
@@ -581,6 +600,7 @@ export const applyRosterImport = mutation({
 		let added = 0;
 		let moved = 0;
 		let renamed = 0;
+		let rehomed = 0;
 		let disabled = 0;
 		let unchanged = 0;
 
@@ -602,6 +622,7 @@ export const applyRosterImport = mutation({
 							: { englishName: change.student.englishName }),
 						chineseName: change.student.chineseName,
 						schoolStudentId: change.student.schoolStudentId,
+						chineseClass: change.student.chineseClass,
 						status: 'active',
 						enrolledAt: now
 					});
@@ -622,6 +643,17 @@ export const applyRosterImport = mutation({
 					}
 					await ctx.db.patch(studentId(change.studentId), { englishName: change.to });
 					renamed += 1;
+					break;
+				}
+				case 'classChange': {
+					// Applied without an approval gate, unlike a name change: a homeroom
+					// that differs from the one on file is not a question of intent, it
+					// is the department's file being newer than our record. It is still
+					// counted and reported, so the transfer is never invisible (ADR-0025).
+					await ctx.db.patch(studentId(change.studentId), {
+						chineseClass: change.to
+					});
+					rehomed += 1;
 					break;
 				}
 				case 'disabled': {
@@ -646,6 +678,7 @@ export const applyRosterImport = mutation({
 			added,
 			moved,
 			renamed,
+			rehomed,
 			disabled,
 			unchanged,
 			cohortsCreated: firstPlan.missingCohorts.map((c) => `${c.grade} ${c.level} ${c.classNumber}`),
