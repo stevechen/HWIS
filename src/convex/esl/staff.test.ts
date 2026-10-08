@@ -410,6 +410,25 @@ describe('esl staff', () => {
 			expect(profile.email).toBeUndefined();
 		});
 
+		it('resolves inactive accounts with their status badge value', async () => {
+			const { t } = await asEslAdmin();
+			const teacherId = await seedEslStaff(t, {
+				authId: 'pending-teacher',
+				eslRole: 'teacher',
+				status: 'pending',
+				signIn: false
+			});
+			mockBetterAuth([]);
+
+			const profile = await t.query(api.esl.staff.getProfile, {
+				userId: teacherId,
+				year: '2025-2026'
+			});
+
+			expect(profile.status).toBe('pending');
+			expect(profile.classes).toHaveLength(0);
+		});
+
 		it('rejects unknown users and student rows', async () => {
 			const { t } = await asEslAdmin();
 			const ghost = await t.run((ctx) => ctx.db.insert('users', { role: 'teacher' }));

@@ -180,6 +180,15 @@ describe('ESL teacher profile page', () => {
 			.toHaveTextContent('0 periods/week');
 	});
 
+	it('shows a loading state while the profile resolves', async () => {
+		withProfile(undefined);
+		render(ProfilePage);
+
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.loading'))
+			.toHaveTextContent('Loading profile…');
+	});
+
 	it('shows the not-found state for a bad user id', async () => {
 		withProfileError('User not found');
 		render(ProfilePage);

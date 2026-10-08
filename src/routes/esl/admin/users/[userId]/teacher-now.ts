@@ -48,13 +48,6 @@ export function currentEslSlot(now: Date): EslSlot | null {
 	return { day: weekday, period: slot.period };
 }
 
-/** The meeting in progress at the slot, if the teacher has one. */
-export function meetingAtSlot(meetings: TeacherMeeting[], slot: EslSlot): TeacherMeeting | null {
-	return (
-		meetings.find((meeting) => meeting.day === slot.day && meeting.period === slot.period) ?? null
-	);
-}
-
 /** The teacher's next meeting later today, earliest first. */
 export function nextMeetingToday(
 	meetings: TeacherMeeting[],

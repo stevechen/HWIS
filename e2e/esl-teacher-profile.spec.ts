@@ -154,10 +154,12 @@ test.describe('ESL teacher profile @esl', () => {
 		if (ownedCohortId) {
 			await cleanupByTag('esl', e2eTag);
 		} else if (adopted) {
+			// Blank clears the room, restoring the unset state when that is
+			// what the adoption found; absent would leave the seeded room.
 			await client.mutation(api.esl.classes.setSchedule, {
 				classId: adopted.classId as never,
 				year: YEAR,
-				room: adopted.room ?? undefined,
+				room: adopted.room ?? '',
 				meetings: adopted.meetings
 			});
 			await client.mutation(api.esl.classes.assignTeacher, {
