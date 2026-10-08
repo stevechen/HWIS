@@ -142,6 +142,21 @@ describe('esl teacher availability', () => {
 			expect(rows[0]).not.toHaveProperty('note');
 		});
 
+		it('trims a note but keeps it', async () => {
+			const t = await asEslAdmin();
+			const teacher = await seedTeacher(t, 'ms-rao');
+
+			await t.mutation(api.esl.availability.setBlocks, {
+				teacherId: teacher,
+				year: '2025-2026',
+				blocks: [{ day: 'Monday', period: 1, note: '  lunch duty  ' }]
+			});
+
+			const rows = await blocksFor(t, teacher, '2025-2026');
+			expect(rows).toHaveLength(1);
+			expect(rows[0]).toMatchObject({ note: 'lunch duty' });
+		});
+
 		it('refuses a period the school does not run, naming it', async () => {
 			const t = await asEslAdmin();
 			const teacher = await seedTeacher(t, 'ms-rao');

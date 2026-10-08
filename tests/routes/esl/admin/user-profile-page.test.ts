@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { getFunctionName } from 'convex/server';
 import { useQuery } from 'convex-svelte';
+import { selectOption } from '../../../lib/select';
 import { buildViewerSession } from '../../../mocks/route-mocks';
 
 vi.mock('$app/state', () => ({
@@ -373,6 +374,27 @@ describe('ESL teacher profile availability buttons', () => {
 			.toHaveValue('HWIS homeroom');
 		const saveButton = page.getByTestId('esl-admin-user-profile.availability.save');
 		await expect.element(saveButton).toBeDisabled();
+	});
+
+	it('opens both dialogs on the profile’s selected school year', async () => {
+		// Both dialogs act on the profile's display year only: switching the
+		// picker re-points the write and the read, with no cross-year carryover.
+		render(ProfilePage);
+		await selectOption(page.getByTestId('esl-admin-user-profile.year'), '2024-2025');
+
+		await openAvailabilityDialog();
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.availability.dialog'))
+			.toHaveTextContent('Theo Teacher · 2024-2025');
+		await userEvent.click(page.getByTestId('esl-admin-user-profile.availability.cancel'));
+		expect(page.getByTestId('esl-admin-user-profile.availability.dialog').elements()).toHaveLength(
+			0
+		);
+
+		await openScheduleDialog();
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.schedule.dialog'))
+			.toHaveTextContent('Theo Teacher · 2024-2025');
 	});
 
 	it('opens the weekly schedule as a read-only 40-cell grid', async () => {
