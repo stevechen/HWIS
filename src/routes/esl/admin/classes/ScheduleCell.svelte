@@ -323,6 +323,7 @@
 	 * its current blank cell, and the tooltip still carries the full reason.
 	 */
 	function availabilityBlocked(day: EslDay, period: number): boolean {
+		// Both sections of a grade 10 pair share every slot (ADR-0023 rule 7), so either teacher's block refuses the pick.
 		const teacherIds = [classRecord.teacherId, partner?.teacherId].filter(
 			(id): id is string => id !== undefined && id !== ''
 		);
@@ -842,6 +843,8 @@
 								{@const blocked = cellBlocked(day, slot.period)}
 								{@const reasons = cellReasons(day, slot.period)}
 								{@const naBlocked = availabilityBlocked(day, slot.period)}
+								<!-- The draft's own pick wins over NA (story 25): a blocked pick already reads as a red conflict, so NA would double-report it. -->
+								{@const showNa = naBlocked && !selected}
 								{@const divergent = divergentOwner(day, slot.period) !== null}
 								{@const conflict =
 									selected && draftProblems.some((p) => p.day === day && p.period === slot.period)}
@@ -893,7 +896,7 @@
 										onchange={() => toggle({ day, period: slot.period })}
 										onkeydown={(event) => onSlotKeyDown(event, day, slot.period)}
 									/>
-									{#if naBlocked}
+									{#if showNa}
 										<span class="max-w-full truncate text-[0.625rem] leading-none">NA</span>
 									{/if}
 								</label>

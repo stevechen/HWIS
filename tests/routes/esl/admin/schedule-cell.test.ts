@@ -594,6 +594,29 @@ describe('ScheduleCell floating picker', () => {
 		expect(cells[1].textContent?.trim()).toBe('');
 	});
 
+	it('hides NA on a drafted slot the teacher is blocked for, keeping the conflict', async () => {
+		// The draft's own pick wins over NA (story 25): Mo P1 is both picked and
+		// blocked, so the cell reads as a red conflict rather than doubling up
+		// with an NA label.
+		render(ScheduleCell, {
+			props: scheduleProps({
+				classRecord: { ...CLASS_RECORD, teacherId: 'k17teacher' },
+				availabilityByTeacher: {
+					k17teacher: [{ day: 'Monday', period: 1, note: 'lunch duty' }]
+				}
+			})
+		});
+
+		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
+
+		const cells = page.getByTestId('esl-admin-classes.schedule.cell').elements();
+		// Row-major: index 0 is P1/Monday — the picked-but-blocked slot.
+		const mondayFirst = cells[0];
+		expect(mondayFirst.getAttribute('data-conflict')).toBe('true');
+		await expect.element(mondayFirst).not.toHaveTextContent('NA');
+		expect(mondayFirst.getAttribute('title')).toContain('lunch duty');
+	});
+
 	it('leaves slots blocked for other reasons blank rather than NA', async () => {
 		// NA names the teacher-availability rule only: a room clash keeps its
 		// blank cell, with the reason in the tooltip.
