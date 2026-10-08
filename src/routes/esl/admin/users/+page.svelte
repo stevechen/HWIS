@@ -155,6 +155,7 @@
 					tabindex={0}
 					aria-label="View profile for {person.name}"
 					data-testid="esl-admin-users.profile-link"
+					data-user-id={person._id}
 					class="cursor-pointer rounded-xl focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:outline-none"
 					onclick={() => openProfile(person._id)}
 					onkeydown={(event) => openProfileKey(event, person._id)}
