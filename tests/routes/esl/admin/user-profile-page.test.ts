@@ -132,6 +132,13 @@ async function openAvailabilityDialog() {
 		.toBeInTheDocument();
 }
 
+async function openScheduleDialog() {
+	await userEvent.click(page.getByTestId('esl-admin-user-profile.schedule.trigger'));
+	await expect
+		.element(page.getByTestId('esl-admin-user-profile.schedule.dialog'))
+		.toBeInTheDocument();
+}
+
 describe('ESL teacher profile page', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks();
@@ -368,16 +375,131 @@ describe('ESL teacher profile availability buttons', () => {
 		await expect.element(saveButton).toBeDisabled();
 	});
 
-	it('opens the weekly schedule placeholder', async () => {
+	it('opens the weekly schedule as a read-only 40-cell grid', async () => {
 		render(ProfilePage);
+		await openScheduleDialog();
 
-		await userEvent.click(page.getByTestId('esl-admin-user-profile.schedule.trigger'));
-
+		expect(page.getByTestId('esl-admin-user-profile.schedule.cell').elements()).toHaveLength(40);
 		await expect
-			.element(page.getByTestId('esl-admin-user-profile.schedule.dialog'))
+			.element(page.getByTestId('esl-admin-user-profile.schedule.grid'))
 			.toBeInTheDocument();
+	});
+
+	it('shows ESL-taught cells with short name plus room and type/cohort tooltip', async () => {
+		render(ProfilePage);
+		await openScheduleDialog();
+
+		const mondayFirst = page
+			.getByTestId('esl-admin-user-profile.schedule.cell')
+			.elements()
+			.find((cell) => (cell.getAttribute('aria-label') ?? '').startsWith('Mo P1 teaches'));
+		if (!mondayFirst) throw new Error('no Mo P1 taught cell');
+		await expect.element(mondayFirst).toHaveTextContent('G7 Bas. 1');
+		await expect.element(mondayFirst).toHaveTextContent('ESL A');
+		await expect.element(mondayFirst).toHaveAttribute('title', expect.stringContaining('CLIL'));
 		await expect
-			.element(page.getByTestId('esl-admin-user-profile.schedule.placeholder'))
-			.toHaveTextContent('ticket #167');
+			.element(mondayFirst)
+			.toHaveAttribute('title', expect.stringContaining('2025-2026 G7 Basic 1'));
+	});
+
+	it('flags unset rooms on ESL-taught cells', async () => {
+		render(ProfilePage);
+		await openScheduleDialog();
+
+		const tuesdaySecond = page
+			.getByTestId('esl-admin-user-profile.schedule.cell')
+			.elements()
+			.find((cell) => (cell.getAttribute('aria-label') ?? '').startsWith('Tu P2 teaches'));
+		if (!tuesdaySecond) throw new Error('no Tu P2 taught cell');
+		await expect.element(tuesdaySecond).toHaveTextContent('G7 Bas. 2');
+		await expect.element(tuesdaySecond).toHaveTextContent('Room not set');
+	});
+
+	it('shows NA blocks with the note beneath and the full note in the tooltip', async () => {
+		withProfileAndBlocks([
+			{
+				teacherId: 'user_teacher',
+				year: '2025-2026',
+				day: 'Monday',
+				period: 3,
+				note: 'HWIS homeroom'
+			}
+		]);
+		render(ProfilePage);
+		await openScheduleDialog();
+
+		const blocked = page
+			.getByTestId('esl-admin-user-profile.schedule.cell')
+			.elements()
+			.find((cell) => (cell.getAttribute('aria-label') ?? '').startsWith('Mo P3 unavailable'));
+		if (!blocked) throw new Error('no Mo P3 blocked cell');
+		await expect.element(blocked).toHaveTextContent('NA');
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.schedule.note'))
+			.toHaveTextContent('HWIS homeroom');
+		await expect
+			.element(blocked)
+			.toHaveAttribute('title', expect.stringContaining('HWIS homeroom'));
+	});
+
+	it('shows a plain NA for blocked slots with no note', async () => {
+		withProfileAndBlocks([
+			{
+				teacherId: 'user_teacher',
+				year: '2025-2026',
+				day: 'Monday',
+				period: 3
+			}
+		]);
+		render(ProfilePage);
+		await openScheduleDialog();
+
+		const blocked = page
+			.getByTestId('esl-admin-user-profile.schedule.cell')
+			.elements()
+			.find((cell) => (cell.getAttribute('aria-label') ?? '').startsWith('Mo P3 unavailable'));
+		if (!blocked) throw new Error('no Mo P3 blocked cell');
+		await expect.element(blocked).toHaveTextContent('NA');
+		expect(page.getByTestId('esl-admin-user-profile.schedule.note').elements()).toHaveLength(0);
+	});
+
+	it('keeps the class tag on slots where the teacher already teaches', async () => {
+		withProfileAndBlocks([
+			{
+				teacherId: 'user_teacher',
+				year: '2025-2026',
+				day: 'Monday',
+				period: 1,
+				note: 'HWIS homeroom'
+			}
+		]);
+		render(ProfilePage);
+		await openScheduleDialog();
+
+		const mondayFirst = page
+			.getByTestId('esl-admin-user-profile.schedule.cell')
+			.elements()
+			.find((cell) => (cell.getAttribute('aria-label') ?? '').startsWith('Mo P1 teaches'));
+		if (!mondayFirst) throw new Error('no Mo P1 taught cell');
+		await expect.element(mondayFirst).toHaveTextContent('G7 Bas. 1');
+		await expect.element(mondayFirst).not.toHaveTextContent('NA');
+	});
+
+	it('shows the empty-week notice when nothing is scheduled', async () => {
+		vi.mocked(useQuery).mockImplementation(((reference: unknown) => {
+			const name = getFunctionName(reference as never);
+			return {
+				data: name === 'esl/staff:getProfile' ? { ...PROFILE, classes: [] } : [],
+				isLoading: false,
+				error: null
+			};
+		}) as never);
+		render(ProfilePage);
+		await openScheduleDialog();
+
+		expect(page.getByTestId('esl-admin-user-profile.schedule.cell').elements()).toHaveLength(40);
+		await expect
+			.element(page.getByTestId('esl-admin-user-profile.schedule.empty'))
+			.toHaveTextContent('No classes or NA blocks in 2025-2026.');
 	});
 });

@@ -1,29 +1,88 @@
 <script lang="ts">
+	import { useQuery } from 'convex-svelte';
+	import { api } from '$convex/_generated/api';
+	import type { Id } from '$convex/_generated/dataModel';
 	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import {
+		ESL_DAYS,
+		ESL_DAY_LABELS,
+		ESL_PERIODS,
+		eslClassShortLabel,
+		eslMeetingLabel,
+		type EslDay
+	} from '$convex/shared/esl';
+
+	type ScheduleClass = {
+		name: string;
+		type: string;
+		room: string | null;
+		cohortLabel: string;
+		meetings: { day: EslDay; period: number }[];
+	};
 
 	let {
 		open = $bindable(false),
+		teacherId,
 		teacherName,
-		year
+		year,
+		classes
 	}: {
 		open?: boolean;
+		teacherId: Id<'users'>;
 		teacherName: string;
-		/** The profile's selected school year — the grid ticket #167 builds reads this year. */
+		/** The profile's selected school year — the only year this dialog reads. */
 		year: string;
+		/** The teacher's ESL classes for `year`, with meetings and rooms. */
+		classes: ScheduleClass[];
 	} = $props();
+
+	/**
+	 * The teacher's blocked slots for this year only. Subscribed while the
+	 * dialog is open; absence of rows means available everywhere, so an
+	 * unsubscribed or empty payload renders a blank (available) grid.
+	 */
+	const blocksQuery = useQuery(api.esl.availability.listByYear, () => (open ? { year } : 'skip'));
+
+	const blocks = $derived(
+		(blocksQuery.data ?? [])
+			.filter((row) => row.teacherId === teacherId)
+			.map((row) => ({ day: row.day, period: row.period, note: row.note ?? '' }))
+	);
+
+	function taughtAt(day: EslDay, period: number): ScheduleClass | null {
+		for (const cls of classes) {
+			if (cls.meetings.some((meeting) => meeting.day === day && meeting.period === period)) {
+				return cls;
+			}
+		}
+		return null;
+	}
+
+	function blockNote(day: EslDay, period: number): string | null {
+		const block = blocks.find((candidate) => candidate.day === day && candidate.period === period);
+		return block ? (block.note.trim() === '' ? null : block.note.trim()) : null;
+	}
+
+	function hasBlock(day: EslDay, period: number): boolean {
+		return blocks.some((candidate) => candidate.day === day && candidate.period === period);
+	}
+
+	const taughtPeriods = $derived(classes.reduce((count, cls) => count + cls.meetings.length, 0));
+
+	/** A fully unscheduled week reads as unassigned, not as a load error. */
+	const isEmptyWeek = $derived(
+		!blocksQuery.isLoading && taughtPeriods === 0 && blocks.length === 0
+	);
 </script>
 
 <!--
-	Placeholder shell for the read-only weekly schedule dialog (spec #164
-	stories 17–23, ticket #167).
+	Read-only weekly schedule dialog (spec #164 stories 17–23).
 
-	The button wiring, dialog chrome, and year scoping land here so #167 only
-	has to fill the body: a Monday–Friday by period 1–8 grid merging the
-	teacher's ESL classes (short name plus room) with NA blocks for `year`,
-	read through the existing staff profile query plus the blocked-slots list
-	query. Nothing here writes.
+	One merged Monday–Friday by period 1–8 grid: ESL-taught cells win over NA
+	blocks at the same slot (the two busy reasons stay distinct, as in the
+	class-timetable picker), empty cells stay blank (available). Nothing here
+	writes — availability editing lives in SetAvailabilityDialog.
 -->
 <Dialog.Root bind:open>
 	<Dialog.Content class="max-w-2xl" testId="esl-admin-user-profile.schedule.dialog">
@@ -35,15 +94,87 @@
 		</Dialog.Header>
 
 		<div
-			data-testid="esl-admin-user-profile.schedule.placeholder"
-			class="rounded-lg border border-dashed bg-white px-4 py-10 text-center"
+			role="group"
+			aria-label="Weekly schedule for {year}"
+			data-testid="esl-admin-user-profile.schedule.grid"
 		>
-			<Badge variant="outline">Placeholder</Badge>
-			<p class="text-muted-foreground mt-2 text-sm">
-				The weekly schedule grid lands with ticket #167 — it will show {teacherName}'s ESL classes
-				and NA blocks for {year} here.
-			</p>
+			<div class="grid grid-cols-[1.25rem_repeat(5,minmax(0,1fr))]">
+				<span></span>
+				{#each ESL_DAYS as day (day)}
+					<span class="text-muted-foreground text-center text-xs">{ESL_DAY_LABELS[day]}</span>
+				{/each}
+			</div>
+			{#each ESL_PERIODS as slot (slot.period)}
+				<div class="grid grid-cols-[1.25rem_repeat(5,minmax(0,1fr))]">
+					<span class="text-muted-foreground flex items-center text-xs">P{slot.period}</span>
+					{#each ESL_DAYS as day (day)}
+						{@const taught = taughtAt(day, slot.period)}
+						{@const blocked = taught === null && hasBlock(day, slot.period)}
+						{@const note = blocked ? blockNote(day, slot.period) : null}
+						{@const label = eslMeetingLabel({ day, period: slot.period })}
+						{@const marked = taught !== null || blocked}
+						{@const room = taught ? (taught.room ?? 'Room not set') : ''}
+						{@const short = taught ? eslClassShortLabel(taught.name) : ''}
+						{@const cellLabel =
+							taught !== null
+								? `${label} teaches ${taught.name} (${taught.type}, ${taught.cohortLabel}) in ${room}`
+								: note !== null
+									? `${label} unavailable: ${note}`
+									: blocked
+										? `${label} unavailable`
+										: label}
+						<span
+							class={[
+								'-mt-px -ml-px flex h-10 flex-col items-center justify-center border px-0.5 text-xs',
+								taught !== null
+									? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+									: blocked
+										? 'border-gray-300 bg-gray-100 font-medium text-gray-600'
+										: 'border-input text-muted-foreground'
+							]}
+							role={marked ? 'img' : undefined}
+							aria-label={marked ? cellLabel : undefined}
+							title={cellLabel}
+							data-testid="esl-admin-user-profile.schedule.cell"
+							data-blocked={blocked}
+							data-taught={taught?.name ?? undefined}
+						>
+							{#if taught !== null}
+								<span class="max-w-full truncate text-[0.625rem] leading-tight font-medium">
+									{short === '' ? taught.name : short}
+								</span>
+								<span
+									class="max-w-full truncate text-[0.625rem] leading-tight {taught.room
+										? ''
+										: 'italic'}"
+								>
+									{room}
+								</span>
+							{:else if blocked}
+								<span class="max-w-full truncate text-[0.625rem] leading-tight">NA</span>
+								{#if note !== null}
+									<span
+										class="max-w-full truncate text-[0.625rem] leading-tight font-normal"
+										data-testid="esl-admin-user-profile.schedule.note"
+									>
+										{note}
+									</span>
+								{/if}
+							{/if}
+						</span>
+					{/each}
+				</div>
+			{/each}
 		</div>
+
+		{#if isEmptyWeek}
+			<p
+				data-testid="esl-admin-user-profile.schedule.empty"
+				class="text-muted-foreground rounded-lg border border-dashed bg-white px-4 py-6 text-center text-sm"
+			>
+				No classes or NA blocks in {year}.
+			</p>
+		{/if}
 
 		<Dialog.Footer>
 			<Button
