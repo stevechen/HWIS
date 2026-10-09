@@ -1,22 +1,16 @@
 <script lang="ts">
 	// ⚠️ PROTOTYPE — throwaway, do not ship.
 	// Question: what should the per-class custom calendar look like? (map #178, ticket #188)
-	// Three variants switchable via ?v= + the floating bar. Fixture classes + S1 events,
-	// join mocked at the loader level (fixture.ts), no Convex, no writes (notes in-memory).
-	// Route lives under /display like proto-esl-schedule-list so no auth chrome gets in the way.
+	// Iteration 5: whole-semester scroll keyed by school week (no month splits,
+	// so no card renders twice), landing on the current week, Today button,
+	// sticky toolbar. Three variants switchable via ?v= + the floating bar.
+	// Fixture classes + S1 events, join mocked at the loader level (fixture.ts),
+	// no Convex, no writes (notes in-memory).
 
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
-	import {
-		CLASSES,
-		MONTHS,
-		cardsFor,
-		collapseSummary,
-		fragmentsFor,
-		nextDate,
-		prevDate
-	} from './fixture';
+	import { CLASSES, cardsFor, collapseSummary, nextDate, semesterFragments } from './fixture';
 	import VariantCalA from './VariantCalA.svelte';
 	import VariantCalB from './VariantCalB.svelte';
 	import VariantCalC from './VariantCalC.svelte';
@@ -36,12 +30,6 @@
 	);
 	const cls = $derived(CLASSES[clsIndex]);
 
-	const monthIndex = $derived(() => {
-		const raw = Number(page.url.searchParams.get('m') ?? '0');
-		if (!Number.isInteger(raw)) return 0;
-		return Math.min(Math.max(raw, 0), MONTHS.length - 1);
-	});
-
 	const current: VariantId = $derived(
 		VARIANTS.some((v) => v.id === page.url.searchParams.get('v'))
 			? (page.url.searchParams.get('v') as VariantId)
@@ -52,12 +40,25 @@
 	// Touch the card cache so join errors surface at load, not lazily.
 	for (const c of CLASSES) cardsFor(c);
 
-	const fragments = $derived(
-		fragmentsFor(cls, MONTHS[monthIndex()].year, MONTHS[monthIndex()].month)
-	);
+	const fragments = $derived(semesterFragments(cls));
 	const collapses = $derived(collapseSummary(cls));
 	const next = $derived(nextDate(cls));
-	const prev = $derived(prevDate(cls));
+
+	/** Current week: first week with a meeting on or after today (clamped). */
+	function currentWeek(): number {
+		const hit = fragments.find((f) => f.cards.some((c) => c.date >= todayKey()));
+		return (hit ?? fragments[fragments.length - 1])?.weekIndex ?? 0;
+	}
+
+	function todayKey(): string {
+		const now = new Date();
+		return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+	}
+
+	async function scrollToWeek(n: number) {
+		await tick();
+		document.getElementById(`week-${n}`)?.scrollIntoView({ block: 'start' });
+	}
 
 	function setParam(key: string, value: string) {
 		const url = new URL(page.url);
@@ -66,28 +67,8 @@
 	}
 
 	function cycle(delta: 1 | -1) {
-		const next = VARIANTS[(currentIndex + delta + VARIANTS.length) % VARIANTS.length];
-		setParam('v', next.id);
-	}
-
-	function stepMonth(delta: 1 | -1) {
-		setParam('m', String(monthIndex() + delta));
-	}
-
-	/**
-	 * Jump to the previous/next taught class day, crossing months automatically
-	 * (no padded weeks: padding would duplicate cards, including note boxes).
-	 * The target card is hash-highlighted after render.
-	 */
-	async function jumpClass(which: 'prev' | 'next') {
-		const target = which === 'prev' ? prev : next;
-		if (!target) return;
-		const [y, m] = target.split('-').map(Number);
-		const mi = MONTHS.findIndex((mm) => mm.year === y && mm.month === m);
-		if (mi >= 0 && mi !== monthIndex()) setParam('m', String(mi));
-		await tick();
-		document.getElementById(`card-${target}`)?.scrollIntoView({ block: 'center' });
-		location.hash = `card-${target}`;
+		const nextVariant = VARIANTS[(currentIndex + delta + VARIANTS.length) % VARIANTS.length];
+		setParam('v', nextVariant.id);
 	}
 
 	function onKey(event: KeyboardEvent) {
@@ -104,32 +85,20 @@
 
 	onMount(() => {
 		window.addEventListener('keydown', onKey);
+		scrollToWeek(currentWeek());
 		return () => window.removeEventListener('keydown', onKey);
 	});
 
 	const dev = import.meta.env.DEV;
-	const MONTH_NAMES = [
-		'January',
-		'February',
-		'March',
-		'April',
-		'May',
-		'June',
-		'July',
-		'August',
-		'September',
-		'October',
-		'November',
-		'December'
-	];
 	const stateJson = $derived(
 		JSON.stringify(
 			{
 				class: cls.name,
-				month: `${MONTHS[monthIndex()].year}-${MONTHS[monthIndex()].month}`,
+				scope: 'whole semester, week-keyed rows',
 				collapses,
 				fragments: fragments.map((f) => ({
 					week: f.weekIndex,
+					months: f.monthLabel,
 					banners: f.banners.map((b) => b.title),
 					cards: f.cards.map((c) => ({
 						date: c.date,
@@ -159,10 +128,11 @@
 		below.
 	</p>
 
-	<header class="mt-4 mb-3">
-		<!-- Class switcher sits a level above the title; the strip scrolls
-			horizontally (native swipe on mobile) for teachers with ~9 classes. -->
-		<div class="mb-2 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Classes">
+	<!-- Sticky toolbar: earlier content hides underneath while scrolling. -->
+	<div
+		class="sticky top-0 z-40 -mx-4 border-b border-emerald-900/10 bg-white/95 px-4 py-2 shadow-sm backdrop-blur sm:-mx-8 sm:px-8"
+	>
+		<div class="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Classes">
 			{#each CLASSES as c, i (c.id)}
 				<button
 					role="tab"
@@ -172,49 +142,32 @@
 						: 'border-stone-300 bg-white hover:bg-stone-100'}"
 					onclick={() => setParam('c', c.id)}
 				>
-					{c.type} · {c.short}
+					{c.short}
+					{c.type}
 				</button>
 			{/each}
 		</div>
-		<h1 class="text-2xl font-bold text-emerald-900">
-			{cls.name} · <span class="font-normal">👥 {cls.headcount}</span> · 📍{cls.room}
-		</h1>
-		<p class="text-muted-foreground mt-1 text-sm">S1 2026-2027</p>
-		<div class="mt-2 flex flex-wrap items-center gap-2">
+		<div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+			<h1 class="text-xl font-bold text-emerald-900">
+				{cls.name} · <span class="font-normal">👥 {cls.headcount}</span> · 📍{cls.room}
+			</h1>
+			<span class="text-muted-foreground text-sm">S1 2026-2027</span>
 			<button
-				class="rounded-full border border-stone-300 bg-white px-3 py-1 text-sm font-semibold hover:bg-stone-100 disabled:opacity-30"
-				disabled={monthIndex() <= 0}
-				onclick={() => stepMonth(-1)}>← Prev month</button
-			>
-			<span class="px-1 text-xl font-bold">
-				{MONTH_NAMES[MONTHS[monthIndex()].month - 1]}
-			</span>
-			<button
-				class="rounded-full border border-stone-300 bg-white px-3 py-1 text-sm font-semibold hover:bg-stone-100 disabled:opacity-30"
-				disabled={monthIndex() >= MONTHS.length - 1}
-				onclick={() => stepMonth(1)}>Next month →</button
-			>
-			<span class="mx-1 text-stone-300">|</span>
-			<button
-				class="rounded-full border border-emerald-700 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-30"
-				disabled={!prev}
-				onclick={() => jumpClass('prev')}>← Prev class</button
-			>
-			<button
-				class="rounded-full border border-emerald-700 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-30"
-				disabled={!next}
-				onclick={() => jumpClass('next')}>Next class →</button
+				class="ml-auto rounded-full border border-emerald-700 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
+				onclick={() => scrollToWeek(currentWeek())}>● Today</button
 			>
 		</div>
-	</header>
+	</div>
 
-	{#if current === 'a'}
-		<VariantCalA {fragments} {next} />
-	{:else if current === 'b'}
-		<VariantCalB {fragments} {next} />
-	{:else}
-		<VariantCalC {fragments} {next} />
-	{/if}
+	<div class="mt-3">
+		{#if current === 'a'}
+			<VariantCalA {fragments} {next} />
+		{:else if current === 'b'}
+			<VariantCalB {fragments} {next} />
+		{:else}
+			<VariantCalC {fragments} {next} />
+		{/if}
+	</div>
 
 	<details class="mt-6 rounded-lg border bg-stone-50 p-4 text-xs">
 		<summary class="cursor-pointer font-bold"

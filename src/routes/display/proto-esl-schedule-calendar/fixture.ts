@@ -64,6 +64,8 @@ export interface WeekFragment {
 	weekIndex: number;
 	year: number;
 	month: number;
+	/** e.g. Sep, or Sep–Oct when the week straddles months */
+	monthLabel: string;
 	cards: DateCard[];
 	banners: { title: string; start: string; end: string }[];
 }
@@ -72,7 +74,7 @@ export const CLASSES: ProtoClass[] = [
 	{
 		id: 'clil',
 		name: 'G7 Elementary 1 CLIL',
-		short: 'G7 Ele. 1',
+		short: 'G7 Ele 1',
 		type: 'CLIL',
 		room: 'ESL C',
 		headcount: 25,
@@ -87,7 +89,7 @@ export const CLASSES: ProtoClass[] = [
 	{
 		id: 'comm',
 		name: 'G7 Elementary 1 Comm',
-		short: 'G7 Ele. 1',
+		short: 'G7 Ele 1',
 		type: 'Comm',
 		room: 'ESL D',
 		headcount: 25,
@@ -176,6 +178,20 @@ const EVENTS: CalEvent[] = [
 
 const DUE_TYPES: EventType[] = ['task_due', 'homework_due', 'quiz'];
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTH_SHORT = [
+	'Jan',
+	'Feb',
+	'Mar',
+	'Apr',
+	'May',
+	'Jun',
+	'Jul',
+	'Aug',
+	'Sep',
+	'Oct',
+	'Nov',
+	'Dec'
+];
 const SEMESTER_START = '2026-08-31';
 const FIRST_EXAM = '2026-10-14';
 
@@ -363,9 +379,45 @@ export function fragmentsFor(cls: ProtoClass, year: number, month: number): Week
 					e.start <= dates[dates.length - 1] &&
 					e.end >= dates[0]
 			).map((e) => ({ title: e.title, start: e.start, end: e.end }));
-			return { weekIndex, year, month, cards, banners };
+			return { weekIndex, year, month, monthLabel: MONTH_SHORT[month - 1], cards, banners };
 		});
 	return frags;
+}
+
+/**
+ * Whole-semester week rows, keyed by school week (no month splits, so no card
+ * ever renders twice). Month rides on the rail as context instead.
+ */
+export function semesterFragments(cls: ProtoClass): WeekFragment[] {
+	const byDate = cardsFor(cls);
+	const groups = new Map<number, DateCard[]>();
+	for (const [date, rows] of [...byDate.entries()].sort()) {
+		const w = weekIndexOf(date);
+		if (!groups.has(w)) groups.set(w, []);
+		groups.get(w)?.push(...rows);
+	}
+	return [...groups.entries()]
+		.sort((a, b) => a[0] - b[0])
+		.map(([weekIndex, cards]) => {
+			const dates = cards.map((c) => c.date).sort();
+			const months = [...new Set(dates.map((d) => Number(d.slice(5, 7))))];
+			const banners = EVENTS.filter(
+				(e) =>
+					DUE_TYPES.includes(e.type) &&
+					groupMatches(e.target, cls) &&
+					e.start <= dates[dates.length - 1] &&
+					e.end >= dates[0]
+			).map((e) => ({ title: e.title, start: e.start, end: e.end }));
+			const [y, m] = dates[0].split('-').map(Number);
+			return {
+				weekIndex,
+				year: y,
+				month: m,
+				monthLabel: months.map((mm) => MONTH_SHORT[mm - 1]).join('–'),
+				cards,
+				banners
+			};
+		});
 }
 
 /** Collapse decisions, for the state surface. */

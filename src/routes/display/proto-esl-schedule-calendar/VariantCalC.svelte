@@ -23,7 +23,7 @@
 				disabled={at <= 0}
 				onclick={() => (at -= 1)}>← Prev</button
 			>
-			<h2 class="text-sm font-bold text-white">{frag.weekIndex}</h2>
+			<h2 class="text-sm font-bold text-white">{frag.weekIndex} · {frag.monthLabel}</h2>
 			<button
 				class="rounded px-3 py-1 text-sm font-bold text-white hover:bg-white/15 disabled:opacity-30"
 				disabled={at >= fragments.length - 1}

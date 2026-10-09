@@ -14,11 +14,15 @@
 
 <div class="overflow-hidden rounded-lg border bg-white shadow-sm">
 	{#each fragments as frag (`${frag.year}-${frag.month}-w${frag.weekIndex}`)}
-		<section class="flex items-stretch border-b last:border-b-0">
+		<section
+			id="week-{frag.weekIndex}"
+			class="flex scroll-mt-32 items-stretch border-b last:border-b-0"
+		>
 			<div
-				class="flex w-10 shrink-0 items-center justify-center bg-emerald-800 py-2 text-sm font-bold text-white"
+				class="flex w-12 shrink-0 flex-col items-center justify-center gap-0.5 bg-emerald-800 py-2 font-bold text-white"
 			>
-				{frag.weekIndex}
+				<span class="text-sm">{frag.weekIndex}</span>
+				<span class="text-[10px] font-semibold text-emerald-200">{frag.monthLabel}</span>
 			</div>
 			<div class="min-w-0 flex-1">
 				{#if frag.banners.length > 0}
