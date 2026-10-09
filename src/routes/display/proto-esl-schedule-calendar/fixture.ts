@@ -55,6 +55,9 @@ export interface DateCard {
 	countdown: string | null;
 	badges: string[];
 	note: string | null;
+	/** wall-clock relative shading (prototype runs inside its fixture window) */
+	past: boolean;
+	isToday: boolean;
 }
 
 export interface WeekFragment {
@@ -176,6 +179,14 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 const SEMESTER_START = '2026-08-31';
 const FIRST_EXAM = '2026-10-14';
 
+/** Wall-clock today. The fixture window (Sept–Oct 2026) contains it; past
+ * shading is illustrative once the semester ends — the build needs a real
+ * semester-aware "today" (schoolYearOf + derived end), not this. */
+export const TODAY = (() => {
+	const now = new Date();
+	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+})();
+
 function toDay(date: string): Date {
 	return new Date(date + 'T12:00:00');
 }
@@ -232,7 +243,7 @@ function buildForClass(cls: ProtoClass): Map<string, DateCard[]> {
 		for (const d of pre.slice(-2)) oral.add(d);
 	}
 
-	const total = meetingDates(cls, SEMESTER_START, FIRST_EXAM).length;
+	const total = meetingDates(cls, SEMESTER_START, FIRST_EXAM).filter((d) => d < FIRST_EXAM).length;
 	const byDate = new Map<string, DateCard[]>();
 	for (const date of meetingDates(cls, '2026-09-01', '2026-10-31')) {
 		const on = (e: CalEvent) => date >= e.start && date <= e.end;
@@ -273,7 +284,9 @@ function buildForClass(cls: ProtoClass): Map<string, DateCard[]> {
 				for (const e of EVENTS.filter((e) => DUE_TYPES.includes(e.type))) {
 					if (collapsed.get(e.id) === date) badges.push(`${e.title} · ${e.start}–${e.end}`);
 				}
-				const remaining = meetingDates(cls, date, FIRST_EXAM).filter((d) => d < FIRST_EXAM).length;
+				// Count-UP, not countdown: elapsed sessions including this one (1/20 → 20/20 at the exam).
+				const elapsed =
+					total - meetingDates(cls, date, FIRST_EXAM).filter((d) => d < FIRST_EXAM).length + 1;
 				return {
 					date,
 					weekdayName: WEEKDAYS[toDay(date).getDay()],
@@ -281,9 +294,12 @@ function buildForClass(cls: ProtoClass): Map<string, DateCard[]> {
 					time: times ? `${times.start}–${times.end}` : `P${m.period}`,
 					status,
 					cause,
-					countdown: status === 'teaching' || status === 'oral' ? `${remaining}/${total}` : null,
+					countdown:
+						status === 'teaching' || status === 'oral' ? `Class ${elapsed}/${total} to exam` : null,
 					badges,
-					note: null
+					note: null,
+					past: date < TODAY,
+					isToday: date === TODAY
 				};
 			});
 		byDate.set(date, rows);
@@ -292,6 +308,14 @@ function buildForClass(cls: ProtoClass): Map<string, DateCard[]> {
 }
 
 const CACHE = new Map<string, Map<string, DateCard[]>>();
+
+/** First meeting date on or after today: the "closest class day" marker. */
+export function nextDate(cls: ProtoClass): string | null {
+	for (const date of [...cardsFor(cls).keys()].sort()) {
+		if (date >= TODAY) return date;
+	}
+	return null;
+}
 
 export function cardsFor(cls: ProtoClass): Map<string, DateCard[]> {
 	let hit = CACHE.get(cls.id);

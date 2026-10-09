@@ -1,8 +1,9 @@
-<!-- ⚠️ PROTOTYPE — Variant C: one focus week at a time with prev/next stepping. -->
+<!-- ⚠️ PROTOTYPE — Variant C: one focus week at a time with prev/next stepping.
+	 Iteration 2: no "teaching" chip, past shading + Today/Next, count-up wording. -->
 <script lang="ts">
 	import type { WeekFragment } from './fixture';
 
-	let { fragments }: { fragments: WeekFragment[] } = $props();
+	let { fragments, next }: { fragments: WeekFragment[]; next: string | null } = $props();
 	let notes = $state<Record<string, string>>({});
 	let at = $state(0);
 
@@ -17,7 +18,7 @@
 				disabled={at <= 0}
 				onclick={() => (at -= 1)}>← Prev</button
 			>
-			<h2 class="text-sm font-bold text-white">School week {frag.weekIndex}</h2>
+			<h2 class="text-sm font-bold text-white">Week {frag.weekIndex}</h2>
 			<button
 				class="rounded px-3 py-1 text-sm font-bold text-white hover:bg-white/15 disabled:opacity-30"
 				disabled={at >= fragments.length - 1}
@@ -42,7 +43,7 @@
 						? 'border-red-300 bg-red-50'
 						: card.status === 'teaching' || card.status === 'oral'
 							? 'border-emerald-200'
-							: 'border-stone-300 bg-stone-100 opacity-90'}"
+							: 'border-stone-300 bg-stone-100'} {card.past ? 'opacity-70 saturate-50' : ''}"
 				>
 					<header class="flex flex-wrap items-baseline gap-2">
 						<span class="text-lg font-bold">{card.date.slice(5)}</span>
@@ -53,9 +54,18 @@
 							<span class="text-sm font-bold">{card.status === 'off' ? '🎉 Off' : card.status}</span
 							>
 						{/if}
+						{#if card.isToday}
+							<span class="rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white"
+								>● Today</span
+							>
+						{:else if card.date === next}
+							<span class="rounded bg-sky-600 px-1.5 py-0.5 text-xs font-bold text-white"
+								>Next →</span
+							>
+						{/if}
 						{#if card.countdown}
 							<span class="ml-auto rounded bg-sky-50 px-2 py-0.5 text-xs text-sky-800">
-								{card.countdown} to Exam
+								{card.countdown}
 							</span>
 						{/if}
 					</header>

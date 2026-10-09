@@ -8,7 +8,7 @@
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { CLASSES, MONTHS, cardsFor, collapseSummary, fragmentsFor } from './fixture';
+	import { CLASSES, MONTHS, cardsFor, collapseSummary, fragmentsFor, nextDate } from './fixture';
 	import VariantCalA from './VariantCalA.svelte';
 	import VariantCalB from './VariantCalB.svelte';
 	import VariantCalC from './VariantCalC.svelte';
@@ -48,6 +48,7 @@
 		fragmentsFor(cls, MONTHS[monthIndex()].year, MONTHS[monthIndex()].month)
 	);
 	const collapses = $derived(collapseSummary(cls));
+	const next = $derived(nextDate(cls));
 
 	function setParam(key: string, value: string) {
 		const url = new URL(page.url);
@@ -134,16 +135,14 @@
 	</p>
 
 	<header class="mt-4 mb-3">
-		<h1 class="text-2xl font-bold text-emerald-900">
-			{cls.name} · 👥 {cls.headcount} · {cls.room}
-		</h1>
-		<p class="text-muted-foreground mt-1 text-sm">S1 2026–2027 · clamped Sept–Oct (S2 separate)</p>
-		<div class="mt-2 flex flex-wrap items-center gap-2" role="tablist" aria-label="Classes">
+		<!-- Class switcher sits a level above the title; the strip scrolls
+			horizontally (native swipe on mobile) for teachers with ~9 classes. -->
+		<div class="mb-2 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Classes">
 			{#each CLASSES as c, i (c.id)}
 				<button
 					role="tab"
 					aria-selected={i === clsIndex}
-					class="rounded-full border px-3 py-1 text-sm font-semibold {i === clsIndex
+					class="shrink-0 rounded-full border px-3 py-1 text-sm font-semibold {i === clsIndex
 						? 'border-emerald-700 bg-emerald-700 text-white'
 						: 'border-stone-300 bg-white hover:bg-stone-100'}"
 					onclick={() => setParam('c', c.id)}
@@ -151,7 +150,12 @@
 					{c.type} · {c.short}
 				</button>
 			{/each}
-			<span class="mx-1 text-stone-300">|</span>
+		</div>
+		<h1 class="text-2xl font-bold text-emerald-900">
+			{cls.name} · <span class="font-normal">👥 {cls.headcount}</span> · 📍{cls.room}
+		</h1>
+		<p class="text-muted-foreground mt-1 text-sm">S1 2026-2027</p>
+		<div class="mt-2 flex flex-wrap items-center gap-2">
 			<button
 				class="rounded-full border border-stone-300 bg-white px-3 py-1 text-sm font-semibold hover:bg-stone-100 disabled:opacity-30"
 				disabled={monthIndex() <= 0}
@@ -169,11 +173,11 @@
 	</header>
 
 	{#if current === 'a'}
-		<VariantCalA {fragments} />
+		<VariantCalA {fragments} {next} />
 	{:else if current === 'b'}
-		<VariantCalB {fragments} />
+		<VariantCalB {fragments} {next} />
 	{:else}
-		<VariantCalC {fragments} />
+		<VariantCalC {fragments} {next} />
 	{/if}
 
 	<details class="mt-6 rounded-lg border bg-stone-50 p-4 text-xs">
