@@ -1,6 +1,7 @@
 <!-- ⚠️ PROTOTYPE — Variant A: roomy week rows, full cards with note boxes.
-	 Iteration 2: vertical week rail, no "teaching" chip (default needs none),
-	 past shading + Today/Next markers, "Class k/nn to exam" count-up. -->
+	 Iteration 3: numeric rail, frameless cells, slash dates, diagonal past
+	 overlay, no period/note on off + no-class, no period on exams (note kept
+	 for proctoring), "note" placeholder, no default chip, count-up wording. -->
 <script lang="ts">
 	import type { WeekFragment } from './fixture';
 
@@ -37,14 +38,18 @@
 		}
 	}
 
-	function cardTone(status: string, past: boolean): string {
+	function cellTone(status: string, past: boolean): string {
 		const base =
 			status === 'exam'
-				? 'border-red-300 bg-red-50'
+				? 'bg-red-50'
 				: status === 'teaching' || status === 'oral'
-					? 'border-emerald-200 bg-white'
-					: 'border-stone-300 bg-stone-100';
-		return past ? `${base} opacity-70 saturate-50` : base;
+					? 'bg-white'
+					: 'bg-stone-100';
+		return past ? `${base} opacity-80 saturate-50` : base;
+	}
+
+	function slash(date: string): string {
+		return date.slice(5).replace('-', '/');
 	}
 </script>
 
@@ -52,9 +57,9 @@
 	{#each fragments as frag (`${frag.year}-${frag.month}-w${frag.weekIndex}`)}
 		<section class="flex items-stretch border-b last:border-b-0">
 			<div
-				class="flex w-12 shrink-0 items-center justify-center bg-emerald-800 py-3 text-sm font-bold text-white [writing-mode:vertical-rl]"
+				class="flex w-10 shrink-0 items-center justify-center bg-emerald-800 py-3 text-sm font-bold text-white"
 			>
-				Week {frag.weekIndex}
+				{frag.weekIndex}
 			</div>
 			<div class="min-w-0 flex-1">
 				{#if frag.banners.length > 0}
@@ -63,19 +68,23 @@
 							<span
 								class="rounded-full bg-indigo-200 px-2.5 py-0.5 text-xs font-semibold text-indigo-900"
 							>
-								{b.title} · {b.start.slice(5)}–{b.end.slice(5)}
+								{b.title} · {slash(b.start)}–{slash(b.end)}
 							</span>
 						{/each}
 					</div>
 				{/if}
-				<div class="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3">
+				<div class="grid gap-px bg-stone-200 p-px sm:grid-cols-2 lg:grid-cols-3">
 					{#each frag.cards as card (`${card.date}-p${card.period}`)}
-						<article class="rounded-lg border p-3 {cardTone(card.status, card.past)}">
+						{@const noDetail = card.status === 'off' || card.status === 'no_class'}
+						<article class="relative p-3 {cellTone(card.status, card.past)}">
+							{#if card.past}
+								<div class="past-hatch" aria-hidden="true"></div>
+							{/if}
 							<header class="flex flex-wrap items-center gap-1.5">
-								<span class="font-semibold"
-									>{card.date.slice(5)} {card.weekdayName.slice(0, 3)}</span
-								>
-								<span class="text-xs text-stone-500">P{card.period}</span>
+								<span class="font-semibold">{slash(card.date)} {card.weekdayName.slice(0, 3)}</span>
+								{#if !noDetail && card.status !== 'exam'}
+									<span class="text-xs text-stone-500">P{card.period}</span>
+								{/if}
 								{#if card.status !== 'teaching'}
 									<span class="rounded px-1.5 py-0.5 text-xs font-bold {chip(card.status)}">
 										{label(card.status)}
@@ -102,12 +111,14 @@
 							{#each card.badges as b (b)}
 								<p class="mt-1 text-xs text-indigo-700">{b}</p>
 							{/each}
-							<textarea
-								rows="2"
-								placeholder="Meeting note… (stub, not saved)"
-								class="mt-2 w-full rounded border border-stone-300 p-1.5 text-sm"
-								bind:value={notes[`${card.date}-p${card.period}`]}
-							></textarea>
+							{#if !noDetail}
+								<textarea
+									rows="2"
+									placeholder="note"
+									class="mt-2 w-full rounded border border-stone-300 p-1.5 text-sm"
+									bind:value={notes[`${card.date}-p${card.period}`]}
+								></textarea>
+							{/if}
 						</article>
 					{/each}
 				</div>
@@ -115,3 +126,12 @@
 		</section>
 	{/each}
 </div>
+
+<style>
+	.past-hatch {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background: repeating-linear-gradient(-45deg, transparent 0 9px, rgb(0 0 0 / 0.07) 9px 11px);
+	}
+</style>
