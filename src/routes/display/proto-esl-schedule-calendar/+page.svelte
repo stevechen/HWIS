@@ -10,6 +10,7 @@
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
+	import { ChevronDown, MapPin, Users } from '@lucide/svelte';
 	import { CLASSES, cardsFor, collapseSummary, nextDate, semesterFragments } from './fixture';
 	import VariantCalA from './VariantCalA.svelte';
 	import VariantCalB from './VariantCalB.svelte';
@@ -132,25 +133,33 @@
 	<div
 		class="sticky top-0 z-40 -mx-4 border-b border-emerald-900/10 bg-white/95 px-4 py-2 shadow-sm backdrop-blur sm:-mx-8 sm:px-8"
 	>
-		<div class="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Classes">
-			{#each CLASSES as c, i (c.id)}
-				<button
-					role="tab"
-					aria-selected={i === clsIndex}
-					class="shrink-0 rounded-full border px-3 py-1 text-sm font-semibold {i === clsIndex
-						? 'border-emerald-700 bg-emerald-700 text-white'
-						: 'border-stone-300 bg-white hover:bg-stone-100'}"
-					onclick={() => setParam('c', c.id)}
-				>
-					{c.short}
-					{c.type}
-				</button>
-			{/each}
+		<!-- The title IS the class switcher: a transparent native select over
+			the title text opens the OS picker (iOS sheet, Android menu,
+			desktop dropdown). No tab strip, however many classes. -->
+		<div class="relative inline-block max-w-full">
+			<h1 class="flex flex-wrap items-center gap-x-2 text-xl font-bold text-emerald-900">
+				<span class="truncate">{cls.short} {cls.type}</span>
+				<span class="inline-flex items-center gap-1 font-normal">
+					<Users class="size-4 shrink-0" aria-hidden="true" />
+					{cls.headcount}
+				</span>
+				<span class="inline-flex items-center gap-1 font-normal">
+					<MapPin class="size-4 shrink-0" aria-hidden="true" />
+					{cls.room}
+				</span>
+				<ChevronDown class="size-4 shrink-0 text-stone-400" aria-hidden="true" />
+			</h1>
+			<select
+				class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+				aria-label="Choose class"
+				onchange={(event) => setParam('c', event.currentTarget.value)}
+			>
+				{#each CLASSES as c (c.id)}
+					<option value={c.id} selected={c.id === cls.id}>{c.short} {c.type}</option>
+				{/each}
+			</select>
 		</div>
 		<div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-			<h1 class="text-xl font-bold text-emerald-900">
-				{cls.name} · <span class="font-normal">👥 {cls.headcount}</span> · 📍{cls.room}
-			</h1>
 			<span class="text-muted-foreground text-sm">S1 2026-2027</span>
 			<button
 				class="ml-auto rounded-full border border-emerald-700 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
