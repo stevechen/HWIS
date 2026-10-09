@@ -208,6 +208,25 @@ const MONTH_SHORT = [
 	'Nov',
 	'Dec'
 ];
+const MONTH_FULL = [
+	'January',
+	'February',
+	'March',
+	'April',
+	'May',
+	'June',
+	'July',
+	'August',
+	'September',
+	'October',
+	'November',
+	'December'
+];
+
+/** Full month name for a YYYY-MM key, e.g. monthName('2026-11') → November. */
+export function monthName(ym: string): string {
+	return MONTH_FULL[Number(ym.slice(5, 7)) - 1] ?? ym;
+}
 const SEMESTER_START = '2026-08-31';
 /**
  * Semester window end: the last day of the final exam. After the final

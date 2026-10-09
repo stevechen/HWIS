@@ -4,6 +4,7 @@
 	 for proctoring), "note" placeholder, no default chip, count-up wording. -->
 <script lang="ts">
 	import type { WeekFragment } from './fixture';
+	import { monthName } from './fixture';
 
 	let { fragments, next }: { fragments: WeekFragment[]; next: string | null } = $props();
 	let notes = $state<Record<string, string>>({});
@@ -54,7 +55,19 @@
 </script>
 
 <div class="overflow-hidden rounded-lg border bg-white shadow-sm">
-	{#each fragments as frag (`${frag.year}-${frag.month}-w${frag.weekIndex}`)}
+	{#each fragments as frag, fi (`${frag.year}-${frag.month}-w${frag.weekIndex}`)}
+		{@const prevCards = fi > 0 ? fragments[fi - 1].cards : []}
+		{@const crossed =
+			prevCards.length > 0 &&
+			frag.cards.length > 0 &&
+			prevCards[prevCards.length - 1].date.slice(0, 7) !== frag.cards[0].date.slice(0, 7)}
+		{#if crossed}
+			<div
+				class="border-b bg-stone-200/70 px-3 py-1 text-xs font-bold tracking-widest text-stone-600 uppercase"
+			>
+				{monthName(frag.cards[0].date.slice(0, 7))}
+			</div>
+		{/if}
 		<section
 			id="week-{frag.weekIndex}"
 			class="flex scroll-mt-32 items-stretch border-b last:border-b-0"
