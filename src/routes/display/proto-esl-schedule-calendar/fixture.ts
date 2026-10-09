@@ -284,9 +284,12 @@ function buildForClass(cls: ProtoClass): Map<string, DateCard[]> {
 				for (const e of EVENTS.filter((e) => DUE_TYPES.includes(e.type))) {
 					if (collapsed.get(e.id) === date) badges.push(`${e.title} · ${e.start}–${e.end}`);
 				}
-				// Count-UP, not countdown: elapsed sessions including this one (1/20 → 20/20 at the exam).
-				const elapsed =
-					total - meetingDates(cls, date, FIRST_EXAM).filter((d) => d < FIRST_EXAM).length + 1;
+				// Count-UP, not countdown: elapsed sessions including this one.
+				// Null past the exam: post-exam meetings belong to a term whose
+				// count hasn't started (no Exam 2 in this fixture), so total+1
+				// would print nonsense like 20/19.
+				const fromHere = meetingDates(cls, date, FIRST_EXAM).filter((d) => d < FIRST_EXAM);
+				const elapsed = fromHere.length > 0 ? total - fromHere.length + 1 : null;
 				return {
 					date,
 					weekdayName: WEEKDAYS[toDay(date).getDay()],
@@ -295,7 +298,11 @@ function buildForClass(cls: ProtoClass): Map<string, DateCard[]> {
 					status,
 					cause,
 					countdown:
-						status === 'teaching' || status === 'oral' ? `Class ${elapsed}/${total} to exam` : null,
+						status === 'teaching' || status === 'oral'
+							? elapsed === null
+								? null
+								: `Class ${elapsed}/${total} to exam`
+							: null,
 					badges,
 					note: null,
 					past: date < TODAY,
@@ -315,6 +322,12 @@ export function nextDate(cls: ProtoClass): string | null {
 		if (date >= TODAY) return date;
 	}
 	return null;
+}
+
+/** Latest meeting date strictly before today: the "what was taught last" jump. */
+export function prevDate(cls: ProtoClass): string | null {
+	const past = [...cardsFor(cls).keys()].sort().filter((d) => d < TODAY);
+	return past.length > 0 ? past[past.length - 1] : null;
 }
 
 export function cardsFor(cls: ProtoClass): Map<string, DateCard[]> {

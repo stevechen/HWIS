@@ -76,7 +76,7 @@
 				<div class="grid gap-px bg-stone-200 p-px sm:grid-cols-2 lg:grid-cols-3">
 					{#each frag.cards as card (`${card.date}-p${card.period}`)}
 						{@const noDetail = card.status === 'off' || card.status === 'no_class'}
-						<article class="relative p-3 {cellTone(card.status, card.past)}">
+						<article id="card-{card.date}" class="relative p-3 {cellTone(card.status, card.past)}">
 							{#if card.past}
 								<div class="past-hatch" aria-hidden="true"></div>
 							{/if}
@@ -133,5 +133,9 @@
 		inset: 0;
 		pointer-events: none;
 		background: repeating-linear-gradient(-45deg, transparent 0 9px, rgb(0 0 0 / 0.07) 9px 11px);
+	}
+	article:target {
+		outline: 3px solid rgb(5 150 105);
+		outline-offset: -3px;
 	}
 </style>

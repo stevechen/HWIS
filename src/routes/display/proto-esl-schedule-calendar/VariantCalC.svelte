@@ -45,6 +45,7 @@
 			{#each frag.cards as card (`${card.date}-p${card.period}`)}
 				{@const noDetail = card.status === 'off' || card.status === 'no_class'}
 				<article
+					id="card-{card.date}"
 					class="relative p-3 {card.status === 'exam'
 						? 'bg-red-50'
 						: card.status === 'teaching' || card.status === 'oral'
@@ -108,5 +109,9 @@
 		inset: 0;
 		pointer-events: none;
 		background: repeating-linear-gradient(-45deg, transparent 0 9px, rgb(0 0 0 / 0.07) 9px 11px);
+	}
+	article:target {
+		outline: 3px solid rgb(5 150 105);
+		outline-offset: -3px;
 	}
 </style>

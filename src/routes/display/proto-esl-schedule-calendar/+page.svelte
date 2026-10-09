@@ -7,8 +7,16 @@
 
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
-	import { onMount } from 'svelte';
-	import { CLASSES, MONTHS, cardsFor, collapseSummary, fragmentsFor, nextDate } from './fixture';
+	import { onMount, tick } from 'svelte';
+	import {
+		CLASSES,
+		MONTHS,
+		cardsFor,
+		collapseSummary,
+		fragmentsFor,
+		nextDate,
+		prevDate
+	} from './fixture';
 	import VariantCalA from './VariantCalA.svelte';
 	import VariantCalB from './VariantCalB.svelte';
 	import VariantCalC from './VariantCalC.svelte';
@@ -49,6 +57,7 @@
 	);
 	const collapses = $derived(collapseSummary(cls));
 	const next = $derived(nextDate(cls));
+	const prev = $derived(prevDate(cls));
 
 	function setParam(key: string, value: string) {
 		const url = new URL(page.url);
@@ -63,6 +72,22 @@
 
 	function stepMonth(delta: 1 | -1) {
 		setParam('m', String(monthIndex() + delta));
+	}
+
+	/**
+	 * Jump to the previous/next taught class day, crossing months automatically
+	 * (no padded weeks: padding would duplicate cards, including note boxes).
+	 * The target card is hash-highlighted after render.
+	 */
+	async function jumpClass(which: 'prev' | 'next') {
+		const target = which === 'prev' ? prev : next;
+		if (!target) return;
+		const [y, m] = target.split('-').map(Number);
+		const mi = MONTHS.findIndex((mm) => mm.year === y && mm.month === m);
+		if (mi >= 0 && mi !== monthIndex()) setParam('m', String(mi));
+		await tick();
+		document.getElementById(`card-${target}`)?.scrollIntoView({ block: 'center' });
+		location.hash = `card-${target}`;
 	}
 
 	function onKey(event: KeyboardEvent) {
@@ -161,13 +186,24 @@
 				disabled={monthIndex() <= 0}
 				onclick={() => stepMonth(-1)}>← Prev month</button
 			>
-			<span class="text-sm font-bold">
+			<span class="px-1 text-xl font-bold">
 				{MONTH_NAMES[MONTHS[monthIndex()].month - 1]}
 			</span>
 			<button
 				class="rounded-full border border-stone-300 bg-white px-3 py-1 text-sm font-semibold hover:bg-stone-100 disabled:opacity-30"
 				disabled={monthIndex() >= MONTHS.length - 1}
 				onclick={() => stepMonth(1)}>Next month →</button
+			>
+			<span class="mx-1 text-stone-300">|</span>
+			<button
+				class="rounded-full border border-emerald-700 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-30"
+				disabled={!prev}
+				onclick={() => jumpClass('prev')}>← Prev class</button
+			>
+			<button
+				class="rounded-full border border-emerald-700 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-30"
+				disabled={!next}
+				onclick={() => jumpClass('next')}>Next class →</button
 			>
 		</div>
 	</header>
