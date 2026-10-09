@@ -30,12 +30,15 @@
 					</p>
 				{/if}
 				<ul class="divide-y divide-stone-100">
-					{#each frag.cards as card (`${card.date}-p${card.period}`)}
+					{#each frag.cards as card, i (`${card.date}-p${card.period}`)}
 						{@const noDetail = card.status === 'off' || card.status === 'no_class'}
+						{@const newMonth =
+							i > 0 && frag.cards[i - 1].date.slice(0, 7) !== card.date.slice(0, 7)}
 						<li
 							id="card-{card.date}"
-							class="relative flex flex-wrap items-center gap-2 px-3 py-1.5 text-[13px] {card.status ===
-							'exam'
+							class="relative flex flex-wrap items-center gap-2 px-3 py-1.5 text-[13px] {newMonth
+								? 'month-divide '
+								: ''}{card.status === 'exam'
 								? 'bg-red-50'
 								: card.status === 'teaching' || card.status === 'oral'
 									? card.past
@@ -58,7 +61,6 @@
 							{#if card.isToday}<span class="font-bold text-emerald-700">[today]</span>
 							{:else if card.date === next}<span class="font-bold text-sky-700">[next]</span>{/if}
 							{#if card.cause}<span class="text-stone-600">{card.cause}</span>{/if}
-							{#if card.countdown}<span class="text-sky-700">{card.countdown}</span>{/if}
 							{#each card.badges as b (b)}<span class="text-indigo-700">{b}</span>{/each}
 							{#if !noDetail}
 								<input
@@ -67,6 +69,7 @@
 									bind:value={notes[`${card.date}-p${card.period}`]}
 								/>
 							{/if}
+							{#if card.countdown}<span class="ml-auto text-sky-700">{card.countdown}</span>{/if}
 						</li>
 					{/each}
 				</ul>
@@ -85,5 +88,10 @@
 	li:target {
 		outline: 3px solid rgb(5 150 105);
 		outline-offset: -3px;
+	}
+	/* Month boundary inside a week row: inset shadow divides without
+	shifting layout (borders would push cells around). */
+	.month-divide {
+		box-shadow: inset 3px 0 0 rgb(5 150 105);
 	}
 </style>

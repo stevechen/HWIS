@@ -173,6 +173,22 @@ const EVENTS: CalEvent[] = [
 		target: 'all',
 		start: '2026-10-14',
 		end: '2026-10-15'
+	},
+	{
+		id: 'exam2',
+		type: 'exam',
+		title: 'Exam 2',
+		target: 'all',
+		start: '2026-12-02',
+		end: '2026-12-03'
+	},
+	{
+		id: 'final',
+		type: 'exam',
+		title: 'Final exam',
+		target: 'all',
+		start: '2027-01-18',
+		end: '2027-01-20'
 	}
 ];
 
@@ -193,7 +209,10 @@ const MONTH_SHORT = [
 	'Dec'
 ];
 const SEMESTER_START = '2026-08-31';
-const FIRST_EXAM = '2026-10-14';
+/** Numbered exams in term order; each anchors its own count-up term. */
+const EXAMS: CalEvent[] = EVENTS.filter((e) => e.type === 'exam').sort((a, b) =>
+	a.start < b.start ? -1 : 1
+);
 
 /** Wall-clock today. The fixture window (Sept–Oct 2026) contains it; past
  * shading is illustrative once the semester ends — the build needs a real
@@ -252,16 +271,18 @@ function buildForClass(cls: ProtoClass): Map<string, DateCard[]> {
 		collapsed.set(e.id, cands.length > 0 ? cands[cands.length - 1] : null);
 	}
 
-	// Oral-exam meetings: two latest pre-exam dates, CLIL skipped (settled exception).
+	// Oral-exam meetings: two latest pre-exam dates per exam, CLIL skipped
+	// (settled exception, carried over from the scheduler per term).
 	const oral = new Set<string>();
 	if (cls.type !== 'CLIL') {
-		const pre = meetingDates(cls, SEMESTER_START, FIRST_EXAM).filter((d) => d < FIRST_EXAM);
-		for (const d of pre.slice(-2)) oral.add(d);
+		for (const exam of EXAMS) {
+			const pre = meetingDates(cls, SEMESTER_START, exam.start).filter((d) => d < exam.start);
+			for (const d of pre.slice(-2)) oral.add(d);
+		}
 	}
 
-	const total = meetingDates(cls, SEMESTER_START, FIRST_EXAM).filter((d) => d < FIRST_EXAM).length;
 	const byDate = new Map<string, DateCard[]>();
-	for (const date of meetingDates(cls, '2026-09-01', '2026-10-31')) {
+	for (const date of meetingDates(cls, SEMESTER_START, '2027-01-31')) {
 		const on = (e: CalEvent) => date >= e.start && date <= e.end;
 		const off = EVENTS.find((e) => e.type === 'off' && on(e)) ?? null;
 		const noClass = EVENTS.filter(
@@ -300,12 +321,22 @@ function buildForClass(cls: ProtoClass): Map<string, DateCard[]> {
 				for (const e of EVENTS.filter((e) => DUE_TYPES.includes(e.type))) {
 					if (collapsed.get(e.id) === date) badges.push(`${e.title} · ${e.start}–${e.end}`);
 				}
-				// Count-UP, not countdown: elapsed sessions including this one.
-				// Null past the exam: post-exam meetings belong to a term whose
-				// count hasn't started (no Exam 2 in this fixture), so total+1
-				// would print nonsense like 20/19.
-				const fromHere = meetingDates(cls, date, FIRST_EXAM).filter((d) => d < FIRST_EXAM);
-				const elapsed = fromHere.length > 0 ? total - fromHere.length + 1 : null;
+				// Count-UP per term: each numbered exam anchors its own term.
+				// Elapsed sessions including this one (1/19 → 19/19 at the
+				// exam). Null once no later exam exists: the semester ends on
+				// the final exam, so post-exam meetings have no count.
+				// (G9 in S2 counts to graduation instead — build rule, #181.)
+				const target = EXAMS.find((e) => e.start > date) ?? null;
+				let count: string | null = null;
+				if (target && (status === 'teaching' || status === 'oral')) {
+					const prevEnd =
+						[...EXAMS].filter((e) => e.end < target.start).pop()?.end ?? SEMESTER_START;
+					const term = meetingDates(cls, prevEnd, target.start).filter(
+						(d) => (d > prevEnd || prevEnd === SEMESTER_START) && d < target.start
+					);
+					const elapsed = term.filter((d) => d <= date).length;
+					count = `Class ${elapsed}/${term.length} to ${target.title}`;
+				}
 				return {
 					date,
 					weekdayName: WEEKDAYS[toDay(date).getDay()],
@@ -313,12 +344,7 @@ function buildForClass(cls: ProtoClass): Map<string, DateCard[]> {
 					time: times ? `${times.start}–${times.end}` : `P${m.period}`,
 					status,
 					cause,
-					countdown:
-						status === 'teaching' || status === 'oral'
-							? elapsed === null
-								? null
-								: `Class ${elapsed}/${total} to exam`
-							: null,
+					countdown: count,
 					badges,
 					note: null,
 					past: date < TODAY,

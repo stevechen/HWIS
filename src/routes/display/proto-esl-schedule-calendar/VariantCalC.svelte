@@ -42,11 +42,12 @@
 			</div>
 		{/if}
 		<div class="space-y-px bg-stone-200 p-px">
-			{#each frag.cards as card (`${card.date}-p${card.period}`)}
+			{#each frag.cards as card, i (`${card.date}-p${card.period}`)}
 				{@const noDetail = card.status === 'off' || card.status === 'no_class'}
+				{@const newMonth = i > 0 && frag.cards[i - 1].date.slice(0, 7) !== card.date.slice(0, 7)}
 				<article
 					id="card-{card.date}"
-					class="relative p-3 {card.status === 'exam'
+					class="relative p-3 {newMonth ? 'month-divide ' : ''}{card.status === 'exam'
 						? 'bg-red-50'
 						: card.status === 'teaching' || card.status === 'oral'
 							? 'bg-white'
@@ -113,5 +114,10 @@
 	article:target {
 		outline: 3px solid rgb(5 150 105);
 		outline-offset: -3px;
+	}
+	/* Month boundary inside a week row: inset shadow divides without
+	shifting layout (borders would push cells around). */
+	.month-divide {
+		box-shadow: inset 3px 0 0 rgb(5 150 105);
 	}
 </style>
