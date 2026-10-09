@@ -437,6 +437,87 @@ export default defineSchema({
 		.index('by_e2eTag', ['e2eTag']),
 
 	/**
+	 * A semester term: S1 or S2 of a school year.
+	 *
+	 * Explicit startDate only — the end is derived at read time as the max
+	 * date of exam-type events (null until the first final is entered, when
+	 * views clamp to startDate..today). Pass dates as YYYY-MM-DD strings;
+	 * never take wall-clock reads in queries (pre-existing schoolYearOf
+	 * local-vs-Taipei drift is out of scope and must not widen).
+	 */
+	esl_semesters: defineTable({
+		/** School year in `YYYY-YYYY` form, e.g. `2025-2026`. */
+		year: v.string(),
+		/** Which half of the year. */
+		term: v.union(v.literal('S1'), v.literal('S2')),
+		/** First day of the term, `YYYY-MM-DD`. */
+		startDate: v.string(),
+		/**
+		 * Set only by end-to-end runs, so a test's semesters can be removed
+		 * afterwards on the same tag pattern the other tables use. Absent in
+		 * every real write.
+		 */
+		e2eTag: v.optional(v.string())
+	})
+		.index('by_year_term', ['year', 'term'])
+		.index('by_e2eTag', ['e2eTag']),
+
+	/**
+	 * A typed school event inside a semester: off vs no-class vs partial vs
+	 * exam vs dues, each with the schedule effect the teacher views assume.
+	 */
+	esl_events: defineTable({
+		semesterId: v.id('esl_semesters'),
+		type: v.union(
+			v.literal('task_due'),
+			v.literal('homework_due'),
+			v.literal('quiz'),
+			v.literal('off'),
+			v.literal('no_class'),
+			v.literal('partial'),
+			v.literal('exam'),
+			v.literal('start_school')
+		),
+		/** Display label, e.g. `Exam 1`, `Final exam`, `Passport check`. */
+		label: v.string(),
+		/**
+		 * Which classes this event affects. `all` reaches every teacher;
+		 * G10 has no target of its own and sees `all` events only.
+		 */
+		target: v.union(v.literal('all'), v.literal('CLIL'), v.literal('Comm'), v.literal('G9')),
+		/** The date (`YYYY-MM-DD`), or the range start for due-types. */
+		date: v.string(),
+		/**
+		 * Inclusive range end, due-types only (task/homework/quiz reminder
+		 * ranges). Absent on every single-date type.
+		 */
+		endDate: v.optional(v.string()),
+		/** Free-form note, e.g. BBQ logistics or collection reminders. */
+		note: v.optional(v.string()),
+		/**
+		 * Partial-day bounds: meetings before startPeriod / after endPeriod
+		 * are out-of-window. Partials only, each optional, validated 1–8.
+		 */
+		startPeriod: v.optional(v.number()),
+		endPeriod: v.optional(v.number()),
+		/**
+		 * Lunar provenance: how a seeded Moon Festival / Dragon Boat date was
+		 * resolved (`holiday_api` vs `admin_typed`), and whether the
+		 * admin-typed fallback is still unverified.
+		 */
+		provenance: v.optional(v.union(v.literal('holiday_api'), v.literal('admin_typed'))),
+		unverified: v.optional(v.boolean()),
+		/**
+		 * Set only by end-to-end runs, on the same tag pattern as every other
+		 * ESL table, so teardown stays one indexed read.
+		 */
+		e2eTag: v.optional(v.string())
+	})
+		.index('by_semester', ['semesterId'])
+		.index('by_semester_date', ['semesterId', 'date'])
+		.index('by_e2eTag', ['e2eTag']),
+
+	/**
 	 * An ESL student, enrolled into exactly one cohort. Transfer status is
 	 * tracked in place (`active` ⇄ `disabled` with a reason) rather than by
 	 * moving rows between cohorts, so the history of a cohort stays stable.
