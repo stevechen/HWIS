@@ -165,7 +165,7 @@
 			</h1>
 			<div class="relative shrink-0" data-class-menu>
 				<button
-					class="rounded-full border border-stone-300 bg-white p-2 text-stone-600 hover:bg-stone-100"
+					class="rounded-[12px] border border-stone-300 bg-white p-2 text-stone-600 [corner-shape:squircle] hover:bg-stone-100"
 					aria-label="Choose class"
 					aria-haspopup="menu"
 					aria-expanded={menuOpen}
