@@ -148,9 +148,15 @@
 		outline: 3px solid rgb(5 150 105);
 		outline-offset: -3px;
 	}
-	/* Month boundary inside a week row: inset shadow divides without
-	shifting layout (borders would push cells around). */
+	/* Month boundary inside a week row. Mobile stacks cards, so the divider
+	is horizontal; sm+ lays cards side by side, so it turns vertical.
+	Inset shadows divide without shifting layout either way. */
 	.month-divide {
-		box-shadow: inset 3px 0 0 rgb(5 150 105);
+		box-shadow: inset 0 3px 0 rgb(5 150 105);
+	}
+	@media (min-width: 640px) {
+		.month-divide {
+			box-shadow: inset 3px 0 0 rgb(5 150 105);
+		}
 	}
 </style>

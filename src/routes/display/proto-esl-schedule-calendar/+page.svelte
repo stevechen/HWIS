@@ -10,7 +10,7 @@
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
-	import { ChevronDown, MapPin, Users } from '@lucide/svelte';
+	import { Ellipsis, MapPin, Users } from '@lucide/svelte';
 	import { CLASSES, cardsFor, collapseSummary, nextDate, semesterFragments } from './fixture';
 	import VariantCalA from './VariantCalA.svelte';
 	import VariantCalB from './VariantCalB.svelte';
@@ -37,6 +37,7 @@
 			: 'a'
 	);
 	const currentIndex = $derived(VARIANTS.findIndex((v) => v.id === current));
+	let menuOpen = $state(false);
 
 	// Touch the card cache so join errors surface at load, not lazily.
 	for (const c of CLASSES) cardsFor(c);
@@ -72,8 +73,17 @@
 		setParam('v', nextVariant.id);
 	}
 
+	function onDocClick(event: MouseEvent) {
+		const target = event.target as HTMLElement | null;
+		if (target && target.closest('[data-class-menu]') === null) menuOpen = false;
+	}
+
 	function onKey(event: KeyboardEvent) {
 		const target = event.target as HTMLElement | null;
+		if (event.key === 'Escape') {
+			menuOpen = false;
+			return;
+		}
 		if (
 			target &&
 			(target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
@@ -86,8 +96,12 @@
 
 	onMount(() => {
 		window.addEventListener('keydown', onKey);
+		window.addEventListener('click', onDocClick);
 		scrollToWeek(currentWeek());
-		return () => window.removeEventListener('keydown', onKey);
+		return () => {
+			window.removeEventListener('keydown', onKey);
+			window.removeEventListener('click', onDocClick);
+		};
 	});
 
 	const dev = import.meta.env.DEV;
@@ -133,11 +147,12 @@
 	<div
 		class="sticky top-0 z-40 -mx-4 border-b border-emerald-900/10 bg-white/95 px-4 py-2 shadow-sm backdrop-blur sm:-mx-8 sm:px-8"
 	>
-		<!-- Class switcher: a pull-down button (native select styled as a
-			button, per Apple HIG) showing the current class. Opens the OS
-			picker; works for 2 or 9 classes with zero chrome cost. -->
+		<!-- Class switcher: a ••• pull-down button (Apple HIG pattern) opening
+			a menu of the teacher's classes, checkmark on the current one. -->
 		<div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-			<h1 class="flex flex-wrap items-center gap-x-2 text-xl font-bold text-emerald-900">
+			<h1
+				class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-xl font-bold text-emerald-900"
+			>
 				<span class="truncate">{cls.short} {cls.type}</span>
 				<span class="inline-flex items-center gap-1 font-normal">
 					<Users class="size-4 shrink-0" aria-hidden="true" />
@@ -148,22 +163,46 @@
 					{cls.room}
 				</span>
 			</h1>
-			<span class="text-muted-foreground text-sm">S1 2026-2027</span>
-			<label class="relative inline-flex items-center">
-				<select
-					class="cursor-pointer appearance-none rounded-full border border-emerald-700 bg-emerald-50 py-1 pr-8 pl-3 text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
+			<div class="relative shrink-0" data-class-menu>
+				<button
+					class="rounded-full border border-stone-300 bg-white p-2 text-stone-600 hover:bg-stone-100"
 					aria-label="Choose class"
-					onchange={(event) => setParam('c', event.currentTarget.value)}
+					aria-haspopup="menu"
+					aria-expanded={menuOpen}
+					onclick={() => (menuOpen = !menuOpen)}
 				>
-					{#each CLASSES as c (c.id)}
-						<option value={c.id} selected={c.id === cls.id}>{c.short} {c.type}</option>
-					{/each}
-				</select>
-				<ChevronDown
-					class="pointer-events-none absolute right-2.5 size-4 shrink-0 text-emerald-900"
-					aria-hidden="true"
-				/>
-			</label>
+					<Ellipsis class="size-5" aria-hidden="true" />
+				</button>
+				{#if menuOpen}
+					<div
+						role="menu"
+						aria-label="Classes"
+						class="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl"
+					>
+						{#each CLASSES as c (c.id)}
+							<button
+								role="menuitemradio"
+								aria-checked={c.id === cls.id}
+								class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-stone-100 {c.id ===
+								cls.id
+									? 'font-bold text-emerald-900'
+									: ''}"
+								onclick={() => {
+									setParam('c', c.id);
+									menuOpen = false;
+								}}
+							>
+								<span class="w-5 shrink-0">{c.id === cls.id ? '✓' : ''}</span>
+								{c.short}
+								{c.type}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+		<div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+			<span class="text-muted-foreground text-sm">S1 2026-2027</span>
 			<button
 				class="ml-auto rounded-full border border-emerald-700 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
 				onclick={() => scrollToWeek(currentWeek())}>● Today</button

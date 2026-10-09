@@ -209,6 +209,16 @@ const MONTH_SHORT = [
 	'Dec'
 ];
 const SEMESTER_START = '2026-08-31';
+/**
+ * Semester window end: the last day of the final exam. After the final
+ * exam there are no classes, so no cards — never countless post-exam rows.
+ * (G9 in S2 is the exception: classes run to graduation, so its window
+ * extends to the ceremony date. Build rule, #181.)
+ */
+const SEMESTER_END: string = EVENTS.filter((e) => e.type === 'exam')
+	.map((e) => e.end)
+	.sort()
+	.pop() as string;
 /** Numbered exams in term order; each anchors its own count-up term. */
 const EXAMS: CalEvent[] = EVENTS.filter((e) => e.type === 'exam').sort((a, b) =>
 	a.start < b.start ? -1 : 1
@@ -282,7 +292,7 @@ function buildForClass(cls: ProtoClass): Map<string, DateCard[]> {
 	}
 
 	const byDate = new Map<string, DateCard[]>();
-	for (const date of meetingDates(cls, SEMESTER_START, '2027-01-31')) {
+	for (const date of meetingDates(cls, SEMESTER_START, SEMESTER_END)) {
 		const on = (e: CalEvent) => date >= e.start && date <= e.end;
 		const off = EVENTS.find((e) => e.type === 'off' && on(e)) ?? null;
 		const noClass = EVENTS.filter(
