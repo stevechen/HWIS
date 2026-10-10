@@ -132,3 +132,148 @@ describe('esl/events.create', () => {
 		).rejects.toThrow(/partial/i);
 	});
 });
+
+describe('esl/events.update', () => {
+	it('edits a seeded row in place (label, date, note)', async () => {
+		const { t, semesterId } = await seededSemester();
+		const eventId = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'no_class',
+			label: "Sport's Day",
+			date: '2025-10-24'
+		});
+		await t.mutation(api.esl.events.update, {
+			eventId,
+			label: "Sport's Day (moved)",
+			date: '2025-10-31',
+			note: "No Sport's Day in 2027 — delete instead"
+		});
+		const event = await t.query(api.esl.events.get, { eventId });
+		expect(event).toMatchObject({
+			label: "Sport's Day (moved)",
+			date: '2025-10-31',
+			note: "No Sport's Day in 2027 — delete instead"
+		});
+	});
+
+	it('moves an exam (exams stay editable while protected from deletion)', async () => {
+		const { t, semesterId } = await seededSemester();
+		const eventId = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'exam',
+			label: 'Final exam',
+			date: '2026-01-20'
+		});
+		await t.mutation(api.esl.events.update, { eventId, date: '2026-01-21' });
+		const semester = await t.query(api.esl.semesters.get, { semesterId });
+		expect(semester?.derivedEnd).toBe('2026-01-21');
+	});
+
+	it('refuses a move onto an off day', async () => {
+		const { t, semesterId } = await seededSemester();
+		await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'off',
+			label: 'Typhoon day',
+			date: '2025-09-25'
+		});
+		const eventId = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'no_class',
+			label: 'Assembly',
+			date: '2025-09-26'
+		});
+		await expect(
+			t.mutation(api.esl.events.update, { eventId, date: '2025-09-25' })
+		).rejects.toThrow(/exclusive/);
+	});
+
+	it('refuses a second partial on one date via update', async () => {
+		const { t, semesterId } = await seededSemester();
+		await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'partial',
+			label: 'BBQ',
+			date: '2025-09-12',
+			startPeriod: 3
+		});
+		const otherId = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'partial',
+			label: 'Late start',
+			date: '2025-09-13'
+		});
+		await expect(
+			t.mutation(api.esl.events.update, { eventId: otherId, date: '2025-09-12' })
+		).rejects.toThrow(/partial/i);
+	});
+
+	it('refuses updates from non-admin staff', async () => {
+		const { t, semesterId } = await seededSemester();
+		const eventId = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'no_class',
+			label: "Sport's Day",
+			date: '2025-10-24'
+		});
+		await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
+		await expect(t.mutation(api.esl.events.update, { eventId, label: 'Changed' })).rejects.toThrow(
+			/ESL admin/
+		);
+	});
+});
+
+describe('esl/events.remove', () => {
+	it("deletes a deletable seeded row (Sport's Day, dues, makeups)", async () => {
+		const { t, semesterId } = await seededSemester();
+		const sportsId = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'no_class',
+			label: "Sport's Day",
+			date: '2025-10-24'
+		});
+		await t.mutation(api.esl.events.remove, { eventId: sportsId });
+		await expect(t.query(api.esl.events.get, { eventId: sportsId })).rejects.toThrow(
+			/Event not found/
+		);
+	});
+
+	it('refuses to delete an exam row', async () => {
+		const { t, semesterId } = await seededSemester();
+		const eventId = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'exam',
+			label: 'Exam 1',
+			date: '2025-10-16'
+		});
+		await expect(t.mutation(api.esl.events.remove, { eventId })).rejects.toThrow(
+			/protected|Exam 1/i
+		);
+	});
+
+	it('refuses to delete the graduation ceremony', async () => {
+		const { t, semesterId } = await seededSemester();
+		const eventId = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'no_class',
+			target: 'G9',
+			label: 'Graduation ceremony',
+			date: '2026-06-19'
+		});
+		await expect(t.mutation(api.esl.events.remove, { eventId })).rejects.toThrow(
+			/protected|ceremony/i
+		);
+	});
+
+	it('refuses deletion from non-admin staff', async () => {
+		const { t, semesterId } = await seededSemester();
+		const eventId = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'no_class',
+			label: "Sport's Day",
+			date: '2025-10-24'
+		});
+		await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
+		await expect(t.mutation(api.esl.events.remove, { eventId })).rejects.toThrow(/ESL admin/);
+	});
+});

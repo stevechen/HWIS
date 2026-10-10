@@ -518,6 +518,30 @@ export default defineSchema({
 		.index('by_e2eTag', ['e2eTag']),
 
 	/**
+	 * Year-keyed Taiwan-Calendar day rows, written by the seed action
+	 * (`esl/seed.fetchTaiwanCalendarYear`) and read at seed time to resolve
+	 * lunar off days — never at teacher-view time (t185 §3).
+	 *
+	 * One ~85KB GET per calendar year per deployment; every later seed is
+	 * served from here. Rows are replaced wholesale on refetch, so a stale
+	 * provisional year (e.g. 2027 before the Executive Yuan publishes) is
+	 * refreshed rather than merged.
+	 */
+	esl_holiday_cache: defineTable({
+		/** Calendar year, e.g. `2026` — not the `YYYY-YYYY` school year. */
+		year: v.string(),
+		/** Day in the API's `YYYYMMDD` form, e.g. `20260619`. */
+		date: v.string(),
+		isHoliday: v.boolean(),
+		/** Festival caption, e.g. `中秋節`, `端午節`, `補假` — empty otherwise. */
+		caption: v.string(),
+		/** When the row was fetched (ms), for staleness reads. */
+		fetchedAt: v.number()
+	})
+		.index('by_year', ['year'])
+		.index('by_year_date', ['year', 'date']),
+
+	/**
 	 * An ESL student, enrolled into exactly one cohort. Transfer status is
 	 * tracked in place (`active` ⇄ `disabled` with a reason) rather than by
 	 * moving rows between cohorts, so the history of a cohort stays stable.

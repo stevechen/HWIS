@@ -1873,3 +1873,150 @@ export function buildTeacherDayRows(args: {
 	rows.sort(compareDayRows);
 	return rows;
 }
+
+/**
+ * Seed-service math (ticket #193): the auto rules that fill a semester's
+ * draft rows so admins edit details instead of building from blank.
+ *
+ * All pure — the seed mutation in `esl/seed` stays a thin applier and these
+ * rules stay unit-testable without a database.
+ */
+
+/**
+ * Weekday counts per exam range: Exams 1/2 run two weekdays, the Final exam
+ * three (#184 resolution; "Exam 3" is the wrong name per the #184 naming
+ * comment — the third range is the Final exam).
+ */
+export const EXAM_SEED_WEEKDAYS: Readonly<Record<string, number>> = {
+	'Exam 1': 2,
+	'Exam 2': 2,
+	'Final exam': 3
+};
+
+/** G9 mocks are fixed two-day ranges (#184 resolution). */
+export const G9_MOCK_SEED_DAYS = 2;
+
+/**
+ * The suggested end of an exam range: start + (N-1) weekdays, skipping
+ * weekends. The start counts as day one, so a Friday two-day exam ends the
+ * following Monday. Always a suggestion — the seeded rows stay editable.
+ */
+export function suggestExamEndDate(startDate: string, weekdayCount: number): string {
+	let end = startDate;
+	let counted = 1;
+	while (counted < weekdayCount) {
+		end = nextEslDate(end);
+		if (weekdayOfDate(end) !== null) counted += 1;
+	}
+	return end;
+}
+
+/** The weekday dates of an inclusive range — the rows a multi-day exam seeds. */
+export function weekdayDatesBetween(startDate: string, endDate: string): string[] {
+	const dates: string[] = [];
+	for (let date = startDate; date <= endDate; date = nextEslDate(date)) {
+		if (weekdayOfDate(date) !== null) dates.push(date);
+	}
+	return dates;
+}
+
+/** Whether a `YYYY-MM-DD` date falls on a weekend (no ESL meetings run). */
+export function isWeekendEslDate(date: string): boolean {
+	return weekdayOfDate(date) === null;
+}
+
+/** Step a `YYYY-MM-DD` date back one calendar day. */
+function prevEslDate(date: string): string {
+	const [year, month, day] = date.split('-').map(Number);
+	return new Date(Date.UTC(year, month - 1, day - 1, 12)).toISOString().slice(0, 10);
+}
+
+/**
+ * The Friday before a date — the prefilled suggestion for a weekend off-day's
+ * makeup row. Monday-after also occurs in the data, so this is a suggestion
+ * only and the admin adjusts (#184 resolution).
+ */
+export function fridayBeforeDate(date: string): string {
+	let candidate = prevEslDate(date);
+	while (weekdayOfDate(candidate) !== 'Friday') {
+		candidate = prevEslDate(candidate);
+	}
+	return candidate;
+}
+
+/** Whether a seeded row is protected against deletion: exams + ceremony. */
+export function isProtectedSeedEvent(event: {
+	type: EslEventType;
+	label: string;
+	target?: EslEventTarget;
+}): boolean {
+	if (event.type === 'exam') return true;
+	// The S2 G9 cutoff — the same anchor `teacherDays` reads through
+	// `/graduation|ceremony/i` on no_class+G9 rows.
+	return (
+		event.type === 'no_class' && event.target === 'G9' && /graduation|ceremony/i.test(event.label)
+	);
+}
+
+/** One Taiwan-Calendar day row, as the holiday API serves it (`YYYYMMDD`). */
+export type TaiwanCalendarDayRow = {
+	date: string;
+	isHoliday: boolean;
+	caption: string;
+};
+
+/** Read an API `YYYYMMDD` date (or an already-dashed one) as `YYYY-MM-DD`. */
+function normalizeHolidayDate(date: string): string {
+	const digits = date.replace(/-/g, '');
+	if (/^\d{8}$/.test(digits)) {
+		return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+	}
+	return date;
+}
+
+/**
+ * The off-day dates of one lunar festival with their captions: the
+ * contiguous `isHoliday=true` run containing its caption.
+ *
+ * A cluster, not an exact caption==date lookup: when lunar 5/5 falls on a
+ * Saturday (Dragon Boat 2025-05-31), the observed school off-day (Fri 05-30)
+ * is captioned 補假 — but both rows share one `isHoliday` run with the
+ * festival (t185 §2).
+ */
+export function findLunarOffDays(
+	dayRows: readonly TaiwanCalendarDayRow[],
+	festivalCaption: string
+): { date: string; caption: string }[] {
+	const normalized = dayRows
+		.map((row) => ({
+			date: normalizeHolidayDate(row.date),
+			isHoliday: row.isHoliday,
+			caption: row.caption
+		}))
+		.sort((a, b) => a.date.localeCompare(b.date));
+	const runs: { date: string; caption: string }[][] = [];
+	for (const row of normalized) {
+		if (!row.isHoliday) continue;
+		const current = runs[runs.length - 1];
+		const previous = current?.[current.length - 1];
+		if (current && previous && nextEslDate(previous.date) === row.date) {
+			current.push(row);
+		} else {
+			runs.push([row]);
+		}
+	}
+	return runs
+		.filter((run) => run.some((row) => row.caption.includes(festivalCaption)))
+		.flatMap((run) => run.map((row) => ({ date: row.date, caption: row.caption })));
+}
+
+/**
+ * The off-day dates of one lunar festival (captions dropped) — the seed's
+ * weekday-math seam. See `findLunarOffDays` for the cluster rule.
+ */
+export function findLunarOffCluster(
+	dayRows: readonly TaiwanCalendarDayRow[],
+	festivalCaption: string
+): string[] {
+	return findLunarOffDays(dayRows, festivalCaption).map((row) => row.date);
+}
