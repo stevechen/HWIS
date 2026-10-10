@@ -5,20 +5,20 @@ import schema from '../schema';
 
 /** An ESL admin: may create, pair, and update cohorts. */
 async function asEslAdmin(authId = 'esl-admin') {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId, eslRole: 'admin' });
 	return t;
 }
 
 /** An ESL teacher: may read cohorts, may not write them. */
 async function asEslTeacher(authId = 'esl-teacher') {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId, eslRole: 'teacher' });
 	return t;
 }
 
 /** Creates a G7 cohort through the public mutation (admin required). */
-async function createG7(t: ReturnType<typeof convexTest>, level = 'Basic') {
+async function createG7(t: Awaited<ReturnType<typeof convexTest>>, level = 'Basic') {
 	return t.mutation(api.esl.cohorts.create, {
 		year: '2025-2026',
 		grade: 7,
@@ -356,7 +356,7 @@ describe('esl cohorts', () => {
 		});
 
 		it('rejects a write from an International-only admin', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			await seedUser(t, {
 				authId: 'intl-admin',
 				role: 'admin',
@@ -445,14 +445,14 @@ describe('esl cohorts', () => {
 		});
 
 		it('rejects a read from an unauthenticated caller', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			mockAuthUser(null);
 
 			await expect(t.query(api.esl.cohorts.list, {})).rejects.toThrow('Unauthorized');
 		});
 
 		it('rejects a read from an International-only teacher', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			await seedUser(t, {
 				authId: 'intl-teacher',
 				role: 'teacher',

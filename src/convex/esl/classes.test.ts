@@ -4,7 +4,7 @@ import { api } from '../_generated/api';
 import schema from '../schema';
 
 async function asEslAdmin(authId = 'esl-admin') {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId, eslRole: 'admin' });
 	return t;
 }
@@ -15,7 +15,7 @@ async function asEslAdmin(authId = 'esl-admin') {
  * `classNumber` defaults to `1` so the common case stays a bare call; a test that
  * needs a second, distinct cohort in the same year passes `'2'`.
  */
-async function createG7(t: ReturnType<typeof convexTest>, classNumber = '1') {
+async function createG7(t: Awaited<ReturnType<typeof convexTest>>, classNumber = '1') {
 	return t.mutation(api.esl.cohorts.create, {
 		year: '2025-2026',
 		grade: 7,
@@ -173,10 +173,7 @@ describe('esl classes', () => {
 
 			const roster = await t.query(api.esl.classes.getRoster, { classId: classIds[0] });
 
-			expect(roster.students.map((s: { englishName: string }) => s.englishName)).toEqual([
-				'Alice Chan',
-				'Bob Lee'
-			]);
+			expect(roster.students.map((s) => s.englishName)).toEqual(['Alice Chan', 'Bob Lee']);
 		});
 
 		it('rejects a read from an unauthenticated caller', async () => {

@@ -12,7 +12,7 @@ import schema from '../schema';
 import type { Id } from '../_generated/dataModel';
 
 async function asEslAdmin(authId = 'esl-admin') {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId, eslRole: 'admin' });
 	return t;
 }

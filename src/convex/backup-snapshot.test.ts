@@ -10,7 +10,7 @@ import {
 
 describe('backup snapshot', () => {
 	test('buildSnapshot collects all six tables plus exportedAt and version', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const classId = await t.run(async (ctx) => {
 			return await ctx.db.insert('classes', { grade: 10, class: '1' });
@@ -78,7 +78,7 @@ describe('backup snapshot', () => {
 	});
 
 	test('buildSnapshot includes every table even when empty', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const snapshot = await t.run(async (ctx) => buildSnapshot(ctx));
 
@@ -92,7 +92,7 @@ describe('backup snapshot', () => {
 	});
 
 	test('insertBackupRecord stores the snapshot with a backup filename and e2eTag', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const snapshot = await t.run(async (ctx) => buildSnapshot(ctx));
 		const backupId = await t.run(async (ctx) => insertBackupRecord(ctx, snapshot, 'snapshot-e2e'));
@@ -114,7 +114,7 @@ describe('backup snapshot', () => {
 	});
 
 	test('insertBackupRecord chunks a snapshot larger than the 200KB limit', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const classId = await t.run(async (ctx) => {
 			return await ctx.db.insert('classes', { grade: 10, class: '1' });

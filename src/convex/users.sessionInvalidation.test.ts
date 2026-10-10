@@ -6,7 +6,7 @@ import type { Id } from './_generated/dataModel';
 
 describe('session invalidation', () => {
 	it('deletes sessions when status changes to pending', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create a user with active status
 		const userId = await t.run(async (ctx) => {
@@ -48,7 +48,7 @@ describe('session invalidation', () => {
 	});
 
 	it('deletes sessions when role changes', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create a user
 		const userId = await t.run(async (ctx) => {
@@ -90,7 +90,7 @@ describe('session invalidation', () => {
 	});
 
 	it('does NOT delete sessions when only name changes', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create a user
 		const userId = await t.run(async (ctx) => {
@@ -133,7 +133,7 @@ describe('session invalidation', () => {
 	});
 
 	it('deletes all sessions when status changes to pending (multiple sessions)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create a user with active status
 		const userId = await t.run(async (ctx) => {

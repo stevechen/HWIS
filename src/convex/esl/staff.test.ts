@@ -8,13 +8,13 @@ import type { Id } from '../_generated/dataModel';
 type TestDb = Awaited<ReturnType<typeof convexTest>>;
 
 async function asEslAdmin(authId = 'esl-admin') {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 	const id = await seedEslStaff(t, { authId, eslRole: 'admin' });
 	return { t, id };
 }
 
 async function asEslTeacher(authId = 'esl-teacher') {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId, eslRole: 'teacher' });
 	return t;
 }
@@ -78,7 +78,7 @@ describe('esl staff', () => {
 		});
 
 		it('rejects a read from an International-only admin', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			await seedUser(t, {
 				authId: 'intl-admin',
 				role: 'admin',
@@ -127,7 +127,7 @@ describe('esl staff', () => {
 		});
 
 		it('rejects a read from an International-only teacher', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			await seedUser(t, { authId: 'intl', role: 'teacher' });
 			mockAuthUser({ authId: 'intl' });
 

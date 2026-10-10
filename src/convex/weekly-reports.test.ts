@@ -7,7 +7,7 @@ import { weekStartOf } from './shared/evaluation_week';
 
 describe('Weekly Reports', () => {
 	test('getWeeklyReportsList returns empty when no evaluations exist', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const reports = await t.run(async (ctx) => {
 			return await ctx.runQuery(api.evaluations.getWeeklyReportsList, {});
@@ -16,7 +16,7 @@ describe('Weekly Reports', () => {
 	});
 
 	test('getWeeklyReportsList groups evaluations by Friday', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId: student1Id } = await createStudentWithClass(t, {
 			englishName: 'John Doe',
@@ -89,7 +89,7 @@ describe('Weekly Reports', () => {
 	});
 
 	test('getWeeklyReportsList returns reports in reverse chronological order', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'John Doe',
@@ -159,7 +159,7 @@ describe('Weekly Reports', () => {
 	});
 
 	test('getWeeklyReportDetail returns students sorted by name', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId: student1Id } = await createStudentWithClass(t, {
 			englishName: 'John Doe',
@@ -246,7 +246,7 @@ describe('Weekly Reports', () => {
 	});
 
 	test('getWeeklyReportDetail aggregates points by category', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'John Doe',
@@ -308,7 +308,7 @@ describe('Weekly Reports', () => {
 	});
 
 	test('getWeeklyReportDetail only includes students with points in the week', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'John Doe',

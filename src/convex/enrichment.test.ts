@@ -3,7 +3,7 @@ import { convexTest, modules } from './test.setup';
 import schema from './schema';
 import type { Doc } from './_generated/dataModel';
 
-async function setupEvaluationData(t: ReturnType<typeof convexTest>) {
+async function setupEvaluationData(t: Awaited<ReturnType<typeof convexTest>>) {
 	const classId = await t.run(async (ctx) => {
 		return await ctx.db.insert('classes', {
 			grade: 10,
@@ -42,7 +42,7 @@ async function setupEvaluationData(t: ReturnType<typeof convexTest>) {
 
 describe('enrichment helper', () => {
 	test('enrichEvaluations resolves student names, category names, and class info', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const now = Date.now();
 
 		const { studentId, categoryId, teacherId } = await setupEvaluationData(t);
@@ -78,7 +78,7 @@ describe('enrichment helper', () => {
 	});
 
 	test('enrichEvaluations handles multiple evaluations with different categories sorted by timestamp', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const now = Date.now();
 
 		const { studentId, teacherId } = await setupEvaluationData(t);
@@ -139,7 +139,7 @@ describe('enrichment helper', () => {
 	});
 
 	test('enrichEvaluations marks missing student and category references', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const teacherId = await t.run(async (ctx) =>
 			ctx.db.insert('users', {
 				authId: 'missing-reference-teacher',

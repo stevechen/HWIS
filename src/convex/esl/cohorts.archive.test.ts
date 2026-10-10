@@ -10,7 +10,7 @@ import { api } from '../_generated/api';
 import schema from '../schema';
 
 async function asEslAdmin(authId = 'esl-admin') {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId, eslRole: 'admin' });
 	return t;
 }
