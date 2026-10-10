@@ -82,7 +82,7 @@ describe('esl layout auth gate', () => {
 		});
 	});
 
-	it('renders department navigation for a hybrid teacher', async () => {
+	it('renders department navigation for an ESL teacher (no admin link)', async () => {
 		const { useViewer } = await import('$lib/viewer.svelte');
 		vi.mocked(useViewer).mockReturnValue(
 			viewerFor({
@@ -98,12 +98,18 @@ describe('esl layout auth gate', () => {
 		await expect.element(page.getByTestId('esl.nav.calendar')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl.nav.slips')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl.nav.zipgrade')).toBeInTheDocument();
-		await expect.element(page.getByTestId('esl.nav.admin')).toBeInTheDocument();
+		await expect.element(page.getByTestId('esl.nav.admin')).not.toBeInTheDocument();
 	});
 
 	it('renders the ESL shell for a super user', async () => {
 		const { useViewer } = await import('$lib/viewer.svelte');
-		vi.mocked(useViewer).mockReturnValue(viewerFor({ role: 'super', status: 'active' }));
+		vi.mocked(useViewer).mockReturnValue(
+			viewerFor({
+				role: 'super',
+				status: 'active',
+				departmentRoles: { esl: 'admin', international: 'admin' }
+			})
+		);
 
 		renderEslLayout();
 

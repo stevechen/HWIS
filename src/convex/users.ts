@@ -73,7 +73,8 @@ export const profile = query({
 				authId: 'super@hwis.test' as const,
 				role: 'super' as const,
 				status: 'active' as const,
-				profileExists: true
+				profileExists: true,
+				departmentRoles: { esl: 'admin', international: 'admin' }
 			};
 			const actor: AuthorizationActor = {
 				kind: 'staff',
@@ -127,7 +128,7 @@ export const profile = query({
 				actor.subject._id = authUser._id as Id<'users'>;
 			}
 			return {
-				user: { ...authUser, profileExists: true },
+				user: { ...authUser, profileExists: true, departmentRoles: authUser.departmentRoles },
 				actor,
 				capabilities: getEvaluationCapabilities(actor)
 			};
@@ -177,7 +178,8 @@ export const profile = query({
 			authId: dbUser.authId,
 			role: dbUser.role ?? 'teacher',
 			status: dbUser.status ?? 'pending',
-			profileExists: true
+			profileExists: true,
+			departmentRoles: dbUser.departmentRoles
 		};
 
 		const actor: AuthorizationActor = {

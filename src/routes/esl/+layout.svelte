@@ -67,11 +67,13 @@
 					data-testid="esl.nav.zipgrade"
 					class="rounded px-3 py-1.5 text-sm font-medium hover:bg-white/15">ZipGrade</a
 				>
-				<a
-					href="/esl/admin"
-					data-testid="esl.nav.admin"
-					class="rounded px-3 py-1.5 text-sm font-medium hover:bg-white/15">Admin</a
-				>
+				{#if session.isEslAdmin}
+					<a
+						href="/esl/admin"
+						data-testid="esl.nav.admin"
+						class="rounded px-3 py-1.5 text-sm font-medium hover:bg-white/15">Admin</a
+					>
+				{/if}
 			</div>
 		</nav>
 		{@render children()}
