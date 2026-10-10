@@ -12,6 +12,12 @@ sleep 3
 
 # Setup environment (exact sequence you used before)
 source .env.local.convex
+# Convex-compatible Node for this machine's projects (dynamic, never pinned).
+if [ -f "$HOME/.convex-node-guard.sh" ]; then
+	. "$HOME/.convex-node-guard.sh"
+	guard_bin="$(_convex_guard_bin)" && export PATH="$guard_bin:$PATH"
+	unset guard_bin
+fi
 export CONVEX_DEPLOYMENT=
 export PUBLIC_CONVEX_URL=http://localhost:3217
 export CONVEX_URL=http://localhost:3217

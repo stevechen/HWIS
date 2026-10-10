@@ -1,15 +1,18 @@
-# Triage Labels
+# Triage Labels — Default Vocabulary
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
+This repo uses the default five-role vocabulary. Each label string equals its name.
 
-| Label in mattpocock/skills | Label in our tracker | Meaning                                  |
-| -------------------------- | -------------------- | ---------------------------------------- |
-| `needs-triage`             | `needs-triage`       | Maintainer needs to evaluate this issue  |
-| `needs-info`               | `needs-info`         | Waiting on reporter for more information |
-| `ready-for-agent`          | `ready-for-agent`    | Fully specified, ready for an AFK agent  |
-| `ready-for-human`          | `ready-for-human`    | Requires human implementation            |
-| `wontfix`                  | `wontfix`            | Will not be actioned                     |
+| Role | Label | Purpose |
+|------|-------|---------|
+| `needs-triage` | `needs-triage` | New issue, not yet categorised |
+| `needs-info` | `needs-info` | Blocked on clarification from user/stakeholder |
+| `ready-for-agent` | `ready-for-agent` | Clear, scoped, agent can start immediately |
+| `ready-for-human` | `ready-for-human` | Requires human decision/action (design, deploy, access) |
+| `wontfix` | `wontfix` | Closed without action; reason recorded |
 
-When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
+## Usage
 
-Edit the right-hand column to match whatever vocabulary you actually use.
+- Every issue gets exactly one triage label at all times.
+- `to-tickets` publishes new tickets with `ready-for-agent`.
+- `triage` skill moves issues through this state machine.
+- Labels are created automatically if missing (`gh label create`).
