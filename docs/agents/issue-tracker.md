@@ -4,17 +4,17 @@ This repo tracks work in **GitHub Issues** on `stevechen/HWIS`.
 
 ## Operations
 
-| Operation | How |
-|-----------|-----|
-| Create issue | `gh issue create --repo stevechen/HWIS --title "..." --body "..."` |
-| List issues | `gh issue list --repo stevechen/HWIS --state all` |
-| Get issue | `gh issue view --repo stevechen/HWIS <number>` |
-| Add comment | `gh issue comment --repo stevechen/HWIS <number> --body "..."` |
-| Add labels | `gh issue edit --repo stevechen/HWIS <number> --add-label "..."` |
-| Set milestone | `gh issue edit --repo stevechen/HWIS <number> --milestone "..."` |
-| Close issue | `gh issue close --repo stevechen/HWIS <number>` |
-| Reopen issue | `gh issue reopen --repo stevechen/HWIS <number>` |
-| Search issues | `gh issue list --repo stevechen/HWIS --search "..."` |
+| Operation     | How                                                                |
+| ------------- | ------------------------------------------------------------------ |
+| Create issue  | `gh issue create --repo stevechen/HWIS --title "..." --body "..."` |
+| List issues   | `gh issue list --repo stevechen/HWIS --state all`                  |
+| Get issue     | `gh issue view --repo stevechen/HWIS <number>`                     |
+| Add comment   | `gh issue comment --repo stevechen/HWIS <number> --body "..."`     |
+| Add labels    | `gh issue edit --repo stevechen/HWIS <number> --add-label "..."`   |
+| Set milestone | `gh issue edit --repo stevechen/HWIS <number> --milestone "..."`   |
+| Close issue   | `gh issue close --repo stevechen/HWIS <number>`                    |
+| Reopen issue  | `gh issue reopen --repo stevechen/HWIS <number>`                   |
+| Search issues | `gh issue list --repo stevechen/HWIS --search "..."`               |
 
 ## Conventions
 

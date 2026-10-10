@@ -289,7 +289,9 @@ describe('ESL teacher schedule list page', () => {
 		render(SchedulePage);
 
 		await expect.element(page.getByText('G7 Basic 1 CLIL P2 · Late start')).toBeInTheDocument();
-		await expect.element(page.getByText('out-of-window P1 (window from P2)')).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText('out-of-window P1 (window from P2)'))
+			.not.toBeInTheDocument();
 		await selectOption(page.getByTestId('esl-schedule.class'), 'class_comm');
 
 		await expect.element(page.getByText('G7 Basic 1 Comm P1 · Late start')).toBeInTheDocument();
