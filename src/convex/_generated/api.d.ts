@@ -36,6 +36,7 @@ import type * as shared_backup_snapshot from "../shared/backup_snapshot.js";
 import type * as shared_class_roster from "../shared/class_roster.js";
 import type * as shared_drive_backup_target from "../shared/drive_backup_target.js";
 import type * as shared_enrichment from "../shared/enrichment.js";
+import type * as shared_esl from "../shared/esl.js";
 import type * as shared_evaluation_read_model from "../shared/evaluation_read_model.js";
 import type * as shared_evaluation_utils from "../shared/evaluation_utils.js";
 import type * as shared_evaluation_week from "../shared/evaluation_week.js";
@@ -89,6 +90,7 @@ declare const fullApi: ApiFromModules<{
   "shared/class_roster": typeof shared_class_roster;
   "shared/drive_backup_target": typeof shared_drive_backup_target;
   "shared/enrichment": typeof shared_enrichment;
+  "shared/esl": typeof shared_esl;
   "shared/evaluation_read_model": typeof shared_evaluation_read_model;
   "shared/evaluation_utils": typeof shared_evaluation_utils;
   "shared/evaluation_week": typeof shared_evaluation_week;
