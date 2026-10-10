@@ -78,10 +78,10 @@ describe('auth context helpers', () => {
 });
 
 describe('resolveAuthId resolution via getAuthenticatedUser', () => {
-	let t: ReturnType<typeof convexTest>;
+	let t: Awaited<ReturnType<typeof convexTest>>;
 
-	beforeEach(() => {
-		t = convexTest(schema, modules);
+	beforeEach(async () => {
+		t = await convexTest(schema, modules);
 	});
 
 	afterEach(() => {
@@ -163,7 +163,7 @@ describe('role-gate denial paths', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('requireAdminRole throws for a teacher profile', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'teacher-role-test', name: 'Plain Teacher' });
 		mockAuthUser({ authId: 'teacher-role-test', name: 'Plain Teacher' });
@@ -174,7 +174,7 @@ describe('role-gate denial paths', () => {
 	});
 
 	it('requireSuperRole throws for an admin profile', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'admin-role-test', name: 'Plain Admin', role: 'admin' });
 		mockAuthUser({ authId: 'admin-role-test', name: 'Plain Admin' });
@@ -185,7 +185,7 @@ describe('role-gate denial paths', () => {
 	});
 
 	it('requireSuperRole throws for a teacher profile', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'teacher-super-test', name: 'Plain Teacher' });
 		mockAuthUser({ authId: 'teacher-super-test', name: 'Plain Teacher' });
@@ -196,7 +196,7 @@ describe('role-gate denial paths', () => {
 	});
 
 	it('requireAdminRole passes for an admin profile', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'admin-pass-test', name: 'Real Admin', role: 'admin' });
 		mockAuthUser({ authId: 'admin-pass-test', name: 'Real Admin' });
@@ -210,7 +210,7 @@ describe('department role gates', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('requireInternationalStaff admits a legacy teacher via the role fallback', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedUser(t, { authId: 'legacy-teacher', name: 'Legacy Teacher', role: 'teacher' });
 		mockAuthUser({ authId: 'legacy-teacher', name: 'Legacy Teacher' });
 
@@ -220,7 +220,7 @@ describe('department role gates', () => {
 	});
 
 	it('requireInternationalStaff rejects an Active ESL-only teacher', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedUser(t, {
 			authId: 'esl-only-teacher',
 			name: 'ESL Teacher',
@@ -236,7 +236,7 @@ describe('department role gates', () => {
 	});
 
 	it('requireInternationalAdmin admits a legacy admin and rejects a teacher', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedUser(t, { authId: 'legacy-admin', name: 'Legacy Admin', role: 'admin' });
 		await seedUser(t, { authId: 'legacy-teacher-2', name: 'Legacy Teacher', role: 'teacher' });
 
@@ -251,7 +251,7 @@ describe('department role gates', () => {
 	});
 
 	it('requireEslStaff admits an Active ESL teacher', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedUser(t, {
 			authId: 'esl-teacher',
 			name: 'ESL Teacher',
@@ -267,7 +267,7 @@ describe('department role gates', () => {
 	});
 
 	it('requireEslStaff rejects a Pending ESL teacher', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedUser(t, {
 			authId: 'pending-esl-teacher',
 			name: 'Pending ESL Teacher',
@@ -283,7 +283,7 @@ describe('department role gates', () => {
 	});
 
 	it('requireEslAdmin admits an ESL admin and rejects an ESL teacher', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedUser(t, {
 			authId: 'esl-admin',
 			name: 'ESL Admin',
@@ -310,7 +310,7 @@ describe('department role gates', () => {
 	});
 
 	it('requireEslAdmin rejects a Pending ESL admin', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedUser(t, {
 			authId: 'pending-esl-admin',
 			name: 'Pending ESL Admin',
@@ -326,7 +326,7 @@ describe('department role gates', () => {
 	});
 
 	it('admits Super to every department gate without an assignment', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedUser(t, {
 			authId: 'super-dept-gate',
 			name: 'Super Admin',
@@ -342,7 +342,7 @@ describe('department role gates', () => {
 	});
 
 	it('rejects unauthenticated callers on every department gate', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser(null);
 
 		await expect(t.run((ctx) => requireInternationalStaff(ctx))).rejects.toThrow('Unauthorized');

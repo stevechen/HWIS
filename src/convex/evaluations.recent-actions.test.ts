@@ -9,17 +9,23 @@ import type { RecentBatch } from './shared/recentActions';
 
 const TEACHER_AUTH = 'batch-teacher';
 
-async function setupTeacher(t: ReturnType<typeof convexTest>): Promise<void> {
+async function setupTeacher(t: Awaited<ReturnType<typeof convexTest>>): Promise<void> {
 	await seedUser(t, { authId: TEACHER_AUTH, name: 'Batch Teacher', role: 'teacher' });
 	mockAuthUser({ authId: TEACHER_AUTH });
 }
 
-async function makeCategory(t: ReturnType<typeof convexTest>, name: string): Promise<string> {
+async function makeCategory(
+	t: Awaited<ReturnType<typeof convexTest>>,
+	name: string
+): Promise<Id<'point_categories'>> {
 	return t.run((ctx) => ctx.db.insert('point_categories', { name }));
 }
 
-async function makeStudents(t: ReturnType<typeof convexTest>, count: number): Promise<string[]> {
-	const ids: string[] = [];
+async function makeStudents(
+	t: Awaited<ReturnType<typeof convexTest>>,
+	count: number
+): Promise<Id<'students'>[]> {
+	const ids: Id<'students'>[] = [];
 	for (let i = 0; i < count; i++) {
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: `Batch Student ${i}`,
@@ -35,9 +41,9 @@ async function makeStudents(t: ReturnType<typeof convexTest>, count: number): Pr
 }
 
 async function createBatch(
-	t: ReturnType<typeof convexTest>,
-	studentIds: string[],
-	categoryId: string,
+	t: Awaited<ReturnType<typeof convexTest>>,
+	studentIds: Id<'students'>[],
+	categoryId: Id<'point_categories'>,
 	overrides: { value?: number; details?: string; semesterId?: string } = {}
 ): Promise<Id<'evaluations'>[]> {
 	return t.mutation(api.evaluations.create, {
@@ -49,7 +55,7 @@ async function createBatch(
 	}) as Promise<Id<'evaluations'>[]>;
 }
 
-async function getEvaluationDocs(t: ReturnType<typeof convexTest>) {
+async function getEvaluationDocs(t: Awaited<ReturnType<typeof convexTest>>) {
 	return t.run(async (ctx) => {
 		return ctx.db.query('evaluations').collect();
 	});
@@ -57,7 +63,7 @@ async function getEvaluationDocs(t: ReturnType<typeof convexTest>) {
 
 describe('evaluations.create batch stamping', () => {
 	test('stamps the same batchId on every row of one call', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await setupTeacher(t);
 		const categoryId = await makeCategory(t, 'Creativity');
 		const studentIds = await makeStudents(t, 3);
@@ -73,7 +79,7 @@ describe('evaluations.create batch stamping', () => {
 	});
 
 	test('stamps a different batchId per call', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await setupTeacher(t);
 		const categoryId = await makeCategory(t, 'Creativity');
 		const studentIds = await makeStudents(t, 3);
@@ -86,7 +92,7 @@ describe('evaluations.create batch stamping', () => {
 	});
 
 	test('create audit rows carry the batchId', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await setupTeacher(t);
 		const categoryId = await makeCategory(t, 'Creativity');
 		const studentIds = await makeStudents(t, 2);
@@ -102,7 +108,7 @@ describe('evaluations.create batch stamping', () => {
 
 describe('evaluations.updateMany', () => {
 	test('patches only the selected ids and writes one audit row each', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await setupTeacher(t);
 		const categoryId = await makeCategory(t, 'Creativity');
 		const studentIds = await makeStudents(t, 3);
@@ -130,7 +136,7 @@ describe('evaluations.updateMany', () => {
 	});
 
 	test('is all-or-nothing when one row is locked', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await setupTeacher(t);
 		const categoryId = await makeCategory(t, 'Creativity');
 		const studentIds = await makeStudents(t, 3);
@@ -152,7 +158,7 @@ describe('evaluations.updateMany', () => {
 	});
 
 	test('rejects when the caller does not own the evaluations', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await setupTeacher(t);
 		const categoryId = await makeCategory(t, 'Creativity');
 		const studentIds = await makeStudents(t, 1);
@@ -173,7 +179,7 @@ describe('evaluations.updateMany', () => {
 
 describe('evaluations.removeMany', () => {
 	test('deletes only the selected ids and writes audit rows', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await setupTeacher(t);
 		const categoryId = await makeCategory(t, 'Creativity');
 		const studentIds = await makeStudents(t, 3);
@@ -194,7 +200,7 @@ describe('evaluations.removeMany', () => {
 	});
 
 	test('is all-or-nothing when one row is locked', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await setupTeacher(t);
 		const categoryId = await makeCategory(t, 'Creativity');
 		const studentIds = await makeStudents(t, 3);
@@ -216,7 +222,7 @@ describe('evaluations.removeMany', () => {
 
 describe('evaluations.listRecentBatches', () => {
 	test('groups the caller\u2019s recent evaluations by batchId, newest first', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await setupTeacher(t);
 		const categoryId = await makeCategory(t, 'Creativity');
 		const studentIds = await makeStudents(t, 3);
@@ -241,7 +247,7 @@ describe('evaluations.listRecentBatches', () => {
 	});
 
 	test('excludes evaluations owned by other teachers', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await setupTeacher(t);
 		const categoryId = await makeCategory(t, 'Creativity');
 		const studentIds = await makeStudents(t, 1);
@@ -256,7 +262,7 @@ describe('evaluations.listRecentBatches', () => {
 	});
 
 	test('reflects a partially-edited batch after updateMany', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await setupTeacher(t);
 		const categoryId = await makeCategory(t, 'Creativity');
 		const studentIds = await makeStudents(t, 3);
@@ -271,7 +277,7 @@ describe('evaluations.listRecentBatches', () => {
 	});
 
 	test('groups legacy rows without batchId via the derived key', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await setupTeacher(t);
 		const categoryId = await makeCategory(t, 'Creativity');
 		const studentIds = await makeStudents(t, 3);
@@ -303,7 +309,7 @@ describe('evaluations.listRecentBatches', () => {
 	});
 
 	test('returns an empty list for an unauthenticated caller', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser(null);
 		const batches: RecentBatch[] = await t.query(api.evaluations.listRecentBatches, {});
 		expect(batches).toEqual([]);

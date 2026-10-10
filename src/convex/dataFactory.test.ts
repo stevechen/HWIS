@@ -5,7 +5,7 @@ import schema from './schema';
 
 describe('dataFactory.createEvaluationForStudent', () => {
 	async function seedAdminAndStudent(
-		t: ReturnType<typeof convexTest>,
+		t: Awaited<ReturnType<typeof convexTest>>,
 		studentCode: string
 	): Promise<string> {
 		await seedUser(t, { authId: 'seed-admin', name: 'Seed Admin', role: 'admin' });
@@ -24,7 +24,7 @@ describe('dataFactory.createEvaluationForStudent', () => {
 	}
 
 	it('creates an evaluation pointing at the seeded student', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const seededStudentId = await seedAdminAndStudent(t, 'EV1001');
 
 		const evaluationId = await t.mutation(api.dataFactory.createEvaluationForStudent, {
@@ -38,7 +38,7 @@ describe('dataFactory.createEvaluationForStudent', () => {
 	});
 
 	it('does not create an audit log for seeded evaluations', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedAdminAndStudent(t, 'EV1005');
 
 		const evaluationId = await t.mutation(api.dataFactory.createEvaluationForStudent, {
@@ -61,7 +61,7 @@ describe('dataFactory.createEvaluationForStudent', () => {
 	});
 
 	it('matches the seeded student even when many other students exist', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const seededStudentId = await seedAdminAndStudent(t, 'EV1002');
 		for (let i = 0; i < 20; i += 1) {
 			await createStudentWithClass(t, {
@@ -85,7 +85,7 @@ describe('dataFactory.createEvaluationForStudent', () => {
 	});
 
 	it('throws when no student matches the studentId', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedAdminAndStudent(t, 'EV1003');
 
 		await expect(
@@ -97,7 +97,7 @@ describe('dataFactory.createEvaluationForStudent', () => {
 	});
 
 	it('rejects unauthenticated callers before touching the student lookup', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser(null);
 
 		await expect(
@@ -116,7 +116,7 @@ describe('dataFactory.seedManyStudents', () => {
 		class?: string;
 		e2eTag?: string;
 	}) {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedUser(t, { authId: 'seed-admin', name: 'Seed Admin', role: 'admin' });
 		mockAuthUser({ authId: 'seed-admin', name: 'Seed Admin', role: 'admin', status: 'active' });
 

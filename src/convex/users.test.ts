@@ -8,7 +8,7 @@ import { authComponent } from './auth';
 
 describe('users.update', () => {
 	it('updates user status to active', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const userId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -31,7 +31,7 @@ describe('users.update', () => {
 	});
 
 	it('updates user role to admin', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const userId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -58,7 +58,7 @@ describe('users.update self-demotion guard', () => {
 	afterEach(() => mockAuthUser(null));
 
 	async function asAdmin(authId: string) {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const selfId = (await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
 				authId,
@@ -134,7 +134,7 @@ describe('users.update audit', () => {
 	afterEach(() => mockAuthUser(null));
 
 	it('logs departmentRoles alongside role changes', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
 				authId: 'boss',
@@ -171,7 +171,7 @@ describe('users.update audit', () => {
 	});
 
 	it('omits departmentRoles for slot-less rows', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
 				authId: 'boss',
@@ -203,7 +203,7 @@ describe('users.update audit', () => {
 
 describe('users.normalizeStaffNames', () => {
 	it('normalizes existing staff names without changing student names or IDs', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ids = await t.run(async (ctx) => ({
 			teacherId: await ctx.db.insert('users', {
 				authId: 'mixed-name',
@@ -229,7 +229,7 @@ describe('users.normalizeStaffNames', () => {
 
 describe('users.update access-removal / restore timestamps', () => {
 	it('stamps deactivatedAt when an active user is moved to pending', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const userId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -253,7 +253,7 @@ describe('users.update access-removal / restore timestamps', () => {
 	});
 
 	it('clears deactivatedAt when a pending user is restored to active', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const userId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -278,7 +278,7 @@ describe('users.update access-removal / restore timestamps', () => {
 	});
 
 	it('does not stamp deactivatedAt for a role-only update', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const userId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -303,7 +303,7 @@ describe('users.update access-removal / restore timestamps', () => {
 
 describe('users.setRoleByEmail', () => {
 	it('sets user role by authId (email)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
@@ -328,7 +328,7 @@ describe('users.setRoleByEmail', () => {
 	});
 
 	it('throws error when user not found by email', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await expect(async () => {
 			await t.mutation(api.users.setRoleByEmail, {
@@ -342,7 +342,7 @@ describe('users.setRoleByEmail', () => {
 describe('Role promotion constraint - super role requires super user', () => {
 	describe('Admin user attempts', () => {
 		it('admin cannot promote teacher to super', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create a teacher user
 			const teacherId = await t.run(async (ctx) => {
@@ -363,7 +363,7 @@ describe('Role promotion constraint - super role requires super user', () => {
 		});
 
 		it('admin cannot promote admin to super', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create another admin user
 			const adminId = await t.run(async (ctx) => {
@@ -384,7 +384,7 @@ describe('Role promotion constraint - super role requires super user', () => {
 		});
 
 		it('admin can still promote teacher to admin', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create a teacher user
 			const teacherId = await t.run(async (ctx) => {
@@ -409,7 +409,7 @@ describe('Role promotion constraint - super role requires super user', () => {
 		});
 
 		it('admin can demote admin to teacher', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create an admin user
 			const adminId = await t.run(async (ctx) => {
@@ -439,7 +439,7 @@ describe('Role promotion constraint - super role requires super user', () => {
 		afterEach(() => setTestAuthRole('admin'));
 
 		it('super can promote teacher to super', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create a teacher user
 			const teacherId = await t.run(async (ctx) => {
@@ -464,7 +464,7 @@ describe('Role promotion constraint - super role requires super user', () => {
 		});
 
 		it('super can promote admin to super', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create an admin user
 			const adminId = await t.run(async (ctx) => {
@@ -492,7 +492,7 @@ describe('Role promotion constraint - super role requires super user', () => {
 
 describe('users.list', () => {
 	it('includes email and image from Better Auth when available', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const adapterMock = {
 			findMany: vi.fn().mockResolvedValue([
@@ -528,7 +528,7 @@ describe('users.list', () => {
 	});
 
 	it('returns undefined email/image when Better Auth user is not found', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const adapterMock = {
 			findMany: vi.fn().mockResolvedValue([])
@@ -557,7 +557,7 @@ describe('users.list', () => {
 	});
 
 	it('sorts users by name with CJK characters stripped from the sort key', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		vi.spyOn(authComponent, 'adapter').mockImplementation(() => {
 			const adapterMock = { findMany: vi.fn().mockResolvedValue([]) };
@@ -586,7 +586,7 @@ describe('users.list', () => {
 	});
 
 	it('does not include students in the list', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		vi.spyOn(authComponent, 'adapter').mockImplementation(() => {
 			const adapterMock = { findMany: vi.fn().mockResolvedValue([]) };
@@ -616,7 +616,7 @@ describe('users.list', () => {
 	});
 
 	it('resolves email when authId is stored as a bare email (BA id differs from authId)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// BA user has its own Convex-generated id; the app's `authId` was written
 		// as the bare email (the #57 regression). Only the email-keyed lookup resolves it.
@@ -657,7 +657,7 @@ describe('users.list', () => {
 
 describe('users.getPendingCount', () => {
 	it('returns 0 when there are no pending users', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
@@ -673,7 +673,7 @@ describe('users.getPendingCount', () => {
 	});
 
 	it('counts only new pending staff registrations and ignores deactivated accounts and students', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			// New pending teacher (should count)
@@ -718,7 +718,7 @@ describe('users.getPendingCount', () => {
 	});
 
 	it('returns 0 when pending users are only deactivated staff or students', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
@@ -743,7 +743,7 @@ describe('users.getPendingCount', () => {
 
 describe('users.seedPendingUser', () => {
 	it('creates a new pending teacher and increases getPendingCount', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const result = await t.mutation(api.users.seedPendingUser, { name: 'Test New Teacher' });
 		expect(result.success).toBe(true);
@@ -757,7 +757,7 @@ describe('users.seedPendingUser', () => {
 describe('users.deleteUserAfter5Years', () => {
 	it('deletes a user disabled for more than 5 years', async () => {
 		setTestAuthRole('super');
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const fiveYearsAndOneDay = 5 * 365.25 * 24 * 60 * 60 * 1000 + 86400000;
 
 		const userId = await t.run(async (ctx) => {
@@ -778,7 +778,7 @@ describe('users.deleteUserAfter5Years', () => {
 
 	it('rejects deletion of a user disabled for less than 5 years', async () => {
 		setTestAuthRole('super');
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const userId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -797,7 +797,7 @@ describe('users.deleteUserAfter5Years', () => {
 
 	it('rejects deletion of a non-disabled user', async () => {
 		setTestAuthRole('super');
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const userId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -814,7 +814,7 @@ describe('users.deleteUserAfter5Years', () => {
 	});
 
 	it('rejects deletion by non-super admin', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		setTestAuthRole('admin');
 
 		const userId = await t.run(async (ctx) => {

@@ -15,7 +15,7 @@ function boardAdminAuth() {
 	mockAuthUser({ authId: 'board-admin', name: 'Board Admin', role: 'admin', status: 'active' });
 }
 
-async function seedTeacher(t: ReturnType<typeof convexTest>) {
+async function seedTeacher(t: Awaited<ReturnType<typeof convexTest>>) {
 	return seedUser(t, {
 		authId: 'board-admin',
 		name: 'Board Admin',
@@ -29,7 +29,7 @@ describe('board_snapshots', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('falls back to live computation when no snapshot exists yet', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const teacherId = await seedTeacher(t);
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'Snap One',
@@ -61,7 +61,7 @@ describe('board_snapshots', () => {
 	});
 
 	it('serves live category names even when the stored snapshot predates them', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedTeacher(t);
 		// A snapshot computed while point_categories was empty freezes an empty
 		// axis list in its payload; category-only writes never move the
@@ -96,7 +96,7 @@ describe('board_snapshots', () => {
 	});
 
 	it('serves the stored snapshot after refresh and skips refresh when unchanged', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const teacherId = await seedTeacher(t);
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'Snap Two',
@@ -134,7 +134,7 @@ describe('board_snapshots', () => {
 	});
 
 	it('recomputes after evaluations change (watermark moves)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const teacherId = await seedTeacher(t);
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'Snap Three',
@@ -180,7 +180,7 @@ describe('board_snapshots', () => {
 	});
 
 	it('force refresh recomputes even when the watermark is unchanged', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const teacherId = await seedTeacher(t);
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'Snap Four',
@@ -225,7 +225,7 @@ describe('board_snapshots', () => {
 	});
 
 	it('value-only edits dirty the watermark via audit logs', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const teacherId = await seedTeacher(t);
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'Snap Six',
@@ -271,7 +271,7 @@ describe('board_snapshots', () => {
 	});
 
 	it('getRecentActivity enriches the latest evaluations with names and labels', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const teacherId = await seedTeacher(t);
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'Feed One',
@@ -317,7 +317,7 @@ describe('board_snapshots', () => {
 	});
 
 	it('tracks the houses board independently from classes', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedTeacher(t);
 		await createStudentWithClass(t, {
 			englishName: 'Snap Five',

@@ -8,7 +8,7 @@ import { enrichEvaluations } from './shared/enrichment';
 import { lockCutoffFor } from './shared/evaluation_week';
 
 test('evaluations table operations work correctly', async () => {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 
 	const { studentId } = await createStudentWithClass(t, {
 		englishName: 'John Doe',
@@ -60,7 +60,7 @@ test('evaluations table operations work correctly', async () => {
 });
 
 test('evaluations query by teacherId works correctly', async () => {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 
 	const { studentId } = await createStudentWithClass(t, {
 		englishName: 'Jane Doe',
@@ -110,7 +110,7 @@ test('evaluations query by teacherId works correctly', async () => {
 });
 
 test('evaluations query by studentId works correctly', async () => {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 
 	const { studentId } = await createStudentWithClass(t, {
 		englishName: 'Test Student',
@@ -187,7 +187,7 @@ test('evaluations query by studentId works correctly', async () => {
 
 // Tests for listAllEvaluationsPaginated
 test('listAllEvaluationsPaginated returns paginated results', async () => {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 
 	// Create admin user for authentication
 	await t.run(async (ctx) => {
@@ -218,7 +218,7 @@ test('listAllEvaluationsPaginated returns paginated results', async () => {
 	});
 
 	// Create categories for testing
-	const categoryIds: string[] = [];
+	const categoryIds: Id<'point_categories'>[] = [];
 	for (let i = 0; i < 5; i++) {
 		const catId = await t.run(async (ctx) => {
 			return await ctx.db.insert('point_categories', {
@@ -260,7 +260,7 @@ test('listAllEvaluationsPaginated returns paginated results', async () => {
 });
 
 test('listAllEvaluationsPaginated respects sortAscending', async () => {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 
 	// Create admin user for authentication
 	await t.run(async (ctx) => {
@@ -291,7 +291,7 @@ test('listAllEvaluationsPaginated respects sortAscending', async () => {
 	});
 
 	// Create categories for testing
-	const categoryIds: string[] = [];
+	const categoryIds: Id<'point_categories'>[] = [];
 	for (let i = 0; i < 3; i++) {
 		const catId = await t.run(async (ctx) => {
 			return await ctx.db.insert('point_categories', {
@@ -331,7 +331,7 @@ test('listAllEvaluationsPaginated respects sortAscending', async () => {
 });
 
 test('listAllEvaluationsPaginated filters by showUnenrolled', async () => {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 
 	// Create admin user for authentication
 	await t.run(async (ctx) => {
@@ -428,7 +428,7 @@ test('listAllEvaluationsPaginated filters by showUnenrolled', async () => {
 });
 
 test('listAllEvaluationsPaginated filters by student name', async () => {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 
 	// Create admin user for authentication
 	await t.run(async (ctx) => {
@@ -516,7 +516,7 @@ test('listAllEvaluationsPaginated filters by student name', async () => {
 });
 
 test('listAllEvaluationsPaginated filters by teacher name', async () => {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 
 	// Create admin user for authentication
 	await t.run(async (ctx) => {
@@ -604,7 +604,7 @@ test('listAllEvaluationsPaginated filters by teacher name', async () => {
 });
 
 test('listAllEvaluationsPaginated continues with cursor', async () => {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 
 	// Create admin user for authentication
 	await t.run(async (ctx) => {
@@ -706,7 +706,7 @@ test('listAllEvaluationsPaginated continues with cursor', async () => {
 
 // Tests for categoryId reference integrity
 test('evaluation queries resolve category name from categoryId', async () => {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 
 	// Create admin user for authentication
 	await t.run(async (ctx) => {
@@ -769,7 +769,7 @@ test('evaluation queries resolve category name from categoryId', async () => {
 });
 
 test('changing category name reflects in evaluation queries', async () => {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 
 	// Create admin user for authentication
 	await t.run(async (ctx) => {
@@ -860,7 +860,7 @@ test('changing category name reflects in evaluation queries', async () => {
 
 describe('Authorization boundaries', () => {
 	test("non-creator cannot edit another's evaluation", async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create a different teacher (not the authenticated user)
 		const teacherId = await t.run(async (ctx) => {
@@ -919,7 +919,7 @@ describe('Authorization boundaries', () => {
 	});
 
 	test("admin cannot edit another teacher's evaluation (only creator can edit)", async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create a teacher
 		const teacherId = await t.run(async (ctx) => {
@@ -979,7 +979,7 @@ describe('Authorization boundaries', () => {
 
 	describe('evaluations bulk creation', () => {
 		test('creates evaluations for multiple students via direct DB insert', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create multiple students
 			const { studentId: studentId1 } = await createStudentWithClass(t, {
@@ -1059,10 +1059,10 @@ describe('Authorization boundaries', () => {
 		});
 
 		test('handles multiple evaluations with different values', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create students
-			const studentIds: string[] = [];
+			const studentIds: Id<'students'>[] = [];
 			for (let i = 1; i <= 3; i++) {
 				const { studentId: id } = await createStudentWithClass(t, {
 					englishName: `Student ${i}`,
@@ -1133,7 +1133,7 @@ describe('Authorization boundaries', () => {
 // ============================================
 describe('evaluations.create', () => {
 	test('creates evaluation records via direct DB insert', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'DB Insert Student',
@@ -1188,7 +1188,7 @@ describe('evaluations.create', () => {
 	});
 
 	test('creates audit log for each evaluation in batch', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId: student1Id } = await createStudentWithClass(t, {
 			englishName: 'Audit Student 1',
@@ -1291,7 +1291,7 @@ describe('evaluations.remove', () => {
 	// Authorization and time-locking tests are covered via direct DB operations below.
 
 	test('time-locking prevents deletion after lock window (DB-level verification)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Verify the time-locking logic by checking the calculation
 		// Create evaluation on a known date and verify lock time
@@ -1353,7 +1353,7 @@ describe('evaluations.remove', () => {
 // ============================================
 describe('evaluations.update', () => {
 	test('throws when evaluation does not exist', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create a real evaluation, get its ID, then delete it
 		const { studentId } = await createStudentWithClass(t, {
@@ -1400,7 +1400,7 @@ describe('evaluations.update', () => {
 	});
 
 	test('throws when not authorized (teacherId mismatch)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'Update Auth Student',
@@ -1450,7 +1450,7 @@ describe('evaluations.update', () => {
 	});
 
 	test('time-locking prevents update after lock window', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'Update Lock Student',
@@ -1505,7 +1505,7 @@ describe('evaluations.update', () => {
 	});
 
 	test('updates evaluation via direct DB patch', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'Patch Student',
@@ -1573,7 +1573,7 @@ describe('evaluations.update', () => {
 	});
 
 	test('audit log created on update with old and new values', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'Audit Update Student',
@@ -1644,7 +1644,7 @@ describe('evaluations.update', () => {
 
 describe('evaluations.getStudentEvaluationsAll', () => {
 	test('returns all evaluations for a student (admin view)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create admin user in DB (test runtime uses authId 'test_admin')
 		await t.run(async (ctx) => {
@@ -1727,7 +1727,7 @@ describe('evaluations.getStudentEvaluationsAll', () => {
 	});
 
 	test('returns empty array when student has no evaluations', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
@@ -1762,7 +1762,7 @@ describe('evaluations.getStudentEvaluationsByTeacher', () => {
 	// name, which fails because 'test-user-id' doesn't exist in the DB.
 	// We test the query logic via t.run() that bypasses auth.
 	test('returns only evaluations from the authenticated teacher', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -1859,7 +1859,7 @@ describe('evaluations.getStudentEvaluationsByTeacher', () => {
 	});
 
 	test('returns empty array when teacher has no evaluations for student', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -1941,7 +1941,7 @@ describe('evaluations.getStudentEvaluationsByTeacher', () => {
 
 describe('evaluations.getStudentEvaluationsAllByStudentIdCode', () => {
 	test('returns all evaluations using studentIdCode', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
@@ -1998,7 +1998,7 @@ describe('evaluations.getStudentEvaluationsAllByStudentIdCode', () => {
 	});
 
 	test('returns empty array when studentIdCode not found', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
@@ -2020,7 +2020,10 @@ describe('evaluations.getStudentEvaluationsAllByStudentIdCode', () => {
 // Helper to replicate listRecent query logic with test admin auth bypass
 // Since listRecent calls getAuthenticatedUser(ctx) without a test token,
 // we replicate the query logic here using t.run to bypass auth
-async function runListRecentQuery(t: ReturnType<typeof convexTest>, studentFilter?: string) {
+async function runListRecentQuery(
+	t: Awaited<ReturnType<typeof convexTest>>,
+	studentFilter?: string
+) {
 	const result = await t.run(async (ctx) => {
 		const userDoc = await ctx.db
 			.query('users')
@@ -2079,7 +2082,7 @@ async function runListRecentQuery(t: ReturnType<typeof convexTest>, studentFilte
 
 describe('evaluations.listRecent', () => {
 	test('returns empty when user is not authenticated', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const result = await t.query(api.evaluations.listRecent, {});
 
@@ -2087,7 +2090,7 @@ describe('evaluations.listRecent', () => {
 	});
 
 	test('returns evaluations for authenticated admin user', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -2132,7 +2135,7 @@ describe('evaluations.listRecent', () => {
 	});
 
 	test('returns evaluations sorted by timestamp descending', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
@@ -2160,12 +2163,10 @@ describe('evaluations.listRecent', () => {
 		await t.run(async (ctx) => {
 			await ctx.db.insert('evaluations', {
 				studentId,
-				teacherId: (
-					await ctx.db
-						.query('users')
-						.filter((q) => q.eq(q.field('authId'), 'test_admin'))
-						.first()
-				)?._id,
+				teacherId: (await ctx.db
+					.query('users')
+					.filter((q) => q.eq(q.field('authId'), 'test_admin'))
+					.first())!._id,
 				categoryId,
 				value: 1,
 				details: 'Oldest evaluation',
@@ -2176,12 +2177,10 @@ describe('evaluations.listRecent', () => {
 		await t.run(async (ctx) => {
 			await ctx.db.insert('evaluations', {
 				studentId,
-				teacherId: (
-					await ctx.db
-						.query('users')
-						.filter((q) => q.eq(q.field('authId'), 'test_admin'))
-						.first()
-				)?._id,
+				teacherId: (await ctx.db
+					.query('users')
+					.filter((q) => q.eq(q.field('authId'), 'test_admin'))
+					.first())!._id,
 				categoryId,
 				value: 2,
 				details: 'Newest evaluation',
@@ -2198,7 +2197,7 @@ describe('evaluations.listRecent', () => {
 	});
 
 	test('admin sees evaluations for Not Enrolled students', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
@@ -2230,12 +2229,10 @@ describe('evaluations.listRecent', () => {
 		await t.run(async (ctx) => {
 			await ctx.db.insert('evaluations', {
 				studentId,
-				teacherId: (
-					await ctx.db
-						.query('users')
-						.filter((q) => q.eq(q.field('authId'), 'test_admin'))
-						.first()
-				)?._id,
+				teacherId: (await ctx.db
+					.query('users')
+					.filter((q) => q.eq(q.field('authId'), 'test_admin'))
+					.first())!._id,
 				categoryId,
 				value: 1,
 				details: 'Eval for not enrolled',
@@ -2252,7 +2249,7 @@ describe('evaluations.listRecent', () => {
 	});
 
 	test('studentFilter filters results by student name', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
@@ -2295,7 +2292,7 @@ describe('evaluations.listRecent', () => {
 				.first();
 			await ctx.db.insert('evaluations', {
 				studentId: student1.studentId,
-				teacherId: userDoc?._id,
+				teacherId: userDoc!._id,
 				categoryId,
 				value: 1,
 				details: 'Alice eval',
@@ -2310,7 +2307,7 @@ describe('evaluations.listRecent', () => {
 				.first();
 			await ctx.db.insert('evaluations', {
 				studentId: student2.studentId,
-				teacherId: userDoc?._id,
+				teacherId: userDoc!._id,
 				categoryId,
 				value: 2,
 				details: 'Bob eval',
@@ -2328,7 +2325,7 @@ describe('evaluations.listRecent', () => {
 
 describe('evaluations.getStudentByStudentIdCode', () => {
 	test('throws Unauthorized when user is not authenticated', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await expect(
 			t.query(api.evaluations.getStudentByStudentIdCode, { studentIdCode: 'STU001' })
@@ -2336,7 +2333,7 @@ describe('evaluations.getStudentByStudentIdCode', () => {
 	});
 
 	test('returns null for student role users', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Insert a student-role user
 		await t.run(async (ctx) => {
@@ -2369,7 +2366,7 @@ describe('evaluations.getStudentByStudentIdCode', () => {
 	});
 
 	test('returns student when studentIdCode matches', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Insert admin user for auth resolution
 		await t.run(async (ctx) => {
@@ -2412,7 +2409,7 @@ describe('evaluations.getStudentByStudentIdCode', () => {
 	});
 
 	test('returns null when studentIdCode not found', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Insert admin user for auth resolution
 		await t.run(async (ctx) => {

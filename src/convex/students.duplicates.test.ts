@@ -5,7 +5,7 @@ import { api } from './_generated/api';
 
 describe('checkStudentIdExists query', () => {
 	test('returns { exists: true } for existing student ID', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			const classId = await ctx.db.insert('classes', { grade: 9, class: '1' });
@@ -31,7 +31,7 @@ describe('checkStudentIdExists query', () => {
 	});
 
 	test('returns { exists: false } for non-existing student ID', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const result = await t.run(async (ctx) => {
 			return await ctx.db
@@ -44,7 +44,7 @@ describe('checkStudentIdExists query', () => {
 	});
 
 	test('excludes specific student ID when checking during edit', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (_ctx) => {
 			const classId = await _ctx.db.insert('classes', { grade: 10, class: '1' });
@@ -70,7 +70,7 @@ describe('checkStudentIdExists query', () => {
 
 describe('bulkImportWithDuplicateCheck mutation - batch duplicates', () => {
 	test('detects duplicates within the same import batch', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const result = await t.run(async (ctx) => {
 			return await ctx.db
@@ -83,7 +83,7 @@ describe('bulkImportWithDuplicateCheck mutation - batch duplicates', () => {
 	});
 
 	test('detects duplicates against existing database records', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			const classId = await ctx.db.insert('classes', { grade: 11, class: '1' });
@@ -134,7 +134,7 @@ describe('bulkImportWithDuplicateCheck mutation - batch duplicates', () => {
 
 describe('bulkImportWithDuplicateCheck mutation - integration', () => {
 	test('imports new students when no duplicates exist', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const allStudents = await t.run(async (ctx) => {
 			return await ctx.db.query('students').collect();
@@ -144,7 +144,7 @@ describe('bulkImportWithDuplicateCheck mutation - integration', () => {
 	});
 
 	test('handles mix of new and existing students correctly', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			const classId = await ctx.db.insert('classes', { grade: 9, class: '1' });
@@ -180,7 +180,7 @@ describe('bulkImportWithDuplicateCheck mutation - note field', () => {
 	};
 
 	async function importAsAdmin(students: ImportStudent[]) {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedUser(t, { authId: 'import-admin', name: 'Import Admin', role: 'admin' });
 		mockAuthUser({ authId: 'import-admin', name: 'Import Admin', role: 'admin', status: 'active' });
 

@@ -9,7 +9,7 @@ import { setTestAuthRole } from './testAuth';
 
 describe('restoreFromBackup', () => {
 	test('clears existing data before restoring backup data', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'Original Student',
@@ -133,7 +133,7 @@ describe('restoreFromBackup', () => {
 
 describe('restoreFromBackup (chunked)', () => {
 	test('restores a backup that exceeded the document limit and was chunked', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const classId = await t.run(async (ctx) => {
 			return await ctx.db.insert('classes', { grade: 10, class: '1' });
@@ -170,7 +170,7 @@ describe('restoreFromBackup (chunked)', () => {
 
 describe('restoreFromBackupPayload', () => {
 	test('restores data from raw backup payload with proper ID remapping', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create initial data to be cleared by restore
 		await createStudentWithClass(t, {
@@ -344,7 +344,7 @@ describe('restoreFromBackupPayload', () => {
 
 describe('advanceGradesAndClearEvaluations', () => {
 	test('deletes grade 12 and not enrolled, advances remaining with section matching', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create multiple sections per grade to verify section-name matching
 		await createStudentWithClass(t, {
@@ -553,7 +553,7 @@ describe('advanceGradesAndClearEvaluations', () => {
 	});
 
 	test('handles empty database gracefully', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// No data in the database — function should still succeed
 		const result = await t.mutation(api.backup.advanceGradesAndClearEvaluations, {});
@@ -586,7 +586,7 @@ describe('advanceGradesAndClearEvaluations', () => {
 
 describe('backup ownership, naming & permissions', () => {
 	test('createBackup creates a named backup with admin attribution', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const adminId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
 				authId: 'admin-auth-1',
@@ -615,7 +615,7 @@ describe('backup ownership, naming & permissions', () => {
 	});
 
 	test('createBackup generates a default timestamped name when none is provided', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const adminId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
 				authId: 'admin-auth-2',
@@ -639,7 +639,7 @@ describe('backup ownership, naming & permissions', () => {
 	});
 
 	test('insertBackupRecord stores creator role with manual source', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const adminId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
 				authId: 'admin-role',
@@ -690,7 +690,7 @@ describe('backup ownership, naming & permissions', () => {
 	});
 
 	test('renameBackup allows owner to rename and rejects non-owner admin and system backups', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ownerId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
 				authId: 'owner-id',
@@ -768,7 +768,7 @@ describe('backup ownership, naming & permissions', () => {
 	});
 
 	test('deleteBackup allows owner and super, rejects non-owner and system for admin', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ownerId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
 				authId: 'owner-del',
@@ -844,7 +844,7 @@ describe('backup ownership, naming & permissions', () => {
 	});
 
 	test('download permissions allow owner, super, and system auto-backups for all admins', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const admin1Id = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
 				authId: 'admin-1',
@@ -908,7 +908,7 @@ describe('backup ownership, naming & permissions', () => {
 	});
 
 	test('migrateLegacyBackups backfills unassigned backups to super admin', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const superId = await seedUser(t, {
 			authId: 'super-migrator',
 			name: 'Super Steve',
@@ -959,7 +959,7 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 		vi.restoreAllMocks();
 	});
 
-	function seedBackupOwnedBy(t: ReturnType<typeof convexTest>, ownerId: Id<'users'>) {
+	function seedBackupOwnedBy(t: Awaited<ReturnType<typeof convexTest>>, ownerId: Id<'users'>) {
 		return t.run(async (ctx) => {
 			const snapshot = await buildSnapshot(ctx);
 			return await insertBackupRecord(ctx, snapshot, {
@@ -971,7 +971,7 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 		});
 	}
 
-	function seedSystemBackup(t: ReturnType<typeof convexTest>) {
+	function seedSystemBackup(t: Awaited<ReturnType<typeof convexTest>>) {
 		return t.run(async (ctx) => {
 			const snapshot = await buildSnapshot(ctx);
 			return await insertBackupRecord(ctx, snapshot, {
@@ -982,7 +982,7 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 	}
 
 	test('owner admin can rename own backup via the mutation', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ownerId = await seedUser(t, {
 			authId: 'rename-owner',
 			name: 'Owner Admin',
@@ -1008,7 +1008,7 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 	});
 
 	test('non-owner admin is rejected by the rename mutation', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ownerId = await seedUser(t, {
 			authId: 'rename-owner-2',
 			name: 'Owner Admin',
@@ -1038,7 +1038,7 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 	});
 
 	test('admin is rejected when renaming a system backup', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const adminId = await seedUser(t, {
 			authId: 'rename-admin-sys',
 			name: 'Admin',
@@ -1060,7 +1060,7 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 	});
 
 	test('super admin can rename any backup, including system backups', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ownerId = await seedUser(t, {
 			authId: 'rename-owner-3',
 			name: 'Owner Admin',
@@ -1096,7 +1096,7 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 	});
 
 	test('owner admin can delete own backup and its chunks via the mutation', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ownerId = await seedUser(t, {
 			authId: 'delete-owner',
 			name: 'Owner Admin',
@@ -1130,7 +1130,7 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 	});
 
 	test('non-owner admin is rejected by the delete mutation', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ownerId = await seedUser(t, {
 			authId: 'delete-owner-2',
 			name: 'Owner Admin',
@@ -1157,7 +1157,7 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 	});
 
 	test('admin is rejected when deleting a system backup', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const adminId = await seedUser(t, {
 			authId: 'delete-admin-sys',
 			name: 'Admin',
@@ -1179,7 +1179,7 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 	});
 
 	test('super admin can delete any backup, including system backups', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ownerId = await seedUser(t, {
 			authId: 'delete-owner-3',
 			name: 'Owner Admin',
@@ -1210,7 +1210,7 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 	});
 
 	test('teacher and student are blocked from rename and delete mutations', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ownerId = await seedUser(t, {
 			authId: 'perm-owner',
 			name: 'Owner Admin',
@@ -1244,7 +1244,7 @@ describe('getBackupChunk download scoping & unrestricted restore', () => {
 		vi.restoreAllMocks();
 	});
 
-	function seedOwnerBackup(t: ReturnType<typeof convexTest>, ownerId: Id<'users'>) {
+	function seedOwnerBackup(t: Awaited<ReturnType<typeof convexTest>>, ownerId: Id<'users'>) {
 		return t.run(async (ctx) => {
 			const snapshot = await buildSnapshot(ctx);
 			return await insertBackupRecord(ctx, snapshot, {
@@ -1256,7 +1256,7 @@ describe('getBackupChunk download scoping & unrestricted restore', () => {
 		});
 	}
 
-	function seedSystemBackup(t: ReturnType<typeof convexTest>) {
+	function seedSystemBackup(t: Awaited<ReturnType<typeof convexTest>>) {
 		return t.run(async (ctx) => {
 			const snapshot = await buildSnapshot(ctx);
 			return await insertBackupRecord(ctx, snapshot, {
@@ -1267,7 +1267,7 @@ describe('getBackupChunk download scoping & unrestricted restore', () => {
 	}
 
 	test('non-owner admin is rejected by the getBackupChunk query', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ownerId = await seedUser(t, {
 			authId: 'dl-owner',
 			name: 'Owner Admin',
@@ -1295,7 +1295,7 @@ describe('getBackupChunk download scoping & unrestricted restore', () => {
 	});
 
 	test('owner, super, and any admin on system backups can fetch chunks', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ownerId = await seedUser(t, {
 			authId: 'dl-owner-2',
 			name: 'Owner Admin',
@@ -1346,7 +1346,7 @@ describe('getBackupChunk download scoping & unrestricted restore', () => {
 	});
 
 	test('any active admin can restore a backup they do not own', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ownerId = await seedUser(t, {
 			authId: 'restore-owner',
 			name: 'Owner Admin',
@@ -1373,7 +1373,7 @@ describe('getBackupChunk download scoping & unrestricted restore', () => {
 	});
 
 	test('super admin can restore any backup', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const ownerId = await seedUser(t, {
 			authId: 'restore-owner-2',
 			name: 'Owner Admin',
@@ -1404,7 +1404,7 @@ describe('pruneExpiredBackups', () => {
 	const ONE_DAY = 24 * 60 * 60 * 1000;
 
 	test('prunes system_cron backups older than 30 days', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('backups', {
@@ -1429,7 +1429,7 @@ describe('pruneExpiredBackups', () => {
 	});
 
 	test('prunes system_safety backups older than 90 days', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('backups', {
@@ -1454,7 +1454,7 @@ describe('pruneExpiredBackups', () => {
 	});
 
 	test('never prunes system_migration backups', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('backups', {
@@ -1472,7 +1472,7 @@ describe('pruneExpiredBackups', () => {
 	});
 
 	test('never prunes manual backups', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('backups', {
@@ -1490,7 +1490,7 @@ describe('pruneExpiredBackups', () => {
 	});
 
 	test('deletes backup chunks when pruning', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const backupId = await t.run(async (ctx) => {
 			const id = await ctx.db.insert('backups', {

@@ -4,12 +4,12 @@ import { api } from '../_generated/api';
 import schema from '../schema';
 
 async function asEslAdmin(authId = 'esl-admin') {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId, eslRole: 'admin' });
 	return t;
 }
 
-async function createG7(t: ReturnType<typeof convexTest>) {
+async function createG7(t: Awaited<ReturnType<typeof convexTest>>) {
 	return t.mutation(api.esl.cohorts.create, {
 		year: '2025-2026',
 		grade: 7,
@@ -117,7 +117,7 @@ describe('esl students', () => {
 		it('rejects a write from an ESL teacher', async () => {
 			const admin = await asEslAdmin();
 			const { cohortId } = await createG7(admin);
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
 
 			await expect(t.mutation(api.esl.students.create, { cohortId, ...ESL_ALICE })).rejects.toThrow(
@@ -341,7 +341,7 @@ describe('esl students', () => {
 				cohortId,
 				...ESL_ALICE
 			});
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
 
 			await expect(

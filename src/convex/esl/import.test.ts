@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { convexTest, modules, seedEslStaff } from '../test.setup';
 import { api } from '../_generated/api';
 import schema from '../schema';
+import type { Id } from '../_generated/dataModel';
 import { IMPORT_DISABLED_REASON } from '../shared/esl_import';
 
 /**
@@ -17,14 +18,14 @@ const TO = '2027-2028';
 
 describe('advanceGrade', () => {
 	async function asAdvancementAdmin() {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedEslStaff(t, { authId: 'esl-admin', eslRole: 'admin' });
 		return t;
 	}
 
 	/** A grade 7 cohort in the prior year, with a roster of `ids`. */
 	async function seedG7(
-		t: ReturnType<typeof convexTest>,
+		t: Awaited<ReturnType<typeof convexTest>>,
 		level: string,
 		classNumber: string,
 		ids: string[]
@@ -50,7 +51,11 @@ describe('advanceGrade', () => {
 	}
 
 	/** The target year's cohorts for one grade, with the first one's roster. */
-	async function targetGrade(t: ReturnType<typeof convexTest>, year: string, grade: number) {
+	async function targetGrade(
+		t: Awaited<ReturnType<typeof convexTest>>,
+		year: string,
+		grade: number
+	) {
 		return t.run(async (ctx) => {
 			// Scanned and filtered rather than read through by_year_grade: a
 			// t.run context types custom indexes as system ones, and a test
@@ -265,7 +270,7 @@ describe('advanceGrade', () => {
 	});
 
 	it('refuses an admin who is not an ESL admin', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
 		// Seeded directly rather than through `cohorts.create`, which is itself
 		// admin-only — using it here would fail before the advance was reached,
@@ -296,7 +301,7 @@ describe('advanceGrade', () => {
 
 /** An ESL admin: the only role that may apply a roster. */
 async function asAdmin(authId = 'esl-admin') {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId, eslRole: 'admin' });
 	return t;
 }
@@ -319,9 +324,9 @@ function row(
 }
 
 function applyRoster(
-	t: ReturnType<typeof convexTest>,
+	t: Awaited<ReturnType<typeof convexTest>>,
 	rows: ReturnType<typeof row>[],
-	over: { year?: string; grade?: number; approvedNameChanges?: string[] } = {}
+	over: { year?: string; grade?: number; approvedNameChanges?: Id<'esl_students'>[] } = {}
 ) {
 	return t.mutation(api.esl.import.applyRosterImport, {
 		year: over.year ?? YEAR,
@@ -333,8 +338,8 @@ function applyRoster(
 
 /** Enrols a student through the public mutation, which requires a name. */
 async function enrol(
-	t: ReturnType<typeof convexTest>,
-	cohortId: string,
+	t: Awaited<ReturnType<typeof convexTest>>,
+	cohortId: Id<'esl_cohorts'>,
 	schoolStudentId: string,
 	englishName = 'Yoyo Lin'
 ) {
@@ -348,7 +353,7 @@ async function enrol(
 }
 
 async function makeG9(
-	t: ReturnType<typeof convexTest>,
+	t: Awaited<ReturnType<typeof convexTest>>,
 	year = YEAR,
 	level = 'Advanced',
 	classNumber = '1'
@@ -363,7 +368,7 @@ async function makeG9(
 }
 
 /** The students of a cohort, including the disabled ones. */
-async function rosterOf(t: ReturnType<typeof convexTest>, cohortId: string) {
+async function rosterOf(t: Awaited<ReturnType<typeof convexTest>>, cohortId: Id<'esl_cohorts'>) {
 	return t.query(api.esl.students.listByCohort, { cohortId, includeDisabled: true });
 }
 
@@ -384,15 +389,15 @@ describe('esl roster import', () => {
 			expect(result.cohortsCreated).toEqual(['9 Advanced 1', '9 Basic 1']);
 
 			const cohorts = await t.query(api.esl.cohorts.list, { year: YEAR, grade: 9 });
-			const advanced = cohorts.find((c: { level: string }) => c.level === 'Advanced');
-			const roster = await rosterOf(t, advanced._id);
+			const advanced = cohorts.find((c) => c.level === 'Advanced');
+			const roster = await rosterOf(t, advanced!._id);
 			expect(roster.map((s: { schoolStudentId: string }) => s.schoolStudentId).sort()).toEqual([
 				'1130001',
 				'1130002'
 			]);
 			// The roster reads by English name, so the name is checked on its own row.
 			const yoyo = roster.find((s: { schoolStudentId: string }) => s.schoolStudentId === '1130001');
-			expect(yoyo.englishName).toBe('Yoyo Lin');
+			expect(yoyo!.englishName).toBe('Yoyo Lin');
 		});
 
 		it('stores no English name for a row that has none', async () => {
@@ -431,7 +436,7 @@ describe('esl roster import', () => {
 			const result = await applyRoster(t, [row('1130001', 'G9 Advanced 2')]);
 
 			expect(result.moved).toBe(1);
-			const student = await t.query(api.esl.students.getById, { id: studentId });
+			const student = (await t.query(api.esl.students.getById, { id: studentId }))!;
 			expect(student.cohortId).toBe(advanced2);
 			// A move must not disturb the rest of the student's record.
 			expect(student.englishName).toBe('Yoyo Lin');
@@ -465,7 +470,7 @@ describe('esl roster import', () => {
 
 			expect(result.renamed).toBe(0);
 			expect(result.declinedRenames).toEqual(['1130001']);
-			const student = await t.query(api.esl.students.getById, { id: studentId });
+			const student = (await t.query(api.esl.students.getById, { id: studentId }))!;
 			expect(student.englishName).toBe('Yoyo Lin');
 		});
 
@@ -482,7 +487,7 @@ describe('esl roster import', () => {
 
 			expect(result.renamed).toBe(1);
 			expect(result.declinedRenames).toEqual([]);
-			const student = await t.query(api.esl.students.getById, { id: studentId });
+			const student = (await t.query(api.esl.students.getById, { id: studentId }))!;
 			expect(student.englishName).toBe('Yoyo Lam');
 		});
 
@@ -500,7 +505,7 @@ describe('esl roster import', () => {
 			);
 
 			expect(result.renamed).toBe(0);
-			const student = await t.query(api.esl.students.getById, { id: studentId });
+			const student = (await t.query(api.esl.students.getById, { id: studentId }))!;
 			expect(student.englishName).toBe('Yoyo Lin');
 		});
 
@@ -512,7 +517,7 @@ describe('esl roster import', () => {
 			const result = await applyRoster(t, [row('1130001', 'G9 Advanced 1')]);
 
 			expect(result.disabled).toBe(1);
-			const student = await t.query(api.esl.students.getById, { id: studentId });
+			const student = (await t.query(api.esl.students.getById, { id: studentId }))!;
 			// Disabled rather than deleted: the row is this year's history.
 			expect(student.status).toBe('disabled');
 			expect(student.statusReason).toBe(IMPORT_DISABLED_REASON);
@@ -534,7 +539,7 @@ describe('esl roster import', () => {
 			const result = await applyRoster(t, [row('1130001', 'G9 Advanced 1')]);
 
 			expect(result.disabled).toBe(0);
-			const student = await t.query(api.esl.students.getById, { id: studentId });
+			const student = (await t.query(api.esl.students.getById, { id: studentId }))!;
 			expect(student.statusReason).toBe('left the school');
 		});
 
@@ -563,7 +568,7 @@ describe('esl roster import', () => {
 
 			await applyRoster(t, [row('1130002', 'G9 Advanced 1')]);
 
-			const student = await t.query(api.esl.students.getById, { id: lastYearId });
+			const student = (await t.query(api.esl.students.getById, { id: lastYearId }))!;
 			expect(student.status).toBe('active');
 			expect(student.cohortId).toBe(lastYear);
 		});
@@ -685,7 +690,7 @@ describe('what it refuses', () => {
 	});
 
 	it('refuses an ESL teacher, who may read the roster but not apply one', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
 
 		await expect(applyRoster(t, [row('1130001', 'G9 Advanced 1')])).rejects.toThrow();
@@ -732,7 +737,7 @@ describe('rosterSnapshot', () => {
 
 	it('lets a teacher read the snapshot', async () => {
 		// The dry run is something a teacher may see; applying it is not.
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
 
 		expect(await t.query(api.esl.import.rosterSnapshot, { year: YEAR, grade: 9 })).toEqual({

@@ -17,7 +17,7 @@ function emptyPayload(): RestorePayload {
 
 describe('restore plan', () => {
 	test('clears existing entity data but preserves users and user audit logs', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await createStudentWithClass(t, {
 			englishName: 'Original Student',
@@ -92,7 +92,7 @@ describe('restore plan', () => {
 	});
 
 	test('remaps student, teacher, and category IDs when recreating evaluations', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
@@ -176,7 +176,7 @@ describe('restore plan', () => {
 	});
 
 	test('remaps class homeroom teacher IDs', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
@@ -218,7 +218,7 @@ describe('restore plan', () => {
 	});
 
 	test('deduplicates classes with same grade and class within payload', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const payload: RestorePayload = {
 			students: [],
@@ -239,7 +239,7 @@ describe('restore plan', () => {
 	});
 
 	test('deduplicates categories with same name within payload', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const payload: RestorePayload = {
 			students: [],
@@ -273,7 +273,7 @@ describe('restore plan', () => {
 	});
 
 	test('reuses existing users by authId, patching them instead of duplicating', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const existingUserId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -311,7 +311,7 @@ describe('restore plan', () => {
 	});
 
 	test('restores house events including optional housePoints', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const payload: RestorePayload = {
 			students: [],
@@ -339,7 +339,7 @@ describe('restore plan', () => {
 	});
 
 	test('skips deleted users absent from live database, preserving their deletion', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
@@ -414,7 +414,7 @@ describe('restore plan', () => {
 	});
 
 	test('reports skipped evaluations with reasons when a referenced entity is missing', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run(async (ctx) => {
 			await ctx.db.insert('users', {
@@ -497,7 +497,7 @@ describe('restore plan', () => {
 	});
 
 	test('refuses restore with incompatible schema version', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const payload: RestorePayload = {
 			...emptyPayload(),
@@ -510,7 +510,7 @@ describe('restore plan', () => {
 	});
 
 	test('allows restore with matching schema version', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const payload: RestorePayload = {
 			...emptyPayload(),
@@ -521,7 +521,7 @@ describe('restore plan', () => {
 	});
 
 	test('allows restore with no version (legacy payload)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const payload: RestorePayload = {
 			...emptyPayload()
