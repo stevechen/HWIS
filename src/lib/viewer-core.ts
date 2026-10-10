@@ -22,6 +22,10 @@ export type Viewer = AccessSubject & {
 	englishName?: string;
 	chineseName?: string;
 	house?: string;
+	departmentRoles?: {
+		international?: 'admin' | 'teacher';
+		esl?: 'admin' | 'teacher';
+	};
 };
 
 export type SessionStatus = 'loading' | 'signedOut' | 'pending' | 'active';
@@ -37,6 +41,8 @@ export type ViewerSession = {
 	isEnrolled: boolean;
 	isApproved: boolean;
 	needsProfileCreation: boolean;
+	isEslAdmin: boolean;
+	isEslStaff: boolean;
 };
 
 export type AuthInput = {
@@ -85,6 +91,10 @@ export function settleViewer(auth: AuthInput, profile: ProfileInput): ViewerSess
 	const actor = profile.data?.actor ?? anonymousActor;
 	const capabilities = profile.data?.capabilities ?? emptyCapabilities;
 
+	const isEslAdmin = user?.departmentRoles?.esl === 'admin';
+	const isEslStaff =
+		user?.departmentRoles?.esl === 'admin' || user?.departmentRoles?.esl === 'teacher';
+
 	return {
 		status,
 		viewer: user,
@@ -100,6 +110,8 @@ export function settleViewer(auth: AuthInput, profile: ProfileInput): ViewerSess
 			status !== 'loading' &&
 			status !== 'signedOut' &&
 			user !== null &&
-			user.profileExists === false
+			user.profileExists === false,
+		isEslAdmin,
+		isEslStaff
 	};
 }

@@ -42,6 +42,12 @@ export function useViewer(): ViewerSession {
 		},
 		get needsProfileCreation() {
 			return settled.needsProfileCreation;
+		},
+		get isEslAdmin() {
+			return settled.isEslAdmin;
+		},
+		get isEslStaff() {
+			return settled.isEslStaff;
 		}
 	};
 }
