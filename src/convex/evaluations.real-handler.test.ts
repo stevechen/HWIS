@@ -4,7 +4,7 @@ import { api } from './_generated/api';
 import schema from './schema';
 import type { Id } from './_generated/dataModel';
 
-type TestCtx = ReturnType<typeof convexTest>;
+type TestCtx = Awaited<ReturnType<typeof convexTest>>;
 
 async function seedStudent(t: TestCtx, studentIdCode: string): Promise<Id<'students'>> {
 	const classId = await t.run((ctx) => ctx.db.insert('classes', { grade: 10, class: '1' }));
@@ -47,7 +47,7 @@ describe('evaluations.create (real handler)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('creates evaluations and audit logs for the authenticated user', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
 		const studentId = await seedStudent(t, 'STU-CREATE-001');
@@ -77,7 +77,7 @@ describe('evaluations.create (real handler)', () => {
 	});
 
 	it('throws when the category does not exist', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
 		const studentId = await seedStudent(t, 'STU-CREATE-002');
@@ -104,7 +104,7 @@ describe('evaluations.update (real handler)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('updates own evaluation and writes an audit log', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
 		const studentId = await seedStudent(t, 'STU-UPDATE-001');
@@ -128,7 +128,7 @@ describe('evaluations.update (real handler)', () => {
 	});
 
 	it('rejects editing an evaluation created by another teacher', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
 		const otherTeacher = await seedUser(t, {
@@ -153,7 +153,7 @@ describe('evaluations.update (real handler)', () => {
 	});
 
 	it("allows an active Super to correct another teacher's evaluation", async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({ authId: 'super-1' });
 		const superId = await seedUser(t, { authId: 'super-1', role: 'super' });
 		const otherTeacher = await seedUser(t, {
@@ -190,7 +190,7 @@ describe('evaluations.remove (real handler)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('removes own evaluation and writes an audit log', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
 		const studentId = await seedStudent(t, 'STU-REMOVE-001');
@@ -208,7 +208,7 @@ describe('evaluations.remove (real handler)', () => {
 	});
 
 	it('rejects removing another teachers evaluation', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
 		const otherTeacher = await seedUser(t, {
@@ -230,7 +230,7 @@ describe('evaluations.remove (real handler)', () => {
 	});
 
 	it('throws when evaluation is locked (older than a week)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
 		const studentId = await seedStudent(t, 'STU-REMOVE-003');
@@ -258,7 +258,7 @@ describe('evaluations.listRecent (real handler)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('returns only evaluations from the authenticated user', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({ authId: 'admin-1' });
 
 		const teacherId = await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
@@ -273,15 +273,17 @@ describe('evaluations.listRecent (real handler)', () => {
 		await seedEvaluation(t, { studentId, teacherId: otherTeacherId, categoryId });
 
 		const result = await t.query(api.evaluations.listRecent, {});
+		// Unauthenticated reads return a cursor shape; this test is signed in.
+		const rows = Array.isArray(result) ? result : [];
 
-		expect(result).toHaveLength(1);
-		expect(result[0].teacherId).toBe(teacherId);
-		expect(result[0].details).toBe('Seed evaluation');
-		expect(result[0].category).toBe('Recent Category');
+		expect(rows).toHaveLength(1);
+		expect(rows[0].teacherId).toBe(teacherId);
+		expect(rows[0].details).toBe('Seed evaluation');
+		expect(rows[0].category).toBe('Recent Category');
 	});
 
 	it('includes admin-authored evaluations for Not Enrolled students', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({ authId: 'admin-1' });
 
 		const adminId = await seedUser(t, { authId: 'admin-1', name: 'Admin One', role: 'admin' });
@@ -300,13 +302,14 @@ describe('evaluations.listRecent (real handler)', () => {
 		await seedEvaluation(t, { studentId: unenrolledStudentId, teacherId: adminId, categoryId });
 
 		const result = await t.query(api.evaluations.listRecent, {});
+		const rows = Array.isArray(result) ? result : [];
 
-		expect(result).toHaveLength(1);
-		expect(result[0].teacherId).toBe(adminId);
+		expect(rows).toHaveLength(1);
+		expect(rows[0].teacherId).toBe(adminId);
 	});
 
 	it('returns empty list when not authenticated', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser(null);
 
 		const result = await t.query(api.evaluations.listRecent, {});
@@ -315,7 +318,7 @@ describe('evaluations.listRecent (real handler)', () => {
 	});
 
 	it('filters out unenrolled students for non-admin users', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({ authId: 'teacher-1' });
 
 		const teacherId = await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
@@ -348,7 +351,7 @@ describe('evaluations.getUserByAuthId (real handler)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('returns the matching user role and status', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({ authId: 'admin-1' });
 
 		await seedUser(t, { authId: 'target-user', name: 'Target', role: 'teacher' });
@@ -361,7 +364,7 @@ describe('evaluations.getUserByAuthId (real handler)', () => {
 	});
 
 	it('returns null when not authenticated', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser(null);
 
 		const result = await t.query(api.evaluations.getUserByAuthId, {
@@ -376,7 +379,7 @@ describe('evaluations.getStudentByStudentIdCode (real handler)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('returns student by studentId code for non-student users', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({ authId: 'admin-1' });
 		await seedUser(t, { authId: 'admin-1', role: 'admin' });
 
@@ -391,7 +394,7 @@ describe('evaluations.getStudentByStudentIdCode (real handler)', () => {
 	});
 
 	it('throws when not authenticated', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser(null);
 
 		await expect(
@@ -402,7 +405,7 @@ describe('evaluations.getStudentByStudentIdCode (real handler)', () => {
 	});
 
 	it('rejects pending staff from student lookup', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({ authId: 'pending-teacher' });
 		await seedUser(t, { authId: 'pending-teacher', role: 'teacher', status: 'pending' });
 
@@ -419,7 +422,7 @@ describe('evaluations.getStudentEvaluationsAll (real handler)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('returns all evaluations for a student with teacher names', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
 		const studentId = await seedStudent(t, 'STU-ALL-001');
@@ -440,7 +443,7 @@ describe('evaluations.listAllEvaluations (real handler)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('returns evaluations and hides unenrolled students by default', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
 		const categoryId = await seedCategory(t);
@@ -475,7 +478,7 @@ describe('evaluations.listAllEvaluations (real handler)', () => {
 	});
 
 	it('includes unenrolled students when showUnenrolled is true', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
 		const categoryId = await seedCategory(t);
@@ -506,7 +509,7 @@ describe('evaluations.getWeeklyReportDetail (real handler)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('aggregates per-student points within the week', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await seedUser(t, { authId: 'admin-1', name: 'Admin One' });
 		const studentId = await seedStudent(t, 'STU-WEEKLY-001');
@@ -553,7 +556,7 @@ describe('evaluation read authorization (real handlers)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('rejects pending teachers from teacher history reads', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({ authId: 'pending-teacher' });
 		await seedUser(t, { authId: 'pending-teacher', role: 'teacher', status: 'pending' });
 		const studentId = await seedStudent(t, 'PENDING-READ-001');
@@ -564,7 +567,7 @@ describe('evaluation read authorization (real handlers)', () => {
 	});
 
 	it('hides evaluations from inactive admins', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({ authId: 'inactive-admin' });
 		const adminId = await seedUser(t, {
 			authId: 'inactive-admin',
@@ -589,7 +592,7 @@ describe('evaluations.getStudentEvaluationsAllByTeacher (real handler)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('returns evaluations from ALL teachers for the student, not just the viewer', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		mockAuthUser({ authId: 'teacher-viewer', role: 'teacher' });
 		const viewerTeacherId = await seedUser(t, { authId: 'teacher-viewer', role: 'teacher' });
@@ -613,7 +616,7 @@ describe('evaluations.getStudentEvaluationsAllByTeacher (real handler)', () => {
 	});
 
 	it('throws for non-teacher staff', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({ authId: 'admin-1' });
 		await seedUser(t, { authId: 'admin-1', role: 'admin' });
 		const studentId = await seedStudent(t, 'STU-XTEACHER-002');
@@ -624,7 +627,7 @@ describe('evaluations.getStudentEvaluationsAllByTeacher (real handler)', () => {
 	});
 
 	it('throws for students', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({ authId: 'student-1', email: 's999001@std.hwhs.tc.edu.tw' });
 		const studentId = await seedStudent(t, 'STU-XTEACHER-003');
 
@@ -638,7 +641,7 @@ describe('evaluations.getStudentEvaluationsAnonymous (real handler)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('returns anonymous evaluations for the Enrolled student matched by email', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
 		const studentId = await seedStudent(t, '999001');
@@ -658,7 +661,7 @@ describe('evaluations.getStudentEvaluationsAnonymous (real handler)', () => {
 	});
 
 	it('returns no evaluations for a Not Enrolled student record', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const studentId = await seedStudent(t, '999002');
 		await t.run((ctx) => ctx.db.patch(studentId, { status: 'Not Enrolled' }));
@@ -671,7 +674,7 @@ describe('evaluations.getStudentEvaluationsAnonymous (real handler)', () => {
 	});
 
 	it('returns no evaluations when the email matches no student record', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		mockAuthUser({ authId: 'student-3', email: 's999999@std.hwhs.tc.edu.tw' });
 
@@ -681,7 +684,7 @@ describe('evaluations.getStudentEvaluationsAnonymous (real handler)', () => {
 	});
 
 	it('throws for non-student users', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({ authId: 'admin-1' });
 		await seedUser(t, { authId: 'admin-1', role: 'admin' });
 

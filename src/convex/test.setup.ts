@@ -1,12 +1,34 @@
 /// <reference types="vite/client" />
 import { vi } from 'vitest';
-import { convexTest as originalConvexTest } from 'convex-test';
+import {
+	convexTest as originalConvexTest,
+	type TestConvexForDataModelAndIdentity
+} from 'convex-test';
+import schema from './schema';
+import type { DataModelFromSchemaDefinition } from 'convex/server';
 import type { Id } from './_generated/dataModel';
 import { authComponent, type AuthenticatedUserLike } from './auth';
 
 export const modules = import.meta.glob('./**/*.ts');
 type ConvexTestSchema = Parameters<typeof originalConvexTest>[0];
 type ConvexTestModules = Parameters<typeof originalConvexTest>[1];
+
+/**
+ * A test instance that keeps its schema generic.
+ *
+ * `ReturnType<typeof convexTest>` erases the generics — they fall back to their
+ * constraints, so `ctx.db` inside a `t.run` callback knows only the *system*
+ * tables, and every `query('some_table')` or `.withIndex(...)` fails to typecheck.
+ * Test files live inside `src/convex/`, so that failure also fails the Convex
+ * push and withholds the whole deployment.
+ *
+ * Built from the real `schema`, which is what every test passes to `convexTest`.
+ * `DataModelFromSchemaDefinition` is what `TestConvex` computes internally, so
+ * naming these two reproduces the real return type exactly.
+ */
+export type ConvexTestInstance = TestConvexForDataModelAndIdentity<
+	DataModelFromSchemaDefinition<typeof schema>
+>;
 
 /**
  * Mocks the better-auth getAuthUser query for a test.
@@ -21,7 +43,7 @@ export function mockAuthUser(user: AuthenticatedUserLike | null) {
  * Only authId is required; the rest default to a plain active teacher.
  */
 export async function seedUser(
-	t: ReturnType<typeof convexTest>,
+	t: Awaited<ReturnType<typeof convexTest>>,
 	overrides: {
 		authId: string;
 		name?: string;
@@ -54,7 +76,7 @@ export async function seedUser(
  *   });
  */
 export async function createStudentWithClass(
-	t: ReturnType<typeof convexTest>,
+	t: Awaited<ReturnType<typeof convexTest>>,
 	options: {
 		englishName: string;
 		chineseName: string;
@@ -65,7 +87,7 @@ export async function createStudentWithClass(
 		e2eTag?: string;
 		note?: string;
 	}
-): Promise<{ classId: string; studentId: string }> {
+): Promise<{ classId: Id<'classes'>; studentId: Id<'students'> }> {
 	const opts = options;
 
 	const classId = await t.run(async (ctx) => {
@@ -90,17 +112,23 @@ export async function createStudentWithClass(
 	return { classId, studentId: studentIdResult };
 }
 
-export function convexTest(schema: ConvexTestSchema, modules: ConvexTestModules) {
-	const t = originalConvexTest(schema, modules);
+/**
+ * Deliberately not generic. `Awaited<ReturnType<typeof convexTest>>` instantiates
+ * type parameters at their constraints, which would erase the real schema — so the
+ * return type is pinned to {@link ConvexTestInstance} instead. `query`/`mutation`
+ * are bound straight from the underlying instance so their generic signatures
+ * survive; re-wrapping them in arrows was what erased every result to `any`.
+ */
+export async function convexTest(
+	schema: ConvexTestSchema,
+	modules: ConvexTestModules
+): Promise<ConvexTestInstance> {
+	const t = originalConvexTest(schema, modules) as unknown as ConvexTestInstance;
 
 	return {
 		...t,
-		mutation: (api: Parameters<typeof t.mutation>[0], args?: Parameters<typeof t.mutation>[1]) => {
-			return t.mutation(api, args);
-		},
-		query: (api: Parameters<typeof t.query>[0], args?: Parameters<typeof t.query>[1]) => {
-			return t.query(api, args);
-		},
+		mutation: t.mutation.bind(t),
+		query: t.query.bind(t),
 		run: t.run.bind(t)
 	};
 }

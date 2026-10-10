@@ -4,7 +4,7 @@ import { api, internal } from './_generated/api';
 import schema from './schema';
 import type { LeaderboardConfig } from './leaderboards';
 
-type TestHarness = ReturnType<typeof convexTest>;
+type TestHarness = Awaited<ReturnType<typeof convexTest>>;
 
 /**
  * Mirrors a row written before ADR-0019: board flags *and* base64 screenshots in
@@ -31,7 +31,7 @@ function settingsRow(t: TestHarness, key: string) {
 
 describe('leaderboards.list', () => {
 	it('returns default configs for houses and classes', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const configs = await t.query(api.leaderboards.list, {});
 		expect(configs).toHaveLength(2);
 		const houses = configs.find((c: LeaderboardConfig) => c.board === 'houses');
@@ -44,7 +44,7 @@ describe('leaderboards.list', () => {
 	});
 
 	it('exposes stored screenshots from the thumbnails table', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await t.mutation(api.leaderboards.update, {
 			board: 'houses',
 			themeScreenshot: { theme: 'cny', url: 'data:image/jpeg;base64,HOUSES_CNY' }
@@ -59,7 +59,7 @@ describe('leaderboards.list', () => {
 
 describe('leaderboards.getPublicConfig', () => {
 	it('returns defaults before any update', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const config = await t.query(api.leaderboards.getPublicConfig, { board: 'houses' });
 		expect(config.board).toBe('houses');
 		expect(config.enabled).toBe(true);
@@ -69,7 +69,7 @@ describe('leaderboards.getPublicConfig', () => {
 	// Quota guard (ADR-0019): the live boards subscribe to this query, so the
 	// payload must never carry screenshot blobs.
 	it('never returns screenshot fields', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await t.mutation(api.leaderboards.update, {
 			board: 'houses',
 			themeScreenshot: { theme: 'default', url: 'data:image/jpeg;base64,BIG' }
@@ -81,7 +81,7 @@ describe('leaderboards.getPublicConfig', () => {
 
 describe('leaderboards.update', () => {
 	it('disables a board and persists for public readers', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await t.mutation(api.leaderboards.update, { board: 'houses', enabled: false });
 		const pub = await t.query(api.leaderboards.getPublicConfig, { board: 'houses' });
 		expect(pub.enabled).toBe(false);
@@ -92,7 +92,7 @@ describe('leaderboards.update', () => {
 	});
 
 	it('switches theme per board', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await t.mutation(api.leaderboards.update, { board: 'classes', theme: 'christmas' });
 		const pub = await t.query(api.leaderboards.getPublicConfig, { board: 'classes' });
 		expect(pub.theme).toBe('christmas');
@@ -102,7 +102,7 @@ describe('leaderboards.update', () => {
 	// subscribed `settings` row stays a few dozen bytes no matter how large the
 	// captured data URL is.
 	it('keeps the settings row compact when storing a screenshot', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const url = `data:image/jpeg;base64,${'A'.repeat(50_000)}`;
 		await t.mutation(api.leaderboards.update, {
 			board: 'classes',
@@ -116,7 +116,7 @@ describe('leaderboards.update', () => {
 	});
 
 	it('does not touch the settings row when only a screenshot is captured', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await t.mutation(api.leaderboards.update, { board: 'houses', enabled: false });
 		const before = await settingsRow(t, 'leaderboard.houses');
 		await t.mutation(api.leaderboards.update, {
@@ -130,7 +130,7 @@ describe('leaderboards.update', () => {
 	});
 
 	it('replaces an existing theme screenshot instead of duplicating rows', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await t.mutation(api.leaderboards.update, {
 			board: 'houses',
 			themeScreenshot: { theme: 'cny', url: 'first' }
@@ -145,7 +145,7 @@ describe('leaderboards.update', () => {
 	});
 
 	it('drops legacy screenshot fields the next time an admin updates the board', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await t.run((ctx) =>
 			ctx.db.insert('settings', {
 				key: 'leaderboard.houses',
@@ -160,7 +160,7 @@ describe('leaderboards.update', () => {
 	});
 
 	it('rejects invalid theme', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await expect(
 			t.mutation(api.leaderboards.update, {
 				board: 'houses',
@@ -172,7 +172,7 @@ describe('leaderboards.update', () => {
 
 describe('leaderboards.migrateThumbnails', () => {
 	it('moves legacy screenshots out of the subscribed settings row', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const value = legacyValue({
 			default: 'data:image/png;base64,HOUSES_DEFAULT',
 			cny: 'data:image/png;base64,HOUSES_CNY'
@@ -198,7 +198,7 @@ describe('leaderboards.migrateThumbnails', () => {
 	});
 
 	it('is idempotent', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await t.run((ctx) =>
 			ctx.db.insert('settings', {
 				key: 'leaderboard.houses',

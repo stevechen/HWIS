@@ -4,14 +4,13 @@ import { setTestAuthRole } from './testAuth';
 import { api } from './_generated/api';
 import schema from './schema';
 import type { Doc, Id } from './_generated/dataModel';
+import type { FunctionReturnType } from 'convex/server';
 
-type ImportResult =
-	| { studentId: string; success: true; action: 'created' | 'updated' }
-	| { studentId: string; success: false; error: string };
+type ListPaginatedResult = FunctionReturnType<typeof api.students.listPaginated>;
 
 describe('students.create', () => {
 	it('creates a student with valid data', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Test Student',
@@ -30,7 +29,7 @@ describe('students.create', () => {
 	});
 
 	it('throws error for duplicate student ID', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'First Student',
@@ -52,7 +51,7 @@ describe('students.create', () => {
 	});
 
 	it('throws error for invalid grade (below 7)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await expect(async () => {
 			await t.mutation(api.students.create, {
@@ -66,7 +65,7 @@ describe('students.create', () => {
 	});
 
 	it('throws error for invalid grade (above 12)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await expect(async () => {
 			await t.mutation(api.students.create, {
@@ -82,7 +81,7 @@ describe('students.create', () => {
 
 describe('students.update', () => {
 	it('updates student successfully', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Original Name',
@@ -110,7 +109,7 @@ describe('students.update', () => {
 	});
 
 	it('throws error when updating to duplicate student ID', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Student A',
@@ -143,7 +142,7 @@ describe('students.update', () => {
 
 describe('students.remove', () => {
 	it('removes student without evaluations', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const studentId = await t.mutation(api.students.create, {
 			englishName: 'To Delete',
@@ -163,7 +162,7 @@ describe('students.remove', () => {
 	});
 
 	it('throws error when removing student with evaluations', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const studentId = await t.mutation(api.students.create, {
 			englishName: 'Has Evaluations',
@@ -205,7 +204,7 @@ describe('students.remove', () => {
 
 describe('students.changeStatus', () => {
 	it('changes student status to Not Enrolled', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const studentId = await t.mutation(api.students.create, {
 			englishName: 'Active Student',
@@ -225,7 +224,7 @@ describe('students.changeStatus', () => {
 	});
 
 	it('changes student status to Enrolled', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const studentId = await t.mutation(api.students.create, {
 			englishName: 'Inactive Student',
@@ -247,7 +246,7 @@ describe('students.changeStatus', () => {
 
 describe('students.list', () => {
 	it('returns all students sorted by name', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Charlie',
@@ -281,7 +280,7 @@ describe('students.list', () => {
 	});
 
 	it('filters by status', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Enrolled Student',
@@ -305,7 +304,7 @@ describe('students.list', () => {
 	});
 
 	it('filters by grade', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Grade 9',
@@ -333,7 +332,7 @@ describe('students.list', () => {
 	});
 
 	it('filters by search term', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Alice Smith',
@@ -361,7 +360,7 @@ describe('students.list', () => {
 	});
 
 	it('returns more than 200 students when the roster exceeds the old cap', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// One shared class so we can seed a large enrolled cohort cheaply.
 		const classId = await t.run(async (ctx) => {
@@ -385,7 +384,7 @@ describe('students.list', () => {
 	});
 
 	it('caps the roster at 400 even when the cohort exceeds the cap', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const classId = await t.run(async (ctx) => {
 			return await ctx.db.insert('classes', { grade: 10, class: '1' });
@@ -410,7 +409,7 @@ describe('students.list', () => {
 
 describe('Bulk Student Import', () => {
 	it('creates multiple students via mutation', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create multiple students (simulating bulk import)
 		await t.mutation(api.students.create, {
@@ -464,7 +463,7 @@ describe('Bulk Student Import', () => {
 
 describe('students.removeWithCascade', () => {
 	it('removes student and all their evaluations', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const studentId = await t.mutation(api.students.create, {
 			englishName: 'Cascade Student',
@@ -520,7 +519,7 @@ describe('students.removeWithCascade', () => {
 	});
 
 	it('throws error when student not found', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await expect(async () => {
 			await t.mutation(api.students.removeWithCascade, {
@@ -532,7 +531,7 @@ describe('students.removeWithCascade', () => {
 
 describe('students edge cases', () => {
 	it('creates students with all valid grades (7-12)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		for (let grade = 7; grade <= 12; grade++) {
 			await t.mutation(api.students.create, {
@@ -559,7 +558,7 @@ describe('students edge cases', () => {
 	});
 
 	it('creates student with note', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Student With Note',
@@ -576,7 +575,7 @@ describe('students edge cases', () => {
 	});
 
 	it('creates student without note (empty string)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Student No Note',
@@ -593,7 +592,7 @@ describe('students edge cases', () => {
 	});
 
 	it('updates only specific fields (preserves others)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Original Name',
@@ -622,7 +621,7 @@ describe('students edge cases', () => {
 	});
 
 	it('search matches both English and Chinese names', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Michael Chen',
@@ -650,7 +649,7 @@ describe('students edge cases', () => {
 	});
 
 	it('search is case insensitive', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Test Student',
@@ -671,7 +670,7 @@ describe('students edge cases', () => {
 	});
 
 	it('handles multiple status transitions', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const studentId = await t.mutation(api.students.create, {
 			englishName: 'Transition Student',
@@ -691,7 +690,7 @@ describe('students edge cases', () => {
 	});
 
 	it('filters by combined grade and status', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Grade 10 Enrolled',
@@ -727,7 +726,7 @@ describe('students edge cases', () => {
 
 describe('disableStudent', () => {
 	it('sets student status to Not Enrolled', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const studentId = await t.mutation(api.students.create, {
 			englishName: 'Disable Test Student',
@@ -744,7 +743,7 @@ describe('disableStudent', () => {
 	});
 
 	it('does not delete the student record', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const studentId = await t.mutation(api.students.create, {
 			englishName: 'Keep Record Student',
@@ -762,7 +761,7 @@ describe('disableStudent', () => {
 	});
 
 	it('disableStudent is idempotent on already disabled student', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const studentId = await t.mutation(api.students.create, {
 			englishName: 'Already Disabled Student',
@@ -783,9 +782,9 @@ describe('students.listPaginated', () => {
 	// Seed `count` students attached to a single class so listPaginated must scan the
 	// whole candidate set before applying index/post-filters. Spreads across grades,
 	// houses and statuses so scale tests exercise every branch.
-	async function seedScaledStudents(t: ReturnType<typeof convexTest>, count: number) {
+	async function seedScaledStudents(t: Awaited<ReturnType<typeof convexTest>>, count: number) {
 		const classIds = await t.run(async (ctx) => {
-			const ids: string[] = [];
+			const ids: Id<'classes'>[] = [];
 			for (let g = 7; g <= 12; g++) {
 				ids.push(await ctx.db.insert('classes', { grade: g, class: '1' }));
 			}
@@ -811,7 +810,7 @@ describe('students.listPaginated', () => {
 
 	// Walk every page and return the flattened ids.
 	async function collectIds(
-		t: ReturnType<typeof convexTest>,
+		t: Awaited<ReturnType<typeof convexTest>>,
 		args: {
 			search?: string;
 			status?: 'Enrolled' | 'Not Enrolled';
@@ -825,7 +824,7 @@ describe('students.listPaginated', () => {
 		let cursor: string | null = null;
 		let pages = 0;
 		do {
-			const r = await t.query(api.students.listPaginated, {
+			const r: ListPaginatedResult = await t.query(api.students.listPaginated, {
 				paginationOpts: { numItems: 50, cursor },
 				search: args.search,
 				status: args.status,
@@ -848,9 +847,9 @@ describe('students.listPaginated', () => {
 	}
 
 	it('sorts by house asc/desc', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
-		const houseNames = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'];
+		const houseNames = ['Heracles', 'Wukong', 'Ixbalam', 'Setna'] as const;
 		for (let i = 0; i < houseNames.length; i++) {
 			await t.mutation(api.students.create, {
 				englishName: `Student ${houseNames[i]}`,
@@ -892,7 +891,7 @@ describe('students.listPaginated', () => {
 	});
 
 	it('sorts by studentId asc/desc', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const ids = ['7000001', '7000002', '7000003', '8000001', '9000001'];
 		for (const id of ids) {
@@ -927,7 +926,7 @@ describe('students.listPaginated', () => {
 	});
 
 	it('sorts by chineseName asc/desc', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const names = ['張三', '李四', '王五', '趙六'];
 		for (let i = 0; i < names.length; i++) {
@@ -962,7 +961,7 @@ describe('students.listPaginated', () => {
 	});
 
 	it('sorts by englishName desc', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		for (const name of ['Alice', 'Bob', 'Charlie']) {
 			await t.mutation(api.students.create, {
@@ -989,7 +988,7 @@ describe('students.listPaginated', () => {
 	});
 
 	it('filters by house __unassigned', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Has House',
@@ -1020,7 +1019,7 @@ describe('students.listPaginated', () => {
 	});
 
 	it('filters by status+grade+house+class combined', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'G10 Enrolled Heracles 1',
@@ -1083,7 +1082,7 @@ describe('students.listPaginated', () => {
 	});
 
 	it('search + sort + filter together', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Alice Chen',
@@ -1133,7 +1132,7 @@ describe('students.listPaginated', () => {
 	});
 
 	it('creates and reuses an imported class section', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.importFromExcel, {
 			students: [
@@ -1176,7 +1175,7 @@ describe('students.listPaginated', () => {
 	});
 
 	it('returns a continuation cursor for students beyond the first page', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		for (let index = 0; index < 3; index++) {
 			await t.mutation(api.students.create, {
@@ -1211,7 +1210,7 @@ describe('students.listPaginated', () => {
 	});
 
 	it('sorts by grade then class in numeric order ascending', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const seed = [
 			{ studentId: '7001010', grade: 7, class: '10' },
@@ -1240,15 +1239,12 @@ describe('students.listPaginated', () => {
 		});
 
 		expect(
-			result.page.map(
-				(student: { classInfo: { grade: number; class: string } }) =>
-					`${student.classInfo.grade}-${student.classInfo.class}`
-			)
+			result.page.map((student) => `${student.classInfo?.grade}-${student.classInfo?.class}`)
 		).toEqual(['7-1', '7-2', '7-10', '8-1', '8-2']);
 	});
 
 	it('sorts by grade descending but keeps class ascending within each grade', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const seed = [
 			{ studentId: '7001010', grade: 7, class: '10' },
@@ -1277,15 +1273,12 @@ describe('students.listPaginated', () => {
 		});
 
 		expect(
-			result.page.map(
-				(student: { classInfo: { grade: number; class: string } }) =>
-					`${student.classInfo.grade}-${student.classInfo.class}`
-			)
+			result.page.map((student) => `${student.classInfo?.grade}-${student.classInfo?.class}`)
 		).toEqual(['8-1', '8-2', '7-1', '7-2', '7-10']);
 	});
 
 	it('returns every search match at scale (>500 rows) without index-path truncation', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Seed >500 students via direct inserts so the query must scan the whole
 		// candidate set before applying the free-text filter.
@@ -1311,7 +1304,7 @@ describe('students.listPaginated', () => {
 			let total = 0;
 			let pages = 0;
 			do {
-				const r = await t.query(api.students.listPaginated, {
+				const r: ListPaginatedResult = await t.query(api.students.listPaginated, {
 					paginationOpts: { numItems: 50, cursor },
 					search: 'Match',
 					sortBy: 'studentId',
@@ -1328,7 +1321,7 @@ describe('students.listPaginated', () => {
 	});
 
 	it('returns all status+search matches at scale', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedScaledStudents(t, 600);
 
 		const ids = await collectIds(t, {
@@ -1343,7 +1336,7 @@ describe('students.listPaginated', () => {
 	});
 
 	it('returns all grade-filtered matches at scale (never-indexed field)', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedScaledStudents(t, 600);
 
 		const ids = await collectIds(t, {
@@ -1357,7 +1350,7 @@ describe('students.listPaginated', () => {
 	});
 
 	it('returns all __unassigned house matches at scale via full scan', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedScaledStudents(t, 600);
 
 		const ids = await collectIds(t, {
@@ -1371,7 +1364,7 @@ describe('students.listPaginated', () => {
 	});
 
 	it('paginates the full scaled set without gaps or duplicates', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedScaledStudents(t, 600);
 
 		const ids = await collectIds(t, {
@@ -1389,7 +1382,7 @@ describe('students.listPaginated', () => {
 
 describe('students.importFromExcel (bulk create/update)', () => {
 	it('creates multiple students in a single call', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const results = await t.mutation(api.students.importFromExcel, {
 			students: [
@@ -1423,13 +1416,11 @@ describe('students.importFromExcel (bulk create/update)', () => {
 
 		// Verify results
 		expect(results).toHaveLength(3);
-		expect(results.filter((r: ImportResult) => r.success && r.action === 'created')).toHaveLength(
-			3
-		);
+		expect(results.filter((r) => r.success && r.action === 'created')).toHaveLength(3);
 	});
 
 	it('updates existing students in bulk', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create initial students
 		await t.mutation(api.students.create, {
@@ -1470,8 +1461,8 @@ describe('students.importFromExcel (bulk create/update)', () => {
 
 		// Verify results
 		expect(results).toHaveLength(2);
-		expect(results.find((r: ImportResult) => r.studentId === 'UPDATE01')?.action).toBe('updated');
-		expect(results.find((r: ImportResult) => r.studentId === 'UPDATE03')?.action).toBe('created');
+		expect(results.find((r) => r.studentId === 'UPDATE01')?.action).toBe('updated');
+		expect(results.find((r) => r.studentId === 'UPDATE03')?.action).toBe('created');
 
 		// Verify total count (2 original + 1 new = 3)
 		const students = await t.query(api.students.list, {});
@@ -1485,7 +1476,7 @@ describe('students.importFromExcel (bulk create/update)', () => {
 	});
 
 	it('handles validation errors for individual students in bulk', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Mix of valid and invalid students
 		const results = await t.mutation(api.students.importFromExcel, {
@@ -1519,7 +1510,7 @@ describe('students.importFromExcel (bulk create/update)', () => {
 		expect(results).toHaveLength(3);
 
 		// At least the valid students should succeed
-		const successfulResults = results.filter((r: ImportResult) => r.success);
+		const successfulResults = results.filter((r) => r.success);
 		expect(successfulResults.length).toBeGreaterThanOrEqual(2);
 
 		// Verify the students were created
@@ -1528,7 +1519,7 @@ describe('students.importFromExcel (bulk create/update)', () => {
 	});
 
 	it('handles empty array gracefully', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const results = await t.mutation(api.students.importFromExcel, {
 			students: []
@@ -1541,7 +1532,7 @@ describe('students.importFromExcel (bulk create/update)', () => {
 	});
 
 	it('handles duplicate student IDs within bulk correctly', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Duplicate IDs in the same bulk call - second one will update the first
 		const results = await t.mutation(api.students.importFromExcel, {
@@ -1565,7 +1556,7 @@ describe('students.importFromExcel (bulk create/update)', () => {
 
 		// Both succeed - first creates, second updates
 		expect(results).toHaveLength(2);
-		expect(results.filter((r: ImportResult) => r.success)).toHaveLength(2);
+		expect(results.filter((r) => r.success)).toHaveLength(2);
 
 		// Verify only one student was created/updated
 		const students = await t.query(api.students.list, {});
@@ -1579,7 +1570,7 @@ describe('students.importFromExcel (bulk create/update)', () => {
 
 describe('students.bulkAssignHouses', () => {
 	it('assigns houses to matched students by name', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Alice House',
@@ -1618,7 +1609,7 @@ describe('students.bulkAssignHouses', () => {
 	});
 
 	it('skips students not found by name', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Found Student',
@@ -1644,7 +1635,7 @@ describe('students.bulkAssignHouses', () => {
 	});
 
 	it('handles empty assignment list', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const result = await t.mutation(api.students.bulkAssignHouses, {
 			assignments: []
@@ -1655,7 +1646,7 @@ describe('students.bulkAssignHouses', () => {
 	});
 
 	it('matches names case-insensitively', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.students.create, {
 			englishName: 'Case Test Student',
@@ -1676,7 +1667,7 @@ describe('students.bulkAssignHouses', () => {
 	});
 
 	it('overwrites existing house assignment', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const studentId = await t.mutation(api.students.create, {
 			englishName: 'Overwrite Student',
@@ -1703,7 +1694,7 @@ describe('students.getSystemStatus', () => {
 
 	it('reports counts', async () => {
 		setTestAuthRole('super');
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await createStudentWithClass(t, {
 			englishName: 'Amy',
@@ -1729,7 +1720,7 @@ describe('students.getSystemStatus', () => {
 	});
 
 	it('denies non-super callers', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await expect(t.query(api.students.getSystemStatus, {})).rejects.toThrow(
 			/Forbidden: Super role required/
@@ -1744,7 +1735,7 @@ describe('board_snapshots.getClassStats display names', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('renders a conflicting default class explicitly instead of a bare grade', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedUser(t, {
 			authId: 'board-admin',
 			name: 'Board Admin',
@@ -1789,7 +1780,7 @@ describe('board_snapshots.getClassStats display names', () => {
 	});
 
 	it('renders a lone default class as just the grade', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedUser(t, {
 			authId: 'board-admin',
 			name: 'Board Admin',

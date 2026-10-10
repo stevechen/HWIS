@@ -74,10 +74,10 @@ describe('auth context helpers', () => {
 });
 
 describe('resolveAuthId resolution via getAuthenticatedUser', () => {
-	let t: ReturnType<typeof convexTest>;
+	let t: Awaited<ReturnType<typeof convexTest>>;
 
-	beforeEach(() => {
-		t = convexTest(schema, modules);
+	beforeEach(async () => {
+		t = await convexTest(schema, modules);
 	});
 
 	afterEach(() => {
@@ -159,7 +159,7 @@ describe('role-gate denial paths', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('requireAdminRole throws for a teacher profile', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'teacher-role-test', name: 'Plain Teacher' });
 		mockAuthUser({ authId: 'teacher-role-test', name: 'Plain Teacher' });
@@ -170,7 +170,7 @@ describe('role-gate denial paths', () => {
 	});
 
 	it('requireSuperRole throws for an admin profile', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'admin-role-test', name: 'Plain Admin', role: 'admin' });
 		mockAuthUser({ authId: 'admin-role-test', name: 'Plain Admin' });
@@ -181,7 +181,7 @@ describe('role-gate denial paths', () => {
 	});
 
 	it('requireSuperRole throws for a teacher profile', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'teacher-super-test', name: 'Plain Teacher' });
 		mockAuthUser({ authId: 'teacher-super-test', name: 'Plain Teacher' });
@@ -192,7 +192,7 @@ describe('role-gate denial paths', () => {
 	});
 
 	it('requireAdminRole passes for an admin profile', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'admin-pass-test', name: 'Real Admin', role: 'admin' });
 		mockAuthUser({ authId: 'admin-pass-test', name: 'Real Admin' });

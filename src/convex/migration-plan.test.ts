@@ -6,7 +6,7 @@ import { runYearEndMigration } from './shared/migration_plan';
 
 describe('year-end migration plan', () => {
 	test('advances enrolled students carrying section names and creates target classes on demand', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await createStudentWithClass(t, {
 			englishName: 'Grade 7 Enrolled A',
@@ -76,7 +76,7 @@ describe('year-end migration plan', () => {
 	});
 
 	test('deletes grade 12 students regardless of status and removes not enrolled students', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await createStudentWithClass(t, {
 			englishName: 'Grade 12 Enrolled',
@@ -133,7 +133,7 @@ describe('year-end migration plan', () => {
 	});
 
 	test('writes an auto-backup first with the full snapshot and e2eTag', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await createStudentWithClass(t, {
 			englishName: 'Backup Student',
@@ -173,7 +173,7 @@ describe('year-end migration plan', () => {
 	});
 
 	test('clears evaluations, evaluation audit logs, and house events', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'Student',
@@ -249,7 +249,7 @@ describe('year-end migration plan', () => {
 	});
 
 	test('clears homeroom teacher assignments on existing classes', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -289,7 +289,7 @@ describe('year-end migration plan', () => {
 	});
 
 	test('deletes empty classes but keeps protected IB classes at grades 11-12', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await createStudentWithClass(t, {
 			englishName: 'Advancing Student',
@@ -319,7 +319,7 @@ describe('year-end migration plan', () => {
 	});
 
 	test('handles an empty database gracefully', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const result = await t.run(async (ctx) => runYearEndMigration(ctx, {}));
 
