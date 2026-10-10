@@ -20,6 +20,11 @@ export function isLevelledGrade(grade: number): grade is 7 | 8 | 9 {
 export const ESL_LEVELS = ['Pre-Ele', 'Elementary', 'Basic', 'Intermediate', 'Advanced'] as const;
 export type EslLevel = (typeof ESL_LEVELS)[number];
 
+/** Whether a string is one of the official ESL level names. */
+export function isEslLevel(level: string): level is EslLevel {
+	return (ESL_LEVELS as readonly string[]).includes(level);
+}
+
 /** ESL class numbers for levelled grades. */
 export const ESL_CLASS_NUMBERS = ['1', '2'] as const;
 export type EslClassNumber = (typeof ESL_CLASS_NUMBERS)[number];
@@ -874,6 +879,46 @@ export function cohortCode(cohort: EslCohortKey): string {
 		return `G${cohort.grade}-${grade10BaseClass(cohort.classNumber)}${cohort.level ?? ''}`;
 	}
 	return `G${cohort.grade}-${cohort.level}-${cohort.classNumber}`;
+}
+
+/**
+ * Short label for an ESL class, used in calendar views and schedule lists.
+ * G7–G9: `G<grade> <short-level> <class-number>` (e.g., `G7 Pre. 1`, `G8 Ele. 3`, `G9 Bas. 3`)
+ * G10: `H1nnA/B` verbatim (e.g., `H101A`, `H112B`, `H110A`)
+ * No trailing grade token duplication.
+ */
+export function eslClassShortLabel(args: {
+	grade: number;
+	level?: string;
+	classNumber: string;
+	type: EslClassType;
+}): string {
+	if (!isLevelledGrade(args.grade)) {
+		const base = `H1${args.classNumber.padStart(2, '0')}`;
+		const section = grade10SectionOf(args.type);
+		return section ? `${base}${section}` : base;
+	}
+
+	const shortLevel = shortLevelLabel(args.level ?? '');
+	const parts = [`G${args.grade}`, shortLevel, args.classNumber].filter(Boolean);
+	return parts.join(' ');
+}
+
+function shortLevelLabel(level: string): string {
+	switch (level) {
+		case 'Pre-Ele':
+			return 'Pre.';
+		case 'Elementary':
+			return 'Ele.';
+		case 'Basic':
+			return 'Bas.';
+		case 'Intermediate':
+			return 'Int.';
+		case 'Advanced':
+			return 'Adv.';
+		default:
+			return level;
+	}
 }
 
 /** School year validation. */
