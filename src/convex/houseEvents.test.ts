@@ -6,7 +6,7 @@ import type { Id } from './_generated/dataModel';
 
 describe('House Events CRUD', () => {
 	it('list returns events with date ranges', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.houseEvents.create, {
 			title: 'Sports Day',
@@ -25,7 +25,7 @@ describe('House Events CRUD', () => {
 	});
 
 	it('create creates event with house points', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const id = await t.mutation(api.houseEvents.create, {
 			title: 'Test Event',
@@ -45,7 +45,7 @@ describe('House Events CRUD', () => {
 	});
 
 	it('update updates event', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const id = await t.mutation(api.houseEvents.create, {
 			title: 'Original Event',
@@ -68,7 +68,7 @@ describe('House Events CRUD', () => {
 	});
 
 	it('remove deletes event', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const id = await t.mutation(api.houseEvents.create, {
 			title: 'To Delete',
@@ -83,7 +83,7 @@ describe('House Events CRUD', () => {
 	});
 
 	it('validation: end after start on create', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await expect(async () => {
 			await t.mutation(api.houseEvents.create, {
@@ -95,7 +95,7 @@ describe('House Events CRUD', () => {
 	});
 
 	it('house points optional', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const id = await t.mutation(api.houseEvents.create, {
 			title: 'No Points',
@@ -111,7 +111,7 @@ describe('House Events CRUD', () => {
 	});
 
 	it('update validation: end after start', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const id = await t.mutation(api.houseEvents.create, {
 			title: 'Original',
@@ -129,7 +129,7 @@ describe('House Events CRUD', () => {
 	});
 
 	it('event not found error on update', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Use a valid ID format but non-existent
 		const fakeId = ('evt_' + Math.random().toString(36).substring(2, 15)) as Id<'house_events'>;
@@ -143,7 +143,7 @@ describe('House Events CRUD', () => {
 	});
 
 	it('event not found error on delete', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const fakeId = ('evt_' + Math.random().toString(36).substring(2, 15)) as Id<'house_events'>;
 

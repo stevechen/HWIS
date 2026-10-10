@@ -18,7 +18,7 @@ type HouseStatsData = {
 
 describe('House Management - listByHouse', () => {
 	it('returns empty houses and orphaned when no students exist', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const result = await t.query(api.students.listByHouse, {});
 
@@ -35,7 +35,7 @@ describe('House Management - listByHouse', () => {
 	});
 
 	it('groups students by house correctly', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create students with different houses
 		const student1 = await t.mutation(api.students.create, {
@@ -77,7 +77,7 @@ describe('House Management - listByHouse', () => {
 	});
 
 	it('includes students without house in orphaned list', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create students without house
 		await t.mutation(api.students.create, {
@@ -105,7 +105,7 @@ describe('House Management - listByHouse', () => {
 	});
 
 	it('sorts students alphabetically within each house', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create students in reverse alphabetical order
 		const student1 = await t.mutation(api.students.create, {
@@ -156,7 +156,7 @@ describe('House Management - listByHouse', () => {
 	});
 
 	it('includes class display info for each student', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const student = await t.mutation(api.students.create, {
 			englishName: 'Test Student',
@@ -180,7 +180,7 @@ describe('House Management - listByHouse', () => {
 
 describe('House Management - assignHouse', () => {
 	it('assigns a student to a house', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const student = await t.mutation(api.students.create, {
 			englishName: 'Test Student',
@@ -201,7 +201,7 @@ describe('House Management - assignHouse', () => {
 	});
 
 	it('removes a student from a house when house is undefined', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const student = await t.mutation(api.students.create, {
 			englishName: 'Test Student',
@@ -232,7 +232,7 @@ describe('House Management - assignHouse', () => {
 	});
 
 	it('moves a student between houses', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const student = await t.mutation(api.students.create, {
 			englishName: 'Test Student',
@@ -264,7 +264,7 @@ describe('House Management - assignHouse', () => {
 	});
 
 	it('throws error when student id is invalid', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await expect(async () => {
 			await t.mutation(api.students.assignHouse, {
@@ -277,7 +277,7 @@ describe('House Management - assignHouse', () => {
 
 describe('House Competition - getHouseStats', () => {
 	it('returns house stats with all four houses', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create students with houses
 		const student1 = await t.mutation(api.students.create, {
@@ -329,7 +329,7 @@ describe('House Competition - getHouseStats', () => {
 	});
 
 	it('shows correct rank ordering', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Create a student and assign to a house
 		const student = await t.mutation(api.students.create, {

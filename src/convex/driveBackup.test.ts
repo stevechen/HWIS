@@ -35,7 +35,7 @@ describe('driveBackup.backupToDrive auth and config guards', () => {
 	});
 
 	it('throws Forbidden when the viewer is not an admin', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
 		mockAuthUser({ authId: 'teacher-1', name: 'Plain Teacher' });
@@ -44,14 +44,14 @@ describe('driveBackup.backupToDrive auth and config guards', () => {
 	});
 
 	it('throws Forbidden when no viewer is authenticated', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser(null);
 
 		await expect(t.action(api.driveBackup.backupToDrive, {})).rejects.toThrow('Forbidden');
 	});
 
 	it('throws when CRON_SECRET is not configured for an admin viewer', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'admin-1', role: 'admin' });
 		mockAuthUser({ authId: 'admin-1', name: 'Real Admin' });
@@ -62,7 +62,7 @@ describe('driveBackup.backupToDrive auth and config guards', () => {
 	});
 
 	it('fails fast with missing Google credentials when CRON_SECRET is set', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'admin-1', role: 'admin' });
 		mockAuthUser({ authId: 'admin-1', name: 'Real Admin' });
@@ -96,7 +96,7 @@ describe('driveBackup environment targeting', () => {
 	});
 
 	async function adminTest() {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedUser(t, { authId: 'admin-1', role: 'admin' });
 		mockAuthUser({ authId: 'admin-1', name: 'Real Admin' });
 		return t;
@@ -383,14 +383,14 @@ describe('backup snapshot parity across destinations', () => {
 	] as (keyof BackupSnapshot)[];
 
 	it('buildSnapshot exposes exactly the six application data tables', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		const snapshot = await t.run(async (ctx) => buildSnapshot(ctx));
 
 		expect(Object.keys(snapshot).sort()).toEqual([...DATA_TABLES, 'exportedAt', 'version'].sort());
 	});
 
 	it('exportDataForCron carries the same data tables that buildSnapshot produces', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const drive = await t.query(api.backup.exportDataForCron, {
 			cronSecret: 'test-cron-secret'

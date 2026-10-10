@@ -6,7 +6,7 @@ import schema from '../schema';
 const YEAR = '2025-2026';
 
 async function adminContext() {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId: 'esl-admin', eslRole: 'admin' });
 	return t;
 }
@@ -54,7 +54,7 @@ describe('esl/semesters.create', () => {
 	});
 
 	it('refuses semester creation for non-admin staff', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
 		await expect(
 			t.mutation(api.esl.semesters.create, {

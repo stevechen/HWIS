@@ -4,7 +4,6 @@ import type { ConvexTestInstance } from '../test.setup';
 import { api } from '../_generated/api';
 import schema from '../schema';
 import type { Id } from '../_generated/dataModel';
-import type { ScheduleDayRow } from '../shared/esl';
 
 const YEAR = '2025-2026';
 
@@ -14,7 +13,7 @@ const YEAR = '2025-2026';
  * and whose Comm class belongs to someone else.
  */
 async function setupTeacherWorld() {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId: 'esl-admin', eslRole: 'admin' });
 	const teacherId = await seedEslStaff(t, {
 		authId: 'esl-teacher',
@@ -93,16 +92,16 @@ async function createEvent(
 /**
  * Reads the teacher's day rows.
  *
- * The annotated return is load-bearing: `convexTest`'s wrapper erases query
- * return types to `any` (a project-wide follow-up fixes that), so without it
- * every callback over the rows would fail `noImplicitAny`.
+ * The return type is inferred from `t.query(...)` -- the `convexTest`
+ * wrapper preserves query return types (instead of erasing them to `any`),
+ * so no local annotation is needed.
  */
 async function readDays(
 	t: ConvexTestInstance,
 	teacherId: Id<'users'>,
 	semesterId: Id<'esl_semesters'>,
 	range: { fromDate: string; toDate: string }
-): Promise<ScheduleDayRow[]> {
+) {
 	return t.query(api.esl.schedule.teacherDays, { teacherId, semesterId, ...range });
 }
 
@@ -360,7 +359,7 @@ describe('esl/schedule.teacherDays', () => {
 	});
 
 	it('anchors G9-in-S2 counts on the graduation ceremony', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		await seedEslStaff(t, { authId: 'esl-admin', eslRole: 'admin' });
 		const teacherId = await seedEslStaff(t, {
 			authId: 'esl-teacher',

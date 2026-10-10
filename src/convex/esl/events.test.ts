@@ -6,7 +6,7 @@ import schema from '../schema';
 const YEAR = '2025-2026';
 
 async function seededSemester() {
-	const t = convexTest(schema, modules);
+	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId: 'esl-admin', eslRole: 'admin' });
 	const semesterId = await t.mutation(api.esl.semesters.create, {
 		year: YEAR,
