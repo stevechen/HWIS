@@ -518,6 +518,39 @@ export default defineSchema({
 		.index('by_e2eTag', ['e2eTag']),
 
 	/**
+	 * A teacher's private per-meeting note, keyed by class and date: free
+	 * text for progress/prep/history, last-write-wins, no history, no edit
+	 * cutoff. The read gate is strictly the assigned teacher — no staff, no
+	 * admin, no covering teacher, no override path — so the gate lives in
+	 * `esl/notes` (assigned-teacher match), not in `requireEslStaff`.
+	 *
+	 * Surfaces on the calendar only, never the list. Pass dates as
+	 * `YYYY-MM-DD` strings, like every other ESL table.
+	 */
+	teacher_notes: defineTable({
+		/** The class the note belongs to. */
+		classId: v.id('esl_classes'),
+		/** The meeting date (`YYYY-MM-DD`) the note is about. */
+		date: v.string(),
+		/** The owning teacher: the class's assigned teacher at write time. */
+		teacherId: v.id('users'),
+		/** The note text. */
+		text: v.string(),
+		/** Wall-clock millis of the last write. */
+		updatedAt: v.number(),
+		/** Who last wrote (always the owner, by the gate). */
+		updatedBy: v.id('users'),
+		/**
+		 * Set only by end-to-end runs, on the same tag pattern as every other
+		 * ESL table, so teardown stays one indexed read.
+		 */
+		e2eTag: v.optional(v.string())
+	})
+		.index('by_class_teacher_date', ['classId', 'teacherId', 'date'])
+		.index('by_teacher', ['teacherId'])
+		.index('by_e2eTag', ['e2eTag']),
+
+	/**
 	 * An ESL student, enrolled into exactly one cohort. Transfer status is
 	 * tracked in place (`active` ⇄ `disabled` with a reason) rather than by
 	 * moving rows between cohorts, so the history of a cohort stays stable.
