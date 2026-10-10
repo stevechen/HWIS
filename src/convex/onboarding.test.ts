@@ -7,7 +7,7 @@ describe('onboarding.ensureUserProfile', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('throws when not authenticated', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser(null);
 
 		await expect(t.mutation(api.onboarding.ensureUserProfile, {})).rejects.toThrow(
@@ -16,7 +16,7 @@ describe('onboarding.ensureUserProfile', () => {
 	});
 
 	it('creates a pending teacher profile for a non-allowlisted email', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({
 			authId: 'teacher-email@example.com',
 			name: 'New Teacher',
@@ -38,7 +38,7 @@ describe('onboarding.ensureUserProfile', () => {
 	});
 
 	it('creates an active super profile for an allowlisted email', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({
 			authId: 'steve.stevechen@gmail.com',
 			name: 'Steve',
@@ -54,7 +54,7 @@ describe('onboarding.ensureUserProfile', () => {
 	});
 
 	it('self-heals an existing user profile with the allowlisted role', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run((ctx) =>
 			ctx.db.insert('users', {
@@ -80,7 +80,7 @@ describe('onboarding.ensureUserProfile', () => {
 	});
 
 	it('does not create a user profile for a student-domain email', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 		mockAuthUser({
 			authId: 'student-1',
 			name: 'Student One',
@@ -100,7 +100,7 @@ describe('onboarding.createUserProfile', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('creates a new user profile', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const result = await t.mutation(api.onboarding.createUserProfile, {
 			authId: 'new-user-auth'
@@ -113,7 +113,7 @@ describe('onboarding.createUserProfile', () => {
 	});
 
 	it('updates an existing user profile instead of duplicating', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const existingId = await t.run((ctx) =>
 			ctx.db.insert('users', {
@@ -142,7 +142,7 @@ describe('onboarding.updateUserName', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('creates a user when none exists and sets the name', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const result = await t.mutation(api.onboarding.updateUserName, {
 			authId: 'name-user',
@@ -156,7 +156,7 @@ describe('onboarding.updateUserName', () => {
 	});
 
 	it('updates the name of an existing user', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const existingId = await t.run((ctx) =>
 			ctx.db.insert('users', {
@@ -185,7 +185,7 @@ describe('onboarding.deleteAllUserProfiles', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('deletes all user profiles and reports the count', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.run((ctx) => ctx.db.insert('users', { role: 'teacher', status: 'active' }));
 		await t.run((ctx) => ctx.db.insert('users', { role: 'admin', status: 'active' }));
@@ -203,7 +203,7 @@ describe('onboarding.setMyRole bootstrap', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it('rejects bootstrap for a non-allowlisted email', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
 		mockAuthUser({ authId: 'teacher-1', name: 'Teacher', email: 'someone@example.com' });
@@ -214,7 +214,7 @@ describe('onboarding.setMyRole bootstrap', () => {
 	});
 
 	it('rejects a non-privileged desired role during bootstrap', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
 		mockAuthUser({
@@ -229,7 +229,7 @@ describe('onboarding.setMyRole bootstrap', () => {
 	});
 
 	it('rejects bootstrap for an allowlisted teacher email', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
 		mockAuthUser({
@@ -244,7 +244,7 @@ describe('onboarding.setMyRole bootstrap', () => {
 	});
 
 	it('rejects an admin allowlisted email from bootstrapping super', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
 		mockAuthUser({ authId: 'teacher-1', name: 'Teacher', email: 'steve@hwhs.tc.edu.tw' });
@@ -255,7 +255,7 @@ describe('onboarding.setMyRole bootstrap', () => {
 	});
 
 	it('bootstraps an allowlisted super email to super role', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const userId = await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
 		mockAuthUser({
@@ -276,7 +276,7 @@ describe('onboarding.setMyRole bootstrap', () => {
 	});
 
 	it('bootstraps an allowlisted admin email to admin role', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const userId = await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
 		mockAuthUser({ authId: 'teacher-1', name: 'Admin Owner', email: 'steve@hwhs.tc.edu.tw' });
@@ -293,7 +293,7 @@ describe('onboarding.setMyRole bootstrap', () => {
 	});
 
 	it('updates own role when a privileged user already exists', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		// Another admin already exists, so bootstrap is not allowed
 		await seedUser(t, { authId: 'existing-admin', role: 'admin' });

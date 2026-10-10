@@ -2,14 +2,31 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { convexTest, modules, mockAuthUser, createStudentWithClass, seedUser } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
+import type { Id } from './_generated/dataModel';
 import { noEvaluationCapabilities } from './shared/authorization';
+
+/**
+ * `users.profile` returns a union: a staff viewer comes straight from the DB,
+ * while a matched student is synthesized with extra fields. Those fields don't
+ * exist on every member, so tests read them through this view.
+ */
+type StudentProfileUser = {
+	studentId?: string;
+	enrollmentStatus?: string;
+	studentRecordId?: Id<'students'>;
+	englishName?: string;
+};
+
+function studentUserView(user: unknown): StudentProfileUser | null {
+	return (user ?? null) as StudentProfileUser | null;
+}
 
 describe('users.profile (merged viewer + capabilities)', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	describe('unauthenticated', () => {
 		it('returns null user with anonymous actor and no capabilities', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			mockAuthUser(null);
 
 			const result = await t.query(api.users.profile, {});
@@ -22,7 +39,7 @@ describe('users.profile (merged viewer + capabilities)', () => {
 
 	describe('student viewer', () => {
 		it('synthesizes student user + student actor + viewOwnEvaluation capabilities', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			const { studentId } = await createStudentWithClass(t, {
 				englishName: 'Test Student',
 				chineseName: '測試',
@@ -39,10 +56,11 @@ describe('users.profile (merged viewer + capabilities)', () => {
 			expect(result.user?.role).toBe('student');
 			expect(result.user?.status).toBe('active');
 			expect(result.user?.profileExists).toBe(true);
-			expect(result.user?.studentId).toBe('888001');
-			expect(result.user?.enrollmentStatus).toBe('Enrolled');
-			expect(result.user?.studentRecordId).toBe(studentId);
-			expect(result.user?.englishName).toBe('Test Student');
+			const studentUser = studentUserView(result.user);
+			expect(studentUser?.studentId).toBe('888001');
+			expect(studentUser?.enrollmentStatus).toBe('Enrolled');
+			expect(studentUser?.studentRecordId).toBe(studentId);
+			expect(studentUser?.englishName).toBe('Test Student');
 
 			expect(result.actor).toEqual({
 				kind: 'student',
@@ -58,7 +76,7 @@ describe('users.profile (merged viewer + capabilities)', () => {
 		});
 
 		it('synthesizes anonymous actor when student is Not Enrolled', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			await createStudentWithClass(t, {
 				englishName: 'Departed Student',
 				chineseName: '離校',
@@ -74,14 +92,14 @@ describe('users.profile (merged viewer + capabilities)', () => {
 
 			expect(result.user?.role).toBe('student');
 			expect(result.user?.status).toBe('active');
-			expect(result.user?.enrollmentStatus).toBe('Not Enrolled');
+			expect(studentUserView(result.user)?.enrollmentStatus).toBe('Not Enrolled');
 
 			expect(result.actor).toEqual({ kind: 'anonymous' });
 			expect(result.capabilities).toEqual(noEvaluationCapabilities);
 		});
 
 		it('synthesizes anonymous actor when student email matches no record', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			mockAuthUser({ authId: 'student-3', email: 's999999@std.hwhs.tc.edu.tw' });
 
 			const result = await t.query(api.users.profile, {});
@@ -89,8 +107,9 @@ describe('users.profile (merged viewer + capabilities)', () => {
 			expect(result.user?.role).toBe('student');
 			expect(result.user?.status).toBe('active');
 			expect(result.user?.profileExists).toBe(true);
-			expect(result.user?.studentId).toBeUndefined();
-			expect(result.user?.enrollmentStatus).toBeUndefined();
+			const studentUser = studentUserView(result.user);
+			expect(studentUser?.studentId).toBeUndefined();
+			expect(studentUser?.enrollmentStatus).toBeUndefined();
 
 			expect(result.actor).toEqual({ kind: 'anonymous' });
 			expect(result.capabilities).toEqual(noEvaluationCapabilities);
@@ -99,7 +118,7 @@ describe('users.profile (merged viewer + capabilities)', () => {
 
 	describe('staff viewer', () => {
 		it('resolves teacher profile + staff actor + viewOwnEvaluation capabilities', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			await seedUser(t, {
 				authId: 'teacher-1',
 				role: 'teacher',
@@ -129,7 +148,7 @@ describe('users.profile (merged viewer + capabilities)', () => {
 		});
 
 		it('resolves admin profile + staff actor + viewAnyEvaluation capabilities', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			await seedUser(t, {
 				authId: 'admin-1',
 				role: 'admin',
@@ -152,7 +171,7 @@ describe('users.profile (merged viewer + capabilities)', () => {
 		});
 
 		it('returns no capabilities for a pending teacher', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			await seedUser(t, {
 				authId: 'pending-teacher-1',
 				role: 'teacher',
@@ -172,7 +191,7 @@ describe('users.profile (merged viewer + capabilities)', () => {
 		});
 
 		it('returns profileExists=false when no DB profile exists', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			mockAuthUser({ authId: 'no-profile-user', name: 'Ghost' });
 
 			const result = await t.query(api.users.profile, {});
@@ -188,7 +207,7 @@ describe('users.profile (merged viewer + capabilities)', () => {
 
 	describe('super admin', () => {
 		it('resolves super admin + staff actor + editAnyEvaluation capabilities', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 			mockAuthUser({
 				authId: 'super@hwis.test',
 				email: 'super@hwis.test',

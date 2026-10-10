@@ -6,7 +6,7 @@ import type { Id } from './_generated/dataModel';
 
 describe('categories.create', () => {
 	it('creates a category', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
 			name: 'Test Category'
@@ -18,7 +18,7 @@ describe('categories.create', () => {
 	});
 
 	it('creates a category with minimal data', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
 			name: 'Simple Category'
@@ -32,7 +32,7 @@ describe('categories.create', () => {
 
 describe('categories.update', () => {
 	it('updates category name', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
 			name: 'Original Category'
@@ -52,7 +52,7 @@ describe('categories.update', () => {
 
 describe('categories.remove', () => {
 	it('removes category without evaluations', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const categoryId = await t.mutation(api.categories.create, {
 			name: 'To Delete'
@@ -68,7 +68,7 @@ describe('categories.remove', () => {
 	});
 
 	it('removes category and cascades to delete related evaluations', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
 			name: 'Category With Evals'
@@ -121,7 +121,7 @@ describe('categories.remove', () => {
 	});
 
 	it('throws error when category not found', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await expect(async () => {
 			await t.mutation(api.categories.remove, {
@@ -133,7 +133,7 @@ describe('categories.remove', () => {
 
 describe('categories.list', () => {
 	it('returns all categories', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
 			name: 'Category A'
@@ -148,7 +148,7 @@ describe('categories.list', () => {
 	});
 
 	it('returns empty list when no categories exist', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const categories = await t.query(api.categories.list, {});
 		expect(categories).toHaveLength(0);
@@ -157,7 +157,7 @@ describe('categories.list', () => {
 
 describe('categories.getEvaluationCount', () => {
 	it('returns 0 for category with no evaluations', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const categoryId = await t.mutation(api.categories.create, {
 			name: 'Empty Category'
@@ -171,7 +171,7 @@ describe('categories.getEvaluationCount', () => {
 	});
 
 	it('returns count of evaluations for category', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const categoryId = await t.mutation(api.categories.create, {
 			name: 'Evaluated Category'
@@ -224,7 +224,7 @@ describe('categories.getEvaluationCount', () => {
 
 describe('categories edge cases', () => {
 	it('creates multiple categories with unique names', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
 			name: 'First Category'
@@ -245,7 +245,7 @@ describe('categories edge cases', () => {
 	});
 
 	it('updates only name', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
 			name: 'Original Name'
@@ -265,7 +265,7 @@ describe('categories edge cases', () => {
 
 describe('categories with new fields', () => {
 	it('creates a category with CAS alignment, merit and demerit criteria', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
 			name: 'Test Category',
@@ -283,7 +283,7 @@ describe('categories with new fields', () => {
 	});
 
 	it('creates a category with single CAS alignment', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
 			name: 'Service Category',
@@ -295,7 +295,7 @@ describe('categories with new fields', () => {
 	});
 
 	it('updates category with all new fields', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
 			name: 'Original Category'
@@ -319,7 +319,7 @@ describe('categories with new fields', () => {
 	});
 
 	it('creates category with only merit criteria', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
 			name: 'Positive Only',
@@ -332,7 +332,7 @@ describe('categories with new fields', () => {
 	});
 
 	it('creates category with only demerit criteria', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		await t.mutation(api.categories.create, {
 			name: 'Negative Only',

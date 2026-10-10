@@ -6,7 +6,7 @@ import type { Id } from './_generated/dataModel';
 
 describe('audit logs (database operations)', () => {
 	test('audit.list returns empty array when no logs exist', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const logs = await t.run(async (ctx) => {
 			return await ctx.db.query('audit_logs').collect();
@@ -16,7 +16,7 @@ describe('audit logs (database operations)', () => {
 	});
 
 	test('audit.list returns audit logs for admin user', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId } = await createStudentWithClass(t, {
 			englishName: 'John Doe',
@@ -83,7 +83,7 @@ describe('audit logs (database operations)', () => {
 	});
 
 	test('audit.list filters by action type', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -130,7 +130,7 @@ describe('audit logs (database operations)', () => {
 	});
 
 	test('audit.list handles null studentId in newValue/oldValue', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -163,7 +163,7 @@ describe('audit logs (database operations)', () => {
 	});
 
 	test('audit.logs can be queried with index', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -196,7 +196,7 @@ describe('audit logs (database operations)', () => {
 	});
 
 	test('audit.logs include performer name when queried', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -228,7 +228,7 @@ describe('audit logs (database operations)', () => {
 	});
 
 	test('audit.logs track role updates correctly', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const adminId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -271,7 +271,7 @@ describe('audit logs (database operations)', () => {
 	});
 
 	test('audit.logs track status updates correctly', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const adminId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -314,7 +314,7 @@ describe('audit logs (database operations)', () => {
 	});
 
 	test('audit.logs track student creation', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const adminId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -352,7 +352,7 @@ describe('audit logs (database operations)', () => {
 	});
 
 	test('audit.logs track student deletion', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const adminId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -389,7 +389,7 @@ describe('audit logs (database operations)', () => {
 	});
 
 	test('audit.logs multiple entries ordered by timestamp', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacherId = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -446,7 +446,7 @@ describe('audit action labels', () => {
 // --- Enrichment tests ---
 
 describe('audit.list enrichment', () => {
-	async function createAuditChain(t: ReturnType<typeof convexTest>) {
+	async function createAuditChain(t: Awaited<ReturnType<typeof convexTest>>) {
 		const teacher = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
 				authId: 'audit-teacher',
@@ -504,7 +504,7 @@ describe('audit.list enrichment', () => {
 	}
 
 	test('audit.list returns fully enriched entries', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { teacher } = await createAuditChain(t);
 
@@ -528,7 +528,7 @@ describe('audit.list enrichment', () => {
 	});
 
 	test('audit.list falls back when student is deleted', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const { studentId } = await createAuditChain(t);
 
@@ -550,7 +550,7 @@ describe('audit.list enrichment', () => {
 	});
 
 	test('audit.list respects limit and returns correct order', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const teacher = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {
@@ -623,7 +623,7 @@ describe('audit.list enrichment', () => {
 	});
 
 	test('audit.list action labels map correctly', async () => {
-		const t = convexTest(schema, modules);
+		const t = await convexTest(schema, modules);
 
 		const admin = await t.run(async (ctx) => {
 			return await ctx.db.insert('users', {

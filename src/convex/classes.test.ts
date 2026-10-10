@@ -7,7 +7,7 @@ import type { Id } from './_generated/dataModel';
 describe('classes', () => {
 	describe('create', () => {
 		it('should create a new class successfully', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classId = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -28,7 +28,7 @@ describe('classes', () => {
 		});
 
 		it('should prevent creating duplicate classes (same grade + class)', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create first class
 			await t.mutation(api.classes.create, {
@@ -46,7 +46,7 @@ describe('classes', () => {
 		});
 
 		it('should allow same class name in different grades', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create class in grade 7
 			const class1Id = await t.mutation(api.classes.create, {
@@ -75,7 +75,7 @@ describe('classes', () => {
 		});
 
 		it('should reject invalid grade values', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			await expect(
 				t.mutation(api.classes.create, {
@@ -93,7 +93,7 @@ describe('classes', () => {
 		});
 
 		it('should create class with homeroom teacher', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create a teacher first
 			const teacherId = await t.run(async (ctx) => {
@@ -126,7 +126,7 @@ describe('classes', () => {
 
 	describe('list', () => {
 		it('should list all classes sorted by grade then class', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create classes in non-sorted order
 			await t.mutation(api.classes.create, {
@@ -151,7 +151,7 @@ describe('classes', () => {
 		});
 
 		it('should filter classes by grade', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			await t.mutation(api.classes.create, {
 				grade: 7,
@@ -177,7 +177,7 @@ describe('classes', () => {
 
 	describe('rename', () => {
 		it('should rename a class successfully', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classId = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -200,7 +200,7 @@ describe('classes', () => {
 		});
 
 		it('should prevent renaming to an existing class name in same grade', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create two classes
 			const classId1 = await t.mutation(api.classes.create, {
@@ -222,7 +222,7 @@ describe('classes', () => {
 		});
 
 		it('should allow renaming to same class name in different grade', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classId = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -249,7 +249,7 @@ describe('classes', () => {
 
 	describe('remove', () => {
 		it('should delete a class with no students', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Use non-protected class name "A" for testing deletion
 			const classId = await t.mutation(api.classes.create, {
@@ -269,7 +269,7 @@ describe('classes', () => {
 		});
 
 		it('should prevent deleting a class with enrolled students', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Use non-protected class name "A" for testing deletion
 			const classId = await t.mutation(api.classes.create, {
@@ -298,7 +298,7 @@ describe('classes', () => {
 
 	describe('getByGradeAndClass', () => {
 		it('should find class by grade and class name', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			await t.mutation(api.classes.create, {
 				grade: 9,
@@ -317,7 +317,7 @@ describe('classes', () => {
 		});
 
 		it('should return null for non-existent class', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const found = await t.query(api.classes.getByGradeAndClass, {
 				grade: 99,
@@ -330,11 +330,11 @@ describe('classes', () => {
 
 	describe('seedDefaultClasses', () => {
 		it('should create default classes for all grades', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const result = await t.mutation(api.classes.seedDefaultClasses, {});
 
-			expect(result.created?.length ?? result.classes?.length).toBe(8); // 6 grades × "1" + 2 grades (11,12) × "IB"
+			expect(result.classes?.length).toBe(8); // 6 grades × "1" + 2 grades (11,12) × "IB"
 			expect(result.message).toContain('8');
 
 			// Verify classes exist
@@ -344,7 +344,7 @@ describe('classes', () => {
 		});
 
 		it('should not duplicate existing classes', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create a non-protected class manually
 			await t.mutation(api.classes.create, {
@@ -355,7 +355,7 @@ describe('classes', () => {
 			// Seed defaults - should skip existing
 			const result = await t.mutation(api.classes.seedDefaultClasses, {});
 
-			expect(result.created?.length ?? result.classes?.length).toBe(8); // 6 × "1" + 2 × "IB" (grades 11-12)
+			expect(result.classes?.length).toBe(8); // 6 × "1" + 2 × "IB" (grades 11-12)
 
 			const classes = await t.query(api.classes.list, {});
 
@@ -365,7 +365,7 @@ describe('classes', () => {
 
 	describe('getById', () => {
 		it('should return class by ID', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classId = await t.mutation(api.classes.create, {
 				grade: 8,
@@ -384,7 +384,7 @@ describe('classes', () => {
 		});
 
 		it('should include teacher name if assigned', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const teacherId = await t.run(async (ctx) => {
 				return await ctx.db.insert('users', {
@@ -414,7 +414,7 @@ describe('classes', () => {
 		});
 
 		it('should return null for non-existent ID', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create and then delete a class to get a valid but non-existent ID
 			const classId = await t.mutation(api.classes.create, {
@@ -436,7 +436,7 @@ describe('classes', () => {
 
 	describe('getByTeacher', () => {
 		it('should return class for teacher', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const teacherId = await t.run(async (ctx) => {
 				return await ctx.db.insert('users', {
@@ -467,7 +467,7 @@ describe('classes', () => {
 		});
 
 		it('should return null when teacher has no class', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const teacherId = await t.run(async (ctx) => {
 				return await ctx.db.insert('users', {
@@ -488,7 +488,7 @@ describe('classes', () => {
 
 	describe('getStudentCount', () => {
 		it('should return correct count for class with students', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classId = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -522,7 +522,7 @@ describe('classes', () => {
 		});
 
 		it('should return zero for empty class', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classId = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -545,7 +545,7 @@ describe('classes', () => {
 
 	describe('update', () => {
 		it('should update homeroom teacher successfully', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const teacherId = await t.run(async (ctx) => {
 				return await ctx.db.insert('users', {
@@ -575,7 +575,7 @@ describe('classes', () => {
 		});
 
 		it('should remove homeroom teacher when null is passed', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const teacherId = await t.run(async (ctx) => {
 				return await ctx.db.insert('users', {
@@ -605,7 +605,7 @@ describe('classes', () => {
 		});
 
 		it('should throw error for non-existent class', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const teacherId = await t.run(async (ctx) => {
 				return await ctx.db.insert('users', {
@@ -634,7 +634,7 @@ describe('classes', () => {
 
 	describe('remove - protected classes', () => {
 		it('should prevent deleting protected class "1"', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classId = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -649,7 +649,7 @@ describe('classes', () => {
 		});
 
 		it('should prevent deleting protected class "IB"', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classId = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -664,7 +664,7 @@ describe('classes', () => {
 		});
 
 		it('should allow deleting non-protected class with "1" in name', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classId = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -685,7 +685,7 @@ describe('classes', () => {
 
 	describe('moveStudent', () => {
 		it('should move student between classes of same grade', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create two classes in grade 7
 			const classA = await t.mutation(api.classes.create, {
@@ -727,7 +727,7 @@ describe('classes', () => {
 		});
 
 		it('should prevent moving student to different grade', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create class in grade 7 and grade 8
 			const class7 = await t.mutation(api.classes.create, {
@@ -760,7 +760,7 @@ describe('classes', () => {
 		});
 
 		it('should throw error for non-existent student', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			// Create a class and student, then delete the student to get a valid but non-existent ID
 			const classA = await t.mutation(api.classes.create, {
@@ -792,7 +792,7 @@ describe('classes', () => {
 		});
 
 		it('should throw error for non-existent target class', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classA = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -825,7 +825,7 @@ describe('classes', () => {
 		});
 
 		it('should not move student to same class (no-op)', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classA = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -853,7 +853,7 @@ describe('classes', () => {
 		});
 
 		it('should move student with Not Enrolled status', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classA = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -890,7 +890,7 @@ describe('classes', () => {
 
 	describe('assignStudent', () => {
 		it('should throw error instructing to use student edit form', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classA = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -913,7 +913,7 @@ describe('classes', () => {
 		});
 
 		it('should throw "Student not found" when student does not exist', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classA = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -940,7 +940,7 @@ describe('classes', () => {
 		});
 
 		it('should not modify student classId when mutation throws', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classA = await t.mutation(api.classes.create, {
 				grade: 7,
@@ -968,7 +968,7 @@ describe('classes', () => {
 		});
 
 		it('should still throw for non-existent student after create-delete cycle', async () => {
-			const t = convexTest(schema, modules);
+			const t = await convexTest(schema, modules);
 
 			const classA = await t.mutation(api.classes.create, {
 				grade: 7,
