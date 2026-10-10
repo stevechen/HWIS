@@ -262,6 +262,13 @@ describe('teacher calendar', () => {
 		await expect.element(page.getByLabelText(/Note for 2025-09-05/)).toBeInTheDocument();
 	});
 
+	it('keeps the always-visible note box on exam cards too', async () => {
+		renderCalendar();
+
+		await expect.element(page.getByLabelText('Note for 2025-09-10')).toBeInTheDocument();
+		await expect.element(page.getByLabelText('Note for 2025-09-10')).toHaveValue('');
+	});
+
 	it('saves an edited note through the save seam', async () => {
 		const { onSaveNote } = renderCalendar();
 

@@ -25,6 +25,11 @@ async function setupNotesWorld() {
 		eslRole: 'teacher',
 		signIn: false
 	});
+	const coverId = await seedEslStaff(t, {
+		authId: 'esl-cover',
+		eslRole: 'teacher',
+		signIn: false
+	});
 	const semesterId = await t.mutation(api.esl.semesters.create, {
 		year: YEAR,
 		term: 'S1',
@@ -39,7 +44,7 @@ async function setupNotesWorld() {
 	const [clilId, commId] = classIds;
 	await t.mutation(api.esl.classes.assignTeacher, { id: clilId, teacherId });
 	await t.mutation(api.esl.classes.assignTeacher, { id: commId, teacherId: otherId });
-	return { t, teacherId, otherId, semesterId, clilId, commId };
+	return { t, teacherId, otherId, coverId, semesterId, clilId, commId };
 }
 
 function asTeacher() {
@@ -48,6 +53,10 @@ function asTeacher() {
 
 function asOther() {
 	mockAuthUser({ authId: 'esl-other' });
+}
+
+function asCover() {
+	mockAuthUser({ authId: 'esl-cover' });
 }
 
 function asAdmin() {
@@ -221,5 +230,121 @@ describe('esl/notes teacher notes', () => {
 		await expect(
 			t.mutation(api.esl.notes.clear, { classId: clilId, date: '2025-09-01' })
 		).rejects.toThrow(/assigned teacher/i);
+	});
+
+	it('refuses a covering teacher on every seam: get, list, upsert, clear', async () => {
+		const { t, clilId } = await setupNotesWorld();
+		asTeacher();
+		await t.mutation(api.esl.notes.upsert, {
+			classId: clilId,
+			date: '2025-09-01',
+			text: 'Owner note.'
+		});
+
+		asCover();
+		await expect(readNote(t, clilId, '2025-09-01')).rejects.toThrow(/assigned teacher/i);
+		await expect(t.query(api.esl.notes.listByClass, { classId: clilId })).rejects.toThrow(
+			/assigned teacher/i
+		);
+		await expect(
+			t.mutation(api.esl.notes.upsert, {
+				classId: clilId,
+				date: '2025-09-01',
+				text: 'Covering teacher edit.'
+			})
+		).rejects.toThrow(/assigned teacher/i);
+		await expect(
+			t.mutation(api.esl.notes.clear, { classId: clilId, date: '2025-09-01' })
+		).rejects.toThrow(/assigned teacher/i);
+	});
+
+	it('refuses an admin on list and clear too, not just get and upsert', async () => {
+		const { t, clilId } = await setupNotesWorld();
+		asTeacher();
+		await t.mutation(api.esl.notes.upsert, {
+			classId: clilId,
+			date: '2025-09-01',
+			text: 'Owner note.'
+		});
+
+		asAdmin();
+		await expect(t.query(api.esl.notes.listByClass, { classId: clilId })).rejects.toThrow(
+			/assigned teacher/i
+		);
+		await expect(
+			t.mutation(api.esl.notes.clear, { classId: clilId, date: '2025-09-01' })
+		).rejects.toThrow(/assigned teacher/i);
+	});
+
+	it('refuses another class teacher on list, hiding which dates hold notes', async () => {
+		const { t, clilId } = await setupNotesWorld();
+		asTeacher();
+		await t.mutation(api.esl.notes.upsert, {
+			classId: clilId,
+			date: '2025-09-01',
+			text: 'Owner note.'
+		});
+
+		asOther();
+		await expect(t.query(api.esl.notes.listByClass, { classId: clilId })).rejects.toThrow(
+			/assigned teacher/i
+		);
+	});
+
+	it('lets the teacher write any meeting date: no edit cutoff, past or future', async () => {
+		const { t, clilId } = await setupNotesWorld();
+		asTeacher();
+
+		await t.mutation(api.esl.notes.upsert, {
+			classId: clilId,
+			date: '2025-08-01',
+			text: 'Backfilled history.'
+		});
+		await t.mutation(api.esl.notes.upsert, {
+			classId: clilId,
+			date: '2026-06-30',
+			text: 'Far-ahead prep.'
+		});
+
+		expect(await readNote(t, clilId, '2025-08-01')).toBe('Backfilled history.');
+		expect(await readNote(t, clilId, '2026-06-30')).toBe('Far-ahead prep.');
+	});
+
+	it('stamps updatedAt and updatedBy on write and keeps one row per date', async () => {
+		const { t, teacherId, clilId } = await setupNotesWorld();
+		asTeacher();
+		await t.mutation(api.esl.notes.upsert, {
+			classId: clilId,
+			date: '2025-09-01',
+			text: 'First draft.'
+		});
+		await t.mutation(api.esl.notes.upsert, {
+			classId: clilId,
+			date: '2025-09-01',
+			text: 'Revised plan.'
+		});
+
+		const rows = await t.run((ctx) =>
+			ctx.db
+				.query('teacher_notes')
+				.withIndex('by_class_teacher_date', (q) =>
+					q.eq('classId', clilId).eq('teacherId', teacherId).eq('date', '2025-09-01')
+				)
+				.collect()
+		);
+		expect(rows).toHaveLength(1);
+		expect(rows[0].text).toBe('Revised plan.');
+		expect(typeof rows[0].updatedAt).toBe('number');
+		expect(rows[0].updatedBy).toEqual(teacherId);
+	});
+
+	it('leaves clearing an absent note a quiet no-op', async () => {
+		const { t, clilId } = await setupNotesWorld();
+		asTeacher();
+
+		await expect(
+			t.mutation(api.esl.notes.clear, { classId: clilId, date: '2025-09-09' })
+		).resolves.toBeNull();
+		expect(await readNote(t, clilId, '2025-09-09')).toBeNull();
 	});
 });
