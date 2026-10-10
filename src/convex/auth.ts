@@ -140,6 +140,10 @@ export function extractStudentIdFromEmail(email: string): string | null {
 export const authComponent = createClient<DataModel>(components.betterAuth);
 type AuthCtx = QueryCtx | MutationCtx;
 export type AuthenticatedUserLike = {
+	departmentRoles?: {
+		international?: 'admin' | 'teacher';
+		esl?: 'admin' | 'teacher';
+	};
 	_id?: Id<'users'> | string;
 	id?: string;
 	authId?: string;
