@@ -6,6 +6,8 @@
 		ESL_EVENT_TITLES,
 		ESL_EXAM_TITLES,
 		ESL_PERIOD_NUMBERS,
+		isNoteHiddenForEventType,
+		isNoteRequiredForEventType,
 		isRangedEventType,
 		type EslEventTarget,
 		type EslEventType
@@ -126,6 +128,8 @@
 
 	const ranged = $derived(isRangedEventType(draft.type));
 	const partial = $derived(draft.type === 'partial');
+	const noteHidden = $derived(isNoteHiddenForEventType(draft.type));
+	const noteRequired = $derived(isNoteRequiredForEventType(draft.type));
 	const isTask = $derived(draft.type === 'task');
 	const isExam = $derived(draft.type === 'exam');
 	const lockedTitle = $derived(
@@ -154,6 +158,9 @@
 			draft.startPeriod = '';
 			draft.endPeriod = '';
 		}
+		// Banner-only types show no note field — switching onto one drops the
+		// now-meaningless text so a stale note cannot ride along on submit.
+		if (isNoteHiddenForEventType(next)) draft.note = '';
 		// Titles are locked per type and never derived from the note: fixed
 		// types snap to their locked title, exams keep a valid exam title or
 		// fall back to Exam 1, tasks start blank unless already typed there.
@@ -183,7 +190,7 @@
 			target: draft.target,
 			date: draft.date,
 			endDate: ranged && draft.endDate !== '' ? draft.endDate : undefined,
-			note: trimmedNote === '' ? undefined : trimmedNote,
+			...(noteHidden || trimmedNote === '' ? {} : { note: trimmedNote }),
 			startPeriod: partial ? parsedStart : undefined,
 			endPeriod: partial ? parsedEnd : undefined
 		});
@@ -238,7 +245,10 @@
 					aria-readonly="true"
 					class="rounded border bg-gray-50 px-2 py-1 text-sm text-gray-600"
 				/>
-				<span class="text-xs text-gray-500">Locked for this type — details go in the note.</span>
+				<span class="text-xs text-gray-500"
+					>Locked for this type{#if !noteHidden}
+						— details go in the note{/if}.</span
+				>
 			{/if}
 		</div>
 		<div class="flex flex-col gap-1">
@@ -313,17 +323,20 @@
 		{/if}
 	</div>
 
-	<div class="flex flex-col gap-1">
-		<Label for="event-form-note">Note</Label>
-		<textarea
-			id="event-form-note"
-			bind:value={draft.note}
-			disabled={busy}
-			rows="2"
-			placeholder="BBQ from 12:00 — collect permission slips"
-			class="rounded border px-2 py-1 text-sm"
-		></textarea>
-	</div>
+	{#if !noteHidden}
+		<div class="flex flex-col gap-1">
+			<Label for="event-form-note">Note</Label>
+			<textarea
+				id="event-form-note"
+				bind:value={draft.note}
+				disabled={busy}
+				required={noteRequired}
+				rows="2"
+				placeholder="BBQ from 12:00 — collect permission slips"
+				class="rounded border px-2 py-1 text-sm"
+			></textarea>
+		</div>
+	{/if}
 
 	{#if warning}
 		<p

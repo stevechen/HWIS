@@ -175,6 +175,26 @@ describe('esl/events.create', () => {
 			})
 		).rejects.toThrow(/partial/i);
 	});
+
+	it.each([
+		['start_school', 'Start at P3', '2025-09-01'],
+		['quiz', 'Quiz', '2025-09-02'],
+		['exam', 'Exam 1', '2025-10-16'],
+		['passport_due', 'Passport due', '2025-09-03'],
+		['recording_due', 'Recording due', '2025-09-04'],
+		['g9_mock', 'G9 Mock Exam', '2025-09-05']
+	] as const)('ignores the note for banner-only type %s', async (type, title, date) => {
+		const { t, semesterId } = await seededSemester();
+		const eventId = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type,
+			title,
+			note: 'should be dropped',
+			date
+		});
+		const event = await t.query(api.esl.events.get, { eventId });
+		expect(event.note).toBeUndefined();
+	});
 });
 
 describe('esl/events.update', () => {
@@ -283,6 +303,34 @@ describe('esl/events.update', () => {
 		await expect(t.mutation(api.esl.events.update, { eventId, note: 'Changed' })).rejects.toThrow(
 			/ESL admin/
 		);
+	});
+
+	it('ignores the note on update for a banner-only type', async () => {
+		const { t, semesterId } = await seededSemester();
+		const eventId = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'exam',
+			title: 'Exam 1',
+			date: '2025-10-16'
+		});
+		await t.mutation(api.esl.events.update, { eventId, note: 'should be dropped' });
+		const event = await t.query(api.esl.events.get, { eventId });
+		expect(event.note).toBeUndefined();
+	});
+
+	it('clears the note when an update retargets a row to a banner-only type', async () => {
+		const { t, semesterId } = await seededSemester();
+		const eventId = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'task',
+			title: 'Passport check',
+			note: 'Unit 3',
+			date: '2025-09-17'
+		});
+		await t.mutation(api.esl.events.update, { eventId, type: 'quiz', title: 'Quiz' });
+		const event = await t.query(api.esl.events.get, { eventId });
+		expect(event).toMatchObject({ type: 'quiz' });
+		expect(event.note).toBeUndefined();
 	});
 });
 
