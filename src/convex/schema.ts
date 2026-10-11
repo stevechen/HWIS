@@ -572,6 +572,13 @@ export default defineSchema({
 		isHoliday: v.boolean(),
 		/** Festival caption, e.g. `中秋節`, `端午節`, `補假` — empty otherwise. */
 		caption: v.string(),
+		/**
+		 * True when `caption` is outside the cleaned translation map, so a
+		 * human still owes it an English label (#208: stored verbatim,
+		 * flagged for manual translation). Absent on rows written before
+		 * the flag existed.
+		 */
+		needsTranslation: v.optional(v.boolean()),
 		/** When the row was fetched (ms), for staleness reads. */
 		fetchedAt: v.number()
 	})

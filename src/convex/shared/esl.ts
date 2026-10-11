@@ -2154,6 +2154,51 @@ export function findLunarOffCluster(
  * anywhere in this flow.
  */
 
+/**
+ * Cleaned festival-caption translations (ticket #208): one key per caption
+ * (the duplicated `端午節` is merged), with `春節→Chinese New Year` kept as
+ * the fallback the S1 defaults read. Captions outside this list are not
+ * dropped — `translateHolidayCaption` carries them verbatim and flags them
+ * for manual translation instead.
+ */
+export const HOLIDAY_CAPTION_TRANSLATIONS: Record<string, string> = {
+	開國紀念日: "New Year's Day",
+	補假: 'Compensatory day off',
+	和平紀念日: 'Peace Memorial Day',
+	兒童節及民族掃墓節: "Children's Day and Tomb-Sweeping Day",
+	兒童節: "Children's Day",
+	民族掃墓節: 'Tomb-Sweeping Day',
+	清明節: 'Tomb-Sweeping Day',
+	端午節: 'Dragon Boat Festival',
+	中秋節: 'Moon Festival',
+	國慶日: 'Double Tenth Day',
+	勞動節: 'Labor Day',
+	'孔子誕辰紀念日/教師節': "Teacher's Day",
+	教師節: "Teacher's Day",
+	臺灣光復暨金門古寧頭大捷紀念日: 'Retrocession Day',
+	行憲紀念日: 'Xmas',
+	小年夜: "Lunar New Year's Eve",
+	農曆除夕: "Lunar New Year's Eve",
+	春節: 'Chinese New Year'
+};
+
+/**
+ * English label for an official-calendar caption. Known captions translate
+ * through the cleaned map; unknown ones ride through verbatim with
+ * `needsTranslation: true` so the cache row is flagged for a human. Empty
+ * captions (workday rows) carry no note and need no flag.
+ */
+export function translateHolidayCaption(caption: string): {
+	english: string;
+	needsTranslation: boolean;
+} {
+	const trimmed = caption.trim();
+	if (trimmed === '') return { english: '', needsTranslation: false };
+	const english = HOLIDAY_CAPTION_TRANSLATIONS[trimmed];
+	if (english === undefined) return { english: trimmed, needsTranslation: true };
+	return { english, needsTranslation: false };
+}
+
 /** One parsed official-calendar row, in the cache's storage form. */
 export type HolidayCsvRow = {
 	/** Day in `YYYYMMDD` form, e.g. `20250101`. */

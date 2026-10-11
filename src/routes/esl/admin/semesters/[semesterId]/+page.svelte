@@ -6,7 +6,12 @@
 	import { Button } from '$lib/components/ui/button';
 	import { humanConvexErrorMessage } from '$lib/convex-error';
 	import { isProtectedSeedEvent } from '$convex/shared/esl';
-	import { derivedEndSource, semesterStatus, type SiblingSemester } from '$lib/esl-semesters';
+	import {
+		derivedEndSource,
+		semesterStatus,
+		semesterUploadYears,
+		type SiblingSemester
+	} from '$lib/esl-semesters';
 	import SemesterHeader from '$lib/components/esl/SemesterHeader.svelte';
 	import HolidayCsvUpload from '$lib/components/esl/HolidayCsvUpload.svelte';
 	import EventForm, { type EventFormInput } from '$lib/components/esl/EventForm.svelte';
@@ -199,7 +204,9 @@
 		/>
 
 		{#key selected._id}
-			<HolidayCsvUpload year={selected.startDate.slice(0, 4)} />
+			{#each semesterUploadYears(selected.term, selected.startDate) as uploadYear (uploadYear)}
+				<HolidayCsvUpload year={uploadYear} />
+			{/each}
 		{/key}
 
 		{#if notice}

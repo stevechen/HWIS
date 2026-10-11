@@ -267,6 +267,24 @@ describe('esl/seed.seed S1', () => {
 		});
 	});
 
+	it('uses the admin-typed fallback as unverified when the needed cache year is missing', async () => {
+		const { t, semesterId } = await adminSemester('S1', '2025-08-31');
+		// Only the wrong Gregorian year is cached — 2025, the lunar year
+		// this S1 resolves in, was never uploaded (#208: missing year).
+		await seedHolidayCache(t, '2024', [{ date: '20241017', isHoliday: true, caption: '中秋節' }]);
+		const result = await t.mutation(api.esl.seed.seed, {
+			semesterId,
+			examStarts: { exam1: '2025-10-13', exam2: '2025-11-17', final: '2026-01-19' },
+			moonFestivalDate: '2025-10-06'
+		});
+		expect(result.unresolvedLunar).toEqual([]);
+		const events = await t.query(api.esl.events.listBySemester, { semesterId });
+		expect(events.find((event) => event.note?.includes('Moon Festival'))).toMatchObject({
+			provenance: 'admin_typed',
+			unverified: true
+		});
+	});
+
 	it('reports unresolved lunar festivals when neither cache nor fallback gives a date', async () => {
 		const { t, semesterId } = await adminSemester('S1', '2025-08-31');
 		const result = await t.mutation(api.esl.seed.seed, {

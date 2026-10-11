@@ -9,9 +9,14 @@
 import { mutation, query } from '../_generated/server';
 import { v } from 'convex/values';
 import { requireEslAdmin } from '../auth';
-import { parseHolidayCsv } from '../shared/esl';
+import { parseHolidayCsv, translateHolidayCaption } from '../shared/esl';
 
-export { decodeHolidayBytes, parseHolidayCsv, type HolidayCsvRow } from '../shared/esl';
+export {
+	decodeHolidayBytes,
+	parseHolidayCsv,
+	translateHolidayCaption,
+	type HolidayCsvRow
+} from '../shared/esl';
 
 /** Validate a `YYYY` calendar-year argument. */
 function checkYear(year: string): void {
@@ -69,7 +74,9 @@ export const upload = mutation({
 				year: args.year,
 				date: row.date,
 				isHoliday: row.isHoliday,
+				// Verbatim caption; unknown ones ride flagged for a human (#208).
 				caption: row.caption,
+				needsTranslation: translateHolidayCaption(row.caption).needsTranslation,
 				fetchedAt
 			});
 		}
