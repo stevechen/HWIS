@@ -52,8 +52,8 @@ const CLASSES = [
 const EVENTS = [
 	{
 		_id: 'event_off',
-		type: 'off',
-		label: 'Moon Festival',
+		type: 'no_school',
+		title: 'Moon Festival',
 		target: 'all',
 		date: '2025-09-05',
 		note: 'BBQ logistics'
@@ -61,7 +61,7 @@ const EVENTS = [
 	{
 		_id: 'event_noclass',
 		type: 'no_class',
-		label: "Sport's Day",
+		title: "Sport's Day",
 		target: 'all',
 		date: '2025-09-08',
 		note: 'Bring water'
@@ -95,8 +95,8 @@ const DAY_ROWS: ScheduleDayRow[] = [
 		badges: ['due window 2025-09-01–2025-09-03'],
 		dues: [
 			{
-				label: 'Workbook check',
-				type: 'homework_due',
+				title: 'Workbook check',
+				type: 'task',
 				windowStart: '2025-09-01',
 				windowEnd: '2025-09-03'
 			}

@@ -4,20 +4,24 @@ import type { Doc, Id } from '../_generated/dataModel';
 import { requireEslAdmin, requireEslStaff } from '../auth';
 import {
 	assertValidEslEvent,
+	assertValidEslTitle,
 	describeEslEventError,
 	isProtectedSeedEvent,
+	migrateLegacyEslEvent,
 	type EslEventType
 } from '../shared/esl';
 
 const typeValidator = v.union(
-	v.literal('task_due'),
-	v.literal('homework_due'),
+	v.literal('start_school'),
 	v.literal('quiz'),
-	v.literal('off'),
+	v.literal('no_school'),
 	v.literal('no_class'),
 	v.literal('partial'),
 	v.literal('exam'),
-	v.literal('start_school')
+	v.literal('passport_due'),
+	v.literal('recording_due'),
+	v.literal('task'),
+	v.literal('g9_mock')
 );
 
 const targetValidator = v.union(
@@ -45,10 +49,10 @@ function occupiedDates(args: { date: string; endDate?: string }): string[] {
 }
 
 /**
- * Refuse a write that would break the views' exclusivity invariant: off and
- * exam days are exclusive — no other event may share one of their dates, and
- * no off/exam may land on an occupied date. Ranges are checked date by date,
- * so a due window crossing an exam day is refused with the date named.
+ * Refuse a write that would break the views' exclusivity invariant: no-school
+ * and exam days are exclusive — no other event may share one of their dates,
+ * and no no-school/exam may land on an occupied date. Ranges are checked date
+ * by date, so a due window crossing an exam day is refused with the date named.
  *
  * cost: 1 `by_semester_date` lookup per occupied date — the event's own span
  * (days), not the table.
@@ -68,7 +72,7 @@ export async function assertExclusive(
 		excludeId?: Id<'esl_events'>;
 	}
 ): Promise<void> {
-	const exclusive = args.type === 'off' || args.type === 'exam';
+	const exclusive = args.type === 'no_school' || args.type === 'exam';
 	for (const date of occupiedDates(args)) {
 		const occupants = await ctx.db
 			.query('esl_events')
@@ -81,14 +85,14 @@ export async function assertExclusive(
 		if (others.length === 0) continue;
 		const collision = exclusive
 			? others[0]
-			: others.find((event) => event.type === 'off' || event.type === 'exam');
+			: others.find((event) => event.type === 'no_school' || event.type === 'exam');
 		if (collision) {
 			const cause =
-				collision.type === 'off'
-					? `a day off (${collision.label})`
-					: `an exam (${collision.label})`;
+				collision.type === 'no_school'
+					? `a no-school day (${collision.title})`
+					: `an exam (${collision.title})`;
 			throw new Error(
-				`${date} already holds ${cause}. Off and exam days are exclusive — move one of them first.`
+				`${date} already holds ${cause}. No-school and exam days are exclusive — move one of them first.`
 			);
 		}
 	}
@@ -107,7 +111,7 @@ export const create = mutation({
 	args: {
 		semesterId: v.id('esl_semesters'),
 		type: typeValidator,
-		label: v.string(),
+		title: v.string(),
 		target: v.optional(targetValidator),
 		date: v.string(),
 		endDate: v.optional(v.string()),
@@ -124,8 +128,9 @@ export const create = mutation({
 		const semester = await ctx.db.get(args.semesterId);
 		if (!semester) throw new Error('Semester not found');
 
-		const label = args.label.trim();
-		if (label === '') throw new Error('An event label is required.');
+		const title = args.title.trim();
+		const titleError = assertValidEslTitle(args.type, title);
+		if (titleError) throw new Error(describeEslEventError(titleError));
 
 		const fieldError = assertValidEslEvent({
 			type: args.type,
@@ -160,7 +165,7 @@ export const create = mutation({
 		return await ctx.db.insert('esl_events', {
 			semesterId: args.semesterId,
 			type: args.type,
-			label,
+			title,
 			target: args.target ?? 'all',
 			date: args.date,
 			...(args.endDate === undefined ? {} : { endDate: args.endDate }),
@@ -203,7 +208,7 @@ export const update = mutation({
 	args: {
 		eventId: v.id('esl_events'),
 		type: v.optional(typeValidator),
-		label: v.optional(v.string()),
+		title: v.optional(v.string()),
 		target: v.optional(targetValidator),
 		date: v.optional(v.string()),
 		endDate: v.optional(v.string()),
@@ -221,10 +226,11 @@ export const update = mutation({
 		const event = await ctx.db.get(args.eventId);
 		if (!event) throw new Error('Event not found');
 
-		const label = args.label === undefined ? event.label : args.label.trim();
-		if (label === '') throw new Error('An event label is required.');
-
 		const type = args.type ?? event.type;
+		const title = args.title === undefined ? event.title : args.title.trim();
+		const titleError = assertValidEslTitle(type, title);
+		if (titleError) throw new Error(describeEslEventError(titleError));
+
 		const date = args.date ?? event.date;
 		const endDate = args.clearEndDate === true ? undefined : (args.endDate ?? event.endDate);
 		const startPeriod =
@@ -256,7 +262,7 @@ export const update = mutation({
 
 		await ctx.db.patch(args.eventId, {
 			type,
-			label,
+			title,
 			target: args.target ?? event.target,
 			date,
 			...(endDate === undefined ? { endDate: undefined } : { endDate }),
@@ -286,7 +292,7 @@ export const remove = mutation({
 		if (!event) throw new Error('Event not found');
 		if (isProtectedSeedEvent(event)) {
 			throw new Error(
-				`${event.label} is protected against deletion — exams and the ceremony anchor the semester. Move it instead.`
+				`${event.title} is protected against deletion — exams and the ceremony anchor the semester. Move it instead.`
 			);
 		}
 		await ctx.db.delete(args.eventId);
@@ -307,6 +313,68 @@ export const listBySemester = query({
 			.query('esl_events')
 			.withIndex('by_semester', (q) => q.eq('semesterId', args.semesterId))
 			.collect();
-		return events.sort((a, b) => a.date.localeCompare(b.date) || a.label.localeCompare(b.label));
+		return events.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
+	}
+});
+
+/**
+ * One-time v3 migration (#210): `homework_due` rows become `task`,
+ * `task_due` becomes `task`, `off` becomes `no_school`, and every row's
+ * legacy `label` becomes the explicit `title` (see `migrateLegacyEslEvent`
+ * for the mapping).
+ *
+ * Admin-only and idempotent: re-running reports zero migrated rows.
+ *
+ * cost: 1 full take of `esl_events` (tens of rows per semester) + 1 patch
+ * per row that still needs it.
+ */
+export const migrateToV3 = mutation({
+	args: {},
+	handler: async (ctx) => {
+		await requireEslAdmin(ctx);
+
+		const events = await ctx.db.query('esl_events').collect();
+		let migrated = 0;
+		const skipped: string[] = [];
+		for (const event of events) {
+			// Pre-v3 rows predate the `title` field, so read the legacy shape
+			// through an unknown-narrowed view rather than the v3 document.
+			const legacy = event as unknown as {
+				type: string;
+				title?: unknown;
+				label?: unknown;
+				note?: unknown;
+			};
+			const rawTitle =
+				typeof legacy.title === 'string' && legacy.title.trim() !== ''
+					? legacy.title.trim()
+					: typeof legacy.label === 'string'
+						? legacy.label.trim()
+						: '';
+			const rawNote = typeof legacy.note === 'string' ? legacy.note : undefined;
+			const mapped = migrateLegacyEslEvent({
+				type: legacy.type,
+				label: rawTitle,
+				...(rawNote === undefined ? {} : { note: rawNote })
+			});
+			if (mapped === null) {
+				skipped.push(`${event._id} (unknown type ${legacy.type})`);
+				continue;
+			}
+			if (
+				legacy.type === mapped.type &&
+				rawTitle === mapped.title &&
+				(rawNote ?? undefined) === (mapped.note ?? undefined)
+			) {
+				continue;
+			}
+			await ctx.db.patch(event._id, {
+				type: mapped.type,
+				title: mapped.title,
+				...(mapped.note === undefined ? { note: undefined } : { note: mapped.note })
+			});
+			migrated += 1;
+		}
+		return { total: events.length, migrated, skipped };
 	}
 });

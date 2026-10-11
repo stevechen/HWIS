@@ -67,7 +67,7 @@ export function buildScheduleTsv(
 		const countdown = countdownText(row);
 		const date = row.date;
 		const description = descriptionText(row, classNames).replace(/\t/g, ' ').replace(/\n/g, ' ');
-		// Find event note by matching cause to event label (eventNotes is label -> note)
+		// Find event note by matching cause to event title (eventNotes is title -> note)
 		let note = '';
 		if (row.cause && eventNotes[row.cause]) {
 			note = eventNotes[row.cause];
@@ -80,15 +80,15 @@ export function buildScheduleTsv(
 
 /**
  * Builds event note map from events array for efficient lookup.
- * Maps event label to note for matching with row causes.
+ * Maps event title to note for matching with row causes.
  */
 export function buildEventNoteMap(
-	events: Array<{ _id: string; label: string; note?: string }>
+	events: Array<{ _id: string; title: string; note?: string }>
 ): Record<string, string> {
 	const map: Record<string, string> = {};
 	for (const event of events) {
 		if (event.note) {
-			map[event.label] = event.note;
+			map[event.title] = event.note;
 		}
 	}
 	return map;

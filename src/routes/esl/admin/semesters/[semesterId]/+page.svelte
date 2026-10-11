@@ -97,7 +97,7 @@
 			.mutation(api.esl.events.update, {
 				eventId,
 				type: input.type,
-				label: input.label,
+				title: input.title,
 				target: input.target,
 				date: input.date,
 				...(input.endDate === undefined ? { clearEndDate: true } : { endDate: input.endDate }),
@@ -249,7 +249,7 @@
 										{event.target}
 									</span>
 								{/if}
-								<span class="text-sm">{event.label}</span>
+								<span class="text-sm">{event.title}</span>
 								{#if event.startPeriod !== undefined || event.endPeriod !== undefined}
 									<span class="text-xs text-gray-500">
 										P{event.startPeriod ?? '…'}–P{event.endPeriod ?? '…'}
@@ -293,7 +293,7 @@
 											<Button
 												size="sm"
 												variant="outline"
-												aria-label={`Edit ${event.label}`}
+												aria-label={`Edit ${event.title}`}
 												disabled={editBusy}
 												onclick={() => {
 													editingId = event._id;
@@ -305,7 +305,7 @@
 											<Button
 												size="sm"
 												variant="outline"
-												aria-label={`Delete ${event.label}`}
+												aria-label={`Delete ${event.title}`}
 												disabled={deleteBusy}
 												onclick={() => (pendingDeleteId = event._id)}
 											>
@@ -316,7 +316,7 @@
 										<Button
 											size="sm"
 											variant="outline"
-											aria-label={`Edit ${event.label}`}
+											aria-label={`Edit ${event.title}`}
 											disabled={editBusy}
 											onclick={() => {
 												editingId = event._id;
@@ -342,7 +342,7 @@
 											serverError={editError}
 											initial={{
 												type: event.type,
-												label: event.label,
+												title: event.title,
 												target: event.target,
 												date: event.date,
 												endDate: event.endDate,

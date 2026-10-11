@@ -463,23 +463,27 @@ export default defineSchema({
 		.index('by_e2eTag', ['e2eTag']),
 
 	/**
-	 * A typed school event inside a semester: off vs no-class vs partial vs
-	 * exam vs dues, each with the schedule effect the teacher views assume.
+	 * A typed school event inside a semester: no-school vs no-class vs
+	 * partial vs exam vs dues, each with the schedule effect the teacher
+	 * views assume. Every row carries an explicit `title` (chip/banner text)
+	 * plus a separate `note` (detail line) — never derived from each other.
 	 */
 	esl_events: defineTable({
 		semesterId: v.id('esl_semesters'),
 		type: v.union(
-			v.literal('task_due'),
-			v.literal('homework_due'),
+			v.literal('start_school'),
 			v.literal('quiz'),
-			v.literal('off'),
+			v.literal('no_school'),
 			v.literal('no_class'),
 			v.literal('partial'),
 			v.literal('exam'),
-			v.literal('start_school')
+			v.literal('passport_due'),
+			v.literal('recording_due'),
+			v.literal('task'),
+			v.literal('g9_mock')
 		),
-		/** Display label, e.g. `Exam 1`, `Final exam`, `Passport check`. */
-		label: v.string(),
+		/** Explicit chip/banner title: locked per type, free text on tasks. */
+		title: v.string(),
 		/**
 		 * Which classes this event affects. `all` reaches every teacher;
 		 * G10 has no target of its own and sees `all` events only.
@@ -488,8 +492,8 @@ export default defineSchema({
 		/** The date (`YYYY-MM-DD`), or the range start for due-types. */
 		date: v.string(),
 		/**
-		 * Inclusive range end, due-types only (task/homework/quiz reminder
-		 * ranges). Absent on every single-date type.
+		 * Inclusive range end, due-types only (task/quiz/passport/recording
+		 * reminder ranges). Absent on every single-date type.
 		 */
 		endDate: v.optional(v.string()),
 		/** Free-form note, e.g. BBQ logistics or collection reminders. */

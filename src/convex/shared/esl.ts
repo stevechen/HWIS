@@ -1000,31 +1000,114 @@ export function isEslSemesterTerm(term: string): term is EslSemesterTerm {
 }
 
 /**
- * The eight typed school events an admin can place on a semester.
+ * The ten typed school events an admin can place on a semester (v3, #210).
  *
- * `off` means absent (school closed, the day is gone); `no_class` means
- * present but free (assembly, Sport's Day — meetings keep their rows, greyed).
- * `partial` is a late start / early end with optional period bounds.
- * `exam` anchors term boundaries and the derived semester end.
- * `task_due` / `homework_due` / `quiz` are the only ranged types (reminder
- * windows collapsing to the latest eligible class day in the views).
- * `start_school` is a first-day marker only.
+ * `no_school` means absent (school closed, the day is gone); `no_class`
+ * means present but free (assembly, Sport's Day — meetings keep their rows,
+ * greyed). `partial` is a late start / early end with optional period
+ * bounds. `exam` anchors term boundaries and the derived semester end.
+ * `task` / `quiz` / `passport_due` / `recording_due` are the only ranged
+ * types (reminder windows collapsing to the latest eligible class day in
+ * the views). `start_school` is a first-day marker only. `g9_mock` is a
+ * G9-only mock exam marker (single-date, like an exam but anchoring
+ * nothing).
  */
 export const ESL_EVENT_TYPES = [
-	'task_due',
-	'homework_due',
+	'start_school',
 	'quiz',
-	'off',
+	'no_school',
 	'no_class',
 	'partial',
 	'exam',
-	'start_school'
+	'passport_due',
+	'recording_due',
+	'task',
+	'g9_mock'
 ] as const;
 export type EslEventType = (typeof ESL_EVENT_TYPES)[number];
 
-/** Whether a string names one of the eight event types. */
+/** Whether a string names one of the ten event types. */
 export function isEslEventType(type: string): type is EslEventType {
 	return (ESL_EVENT_TYPES as readonly string[]).includes(type);
+}
+
+/**
+ * The locked chip/banner title per fixed event type (#210). Only `task`
+ * takes a free-text title (required, always the banner); `exam` takes one
+ * of `ESL_EXAM_TITLES`. Titles are explicit and never derived from notes.
+ */
+export const ESL_EVENT_TITLES = {
+	start_school: 'Start at P3',
+	quiz: 'Quiz',
+	no_school: 'Off',
+	no_class: 'No class',
+	partial: 'No class',
+	passport_due: 'Passport due',
+	recording_due: 'Recording due',
+	g9_mock: 'G9 Mock Exam'
+} as const;
+
+/** The three locked exam titles — the exam dropdown options. */
+export const ESL_EXAM_TITLES = ['Exam 1', 'Exam 2', 'Final Exam'] as const;
+
+/** Pre-v3 event types and where they land in the v3 union (#210). */
+const V3_TYPE_MIGRATION: Record<string, EslEventType> = {
+	start_school: 'start_school',
+	quiz: 'quiz',
+	no_school: 'no_school',
+	off: 'no_school',
+	no_class: 'no_class',
+	partial: 'partial',
+	exam: 'exam',
+	passport_due: 'passport_due',
+	recording_due: 'recording_due',
+	task: 'task',
+	task_due: 'task',
+	homework_due: 'task',
+	g9_mock: 'g9_mock'
+};
+
+/** Canonicalise a legacy exam title onto the locked set, case-insensitively. */
+function canonicalExamTitle(raw: string): string | null {
+	const found = ESL_EXAM_TITLES.find((locked) => locked.toLowerCase() === raw.trim().toLowerCase());
+	return found ?? null;
+}
+
+/**
+ * Map one pre-v3 event row onto the v3 model, or null when its type is
+ * unknown. `homework_due` rows become `task`, `task_due` becomes `task`,
+ * `off` becomes `no_school`; the legacy display text becomes the explicit
+ * `title` — locked per type, with displaced text preserved in `note`
+ * (task rows keep their free-text title).
+ *
+ * Pure so the migration mutation stays a thin applier and the mapping stays
+ * unit-testable.
+ */
+export function migrateLegacyEslEvent(input: {
+	type: string;
+	label: string;
+	note?: string;
+}): { type: EslEventType; title: string; note?: string } | null {
+	const mappedType = V3_TYPE_MIGRATION[input.type];
+	if (mappedType === undefined) return null;
+	const rawLabel = input.label.trim();
+	if (mappedType === 'task') return { type: mappedType, title: rawLabel, note: input.note };
+	if (mappedType === 'exam') {
+		const canonical = canonicalExamTitle(rawLabel);
+		if (canonical !== null) return { type: mappedType, title: canonical, note: input.note };
+		return {
+			type: mappedType,
+			title: 'Exam 1',
+			note: rawLabel === '' ? input.note : `${rawLabel}${input.note ? ` — ${input.note}` : ''}`
+		};
+	}
+	const locked: string = ESL_EVENT_TITLES[mappedType];
+	if (rawLabel === locked) return { type: mappedType, title: locked, note: input.note };
+	return {
+		type: mappedType,
+		title: locked,
+		note: rawLabel === '' ? input.note : `${rawLabel}${input.note ? ` — ${input.note}` : ''}`
+	};
 }
 
 /**
@@ -1042,7 +1125,12 @@ export function isEslEventTarget(target: string): target is EslEventTarget {
 }
 
 /** The ranged due-types: the only types that may carry an inclusive endDate. */
-export const ESL_RANGED_EVENT_TYPES: readonly EslEventType[] = ['task_due', 'homework_due', 'quiz'];
+export const ESL_RANGED_EVENT_TYPES: readonly EslEventType[] = [
+	'task',
+	'quiz',
+	'passport_due',
+	'recording_due'
+];
 
 /** Whether an event type takes an inclusive endDate range. */
 export function isRangedEventType(type: EslEventType): boolean {
@@ -1075,8 +1163,21 @@ export type EslEventValidationError =
 	| { kind: 'rangeOrder'; date: string; endDate: string }
 	| { kind: 'badPeriod'; period: number }
 	| { kind: 'boundsNotAllowed'; type: EslEventType }
-	| { kind: 'boundsOrder'; startPeriod: number; endPeriod: number };
+	| { kind: 'boundsOrder'; startPeriod: number; endPeriod: number }
+	| { kind: 'emptyTitle'; type: EslEventType }
+	| { kind: 'lockedTitle'; type: EslEventType; expected: readonly string[] };
 
+/** Check an event's title: free text (required) on task, locked elsewhere. */
+export function assertValidEslTitle(
+	type: EslEventType,
+	title: string
+): EslEventValidationError | null {
+	if (type === 'task') {
+		return title.trim() === '' ? { kind: 'emptyTitle', type } : null;
+	}
+	const expected: readonly string[] = type === 'exam' ? ESL_EXAM_TITLES : [ESL_EVENT_TITLES[type]];
+	return expected.includes(title) ? null : { kind: 'lockedTitle', type, expected };
+}
 /** Check an event's own fields, or null when they are sound. */
 export function assertValidEslEvent(input: {
 	type: EslEventType;
@@ -1123,7 +1224,7 @@ export function describeEslEventError(error: EslEventValidationError): string {
 		case 'badEndDate':
 			return `${error.endDate} is not a valid date. Use YYYY-MM-DD.`;
 		case 'rangeNotAllowed':
-			return `Only task dues, homework dues, and quizzes take a date range.`;
+			return `Only tasks, quizzes, passport dues, and recording dues take a date range.`;
 		case 'rangeOrder':
 			return `The range end ${error.endDate} is before its start ${error.date}.`;
 		case 'badPeriod':
@@ -1132,6 +1233,14 @@ export function describeEslEventError(error: EslEventValidationError): string {
 			return `Only partial days take start-from / end-at periods.`;
 		case 'boundsOrder':
 			return `The partial starts at P${error.startPeriod} but ends at P${error.endPeriod}.`;
+		case 'emptyTitle':
+			return `A task needs its own title — the banner always shows it.`;
+		case 'lockedTitle':
+			return (
+				'That type always shows ' +
+				error.expected.map((title) => `"${title}"`).join(' or ') +
+				' — put the details in the note instead.'
+			);
 	}
 }
 
@@ -1451,7 +1560,8 @@ export type ScheduleMeetingInput = {
 /** One semester event as the query reads it. */
 export type ScheduleEventInput = {
 	type: EslEventType;
-	label: string;
+	/** The explicit chip/banner title — never derived from the note. */
+	title: string;
 	target: EslEventTarget;
 	date: string;
 	endDate?: string;
@@ -1460,10 +1570,10 @@ export type ScheduleEventInput = {
 	endPeriod?: number;
 };
 
-/** A due collapsed onto a day row: the label plus its reminder window. */
+/** A due collapsed onto a day row: the title plus its reminder window. */
 export type ScheduleDue = {
-	label: string;
-	type: 'task_due' | 'homework_due' | 'quiz';
+	title: string;
+	type: 'task' | 'quiz' | 'passport_due' | 'recording_due';
 	windowStart: string;
 	windowEnd: string;
 };
@@ -1547,7 +1657,7 @@ function isEslActiveDay(args: {
 		(event) =>
 			event.date === args.date && eventReachesClass(event.target, args.type, args.cohortGrade)
 	);
-	if (sameDay.some((event) => event.type === 'off' || event.type === 'exam')) return false;
+	if (sameDay.some((event) => event.type === 'no_school' || event.type === 'exam')) return false;
 	if (sameDay.some((event) => event.type === 'no_class')) return false;
 	const meeting = args.meetings.find(
 		(m) =>
@@ -1582,11 +1692,11 @@ function resolveEslDayStatus(args: {
 			eventReachesClass(event.target, args.meeting.type, args.meeting.cohortGrade)
 	);
 	const exam = dayEvents.find((event) => event.type === 'exam');
-	if (exam) return { status: 'exam', cause: exam.label, badges: [] };
-	const off = dayEvents.find((event) => event.type === 'off');
-	if (off) return { status: 'off', cause: off.label, badges: [] };
+	if (exam) return { status: 'exam', cause: exam.title, badges: [] };
+	const off = dayEvents.find((event) => event.type === 'no_school');
+	if (off) return { status: 'off', cause: off.title, badges: [] };
 	const noClass = dayEvents.find((event) => event.type === 'no_class');
-	if (noClass) return { status: 'no_class', cause: noClass.label, badges: [] };
+	if (noClass) return { status: 'no_class', cause: noClass.title, badges: [] };
 
 	const partial = dayEvents.find((event) => event.type === 'partial');
 	const outOfWindow =
@@ -1597,7 +1707,7 @@ function resolveEslDayStatus(args: {
 	if (outOfWindow && partial) {
 		return {
 			status: 'partial',
-			cause: partial.label,
+			cause: partial.title,
 			badges: [
 				`out-of-window P${args.meeting.period} (window${partial.startPeriod !== undefined ? ` from P${partial.startPeriod}` : ''}${partial.endPeriod !== undefined ? ` to P${partial.endPeriod}` : ''})`
 			]
@@ -1628,26 +1738,27 @@ function resolveEslDayStatus(args: {
 				}
 			}
 			if (!laterActive) {
-				const badges = [`oral ahead of ${target.label}`];
-				if (partial) return { status: 'oral_exam', cause: partial.label, badges };
+				const badges = [`oral ahead of ${target.title}`];
+				if (partial) return { status: 'oral_exam', cause: partial.title, badges };
 				return {
 					status: 'oral_exam',
-					cause: `Oral exam ahead of ${target.label}`,
+					cause: `Oral exam ahead of ${target.title}`,
 					badges
 				};
 			}
 		}
 	}
 
-	if (partial) return { status: 'partial', cause: partial.label, badges: [] };
+	if (partial) return { status: 'partial', cause: partial.title, badges: [] };
 	return { status: 'teaching', cause: null, badges: [] };
 }
 
 /**
  * The graduation ceremony anchoring G9-in-S2 counts: the no_class+G9 event
- * whose label names it. Other no-class events (Sport's Day, anniversary)
- * never anchor a count — G9 mocks are no_class+G9 by the term-calculation
- * safety rule, so label matching is what separates the cutoff from a mock.
+ * naming it in its title or note. Other no-class events (Sport's Day,
+ * anniversary) never anchor a count — G9 mocks are g9_mock-typed by the
+ * term-calculation safety rule, so ceremony matching never mistakes a mock
+ * for the cutoff.
  */
 function g9CeremonyOf(events: readonly ScheduleEventInput[]): ScheduleEventInput | null {
 	const ceremony = events
@@ -1655,7 +1766,7 @@ function g9CeremonyOf(events: readonly ScheduleEventInput[]): ScheduleEventInput
 			(event) =>
 				event.type === 'no_class' &&
 				event.target === 'G9' &&
-				/graduation|ceremony/i.test(event.label)
+				/graduation|ceremony/i.test(`${event.title} ${event.note ?? ''}`)
 		)
 		.sort((a, b) => a.date.localeCompare(b.date))[0];
 	return ceremony ?? null;
@@ -1698,13 +1809,13 @@ function countEslActiveDays(args: {
 /**
  * Build the teacher's day rows for a date range.
  *
- * Collapse: each ranged due (task_due/homework_due/quiz) lands once, on the
- * latest active class day inside its window; earlier occurrences are stripped
- * (dues only attach to the collapse target), and a window with no active day
- * lands nowhere. Count-ups run per term toward Exam 1 / Exam 2 / Final exam
- * as `Class k/n to <label>`, with G9-in-S2 anchored on the graduation
- * ceremony; rows past the final anchor carry no count (also the finals-TBD
- * state before any exam exists).
+ * Collapse: each ranged due (task/quiz/passport_due/recording_due) lands
+ * once, on the latest active class day inside its window; earlier
+ * occurrences are stripped (dues only attach to the collapse target), and a
+ * window with no active day lands nowhere. Count-ups run per term toward
+ * Exam 1 / Exam 2 / Final Exam as `Class k/n to <label>`, with G9-in-S2
+ * anchored on the graduation ceremony; rows past the final anchor carry no
+ * count (also the finals-TBD state before any exam exists).
  */
 export function buildTeacherDayRows(args: {
 	meetings: readonly ScheduleMeetingInput[];
@@ -1722,7 +1833,7 @@ export function buildTeacherDayRows(args: {
 
 	const exams = args.events
 		.filter((event) => event.type === 'exam' && event.date >= args.semesterStart)
-		.sort((a, b) => a.date.localeCompare(b.date) || a.label.localeCompare(b.label));
+		.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
 	const ceremony = args.term === 'S2' ? g9CeremonyOf(args.events) : null;
 	const rows: ScheduleDayRow[] = [];
 	for (let date = start; date <= end; date = nextEslDate(date)) {
@@ -1762,7 +1873,7 @@ export function buildTeacherDayRows(args: {
 					from: args.semesterStart,
 					to: ceremony.date
 				});
-				count = { position, total, label: ceremony.label };
+				count = { position, total, label: ceremony.note ?? ceremony.title };
 			} else {
 				const reached = exams.filter((exam) =>
 					eventReachesClass(exam.target, meeting.type, meeting.cohortGrade)
@@ -1800,7 +1911,7 @@ export function buildTeacherDayRows(args: {
 						from: windowFrom,
 						to: upcoming.date
 					});
-					count = { position, total, label: upcoming.label };
+					count = { position, total, label: upcoming.title };
 				}
 			}
 
@@ -1821,7 +1932,12 @@ export function buildTeacherDayRows(args: {
 	}
 
 	for (const event of args.events) {
-		if (event.type !== 'task_due' && event.type !== 'homework_due' && event.type !== 'quiz')
+		if (
+			event.type !== 'task' &&
+			event.type !== 'quiz' &&
+			event.type !== 'passport_due' &&
+			event.type !== 'recording_due'
+		)
 			continue;
 		const windowEnd = event.endDate ?? event.date;
 		for (const row of rows) {
@@ -1857,7 +1973,7 @@ export function buildTeacherDayRows(args: {
 			);
 			if (laterExists) continue;
 			row.dues.push({
-				label: event.label,
+				title: event.title,
 				type: event.type,
 				windowStart: event.date,
 				windowEnd
@@ -1890,7 +2006,7 @@ export function buildTeacherDayRows(args: {
 export const EXAM_SEED_WEEKDAYS: Readonly<Record<string, number>> = {
 	'Exam 1': 2,
 	'Exam 2': 2,
-	'Final exam': 3
+	'Final Exam': 3
 };
 
 /** G9 mocks are fixed two-day ranges (#184 resolution). */
@@ -1947,14 +2063,18 @@ export function fridayBeforeDate(date: string): string {
 /** Whether a seeded row is protected against deletion: exams + ceremony. */
 export function isProtectedSeedEvent(event: {
 	type: EslEventType;
-	label: string;
+	title: string;
 	target?: EslEventTarget;
+	note?: string;
 }): boolean {
 	if (event.type === 'exam') return true;
 	// The S2 G9 cutoff — the same anchor `teacherDays` reads through
-	// `/graduation|ceremony/i` on no_class+G9 rows.
+	// `/graduation|ceremony/i` on no_class+G9 rows (title or note: titles
+	// are locked, so the ceremony names itself in the note).
 	return (
-		event.type === 'no_class' && event.target === 'G9' && /graduation|ceremony/i.test(event.label)
+		event.type === 'no_class' &&
+		event.target === 'G9' &&
+		/graduation|ceremony/i.test(`${event.title} ${event.note ?? ''}`)
 	);
 }
 

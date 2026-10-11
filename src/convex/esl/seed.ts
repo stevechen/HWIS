@@ -4,9 +4,11 @@ import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { requireEslAdmin } from '../auth';
 import {
+	ESL_EVENT_TITLES,
 	EXAM_SEED_WEEKDAYS,
 	G9_MOCK_SEED_DAYS,
 	assertValidEslEvent,
+	assertValidEslTitle,
 	describeEslEventError,
 	findLunarOffDays,
 	fridayBeforeDate,
@@ -33,9 +35,10 @@ import { assertExclusive } from './events';
  */
 
 const dueTypeValidator = v.union(
-	v.literal('task_due'),
-	v.literal('homework_due'),
-	v.literal('quiz')
+	v.literal('task'),
+	v.literal('quiz'),
+	v.literal('passport_due'),
+	v.literal('recording_due')
 );
 
 const targetValidator = v.union(
@@ -48,7 +51,7 @@ const targetValidator = v.union(
 /** One draft row: the template's structure with its dates resolved. */
 type SeedDraft = {
 	type: EslEventType;
-	label: string;
+	title: string;
 	target: EslEventTarget;
 	date: string;
 	endDate?: string;
@@ -61,8 +64,8 @@ type SeedDraft = {
 
 /** The lunar festival each term resolves: Moon in S1's fall, Dragon Boat in S2's spring. */
 const LUNAR_BY_TERM = {
-	S1: { label: 'Moon Festival', caption: '中秋節' },
-	S2: { label: 'Dragon Boat Festival', caption: '端午節' }
+	S1: { name: 'Moon Festival', caption: '中秋節' },
+	S2: { name: 'Dragon Boat Festival', caption: '端午節' }
 } as const;
 
 /** The calendar year a term's lunar dates resolve in: S1's fall vs S2's spring. */
@@ -83,14 +86,14 @@ function checkDate(date: string): void {
  * editable suggestion — and a suggestion that collides is skipped with a
  * report rather than failing the whole seed.
  */
-function makeupDraftFor(label: string, date: string): SeedDraft | null {
+function makeupDraftFor(occasion: string, date: string): SeedDraft | null {
 	if (!isWeekendEslDate(date)) return null;
 	return {
-		type: 'off',
-		label: `${label} (makeup)`,
+		type: 'no_school',
+		title: ESL_EVENT_TITLES.no_school,
 		target: 'all',
 		date: fridayBeforeDate(date),
-		note: `Suggested makeup for ${label} on ${date}, which falls on a weekend — adjust as needed.`
+		note: `Suggested makeup for ${occasion} on ${date}, which falls on a weekend — adjust as needed.`
 	};
 }
 
@@ -125,13 +128,13 @@ export const seed = mutation({
 		moonFestivalDate: v.optional(v.string()),
 		dragonBoatDate: v.optional(v.string()),
 		extraOffs: v.optional(
-			v.array(v.object({ date: v.string(), label: v.string(), note: v.optional(v.string()) }))
+			v.array(v.object({ date: v.string(), name: v.string(), note: v.optional(v.string()) }))
 		),
 		dueWindows: v.optional(
 			v.array(
 				v.object({
 					type: dueTypeValidator,
-					label: v.string(),
+					title: v.string(),
 					target: v.optional(targetValidator),
 					date: v.string(),
 					endDate: v.optional(v.string()),
@@ -157,28 +160,28 @@ export const seed = mutation({
 		}
 
 		const drafts: SeedDraft[] = [];
-		const makeupOf = new Map<SeedDraft, { forDate: string; label: string }>();
-		const trackMakeup = (draft: SeedDraft, forDate: string, label: string) => {
+		const makeupOf = new Map<SeedDraft, { forDate: string; name: string }>();
+		const trackMakeup = (draft: SeedDraft, forDate: string, name: string) => {
 			drafts.push(draft);
-			makeupOf.set(draft, { forDate, label });
+			makeupOf.set(draft, { forDate, name });
 		};
 
 		// Exams first, so an off day colliding with a range surfaces under the
 		// exclusivity rule instead of silently preceding it.
-		const examStarts: { label: 'Exam 1' | 'Exam 2' | 'Final exam'; start?: string }[] = [
-			{ label: 'Exam 1', start: args.examStarts?.exam1 },
-			{ label: 'Exam 2', start: args.examStarts?.exam2 },
-			{ label: 'Final exam', start: args.examStarts?.final }
+		const examStarts: { title: 'Exam 1' | 'Exam 2' | 'Final Exam'; start?: string }[] = [
+			{ title: 'Exam 1', start: args.examStarts?.exam1 },
+			{ title: 'Exam 2', start: args.examStarts?.exam2 },
+			{ title: 'Final Exam', start: args.examStarts?.final }
 		];
 		for (const exam of examStarts) {
 			if (exam.start === undefined) continue;
 			checkDate(exam.start);
-			const count = EXAM_SEED_WEEKDAYS[exam.label] ?? 2;
+			const count = EXAM_SEED_WEEKDAYS[exam.title] ?? 2;
 			const dates = weekdayDatesBetween(exam.start, suggestExamEndDate(exam.start, count));
 			dates.forEach((date, index) => {
 				drafts.push({
 					type: 'exam',
-					label: exam.label,
+					title: exam.title,
 					target: 'all',
 					date,
 					note: `Day ${index + 1} of ${dates.length}`
@@ -187,19 +190,21 @@ export const seed = mutation({
 		}
 
 		// Start-day partial on the semester anchor, from P3 (#184 seed set).
+		// The title is locked (`No class`); the occasion names itself in the note.
 		drafts.push({
 			type: 'partial',
-			label: `First day of ${semester.term}`,
+			title: ESL_EVENT_TITLES.partial,
 			target: 'all',
 			date: semester.startDate,
-			startPeriod: 3
+			startPeriod: 3,
+			note: `First day of ${semester.term}`
 		});
 
 		if (args.bbqDate !== undefined) {
 			checkDate(args.bbqDate);
 			drafts.push({
 				type: 'partial',
-				label: 'BBQ',
+				title: ESL_EVENT_TITLES.partial,
 				target: 'all',
 				date: args.bbqDate,
 				endPeriod: 4,
@@ -211,33 +216,35 @@ export const seed = mutation({
 			checkDate(args.sportsDayDate);
 			drafts.push({
 				type: 'no_class',
-				label: "Sport's Day",
+				title: ESL_EVENT_TITLES.no_class,
 				target: 'all',
-				date: args.sportsDayDate
+				date: args.sportsDayDate,
+				note: "Sport's Day"
 			});
 		}
 
 		if (args.ceremonyDate !== undefined) {
 			checkDate(args.ceremonyDate);
-			// The label must keep matching /graduation|ceremony/i — the S2 G9
-			// cutoff `teacherDays` anchors on.
+			// The note must keep matching /graduation|ceremony/i — the S2 G9
+			// cutoff `teacherDays` anchors on (titles are locked).
 			drafts.push({
 				type: 'no_class',
-				label: 'Graduation ceremony',
+				title: ESL_EVENT_TITLES.no_class,
 				target: 'G9',
-				date: args.ceremonyDate
+				date: args.ceremonyDate,
+				note: 'Graduation ceremony'
 			});
 		}
 
 		for (const mockStart of args.g9MockStarts ?? []) {
 			checkDate(mockStart);
-			// Fixed two-day no_class+G9 ranges — never exam-typed, so the term
+			// Fixed two-day g9_mock+G9 ranges — never exam-typed, so the term
 			// calculation stays safe (#184 constraints).
 			const [first, second] = [mockStart, nextCalendarDate(mockStart)];
 			[first, second].forEach((date, index) => {
 				drafts.push({
-					type: 'no_class',
-					label: 'G9 mock',
+					type: 'g9_mock',
+					title: ESL_EVENT_TITLES.g9_mock,
 					target: 'G9',
 					date,
 					note: `Day ${index + 1} of ${G9_MOCK_SEED_DAYS}`
@@ -256,14 +263,20 @@ export const seed = mutation({
 					`The spring break end ${args.springBreakEnd} is before its start ${args.springBreakStart}.`
 				);
 			}
-			// A vacation block: one off row per calendar day, no makeup rows —
-			// weekends inside a break need no Friday-before suggestion.
+			// A vacation block: one no-school row per calendar day, no makeup
+			// rows — weekends inside a break need no Friday-before suggestion.
 			for (
 				let date = args.springBreakStart;
 				date <= args.springBreakEnd;
 				date = nextCalendarDate(date)
 			) {
-				drafts.push({ type: 'off', label: 'Spring break', target: 'all', date });
+				drafts.push({
+					type: 'no_school',
+					title: ESL_EVENT_TITLES.no_school,
+					target: 'all',
+					date,
+					note: 'Spring break'
+				});
 			}
 		}
 
@@ -271,31 +284,32 @@ export const seed = mutation({
 			checkDate(args.anniversaryDate);
 			drafts.push({
 				type: 'no_class',
-				label: 'Anniversary',
+				title: ESL_EVENT_TITLES.no_class,
 				target: 'all',
-				date: args.anniversaryDate
+				date: args.anniversaryDate,
+				note: 'Anniversary'
 			});
 			const makeup = makeupDraftFor('Anniversary', args.anniversaryDate);
 			if (makeup) trackMakeup(makeup, args.anniversaryDate, 'Anniversary');
 		}
 
-		// Lunar off days: explicit admin-typed date, else the holiday cache.
+		// Lunar no-school days: explicit admin-typed date, else the holiday cache.
 		const festival = LUNAR_BY_TERM[semester.term];
 		const explicitLunar = semester.term === 'S1' ? args.moonFestivalDate : args.dragonBoatDate;
 		const unresolvedLunar: string[] = [];
 		if (explicitLunar !== undefined) {
 			checkDate(explicitLunar);
 			drafts.push({
-				type: 'off',
-				label: festival.label,
+				type: 'no_school',
+				title: ESL_EVENT_TITLES.no_school,
 				target: 'all',
 				date: explicitLunar,
 				provenance: 'admin_typed',
 				unverified: true,
-				note: 'Admin-typed date — unverified against the national calendar.'
+				note: `${festival.name} — admin-typed date, unverified against the national calendar.`
 			});
-			const makeup = makeupDraftFor(festival.label, explicitLunar);
-			if (makeup) trackMakeup(makeup, explicitLunar, festival.label);
+			const makeup = makeupDraftFor(festival.name, explicitLunar);
+			if (makeup) trackMakeup(makeup, explicitLunar, festival.name);
 		} else {
 			const calendarYear = lunarCalendarYear(semester.year, semester.term);
 			const cached = await ctx.db
@@ -307,46 +321,48 @@ export const seed = mutation({
 				festival.caption
 			);
 			if (cluster.length === 0) {
-				unresolvedLunar.push(festival.label);
+				unresolvedLunar.push(festival.name);
 			}
 			for (const day of cluster) {
 				checkDate(day.date);
 				drafts.push({
-					type: 'off',
-					label: festival.label,
+					type: 'no_school',
+					title: ESL_EVENT_TITLES.no_school,
 					target: 'all',
 					date: day.date,
 					provenance: 'holiday_api',
-					note: `${day.caption} (Taiwan Calendar ${calendarYear})`
+					note: `${festival.name} — ${day.caption} (Taiwan Calendar ${calendarYear})`
 				});
-				const makeup = makeupDraftFor(festival.label, day.date);
-				if (makeup) trackMakeup(makeup, day.date, festival.label);
+				const makeup = makeupDraftFor(festival.name, day.date);
+				if (makeup) trackMakeup(makeup, day.date, festival.name);
 			}
 		}
 
 		for (const off of args.extraOffs ?? []) {
 			checkDate(off.date);
-			const label = off.label.trim();
-			if (label === '') throw new Error('An event label is required.');
+			const name = off.name.trim();
+			if (name === '') throw new Error('An extra no-school day needs a name for its note.');
 			drafts.push({
-				type: 'off',
-				label,
+				type: 'no_school',
+				title: ESL_EVENT_TITLES.no_school,
 				target: 'all',
 				date: off.date,
-				...(off.note === undefined || off.note.trim() === '' ? {} : { note: off.note.trim() })
+				note:
+					off.note === undefined || off.note.trim() === '' ? name : `${name} — ${off.note.trim()}`
 			});
-			const makeup = makeupDraftFor(label, off.date);
-			if (makeup) trackMakeup(makeup, off.date, label);
+			const makeup = makeupDraftFor(name, off.date);
+			if (makeup) trackMakeup(makeup, off.date, name);
 		}
 
 		for (const due of args.dueWindows ?? []) {
 			checkDate(due.date);
 			if (due.endDate !== undefined) checkDate(due.endDate);
-			const label = due.label.trim();
-			if (label === '') throw new Error('An event label is required.');
+			const title = due.title.trim();
+			const titleError = assertValidEslTitle(due.type, title);
+			if (titleError) throw new Error(describeEslEventError(titleError));
 			drafts.push({
 				type: due.type,
-				label,
+				title,
 				target: due.target ?? 'all',
 				date: due.date,
 				...(due.endDate === undefined ? {} : { endDate: due.endDate }),
@@ -372,6 +388,8 @@ export const seed = mutation({
 				endPeriod: draft.endPeriod
 			});
 			if (fieldError) throw new Error(describeEslEventError(fieldError));
+			const titleError = assertValidEslTitle(draft.type, draft.title);
+			if (titleError) throw new Error(describeEslEventError(titleError));
 
 			if (draft.type === 'partial') {
 				const sameDay = await ctx.db
@@ -395,7 +413,7 @@ export const seed = mutation({
 			} catch (error) {
 				if (isMakeup) {
 					makeupSkipped.push(
-						`Makeup for ${draft.label} on ${draft.date} skipped: ${error instanceof Error ? error.message : 'date unavailable'}`
+						`Makeup for ${makeupEntry?.name ?? draft.title} on ${draft.date} skipped: ${error instanceof Error ? error.message : 'date unavailable'}`
 					);
 					continue;
 				}
@@ -405,7 +423,7 @@ export const seed = mutation({
 			if (isMakeup) {
 				if (makeupDates.has(draft.date)) {
 					makeupSkipped.push(
-						`Makeup for ${draft.label} on ${draft.date} skipped: two weekends share one Friday.`
+						`Makeup for ${makeupEntry?.name ?? draft.title} on ${draft.date} skipped: two weekends share one Friday.`
 					);
 					continue;
 				}
@@ -415,7 +433,7 @@ export const seed = mutation({
 			const id = await ctx.db.insert('esl_events', {
 				semesterId: args.semesterId,
 				type: draft.type,
-				label: draft.label,
+				title: draft.title,
 				target: draft.target,
 				date: draft.date,
 				...(draft.endDate === undefined ? {} : { endDate: draft.endDate }),
@@ -431,7 +449,7 @@ export const seed = mutation({
 				makeup.push({
 					forDate: makeupEntry.forDate,
 					makeupDate: draft.date,
-					label: makeupEntry.label
+					label: makeupEntry.name
 				});
 			}
 		}

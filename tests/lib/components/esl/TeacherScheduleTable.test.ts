@@ -30,8 +30,8 @@ const MOCK_ROWS: ScheduleDayRow[] = [
 		badges: ['due window 2025-09-01–2025-09-03'],
 		dues: [
 			{
-				label: 'Workbook check',
-				type: 'homework_due',
+				title: 'Workbook check',
+				type: 'task',
 				windowStart: '2025-09-01',
 				windowEnd: '2025-09-03'
 			}

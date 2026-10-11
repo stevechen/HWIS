@@ -3,6 +3,8 @@
 	import { Label } from '$lib/components/ui/label';
 	import {
 		ESL_EVENT_TARGETS,
+		ESL_EVENT_TITLES,
+		ESL_EXAM_TITLES,
 		ESL_PERIOD_NUMBERS,
 		isRangedEventType,
 		type EslEventTarget,
@@ -12,7 +14,7 @@
 
 	export type EventFormInput = {
 		type: EslEventType;
-		label: string;
+		title: string;
 		target: EslEventTarget;
 		date: string;
 		endDate?: string;
@@ -23,7 +25,7 @@
 
 	export type EventFormInitial = {
 		type: EslEventType;
-		label: string;
+		title: string;
 		target: EslEventTarget;
 		date: string;
 		endDate?: string;
@@ -33,30 +35,45 @@
 	};
 
 	const TYPE_LABELS: Record<EslEventType, string> = {
-		task_due: 'Task due',
-		homework_due: 'Homework due',
+		start_school: 'Start of school',
 		quiz: 'Quiz',
-		off: 'Day off',
+		no_school: 'No school',
 		no_class: 'No class',
 		partial: 'Partial day',
 		exam: 'Exam',
-		start_school: 'Start of school'
+		passport_due: 'Passport due',
+		recording_due: 'Recording due',
+		task: 'Task',
+		g9_mock: 'G9 mock'
 	};
 
 	const TYPES: EslEventType[] = [
-		'task_due',
-		'homework_due',
+		'start_school',
 		'quiz',
-		'off',
+		'no_school',
 		'no_class',
 		'partial',
 		'exam',
-		'start_school'
+		'passport_due',
+		'recording_due',
+		'task',
+		'g9_mock'
 	];
+
+	/**
+	 * The title a fresh draft of a type carries: locked titles arrive
+	 * prefilled (and stay locked), exams default to Exam 1, tasks start
+	 * blank — the banner always shows the task's own free text.
+	 */
+	function defaultTitleFor(type: EslEventType): string {
+		if (type === 'task') return '';
+		if (type === 'exam') return ESL_EXAM_TITLES[0];
+		return ESL_EVENT_TITLES[type];
+	}
 
 	type Draft = {
 		type: EslEventType;
-		label: string;
+		title: string;
 		target: EslEventTarget;
 		date: string;
 		endDate: string;
@@ -66,9 +83,10 @@
 	};
 
 	function blankDraft(init?: EventFormInitial): Draft {
+		const type = init?.type ?? 'exam';
 		return {
-			type: init?.type ?? 'exam',
-			label: init?.label ?? '',
+			type,
+			title: init?.title ?? defaultTitleFor(type),
 			target: init?.target ?? 'all',
 			date: init?.date ?? '',
 			endDate: init?.endDate ?? '',
@@ -108,10 +126,15 @@
 
 	const ranged = $derived(isRangedEventType(draft.type));
 	const partial = $derived(draft.type === 'partial');
+	const isTask = $derived(draft.type === 'task');
+	const isExam = $derived(draft.type === 'exam');
+	const lockedTitle = $derived(
+		draft.type === 'task' || draft.type === 'exam' ? null : ESL_EVENT_TITLES[draft.type]
+	);
 
 	/**
 	 * The S1/S2 cross check is advisory: an exam move that stretches a term
-	 * into its sibling warns here and saves anyway. Only off/exam-day
+	 * into its sibling warns here and saves anyway. Only no-school/exam-day
 	 * collisions refuse, and that refusal arrives as `serverError`.
 	 */
 	const warning = $derived(
@@ -121,6 +144,7 @@
 	);
 
 	function onTypeChange(next: EslEventType) {
+		const prev = draft.type;
 		draft.type = next;
 		// Ranges live on due-types only, bounds on partials only — switching
 		// away drops the now-meaningless value so a stale end cannot ride
@@ -129,6 +153,18 @@
 		if (next !== 'partial') {
 			draft.startPeriod = '';
 			draft.endPeriod = '';
+		}
+		// Titles are locked per type and never derived from the note: fixed
+		// types snap to their locked title, exams keep a valid exam title or
+		// fall back to Exam 1, tasks start blank unless already typed there.
+		if (next === 'task') {
+			if (prev !== 'task') draft.title = '';
+		} else if (next === 'exam') {
+			if (!(ESL_EXAM_TITLES as readonly string[]).includes(draft.title)) {
+				draft.title = ESL_EXAM_TITLES[0];
+			}
+		} else {
+			draft.title = ESL_EVENT_TITLES[next];
 		}
 	}
 </script>
@@ -143,7 +179,7 @@
 		const parsedEnd = draft.endPeriod === '' ? undefined : Number(draft.endPeriod);
 		onsubmit({
 			type: draft.type,
-			label: draft.label.trim(),
+			title: draft.title.trim(),
 			target: draft.target,
 			date: draft.date,
 			endDate: ranged && draft.endDate !== '' ? draft.endDate : undefined,
@@ -169,16 +205,41 @@
 			</select>
 		</div>
 		<div class="flex min-w-48 flex-1 flex-col gap-1">
-			<Label for="event-form-label">Label</Label>
-			<input
-				id="event-form-label"
-				type="text"
-				placeholder="Final exam"
-				bind:value={draft.label}
-				disabled={busy}
-				required
-				class="rounded border px-2 py-1 text-sm"
-			/>
+			<Label for="event-form-title">Title</Label>
+			{#if isTask}
+				<input
+					id="event-form-title"
+					type="text"
+					placeholder="Passport Unit 3 due"
+					bind:value={draft.title}
+					disabled={busy}
+					required
+					class="rounded border px-2 py-1 text-sm"
+				/>
+				<span class="text-xs text-gray-500">Tasks take a free-text title — always the banner.</span>
+			{:else if isExam}
+				<select
+					id="event-form-title"
+					bind:value={draft.title}
+					disabled={busy}
+					class="rounded border px-2 py-1 text-sm"
+				>
+					{#each ESL_EXAM_TITLES as option (option)}
+						<option value={option}>{option}</option>
+					{/each}
+				</select>
+			{:else}
+				<input
+					id="event-form-title"
+					type="text"
+					value={lockedTitle}
+					disabled
+					readonly
+					aria-readonly="true"
+					class="rounded border bg-gray-50 px-2 py-1 text-sm text-gray-600"
+				/>
+				<span class="text-xs text-gray-500">Locked for this type — details go in the note.</span>
+			{/if}
 		</div>
 		<div class="flex flex-col gap-1">
 			<Label for="event-form-target">Target</Label>
