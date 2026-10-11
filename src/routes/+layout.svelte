@@ -10,6 +10,16 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { computeAuthRedirect, toAuthState } from '$lib/auth-guard';
+	import {
+		canAccessEsl,
+		ESL_HOME,
+		INTERNATIONAL_HOME,
+		resolveDepartmentFromPath,
+		showDepartmentSwitcher,
+		storeLastDepartment,
+		type Department
+	} from '$lib/department';
+	import DepartmentSwitcher from '$lib/components/DepartmentSwitcher.svelte';
 	import { getExternalSession } from '$lib/e2e/external-session';
 	import { ArrowLeft, PowerOff } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -50,6 +60,22 @@
 		const target = computeAuthRedirect($page.url, toAuthState(status));
 		if (target) void goto(target);
 	});
+
+	// Keep the stored last-visited department in sync with the URL so hybrid
+	// staff land back where they last worked. Non-department paths (/admin,
+	// /leaderboard, ...) resolve to null and never clobber storage.
+	$effect(() => {
+		const department = resolveDepartmentFromPath($page.url.pathname);
+		if (department) storeLastDepartment(department);
+	});
+
+	const activeDepartment = $derived(
+		resolveDepartmentFromPath($page.url.pathname) ?? 'international'
+	);
+
+	function switchDepartment(department: Department) {
+		void goto(department === 'esl' ? ESL_HOME : INTERNATIONAL_HOME);
+	}
 
 	onMount(() => {
 		document.body.classList.add('hydrated');
@@ -95,6 +121,11 @@
 			($page.url.pathname as string).startsWith('/display');
 		if (isDisplayPath) {
 			return !session.isApproved;
+		}
+		// /esl pages: only active ESL staff (Super included).
+		const isEslPage = $page.url.pathname === '/esl' || $page.url.pathname.startsWith('/esl/');
+		if (isEslPage) {
+			return !canAccessEsl(session);
 		}
 		return false;
 	});
@@ -273,6 +304,9 @@
 						{/if}
 					</div>
 					<div class="flex shrink-0 items-center gap-3">
+						{#if showDepartmentSwitcher(session)}
+							<DepartmentSwitcher active={activeDepartment} onSwitch={switchDepartment} />
+						{/if}
 						<ThemeToggle />
 						<Button
 							variant="default"
