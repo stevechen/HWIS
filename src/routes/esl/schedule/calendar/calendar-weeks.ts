@@ -109,7 +109,7 @@ export function buildCalendarFragments(args: {
 		(a, b) => a.date.localeCompare(b.date) || a.period - b.period
 	);
 	const fragments: CalendarWeekFragment[] = [];
-	/** Due windows already bannered per fragment, by `label|start|end`. */
+	/** Due windows already bannered per fragment, by `title|start|end`. */
 	const bannered = new Map<number, Set<string>>();
 	for (const row of ordered) {
 		const weekIndex = weekIndexOf(row.date, args.semesterStart);
@@ -135,10 +135,10 @@ export function buildCalendarFragments(args: {
 		});
 		const seen = bannered.get(weekIndex);
 		for (const due of row.dues) {
-			const key = `${due.label}|${due.windowStart}|${due.windowEnd}`;
+			const key = `${due.title}|${due.windowStart}|${due.windowEnd}`;
 			if (seen?.has(key)) continue;
 			seen?.add(key);
-			fragment.banners.push({ title: due.label, start: due.windowStart, end: due.windowEnd });
+			fragment.banners.push({ title: due.title, start: due.windowStart, end: due.windowEnd });
 		}
 	}
 	for (const fragment of fragments) {

@@ -88,13 +88,13 @@ describe('esl/semesters derived end', () => {
 		await t.mutation(api.esl.events.create, {
 			semesterId,
 			type: 'exam',
-			label: 'Exam 1',
+			title: 'Exam 1',
 			date: '2025-10-16'
 		});
 		await t.mutation(api.esl.events.create, {
 			semesterId,
 			type: 'exam',
-			label: 'Final exam',
+			title: 'Final Exam',
 			date: '2026-01-20'
 		});
 		const semester = await t.query(api.esl.semesters.get, { semesterId });

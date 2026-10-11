@@ -74,7 +74,7 @@ export function descriptionText(row: ScheduleDayRow, classNames: Record<string, 
 		case 'oral_exam':
 		case 'teaching': {
 			const cause = row.cause === null ? '' : ` · ${row.cause}`;
-			const dues = row.dues.length === 0 ? '' : ` · ${row.dues.map((due) => due.label).join('; ')}`;
+			const dues = row.dues.length === 0 ? '' : ` · ${row.dues.map((due) => due.title).join('; ')}`;
 			return `${context}${cause}${dues}`;
 		}
 	}
@@ -92,7 +92,7 @@ export function noteText(row: ScheduleDayRow, eventNotes: Record<string, string>
 		if (cause !== undefined) notes.push(cause);
 	}
 	for (const due of row.dues) {
-		const dueNote = eventNotes[eventNoteKey(due.windowStart, due.label)];
+		const dueNote = eventNotes[eventNoteKey(due.windowStart, due.title)];
 		if (dueNote !== undefined && !notes.includes(dueNote)) notes.push(dueNote);
 	}
 	return notes.join('; ');

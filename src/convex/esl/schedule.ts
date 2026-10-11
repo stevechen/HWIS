@@ -83,7 +83,7 @@ export const teacherDays = query({
 		// rows per semester — the same bounded take the admin screen uses.
 		const events: ScheduleEventInput[] = stored.map((event) => ({
 			type: event.type,
-			label: event.label,
+			title: event.title,
 			target: event.target,
 			date: event.date,
 			...(event.endDate === undefined ? {} : { endDate: event.endDate }),
@@ -106,7 +106,7 @@ export const teacherDays = query({
 							(event) =>
 								event.type === 'no_class' &&
 								event.target === 'G9' &&
-								/graduation|ceremony/i.test(event.label)
+								/graduation|ceremony/i.test(`${event.title} ${event.note ?? ''}`)
 						)
 						.map((event) => event.date)
 						.sort()

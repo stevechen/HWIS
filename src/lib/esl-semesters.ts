@@ -28,12 +28,12 @@ export function semesterStatus(
  * the date still shows with a generic label rather than vanishing.
  */
 export function derivedEndSource(
-	events: { type: string; date: string; label: string }[],
+	events: { type: string; date: string; title: string }[],
 	derivedEnd: string | null
 ): { date: string; label: string } | null {
 	if (derivedEnd === null) return null;
 	const source = events.find((event) => event.type === 'exam' && event.date === derivedEnd);
-	return { date: derivedEnd, label: source?.label ?? 'exam' };
+	return { date: derivedEnd, label: source?.title ?? 'exam' };
 }
 
 /** The sibling term an exam date is judged against for the S1/S2 cross check. */

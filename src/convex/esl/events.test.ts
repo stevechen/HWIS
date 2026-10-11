@@ -19,18 +19,19 @@ async function seededSemester() {
 describe('esl/events.create', () => {
 	afterEach(() => vi.restoreAllMocks());
 
-	it('creates a ranged task-due event with a default All target', async () => {
+	it('creates a ranged task event with a default All target', async () => {
 		const { t, semesterId } = await seededSemester();
 		const eventId = await t.mutation(api.esl.events.create, {
 			semesterId,
-			type: 'task_due',
-			label: 'Passport check',
+			type: 'task',
+			title: 'Passport check',
 			date: '2025-09-17',
 			endDate: '2025-09-24'
 		});
 		const event = await t.query(api.esl.events.get, { eventId });
 		expect(event).toMatchObject({
-			type: 'task_due',
+			type: 'task',
+			title: 'Passport check',
 			target: 'all',
 			date: '2025-09-17',
 			endDate: '2025-09-24'
@@ -42,27 +43,66 @@ describe('esl/events.create', () => {
 		await expect(
 			t.mutation(api.esl.events.create, {
 				semesterId,
-				type: 'off',
-				label: 'Typhoon day',
+				type: 'no_school',
+				title: 'Off',
+				note: 'Typhoon day',
 				date: '2025-09-25',
 				endDate: '2025-09-26'
 			})
 		).rejects.toThrow(/range/i);
 	});
 
-	it('refuses another event on an off day', async () => {
+	it('refuses a free-text title on a locked type', async () => {
+		const { t, semesterId } = await seededSemester();
+		await expect(
+			t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'no_school',
+				title: 'Typhoon day',
+				date: '2025-09-25'
+			})
+		).rejects.toThrow(/always shows "Off"/);
+	});
+
+	it('refuses a blank task title', async () => {
+		const { t, semesterId } = await seededSemester();
+		await expect(
+			t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'task',
+				title: '   ',
+				date: '2025-09-25'
+			})
+		).rejects.toThrow(/title/i);
+	});
+
+	it('refuses an exam title outside the locked three', async () => {
+		const { t, semesterId } = await seededSemester();
+		await expect(
+			t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'exam',
+				title: 'Midterm',
+				date: '2025-10-16'
+			})
+		).rejects.toThrow(/Exam 1/);
+	});
+
+	it('refuses another event on a no-school day', async () => {
 		const { t, semesterId } = await seededSemester();
 		await t.mutation(api.esl.events.create, {
 			semesterId,
-			type: 'off',
-			label: 'Typhoon day',
+			type: 'no_school',
+			title: 'Off',
+			note: 'Typhoon day',
 			date: '2025-09-25'
 		});
 		await expect(
 			t.mutation(api.esl.events.create, {
 				semesterId,
 				type: 'no_class',
-				label: 'Assembly',
+				title: 'No class',
+				note: 'Assembly',
 				date: '2025-09-25'
 			})
 		).rejects.toThrow();
@@ -73,14 +113,14 @@ describe('esl/events.create', () => {
 		await t.mutation(api.esl.events.create, {
 			semesterId,
 			type: 'exam',
-			label: 'Exam 1',
+			title: 'Exam 1',
 			date: '2025-10-16'
 		});
 		await expect(
 			t.mutation(api.esl.events.create, {
 				semesterId,
-				type: 'task_due',
-				label: 'Passport check',
+				type: 'task',
+				title: 'Passport check',
 				date: '2025-10-16'
 			})
 		).rejects.toThrow();
@@ -91,7 +131,8 @@ describe('esl/events.create', () => {
 		await t.mutation(api.esl.events.create, {
 			semesterId,
 			type: 'partial',
-			label: 'BBQ',
+			title: 'No class',
+			note: 'BBQ',
 			date: '2025-09-12',
 			startPeriod: 3
 		});
@@ -99,7 +140,8 @@ describe('esl/events.create', () => {
 			t.mutation(api.esl.events.create, {
 				semesterId,
 				type: 'partial',
-				label: 'Late start',
+				title: 'No class',
+				note: 'Late start',
 				date: '2025-09-12',
 				endPeriod: 2
 			})
@@ -112,7 +154,8 @@ describe('esl/events.create', () => {
 			t.mutation(api.esl.events.create, {
 				semesterId,
 				type: 'partial',
-				label: 'Late start',
+				title: 'No class',
+				note: 'Late start',
 				date: '2025-09-12',
 				startPeriod: 9
 			})
@@ -125,7 +168,8 @@ describe('esl/events.create', () => {
 			t.mutation(api.esl.events.create, {
 				semesterId,
 				type: 'no_class',
-				label: 'Assembly',
+				title: 'No class',
+				note: 'Assembly',
 				date: '2025-09-12',
 				startPeriod: 3
 			})
@@ -134,26 +178,40 @@ describe('esl/events.create', () => {
 });
 
 describe('esl/events.update', () => {
-	it('edits a seeded row in place (label, date, note)', async () => {
+	it('edits a seeded row in place (title, date, note)', async () => {
 		const { t, semesterId } = await seededSemester();
 		const eventId = await t.mutation(api.esl.events.create, {
 			semesterId,
-			type: 'no_class',
-			label: "Sport's Day",
+			type: 'task',
+			title: "Sport's Day setup",
 			date: '2025-10-24'
 		});
 		await t.mutation(api.esl.events.update, {
 			eventId,
-			label: "Sport's Day (moved)",
+			title: "Sport's Day setup (moved)",
 			date: '2025-10-31',
 			note: "No Sport's Day in 2027 — delete instead"
 		});
 		const event = await t.query(api.esl.events.get, { eventId });
 		expect(event).toMatchObject({
-			label: "Sport's Day (moved)",
+			title: "Sport's Day setup (moved)",
 			date: '2025-10-31',
 			note: "No Sport's Day in 2027 — delete instead"
 		});
+	});
+
+	it('refuses a title change off the locked value', async () => {
+		const { t, semesterId } = await seededSemester();
+		const eventId = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'no_class',
+			title: 'No class',
+			note: "Sport's Day",
+			date: '2025-10-24'
+		});
+		await expect(
+			t.mutation(api.esl.events.update, { eventId, title: "Sport's Day" })
+		).rejects.toThrow(/always shows "No class"/);
 	});
 
 	it('moves an exam (exams stay editable while protected from deletion)', async () => {
@@ -161,7 +219,7 @@ describe('esl/events.update', () => {
 		const eventId = await t.mutation(api.esl.events.create, {
 			semesterId,
 			type: 'exam',
-			label: 'Final exam',
+			title: 'Final Exam',
 			date: '2026-01-20'
 		});
 		await t.mutation(api.esl.events.update, { eventId, date: '2026-01-21' });
@@ -169,18 +227,20 @@ describe('esl/events.update', () => {
 		expect(semester?.derivedEnd).toBe('2026-01-21');
 	});
 
-	it('refuses a move onto an off day', async () => {
+	it('refuses a move onto a no-school day', async () => {
 		const { t, semesterId } = await seededSemester();
 		await t.mutation(api.esl.events.create, {
 			semesterId,
-			type: 'off',
-			label: 'Typhoon day',
+			type: 'no_school',
+			title: 'Off',
+			note: 'Typhoon day',
 			date: '2025-09-25'
 		});
 		const eventId = await t.mutation(api.esl.events.create, {
 			semesterId,
 			type: 'no_class',
-			label: 'Assembly',
+			title: 'No class',
+			note: 'Assembly',
 			date: '2025-09-26'
 		});
 		await expect(
@@ -193,14 +253,16 @@ describe('esl/events.update', () => {
 		await t.mutation(api.esl.events.create, {
 			semesterId,
 			type: 'partial',
-			label: 'BBQ',
+			title: 'No class',
+			note: 'BBQ',
 			date: '2025-09-12',
 			startPeriod: 3
 		});
 		const otherId = await t.mutation(api.esl.events.create, {
 			semesterId,
 			type: 'partial',
-			label: 'Late start',
+			title: 'No class',
+			note: 'Late start',
 			date: '2025-09-13'
 		});
 		await expect(
@@ -213,11 +275,12 @@ describe('esl/events.update', () => {
 		const eventId = await t.mutation(api.esl.events.create, {
 			semesterId,
 			type: 'no_class',
-			label: "Sport's Day",
+			title: 'No class',
+			note: "Sport's Day",
 			date: '2025-10-24'
 		});
 		await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
-		await expect(t.mutation(api.esl.events.update, { eventId, label: 'Changed' })).rejects.toThrow(
+		await expect(t.mutation(api.esl.events.update, { eventId, note: 'Changed' })).rejects.toThrow(
 			/ESL admin/
 		);
 	});
@@ -229,7 +292,8 @@ describe('esl/events.remove', () => {
 		const sportsId = await t.mutation(api.esl.events.create, {
 			semesterId,
 			type: 'no_class',
-			label: "Sport's Day",
+			title: 'No class',
+			note: "Sport's Day",
 			date: '2025-10-24'
 		});
 		await t.mutation(api.esl.events.remove, { eventId: sportsId });
@@ -243,7 +307,7 @@ describe('esl/events.remove', () => {
 		const eventId = await t.mutation(api.esl.events.create, {
 			semesterId,
 			type: 'exam',
-			label: 'Exam 1',
+			title: 'Exam 1',
 			date: '2025-10-16'
 		});
 		await expect(t.mutation(api.esl.events.remove, { eventId })).rejects.toThrow(
@@ -257,7 +321,8 @@ describe('esl/events.remove', () => {
 			semesterId,
 			type: 'no_class',
 			target: 'G9',
-			label: 'Graduation ceremony',
+			title: 'No class',
+			note: 'Graduation ceremony',
 			date: '2026-06-19'
 		});
 		await expect(t.mutation(api.esl.events.remove, { eventId })).rejects.toThrow(
@@ -270,10 +335,38 @@ describe('esl/events.remove', () => {
 		const eventId = await t.mutation(api.esl.events.create, {
 			semesterId,
 			type: 'no_class',
-			label: "Sport's Day",
+			title: 'No class',
+			note: "Sport's Day",
 			date: '2025-10-24'
 		});
 		await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
 		await expect(t.mutation(api.esl.events.remove, { eventId })).rejects.toThrow(/ESL admin/);
+	});
+});
+
+describe('esl/events.migrateToV3', () => {
+	it('reports zero migrated rows on a v3 database (idempotent)', async () => {
+		const { t, semesterId } = await seededSemester();
+		await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'task',
+			title: 'Passport check',
+			date: '2025-09-17'
+		});
+		await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'no_school',
+			title: 'Off',
+			note: 'Typhoon day',
+			date: '2025-09-25'
+		});
+		const report = await t.mutation(api.esl.events.migrateToV3, {});
+		expect(report).toMatchObject({ total: 2, migrated: 0, skipped: [] });
+	});
+
+	it('refuses migration from non-admin staff', async () => {
+		const { t } = await seededSemester();
+		await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
+		await expect(t.mutation(api.esl.events.migrateToV3, {})).rejects.toThrow(/ESL admin/);
 	});
 });

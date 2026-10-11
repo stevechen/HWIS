@@ -86,21 +86,30 @@ describe('seed math: findLunarOffCluster', () => {
 
 describe('seed math: isProtectedSeedEvent', () => {
 	it('protects every exam row', () => {
-		expect(isProtectedSeedEvent({ type: 'exam', label: 'Exam 1' })).toBe(true);
-		expect(isProtectedSeedEvent({ type: 'exam', label: 'Final exam' })).toBe(true);
+		expect(isProtectedSeedEvent({ type: 'exam', title: 'Exam 1' })).toBe(true);
+		expect(isProtectedSeedEvent({ type: 'exam', title: 'Final Exam' })).toBe(true);
 	});
 
-	it('protects the graduation ceremony (no_class + G9 ceremony label)', () => {
+	it('protects the graduation ceremony (no_class + G9 ceremony note)', () => {
 		expect(
-			isProtectedSeedEvent({ type: 'no_class', label: 'Graduation ceremony', target: 'G9' })
+			isProtectedSeedEvent({
+				type: 'no_class',
+				title: 'No class',
+				note: 'Graduation ceremony',
+				target: 'G9'
+			})
 		).toBe(true);
 	});
 
 	it("leaves Sport's Day, dues, and other no-class rows deletable", () => {
-		expect(isProtectedSeedEvent({ type: 'no_class', label: "Sport's Day" })).toBe(false);
-		expect(isProtectedSeedEvent({ type: 'task_due', label: 'Passport check' })).toBe(false);
-		expect(isProtectedSeedEvent({ type: 'off', label: 'Moon Festival' })).toBe(false);
-		expect(isProtectedSeedEvent({ type: 'partial', label: 'BBQ' })).toBe(false);
+		expect(isProtectedSeedEvent({ type: 'no_class', title: 'No class', note: "Sport's Day" })).toBe(
+			false
+		);
+		expect(isProtectedSeedEvent({ type: 'task', title: 'Passport check' })).toBe(false);
+		expect(isProtectedSeedEvent({ type: 'no_school', title: 'Off', note: 'Moon Festival' })).toBe(
+			false
+		);
+		expect(isProtectedSeedEvent({ type: 'partial', title: 'No class', note: 'BBQ' })).toBe(false);
 	});
 });
 
@@ -149,8 +158,8 @@ describe('esl/seed.seed S1', () => {
 			moonFestivalDate: '2025-10-06',
 			dueWindows: [
 				{
-					type: 'task_due',
-					label: 'Passport Unit 1 due',
+					type: 'task',
+					title: 'Passport Unit 1 due',
 					target: 'Comm',
 					date: '2025-09-17',
 					endDate: '2025-09-24'
@@ -160,23 +169,32 @@ describe('esl/seed.seed S1', () => {
 		expect(result.unresolvedLunar).toEqual([]);
 
 		const events = await t.query(api.esl.events.listBySemester, { semesterId });
-		const byLabel = new Map(events.map((event) => [event.label, event]));
+		const byNote = new Map(events.map((event) => [event.note, event]));
 
-		// Start-day partial from P3 on the semester start.
-		expect(byLabel.get('First day of S1')).toMatchObject({
+		// Start-day partial from P3 on the semester start (locked title, occasion in note).
+		expect(byNote.get('First day of S1')).toMatchObject({
 			type: 'partial',
+			title: 'No class',
 			date: '2025-08-31',
 			startPeriod: 3
 		});
 		// BBQ partial with logistics note.
-		expect(byLabel.get('BBQ')).toMatchObject({ type: 'partial', date: '2025-09-12' });
+		expect(byNote.get('BBQ from 12:00')).toMatchObject({
+			type: 'partial',
+			title: 'No class',
+			date: '2025-09-12'
+		});
 		// Sport's Day, deletable.
-		expect(byLabel.get("Sport's Day")).toMatchObject({ type: 'no_class', date: '2025-10-24' });
+		expect(byNote.get("Sport's Day")).toMatchObject({
+			type: 'no_class',
+			title: 'No class',
+			date: '2025-10-24'
+		});
 
 		// Exam 1: two weekdays Mon->Tue; Final from Friday spans the weekend Fri->Tue.
-		const exam1 = events.filter((event) => event.label === 'Exam 1');
+		const exam1 = events.filter((event) => event.title === 'Exam 1');
 		expect(exam1.map((event) => event.date).sort()).toEqual(['2025-10-13', '2025-10-14']);
-		const finals = events.filter((event) => event.label === 'Final exam');
+		const finals = events.filter((event) => event.title === 'Final Exam');
 		expect(finals.map((event) => event.date).sort()).toEqual([
 			'2025-10-17',
 			'2025-10-20',
@@ -184,8 +202,8 @@ describe('esl/seed.seed S1', () => {
 		]);
 
 		// Dues pass through with their windows.
-		expect(byLabel.get('Passport Unit 1 due')).toMatchObject({
-			type: 'task_due',
+		expect(events.find((event) => event.title === 'Passport Unit 1 due')).toMatchObject({
+			type: 'task',
 			target: 'Comm',
 			date: '2025-09-17',
 			endDate: '2025-09-24'
@@ -196,22 +214,21 @@ describe('esl/seed.seed S1', () => {
 		expect(semester?.derivedEnd).toBe('2025-11-18');
 	});
 
-	it('seeds a weekend off day as one row with no Friday-before makeup', async () => {
+	it('auto-creates a Friday-before makeup for a weekend off day', async () => {
 		const { t, semesterId } = await adminSemester('S1', '2025-08-31');
-		// 2025-10-18 is a Saturday: the official calendar's own rows are
-		// authoritative (#207), so no makeup suggestion is synthesized.
+		// 2025-10-18 is a Saturday.
 		const result = await t.mutation(api.esl.seed.seed, {
 			semesterId,
 			examStarts: { exam1: '2025-10-13', exam2: '2025-11-17', final: '2026-01-19' },
-			extraOffs: [{ date: '2025-10-18', label: 'National Day (observed)' }]
+			extraOffs: [{ date: '2025-10-18', name: 'National Day (observed)' }]
 		});
-		expect(result).toEqual({ created: expect.any(Array), unresolvedLunar: ['Moon Festival'] });
+		expect(result.makeup).toEqual([
+			{ forDate: '2025-10-18', makeupDate: '2025-10-17', label: 'National Day (observed)' }
+		]);
 		const events = await t.query(api.esl.events.listBySemester, { semesterId });
-		expect(events.filter((event) => event.label.includes('(makeup)'))).toEqual([]);
-		expect(events.find((event) => event.label === 'National Day (observed)')).toMatchObject({
-			type: 'off',
-			date: '2025-10-18'
-		});
+		const makeup = events.find((event) => event.date === '2025-10-17');
+		expect(makeup).toMatchObject({ type: 'no_school', title: 'Off', date: '2025-10-17' });
+		expect(makeup?.note).toMatch(/National Day \(observed\)/);
 	});
 
 	it('resolves lunar dates from the holiday cache with provenance', async () => {
@@ -225,9 +242,10 @@ describe('esl/seed.seed S1', () => {
 			examStarts: { exam1: '2025-10-13', exam2: '2025-11-17', final: '2026-01-19' }
 		});
 		const events = await t.query(api.esl.events.listBySemester, { semesterId });
-		const moon = events.find((event) => event.label === 'Moon Festival');
+		const moon = events.find((event) => event.note?.includes('Moon Festival'));
 		expect(moon).toMatchObject({
-			type: 'off',
+			type: 'no_school',
+			title: 'Off',
 			date: '2025-10-06',
 			provenance: 'holiday_api'
 		});
@@ -243,7 +261,7 @@ describe('esl/seed.seed S1', () => {
 			moonFestivalDate: '2025-10-06'
 		});
 		const events = await t.query(api.esl.events.listBySemester, { semesterId });
-		expect(events.find((event) => event.label === 'Moon Festival')).toMatchObject({
+		expect(events.find((event) => event.note?.includes('Moon Festival'))).toMatchObject({
 			provenance: 'admin_typed',
 			unverified: true
 		});
@@ -257,7 +275,7 @@ describe('esl/seed.seed S1', () => {
 		});
 		expect(result.unresolvedLunar).toEqual(['Moon Festival']);
 		const events = await t.query(api.esl.events.listBySemester, { semesterId });
-		expect(events.some((event) => event.label === 'Moon Festival')).toBe(false);
+		expect(events.some((event) => event.note?.includes('Moon Festival'))).toBe(false);
 	});
 
 	it('refuses to seed a semester that already holds events', async () => {
@@ -280,7 +298,7 @@ describe('esl/seed.seed S1', () => {
 			t.mutation(api.esl.seed.seed, {
 				semesterId,
 				examStarts: { exam1: '2025-10-13', exam2: '2025-11-17', final: '2026-01-19' },
-				extraOffs: [{ date: '2025-10-13', label: 'Clashing off day' }]
+				extraOffs: [{ date: '2025-10-13', name: 'Clashing off day' }]
 			})
 		).rejects.toThrow(/exclusive/i);
 	});
@@ -300,10 +318,9 @@ describe('esl/seed.seed S1', () => {
 describe('esl/seed.seed S2', () => {
 	afterEach(() => vi.restoreAllMocks());
 
-	it('seeds ceremony, spring break, anniversary, mocks, and exams', async () => {
+	it('seeds ceremony, spring break, anniversary + makeup, mocks, and exams', async () => {
 		const { t, semesterId } = await adminSemester('S2', '2026-02-09');
-		// 2026-03-28 is a Saturday: it seeds as one row, no Friday-before
-		// makeup (#207 — official calendar rows are authoritative).
+		// 2026-03-28 is a Saturday: the anniversary makeup prefills Friday-before.
 		const result = await t.mutation(api.esl.seed.seed, {
 			semesterId,
 			examStarts: { exam1: '2026-03-16', exam2: '2026-04-20', final: '2026-06-15' },
@@ -317,31 +334,50 @@ describe('esl/seed.seed S2', () => {
 		expect(result.unresolvedLunar).toEqual([]);
 
 		const events = await t.query(api.esl.events.listBySemester, { semesterId });
-		const byLabel = new Map(events.map((event) => [event.label, event]));
+		const byNote = new Map(events.map((event) => [event.note, event]));
 
-		expect(byLabel.get('First day of S2')).toMatchObject({
+		expect(byNote.get('First day of S2')).toMatchObject({
 			type: 'partial',
+			title: 'No class',
 			date: '2026-02-09',
 			startPeriod: 3
 		});
-		expect(byLabel.get('Graduation ceremony')).toMatchObject({
+		expect(byNote.get('Graduation ceremony')).toMatchObject({
 			type: 'no_class',
+			title: 'No class',
 			target: 'G9',
 			date: '2026-06-22'
 		});
-		expect(byLabel.get('Anniversary')).toMatchObject({ type: 'no_class', date: '2026-03-28' });
-		expect(byLabel.has('Anniversary (makeup)')).toBe(false);
-		// G9 mocks are no_class+G9 two-day rows, never exam-typed.
-		const mocks = events.filter((event) => event.label === 'G9 mock');
+		expect(byNote.get('Anniversary')).toMatchObject({
+			type: 'no_class',
+			title: 'No class',
+			date: '2026-03-28'
+		});
+		expect(events.find((event) => event.date === '2026-03-27')).toMatchObject({
+			type: 'no_school',
+			title: 'Off'
+		});
+		// G9 mocks are g9_mock+G9 two-day rows, never exam-typed.
+		const mocks = events.filter((event) => event.title === 'G9 Mock Exam');
 		expect(mocks).toHaveLength(2);
-		expect(mocks.every((event) => event.type === 'no_class' && event.target === 'G9')).toBe(true);
+		expect(mocks.every((event) => event.type === 'g9_mock' && event.target === 'G9')).toBe(true);
 
 		// The ceremony stays protected after seeding.
-		const ceremony = byLabel.get('Graduation ceremony');
+		const ceremony = byNote.get('Graduation ceremony');
 		if (!ceremony) throw new Error('ceremony seed row missing');
 		await expect(t.mutation(api.esl.events.remove, { eventId: ceremony._id })).rejects.toThrow(
 			/protected/i
 		);
+	});
+
+	it('refuses a due window whose title breaks the lock', async () => {
+		const { t, semesterId } = await adminSemester('S1', '2025-08-31');
+		await expect(
+			t.mutation(api.esl.seed.seed, {
+				semesterId,
+				dueWindows: [{ type: 'quiz', title: 'Pop quiz', date: '2025-09-17' }]
+			})
+		).rejects.toThrow(/always shows "Quiz"/);
 	});
 });
 
