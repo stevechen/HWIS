@@ -8,6 +8,7 @@
 	import { isProtectedSeedEvent } from '$convex/shared/esl';
 	import { derivedEndSource, semesterStatus, type SiblingSemester } from '$lib/esl-semesters';
 	import SemesterHeader from '$lib/components/esl/SemesterHeader.svelte';
+	import HolidayCsvUpload from '$lib/components/esl/HolidayCsvUpload.svelte';
 	import EventForm, { type EventFormInput } from '$lib/components/esl/EventForm.svelte';
 	import SeedForm, { type SeedFormInput } from '$lib/components/esl/SeedForm.svelte';
 
@@ -63,8 +64,6 @@
 	let seedError = $state<string | null>(null);
 	let seedReport = $state<{
 		createdCount: number;
-		makeup: { forDate: string; makeupDate: string; label: string }[];
-		makeupSkipped: string[];
 		unresolvedLunar: string[];
 	} | null>(null);
 	let notice = $state('');
@@ -153,8 +152,6 @@
 			.then((result) => {
 				seedReport = {
 					createdCount: result.created.length,
-					makeup: result.makeup,
-					makeupSkipped: result.makeupSkipped,
 					unresolvedLunar: result.unresolvedLunar
 				};
 				notice = `Seeded ${result.created.length} draft rows — fill or delete them below.`;
@@ -200,6 +197,10 @@
 			derivedEnd={selected.derivedEnd}
 			endSourceLabel={source?.label ?? null}
 		/>
+
+		{#key selected._id}
+			<HolidayCsvUpload year={selected.startDate.slice(0, 4)} />
+		{/key}
 
 		{#if notice}
 			<p
