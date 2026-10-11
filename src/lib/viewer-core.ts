@@ -1,7 +1,7 @@
 import {
 	hasApplicationAccess,
-	isEslAdmin as isEslAdminFn,
-	isEslStaff as isEslStaffFn,
+	isEslAdmin,
+	isEslStaff,
 	isHybridStaff,
 	isInternationalStaff,
 	type AccessSubject,
@@ -97,10 +97,6 @@ export function settleViewer(auth: AuthInput, profile: ProfileInput): ViewerSess
 	const actor = profile.data?.actor ?? anonymousActor;
 	const capabilities = profile.data?.capabilities ?? emptyCapabilities;
 
-	const isEslAdmin = user?.departmentRoles?.esl === 'admin';
-	const isEslStaff =
-		user?.departmentRoles?.esl === 'admin' || user?.departmentRoles?.esl === 'teacher';
-
 	return {
 		status,
 		viewer: user,
@@ -115,8 +111,8 @@ export function settleViewer(auth: AuthInput, profile: ProfileInput): ViewerSess
 		// backend guards: Super is universal, legacy staff fall back to
 		// `{ international: role }`.
 		isInternationalStaff: user !== null && isInternationalStaff(user),
-		isEslStaff: isEslStaff,
-		isEslAdmin: isEslAdmin,
+		isEslStaff: user !== null && isEslStaff(user),
+		isEslAdmin: user !== null && isEslAdmin(user),
 		isHybridStaff: user !== null && isHybridStaff(user),
 		isApproved: user !== null && hasApplicationAccess(user),
 		needsProfileCreation:
