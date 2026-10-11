@@ -4,10 +4,10 @@
 
 	/**
 	 * The seed mutation's date knobs, minus `semesterId`: exam starts grow
-	 * their weekday ends (`start + N−1` weekdays), weekend off-days suggest a
-	 * Friday-before makeup, and the lunar date resolves from the holiday cache
-	 * or falls back to the admin-typed (flagged) date. Groups left blank are
-	 * simply not seeded — admins add dues and mocks through the event form.
+	 * their weekday ends (`start + N−1` weekdays), and the lunar date resolves
+	 * from the holiday cache or falls back to the admin-typed (flagged) date.
+	 * Groups left blank are simply not seeded — admins add dues and mocks
+	 * through the event form.
 	 */
 	export type SeedFormInput = {
 		examStarts?: { exam1?: string; exam2?: string; final?: string };
@@ -23,8 +23,6 @@
 
 	export type SeedFormReport = {
 		createdCount: number;
-		makeup: { forDate: string; makeupDate: string; label: string }[];
-		makeupSkipped: string[];
 		unresolvedLunar: string[];
 	};
 
@@ -94,7 +92,8 @@
 	<h2 class="text-base font-semibold text-emerald-900">Seed drafts</h2>
 	<p class="text-sm text-gray-600">
 		One seed per semester, while it is still empty. Exam ends are computed (start + weekdays);
-		weekend off-days suggest a Friday-before makeup. Leave a group blank to skip it.
+		weekend off days seed a single row — the official calendar's makeup rows are authoritative.
+		Leave a group blank to skip it.
 	</p>
 
 	<fieldset class="flex flex-wrap gap-3">
@@ -239,12 +238,6 @@
 			class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900"
 		>
 			<p>Seeded {report.createdCount} draft rows — fill or delete them below.</p>
-			{#each report.makeup as row (row.makeupDate)}
-				<p>Makeup for {row.label} on {row.forDate}: {row.makeupDate} (editable).</p>
-			{/each}
-			{#each report.makeupSkipped as skipped (skipped)}
-				<p>{skipped}</p>
-			{/each}
 			{#each report.unresolvedLunar as festival (festival)}
 				<p>{festival} could not be resolved from the holiday cache — enter its date by hand.</p>
 			{/each}

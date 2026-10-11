@@ -1932,9 +1932,9 @@ function prevEslDate(date: string): string {
 }
 
 /**
- * The Friday before a date — the prefilled suggestion for a weekend off-day's
- * makeup row. Monday-after also occurs in the data, so this is a suggestion
- * only and the admin adjusts (#184 resolution).
+ * The Friday before a date — pure weekday math. The seed no longer
+ * synthesizes a makeup row from it (#207: the official calendar's own
+ * rows are authoritative); admins add any observed-day row by hand.
  */
 export function fridayBeforeDate(date: string): string {
 	let candidate = prevEslDate(date);
@@ -2019,4 +2019,134 @@ export function findLunarOffCluster(
 	festivalCaption: string
 ): string[] {
 	return findLunarOffDays(dayRows, festivalCaption).map((row) => row.date);
+}
+
+/**
+ * Official-calendar CSV upload (ticket #207): dataset 14718 rows land in
+ * the year-keyed `esl_holiday_cache`, which stays the runtime source the
+ * seed reads at seed time.
+ *
+ * The Directorate-General files arrive in two encodings — Big5 (ROC-114
+ * style) or UTF-8 with BOM (ROC-115/116 style) — with headers
+ * `西元日期,星期,是否放假,備註`, dates as `YYYYMMDD`, and `是否放假=2`
+ * marking an off day. Every row (off or workday) is stored: the official
+ * `補假` rows are authoritative, so no weekend-makeup synthesis happens
+ * anywhere in this flow.
+ */
+
+/** One parsed official-calendar row, in the cache's storage form. */
+export type HolidayCsvRow = {
+	/** Day in `YYYYMMDD` form, e.g. `20250101`. */
+	date: string;
+	/** True when `是否放假` is `2`. */
+	isHoliday: boolean;
+	/** The `備註` caption, e.g. `元旦`, `補假` — empty otherwise. */
+	caption: string;
+};
+
+const HOLIDAY_REQUIRED_HEADERS = ['西元日期', '星期', '是否放假', '備註'] as const;
+
+/**
+ * Decode an uploaded calendar file: strip a UTF-8 BOM when present,
+ * otherwise decode strict UTF-8 with a Big5 fallback (the ROC-114 files
+ * carry no BOM, so undecodable-as-UTF-8 bytes mean Big5).
+ */
+export function decodeHolidayBytes(bytes: Uint8Array): string {
+	let buf = bytes;
+	if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
+		buf = buf.subarray(3);
+	}
+	try {
+		return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+	} catch {
+		return new TextDecoder('big5').decode(buf);
+	}
+}
+
+/** Split one CSV line, honouring double-quoted fields. */
+function splitHolidayCsvLine(line: string): string[] {
+	const cells: string[] = [];
+	let current = '';
+	let inQuotes = false;
+	for (let i = 0; i < line.length; i++) {
+		const char = line[i];
+		if (char === '"') {
+			if (inQuotes && line[i + 1] === '"') {
+				current += '"';
+				i++;
+			} else {
+				inQuotes = !inQuotes;
+			}
+			continue;
+		}
+		if (char === ',' && !inQuotes) {
+			cells.push(current.trim());
+			current = '';
+			continue;
+		}
+		current += char;
+	}
+	cells.push(current.trim());
+	return cells;
+}
+
+/** Whether an 8-digit string is a real calendar date. */
+function isRealYyyymmdd(digits: string): boolean {
+	const year = Number(digits.slice(0, 4));
+	const month = Number(digits.slice(4, 6));
+	const day = Number(digits.slice(6, 8));
+	if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+	const check = new Date(Date.UTC(year, month - 1, day));
+	return (
+		check.getUTCFullYear() === year &&
+		check.getUTCMonth() === month - 1 &&
+		check.getUTCDate() === day
+	);
+}
+
+/**
+ * Parse official-calendar CSV text (already decoded) into cache rows.
+ *
+ * Requires the four official headers (extra columns are tolerated),
+ * keeps file order, skips rows without a valid `YYYYMMDD` date, and
+ * throws when the file is empty, headerless, or holds no usable row.
+ */
+export function parseHolidayCsv(csvText: string): HolidayCsvRow[] {
+	const withoutBom = csvText.replace(/^\ufeff/, '');
+	const lines = withoutBom
+		.replace(/\r\n/g, '\n')
+		.replace(/\r/g, '\n')
+		.split('\n')
+		.filter((line) => line.trim() !== '');
+
+	if (lines.length === 0) {
+		throw new Error('CSV file is empty');
+	}
+	const headers = splitHolidayCsvLine(lines[0] ?? '');
+	for (const required of HOLIDAY_REQUIRED_HEADERS) {
+		if (!headers.includes(required)) {
+			throw new Error(`Missing required header: ${required}`);
+		}
+	}
+	const dateIdx = headers.indexOf('西元日期');
+	const offIdx = headers.indexOf('是否放假');
+	const noteIdx = headers.indexOf('備註');
+	const needed = Math.max(dateIdx, offIdx, noteIdx);
+
+	const rows: HolidayCsvRow[] = [];
+	for (const line of lines.slice(1)) {
+		const cells = splitHolidayCsvLine(line);
+		if (cells.length <= needed) continue;
+		const digits = (cells[dateIdx] ?? '').trim();
+		if (!/^\d{8}$/.test(digits) || !isRealYyyymmdd(digits)) continue;
+		rows.push({
+			date: digits,
+			isHoliday: (cells[offIdx] ?? '').trim() === '2',
+			caption: (cells[noteIdx] ?? '').trim()
+		});
+	}
+	if (rows.length === 0) {
+		throw new Error('No valid rows found in CSV');
+	}
+	return rows;
 }
