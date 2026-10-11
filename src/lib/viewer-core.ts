@@ -1,7 +1,7 @@
 import {
 	hasApplicationAccess,
-	isEslAdmin,
-	isEslStaff,
+	isEslAdmin as isEslAdminFn,
+	isEslStaff as isEslStaffFn,
 	isHybridStaff,
 	isInternationalStaff,
 	type AccessSubject,
@@ -49,8 +49,6 @@ export type ViewerSession = {
 	isHybridStaff: boolean;
 	isApproved: boolean;
 	needsProfileCreation: boolean;
-	isEslAdmin: boolean;
-	isEslStaff: boolean;
 };
 
 export type AuthInput = {
@@ -117,17 +115,15 @@ export function settleViewer(auth: AuthInput, profile: ProfileInput): ViewerSess
 		// backend guards: Super is universal, legacy staff fall back to
 		// `{ international: role }`.
 		isInternationalStaff: user !== null && isInternationalStaff(user),
-		isEslStaff: user !== null && isEslStaff(user),
-		isEslAdmin: user !== null && isEslAdmin(user),
+		isEslStaff: isEslStaff,
+		isEslAdmin: isEslAdmin,
 		isHybridStaff: user !== null && isHybridStaff(user),
 		isApproved: user !== null && hasApplicationAccess(user),
 		needsProfileCreation:
 			status !== 'loading' &&
 			status !== 'signedOut' &&
 			user !== null &&
-			user.profileExists === false,
-		isEslAdmin,
-		isEslStaff
+			user.profileExists === false
 	};
 }
 
