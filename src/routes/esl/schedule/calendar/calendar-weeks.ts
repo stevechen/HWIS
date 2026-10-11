@@ -81,6 +81,20 @@ export function slash(date: string): string {
 }
 
 /**
+ * The calendar header/menu label for one class: the corrected short label
+ * with a type suffix only when it adds information (ticket #204).
+ *
+ * The short label already carries the grade for G7–G9 and the whole name for
+ * G10, so suffixing their types would duplicate (`G9 Bas. 3 G9`,
+ * `H101A H10A`). Only the CLIL/Comm lesson is dropped by the short label, so
+ * only it stays — without it a cohort's two classes would read identically.
+ */
+export function calendarClassLabel(short: string, type: string): string {
+	if (type === 'CLIL' || type === 'Comm') return `${short} ${type}`;
+	return short;
+}
+
+/**
  * Group one class's day rows into week-keyed fragments. Rows may arrive
  * unsorted; fragments and cards come out in date order. Exam rows carry no
  * count-up (their chip + cause say what they are); every other counted row

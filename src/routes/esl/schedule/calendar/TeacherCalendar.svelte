@@ -2,6 +2,7 @@
 	import { onMount, tick } from 'svelte';
 	import { Ellipsis, MapPin, Users } from '@lucide/svelte';
 	import {
+		calendarClassLabel,
 		monthName,
 		slash,
 		type CalendarCardStatus,
@@ -128,7 +129,7 @@
 				<h1
 					class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-xl font-bold text-emerald-900"
 				>
-					<span class="truncate">{selected.short} {selected.type}</span>
+					<span class="truncate">{calendarClassLabel(selected.short, selected.type)}</span>
 					<span class="inline-flex items-center gap-1 font-normal">
 						<Users class="size-4 shrink-0" aria-hidden="true" />
 						{selected.headcount}
@@ -168,8 +169,7 @@
 									}}
 								>
 									<span class="w-5 shrink-0">{option.id === selected.id ? '✓' : ''}</span>
-									{option.short}
-									{option.type}
+									{calendarClassLabel(option.short, option.type)}
 								</button>
 							{/each}
 						</div>
