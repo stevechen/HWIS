@@ -1138,6 +1138,41 @@ export function isRangedEventType(type: EslEventType): boolean {
 }
 
 /**
+ * Banner-only types hide the note field entirely (#211): Start of School,
+ * Quiz, Exam, Passport/Recording due, G9 Mock. The backend ignores any note
+ * written for them, so the form drops a stale note on type switch and omits
+ * it from submit.
+ */
+export const ESL_NOTE_HIDDEN_EVENT_TYPES: readonly EslEventType[] = [
+	'start_school',
+	'quiz',
+	'exam',
+	'passport_due',
+	'recording_due',
+	'g9_mock'
+];
+
+/** Whether an event type hides the note field. */
+export function isNoteHiddenForEventType(type: EslEventType): boolean {
+	return (ESL_NOTE_HIDDEN_EVENT_TYPES as readonly EslEventType[]).includes(type);
+}
+
+/**
+ * Note-required types (#211): No school (`Off`), No class, Partial. Every
+ * other visible-note type (`task`) takes an optional note.
+ */
+export const ESL_NOTE_REQUIRED_EVENT_TYPES: readonly EslEventType[] = [
+	'no_school',
+	'no_class',
+	'partial'
+];
+
+/** Whether an event type shows the note field as required. */
+export function isNoteRequiredForEventType(type: EslEventType): boolean {
+	return (ESL_NOTE_REQUIRED_EVENT_TYPES as readonly EslEventType[]).includes(type);
+}
+
+/**
  * Dates are `YYYY-MM-DD` strings, never wall-clock reads in queries — the
  * pre-existing `schoolYearOf` local-vs-Taipei edge drift is out of scope and
  * must not widen, so every comparison here is lexical.

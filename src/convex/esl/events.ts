@@ -6,6 +6,7 @@ import {
 	assertValidEslEvent,
 	assertValidEslTitle,
 	describeEslEventError,
+	isNoteHiddenForEventType,
 	isProtectedSeedEvent,
 	migrateLegacyEslEvent,
 	type EslEventType
@@ -160,7 +161,9 @@ export const create = mutation({
 			endDate: args.endDate
 		});
 
-		const note = args.note?.trim();
+		// Banner-only types carry no note (#211) — a client-supplied note is
+		// dropped, never stored.
+		const note = isNoteHiddenForEventType(args.type) ? undefined : args.note?.trim();
 
 		return await ctx.db.insert('esl_events', {
 			semesterId: args.semesterId,
@@ -258,7 +261,13 @@ export const update = mutation({
 			excludeId: args.eventId
 		});
 
-		const note = args.note === undefined ? event.note : args.note.trim();
+		// Banner-only types carry no note (#211): the incoming note is ignored
+		// and a retarget onto a hidden type clears the stored note.
+		const note = isNoteHiddenForEventType(type)
+			? undefined
+			: args.note === undefined
+				? event.note
+				: args.note.trim();
 
 		await ctx.db.patch(args.eventId, {
 			type,
