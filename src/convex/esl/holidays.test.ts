@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { convexTest, modules, seedEslStaff } from '../test.setup';
 import { api } from '../_generated/api';
 import schema from '../schema';
-import { decodeHolidayBytes, parseHolidayCsv } from './holidays';
+import { decodeHolidayBytes, parseHolidayCsv, translateHolidayCaption } from './holidays';
 // Dataset-14718 fixtures: test/seed only, never a production read path.
 import fixture115 from '../../../tests/fixtures/esl-holiday/115.csv?raw';
 import fixture116 from '../../../tests/fixtures/esl-holiday/116.csv?raw';
@@ -159,6 +159,48 @@ describe('holidays.decodeHolidayBytes', () => {
 	});
 });
 
+describe('holidays.translateHolidayCaption', () => {
+	// The cleaned #208 map: one 端午節 key (dup merged), 春節 kept as the
+	// Chinese New Year fallback.
+	const KNOWN: [string, string][] = [
+		['開國紀念日', "New Year's Day"],
+		['補假', 'Compensatory day off'],
+		['和平紀念日', 'Peace Memorial Day'],
+		['兒童節及民族掃墓節', "Children's Day and Tomb-Sweeping Day"],
+		['兒童節', "Children's Day"],
+		['民族掃墓節', 'Tomb-Sweeping Day'],
+		['清明節', 'Tomb-Sweeping Day'],
+		['端午節', 'Dragon Boat Festival'],
+		['中秋節', 'Moon Festival'],
+		['國慶日', 'Double Tenth Day'],
+		['勞動節', 'Labor Day'],
+		['孔子誕辰紀念日/教師節', "Teacher's Day"],
+		['教師節', "Teacher's Day"],
+		['臺灣光復暨金門古寧頭大捷紀念日', 'Retrocession Day'],
+		['行憲紀念日', 'Xmas'],
+		['小年夜', "Lunar New Year's Eve"],
+		['農曆除夕', "Lunar New Year's Eve"],
+		['春節', 'Chinese New Year']
+	];
+
+	it.each(KNOWN)('translates %s without flagging it', (caption, english) => {
+		expect(translateHolidayCaption(caption)).toEqual({ english, needsTranslation: false });
+	});
+
+	it('stores an unknown caption verbatim and flags it for manual translation', () => {
+		// 元旦 (the CSV's Jan-1 shorthand) is deliberately outside the #208
+		// list, so it rides through verbatim until a human translates it.
+		expect(translateHolidayCaption('元旦')).toEqual({
+			english: '元旦',
+			needsTranslation: true
+		});
+	});
+
+	it('leaves empty captions unflagged — workday rows carry no note', () => {
+		expect(translateHolidayCaption('')).toEqual({ english: '', needsTranslation: false });
+	});
+});
+
 const UPLOAD_V1 = `西元日期,星期,是否放假,備註
 20250101,三,2,元旦
 20250102,四,0,
@@ -252,5 +294,47 @@ describe('holidays.upload', () => {
 		await expect(
 			t.mutation(api.esl.holidays.upload, { year: '2025-2026', csvText: UPLOAD_V1 })
 		).rejects.toThrow(/calendar year/);
+	});
+
+	it('stores unknown captions verbatim and flags them for manual translation', async () => {
+		const t = await adminHarness();
+		// 元旦 is outside the #208 map; 端午節 and 補假 are in it.
+		const csvText = `西元日期,星期,是否放假,備註
+20250101,三,2,元旦
+20250530,五,2,補假
+20250531,六,2,端午節
+20250102,四,0,`;
+		await t.mutation(api.esl.holidays.upload, { year: '2025', csvText });
+		const cached = await t.query(api.esl.holidays.getByYear, { year: '2025' });
+		const byDate = new Map(cached.map((row) => [row.date, row]));
+		expect(byDate.get('20250101')).toMatchObject({
+			caption: '元旦',
+			needsTranslation: true
+		});
+		expect(byDate.get('20250530')).toMatchObject({
+			caption: '補假',
+			needsTranslation: false
+		});
+		expect(byDate.get('20250531')).toMatchObject({
+			caption: '端午節',
+			needsTranslation: false
+		});
+		expect(byDate.get('20250102')).toMatchObject({ caption: '', needsTranslation: false });
+	});
+
+	it('refreshes the flag when a re-uploaded caption changes', async () => {
+		const t = await adminHarness();
+		await t.mutation(api.esl.holidays.upload, { year: '2025', csvText: UPLOAD_V1 });
+		// 01-01 元旦 (unknown) -> 開國紀念日 (known): the flag must clear.
+		const csvText = `西元日期,星期,是否放假,備註
+20250101,三,2,開國紀念日
+20250102,四,0,
+20250103,五,0,`;
+		await t.mutation(api.esl.holidays.upload, { year: '2025', csvText });
+		const cached = await t.query(api.esl.holidays.getByYear, { year: '2025' });
+		expect(cached.find((row) => row.date === '20250101')).toMatchObject({
+			caption: '開國紀念日',
+			needsTranslation: false
+		});
 	});
 });

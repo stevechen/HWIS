@@ -45,6 +45,18 @@ export type SiblingSemester = {
 } | null;
 
 /**
+ * The Gregorian calendar years whose official CSVs a semester's window
+ * spans — the setup page offers one upload per year (ticket #208). S1
+ * starts in the fall and ends the next spring, so it always spans two
+ * (fall 2026 → 2026+2027); S2 sits inside one spring.
+ */
+export function semesterUploadYears(term: 'S1' | 'S2', startDate: string): string[] {
+	const year = startDate.slice(0, 4);
+	if (term === 'S2') return [year];
+	return [year, String(Number(year) + 1)];
+}
+
+/**
  * An advisory warning when an exam date crosses the S1/S2 boundary — shown,
  * never a refusal (the backend stays silent on crosses; only off/exam-day
  * collisions refuse). Non-exam types never warn: only exams anchor the

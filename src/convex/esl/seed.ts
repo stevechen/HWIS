@@ -15,6 +15,7 @@ import {
 	isValidEslDate,
 	isWeekendEslDate,
 	suggestExamEndDate,
+	translateHolidayCaption,
 	weekdayDatesBetween,
 	type EslEventTarget,
 	type EslEventType
@@ -577,6 +578,7 @@ export const saveHolidayRows = internalMutation({
 				date: row.date,
 				isHoliday: row.isHoliday,
 				caption: row.caption,
+				needsTranslation: translateHolidayCaption(row.caption).needsTranslation,
 				fetchedAt: args.fetchedAt
 			});
 		}
