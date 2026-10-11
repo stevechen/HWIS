@@ -5,11 +5,12 @@ import {
 	type TestConvexForDataModelAndIdentity
 } from 'convex-test';
 import schema from './schema';
+export { schema };
 import type { DataModelFromSchemaDefinition } from 'convex/server';
 import type { Id } from './_generated/dataModel';
 import { authComponent, type AuthenticatedUserLike } from './auth';
 
-export const modules = import.meta.glob('./**/*.ts');
+export const modules = import.meta.glob('./**/*.{ts,js}');
 type ConvexTestSchema = Parameters<typeof originalConvexTest>[0];
 type ConvexTestModules = Parameters<typeof originalConvexTest>[1];
 

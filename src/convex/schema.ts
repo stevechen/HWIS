@@ -251,5 +251,37 @@ export default defineSchema({
 		e2eTag: v.optional(v.string())
 	})
 		.index('by_startDate', ['startDate'])
-		.index('by_e2eTag', ['e2eTag'])
+		.index('by_e2eTag', ['e2eTag']),
+
+	/**
+	 * ESL semesters — defines the academic terms for the ESL department.
+	 * Each semester has a year (e.g., "2025-2026"), term (e.g., "S1", "S2"),
+	 * start date, and optional derived end date (for final exams).
+	 */
+	esl_semesters: defineTable({
+		year: v.string(), // e.g., "2025-2026"
+		term: v.string(), // e.g., "S1", "S2"
+		startDate: v.string(), // YYYY-MM-DD
+		derivedEnd: v.optional(v.string()), // YYYY-MM-DD, when final exams end
+		e2eTag: v.optional(v.string())
+	}).index('by_year_term', ['year', 'term']),
+
+	/**
+	 * ESL holiday cache — keyed by calendar year (e.g., "2025").
+	 * Populated by manual CSV upload from the official government calendar (dataset 14718).
+	 * Each row stores a single date's holiday status.
+	 * `isOffDay` true when `是否放假` = 2 (official holiday).
+	 * Weekend makeup days (`補假`) are explicitly listed in the CSV and treated as off days.
+	 * Re-upload of the same year overwrites all rows for that year.
+	 */
+	esl_holiday_cache: defineTable({
+		calendarYear: v.string(), // e.g., "2025"
+		date: v.string(), // YYYY-MM-DD
+		weekday: v.number(), // 0=Sun .. 6=Sat
+		isOffDay: v.boolean(), // true if 是否放假 === 2
+		note: v.optional(v.string()), // 備註
+		uploadedAt: v.number()
+	})
+		.index('by_calendarYear', ['calendarYear'])
+		.index('by_calendarYear_date', ['calendarYear', 'date'])
 });

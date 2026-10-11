@@ -43,11 +43,11 @@
 	const rows = $derived(daysQuery.data ?? []);
 	const teacherClasses = $derived(classesQuery.data ?? []);
 	const selectedClassId = $derived(
-		teacherClasses.some((cls) => cls._id === pickedClassId) ? pickedClassId : (teacherClasses[0]?._id ?? null)
+		teacherClasses.some((cls) => cls._id === pickedClassId)
+			? pickedClassId
+			: (teacherClasses[0]?._id ?? null)
 	);
-	const selectedClass = $derived(
-		teacherClasses.find((cls) => cls._id === selectedClassId) ?? null
-	);
+	const selectedClass = $derived(teacherClasses.find((cls) => cls._id === selectedClassId) ?? null);
 	const visibleRows = $derived(
 		selectedClassId === null ? [] : rows.filter((row) => row.classId === selectedClassId)
 	);

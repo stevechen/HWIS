@@ -2,13 +2,13 @@
 
 This repo uses the default five-role vocabulary. Each label string equals its name.
 
-| Role | Label | Purpose |
-|------|-------|---------|
-| `needs-triage` | `needs-triage` | New issue, not yet categorised |
-| `needs-info` | `needs-info` | Blocked on clarification from user/stakeholder |
-| `ready-for-agent` | `ready-for-agent` | Clear, scoped, agent can start immediately |
+| Role              | Label             | Purpose                                                 |
+| ----------------- | ----------------- | ------------------------------------------------------- |
+| `needs-triage`    | `needs-triage`    | New issue, not yet categorised                          |
+| `needs-info`      | `needs-info`      | Blocked on clarification from user/stakeholder          |
+| `ready-for-agent` | `ready-for-agent` | Clear, scoped, agent can start immediately              |
 | `ready-for-human` | `ready-for-human` | Requires human decision/action (design, deploy, access) |
-| `wontfix` | `wontfix` | Closed without action; reason recorded |
+| `wontfix`         | `wontfix`         | Closed without action; reason recorded                  |
 
 ## Usage
 
