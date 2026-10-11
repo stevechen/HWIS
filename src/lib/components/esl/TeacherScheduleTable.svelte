@@ -126,11 +126,22 @@
 	<table class="w-full border-separate border-spacing-0 text-left text-slate-700">
 		<thead>
 			<tr class="bg-blue-700 text-white">
-				<th class="border border-blue-600 p-2" scope="col">Countdown</th>
-				<th class="border border-blue-600 p-2" scope="col">Date</th>
-				<th class="border border-blue-600 p-2" scope="col">Day</th>
-				<th class="border border-blue-600 p-2" scope="col">Description</th>
-				<th class="border border-blue-600 p-2" scope="col">Note</th>
+				<th class="border border-blue-600 p-2" scope="col" data-testid="esl-schedule.head-count">
+					#
+				</th>
+				<th class="border border-blue-600 p-2" scope="col" data-testid="esl-schedule.head-date">
+					Date
+				</th>
+				<th
+					class="border border-blue-600 p-2"
+					scope="col"
+					data-testid="esl-schedule.head-description"
+				>
+					Description
+				</th>
+				<th class="border border-blue-600 p-2" scope="col" data-testid="esl-schedule.head-note">
+					Note
+				</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -141,10 +152,15 @@
 					data-testid="esl-schedule.row"
 					class={['border-b border-gray-600', greyed && 'text-gray-400', isExam && 'text-red-500']}
 				>
-					<td class="border border-gray-200 p-2 whitespace-nowrap">{countdownText(row)}</td>
-					<td class="border border-gray-200 p-2 whitespace-nowrap">{row.date}</td>
-					<td class="border border-gray-200 p-2 whitespace-nowrap">{row.weekday}</td>
-					<td class="w-full border border-gray-200 p-2">
+					<td
+						class="border border-gray-200 p-2 whitespace-nowrap"
+						data-testid="esl-schedule.countdown-cell">{countdownText(row)}</td
+					>
+					<td
+						class="border border-gray-200 p-2 whitespace-nowrap"
+						data-testid="esl-schedule.date-cell">{row.date}</td
+					>
+					<td class="w-full border border-gray-200 p-2" data-testid="esl-schedule.description-cell">
 						<span data-testid={rowTestId(row.status)}>{descriptionText(row, classNames)}</span>
 						{#each row.badges as badge (badge)}
 							<span
@@ -154,7 +170,10 @@
 							>
 						{/each}
 					</td>
-					<td class="w-full border border-gray-200 p-2 whitespace-nowrap">
+					<td
+						class="w-full border border-gray-200 p-2 whitespace-nowrap"
+						data-testid="esl-schedule.note-cell"
+					>
 						{noteText(row, eventNotes)}
 					</td>
 				</tr>

@@ -223,7 +223,13 @@
 							{/each}
 						</div>
 					{/if}
-					<div class="grid gap-px bg-stone-200 p-px sm:grid-cols-2 lg:grid-cols-3">
+					<div
+						class="grid gap-px bg-stone-200 p-px {fragment.cards.length >= 3
+							? 'sm:grid-cols-2 lg:grid-cols-3'
+							: fragment.cards.length === 2
+								? 'sm:grid-cols-2'
+								: ''}"
+					>
 						{#each fragment.cards as card, cardIndex (`${card.date}-p${card.period}`)}
 							{@const newMonth =
 								cardIndex > 0 &&
@@ -275,7 +281,7 @@
 								<textarea
 									aria-label="Note for {card.date}"
 									rows="2"
-									placeholder="Note down progress, prep, history…"
+									placeholder="Note…"
 									class="mt-2 w-full rounded border border-stone-300 p-1.5 text-sm"
 									value={drafts[card.date] ?? notes[card.date] ?? ''}
 									oninput={(event) => {

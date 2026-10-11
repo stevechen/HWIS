@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { useViewer } from '$lib/viewer.svelte';
+
+	const session = useViewer();
 </script>
 
 <div class="mx-auto w-full max-w-6xl p-8">
@@ -42,13 +45,15 @@
 			<span class="text-muted-foreground mt-1 block text-sm">Graded answer sheets and results.</span
 			>
 		</a>
-		<a
-			href="/esl/admin"
-			data-testid="esl-dashboard.admin"
-			class="rounded-lg border bg-white p-6 shadow-sm hover:shadow"
-		>
-			<span class="text-lg font-semibold">Admin</span>
-			<span class="text-muted-foreground mt-1 block text-sm">ESL department administration.</span>
-		</a>
+		{#if session.isEslAdmin}
+			<a
+				href="/esl/admin"
+				data-testid="esl-dashboard.admin"
+				class="rounded-lg border bg-white p-6 shadow-sm hover:shadow"
+			>
+				<span class="text-lg font-semibold">Admin</span>
+				<span class="text-muted-foreground mt-1 block text-sm">ESL department administration.</span>
+			</a>
+		{/if}
 	</nav>
 </div>
