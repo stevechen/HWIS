@@ -138,6 +138,36 @@ describe('eslClassShortLabel (class names → grid tags)', () => {
 		expect(eslClassShortLabel('H110B')).toBe('H110B');
 	});
 
+	// Ticket #204 before/after table (G7–G10 rendered calendar labels).
+	// Before: the calendar header/menu rendered `{short} {type}` with the raw
+	// class type, so grade tokens duplicated (`G9 Bas. 3 G9`, `H101A H10A`).
+	// After: the short label below is rendered deduplicated (G9/H10 add no
+	// suffix; CLIL/Comm keep the lesson so the pair stays distinguishable).
+	// | canonical class name   | before (header)  | after (header)   |
+	// |------------------------|------------------|--------------------|
+	// | G7 Elementary 1 CLIL   | G7 Ele. 1 CLIL   | G7 Ele. 1 CLIL   |
+	// | G8 Elementary 3 Comm   | G8 Ele. 3 Comm   | G8 Ele. 3 Comm   |
+	// | G9 Basic 3             | G9 Bas. 3 G9     | G9 Bas. 3        |
+	// | H101A                  | H101A H10A       | H101A              |
+	// | H112B                  | H112B H10B       | H112B              |
+	// | H110A                  | H110A H10A       | H110A              |
+	it('renders the ticket #204 G7–G10 examples exactly', () => {
+		expect(eslClassShortLabel('G7 Pre-Elementary 1 CLIL')).toBe('G7 Pre. 1');
+		expect(eslClassShortLabel('G8 Elementary 3 Comm')).toBe('G8 Ele. 3');
+		expect(eslClassShortLabel('G9 Basic 3')).toBe('G9 Bas. 3');
+		expect(eslClassShortLabel('H101A')).toBe('H101A');
+		expect(eslClassShortLabel('H112B')).toBe('H112B');
+		expect(eslClassShortLabel('H110A')).toBe('H110A');
+	});
+
+	it('never duplicates a trailing grade token', () => {
+		// A name that already carries its grade/type token must not gain a
+		// second one: the canonical parse rejects the trailing token and the
+		// fallback carries only the level tag.
+		expect(eslClassShortLabel('G9 Basic 3 G9')).toBe('Bas.');
+		expect(eslClassShortLabel('G9 Basic 3 G9')).not.toMatch(/G9.*G9/);
+	});
+
 	it('falls back to a bare level tag, then nothing, for renamed classes', () => {
 		// A rename that keeps a level word still reads; anything else leaves the
 		// gray mark plus tooltip to carry it.
