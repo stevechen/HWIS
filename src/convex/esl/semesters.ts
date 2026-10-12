@@ -2,7 +2,14 @@ import { mutation, query, type MutationCtx, type QueryCtx } from '../_generated/
 import { v } from 'convex/values';
 import type { Doc } from '../_generated/dataModel';
 import { requireEslAdmin, requireEslStaff } from '../auth';
-import { deriveSemesterEnd, isValidEslDate, isValidSchoolYear } from '../shared/esl';
+import {
+	deriveSemesterEnd,
+	findLunarOffDays,
+	isValidEslDate,
+	isValidSchoolYear,
+	suggestedS1EndDate,
+	suggestedS2EndDate
+} from '../shared/esl';
 
 const termValidator = v.union(v.literal('S1'), v.literal('S2'));
 
@@ -70,6 +77,60 @@ export const create = mutation({
 			startDate: args.startDate,
 			...(args.e2eTag === undefined ? {} : { e2eTag: args.e2eTag })
 		});
+	}
+});
+
+/**
+ * The editable end-date default for semester setup (ticket #209).
+ *
+ * S2 is pure: July 1st of the school year's second calendar year. S1
+ * resolves the `春節` isHoliday-run start in the second calendar year from
+ * `esl_holiday_cache` — the contiguous off run containing the 春節 caption,
+ * via `findLunarOffDays` — and proposes two weeks before it. A missing year
+ * reports `missing-cache`: the setup page already offers that year's CSV
+ * upload (#208), and this query recomputes reactively once it lands. A
+ * cache with no 春節 run reports `unresolved`, and the admin types the date
+ * by hand. Every `ready` date stays a suggestion — the seed form never
+ * locks it.
+ *
+ * cost: S2 none; S1 one indexed take of the year's cache rows.
+ */
+export const endDateDefault = query({
+	args: {
+		year: v.string(),
+		term: termValidator
+	},
+	handler: async (ctx, args) => {
+		await requireEslStaff(ctx);
+
+		if (!isValidSchoolYear(args.year)) {
+			throw new Error('Year must be in YYYY-YYYY form');
+		}
+
+		if (args.term === 'S2') {
+			return { status: 'ready', date: suggestedS2EndDate(args.year), cnyRunStart: null } as const;
+		}
+
+		const calendarYear = args.year.split('-')[1] ?? args.year;
+		const cached = await ctx.db
+			.query('esl_holiday_cache')
+			.withIndex('by_year', (q) => q.eq('year', calendarYear))
+			.collect();
+		if (cached.length === 0) {
+			return { status: 'missing-cache', year: calendarYear } as const;
+		}
+		const cluster = findLunarOffDays(
+			cached.map((row) => ({ date: row.date, isHoliday: row.isHoliday, caption: row.caption })),
+			'春節'
+		);
+		if (cluster.length === 0) {
+			return { status: 'unresolved', year: calendarYear } as const;
+		}
+		const cnyRunStart = cluster.map((day) => day.date).sort()[0];
+		if (cnyRunStart === undefined) {
+			return { status: 'unresolved', year: calendarYear } as const;
+		}
+		return { status: 'ready', date: suggestedS1EndDate(cnyRunStart), cnyRunStart } as const;
 	}
 });
 

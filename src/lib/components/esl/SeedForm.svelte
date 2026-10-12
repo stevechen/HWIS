@@ -31,18 +31,31 @@
 		busy,
 		error,
 		report,
-		onseed
+		onseed,
+		finalDefault = null,
+		finalHint = null
 	}: {
 		term: 'S1' | 'S2';
 		busy: boolean;
 		error: string | null;
 		report: SeedFormReport | null;
 		onseed: (input: SeedFormInput) => void;
+		/**
+		 * The #209 end-date default for the Final exam starts box: S1's
+		 * CNY−14d or S2's July 1, resolved by `esl/semesters.endDateDefault`.
+		 * Fills the box once while it is still untouched — afterwards the
+		 * box is the admin's to edit, and a later default never clobbers a
+		 * typed value.
+		 */
+		finalDefault?: string | null;
+		/** Advisory line under the final input (upload nudge / CNY provenance). */
+		finalHint?: string | null;
 	} = $props();
 
 	let exam1 = $state('');
 	let exam2 = $state('');
 	let final = $state('');
+	let finalTouched = $state(false);
 	let bbq = $state('');
 	let sports = $state('');
 	let ceremony = $state('');
@@ -55,6 +68,12 @@
 		const trimmed = value.trim();
 		return trimmed === '' ? undefined : trimmed;
 	}
+
+	$effect(() => {
+		if (!finalTouched && final === '' && finalDefault !== null) {
+			final = finalDefault;
+		}
+	});
 </script>
 
 <form
@@ -122,13 +141,19 @@
 			<Label for="seed-form-final">Final exam starts</Label>
 			<input
 				id="seed-form-final"
+				data-testid="seed-form-final"
 				type="date"
 				bind:value={final}
+				oninput={() => (finalTouched = true)}
 				disabled={busy}
 				class="rounded border px-2 py-1 text-sm"
 			/>
 		</div>
 	</fieldset>
+
+	{#if finalHint !== null}
+		<p data-testid="seed-form.final-hint" class="text-xs text-gray-500">{finalHint}</p>
+	{/if}
 
 	{#if term === 'S1'}
 		<fieldset class="flex flex-wrap gap-3">
