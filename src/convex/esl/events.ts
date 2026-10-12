@@ -3,9 +3,12 @@ import { v } from 'convex/values';
 import type { Doc, Id } from '../_generated/dataModel';
 import { requireEslAdmin, requireEslStaff } from '../auth';
 import {
+	EXAM_SEED_WEEKDAYS,
 	assertValidEslEvent,
+	assertValidEslTarget,
 	assertValidEslTitle,
 	describeEslEventError,
+	expandExamDays,
 	isNoteHiddenForEventType,
 	isProtectedSeedEvent,
 	migrateLegacyEslEvent,
@@ -29,7 +32,10 @@ const targetValidator = v.union(
 	v.literal('all'),
 	v.literal('CLIL'),
 	v.literal('Comm'),
-	v.literal('G9')
+	v.literal('G7'),
+	v.literal('G8'),
+	v.literal('G9'),
+	v.literal('H1')
 );
 
 /**
@@ -100,13 +106,118 @@ export async function assertExclusive(
 }
 
 /**
+ * The exam groups a semester already holds, keyed by `examGroup` with a
+ * title fallback for rows written before the field existed. One group per
+ * locked title is the invariant: the titles bound the groups at three, so a
+ * fourth create necessarily duplicates — and refuses as either a duplicate
+ * title or a fourth group, whichever the admin hit first.
+ */
+function examGroupsOf(
+	events: readonly { type: string; title: string; date: string; examGroup?: string }[]
+) {
+	const groups = new Map<string, string[]>();
+	for (const event of events) {
+		if (event.type !== 'exam') continue;
+		const key = event.examGroup ?? event.title;
+		const dates = groups.get(key) ?? [];
+		dates.push(event.date);
+		groups.set(key, dates);
+	}
+	return groups;
+}
+
+/**
+ * Refuse an exam write that would break the one-group-per-title invariant:
+ * a title that already holds days, or a fourth group past the locked three.
+ * `knownDates` names the existing days of a duplicated title so the refusal
+ * points at what to move instead.
+ */
+function assertExamGroupAllowed(
+	groups: Map<string, string[]>,
+	title: string,
+	knownDates: readonly string[]
+): void {
+	if (groups.size >= 3) {
+		throw new Error(
+			`This semester already holds three exam groups (${[...groups.keys()].join(', ')}). Move one of them instead of adding another.`
+		);
+	}
+	if (groups.has(title)) {
+		throw new Error(
+			`${title} already has its days (${knownDates.join(', ')}). Move them instead — one group per exam.`
+		);
+	}
+}
+
+/**
+ * Fan one exam start out to its teaching-day rows, each sharing the title
+ * as its `examGroup`. Exams and their groups are locked together: the title
+ * is the group key, so a duplicate title or a fourth group refuses before
+ * anything is written, and every generated day runs the same exclusivity
+ * an off landing on an exam day would hit from the other side.
+ *
+ * cost: 1 indexed take of the semester's events (tens of rows) + 1
+ * exclusivity lookup per generated day + 1 insert per day.
+ */
+async function createExamGroup(
+	ctx: MutationCtx,
+	semesterId: Doc<'esl_semesters'>['_id'],
+	args: { title: string; startDate: string; e2eTag?: string }
+): Promise<Id<'esl_events'>[]> {
+	const existing = await ctx.db
+		.query('esl_events')
+		.withIndex('by_semester', (q) => q.eq('semesterId', semesterId))
+		.collect();
+
+	const groups = examGroupsOf(existing);
+	assertExamGroupAllowed(groups, args.title, groups.get(args.title) ?? []);
+
+	const offDates = new Set(
+		existing.filter((event) => event.type === 'no_school').map((event) => event.date)
+	);
+	const days = expandExamDays({
+		startDate: args.startDate,
+		dayCount: EXAM_SEED_WEEKDAYS[args.title] ?? 2,
+		offDates
+	});
+
+	for (const date of days) {
+		await assertExclusive(ctx, { semesterId, type: 'exam', date });
+	}
+
+	const ids: Id<'esl_events'>[] = [];
+	for (const date of days) {
+		ids.push(
+			await ctx.db.insert('esl_events', {
+				semesterId,
+				type: 'exam',
+				title: args.title,
+				target: 'all',
+				date,
+				examGroup: args.title,
+				...(args.e2eTag === undefined ? {} : { e2eTag: args.e2eTag })
+			})
+		);
+	}
+	return ids;
+}
+
+/**
  * Create a typed event on a semester.
  *
  * Writes sit behind `requireEslAdmin`; reads are teacher-visible. Ranges live
- * on due-types only, partial bounds on partials only, one partial per date —
- * each refused with the admin-facing sentence from `describeEslEventError`.
+ * on due-types only, partial bounds on partials only, one partial per date,
+ * targets behind the per-type gate — each refused with the admin-facing
+ * sentence from `describeEslEventError`.
  *
- * cost: field validation (no reads) + exclusivity lookups + 1 insert.
+ * Exams fan out: the date is the group's start, and the create writes one
+ * row per teaching day (2 for Exam 1/2, 3 for the Final), pushing past
+ * weekends and off days, every row sharing the title as its `examGroup`.
+ * A duplicate title or a fourth group refuses; an off landing on an exam
+ * day refuses through the same exclusivity every other write runs.
+ *
+ * cost: field validation (no reads) + exclusivity lookups + 1 insert per
+ * row (1 for every type but exam).
  */
 export const create = mutation({
 	args: {
@@ -133,6 +244,9 @@ export const create = mutation({
 		const titleError = assertValidEslTitle(args.type, title);
 		if (titleError) throw new Error(describeEslEventError(titleError));
 
+		const targetError = assertValidEslTarget(args.type, args.target ?? 'all');
+		if (targetError) throw new Error(describeEslEventError(targetError));
+
 		const fieldError = assertValidEslEvent({
 			type: args.type,
 			date: args.date,
@@ -154,16 +268,24 @@ export const create = mutation({
 			}
 		}
 
+		// Banner-only types carry no note (#211) — a client-supplied note is
+		// dropped, never stored.
+		const note = isNoteHiddenForEventType(args.type) ? undefined : args.note?.trim();
+
+		if (args.type === 'exam') {
+			return await createExamGroup(ctx, args.semesterId, {
+				title,
+				startDate: args.date,
+				...(args.e2eTag === undefined ? {} : { e2eTag: args.e2eTag })
+			});
+		}
+
 		await assertExclusive(ctx, {
 			semesterId: args.semesterId,
 			type: args.type,
 			date: args.date,
 			endDate: args.endDate
 		});
-
-		// Banner-only types carry no note (#211) — a client-supplied note is
-		// dropped, never stored.
-		const note = isNoteHiddenForEventType(args.type) ? undefined : args.note?.trim();
 
 		return await ctx.db.insert('esl_events', {
 			semesterId: args.semesterId,
@@ -234,6 +356,10 @@ export const update = mutation({
 		const titleError = assertValidEslTitle(type, title);
 		if (titleError) throw new Error(describeEslEventError(titleError));
 
+		const target = args.target ?? event.target;
+		const targetError = assertValidEslTarget(type, target);
+		if (targetError) throw new Error(describeEslEventError(targetError));
+
 		const date = args.date ?? event.date;
 		const endDate = args.clearEndDate === true ? undefined : (args.endDate ?? event.endDate);
 		const startPeriod =
@@ -261,6 +387,24 @@ export const update = mutation({
 			excludeId: args.eventId
 		});
 
+		// Exam rows carry their title as the group key, and the
+		// one-group-per-title invariant holds across edits too: moving a day
+		// onto an occupied title (or converting a row into a fourth group)
+		// refuses, while leaving the type clears the key with it.
+		let examGroup: string | undefined;
+		if (type === 'exam') {
+			const currentKey = event.type === 'exam' ? (event.examGroup ?? event.title) : null;
+			if (title !== currentKey) {
+				const siblings = await ctx.db
+					.query('esl_events')
+					.withIndex('by_semester', (q) => q.eq('semesterId', event.semesterId))
+					.collect();
+				const groups = examGroupsOf(siblings.filter((other) => other._id !== args.eventId));
+				assertExamGroupAllowed(groups, title, groups.get(title) ?? []);
+			}
+			examGroup = title;
+		}
+
 		// Banner-only types carry no note (#211): the incoming note is ignored
 		// and a retarget onto a hidden type clears the stored note.
 		const note = isNoteHiddenForEventType(type)
@@ -272,8 +416,9 @@ export const update = mutation({
 		await ctx.db.patch(args.eventId, {
 			type,
 			title,
-			target: args.target ?? event.target,
+			target,
 			date,
+			...(examGroup === undefined ? { examGroup: undefined } : { examGroup }),
 			...(endDate === undefined ? { endDate: undefined } : { endDate }),
 			...(note === undefined || note === '' ? { note: undefined } : { note }),
 			...(startPeriod === undefined ? { startPeriod: undefined } : { startPeriod }),

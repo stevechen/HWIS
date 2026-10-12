@@ -6,9 +6,11 @@
 		ESL_EVENT_TITLES,
 		ESL_EXAM_TITLES,
 		ESL_PERIOD_NUMBERS,
+		EXAM_SEED_WEEKDAYS,
 		isNoteHiddenForEventType,
 		isNoteRequiredForEventType,
 		isRangedEventType,
+		lockedTargetForEventType,
 		type EslEventTarget,
 		type EslEventType
 	} from '$convex/shared/esl';
@@ -86,10 +88,14 @@
 
 	function blankDraft(init?: EventFormInitial): Draft {
 		const type = init?.type ?? 'exam';
+		// Editing a row seeded before per-type gating (#212) may carry a
+		// target its type no longer allows — snap to the locked value so the
+		// edit form opens submittable instead of refusing on save.
+		const locked = lockedTargetForEventType(type);
 		return {
 			type,
 			title: init?.title ?? defaultTitleFor(type),
-			target: init?.target ?? 'all',
+			target: locked ?? init?.target ?? 'all',
 			date: init?.date ?? '',
 			endDate: init?.endDate ?? '',
 			note: init?.note ?? '',
@@ -135,6 +141,20 @@
 	const lockedTitle = $derived(
 		draft.type === 'task' || draft.type === 'exam' ? null : ESL_EVENT_TITLES[draft.type]
 	);
+	/**
+	 * Per-type target gating (#212): most types lock to one target (Quiz to
+	 * CLIL, exams/offs to All); only Start, Partial, and Task offer the
+	 * dropdown. The backend refuses a mistargeted write with the same rule,
+	 * so the form snaps on type switch rather than letting a stale target
+	 * ride along onto a locked type.
+	 */
+	const lockedTarget = $derived(lockedTargetForEventType(draft.type));
+	/**
+	 * Exam creates fan out from the picked start date (#212): 2 teaching
+	 * days for Exam 1/2, 3 for the Final, pushing past weekends and off
+	 * days — one row per day sharing the title as its exam group.
+	 */
+	const examDayCount = $derived(isExam ? (EXAM_SEED_WEEKDAYS[draft.title] ?? 2) : 0);
 
 	/**
 	 * The S1/S2 cross check is advisory: an exam move that stretches a term
@@ -161,6 +181,10 @@
 		// Banner-only types show no note field — switching onto one drops the
 		// now-meaningless text so a stale note cannot ride along on submit.
 		if (isNoteHiddenForEventType(next)) draft.note = '';
+		// Locked-target types snap to their target for the same reason: a
+		// G7 pick cannot ride along onto a quiz the backend would refuse.
+		const locked = lockedTargetForEventType(next);
+		if (locked !== null) draft.target = locked;
 		// Titles are locked per type and never derived from the note: fixed
 		// types snap to their locked title, exams keep a valid exam title or
 		// fall back to Exam 1, tasks start blank unless already typed there.
@@ -253,16 +277,29 @@
 		</div>
 		<div class="flex flex-col gap-1">
 			<Label for="event-form-target">Target</Label>
-			<select
-				id="event-form-target"
-				bind:value={draft.target}
-				disabled={busy}
-				class="rounded border px-2 py-1 text-sm"
-			>
-				{#each ESL_EVENT_TARGETS as option (option)}
-					<option value={option}>{option === 'all' ? 'All' : option}</option>
-				{/each}
-			</select>
+			{#if lockedTarget !== null}
+				<input
+					id="event-form-target"
+					type="text"
+					value={lockedTarget === 'all' ? 'All' : lockedTarget}
+					disabled
+					readonly
+					aria-readonly="true"
+					class="rounded border bg-gray-50 px-2 py-1 text-sm text-gray-600"
+				/>
+				<span class="text-xs text-gray-500">Locked for this type.</span>
+			{:else}
+				<select
+					id="event-form-target"
+					bind:value={draft.target}
+					disabled={busy}
+					class="rounded border px-2 py-1 text-sm"
+				>
+					{#each ESL_EVENT_TARGETS as option (option)}
+						<option value={option}>{option === 'all' ? 'All' : option}</option>
+					{/each}
+				</select>
+			{/if}
 		</div>
 	</div>
 
@@ -277,6 +314,11 @@
 				required
 				class="rounded border px-2 py-1 text-sm"
 			/>
+			{#if isExam}
+				<span class="text-xs text-gray-500"
+					>Start date — saves {examDayCount} teaching-day rows, skipping weekends and off days.</span
+				>
+			{/if}
 		</div>
 		{#if ranged}
 			<div class="flex flex-col gap-1">

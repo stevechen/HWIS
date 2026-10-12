@@ -91,6 +91,7 @@ describe('esl/semesters derived end', () => {
 			title: 'Exam 1',
 			date: '2025-10-16'
 		});
+		// Tue 2026-01-20 fans out to three days: the end pins to the last one.
 		await t.mutation(api.esl.events.create, {
 			semesterId,
 			type: 'exam',
@@ -98,6 +99,6 @@ describe('esl/semesters derived end', () => {
 			date: '2026-01-20'
 		});
 		const semester = await t.query(api.esl.semesters.get, { semesterId });
-		expect(semester?.derivedEnd).toBe('2026-01-20');
+		expect(semester?.derivedEnd).toBe('2026-01-22');
 	});
 });

@@ -8,7 +8,9 @@ import {
 	EXAM_SEED_WEEKDAYS,
 	G9_MOCK_SEED_DAYS,
 	assertValidEslEvent,
+	assertValidEslTarget,
 	assertValidEslTitle,
+	defaultTargetForEventType,
 	describeEslEventError,
 	findLunarOffDays,
 	fridayBeforeDate,
@@ -46,7 +48,10 @@ const targetValidator = v.union(
 	v.literal('all'),
 	v.literal('CLIL'),
 	v.literal('Comm'),
-	v.literal('G9')
+	v.literal('G7'),
+	v.literal('G8'),
+	v.literal('G9'),
+	v.literal('H1')
 );
 
 /** One draft row: the template's structure with its dates resolved. */
@@ -56,6 +61,7 @@ type SeedDraft = {
 	target: EslEventTarget;
 	date: string;
 	endDate?: string;
+	examGroup?: string;
 	note?: string;
 	startPeriod?: number;
 	endPeriod?: number;
@@ -185,6 +191,7 @@ export const seed = mutation({
 					title: exam.title,
 					target: 'all',
 					date,
+					examGroup: exam.title,
 					note: `Day ${index + 1} of ${dates.length}`
 				});
 			});
@@ -227,11 +234,13 @@ export const seed = mutation({
 		if (args.ceremonyDate !== undefined) {
 			checkDate(args.ceremonyDate);
 			// The note must keep matching /graduation|ceremony/i — the S2 G9
-			// cutoff `teacherDays` anchors on (titles are locked).
+			// cutoff `teacherDays` anchors on (titles are locked). Per-type
+			// gating (#212) locks no-class days to All, so the whole school
+			// shares the day rather than G9 alone.
 			drafts.push({
 				type: 'no_class',
 				title: ESL_EVENT_TITLES.no_class,
-				target: 'G9',
+				target: 'all',
 				date: args.ceremonyDate,
 				note: 'Graduation ceremony'
 			});
@@ -364,7 +373,7 @@ export const seed = mutation({
 			drafts.push({
 				type: due.type,
 				title,
-				target: due.target ?? 'all',
+				target: due.target ?? defaultTargetForEventType(due.type),
 				date: due.date,
 				...(due.endDate === undefined ? {} : { endDate: due.endDate }),
 				...(due.note === undefined || due.note.trim() === '' ? {} : { note: due.note.trim() })
@@ -391,6 +400,8 @@ export const seed = mutation({
 			if (fieldError) throw new Error(describeEslEventError(fieldError));
 			const titleError = assertValidEslTitle(draft.type, draft.title);
 			if (titleError) throw new Error(describeEslEventError(titleError));
+			const targetError = assertValidEslTarget(draft.type, draft.target);
+			if (targetError) throw new Error(describeEslEventError(targetError));
 
 			if (draft.type === 'partial') {
 				const sameDay = await ctx.db
@@ -438,6 +449,7 @@ export const seed = mutation({
 				target: draft.target,
 				date: draft.date,
 				...(draft.endDate === undefined ? {} : { endDate: draft.endDate }),
+				...(draft.examGroup === undefined ? {} : { examGroup: draft.examGroup }),
 				...(draft.note === undefined ? {} : { note: draft.note }),
 				...(draft.startPeriod === undefined ? {} : { startPeriod: draft.startPeriod }),
 				...(draft.endPeriod === undefined ? {} : { endPeriod: draft.endPeriod }),

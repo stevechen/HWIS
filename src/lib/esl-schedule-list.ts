@@ -1,22 +1,22 @@
 import type { ScheduleDayRow } from '$convex/shared/esl';
 
 /** Client-side class-type filter for the teacher list view. G10 has no target of its own. */
-export const SCHEDULE_TARGET_FILTERS = ['all', 'CLIL', 'Comm', 'G9'] as const;
+export const SCHEDULE_TARGET_FILTERS = ['all', 'CLIL', 'Comm', 'G7', 'G8', 'G9', 'H1'] as const;
 export type ScheduleTargetFilter = (typeof SCHEDULE_TARGET_FILTERS)[number];
 
-/** Lookup key joining an event's date to its label, shared by rows and dues. */
-export function eventNoteKey(date: string, label: string): string {
-	return `${date}|${label}`;
+/** Lookup key joining an event's date to its title, shared by rows and dues. */
+export function eventNoteKey(date: string, title: string): string {
+	return `${date}|${title}`;
 }
 
-/** Index admin event notes by date+label so rows resolve their Note cell without a join. */
+/** Index admin event notes by date+title so rows resolve their Note cell without a join. */
 export function buildEventNoteMap(
-	events: readonly { date: string; label: string; note?: string }[]
+	events: readonly { date: string; title: string; note?: string }[]
 ): Record<string, string> {
 	const notes: Record<string, string> = {};
 	for (const event of events) {
 		if (event.note !== undefined && event.note !== '') {
-			notes[eventNoteKey(event.date, event.label)] = event.note;
+			notes[eventNoteKey(event.date, event.title)] = event.note;
 		}
 	}
 	return notes;
@@ -60,6 +60,10 @@ export function examDisplayLabel(cause: string | null): string {
  * #203 normalizes exam rows to their canonical labels (Exam 1 / Exam 2 /
  * Final Exam). Badges ride separately as chips; the TSV payload appends
  * them in brackets.
+ *
+ * #212: an out-of-window partial meeting reads as class as usual — the
+ * context with no title — while the note column keeps the note. Every other
+ * partial row shows title+note.
  */
 export function descriptionText(row: ScheduleDayRow, classNames: Record<string, string>): string {
 	const context = classContext(row, classNames);
@@ -73,7 +77,10 @@ export function descriptionText(row: ScheduleDayRow, classNames: Record<string, 
 		case 'partial':
 		case 'oral_exam':
 		case 'teaching': {
-			const cause = row.cause === null ? '' : ` · ${row.cause}`;
+			const cause =
+				row.cause === null || (row.status === 'partial' && row.outOfWindow === true)
+					? ''
+					: ` · ${row.cause}`;
 			const dues = row.dues.length === 0 ? '' : ` · ${row.dues.map((due) => due.title).join('; ')}`;
 			return `${context}${cause}${dues}`;
 		}

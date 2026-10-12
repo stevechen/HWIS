@@ -78,11 +78,17 @@
 		createError = null;
 		client
 			.mutation(api.esl.events.create, { semesterId, ...input })
-			.then(() => {
-				notice =
-					input.type === 'exam'
-						? `Exam saved — the semester end follows exam moves silently${selected?.derivedEnd === null ? ', and the finals-TBD banner lifts once exams exist' : ''}.`
-						: 'Event added.';
+			.then((created) => {
+				// Exam creates fan out to one row per teaching day (#212),
+				// so the notice names the row count instead of implying one.
+				if (input.type === 'exam') {
+					const days = Array.isArray(created) ? created.length : 1;
+					notice =
+						`Exam saved — ${days} day row${days === 1 ? '' : 's'} sharing one exam group. ` +
+						`The semester end follows exam moves silently${selected?.derivedEnd === null ? ', and the finals-TBD banner lifts once exams exist' : ''}.`;
+				} else {
+					notice = 'Event added.';
+				}
 			})
 			.catch((cause: unknown) => {
 				// Collisions refuse here with the date named; the form shows

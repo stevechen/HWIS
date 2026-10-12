@@ -105,7 +105,7 @@ export const teacherDays = query({
 						.filter(
 							(event) =>
 								event.type === 'no_class' &&
-								event.target === 'G9' &&
+								(event.target === 'G9' || event.target === 'all') &&
 								/graduation|ceremony/i.test(`${event.title} ${event.note ?? ''}`)
 						)
 						.map((event) => event.date)

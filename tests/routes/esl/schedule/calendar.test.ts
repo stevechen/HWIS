@@ -79,8 +79,8 @@ const ROWS: ScheduleDayRow[] = [
 		badges: ['due window 2025-09-01–2025-09-08'],
 		dues: [
 			{
-				label: 'Passport 1 due',
-				type: 'task_due',
+				title: 'Passport 1 due',
+				type: 'task',
 				windowStart: '2025-09-01',
 				windowEnd: '2025-09-08'
 			}
