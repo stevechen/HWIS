@@ -2501,3 +2501,125 @@ export function parseHolidayCsv(csvText: string): HolidayCsvRow[] {
 	}
 	return rows;
 }
+
+/**
+ * Advisory checklist panel (ticket #213): four expected-default groups on
+ * the semester detail screen, each ✓/⚠ with one-click create. Advisory
+ * only — nothing here refuses a write; the backend guards stay where they
+ * are (`events.create`, `seed.seed`). Task items stay manual-only
+ * (free-text title, no checklist entry).
+ *
+ * All pure — the `esl/checklist` query/mutation stays a thin applier and
+ * these rules stay unit-testable without a database.
+ */
+
+/** One official-calendar row as the checklist reads it. */
+export type ChecklistCacheRow = {
+	/** `YYYYMMDD` (cache storage) or `YYYY-MM-DD` — both read. */
+	date: string;
+	isHoliday: boolean;
+	caption: string;
+};
+
+/** One semester event as the checklist reads it. */
+export type ChecklistEventRow = {
+	type: EslEventType;
+	date: string;
+};
+
+/**
+ * The advisory window for group (a): official off-days in
+ * `[startDate, derivedEnd-or-today]`. Before the first exam the end is
+ * underivable (finals TBD), so the views clamp to start→today and the
+ * checklist does the same. Lexical compare — zero-padded dates.
+ */
+export function checklistWindow(
+	startDate: string,
+	derivedEnd: string | null,
+	today: string
+): { start: string; end: string } {
+	return { start: startDate, end: derivedEnd ?? today };
+}
+
+/**
+ * Group (a): official off-days in-window. `expected` is every
+ * `isHoliday` cache date inside the window; `present` the ones a
+ * `no_school` row already covers; `missing` the one-click create fills.
+ */
+export function offDayChecklist(
+	cacheRows: readonly ChecklistCacheRow[],
+	events: readonly ChecklistEventRow[],
+	window: { start: string; end: string }
+): { expected: string[]; present: string[]; missing: string[]; ok: boolean } {
+	const covered = new Set(
+		events.filter((event) => event.type === 'no_school').map((event) => event.date)
+	);
+	const expected = [
+		...new Set(
+			cacheRows
+				.filter((row) => row.isHoliday)
+				.map((row) => normalizeHolidayDate(row.date))
+				.filter((date) => date >= window.start && date <= window.end)
+				.sort()
+		)
+	];
+	const present = expected.filter((date) => covered.has(date));
+	const missing = expected.filter((date) => !covered.has(date));
+	return { expected, present, missing, ok: missing.length === 0 };
+}
+
+/**
+ * Group (b): even/odd unit-test + quiz drafts. Counts only — the date and
+ * window rules belong to #214. This seam is the interface #214 fills:
+ * `expectedUnitQuizDrafts` gives the per-term counts the checklist and the
+ * one-click create both read, so #214's helpers slot in behind the same
+ * names without moving the panel.
+ */
+export const QUNIT_QUIZ_PER_SEMESTER = 6;
+export const QUNIT_UNIT_PER_SEMESTER = 6;
+
+/** The stub expectation per term behind the #214 seam. */
+export function expectedUnitQuizDrafts(term: 'S1' | 'S2'): { units: number; quizzes: number } {
+	void term;
+	return { units: QUNIT_UNIT_PER_SEMESTER, quizzes: QUNIT_QUIZ_PER_SEMESTER };
+}
+
+/**
+ * Group (c): Passport-due + Recording-due per term — three of each per
+ * semester, except G9 in S2 where the term ends at graduation (first two
+ * terms only). Both types lock to Comm (#212), so the counts are the
+ * whole rule.
+ */
+export const PASSPORT_RECORDING_PER_SEMESTER = 3;
+export function expectedPassportRecordingCounts(args: { term: 'S1' | 'S2'; g9S2?: boolean }): {
+	passport: number;
+	recording: number;
+} {
+	if (args.term === 'S2' && args.g9S2 === true) return { passport: 2, recording: 2 };
+	return {
+		passport: PASSPORT_RECORDING_PER_SEMESTER,
+		recording: PASSPORT_RECORDING_PER_SEMESTER
+	};
+}
+
+/**
+ * Group (d): G9-Mock drafts — two mock starts in S1, three in S2. Counts
+ * are starts (each start seeds a two-day `g9_mock`/G9 pair — never
+ * exam-typed, so the derived end stays safe).
+ */
+export const G9_MOCK_STARTS_BY_TERM: Readonly<Record<'S1' | 'S2', number>> = { S1: 2, S2: 3 };
+export function expectedG9MockStarts(term: 'S1' | 'S2'): number {
+	return G9_MOCK_STARTS_BY_TERM[term];
+}
+
+/**
+ * The Gregorian calendar years whose official rows a checklist window can
+ * draw: S1 spans two years (fall → spring), S2 sits in one. Same rule as
+ * the setup page's `semesterUploadYears` (`$lib/esl-semesters`), repeated
+ * here because Convex modules cannot import from `$lib`.
+ */
+export function checklistCacheYears(term: 'S1' | 'S2', startDate: string): string[] {
+	const year = startDate.slice(0, 4);
+	if (term === 'S2') return [year];
+	return [year, String(Number(year) + 1)];
+}
