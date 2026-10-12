@@ -62,3 +62,55 @@ describe('EventForm note visibility (#211)', () => {
 		expect(onsubmit.mock.calls[0]?.[0]).not.toHaveProperty('note');
 	});
 });
+
+describe('EventForm target gating (#212)', () => {
+	it('locks the target to CLIL for quiz and snaps it on type switch', async () => {
+		const { onsubmit } = renderForm();
+		await page.getByLabelText('Event type').selectOptions('task');
+		await page.getByLabelText('Target').selectOptions('G7');
+		await page.getByLabelText('Event type').selectOptions('quiz');
+		const target = page.getByLabelText('Target');
+		await expect.element(target).toBeDisabled();
+		await expect.element(target).toHaveValue('CLIL');
+		await page.getByLabelText('Date', { exact: true }).fill('2025-09-02');
+		await page.getByRole('button', { name: 'Add event' }).click();
+		expect(onsubmit.mock.calls[0]?.[0]).toMatchObject({ type: 'quiz', target: 'CLIL' });
+	});
+
+	it('locks exams, no-school, and no-class days to All', async () => {
+		renderForm();
+		for (const type of ['exam', 'no_school', 'no_class'] as const) {
+			await page.getByLabelText('Event type').selectOptions(type);
+			const target = page.getByLabelText('Target');
+			await expect.element(target).toBeDisabled();
+			await expect.element(target).toHaveValue('All');
+		}
+	});
+
+	it('leaves Start, Partial, and Task on the full dropdown', async () => {
+		renderForm();
+		for (const type of ['start_school', 'partial', 'task'] as const) {
+			await page.getByLabelText('Event type').selectOptions(type);
+			const target = page.getByLabelText('Target');
+			await expect.element(target).not.toBeDisabled();
+			await target.selectOptions('H1');
+			await expect.element(target).toHaveValue('H1');
+		}
+	});
+
+	it('shows the Start title prefilled and read-only', async () => {
+		renderForm();
+		await page.getByLabelText('Event type').selectOptions('start_school');
+		const title = page.getByLabelText('Title');
+		await expect.element(title).toHaveValue('Start at P3');
+		await expect.element(title).toBeDisabled();
+	});
+
+	it('names the teaching-day row count on the exam start date', async () => {
+		renderForm();
+		await page.getByLabelText('Event type').selectOptions('exam');
+		await expect.element(page.getByText(/saves 2 teaching-day rows/)).toBeInTheDocument();
+		await page.getByLabelText('Title').selectOptions('Final Exam');
+		await expect.element(page.getByText(/saves 3 teaching-day rows/)).toBeInTheDocument();
+	});
+});

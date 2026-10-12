@@ -1111,17 +1111,55 @@ export function migrateLegacyEslEvent(input: {
 }
 
 /**
- * Which classes an event reaches: everyone, or one group.
+ * Which classes an event reaches: everyone, one lesson, or one grade.
  *
- * Single-select, defaulting to `all`. G10 has no target of its own and sees
- * `all` events only.
+ * Single-select, defaulting to `all`. `G7`/`G8` reach every class of that
+ * grade (both its CLIL and its Comm class); `H1` reaches the grade 10
+ * classes, which have no target of their own and otherwise see `all`
+ * events only.
  */
-export const ESL_EVENT_TARGETS = ['all', 'CLIL', 'Comm', 'G9'] as const;
+export const ESL_EVENT_TARGETS = ['all', 'CLIL', 'Comm', 'G7', 'G8', 'G9', 'H1'] as const;
 export type EslEventTarget = (typeof ESL_EVENT_TARGETS)[number];
 
-/** Whether a string names one of the four event targets. */
+/** Whether a string names one of the seven event targets. */
 export function isEslEventTarget(target: string): target is EslEventTarget {
 	return (ESL_EVENT_TARGETS as readonly string[]).includes(target);
+}
+
+/**
+ * The target each event type is locked to (#212), or null when the admin
+ * picks from the full dropdown (Start of School, Partial, Task).
+ *
+ * Quizzes are CLIL-only, passport/recording dues Comm-only, G9 mocks
+ * G9-only; exams, no-school days, and no-class days reach everyone, so the
+ * form locks them to All rather than offering a choice that would be
+ * refused.
+ */
+export const ESL_LOCKED_EVENT_TARGETS: Record<EslEventType, EslEventTarget | null> = {
+	start_school: null,
+	quiz: 'CLIL',
+	no_school: 'all',
+	no_class: 'all',
+	partial: null,
+	exam: 'all',
+	passport_due: 'Comm',
+	recording_due: 'Comm',
+	task: null,
+	g9_mock: 'G9'
+};
+
+/** The target a type is locked to, or null when the admin picks (Start/Partial/Task). */
+export function lockedTargetForEventType(type: EslEventType): EslEventTarget | null {
+	return ESL_LOCKED_EVENT_TARGETS[type];
+}
+
+/**
+ * The target a fresh draft of a type carries: the locked value, or All for
+ * the dropdown types. The seed reads this for due windows without an
+ * explicit target, and the form snaps to it on type switch.
+ */
+export function defaultTargetForEventType(type: EslEventType): EslEventTarget {
+	return lockedTargetForEventType(type) ?? 'all';
 }
 
 /** The ranged due-types: the only types that may carry an inclusive endDate. */
@@ -1200,7 +1238,8 @@ export type EslEventValidationError =
 	| { kind: 'boundsNotAllowed'; type: EslEventType }
 	| { kind: 'boundsOrder'; startPeriod: number; endPeriod: number }
 	| { kind: 'emptyTitle'; type: EslEventType }
-	| { kind: 'lockedTitle'; type: EslEventType; expected: readonly string[] };
+	| { kind: 'lockedTitle'; type: EslEventType; expected: readonly string[] }
+	| { kind: 'badTarget'; type: EslEventType; expected: EslEventTarget };
 
 /** Check an event's title: free text (required) on task, locked elsewhere. */
 export function assertValidEslTitle(
@@ -1212,6 +1251,15 @@ export function assertValidEslTitle(
 	}
 	const expected: readonly string[] = type === 'exam' ? ESL_EXAM_TITLES : [ESL_EVENT_TITLES[type]];
 	return expected.includes(title) ? null : { kind: 'lockedTitle', type, expected };
+}
+/** Check an event's target against its type's gate, or null when it is sound. */
+export function assertValidEslTarget(
+	type: EslEventType,
+	target: EslEventTarget
+): EslEventValidationError | null {
+	const locked = lockedTargetForEventType(type);
+	if (locked === null) return null;
+	return target === locked ? null : { kind: 'badTarget', type, expected: locked };
 }
 /** Check an event's own fields, or null when they are sound. */
 export function assertValidEslEvent(input: {
@@ -1276,6 +1324,8 @@ export function describeEslEventError(error: EslEventValidationError): string {
 				error.expected.map((title) => `"${title}"`).join(' or ') +
 				' — put the details in the note instead.'
 			);
+		case 'badTarget':
+			return `${error.type} events always target ${error.expected === 'all' ? 'All' : error.expected}.`;
 	}
 }
 
@@ -1616,6 +1666,15 @@ export type ScheduleDue = {
 /** The teaching status a day row carries. */
 export type ScheduleDayStatus = 'teaching' | 'off' | 'no_class' | 'exam' | 'partial' | 'oral_exam';
 
+/**
+ * The first period with class on the first day of school (#212): Start of
+ * School reads `Start at P3`, so meetings before P3 that day render No
+ * class while P3 and later run as usual. The title and the window are one
+ * rule — the title is locked, so the period is a constant beside it rather
+ * than a field an admin could set out of sync.
+ */
+export const START_SCHOOL_FIRST_PERIOD = 3;
+
 /** One rendered day-view row. */
 export type ScheduleDayRow = {
 	date: string;
@@ -1629,6 +1688,13 @@ export type ScheduleDayRow = {
 	cause: string | null;
 	/** Render badges: window spans, out-of-window marks, oral marks. */
 	badges: string[];
+	/**
+	 * True on partial rows whose meeting falls outside the partial window
+	 * (#212): the list shows the note only ("class as usual") instead of
+	 * title+note. Absent everywhere else — fixtures omit it for in-window
+	 * rows.
+	 */
+	outOfWindow?: boolean;
 	/** Dues collapsed onto this day (latest-eligible rule). */
 	dues: ScheduleDue[];
 	/**
@@ -1655,16 +1721,19 @@ export function nextEslDate(date: string): string {
 	return new Date(Date.UTC(year, month - 1, day + 1, 12)).toISOString().slice(0, 10);
 }
 
-/** Whether an event reaches a class: `all` reaches everyone a G10 class sees. */
+/** Whether an event reaches a class: `all` reaches everyone, `H1` the grade 10 classes. */
 export function eventReachesClass(
 	target: EslEventTarget,
 	classType: EslClassType,
 	cohortGrade: number
 ): boolean {
 	if (target === 'all') return true;
+	if (target === 'H1') return cohortGrade === 10;
 	if (cohortGrade === 10) return false;
 	if (target === 'CLIL') return classType === 'CLIL';
 	if (target === 'Comm') return classType === 'Comm';
+	if (target === 'G7') return cohortGrade === 7;
+	if (target === 'G8') return cohortGrade === 8;
 	return classType === 'G9';
 }
 
@@ -1694,6 +1763,9 @@ function isEslActiveDay(args: {
 	);
 	if (sameDay.some((event) => event.type === 'no_school' || event.type === 'exam')) return false;
 	if (sameDay.some((event) => event.type === 'no_class')) return false;
+	// Before P3 on the start day the school has not started yet (#212).
+	const start = sameDay.find((event) => event.type === 'start_school');
+	if (start && args.period < START_SCHOOL_FIRST_PERIOD) return false;
 	const meeting = args.meetings.find(
 		(m) =>
 			m.classId === args.classId && weekdayOfDate(args.date) === m.day && m.period === args.period
@@ -1709,10 +1781,12 @@ function isEslActiveDay(args: {
 
 /**
  * Resolve one row's status from the events reaching it. Precedence:
- * exam > off > no_class > partial-window > oral > teaching. The oral mark
- * goes to the latest teaching-status meeting of each eligible class before
- * each reached exam, with the CLIL skip (CLIL classes never mark orals) and
- * G10 out of scope.
+ * exam > off > no_class > start-window > partial-window > oral > teaching.
+ * Before P3 on the start day the school has not started yet, so those
+ * meetings render No class (#212) while P3 and later run as usual. The oral
+ * mark goes to the latest teaching-status meeting of each eligible class
+ * before each reached exam, with the CLIL skip (CLIL classes never mark
+ * orals) and G10 out of scope.
  */
 function resolveEslDayStatus(args: {
 	date: string;
@@ -1720,18 +1794,28 @@ function resolveEslDayStatus(args: {
 	meetings: readonly ScheduleMeetingInput[];
 	events: readonly ScheduleEventInput[];
 	exams: readonly ScheduleEventInput[];
-}): { status: ScheduleDayStatus; cause: string | null; badges: string[] } {
+}): { status: ScheduleDayStatus; cause: string | null; badges: string[]; outOfWindow: boolean } {
 	const dayEvents = args.events.filter(
 		(event) =>
 			event.date === args.date &&
 			eventReachesClass(event.target, args.meeting.type, args.meeting.cohortGrade)
 	);
 	const exam = dayEvents.find((event) => event.type === 'exam');
-	if (exam) return { status: 'exam', cause: exam.title, badges: [] };
+	if (exam) return { status: 'exam', cause: exam.title, badges: [], outOfWindow: false };
 	const off = dayEvents.find((event) => event.type === 'no_school');
-	if (off) return { status: 'off', cause: off.title, badges: [] };
+	if (off) return { status: 'off', cause: off.title, badges: [], outOfWindow: false };
 	const noClass = dayEvents.find((event) => event.type === 'no_class');
-	if (noClass) return { status: 'no_class', cause: noClass.title, badges: [] };
+	if (noClass) return { status: 'no_class', cause: noClass.title, badges: [], outOfWindow: false };
+
+	const start = dayEvents.find((event) => event.type === 'start_school');
+	if (start && args.meeting.period < START_SCHOOL_FIRST_PERIOD) {
+		return {
+			status: 'no_class',
+			cause: start.title,
+			badges: [`out-of-window P${args.meeting.period} (window from P${START_SCHOOL_FIRST_PERIOD})`],
+			outOfWindow: false
+		};
+	}
 
 	const partial = dayEvents.find((event) => event.type === 'partial');
 	const outOfWindow =
@@ -1745,7 +1829,8 @@ function resolveEslDayStatus(args: {
 			cause: partial.title,
 			badges: [
 				`out-of-window P${args.meeting.period} (window${partial.startPeriod !== undefined ? ` from P${partial.startPeriod}` : ''}${partial.endPeriod !== undefined ? ` to P${partial.endPeriod}` : ''})`
-			]
+			],
+			outOfWindow: true
 		};
 	}
 
@@ -1774,33 +1859,36 @@ function resolveEslDayStatus(args: {
 			}
 			if (!laterActive) {
 				const badges = [`oral ahead of ${target.title}`];
-				if (partial) return { status: 'oral_exam', cause: partial.title, badges };
+				if (partial)
+					return { status: 'oral_exam', cause: partial.title, badges, outOfWindow: false };
 				return {
 					status: 'oral_exam',
 					cause: `Oral exam ahead of ${target.title}`,
-					badges
+					badges,
+					outOfWindow: false
 				};
 			}
 		}
 	}
 
-	if (partial) return { status: 'partial', cause: partial.title, badges: [] };
-	return { status: 'teaching', cause: null, badges: [] };
+	if (partial) return { status: 'partial', cause: partial.title, badges: [], outOfWindow: false };
+	return { status: 'teaching', cause: null, badges: [], outOfWindow: false };
 }
 
 /**
- * The graduation ceremony anchoring G9-in-S2 counts: the no_class+G9 event
+ * The graduation ceremony anchoring G9-in-S2 counts: the no_class event
  * naming it in its title or note. Other no-class events (Sport's Day,
  * anniversary) never anchor a count — G9 mocks are g9_mock-typed by the
  * term-calculation safety rule, so ceremony matching never mistakes a mock
- * for the cutoff.
+ * for the cutoff. Per-type gating (#212) locks new ceremonies to All, but
+ * rows seeded before the gate keep their G9 target — either anchors.
  */
 function g9CeremonyOf(events: readonly ScheduleEventInput[]): ScheduleEventInput | null {
 	const ceremony = events
 		.filter(
 			(event) =>
 				event.type === 'no_class' &&
-				event.target === 'G9' &&
+				(event.target === 'G9' || event.target === 'all') &&
 				/graduation|ceremony/i.test(`${event.title} ${event.note ?? ''}`)
 		)
 		.sort((a, b) => a.date.localeCompare(b.date))[0];
@@ -1878,7 +1966,7 @@ export function buildTeacherDayRows(args: {
 			// G9 graduates at the ceremony: no meeting rows past it, same as
 			// past the final exam (the derived window clamps there).
 			if (meeting.type === 'G9' && ceremony && date > ceremony.date) continue;
-			const { status, cause, badges } = resolveEslDayStatus({
+			const { status, cause, badges, outOfWindow } = resolveEslDayStatus({
 				date,
 				meeting,
 				meetings: args.meetings,
@@ -1960,6 +2048,7 @@ export function buildTeacherDayRows(args: {
 				status,
 				cause,
 				badges,
+				...(outOfWindow ? { outOfWindow: true as const } : {}),
 				dues: [],
 				count
 			});
@@ -2071,6 +2160,30 @@ export function weekdayDatesBetween(startDate: string, endDate: string): string[
 	return dates;
 }
 
+/**
+ * The teaching days an exam fans out to (#212): `dayCount` school days from
+ * `startDate` inclusive, pushing past weekends and off days.
+ *
+ * The start counts when teachable; a weekend/off start slides forward to the
+ * next teaching day. `offDates` holds the semester's no-school dates —
+ * finite, so the walk always terminates.
+ */
+export function expandExamDays(args: {
+	startDate: string;
+	dayCount: number;
+	offDates: ReadonlySet<string>;
+}): string[] {
+	const dates: string[] = [];
+	let cursor = args.startDate;
+	while (dates.length < args.dayCount) {
+		if (weekdayOfDate(cursor) !== null && !args.offDates.has(cursor)) {
+			dates.push(cursor);
+		}
+		cursor = nextEslDate(cursor);
+	}
+	return dates;
+}
+
 /** Whether a `YYYY-MM-DD` date falls on a weekend (no ESL meetings run). */
 export function isWeekendEslDate(date: string): boolean {
 	return weekdayOfDate(date) === null;
@@ -2104,11 +2217,13 @@ export function isProtectedSeedEvent(event: {
 }): boolean {
 	if (event.type === 'exam') return true;
 	// The S2 G9 cutoff — the same anchor `teacherDays` reads through
-	// `/graduation|ceremony/i` on no_class+G9 rows (title or note: titles
-	// are locked, so the ceremony names itself in the note).
+	// `/graduation|ceremony/i` on no_class rows (title or note: titles
+	// are locked, so the ceremony names itself in the note). Per-type
+	// gating (#212) locks new ceremonies to All, but rows seeded before
+	// the gate keep their G9 target — both stay protected.
 	return (
 		event.type === 'no_class' &&
-		event.target === 'G9' &&
+		(event.target === 'G9' || event.target === 'all' || event.target === undefined) &&
 		/graduation|ceremony/i.test(`${event.title} ${event.note ?? ''}`)
 	);
 }

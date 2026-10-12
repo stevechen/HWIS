@@ -4,7 +4,7 @@ import type { ConvexTestInstance } from '../test.setup';
 import { api } from '../_generated/api';
 import schema from '../schema';
 import type { Id } from '../_generated/dataModel';
-import type { EslEventType } from '../shared/esl';
+import type { EslEventTarget, EslEventType } from '../shared/esl';
 
 const YEAR = '2025-2026';
 
@@ -71,7 +71,7 @@ async function createEvent(
 	event: {
 		type: EslEventType;
 		title: string;
-		target?: 'all' | 'CLIL' | 'Comm' | 'G9';
+		target?: EslEventTarget;
 		date: string;
 		endDate?: string;
 		note?: string;
@@ -173,7 +173,7 @@ describe('esl/schedule.teacherDays', () => {
 		// Window Wed 9/10 – Fri 9/12 with Friday off: the due falls back to
 		// the latest eligible day, Wed 9/10.
 		await createEvent(t, semesterId, {
-			type: 'recording_due',
+			type: 'task',
 			title: 'Recording due',
 			date: '2025-09-10',
 			endDate: '2025-09-12'
@@ -255,8 +255,43 @@ describe('esl/schedule.teacherDays', () => {
 		const monday = days.find((day) => day.date === '2025-09-08');
 		expect(monday).toMatchObject({ status: 'partial', cause: 'No class' });
 		expect(monday?.badges.some((badge) => badge.includes('out-of-window'))).toBe(true);
+		// The list renders note-only for out-of-window meetings (#212).
+		expect(monday?.outOfWindow).toBe(true);
 		expect(days.find((day) => day.date === '2025-09-10')).toMatchObject({
 			status: 'teaching'
+		});
+		expect(days.find((day) => day.date === '2025-09-10')?.outOfWindow).not.toBe(true);
+	});
+
+	it('renders pre-P3 meetings on the start day as No class', async () => {
+		const { t, teacherId, semesterId } = await setupTeacherWorld();
+		// Start at P3 on Monday 9/1: the P1 meeting falls outside the
+		// window and renders No class; later days run as usual.
+		await createEvent(t, semesterId, {
+			type: 'start_school',
+			title: 'Start at P3',
+			date: '2025-09-01'
+		});
+		asTeacher();
+
+		const days = await readDays(t, teacherId, semesterId, {
+			fromDate: '2025-09-01',
+			toDate: '2025-09-05'
+		});
+
+		const monday = days.find((day) => day.date === '2025-09-01');
+		expect(monday).toMatchObject({
+			status: 'no_class',
+			cause: 'Start at P3'
+		});
+		expect(monday?.badges.some((badge) => badge.includes('out-of-window'))).toBe(true);
+		expect(days.find((day) => day.date === '2025-09-03')).toMatchObject({
+			status: 'teaching',
+			cause: null
+		});
+		expect(days.find((day) => day.date === '2025-09-05')).toMatchObject({
+			status: 'teaching',
+			cause: null
 		});
 	});
 
@@ -326,7 +361,9 @@ describe('esl/schedule.teacherDays', () => {
 
 	it('restarts the count-up at each exam (per-term counts)', async () => {
 		const { t, teacherId, semesterId } = await setupTeacherWorld();
-		await createEvent(t, semesterId, { type: 'exam', title: 'Exam 1', date: '2025-09-12' });
+		// Thu 9/11 fans out to Thu + Fri; Exam 2 on Fri 9/19 takes Fri + Mon
+		// 9/22, outside the read range.
+		await createEvent(t, semesterId, { type: 'exam', title: 'Exam 1', date: '2025-09-11' });
 		await createEvent(t, semesterId, { type: 'exam', title: 'Exam 2', date: '2025-09-19' });
 		asTeacher();
 
@@ -345,7 +382,9 @@ describe('esl/schedule.teacherDays', () => {
 
 	it('carries no count past the final exam', async () => {
 		const { t, teacherId, semesterId } = await setupTeacherWorld();
-		await createEvent(t, semesterId, { type: 'exam', title: 'Final Exam', date: '2025-09-12' });
+		// Wed 9/10 fans out to Wed + Thu + Fri: the Friday exam day is the
+		// last row, and the Monday after has no rows at all.
+		await createEvent(t, semesterId, { type: 'exam', title: 'Final Exam', date: '2025-09-10' });
 		asTeacher();
 
 		// The semester ends on the final exam: the exam day is the last row,
@@ -397,7 +436,7 @@ describe('esl/schedule.teacherDays', () => {
 			type: 'no_class',
 			title: 'No class',
 			note: 'Graduation ceremony',
-			target: 'G9',
+			target: 'all',
 			date: '2026-06-05'
 		});
 		await createEvent(t, semesterId, {
@@ -428,38 +467,61 @@ describe('esl/schedule.teacherDays', () => {
 		expect(g9Days.some((day) => day.date > '2026-06-05')).toBe(false);
 	});
 
-	it('filters events by target (G10 sees all-target events only)', async () => {
+	it('filters dues by target (a CLIL quiz reaches CLIL only, a Comm task Comm only)', async () => {
 		const { t, teacherId, semesterId, clilId } = await setupTeacherWorld();
-		// A CLIL-targeted off day reaches the teacher's CLIL class; a Comm
-		// one does not.
+		// A second cohort's Comm class joins the teacher's load (one teacher
+		// cannot hold both classes of a cohort). It meets Tue P5 / Thu P6.
+		const { classIds: secondIds } = await t.mutation(api.esl.cohorts.create, {
+			year: YEAR,
+			grade: 8,
+			level: 'Basic',
+			classNumber: '1'
+		});
+		const secondComm = secondIds[1];
+		await t.mutation(api.esl.classes.setSchedule, {
+			classId: secondComm,
+			year: YEAR,
+			meetings: [
+				{ day: 'Tuesday', period: 5 },
+				{ day: 'Thursday', period: 6 }
+			]
+		});
+		await t.mutation(api.esl.classes.assignTeacher, { id: secondComm, teacherId });
+		// Quiz is CLIL-locked, the task takes a Comm pick: each collapses
+		// onto its own lesson's latest eligible day.
 		await createEvent(t, semesterId, {
-			type: 'no_school',
-			title: 'Off',
-			note: 'CLIL retreat',
+			type: 'quiz',
+			title: 'Quiz',
 			target: 'CLIL',
-			date: '2025-09-08'
+			date: '2025-09-08',
+			endDate: '2025-09-10'
 		});
 		await createEvent(t, semesterId, {
 			type: 'task',
 			title: 'Comm survey',
 			target: 'Comm',
-			date: '2025-09-03',
-			endDate: '2025-09-05'
+			date: '2025-09-08',
+			endDate: '2025-09-11'
 		});
 		asTeacher();
 
 		const days = await readDays(t, teacherId, semesterId, {
 			fromDate: '2025-09-08',
-			toDate: '2025-09-10'
+			toDate: '2025-09-11'
 		});
 
-		expect(days.find((day) => day.date === '2025-09-08')).toMatchObject({
-			classId: clilId,
-			status: 'off',
-			cause: 'Off'
-		});
+		const clilWednesday = days.find((day) => day.date === '2025-09-10' && day.classId === clilId);
+		expect(clilWednesday?.dues.map((due) => due.title)).toEqual(['Quiz']);
+		const commThursday = days.find(
+			(day) => day.date === '2025-09-11' && day.classId === secondComm
+		);
+		expect(commThursday?.dues.map((due) => due.title)).toEqual(['Comm survey']);
 		for (const day of days) {
-			expect(day.dues.map((due) => due.title)).not.toContain('Comm survey');
+			if (day.classId === clilId) {
+				expect(day.dues.map((due) => due.title)).not.toContain('Comm survey');
+			} else {
+				expect(day.dues.map((due) => due.title)).not.toContain('Quiz');
+			}
 		}
 	});
 });

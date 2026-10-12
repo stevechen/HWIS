@@ -80,14 +80,38 @@ describe('esl-schedule-list (#203 canonical columns)', () => {
 		expect(lines[2]?.split('\t')).toEqual(['', '2025-09-01', 'Exam 1', '']);
 	});
 
-	it('keys event notes by date+label so same-label events do not leak notes', () => {
+	it('keys event notes by date+title so same-title events do not leak notes', () => {
 		expect(eventNoteKey('2025-09-05', 'Moon Festival')).toBe('2025-09-05|Moon Festival');
 		const map = buildEventNoteMap([
-			{ date: '2025-09-05', label: 'Moon Festival', note: 'BBQ logistics' },
-			{ date: '2025-10-06', label: 'Moon Festival', note: 'Other note' }
+			{ date: '2025-09-05', title: 'Moon Festival', note: 'BBQ logistics' },
+			{ date: '2025-10-06', title: 'Moon Festival', note: 'Other note' }
 		]);
 		const first = noteText(row({ date: '2025-09-05', cause: 'Moon Festival' }), map);
 		expect(first).toBe('BBQ logistics');
+	});
+
+	it('shows title+note on in-window partial rows, note only out of window', () => {
+		const notes = buildEventNoteMap([
+			{ date: '2025-09-08', title: 'No class', note: 'Late start' }
+		]);
+		const inWindow = row({
+			date: '2025-09-08',
+			status: 'partial',
+			cause: 'No class',
+			badges: []
+		});
+		expect(descriptionText(inWindow, CLASS_NAMES)).toBe('G7 Basic 1 CLIL P1 · No class');
+		expect(noteText(inWindow, notes)).toBe('Late start');
+		const outOfWindow = row({
+			date: '2025-09-08',
+			status: 'partial',
+			cause: 'No class',
+			badges: ['out-of-window P1 (window from P2)'],
+			outOfWindow: true
+		});
+		expect(descriptionText(outOfWindow, CLASS_NAMES)).toBe('G7 Basic 1 CLIL P1');
+		expect(descriptionText(outOfWindow, CLASS_NAMES)).not.toContain('No class');
+		expect(noteText(outOfWindow, notes)).toBe('Late start');
 	});
 
 	it('still exposes the class context helper the calendar reuses', () => {

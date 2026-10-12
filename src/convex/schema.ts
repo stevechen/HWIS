@@ -486,11 +486,30 @@ export default defineSchema({
 		title: v.string(),
 		/**
 		 * Which classes this event affects. `all` reaches every teacher;
-		 * G10 has no target of its own and sees `all` events only.
+		 * `G7`/`G8` reach that grade's classes, `H1` the grade 10 classes
+		 * (which have no target of their own and otherwise see `all`
+		 * events only). Per-type gating (#212) locks most types to one
+		 * target; only Start, Partial, and Task take a picked value.
 		 */
-		target: v.union(v.literal('all'), v.literal('CLIL'), v.literal('Comm'), v.literal('G9')),
+		target: v.union(
+			v.literal('all'),
+			v.literal('CLIL'),
+			v.literal('Comm'),
+			v.literal('G7'),
+			v.literal('G8'),
+			v.literal('G9'),
+			v.literal('H1')
+		),
 		/** The date (`YYYY-MM-DD`), or the range start for due-types. */
 		date: v.string(),
+		/**
+		 * The exam group this day belongs to (#212): every day of one exam
+		 * create shares its title (`Exam 1`, `Exam 2`, `Final Exam`), so a
+		 * multi-day exam is N rows with one group. Absent on every
+		 * non-exam row — and on exam rows written before the field existed,
+		 * which read back through their title.
+		 */
+		examGroup: v.optional(v.string()),
 		/**
 		 * Inclusive range end, due-types only (task/quiz/passport/recording
 		 * reminder ranges). Absent on every single-date type.

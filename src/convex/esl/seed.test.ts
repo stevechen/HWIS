@@ -363,7 +363,7 @@ describe('esl/seed.seed S2', () => {
 		expect(byNote.get('Graduation ceremony')).toMatchObject({
 			type: 'no_class',
 			title: 'No class',
-			target: 'G9',
+			target: 'all',
 			date: '2026-06-22'
 		});
 		expect(byNote.get('Anniversary')).toMatchObject({
