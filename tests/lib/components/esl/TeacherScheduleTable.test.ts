@@ -98,10 +98,10 @@ const MOCK_ROWS: ScheduleDayRow[] = [
 		cohortGrade: 7,
 		period: 3,
 		status: 'exam',
-		cause: 'Midterm exam',
+		cause: 'Final Exam',
 		badges: [],
 		dues: [],
-		count: { position: 1, total: 1, label: 'Midterm exam' }
+		count: { position: 1, total: 1, label: 'Final Exam' }
 	}
 ];
 
@@ -110,9 +110,10 @@ const CLASS_NAMES: Record<string, string> = {
 	class_comm: 'G7 Basic 1 Comm'
 };
 
+// #203 keys event notes by date+title so same-title events do not leak notes.
 const EVENT_NOTES: Record<string, string> = {
-	'Moon Festival': 'BBQ logistics',
-	"Sport's Day": 'Bring water'
+	'2025-09-05|Moon Festival': 'BBQ logistics',
+	"2025-09-08|Sport's Day": 'Bring water'
 };
 
 describe('TeacherScheduleTable', () => {
@@ -140,7 +141,7 @@ describe('TeacherScheduleTable', () => {
 		await expect.element(page.getByRole('columnheader', { name: 'Day' })).not.toBeInTheDocument();
 	});
 
-	it('renders countdown column with correct values', async () => {
+	it('renders countdown column with remaining counts', async () => {
 		render(TeacherScheduleTable, {
 			props: {
 				rows: MOCK_ROWS,
@@ -150,27 +151,47 @@ describe('TeacherScheduleTable', () => {
 			}
 		});
 
-		// Teaching rows show countdown
-		await expect.element(page.getByText('Class 1/4 to Midterm exam')).toBeInTheDocument();
-		await expect.element(page.getByText('Class 2/4 to Midterm exam')).toBeInTheDocument();
-		await expect.element(page.getByText('Class 3/4 to Midterm exam')).toBeInTheDocument();
-		await expect.element(page.getByText('Class 4/4 to Midterm exam')).toBeInTheDocument();
+		// No legacy count-up text anywhere in the countdown
+		await expect.element(page.getByText('Class 1/4 to Midterm exam')).not.toBeInTheDocument();
+		await expect.element(page.getByText('Class 2/4 to Midterm exam')).not.toBeInTheDocument();
+		await expect.element(page.getByText('Class 3/4 to Midterm exam')).not.toBeInTheDocument();
+		await expect.element(page.getByText('Class 4/4 to Midterm exam')).not.toBeInTheDocument();
+
+		// Teaching rows show remaining classes (total - position), down to 0
+		// at the last class before the exam; off, no_class, exam rows are blank.
+		await expect.element(page.getByTestId('esl-schedule.row').first()).toBeInTheDocument();
+		const cells = page.getByTestId('esl-schedule.countdown-cell').all();
+		expect(cells.map((c) => c.element().textContent?.trim())).toEqual([
+			'3',
+			'2',
+			'',
+			'',
+			'1',
+			'0',
+			''
+		]);
 
 		// Off, no_class, exam rows have empty countdown
-		const rows = page.getByTestId('schedule-row').all();
+		const rows = page.getByTestId('esl-schedule.row').all();
 		const offRow = rows.find((r) => r.element().textContent?.includes('Moon Festival'));
 		expect(offRow).toBeDefined();
-		const offCountdown = offRow!.element().querySelector('[data-testid="countdown-cell"]');
+		const offCountdown = offRow!
+			.element()
+			.querySelector('[data-testid="esl-schedule.countdown-cell"]');
 		expect(offCountdown?.textContent?.trim()).toBe('');
 
 		const noClassRow = rows.find((r) => r.element().textContent?.includes("Sport's Day"));
 		expect(noClassRow).toBeDefined();
-		const noClassCountdown = noClassRow!.element().querySelector('[data-testid="countdown-cell"]');
+		const noClassCountdown = noClassRow!
+			.element()
+			.querySelector('[data-testid="esl-schedule.countdown-cell"]');
 		expect(noClassCountdown?.textContent?.trim()).toBe('');
 
 		const examRow = rows.find((r) => r.element().textContent?.includes('2025-09-12'));
 		expect(examRow).toBeDefined();
-		const examCountdown = examRow!.element().querySelector('[data-testid="countdown-cell"]');
+		const examCountdown = examRow!
+			.element()
+			.querySelector('[data-testid="esl-schedule.countdown-cell"]');
 		expect(examCountdown?.textContent?.trim()).toBe('');
 	});
 
@@ -185,19 +206,25 @@ describe('TeacherScheduleTable', () => {
 		});
 
 		await expect.element(page.getByText('G7 Basic 1 CLIL P1')).toBeInTheDocument();
+		// Dues collapse onto the description as titles; the window rides a badge chip.
+		const dueRow = page.getByTestId('esl-schedule.row').filter({ hasText: '2025-09-03' });
+		const dueDescCell = dueRow.locator('[data-testid="esl-schedule.description-cell"]');
+		await expect.element(dueDescCell).toHaveTextContent('G7 Basic 1 CLIL P2 · Workbook check');
+		await expect.element(page.getByText('due window 2025-09-01–2025-09-03')).toBeInTheDocument();
 		await expect
-			.element(page.getByText('G7 Basic 1 CLIL P2 · due window 2025-09-01–2025-09-03'))
+			.element(page.getByText('G7 Basic 1 CLIL P3 · 🎉 Off — Moon Festival'))
 			.toBeInTheDocument();
-		await expect.element(page.getByText('Off — Moon Festival 🎉')).toBeInTheDocument();
-		await expect.element(page.getByText("G7 Basic 1 Comm P5 · Sport's Day")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("G7 Basic 1 Comm P5 · No-class — Sport's Day"))
+			.toBeInTheDocument();
 		await expect.element(page.getByText('G7 Basic 1 CLIL P2 · Late start')).toBeInTheDocument();
 		await expect
 			.element(page.getByText('G7 Basic 1 Comm P6 · Oral exam ahead of Midterm exam'))
 			.toBeInTheDocument();
-		// Check exam row description in description cell specifically
-		const examRow = page.getByTestId('schedule-row').filter({ hasText: '2025-09-12' });
-		const examDescCell = examRow.locator('[data-testid="description-cell"]');
-		await expect.element(examDescCell).toHaveTextContent('Midterm exam');
+		// Check exam row description in description cell specifically: canonical label
+		const examRow = page.getByTestId('esl-schedule.row').filter({ hasText: '2025-09-12' });
+		const examDescCell = examRow.locator('[data-testid="esl-schedule.description-cell"]');
+		await expect.element(examDescCell).toHaveTextContent('Final Exam');
 	});
 
 	it('renders note column with event notes', async () => {
@@ -211,12 +238,12 @@ describe('TeacherScheduleTable', () => {
 		});
 
 		// Check note cells directly
-		const offRow = page.getByTestId('schedule-row').filter({ hasText: 'Moon Festival' });
-		const offNoteCell = offRow.locator('[data-testid="note-cell"]');
+		const offRow = page.getByTestId('esl-schedule.row').filter({ hasText: 'Moon Festival' });
+		const offNoteCell = offRow.locator('[data-testid="esl-schedule.note-cell"]');
 		await expect.element(offNoteCell).toHaveTextContent('BBQ logistics');
 
-		const noClassRow = page.getByTestId('schedule-row').filter({ hasText: "Sport's Day" });
-		const noClassNoteCell = noClassRow.locator('[data-testid="note-cell"]');
+		const noClassRow = page.getByTestId('esl-schedule.row').filter({ hasText: "Sport's Day" });
+		const noClassNoteCell = noClassRow.locator('[data-testid="esl-schedule.note-cell"]');
 		await expect.element(noClassNoteCell).toHaveTextContent('Bring water');
 	});
 
@@ -230,7 +257,7 @@ describe('TeacherScheduleTable', () => {
 			}
 		});
 
-		const rows = page.getByTestId('schedule-row').all();
+		const rows = page.getByTestId('esl-schedule.row').all();
 
 		// Off row should be greyed with celebration mark
 		const offRow = rows.find((r) => r.element().textContent?.includes('Moon Festival'));
@@ -274,16 +301,20 @@ describe('TeacherScheduleTable', () => {
 			}
 		});
 
-		const payload = page.getByTestId('schedule-tsv').element() as HTMLTemplateElement;
+		const payload = page.getByTestId('esl-schedule.tsv').element() as HTMLTemplateElement;
 		const tsv = payload.content.textContent ?? '';
 		expect(tsv).toContain('#\tDate\tDescription\tNote');
-		// TSV matches display: description column includes badges, not due labels
-		expect(tsv).toContain('due window 2025-09-01–2025-09-03');
+		// Countdown column carries remaining counts, blank on off / no-class / exam rows
+		expect(tsv).toContain('3\t2025-09-01\tG7 Basic 1 CLIL P1\t');
+		expect(tsv).toContain('\t2025-09-12\tFinal Exam\t');
+		expect(tsv).not.toContain('Class 1/4 to Midterm exam');
+		// TSV matches display: dues titles in the description, badges in brackets
+		expect(tsv).toContain('G7 Basic 1 CLIL P2 · Workbook check (due window 2025-09-01–2025-09-03)');
 		expect(tsv).toContain('BBQ logistics');
 		expect(tsv).toContain('Bring water');
 	});
 
-	it('filename includes class name', async () => {
+	it('names the downloaded file from the download name', async () => {
 		render(TeacherScheduleTable, {
 			props: {
 				rows: MOCK_ROWS,
@@ -293,8 +324,27 @@ describe('TeacherScheduleTable', () => {
 			}
 		});
 
-		const downloadBtn = page.getByRole('button', { name: /download schedule as csv/i });
+		await expect
+			.element(page.getByRole('button', { name: /download schedule as csv/i }))
+			.toBeInTheDocument();
+
+		// The component builds the download anchor on click; capture its filename.
+		const downloads: (string | null)[] = [];
+		const originalClick = HTMLAnchorElement.prototype.click;
+		HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
+			downloads.push(this.getAttribute('download'));
+		};
+		try {
+			(
+				page
+					.getByRole('button', { name: /download schedule as csv/i })
+					.element() as HTMLButtonElement
+			).click();
+		} finally {
+			HTMLAnchorElement.prototype.click = originalClick;
+		}
+
 		// The download name should be used for the filename
-		expect(downloadBtn.element().getAttribute('data-filename')).toContain('G7 Basic 1 CLIL');
+		expect(downloads).toEqual(['S1 2025-2026 G7 Basic 1 CLIL schedule.csv']);
 	});
 });
