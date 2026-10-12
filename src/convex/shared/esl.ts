@@ -2623,3 +2623,234 @@ export function checklistCacheYears(term: 'S1' | 'S2', startDate: string): strin
 	if (term === 'S2') return [year];
 	return [year, String(Number(year) + 1)];
 }
+
+/**
+ * Even/odd unit + quiz draft generation (ticket #214): pure ranges the
+ * #213 advisory checklist consumes with one-click create.
+ *
+ * Model: 6 units per semester (S1 = U1–6, S2 = U7–12), each paired with
+ * one quiz. Even-numbered units sit in the exact 7 calendar days before
+ * their exam (`examStart−7d … examStart−1d`, no weekend shifting — the
+ * views ignore non-teaching days on their own). Odd-numbered units are
+ * the Mon–Fri week holding the median class meeting of their term
+ * (`start→exam1`, `exam1→exam2`, `exam2→final`). Quiz drafts are ranged
+ * `quiz` rows (fixed title `Quiz`, CLIL-only per #212) over their unit's
+ * range, collapsing in the views to the last match date through the
+ * existing dues rule — no new collapse code here. Unit drafts are
+ * `task` rows with free-text `Unit N` titles, so a rarely skipped unit
+ * is fixed by the admin editing titles forward; nothing is locked.
+ *
+ * Every generated range spans at least one school week: even ranges are
+ * exactly 7 calendar days, odd ranges are always a full Mon–Fri week
+ * (never clipped to a term edge).
+ */
+
+/** A draft's inclusive window: the shape both unit and quiz drafts share. */
+export type UnitQuizRange = { date: string; endDate: string };
+
+function checkUnitQuizDate(date: string): void {
+	if (!isValidEslDate(date)) {
+		throw new Error(`${date} is not a valid date. Use YYYY-MM-DD.`);
+	}
+}
+
+/**
+ * The even unit before an exam: the exact 7 calendar days
+ * `examStart−7d … examStart−1d`. Calendar arithmetic — weekends stay
+ * inside the range and the views skip them, so the draft never shifts.
+ */
+export function evenUnitRange(examStart: string): UnitQuizRange {
+	checkUnitQuizDate(examStart);
+	return { date: shiftEslDate(examStart, -7), endDate: shiftEslDate(examStart, -1) };
+}
+
+/**
+ * The Monday of the week containing a date. Weekend dates fall back to
+ * the Monday of the week just ended — a median is always a teaching day
+ * (weekends never hold meetings), so this only steadies hand-passed
+ * dates, never real medians.
+ */
+export function mondayOfWeekContaining(date: string): string {
+	checkUnitQuizDate(date);
+	const [year, month, day] = date.split('-').map(Number);
+	const weekday = new Date(Date.UTC(year, month - 1, day, 12)).getUTCDay();
+	return shiftEslDate(date, -((weekday + 6) % 7));
+}
+
+/**
+ * The odd unit holding a date: the full Mon–Fri week, never clipped to
+ * a term edge — clipping would mint a sub-week draft and break the
+ * duration rule below.
+ */
+export function oddUnitRange(medianDate: string): UnitQuizRange {
+	const monday = mondayOfWeekContaining(medianDate);
+	return { date: monday, endDate: shiftEslDate(monday, 4) };
+}
+
+/** One class meeting occurrence inside a term window, as the median reads it. */
+export type TermClassMeeting = {
+	date: string;
+	weekday: EslDay;
+	classId: string;
+	period: number;
+};
+
+/**
+ * The term's class meetings in `[from, to]`: every weekly meeting whose
+ * date falls in the window and whose class actually meets there — the
+ * same exclusions the teacher join core applies (`isEslActiveDay`):
+ * `Off`/`No class`-titled days (and exam days, which never teach),
+ * partial windows the period falls outside of, and Start-of-School rows
+ * before P3. Out-of-target events never reach the meeting. Sorted by
+ * date, then class, then period, so the median below is deterministic.
+ */
+export function listTermClassMeetings(args: {
+	meetings: readonly ScheduleMeetingInput[];
+	events: readonly ScheduleEventInput[];
+	from: string;
+	to: string;
+}): TermClassMeeting[] {
+	checkUnitQuizDate(args.from);
+	checkUnitQuizDate(args.to);
+	if (args.to < args.from) return [];
+	const hits: TermClassMeeting[] = [];
+	for (let date = args.from; date <= args.to; date = nextEslDate(date)) {
+		const weekday = weekdayOfDate(date);
+		if (weekday === null) continue;
+		for (const meeting of args.meetings) {
+			if (meeting.day !== weekday) continue;
+			const dayEvents = args.events.filter(
+				(event) =>
+					event.date === date && eventReachesClass(event.target, meeting.type, meeting.cohortGrade)
+			);
+			if (dayEvents.some((event) => event.type === 'no_school' || event.type === 'exam')) {
+				continue;
+			}
+			if (dayEvents.some((event) => event.type === 'no_class')) continue;
+			const start = dayEvents.find((event) => event.type === 'start_school');
+			if (start && meeting.period < START_SCHOOL_FIRST_PERIOD) continue;
+			const partial = dayEvents.find((event) => event.type === 'partial');
+			if (
+				partial &&
+				((partial.startPeriod !== undefined && meeting.period < partial.startPeriod) ||
+					(partial.endPeriod !== undefined && meeting.period > partial.endPeriod))
+			) {
+				continue;
+			}
+			hits.push({ date, weekday, classId: meeting.classId, period: meeting.period });
+		}
+	}
+	hits.sort(
+		(a, b) =>
+			a.date.localeCompare(b.date) || a.classId.localeCompare(b.classId) || a.period - b.period
+	);
+	return hits;
+}
+
+/**
+ * The median class meeting's date: the middle occurrence, or the lower
+ * of the two middles for an even count (the meeting by which half the
+ * term's classes are done). Null when there is nothing to mediate —
+ * the caller (#213) leaves that term without an odd draft rather than
+ * guessing a week.
+ */
+export function medianMeetingDate(occurrences: readonly TermClassMeeting[]): string | null {
+	if (occurrences.length === 0) return null;
+	const sorted = [...occurrences].sort((a, b) => a.date.localeCompare(b.date));
+	const median = sorted[Math.floor((sorted.length - 1) / 2)];
+	return median?.date ?? null;
+}
+
+/**
+ * The odd unit of one term window (`start→exam1`, `exam1→exam2`,
+ * `exam2→final`): the Mon–Fri week holding the median of the term's
+ * class count. Null for a term with no countable meetings — a degenerate
+ * window drafts nothing.
+ */
+export function oddUnitRangeForTerm(args: {
+	meetings: readonly ScheduleMeetingInput[];
+	events: readonly ScheduleEventInput[];
+	from: string;
+	to: string;
+}): UnitQuizRange | null {
+	const median = medianMeetingDate(
+		listTermClassMeetings({
+			meetings: args.meetings,
+			events: args.events,
+			from: args.from,
+			to: args.to
+		})
+	);
+	return median === null ? null : oddUnitRange(median);
+}
+
+/**
+ * The six unit numbers of a semester term: S1 runs U1–6, S2 runs U7–12.
+ * Odd numbers take odd-unit weeks, even numbers take even-unit weeks.
+ */
+export function unitNumbersForSemesterTerm(term: EslSemesterTerm): number[] {
+	return term === 'S1' ? [1, 2, 3, 4, 5, 6] : [7, 8, 9, 10, 11, 12];
+}
+
+/**
+ * A unit's display title: sequential `Unit N`, so a rarely skipped unit
+ * is fixed by the admin editing titles forward — never a locked value.
+ */
+export function unitTitle(unitNumber: number): string {
+	return `Unit ${unitNumber}`;
+}
+
+/** One unit draft: a free-title `task` row over the unit's range. */
+export type UnitDraft = {
+	unit: string;
+	type: 'task';
+	title: string;
+	target: EslEventTarget;
+	date: string;
+	endDate: string;
+};
+
+/**
+ * Draft the `task` row for a unit: free-text title, default target, the
+ * unit's range. The row stays editable — title shifts, retargets, and
+ * range moves all go through the ordinary event edit.
+ */
+export function unitDraftForRange(unitNumber: number, range: UnitQuizRange): UnitDraft {
+	const title = unitTitle(unitNumber);
+	return {
+		unit: title,
+		type: 'task',
+		title,
+		target: defaultTargetForEventType('task'),
+		date: range.date,
+		endDate: range.endDate
+	};
+}
+
+/** One quiz draft: a fixed-title ranged `quiz` row over its unit's range. */
+export type QuizDraft = {
+	unit: string;
+	type: 'quiz';
+	title: 'Quiz';
+	target: EslEventTarget;
+	date: string;
+	endDate: string;
+};
+
+/**
+ * Draft the `quiz` row for a unit: the title is always `Quiz` (locked —
+ * quizzes are told apart by their windows, which the views collapse to
+ * the last match date through the existing dues rule) and the target is
+ * always CLIL (the #212 per-type gate). The `unit` label rides along for
+ * the #213 checklist display only — it is never stored on the row.
+ */
+export function quizDraftForUnit(unitNumber: number, range: UnitQuizRange): QuizDraft {
+	return {
+		unit: unitTitle(unitNumber),
+		type: 'quiz',
+		title: 'Quiz',
+		target: defaultTargetForEventType('quiz'),
+		date: range.date,
+		endDate: range.endDate
+	};
+}
