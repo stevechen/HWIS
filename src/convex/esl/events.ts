@@ -515,7 +515,13 @@ export const migrateToV3 = mutation({
 				skipped.push(`${event._id} (unknown type ${legacy.type})`);
 				continue;
 			}
+			// The skip needs a title to already exist: a title-less row
+			// whose label already reads canonical (e.g. exam "Exam 1")
+			// still needs its title stamped, or a re-tightened schema
+			// keeps rejecting the deployment on restart.
+			const hasTitle = typeof legacy.title === 'string' && legacy.title.trim() !== '';
 			if (
+				hasTitle &&
 				legacy.type === mapped.type &&
 				rawTitle === mapped.title &&
 				(rawNote ?? undefined) === (mapped.note ?? undefined)

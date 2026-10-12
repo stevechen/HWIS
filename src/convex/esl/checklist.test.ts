@@ -68,7 +68,7 @@ describe('esl/checklist.status', () => {
 			await t.mutation(api.esl.events.create, {
 				semesterId,
 				type: 'quiz',
-				title: 'Quiz',
+				title: `Unit ${i + 1} Quiz Due`,
 				target: 'CLIL',
 				date: `2025-09-${String(10 + i).padStart(2, '0')}`
 			});
@@ -172,7 +172,15 @@ describe('esl/checklist.createMissing', () => {
 		const events = await t.query(api.esl.events.listBySemester, { semesterId });
 		const quizzes = events.filter((event) => event.type === 'quiz');
 		expect(quizzes).toHaveLength(6);
-		expect(quizzes.every((event) => event.title === 'Quiz' && event.target === 'CLIL')).toBe(true);
+		expect(quizzes.every((event) => event.target === 'CLIL')).toBe(true);
+		expect(quizzes.map((event) => event.title).sort((a, b) => a.localeCompare(b))).toEqual([
+			'Unit 1 Quiz Due',
+			'Unit 2 Quiz Due',
+			'Unit 3 Quiz Due',
+			'Unit 4 Quiz Due',
+			'Unit 5 Quiz Due',
+			'Unit 6 Quiz Due'
+		]);
 		// Every draft spans a real window, not a single placeholder day.
 		for (const quiz of quizzes) {
 			expect(quiz.endDate).toBeDefined();

@@ -7,6 +7,7 @@ import {
 	oddUnitRange,
 	oddUnitRangeForTerm,
 	quizDraftForUnit,
+	quizTitle,
 	unitDraftForRange,
 	unitNumbersForSemesterTerm,
 	unitTitle,
@@ -206,6 +207,11 @@ describe('units and quizzes: six per semester', () => {
 		expect(unitTitle(12)).toBe('Unit 12');
 	});
 
+	it('titles quizzes numbered so the unit can shift by edit after creation', () => {
+		expect(quizTitle(1)).toBe('Unit 1 Quiz Due');
+		expect(quizTitle(2)).toBe('Unit 2 Quiz Due');
+	});
+
 	it('drafts a unit as a free-title task over its range', () => {
 		expect(unitDraftForRange(2, { date: '2025-10-06', endDate: '2025-10-12' })).toEqual({
 			unit: 'Unit 2',
@@ -217,11 +223,11 @@ describe('units and quizzes: six per semester', () => {
 		});
 	});
 
-	it('drafts a quiz with the fixed Quiz title and CLIL target over its unit range', () => {
+	it('drafts a quiz with the numbered Unit N Quiz Due title and CLIL target over its unit range', () => {
 		expect(quizDraftForUnit(2, { date: '2025-10-06', endDate: '2025-10-12' })).toEqual({
 			unit: 'Unit 2',
 			type: 'quiz',
-			title: 'Quiz',
+			title: 'Unit 2 Quiz Due',
 			target: 'CLIL',
 			date: '2025-10-06',
 			endDate: '2025-10-12'

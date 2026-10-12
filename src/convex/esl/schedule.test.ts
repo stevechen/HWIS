@@ -491,7 +491,7 @@ describe('esl/schedule.teacherDays', () => {
 		// onto its own lesson's latest eligible day.
 		await createEvent(t, semesterId, {
 			type: 'quiz',
-			title: 'Quiz',
+			title: 'Unit 1 Quiz Due',
 			target: 'CLIL',
 			date: '2025-09-08',
 			endDate: '2025-09-10'

@@ -35,11 +35,7 @@
 		oncreate: (group: ChecklistGroup) => void;
 	} = $props();
 
-	const unitQuizOk = $derived(
-		status !== null &&
-			status.units.present >= status.units.expected &&
-			status.quiz.present >= status.quiz.expected
-	);
+	const unitQuizOk = $derived(status !== null && status.quiz.present >= status.quiz.expected);
 	const passportRecordingOk = $derived(
 		status !== null &&
 			status.passport.present >= status.passport.expected &&
@@ -105,20 +101,8 @@
 				<span aria-hidden="true">{unitQuizOk ? '✓' : '⚠'}</span>
 				<span class="font-medium">Unit tests + quizzes</span>
 				<span class="text-gray-600">
-					units {status.units.present}/{status.units.expected} · quizzes {status.quiz
-						.present}/{status.quiz.expected}
+					quizzes {status.quiz.present}/{status.quiz.expected}
 				</span>
-				{#if status.units.present < status.units.expected}
-					<Button
-						size="sm"
-						variant="outline"
-						disabled={busy('units')}
-						onclick={() => oncreate('units')}
-						data-testid="checklist-panel.create-units"
-					>
-						{busy('units') ? 'Creating…' : 'Create unit drafts'}
-					</Button>
-				{/if}
 				{#if status.quiz.present < status.quiz.expected}
 					<Button
 						size="sm"

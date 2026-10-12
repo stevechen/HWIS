@@ -197,7 +197,7 @@ describe('esl/events.create', () => {
 
 	it.each([
 		['start_school', 'Start at P3', '2025-09-01', 'all'],
-		['quiz', 'Quiz', '2025-09-02', 'CLIL'],
+		['quiz', 'Unit 1 Quiz Due', '2025-09-02', 'CLIL'],
 		['exam', 'Exam 1', '2025-10-16', 'all'],
 		['passport_due', 'Passport due', '2025-09-03', 'Comm'],
 		['recording_due', 'Recording due', '2025-09-04', 'Comm'],
@@ -270,7 +270,7 @@ describe('esl per-type target gating (#212)', () => {
 			t.mutation(api.esl.events.create, {
 				semesterId,
 				type: 'quiz',
-				title: 'Quiz',
+				title: 'Unit 1 Quiz Due',
 				target: 'Comm',
 				date: '2025-09-02'
 			})
@@ -738,4 +738,11 @@ describe('esl/events.migrateToV3', () => {
 		await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
 		await expect(t.mutation(api.esl.events.migrateToV3, {})).rejects.toThrow(/ESL admin/);
 	});
+
+	// NOTE: the `hasTitle` skip guard in `migrateToV3` cannot be covered
+	// here — convex-test enforces the schema, so a title-less row is
+	// uninsertable by construction. It was proven live instead: the local
+	// deployment held 4 title-less exam rows whose labels already read
+	// canonical, the old condition skipped all 4, the fixed one migrated
+	// them, and the follow-up count came back zero.
 });

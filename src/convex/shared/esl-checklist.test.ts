@@ -68,6 +68,26 @@ describe('off-day checklist (#213 group a)', () => {
 		expect(status.missing).toEqual([]);
 		expect(status.ok).toBe(true);
 	});
+
+	it('never expects weekend rows — caption-less or named', () => {
+		const weekendHeavy = cache([
+			{ date: '20251004', isHoliday: true, caption: '' },
+			{ date: '20251005', isHoliday: true, caption: '' },
+			{ date: '20251006', isHoliday: true, caption: '中秋節' },
+			// 2026-10-10 Double Tenth Day is a Saturday: named, but no
+			// meetings run on weekends, so it is not an expected event.
+			{ date: '20261010', isHoliday: true, caption: '國慶日' },
+			{ date: '20251011', isHoliday: true, caption: '' },
+			{ date: '20251012', isHoliday: true, caption: '' }
+		]);
+		const status = offDayChecklist(weekendHeavy, events([]), {
+			start: '2025-10-01',
+			end: '2026-10-31'
+		});
+		expect(status.expected).toEqual(['2025-10-06']);
+		expect(status.missing).toEqual(['2025-10-06']);
+		expect(status.ok).toBe(false);
+	});
 });
 
 describe('unit/quiz stub interface (#213 group b, rules owned by #214)', () => {

@@ -57,3 +57,6 @@ src/convex/_generated/ai/
 temp/
 handoff/
 
+# Agent worktree checkouts
+worktrees/
+

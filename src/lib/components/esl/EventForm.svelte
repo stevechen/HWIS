@@ -49,11 +49,12 @@
 
 	/**
 	 * The title a fresh draft of a type carries: locked titles arrive
-	 * prefilled (and stay locked), exams default to Exam 1, tasks start
-	 * blank — the banner always shows the task's own free text.
+	 * prefilled (and stay locked), exams default to Exam 1, free-text types
+	 * (task, quiz) start blank for a manual row — the banner always shows
+	 * their own text. Checklist quiz drafts arrive prefilled via `initial`.
 	 */
 	function defaultTitleFor(type: EslEventType): string {
-		if (type === 'task') return '';
+		if (type === 'task' || type === 'quiz') return '';
 		if (type === 'exam') return ESL_EXAM_TITLES[0];
 		return ESL_EVENT_TITLES[type];
 	}
@@ -120,9 +121,13 @@
 	const noteHidden = $derived(isNoteHiddenForEventType(draft.type));
 	const noteRequired = $derived(isNoteRequiredForEventType(draft.type));
 	const isTask = $derived(draft.type === 'task');
+	const isQuiz = $derived(draft.type === 'quiz');
+	const isFreeTitle = $derived(isTask || isQuiz);
 	const isExam = $derived(draft.type === 'exam');
 	const lockedTitle = $derived(
-		draft.type === 'task' || draft.type === 'exam' ? null : ESL_EVENT_TITLES[draft.type]
+		draft.type === 'task' || draft.type === 'quiz' || draft.type === 'exam'
+			? null
+			: ESL_EVENT_TITLES[draft.type]
 	);
 	/**
 	 * Per-type target gating (#212): most types lock to one target (Quiz to
@@ -170,9 +175,10 @@
 		if (locked !== null) draft.target = locked;
 		// Titles are locked per type and never derived from the note: fixed
 		// types snap to their locked title, exams keep a valid exam title or
-		// fall back to Exam 1, tasks start blank unless already typed there.
-		if (next === 'task') {
-			if (prev !== 'task') draft.title = '';
+		// fall back to Exam 1, free-text types (task, quiz) start blank unless
+		// already typed there — switching between them keeps the text.
+		if (next === 'task' || next === 'quiz') {
+			if (prev !== 'task' && prev !== 'quiz') draft.title = '';
 		} else if (next === 'exam') {
 			if (!(ESL_EXAM_TITLES as readonly string[]).includes(draft.title)) {
 				draft.title = ESL_EXAM_TITLES[0];
@@ -220,17 +226,21 @@
 		</div>
 		<div class="flex min-w-48 flex-1 flex-col gap-1">
 			<Label for="event-form-title">Title</Label>
-			{#if isTask}
+			{#if isFreeTitle}
 				<input
 					id="event-form-title"
 					type="text"
-					placeholder="Passport Unit 3 due"
+					placeholder={isQuiz ? 'Unit 1 Quiz Due' : 'Passport Unit 3 due'}
 					bind:value={draft.title}
 					disabled={busy}
 					required
 					class="rounded border px-2 py-1 text-sm"
 				/>
-				<span class="text-xs text-gray-500">Tasks take a free-text title — always the banner.</span>
+				<span class="text-xs text-gray-500"
+					>{#if isQuiz}Quizzes take a numbered title (Unit 1 Quiz Due, Unit 2 Quiz Due) — edit the
+						number after creation when a unit shifts.{:else}Tasks take a free-text title — always
+						the banner.{/if}</span
+				>
 			{:else if isExam}
 				<select
 					id="event-form-title"

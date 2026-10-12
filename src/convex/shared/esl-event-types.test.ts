@@ -17,8 +17,8 @@ import {
 /**
  * Ticket #210: the 10-type event union with locked titles. Every event row
  * carries an explicit `title` (chip/banner text) plus a separate `note`
- * (detail line) — the two are never derived from each other. Only `task`
- * takes a free-text title; every other type's title is locked.
+ * (detail line) — the two are never derived from each other. `task` and
+ * `quiz` take a free-text title; every other type's title is locked.
  */
 describe('esl event types v3 (#210)', () => {
 	it('exposes exactly the ten v3 types, with homework_due gone', () => {
@@ -95,17 +95,20 @@ describe('esl event types v3 (#210)', () => {
 		expect(isRangedEventType('g9_mock')).toBe(false);
 	});
 
-	it('requires a free-text title on task and nothing else', () => {
+	it('requires a free-text title on task and quiz and nothing else', () => {
 		expect(assertValidEslTitle('task', 'Passport Unit 3 due')).toBeNull();
 		expect(assertValidEslTitle('task', '   ')).toMatchObject({ kind: 'emptyTitle' });
+		expect(assertValidEslTitle('quiz', 'Unit 1 Quiz Due')).toBeNull();
+		expect(assertValidEslTitle('quiz', '   ')).toMatchObject({ kind: 'emptyTitle' });
 		const error = assertValidEslTitle('task', '   ');
 		expect(error && describeEslEventError(error)).toMatch(/title/i);
+		const quizError = assertValidEslTitle('quiz', '   ');
+		expect(quizError && describeEslEventError(quizError)).toMatch(/quiz/i);
 	});
 
 	it('accepts only the locked title per fixed type', () => {
 		const cases: [EslEventType, string][] = [
 			['start_school', 'Start at P3'],
-			['quiz', 'Quiz'],
 			['no_school', 'Off'],
 			['no_class', 'No class'],
 			['partial', 'No class'],
@@ -119,7 +122,7 @@ describe('esl event types v3 (#210)', () => {
 		expect(assertValidEslTitle('no_school', 'Typhoon day')).toMatchObject({
 			kind: 'lockedTitle'
 		});
-		expect(assertValidEslTitle('quiz', 'Pop quiz')).toMatchObject({ kind: 'lockedTitle' });
+		expect(assertValidEslTitle('quiz', 'Unit 1 Quiz Due')).toBeNull();
 		const locked = assertValidEslTitle('no_school', 'Typhoon day');
 		expect(locked && describeEslEventError(locked)).toMatch(/Off/);
 	});

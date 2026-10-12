@@ -2,7 +2,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { convexTest, modules, seedEslStaff } from '../test.setup';
 import { api } from '../_generated/api';
 import schema from '../schema';
-import { decodeHolidayBytes, parseHolidayCsv, translateHolidayCaption } from './holidays';
+import {
+	decodeHolidayBytes,
+	govListingRocYears,
+	gregorianToRocYear,
+	parseGovDatasetFiles,
+	parseHolidayCsv,
+	pickGovFileForYear,
+	translateHolidayCaption
+} from './holidays';
+import { classifyOffDayRow, semesterImportWindow } from './holidayWrites';
 // Dataset-14718 fixtures: test/seed only, never a production read path.
 import fixture115 from '../../../tests/fixtures/esl-holiday/115.csv?raw';
 import fixture116 from '../../../tests/fixtures/esl-holiday/116.csv?raw';
@@ -336,5 +345,374 @@ describe('holidays.upload', () => {
 			caption: '開國紀念日',
 			needsTranslation: false
 		});
+	});
+});
+
+const OFFDAY_CSV = `西元日期,星期,是否放假,備註
+20260925,五,2,中秋節
+20260926,六,2,
+20260927,日,2,
+20260928,一,2,孔子誕辰紀念日/教師節
+20260929,二,0,
+20261010,六,2,國慶日`;
+
+async function semesterHarness() {
+	const t = await adminHarness();
+	const semesterId = await t.mutation(api.esl.semesters.create, {
+		year: '2026-2027',
+		term: 'S1',
+		startDate: '2026-08-31'
+	});
+	return { t, semesterId };
+}
+
+describe('holidays.importOffDays', () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	it('stamps named off days as locked-title Off events with translated notes', async () => {
+		const { t, semesterId } = await semesterHarness();
+		const result = await t.mutation(api.esl.holidays.importOffDays, {
+			semesterId,
+			csvText: OFFDAY_CSV
+		});
+		expect(result).toEqual({
+			inserted: 2,
+			skippedTaken: 0,
+			outOfRange: 0,
+			plainWeekends: 2,
+			weekendHolidays: 1,
+			needsReview: []
+		});
+		const events = await t.query(api.esl.events.listBySemester, { semesterId });
+		expect(events).toHaveLength(2);
+		expect(events[0]).toMatchObject({
+			type: 'no_school',
+			title: 'Off',
+			target: 'all',
+			date: '2026-09-25',
+			note: 'Moon Festival'
+		});
+		expect(events[1]).toMatchObject({
+			type: 'no_school',
+			title: 'Off',
+			target: 'all',
+			date: '2026-09-28',
+			note: "Teacher's Day"
+		});
+	});
+
+	it('is idempotent: re-imports skip taken dates instead of overwriting', async () => {
+		const { t, semesterId } = await semesterHarness();
+		await t.mutation(api.esl.holidays.importOffDays, { semesterId, csvText: OFFDAY_CSV });
+		const result = await t.mutation(api.esl.holidays.importOffDays, {
+			semesterId,
+			csvText: OFFDAY_CSV
+		});
+		expect(result).toMatchObject({ inserted: 0, skippedTaken: 2 });
+		const events = await t.query(api.esl.events.listBySemester, { semesterId });
+		expect(events).toHaveLength(2);
+	});
+
+	it('flags unknown captions for human review but still imports them', async () => {
+		const { t, semesterId } = await semesterHarness();
+		const csvText = `西元日期,星期,是否放假,備註
+20260925,五,2,中秋節
+20261030,五,2,萬聖節同樂會`;
+		const result = await t.mutation(api.esl.holidays.importOffDays, {
+			semesterId,
+			csvText
+		});
+		expect(result.inserted).toBe(2);
+		expect(result.needsReview).toEqual(['2026-10-30 萬聖節同樂會']);
+	});
+
+	it('skips rows outside the semester window', async () => {
+		const { t, semesterId } = await semesterHarness();
+		// S1 starts 2026-08-31 with no S2 yet, so the window is
+		// [2026-08-31, 2027-02-01): 08-30 predates it, 2027-03-01 is past it.
+		const csvText = `西元日期,星期,是否放假,備註
+20260830,日,2,開學前補假
+20270301,一,2,補假
+20260925,五,2,中秋節`;
+		const result = await t.mutation(api.esl.holidays.importOffDays, {
+			semesterId,
+			csvText
+		});
+		expect(result).toMatchObject({ inserted: 1, outOfRange: 2, plainWeekends: 0 });
+	});
+
+	it('caps the S1 window where its S2 sibling begins', async () => {
+		const { t, semesterId } = await semesterHarness();
+		await t.mutation(api.esl.semesters.create, {
+			year: '2026-2027',
+			term: 'S2',
+			startDate: '2027-02-09'
+		});
+		const csvText = `西元日期,星期,是否放假,備註
+20270201,一,2,補假
+20270209,二,2,補假`;
+		const result = await t.mutation(api.esl.holidays.importOffDays, {
+			semesterId,
+			csvText
+		});
+		// 02-09 is S2's start: outside S1, reported rather than stamped.
+		expect(result).toMatchObject({ inserted: 1, outOfRange: 1 });
+	});
+
+	it('refuses non-admin staff', async () => {
+		const t = await convexTest(schema, modules);
+		await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
+		const semesterId = await t.run(async (ctx) => {
+			return await ctx.db.insert('esl_semesters', {
+				year: '2026-2027',
+				term: 'S1',
+				startDate: '2026-08-31'
+			});
+		});
+		await expect(
+			t.mutation(api.esl.holidays.importOffDays, { semesterId, csvText: OFFDAY_CSV })
+		).rejects.toThrow(/ESL admin/);
+	});
+});
+
+describe('holidays.govListing', () => {
+	it('maps Gregorian years to ROC years, current plus next', () => {
+		expect(gregorianToRocYear(2026)).toBe('115');
+		expect(govListingRocYears('2026-10-12')).toEqual(['115', '116']);
+		expect(govListingRocYears('2027-01-01')).toEqual(['116', '117']);
+	});
+});
+
+const GOV_PAGE_HTML = `<!doctype html><html><body>
+<a href="https://www.dgpa.gov.tw/FileConversion?filename=dgpa/files/202506/aaa.csv&amp;nfix=&amp;name=${encodeURIComponent('115年中華民國政府行政機關辦公日曆表.csv')}">115</a>
+<a href="https://www.dgpa.gov.tw/FileConversion?filename=dgpa/files/202507/bbb.csv&amp;nfix=&amp;name=${encodeURIComponent('115年中華民國政府行政機關辦公日曆表_Google行事曆專用.csv')}">115 Google</a>
+<a href="https://www.dgpa.gov.tw/FileConversion?filename=dgpa/files/202506/aaa.csv&amp;nfix=&amp;name=${encodeURIComponent('115年中華民國政府行政機關辦公日曆表.csv')}">115 again</a>
+<a href="https://www.dgpa.gov.tw/FileConversion?filename=dgpa/files/202607/ccc.csv&amp;nfix=&amp;name=${encodeURIComponent('116年中華民國政府行政機關辦公日曆表_utf8bom.csv')}">116</a>
+<a href="/dataset/14718">not a file</a>
+</body></html>`;
+
+describe('holidays.parseGovDatasetFiles', () => {
+	it('keeps standard files, drops the Google flavour and repeats', () => {
+		const files = parseGovDatasetFiles(GOV_PAGE_HTML);
+		expect(files.map((file) => file.rocYear)).toEqual(['115', '116']);
+		expect(files[0]).toMatchObject({
+			rocYear: '115',
+			name: '115年中華民國政府行政機關辦公日曆表.csv'
+		});
+		expect(files[0]?.url).toContain('https://www.dgpa.gov.tw/FileConversion?filename=');
+		expect(files[0]?.url).not.toContain('&amp;');
+	});
+
+	it('prefers a marked correction twin, else page order, else null', () => {
+		const files = parseGovDatasetFiles(GOV_PAGE_HTML);
+		expect(pickGovFileForYear(files, '115')?.name).toContain('115年');
+		expect(pickGovFileForYear(files, '117')).toBeNull();
+		const twins = [
+			{ rocYear: '114', name: '114年中華民國政府行政機關辦公日曆表.csv', url: 'https://x/old' },
+			{
+				rocYear: '114',
+				name: '114年中華民國政府行政機關辦公日曆表(1141020更新).csv',
+				url: 'https://x/new'
+			}
+		];
+		expect(pickGovFileForYear(twins, '114')?.url).toBe('https://x/new');
+	});
+});
+
+describe('holidayWrites.semesterImportWindow', () => {
+	it('caps S1 where its S2 sibling begins', () => {
+		expect(
+			semesterImportWindow({
+				year: '2026-2027',
+				term: 'S1',
+				startDate: '2026-08-31',
+				siblingStart: '2027-02-09'
+			})
+		).toEqual({ start: '2026-08-31', end: '2027-02-09' });
+	});
+
+	it('falls back to the conventional boundary without a sibling', () => {
+		expect(
+			semesterImportWindow({
+				year: '2026-2027',
+				term: 'S1',
+				startDate: '2026-08-31',
+				siblingStart: null
+			})
+		).toEqual({ start: '2026-08-31', end: '2027-02-01' });
+		expect(
+			semesterImportWindow({
+				year: '2025-2026',
+				term: 'S2',
+				startDate: '2026-02-09',
+				siblingStart: null
+			})
+		).toEqual({ start: '2026-02-09', end: '2026-08-01' });
+	});
+});
+
+describe('holidayWrites.classifyOffDayRow', () => {
+	const window = { start: '2026-08-31', end: '2027-02-01' };
+
+	it('passes weekday named off days through as candidates', () => {
+		expect(
+			classifyOffDayRow({ date: '20260928', isHoliday: true, caption: '教師節' }, window)
+		).toEqual({ kind: 'candidate', date: '2026-09-28' });
+	});
+
+	it('skips workdays, unnamed rows, out-of-window rows, and weekend holidays', () => {
+		expect(classifyOffDayRow({ date: '20260929', isHoliday: false, caption: '' }, window)).toEqual({
+			kind: 'workday'
+		});
+		expect(classifyOffDayRow({ date: '20260926', isHoliday: true, caption: '' }, window)).toEqual({
+			kind: 'unnamed'
+		});
+		expect(
+			classifyOffDayRow({ date: '20260101', isHoliday: true, caption: '開國紀念日' }, window)
+		).toEqual({ kind: 'outOfRange' });
+		// 2026-10-10 Double Tenth Day is a Saturday: named, in-window,
+		// but never stamped — no meetings run on weekends.
+		expect(
+			classifyOffDayRow({ date: '20261010', isHoliday: true, caption: '國慶日' }, window)
+		).toEqual({ kind: 'weekend' });
+	});
+});
+
+const GOV_CSV_115 = `西元日期,星期,是否放假,備註
+20260101,四,2,開國紀念日
+20260103,六,2,
+20260928,一,2,孔子誕辰紀念日/教師節
+20260929,二,0,
+20261010,六,2,國慶日`;
+
+function stubGovFetch(csvByMarker: Record<string, string>) {
+	vi.stubGlobal(
+		'fetch',
+		vi.fn().mockImplementation((url: string) => {
+			if (url === 'https://data.gov.tw/dataset/14718') {
+				return Promise.resolve({
+					ok: true,
+					status: 200,
+					text: () => Promise.resolve(GOV_PAGE_HTML)
+				});
+			}
+			const csv = Object.entries(csvByMarker).find(([marker]) => url.includes(marker))?.[1];
+			if (csv === undefined) {
+				return Promise.resolve({ ok: false, status: 404 });
+			}
+			return Promise.resolve({
+				ok: true,
+				status: 200,
+				arrayBuffer: () => Promise.resolve(new TextEncoder().encode(csv).buffer)
+			});
+		})
+	);
+}
+
+describe('holidays.previewGovImport', () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	it('previews in-window named off days with skip counts', async () => {
+		const { t, semesterId } = await semesterHarness();
+		stubGovFetch({ 'aaa.csv': GOV_CSV_115 });
+		const preview = await t.action(api.esl.holidays.previewGovImport, {
+			semesterId,
+			rocYears: ['115']
+		});
+		expect(preview.years).toMatchObject([{ rocYear: '115', status: 'ok', holidays: 4 }]);
+		expect(preview.days).toEqual([
+			{ date: '2026-09-28', name: "Teacher's Day", needsReview: false }
+		]);
+		// 01-01 predates the 08-31 start; the bare Saturday carries no name.
+		expect(preview).toMatchObject({ outOfRange: 1, plainWeekends: 1, skippedTaken: 0 });
+	});
+
+	it('marks unpublished years missing without failing the others', async () => {
+		const { t, semesterId } = await semesterHarness();
+		stubGovFetch({ 'aaa.csv': GOV_CSV_115 });
+		const preview = await t.action(api.esl.holidays.previewGovImport, {
+			semesterId,
+			rocYears: ['115', '117']
+		});
+		expect(preview.years).toMatchObject([
+			{ rocYear: '115', status: 'ok' },
+			{ rocYear: '117', status: 'missing' }
+		]);
+		expect(preview.days).toHaveLength(1);
+	});
+
+	it('refuses bad year picks', async () => {
+		const { t, semesterId } = await semesterHarness();
+		stubGovFetch({ 'aaa.csv': GOV_CSV_115 });
+		await expect(
+			t.action(api.esl.holidays.previewGovImport, { semesterId, rocYears: [] })
+		).rejects.toThrow(/one or two/);
+		await expect(
+			t.action(api.esl.holidays.previewGovImport, { semesterId, rocYears: ['1155'] })
+		).rejects.toThrow(/ROC year/);
+	});
+});
+
+describe('holidays.importGovOffDays', () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	it('stamps events and refreshes the cache, idempotently', async () => {
+		const { t, semesterId } = await semesterHarness();
+		stubGovFetch({ 'aaa.csv': GOV_CSV_115 });
+		const first = await t.action(api.esl.holidays.importGovOffDays, {
+			semesterId,
+			rocYears: ['115']
+		});
+		expect(first.years).toMatchObject([{ rocYear: '115', status: 'ok' }]);
+		expect(first.years[0]?.cache).toMatchObject({ inserted: 5, updated: 0, deleted: 0 });
+		expect(first.events).toMatchObject({
+			inserted: 1,
+			outOfRange: 1,
+			plainWeekends: 1,
+			weekendHolidays: 1
+		});
+
+		const events = await t.query(api.esl.events.listBySemester, { semesterId });
+		expect(events.map((event) => [event.date, event.title])).toEqual([['2026-09-28', 'Off']]);
+		const cached = await t.query(api.esl.holidays.getByYear, { year: '2026' });
+		expect(cached).toHaveLength(5);
+
+		const second = await t.action(api.esl.holidays.importGovOffDays, {
+			semesterId,
+			rocYears: ['115']
+		});
+		expect(second.events).toMatchObject({ inserted: 0, skippedTaken: 1 });
+	});
+
+	it('refuses a picked year with no listed file', async () => {
+		const { t, semesterId } = await semesterHarness();
+		stubGovFetch({ 'aaa.csv': GOV_CSV_115 });
+		await expect(
+			t.action(api.esl.holidays.importGovOffDays, { semesterId, rocYears: ['117'] })
+		).rejects.toThrow(/no listed calendar file/);
+	});
+
+	it('fails cleanly when the dataset page is unreachable', async () => {
+		const { t, semesterId } = await semesterHarness();
+		vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+		await expect(
+			t.action(api.esl.holidays.importGovOffDays, { semesterId, rocYears: ['115'] })
+		).rejects.toThrow(/manually below/);
+	});
+
+	it('refuses non-admin staff', async () => {
+		const t = await convexTest(schema, modules);
+		await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });
+		stubGovFetch({ 'aaa.csv': GOV_CSV_115 });
+		const semesterId = await t.run(async (ctx) => {
+			return await ctx.db.insert('esl_semesters', {
+				year: '2026-2027',
+				term: 'S1',
+				startDate: '2026-08-31'
+			});
+		});
+		await expect(
+			t.action(api.esl.holidays.importGovOffDays, { semesterId, rocYears: ['115'] })
+		).rejects.toThrow(/ESL admin/);
 	});
 });

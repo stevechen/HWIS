@@ -1032,9 +1032,10 @@ export function isEslEventType(type: string): type is EslEventType {
 }
 
 /**
- * The locked chip/banner title per fixed event type (#210). Only `task`
- * takes a free-text title (required, always the banner); `exam` takes one
- * of `ESL_EXAM_TITLES`. Titles are explicit and never derived from notes.
+ * The locked chip/banner title per fixed event type (#210). `task` and
+ * `quiz` take a free-text title (required, always the banner — quiz drafts
+ * default to `Unit N Quiz Due` via `quizTitle`); `exam` takes one of
+ * `ESL_EXAM_TITLES`. Titles are explicit and never derived from notes.
  */
 export const ESL_EVENT_TITLES = {
 	start_school: 'Start at P3',
@@ -1109,7 +1110,18 @@ export function migrateLegacyEslEvent(input: {
 	const mappedType = V3_TYPE_MIGRATION[input.type];
 	if (mappedType === undefined) return null;
 	const rawLabel = input.label.trim();
-	if (mappedType === 'task') return { type: mappedType, title: rawLabel, note: input.note };
+	if (mappedType === 'task')
+		return {
+			type: mappedType,
+			title: rawLabel === '' ? 'Task' : rawLabel,
+			note: input.note
+		};
+	if (mappedType === 'quiz')
+		return {
+			type: mappedType,
+			title: rawLabel === '' ? ESL_EVENT_TITLES.quiz : rawLabel,
+			note: input.note
+		};
 	if (mappedType === 'exam') {
 		const canonical = canonicalExamTitle(rawLabel);
 		if (canonical !== null) return { type: mappedType, title: canonical, note: input.note };
@@ -1259,12 +1271,12 @@ export type EslEventValidationError =
 	| { kind: 'lockedTitle'; type: EslEventType; expected: readonly string[] }
 	| { kind: 'badTarget'; type: EslEventType; expected: EslEventTarget };
 
-/** Check an event's title: free text (required) on task, locked elsewhere. */
+/** Check an event's title: free text (required) on task and quiz, locked elsewhere. */
 export function assertValidEslTitle(
 	type: EslEventType,
 	title: string
 ): EslEventValidationError | null {
-	if (type === 'task') {
+	if (type === 'task' || type === 'quiz') {
 		return title.trim() === '' ? { kind: 'emptyTitle', type } : null;
 	}
 	const expected: readonly string[] = type === 'exam' ? ESL_EXAM_TITLES : [ESL_EVENT_TITLES[type]];
@@ -1335,7 +1347,9 @@ export function describeEslEventError(error: EslEventValidationError): string {
 		case 'boundsOrder':
 			return `The partial starts at P${error.startPeriod} but ends at P${error.endPeriod}.`;
 		case 'emptyTitle':
-			return `A task needs its own title — the banner always shows it.`;
+			return error.type === 'quiz'
+				? 'A quiz needs its own title — the banner always shows it (e.g. Unit 1 Quiz Due).'
+				: 'A task needs its own title — the banner always shows it.';
 		case 'lockedTitle':
 			return (
 				'That type always shows ' +
@@ -2560,9 +2574,12 @@ export function checklistWindow(
 }
 
 /**
- * Group (a): official off-days in-window. `expected` is every
- * `isHoliday` cache date inside the window; `present` the ones a
- * `no_school` row already covers; `missing` the one-click create fills.
+ * Group (a): official off-days in-window. `expected` is every *named
+ * weekday* `isHoliday` cache date inside the window — caption-less rows
+ * are plain non-school days and named weekends need no event (no ESL
+ * meetings run on weekends), so neither ever counts and the one-click
+ * create can never stamp them; `present` the ones a `no_school` row
+ * already covers; `missing` the one-click create fills.
  */
 export function offDayChecklist(
 	cacheRows: readonly ChecklistCacheRow[],
@@ -2575,9 +2592,9 @@ export function offDayChecklist(
 	const expected = [
 		...new Set(
 			cacheRows
-				.filter((row) => row.isHoliday)
+				.filter((row) => row.isHoliday && row.caption.trim() !== '')
 				.map((row) => normalizeHolidayDate(row.date))
-				.filter((date) => date >= window.start && date <= window.end)
+				.filter((date) => date >= window.start && date <= window.end && !isWeekendEslDate(date))
 				.sort()
 		)
 	];
@@ -2818,6 +2835,16 @@ export function unitTitle(unitNumber: number): string {
 	return `Unit ${unitNumber}`;
 }
 
+/**
+ * A quiz's default title: `Unit N Quiz Due`, so the checklist's one-click
+ * drafts arrive numbered (Unit 1 Quiz Due, Unit 2 Quiz Due, …). The title
+ * stays free-text — admins edit the number after creation when a unit
+ * shifts — never a locked value.
+ */
+export function quizTitle(unitNumber: number): string {
+	return `Unit ${unitNumber} Quiz Due`;
+}
+
 /** One unit draft: a free-title `task` row over the unit's range. */
 export type UnitDraft = {
 	unit: string;
@@ -2845,28 +2872,28 @@ export function unitDraftForRange(unitNumber: number, range: UnitQuizRange): Uni
 	};
 }
 
-/** One quiz draft: a fixed-title ranged `quiz` row over its unit's range. */
+/** One quiz draft: a numbered-title ranged `quiz` row over its unit's range. */
 export type QuizDraft = {
 	unit: string;
 	type: 'quiz';
-	title: 'Quiz';
+	title: string;
 	target: EslEventTarget;
 	date: string;
 	endDate: string;
 };
 
 /**
- * Draft the `quiz` row for a unit: the title is always `Quiz` (locked —
- * quizzes are told apart by their windows, which the views collapse to
- * the last match date through the existing dues rule) and the target is
- * always CLIL (the #212 per-type gate). The `unit` label rides along for
- * the #213 checklist display only — it is never stored on the row.
+ * Draft the `quiz` row for a unit: the title defaults to
+ * `Unit N Quiz Due` (free-text — admins edit the number after creation
+ * when a unit shifts) and the target is always CLIL (the #212 per-type
+ * gate). The `unit` label rides along for the #213 checklist display
+ * only — it is never stored on the row.
  */
 export function quizDraftForUnit(unitNumber: number, range: UnitQuizRange): QuizDraft {
 	return {
 		unit: unitTitle(unitNumber),
 		type: 'quiz',
-		title: 'Quiz',
+		title: quizTitle(unitNumber),
 		target: defaultTargetForEventType('quiz'),
 		date: range.date,
 		endDate: range.endDate
