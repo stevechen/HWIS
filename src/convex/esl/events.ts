@@ -430,7 +430,7 @@ export const update = mutation({
 });
 
 /**
- * Delete an event. Dues, checks, makeups, Sport's Day and every other
+ * Delete an event. Dues, checks, Sport's Day and every other
  * deletable seeded row go here — but exams and the graduation ceremony are
  * anchors the views derive from, so they are protected and the refusal names
  * the row.

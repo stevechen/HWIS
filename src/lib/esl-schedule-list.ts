@@ -1,4 +1,4 @@
-import type { ScheduleDayRow } from '$convex/shared/esl';
+import { ESL_EXAM_TITLES, type ScheduleDayRow } from '$convex/shared/esl';
 
 /** Client-side class-type filter for the teacher list view. G10 has no target of its own. */
 export const SCHEDULE_TARGET_FILTERS = ['all', 'CLIL', 'Comm', 'G7', 'G8', 'G9', 'H1'] as const;
@@ -45,8 +45,11 @@ export function countdownText(row: ScheduleDayRow): string {
  */
 const LEGACY_FINAL_LABEL = 'Final exam';
 
-/** Canonical exam labels, in term order. */
-export const EXAM_LABELS = ['Exam 1', 'Exam 2', 'Final Exam'] as const;
+/**
+ * Canonical exam labels, in term order — single-sourced from the backend's
+ * locked `ESL_EXAM_TITLES` so the list can never drift from the form.
+ */
+export const EXAM_LABELS = ESL_EXAM_TITLES;
 
 /** Normalize a stored exam cause to its canonical display label. */
 export function examDisplayLabel(cause: string | null): string {

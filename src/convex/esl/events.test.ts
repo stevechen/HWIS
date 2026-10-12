@@ -650,7 +650,7 @@ describe('esl/events.update', () => {
 });
 
 describe('esl/events.remove', () => {
-	it("deletes a deletable seeded row (Sport's Day, dues, makeups)", async () => {
+	it("deletes a deletable seeded row (Sport's Day, dues)", async () => {
 		const { t, semesterId } = await seededSemester();
 		const sportsId = singleId(
 			await t.mutation(api.esl.events.create, {

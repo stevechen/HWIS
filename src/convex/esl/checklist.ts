@@ -10,14 +10,22 @@ import {
 	checklistWindow,
 	deriveSemesterEnd,
 	describeEslEventError,
+	examGroupStarts,
 	expectedG9MockStarts,
 	expectedPassportRecordingCounts,
 	expectedUnitQuizDrafts,
 	isValidEslDate,
 	offDayChecklist,
+	planUnitQuizRanges,
+	quizDraftForUnit,
 	translateHolidayCaption,
+	unitDraftForRange,
+	unitNumbersForSemesterTerm,
+	type EslDay,
 	type EslEventTarget,
-	type EslEventType
+	type EslEventType,
+	type ScheduleEventInput,
+	type ScheduleMeetingInput
 } from '../shared/esl';
 import { assertExclusive } from './events';
 
@@ -74,10 +82,10 @@ export const status = query({
 
 		const ofType = (type: string) => events.filter((event) => event.type === type).length;
 		const unitExpectation = expectedUnitQuizDrafts(semester.term);
-		// Unit drafts are the stub's own `Unit N test` tasks (#214 owns the
-		// real windows) — manual free-text tasks never count toward them.
+		// Unit drafts are `Unit N` tasks in the #214 convention — manual
+		// free-text tasks (custom titles, no checklist entry) never match.
 		const unitsPresent = events.filter(
-			(event) => event.type === 'task' && /^unit \d+ test$/i.test(event.title)
+			(event) => event.type === 'task' && /^unit \d+$/i.test(event.title)
 		).length;
 		const dues = expectedPassportRecordingCounts({
 			term: semester.term,
@@ -112,6 +120,7 @@ type ChecklistDraft = {
 	title: string;
 	target: EslEventTarget;
 	date: string;
+	endDate?: string;
 	note?: string;
 };
 
@@ -130,11 +139,13 @@ const groupValidator = v.union(
  * exclusivity collisions (an exam landed since the panel rendered) skip
  * with a report instead of failing the batch.
  *
- * Placeholder dates step back from the window end (#214 owns the real
- * unit/quiz windows; every draft stays editable). G9 mocks go in
- * consecutive two-day pairs, like the seed.
+ * Unit/quiz drafts land on the real #214 ranges (`planUnitQuizRanges` over
+ * the semester's exam starts and class meetings); every other group steps
+ * single placeholder dates back from the window end. G9 mocks go in
+ * consecutive two-day pairs, like the seed. Every draft stays editable.
  *
- * cost: 1 semester read + reads `status` repeats + 1 exclusivity lookup
+ * cost: 1 semester read + reads `status` repeats + the year's cohorts,
+ * classes, and meetings for the unit/quiz planner + 1 exclusivity lookup
  * and 1 insert per created row.
  */
 export const createMissing = mutation({
@@ -205,24 +216,102 @@ export const createMissing = mutation({
 				}
 				return dates;
 			};
+			// The term's class meetings, as the #214 odd-unit median reads
+			// them: every active class of an active cohort of the semester's
+			// year (same scope `esl/schedule.teacherDays` filters per teacher).
+			// Empty when nothing is timetabled yet — the planner falls back
+			// to 7-day placeholders rather than guessing a week.
+			const meetings: ScheduleMeetingInput[] = [];
+			const cohorts = await ctx.db
+				.query('esl_cohorts')
+				.withIndex('by_year', (q) => q.eq('year', semester.year))
+				.collect();
+			for (const cohort of cohorts) {
+				if (cohort.status !== 'active') continue;
+				const classes = await ctx.db
+					.query('esl_classes')
+					.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
+					.collect();
+				for (const cls of classes) {
+					if (cls.status !== 'active') continue;
+					const rows = await ctx.db
+						.query('esl_class_meetings')
+						.withIndex('by_classId', (q) => q.eq('classId', cls._id))
+						.collect();
+					for (const row of rows) {
+						if (row.year !== semester.year) continue;
+						meetings.push({
+							classId: cls._id,
+							type: cls.type,
+							cohortGrade: cohort.grade,
+							day: row.day as EslDay,
+							period: row.period
+						});
+					}
+				}
+			}
+			const scheduleEvents: ScheduleEventInput[] = events.map((event) => ({
+				type: event.type,
+				title: event.title,
+				target: event.target,
+				date: event.date,
+				...(event.endDate === undefined ? {} : { endDate: event.endDate }),
+				...(event.note === undefined ? {} : { note: event.note }),
+				...(event.startPeriod === undefined ? {} : { startPeriod: event.startPeriod }),
+				...(event.endPeriod === undefined ? {} : { endPeriod: event.endPeriod })
+			}));
+			// The six #214 ranges, aligned with the term's unit numbers:
+			// odd positions from each term window's median week, even
+			// positions from the 7 days before each exam start.
+			const unitNumbers = unitNumbersForSemesterTerm(semester.term);
+			const unitRanges = planUnitQuizRanges({
+				term: semester.term,
+				semesterStart: semester.startDate,
+				examStarts: examGroupStarts(events),
+				meetings,
+				events: scheduleEvents,
+				fallbackEnd: window.end
+			});
 			if (args.group === 'quiz') {
 				const missingCount = Math.max(
 					0,
 					expectedUnitQuizDrafts(semester.term).quizzes - ofType('quiz').length
 				);
-				for (const date of takeDates(missingCount)) {
-					drafts.push({ type: 'quiz', title: ESL_EVENT_TITLES.quiz, target: 'CLIL', date });
-				}
+				// Quiz n rides its unit's range (the views collapse it to the
+				// last match date through the existing dues rule).
+				unitNumbers.slice(0, missingCount).forEach((unitNumber, index) => {
+					const range = unitRanges[index];
+					if (range === undefined) return;
+					const draft = quizDraftForUnit(unitNumber, range);
+					drafts.push({
+						type: draft.type,
+						title: draft.title,
+						target: draft.target,
+						date: draft.date,
+						endDate: draft.endDate
+					});
+				});
 			} else if (args.group === 'units') {
-				const present = ofType('task').filter((event) => /^unit \d+ test$/i.test(event.title));
+				const present = ofType('task').filter((event) => /^unit \d+$/i.test(event.title));
 				const missingCount = Math.max(
 					0,
 					expectedUnitQuizDrafts(semester.term).units - present.length
 				);
-				const start = present.length + 1;
-				takeDates(missingCount).forEach((date, index) => {
-					drafts.push({ type: 'task', title: `Unit ${start + index} test`, target: 'all', date });
-				});
+				const firstUnit = unitNumbers[0] ?? 1;
+				const start = firstUnit + present.length;
+				for (let index = 0; index < missingCount; index += 1) {
+					const unitNumber = start + index;
+					const range = unitRanges[unitNumber - firstUnit];
+					if (range === undefined) continue;
+					const draft = unitDraftForRange(unitNumber, range);
+					drafts.push({
+						type: draft.type,
+						title: draft.title,
+						target: draft.target,
+						date: draft.date,
+						endDate: draft.endDate
+					});
+				}
 			} else if (args.group === 'passport' || args.group === 'recording') {
 				const dues = expectedPassportRecordingCounts({
 					term: semester.term,
@@ -271,7 +360,11 @@ export const createMissing = mutation({
 		const created: string[] = [];
 		const skipped: string[] = [];
 		for (const draft of drafts) {
-			const fieldError = assertValidEslEvent({ type: draft.type, date: draft.date });
+			const fieldError = assertValidEslEvent({
+				type: draft.type,
+				date: draft.date,
+				...(draft.endDate === undefined ? {} : { endDate: draft.endDate })
+			});
 			if (fieldError) throw new Error(describeEslEventError(fieldError));
 			const titleError = assertValidEslTitle(draft.type, draft.title);
 			if (titleError) throw new Error(describeEslEventError(titleError));
@@ -281,7 +374,8 @@ export const createMissing = mutation({
 				await assertExclusive(ctx, {
 					semesterId: args.semesterId,
 					type: draft.type,
-					date: draft.date
+					date: draft.date,
+					...(draft.endDate === undefined ? {} : { endDate: draft.endDate })
 				});
 			} catch (error) {
 				skipped.push(
@@ -295,6 +389,7 @@ export const createMissing = mutation({
 				title: draft.title,
 				target: draft.target,
 				date: draft.date,
+				...(draft.endDate === undefined ? {} : { endDate: draft.endDate }),
 				...(draft.note === undefined ? {} : { note: draft.note }),
 				...(args.e2eTag === undefined ? {} : { e2eTag: args.e2eTag })
 			});

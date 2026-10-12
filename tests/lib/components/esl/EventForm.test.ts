@@ -2,6 +2,7 @@ import { page } from 'vitest/browser';
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import EventForm from '$lib/components/esl/EventForm.svelte';
+import { ESL_EVENT_TYPES } from '$convex/shared/esl';
 
 const HIDDEN_TYPES = [
 	'start_school',
@@ -64,6 +65,15 @@ describe('EventForm note visibility (#211)', () => {
 });
 
 describe('EventForm target gating (#212)', () => {
+	it('offers every canonical event type in the dropdown', async () => {
+		renderForm();
+		const select = page.getByLabelText('Event type');
+		for (const type of ESL_EVENT_TYPES) {
+			await select.selectOptions(type);
+			await expect.element(select).toHaveValue(type);
+		}
+	});
+
 	it('locks the target to CLIL for quiz and snaps it on type switch', async () => {
 		const { onsubmit } = renderForm();
 		await page.getByLabelText('Event type').selectOptions('task');

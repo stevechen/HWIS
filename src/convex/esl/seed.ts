@@ -13,9 +13,7 @@ import {
 	defaultTargetForEventType,
 	describeEslEventError,
 	findLunarOffDays,
-	fridayBeforeDate,
 	isValidEslDate,
-	isWeekendEslDate,
 	suggestExamEndDate,
 	translateHolidayCaption,
 	weekdayDatesBetween,
@@ -88,25 +86,12 @@ function checkDate(date: string): void {
 }
 
 /**
- * The Friday-before makeup suggestion for a weekend off day (#184
- * resolution). Monday-after also occurs in the data, so the row is an
- * editable suggestion — and a suggestion that collides is skipped with a
- * report rather than failing the whole seed.
- */
-function makeupDraftFor(occasion: string, date: string): SeedDraft | null {
-	if (!isWeekendEslDate(date)) return null;
-	return {
-		type: 'no_school',
-		title: ESL_EVENT_TITLES.no_school,
-		target: 'all',
-		date: fridayBeforeDate(date),
-		note: `Suggested makeup for ${occasion} on ${date}, which falls on a weekend — adjust as needed.`
-	};
-}
-
-/**
  * Seed a semester's draft rows: the S1/S2 sets from #184 with the auto rules
- * applied (exam weekday ends, Friday-before makeups, lunar resolution).
+ * applied (exam weekday ends, lunar resolution).
+ *
+ * Weekend off days seed exactly one row (#207): the official calendar's own
+ * rows (including `補假`) are authoritative, so no Friday-before makeup is
+ * synthesized anywhere in this flow.
  *
  * Dates the template cannot know arrive as arguments — exam starts, event
  * dates, due windows — and groups left out are simply not seeded. Refuses to
@@ -167,11 +152,6 @@ export const seed = mutation({
 		}
 
 		const drafts: SeedDraft[] = [];
-		const makeupOf = new Map<SeedDraft, { forDate: string; name: string }>();
-		const trackMakeup = (draft: SeedDraft, forDate: string, name: string) => {
-			drafts.push(draft);
-			makeupOf.set(draft, { forDate, name });
-		};
 
 		// Exams first, so an off day colliding with a range surfaces under the
 		// exclusivity rule instead of silently preceding it.
@@ -299,8 +279,6 @@ export const seed = mutation({
 				date: args.anniversaryDate,
 				note: 'Anniversary'
 			});
-			const makeup = makeupDraftFor('Anniversary', args.anniversaryDate);
-			if (makeup) trackMakeup(makeup, args.anniversaryDate, 'Anniversary');
 		}
 
 		// Lunar no-school days: explicit admin-typed date, else the holiday cache.
@@ -318,8 +296,6 @@ export const seed = mutation({
 				unverified: true,
 				note: `${festival.name} — admin-typed date, unverified against the national calendar.`
 			});
-			const makeup = makeupDraftFor(festival.name, explicitLunar);
-			if (makeup) trackMakeup(makeup, explicitLunar, festival.name);
 		} else {
 			const calendarYear = lunarCalendarYear(semester.year, semester.term);
 			const cached = await ctx.db
@@ -343,8 +319,6 @@ export const seed = mutation({
 					provenance: 'holiday_api',
 					note: `${festival.name} — ${day.caption} (Taiwan Calendar ${calendarYear})`
 				});
-				const makeup = makeupDraftFor(festival.name, day.date);
-				if (makeup) trackMakeup(makeup, day.date, festival.name);
 			}
 		}
 
@@ -360,8 +334,6 @@ export const seed = mutation({
 				note:
 					off.note === undefined || off.note.trim() === '' ? name : `${name} — ${off.note.trim()}`
 			});
-			const makeup = makeupDraftFor(name, off.date);
-			if (makeup) trackMakeup(makeup, off.date, name);
 		}
 
 		for (const due of args.dueWindows ?? []) {
@@ -381,15 +353,9 @@ export const seed = mutation({
 		}
 
 		// Write every draft under the same guards `events.create` enforces.
-		// Makeup suggestions skip (with a report) rather than fail the seed —
-		// everything else throws, atomically, before anything is written.
+		// A collision throws, atomically, before anything is written.
 		const created: Id<'esl_events'>[] = [];
-		const makeup: { forDate: string; makeupDate: string; label: string }[] = [];
-		const makeupSkipped: string[] = [];
-		const makeupDates = new Set<string>();
 		for (const draft of drafts) {
-			const makeupEntry = makeupOf.get(draft);
-			const isMakeup = makeupEntry !== undefined;
 			const fieldError = assertValidEslEvent({
 				type: draft.type,
 				date: draft.date,
@@ -415,32 +381,12 @@ export const seed = mutation({
 				}
 			}
 
-			try {
-				await assertExclusive(ctx, {
-					semesterId: args.semesterId,
-					type: draft.type,
-					date: draft.date,
-					endDate: draft.endDate
-				});
-			} catch (error) {
-				if (isMakeup) {
-					makeupSkipped.push(
-						`Makeup for ${makeupEntry?.name ?? draft.title} on ${draft.date} skipped: ${error instanceof Error ? error.message : 'date unavailable'}`
-					);
-					continue;
-				}
-				throw error;
-			}
-
-			if (isMakeup) {
-				if (makeupDates.has(draft.date)) {
-					makeupSkipped.push(
-						`Makeup for ${makeupEntry?.name ?? draft.title} on ${draft.date} skipped: two weekends share one Friday.`
-					);
-					continue;
-				}
-				makeupDates.add(draft.date);
-			}
+			await assertExclusive(ctx, {
+				semesterId: args.semesterId,
+				type: draft.type,
+				date: draft.date,
+				endDate: draft.endDate
+			});
 
 			const id = await ctx.db.insert('esl_events', {
 				semesterId: args.semesterId,
@@ -458,16 +404,9 @@ export const seed = mutation({
 				...(args.e2eTag === undefined ? {} : { e2eTag: args.e2eTag })
 			});
 			created.push(id);
-			if (isMakeup && makeupEntry) {
-				makeup.push({
-					forDate: makeupEntry.forDate,
-					makeupDate: draft.date,
-					label: makeupEntry.name
-				});
-			}
 		}
 
-		return { created, makeup, makeupSkipped, unresolvedLunar };
+		return { created, unresolvedLunar };
 	}
 });
 

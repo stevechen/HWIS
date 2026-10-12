@@ -214,21 +214,20 @@ describe('esl/seed.seed S1', () => {
 		expect(semester?.derivedEnd).toBe('2025-11-18');
 	});
 
-	it('auto-creates a Friday-before makeup for a weekend off day', async () => {
+	it('seeds a weekend off day as a single row with no makeup synthesis (#207)', async () => {
 		const { t, semesterId } = await adminSemester('S1', '2025-08-31');
-		// 2025-10-18 is a Saturday.
+		// 2025-10-18 is a Saturday: the official calendar's own rows are
+		// authoritative, so no Friday-before row is synthesized.
 		const result = await t.mutation(api.esl.seed.seed, {
 			semesterId,
 			examStarts: { exam1: '2025-10-13', exam2: '2025-11-17', final: '2026-01-19' },
 			extraOffs: [{ date: '2025-10-18', name: 'National Day (observed)' }]
 		});
-		expect(result.makeup).toEqual([
-			{ forDate: '2025-10-18', makeupDate: '2025-10-17', label: 'National Day (observed)' }
-		]);
+		expect(result).not.toHaveProperty('makeup');
+		expect(result).not.toHaveProperty('makeupSkipped');
 		const events = await t.query(api.esl.events.listBySemester, { semesterId });
-		const makeup = events.find((event) => event.date === '2025-10-17');
-		expect(makeup).toMatchObject({ type: 'no_school', title: 'Off', date: '2025-10-17' });
-		expect(makeup?.note).toMatch(/National Day \(observed\)/);
+		expect(events.filter((event) => event.date === '2025-10-18')).toHaveLength(1);
+		expect(events.find((event) => event.date === '2025-10-17')).toBeUndefined();
 	});
 
 	it('resolves lunar dates from the holiday cache with provenance', async () => {
@@ -336,9 +335,10 @@ describe('esl/seed.seed S1', () => {
 describe('esl/seed.seed S2', () => {
 	afterEach(() => vi.restoreAllMocks());
 
-	it('seeds ceremony, spring break, anniversary + makeup, mocks, and exams', async () => {
+	it('seeds ceremony, spring break, anniversary, mocks, and exams', async () => {
 		const { t, semesterId } = await adminSemester('S2', '2026-02-09');
-		// 2026-03-28 is a Saturday: the anniversary makeup prefills Friday-before.
+		// 2026-03-28 is a Saturday: it still seeds exactly one row (#207 —
+		// the official calendar's makeup rows are authoritative).
 		const result = await t.mutation(api.esl.seed.seed, {
 			semesterId,
 			examStarts: { exam1: '2026-03-16', exam2: '2026-04-20', final: '2026-06-15' },
@@ -371,10 +371,8 @@ describe('esl/seed.seed S2', () => {
 			title: 'No class',
 			date: '2026-03-28'
 		});
-		expect(events.find((event) => event.date === '2026-03-27')).toMatchObject({
-			type: 'no_school',
-			title: 'Off'
-		});
+		// No Friday-before synthesis for the Saturday anniversary (#207).
+		expect(events.find((event) => event.date === '2026-03-27')).toBeUndefined();
 		// G9 mocks are g9_mock+G9 two-day rows, never exam-typed.
 		const mocks = events.filter((event) => event.title === 'G9 Mock Exam');
 		expect(mocks).toHaveLength(2);

@@ -6,8 +6,10 @@ import {
 	countdownText,
 	descriptionText,
 	eventNoteKey,
+	EXAM_LABELS,
 	noteText
 } from '$lib/esl-schedule-list';
+import { ESL_EXAM_TITLES } from '$convex/shared/esl';
 import type { ScheduleDayRow } from '$convex/shared/esl';
 
 function row(overrides: Partial<ScheduleDayRow>): ScheduleDayRow {
@@ -78,6 +80,10 @@ describe('esl-schedule-list (#203 canonical columns)', () => {
 		expect(lines[0]).toBe('#\tDate\tDescription\tNote');
 		expect(lines[1]?.split('\t')).toEqual(['1', '2025-09-01', 'G7 Basic 1 CLIL P1', '']);
 		expect(lines[2]?.split('\t')).toEqual(['', '2025-09-01', 'Exam 1', '']);
+	});
+
+	it('shares the single canonical exam-label source with the backend', () => {
+		expect(EXAM_LABELS).toBe(ESL_EXAM_TITLES);
 	});
 
 	it('keys event notes by date+title so same-title events do not leak notes', () => {
