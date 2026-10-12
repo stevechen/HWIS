@@ -1050,6 +1050,24 @@ export const ESL_EVENT_TITLES = {
 /** The three locked exam titles — the exam dropdown options. */
 export const ESL_EXAM_TITLES = ['Exam 1', 'Exam 2', 'Final Exam'] as const;
 
+/**
+ * The human label per event type, as the EventForm type dropdown reads.
+ * Single-sourced here so the form's option list can never drift from the
+ * canonical `ESL_EVENT_TYPES` union it iterates.
+ */
+export const ESL_EVENT_TYPE_LABELS: Record<EslEventType, string> = {
+	start_school: 'Start of school',
+	quiz: 'Quiz',
+	no_school: 'No school',
+	no_class: 'No class',
+	partial: 'Partial day',
+	exam: 'Exam',
+	passport_due: 'Passport due',
+	recording_due: 'Recording due',
+	task: 'Task',
+	g9_mock: 'G9 mock'
+};
+
 /** Pre-v3 event types and where they land in the v3 union (#210). */
 const V3_TYPE_MIGRATION: Record<string, EslEventType> = {
 	start_school: 'start_school',
@@ -2853,4 +2871,72 @@ export function quizDraftForUnit(unitNumber: number, range: UnitQuizRange): Quiz
 		date: range.date,
 		endDate: range.endDate
 	};
+}
+
+/**
+ * The start date of each exam group, oldest first: the min date of the rows
+ * sharing an `examGroup` (title fallback for rows written before the field
+ * existed — the same key `examGroupsOf` in `esl/events` refuses on).
+ *
+ * The #213 one-click create reads these as its even-unit anchors and
+ * odd-unit window edges, so unit/quiz drafts land on the real #214 ranges
+ * instead of placeholder dates. Non-exam rows never anchor a unit.
+ */
+export function examGroupStarts(
+	events: readonly { type: EslEventType; title: string; date: string; examGroup?: string }[]
+): string[] {
+	const starts = new Map<string, string>();
+	for (const event of events) {
+		if (event.type !== 'exam') continue;
+		const key = event.examGroup ?? event.title;
+		const known = starts.get(key);
+		if (known === undefined || event.date < known) starts.set(key, event.date);
+	}
+	return [...starts.values()].sort();
+}
+
+/**
+ * The six unit/quiz ranges of a semester term, aligned with
+ * `unitNumbersForSemesterTerm(term)` (#213+#214 wiring).
+ *
+ * Odd positions take the Mon–Fri week holding the median class meeting of
+ * their term window (`start→exam1`, `exam1→exam2`, `exam2→final`);
+ * even positions take the exact 7 calendar days before their exam. A
+ * window with no countable meetings — or a missing anchor — falls back to
+ * a 7-day placeholder stepping back from `fallbackEnd`, so every generated
+ * draft still spans at least one school week (#214 duration rule) and stays
+ * editable rather than guessed.
+ */
+export function planUnitQuizRanges(args: {
+	term: EslSemesterTerm;
+	semesterStart: string;
+	examStarts: readonly string[];
+	meetings: readonly ScheduleMeetingInput[];
+	events: readonly ScheduleEventInput[];
+	fallbackEnd: string;
+}): UnitQuizRange[] {
+	const anchors = [...args.examStarts].sort().slice(0, 3);
+	const bounds = [args.semesterStart, ...anchors];
+	let fallbacksUsed = 0;
+	const fallback = (): UnitQuizRange => {
+		const end = shiftEslDate(args.fallbackEnd, -7 * fallbacksUsed);
+		fallbacksUsed += 1;
+		return { date: shiftEslDate(end, -6), endDate: end };
+	};
+	const ranges: UnitQuizRange[] = [];
+	for (let position = 0; position < 6; position += 1) {
+		if (position % 2 === 0) {
+			const from = bounds[position / 2];
+			const to = bounds[position / 2 + 1];
+			const odd =
+				from !== undefined && to !== undefined
+					? oddUnitRangeForTerm({ meetings: args.meetings, events: args.events, from, to })
+					: null;
+			ranges.push(odd ?? fallback());
+		} else {
+			const anchor = anchors[(position - 1) / 2];
+			ranges.push(anchor !== undefined ? evenUnitRange(anchor) : fallback());
+		}
+	}
+	return ranges;
 }

@@ -84,6 +84,24 @@ describe('esl/checklist.status', () => {
 		expect(status.g9mock.expectedStarts).toBe(3);
 	});
 
+	it('counts Unit N tasks toward units while manual tasks never count', async () => {
+		const { t, semesterId } = await adminSemester('S1', '2025-08-31');
+		await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'task',
+			title: 'Unit 1',
+			date: '2025-09-10'
+		});
+		await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'task',
+			title: 'Collect permission slips',
+			date: '2025-09-11'
+		});
+		const status = await t.query(api.esl.checklist.status, { semesterId, today: '2025-10-01' });
+		expect(status.units).toMatchObject({ expected: 6, present: 1 });
+	});
+
 	it('refuses unauthenticated callers', async () => {
 		const { t, semesterId } = await adminSemester('S1', '2025-08-31');
 		mockAuthUser(null);
@@ -142,7 +160,7 @@ describe('esl/checklist.createMissing', () => {
 		expect(result.skipped[0]).toMatch(/2025-10-13/);
 	});
 
-	it('fills quiz drafts to six with CLIL-locked rows', async () => {
+	it('fills quiz drafts to six with ranged CLIL-locked rows (#214 windows)', async () => {
 		const { t, semesterId } = await adminSemester('S1', '2025-08-31');
 		const result = await t.mutation(api.esl.checklist.createMissing, {
 			semesterId,
@@ -155,6 +173,12 @@ describe('esl/checklist.createMissing', () => {
 		const quizzes = events.filter((event) => event.type === 'quiz');
 		expect(quizzes).toHaveLength(6);
 		expect(quizzes.every((event) => event.title === 'Quiz' && event.target === 'CLIL')).toBe(true);
+		// Every draft spans a real window, not a single placeholder day.
+		for (const quiz of quizzes) {
+			expect(quiz.endDate).toBeDefined();
+			expect(quiz.endDate as string).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+			expect((quiz.endDate as string) > quiz.date).toBe(true);
+		}
 	});
 
 	it('fills passport and recording dues with Comm-locked rows', async () => {
@@ -184,7 +208,7 @@ describe('esl/checklist.createMissing', () => {
 		).toBe(true);
 	});
 
-	it('fills unit drafts as Unit N test tasks (manual tasks never count)', async () => {
+	it('fills unit drafts as ranged Unit N tasks (manual tasks never count)', async () => {
 		const { t, semesterId } = await adminSemester('S1', '2025-08-31');
 		await t.mutation(api.esl.events.create, {
 			semesterId,
@@ -199,7 +223,83 @@ describe('esl/checklist.createMissing', () => {
 		});
 		expect(result.created).toHaveLength(6);
 		const events = await t.query(api.esl.events.listBySemester, { semesterId });
-		expect(events.filter((event) => /^unit \d+ test$/i.test(event.title))).toHaveLength(6);
+		const units = events
+			.filter((event) => /^unit \d+$/i.test(event.title))
+			.sort((a, b) => a.title.localeCompare(b.title));
+		expect(units.map((event) => event.title)).toEqual([
+			'Unit 1',
+			'Unit 2',
+			'Unit 3',
+			'Unit 4',
+			'Unit 5',
+			'Unit 6'
+		]);
+		// Every draft spans a real window, not a single placeholder day.
+		for (const unit of units) {
+			expect(unit.endDate).toBeDefined();
+			expect((unit.endDate as string) > unit.date).toBe(true);
+		}
+		// The checklist goes green on the drafts it just created.
+		const status = await t.query(api.esl.checklist.status, { semesterId, today: '2025-10-31' });
+		expect(status.units).toMatchObject({ expected: 6, present: 6 });
+	});
+
+	it('wires unit drafts to real exam anchors and median weeks (#214 ranges)', async () => {
+		const { t, semesterId } = await adminSemester('S1', '2025-08-31');
+		// One timetabled class: Tue P1 + Thu P2, so every term window has a
+		// countable median week for its odd unit.
+		const { classIds } = await t.mutation(api.esl.cohorts.create, {
+			year: YEAR,
+			grade: 7,
+			level: 'Basic',
+			classNumber: '1'
+		});
+		const classId = classIds[0];
+		if (classId === undefined) throw new Error('cohort create returned no classes');
+		for (const slot of [
+			{ day: 'Tuesday', period: 1 },
+			{ day: 'Thursday', period: 2 }
+		] as const) {
+			await t.run((ctx) =>
+				ctx.db.insert('esl_class_meetings', {
+					classId,
+					year: YEAR,
+					day: slot.day,
+					period: slot.period
+				})
+			);
+		}
+		// Three Monday exam starts (each fans out past its start).
+		for (const [title, date] of [
+			['Exam 1', '2025-10-13'],
+			['Exam 2', '2025-11-17'],
+			['Final Exam', '2025-12-15']
+		] as const) {
+			await t.mutation(api.esl.events.create, { semesterId, type: 'exam', title, date });
+		}
+		const result = await t.mutation(api.esl.checklist.createMissing, {
+			semesterId,
+			today: '2025-10-31',
+			group: 'units'
+		});
+		expect(result.skipped).toEqual([]);
+		expect(result.created).toHaveLength(6);
+		const events = await t.query(api.esl.events.listBySemester, { semesterId });
+		const unit = (title: string) => events.find((e) => e.type === 'task' && e.title === title);
+		// Even units sit in the exact 7 calendar days before their exam.
+		expect(unit('Unit 2')).toMatchObject({ date: '2025-10-06', endDate: '2025-10-12' });
+		expect(unit('Unit 4')).toMatchObject({ date: '2025-11-10', endDate: '2025-11-16' });
+		expect(unit('Unit 6')).toMatchObject({ date: '2025-12-08', endDate: '2025-12-14' });
+		// Odd units are Mon–Fri median weeks inside their term windows.
+		for (const title of ['Unit 1', 'Unit 3', 'Unit 5']) {
+			const draft = unit(title);
+			if (!draft?.endDate) throw new Error(`${title} draft missing its range`);
+			const [y1, m1, d1] = draft.date.split('-').map(Number);
+			const [y2, m2, d2] = (draft.endDate as string).split('-').map(Number);
+			expect(new Date(Date.UTC(y1, m1 - 1, d1)).getUTCDay()).toBe(1);
+			expect(new Date(Date.UTC(y2, m2 - 1, d2)).getUTCDay()).toBe(5);
+			expect((draft.endDate as string) > draft.date).toBe(true);
+		}
 	});
 
 	it('creates G9 mock drafts as two-day G9 pairs (2 starts in S1)', async () => {

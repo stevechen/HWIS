@@ -4,6 +4,8 @@
 	import {
 		ESL_EVENT_TARGETS,
 		ESL_EVENT_TITLES,
+		ESL_EVENT_TYPES,
+		ESL_EVENT_TYPE_LABELS,
 		ESL_EXAM_TITLES,
 		ESL_PERIOD_NUMBERS,
 		EXAM_SEED_WEEKDAYS,
@@ -38,31 +40,12 @@
 		endPeriod?: number;
 	};
 
-	const TYPE_LABELS: Record<EslEventType, string> = {
-		start_school: 'Start of school',
-		quiz: 'Quiz',
-		no_school: 'No school',
-		no_class: 'No class',
-		partial: 'Partial day',
-		exam: 'Exam',
-		passport_due: 'Passport due',
-		recording_due: 'Recording due',
-		task: 'Task',
-		g9_mock: 'G9 mock'
-	};
-
-	const TYPES: EslEventType[] = [
-		'start_school',
-		'quiz',
-		'no_school',
-		'no_class',
-		'partial',
-		'exam',
-		'passport_due',
-		'recording_due',
-		'task',
-		'g9_mock'
-	];
+	/**
+	 * The type dropdown iterates the canonical union with the shared labels,
+	 * so adding a type to `ESL_EVENT_TYPES` surfaces it here with no second
+	 * list to update.
+	 */
+	const TYPES: readonly EslEventType[] = ESL_EVENT_TYPES;
 
 	/**
 	 * The title a fresh draft of a type carries: locked titles arrive
@@ -231,7 +214,7 @@
 				class="rounded border px-2 py-1 text-sm"
 			>
 				{#each TYPES as option (option)}
-					<option value={option}>{TYPE_LABELS[option]}</option>
+					<option value={option}>{ESL_EVENT_TYPE_LABELS[option]}</option>
 				{/each}
 			</select>
 		</div>

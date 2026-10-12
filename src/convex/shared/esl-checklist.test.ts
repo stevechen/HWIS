@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
 	checklistWindow,
+	examGroupStarts,
 	G9_MOCK_STARTS_BY_TERM,
 	PASSPORT_RECORDING_PER_SEMESTER,
+	planUnitQuizRanges,
 	QUNIT_QUIZ_PER_SEMESTER,
 	QUNIT_UNIT_PER_SEMESTER,
 	expectedG9MockStarts,
@@ -105,5 +107,81 @@ describe('G9 mock checklist (#213 group d)', () => {
 		expect(G9_MOCK_STARTS_BY_TERM).toEqual({ S1: 2, S2: 3 });
 		expect(expectedG9MockStarts('S1')).toBe(2);
 		expect(expectedG9MockStarts('S2')).toBe(3);
+	});
+});
+
+describe('exam group starts (#213 group b anchors)', () => {
+	it('takes the min date per exam group, oldest first', () => {
+		expect(
+			examGroupStarts([
+				{ type: 'exam', title: 'Exam 1', date: '2025-10-14', examGroup: 'Exam 1' },
+				{ type: 'exam', title: 'Exam 1', date: '2025-10-13', examGroup: 'Exam 1' },
+				{ type: 'exam', title: 'Final Exam', date: '2026-01-20' }
+			])
+		).toEqual(['2025-10-13', '2026-01-20']);
+	});
+
+	it('ignores non-exam rows', () => {
+		expect(
+			examGroupStarts([
+				{ type: 'no_school', title: 'Off', date: '2025-10-06' },
+				{ type: 'task', title: 'Unit 1', date: '2025-10-07' }
+			])
+		).toEqual([]);
+	});
+});
+
+describe('unit/quiz range planning (#213+#214 wiring)', () => {
+	const meetings = [
+		{ classId: 'c1', type: 'G9', cohortGrade: 9, day: 'Tuesday', period: 1 },
+		{ classId: 'c1', type: 'G9', cohortGrade: 9, day: 'Thursday', period: 2 }
+	] as const;
+
+	it('anchors even units on the 7 days before each exam start', () => {
+		const ranges = planUnitQuizRanges({
+			term: 'S1',
+			semesterStart: '2025-09-01',
+			examStarts: ['2025-10-13', '2025-11-17', '2026-01-19'],
+			meetings: [...meetings],
+			events: [],
+			fallbackEnd: '2025-10-31'
+		});
+		expect(ranges).toHaveLength(6);
+		// U2/U4/U6 sit in the exact 7 calendar days before their exam.
+		expect(ranges[1]).toEqual({ date: '2025-10-06', endDate: '2025-10-12' });
+		expect(ranges[3]).toEqual({ date: '2025-11-10', endDate: '2025-11-16' });
+		expect(ranges[5]).toEqual({ date: '2026-01-12', endDate: '2026-01-18' });
+	});
+
+	it('takes odd units from the median week of each term window', () => {
+		const ranges = planUnitQuizRanges({
+			term: 'S1',
+			semesterStart: '2025-09-02',
+			examStarts: ['2025-09-12'],
+			meetings: [...meetings],
+			events: [],
+			fallbackEnd: '2025-10-31'
+		});
+		// Four Tue/Thu occurrences 09-02..09-11: lower median 09-04 lands in
+		// Mon 09-01 … Fri 09-05.
+		expect(ranges[0]).toEqual({ date: '2025-09-01', endDate: '2025-09-05' });
+	});
+
+	it('falls back to 7-day ranges stepping back from the window end', () => {
+		const ranges = planUnitQuizRanges({
+			term: 'S1',
+			semesterStart: '2025-08-31',
+			examStarts: [],
+			meetings: [],
+			events: [],
+			fallbackEnd: '2025-10-31'
+		});
+		expect(ranges).toHaveLength(6);
+		expect(ranges[0]).toEqual({ date: '2025-10-25', endDate: '2025-10-31' });
+		expect(ranges[1]).toEqual({ date: '2025-10-18', endDate: '2025-10-24' });
+		for (const range of ranges) {
+			// Every generated range spans at least one school week (#214).
+			expect(range.endDate >= range.date).toBe(true);
+		}
 	});
 });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	ESL_EVENT_TITLES,
 	ESL_EVENT_TYPES,
+	ESL_EVENT_TYPE_LABELS,
 	ESL_EXAM_TITLES,
 	ESL_RANGED_EVENT_TYPES,
 	assertValidEslTitle,
@@ -61,6 +62,24 @@ describe('esl event types v3 (#210)', () => {
 			g9_mock: 'G9 Mock Exam'
 		});
 		expect([...ESL_EXAM_TITLES]).toEqual(['Exam 1', 'Exam 2', 'Final Exam']);
+	});
+
+	it('labels every type for the form dropdown from one shared map', () => {
+		expect(ESL_EVENT_TYPE_LABELS).toMatchObject({
+			start_school: 'Start of school',
+			quiz: 'Quiz',
+			no_school: 'No school',
+			no_class: 'No class',
+			partial: 'Partial day',
+			exam: 'Exam',
+			passport_due: 'Passport due',
+			recording_due: 'Recording due',
+			task: 'Task',
+			g9_mock: 'G9 mock'
+		});
+		for (const type of ESL_EVENT_TYPES) {
+			expect(typeof ESL_EVENT_TYPE_LABELS[type]).toBe('string');
+		}
 	});
 
 	it('treats task, quiz, and the named dues as the only ranged types', () => {
