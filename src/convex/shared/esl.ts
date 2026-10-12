@@ -2177,6 +2177,42 @@ export function findLunarOffCluster(
 }
 
 /**
+ * How far the S1 end-date default sits before the CNY break (ticket #209):
+ * two weeks (14 calendar days), revised from the earlier 3-day rule. Exact
+ * calendar days — no weekend shifting — so the admin sees a stable date to
+ * adjust freely.
+ */
+export const S1_END_CNY_LEAD_DAYS = 14;
+
+/**
+ * Step a `YYYY-MM-DD` date by a signed number of calendar days (weekends
+ * count — the #209 end defaults are calendar arithmetic, not weekday math).
+ */
+export function shiftEslDate(date: string, deltaDays: number): string {
+	const [year, month, day] = date.split('-').map(Number);
+	return new Date(Date.UTC(year, month - 1, day + deltaDays, 12)).toISOString().slice(0, 10);
+}
+
+/**
+ * The proposed S1 end: the `春節` isHoliday-run start minus two weeks. The
+ * run start rides in resolved from `esl_holiday_cache` (see
+ * `esl/semesters.endDateDefault`); the result stays an editable suggestion.
+ */
+export function suggestedS1EndDate(cnyRunStart: string): string {
+	return shiftEslDate(cnyRunStart, -S1_END_CNY_LEAD_DAYS);
+}
+
+/**
+ * The proposed S2 end: July 1st of the school year's second calendar year
+ * (`2025-2026` → `2026-07-01`). Pure — no cache read — so both terms share
+ * one `endDateDefault` seam.
+ */
+export function suggestedS2EndDate(schoolYear: string): string {
+	const second = schoolYear.split('-')[1] ?? schoolYear;
+	return `${second}-07-01`;
+}
+
+/**
  * Official-calendar CSV upload (ticket #207): dataset 14718 rows land in
  * the year-keyed `esl_holiday_cache`, which stays the runtime source the
  * seed reads at seed time.

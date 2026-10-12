@@ -26,10 +26,19 @@
 	const eventsQuery = useQuery(api.esl.events.listBySemester, () =>
 		rawId === '' ? 'skip' : { semesterId }
 	);
-
 	const semesters = $derived(semestersQuery.data ?? []);
 	const events = $derived(eventsQuery.data ?? []);
 	const selected = $derived(semesters.find((semester) => semester._id === rawId) ?? null);
+
+	/**
+	 * The #209 end-date default for the seed form's final-exam box. S1
+	 * resolves the CNY run from the holiday cache (upload the year first —
+	 * the upload tiles above already cover both window years); S2 is pure
+	 * July 1. Reactive: landing the CSV recomputes the suggestion.
+	 */
+	const endDefaultQuery = useQuery(api.esl.semesters.endDateDefault, () =>
+		selected === null ? 'skip' : { year: selected.year, term: selected.term }
+	);
 
 	// Lexical `YYYY-MM-DD` compare, the same rule the backend uses.
 	const today = new Date().toISOString().slice(0, 10);
@@ -38,6 +47,22 @@
 		selected === null ? ('upcoming' as const) : semesterStatus(selected, today)
 	);
 	const source = $derived(selected === null ? null : derivedEndSource(events, selected.derivedEnd));
+
+	/** The #209 seed-form suggestion, derived from the end-date default query. */
+	const endDefault = $derived(endDefaultQuery.data ?? null);
+	const finalDefault = $derived(endDefault?.status === 'ready' ? endDefault.date : null);
+	const finalHint = $derived.by((): string | null => {
+		if (endDefault === null) return null;
+		if (endDefault.status === 'ready') {
+			return selected?.term === 'S1' && endDefault.cnyRunStart !== null
+				? `Suggested ${endDefault.date} — 14 days before the CNY break starts (${endDefault.cnyRunStart}). Adjust freely.`
+				: `Suggested ${endDefault.date} — adjust freely.`;
+		}
+		if (endDefault.status === 'missing-cache') {
+			return `Upload the ${endDefault.year} official calendar above and the suggested final date fills in.`;
+		}
+		return `No CNY break found in the ${endDefault.year} official calendar — enter the final date by hand.`;
+	});
 
 	/**
 	 * The other term of the same school year, for the advisory S1/S2 cross
@@ -224,6 +249,8 @@
 				busy={seedBusy}
 				error={seedError}
 				report={seedReport}
+				{finalDefault}
+				{finalHint}
 				onseed={seedDrafts}
 			/>
 		{/if}
