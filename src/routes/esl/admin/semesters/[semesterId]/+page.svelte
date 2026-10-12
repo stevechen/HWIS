@@ -16,6 +16,7 @@
 	import HolidayCsvUpload from '$lib/components/esl/HolidayCsvUpload.svelte';
 	import EventForm, { type EventFormInput } from '$lib/components/esl/EventForm.svelte';
 	import SeedForm, { type SeedFormInput } from '$lib/components/esl/SeedForm.svelte';
+	import ChecklistPanel, { type ChecklistGroup } from '$lib/components/esl/ChecklistPanel.svelte';
 
 	const client = useConvexClient();
 
@@ -42,6 +43,14 @@
 
 	// Lexical `YYYY-MM-DD` compare, the same rule the backend uses.
 	const today = new Date().toISOString().slice(0, 10);
+
+	/**
+	 * The #213 advisory checklist: expected off-days, unit/quiz, dues, and
+	 * mocks with one-click create. Advisory only — the panel never blocks.
+	 */
+	const checklistQuery = useQuery(api.esl.checklist.status, () =>
+		selected === null ? 'skip' : { semesterId, today }
+	);
 
 	const status = $derived(
 		selected === null ? ('upcoming' as const) : semesterStatus(selected, today)
@@ -96,6 +105,8 @@
 		createdCount: number;
 		unresolvedLunar: string[];
 	} | null>(null);
+	let checklistBusy = $state<ChecklistGroup | null>(null);
+	let checklistError = $state<string | null>(null);
 	let notice = $state('');
 
 	function createEvent(input: EventFormInput) {
@@ -199,6 +210,31 @@
 				seedBusy = false;
 			});
 	}
+
+	/**
+	 * One-click create for one #213 checklist group. Advisory to the end:
+	 * collisions skip with a report in the notice, never a refusal, and the
+	 * panel's own error line only shows transport-level failures.
+	 */
+	function createChecklistDrafts(group: ChecklistGroup) {
+		checklistBusy = group;
+		checklistError = null;
+		client
+			.mutation(api.esl.checklist.createMissing, { semesterId, today, group })
+			.then((result) => {
+				const skipped = result.skipped.length > 0 ? ` Skipped: ${result.skipped.join('; ')}` : '';
+				notice =
+					result.created.length > 0
+						? `Checklist created ${result.created.length} draft row${result.created.length === 1 ? '' : 's'} — fill or delete them below.${skipped}`
+						: `Checklist already complete — nothing missing for that group.${skipped}`;
+			})
+			.catch((cause: unknown) => {
+				checklistError = humanConvexErrorMessage(cause);
+			})
+			.finally(() => {
+				checklistBusy = null;
+			});
+	}
 </script>
 
 <div class="mx-auto w-full max-w-6xl space-y-6 p-8">
@@ -260,6 +296,14 @@
 				onseed={seedDrafts}
 			/>
 		{/if}
+
+		<ChecklistPanel
+			status={checklistQuery.data ?? null}
+			loading={checklistQuery.isLoading}
+			busyGroup={checklistBusy}
+			error={checklistError}
+			oncreate={createChecklistDrafts}
+		/>
 
 		<section class="space-y-3">
 			<h2 class="text-base font-semibold text-emerald-900">Events ({events.length})</h2>

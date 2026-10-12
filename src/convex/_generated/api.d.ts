@@ -23,6 +23,7 @@ import type * as dedupeLocalUsers from "../dedupeLocalUsers.js";
 import type * as dedupeUsers from "../dedupeUsers.js";
 import type * as driveBackup from "../driveBackup.js";
 import type * as esl_availability from "../esl/availability.js";
+import type * as esl_checklist from "../esl/checklist.js";
 import type * as esl_classes from "../esl/classes.js";
 import type * as esl_cohorts from "../esl/cohorts.js";
 import type * as esl_events from "../esl/events.js";
@@ -91,6 +92,7 @@ declare const fullApi: ApiFromModules<{
   dedupeUsers: typeof dedupeUsers;
   driveBackup: typeof driveBackup;
   "esl/availability": typeof esl_availability;
+  "esl/checklist": typeof esl_checklist;
   "esl/classes": typeof esl_classes;
   "esl/cohorts": typeof esl_cohorts;
   "esl/events": typeof esl_events;
