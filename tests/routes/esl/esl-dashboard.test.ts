@@ -49,6 +49,6 @@ describe('esl dashboard page', () => {
 		await expect.element(page.getByTestId('esl-dashboard.calendar')).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId('esl-dashboard.admin'))
-			.not.toBeInTheDocument({ timeout: 1000 });
+			.not.toBeInTheDocument();
 	});
 });

@@ -207,8 +207,9 @@ describe('TeacherScheduleTable', () => {
 
 		await expect.element(page.getByText('G7 Basic 1 CLIL P1')).toBeInTheDocument();
 		// Dues collapse onto the description as titles; the window rides a badge chip.
-		const dueRow = page.getByTestId('esl-schedule.row').filter({ hasText: '2025-09-03' });
-		const dueDescCell = dueRow.locator('[data-testid="esl-schedule.description-cell"]');
+		const dueDescCell = page
+			.getByTestId('esl-schedule.description-cell')
+			.filter({ hasText: 'G7 Basic 1 CLIL P2 · Workbook check' });
 		await expect.element(dueDescCell).toHaveTextContent('G7 Basic 1 CLIL P2 · Workbook check');
 		await expect.element(page.getByText('due window 2025-09-01–2025-09-03')).toBeInTheDocument();
 		await expect
@@ -222,8 +223,9 @@ describe('TeacherScheduleTable', () => {
 			.element(page.getByText('G7 Basic 1 Comm P6 · Oral exam ahead of Midterm exam'))
 			.toBeInTheDocument();
 		// Check exam row description in description cell specifically: canonical label
-		const examRow = page.getByTestId('esl-schedule.row').filter({ hasText: '2025-09-12' });
-		const examDescCell = examRow.locator('[data-testid="esl-schedule.description-cell"]');
+		const examDescCell = page
+			.getByTestId('esl-schedule.description-cell')
+			.filter({ hasText: 'Final Exam' });
 		await expect.element(examDescCell).toHaveTextContent('Final Exam');
 	});
 
@@ -238,12 +240,14 @@ describe('TeacherScheduleTable', () => {
 		});
 
 		// Check note cells directly
-		const offRow = page.getByTestId('esl-schedule.row').filter({ hasText: 'Moon Festival' });
-		const offNoteCell = offRow.locator('[data-testid="esl-schedule.note-cell"]');
+		const offNoteCell = page
+			.getByTestId('esl-schedule.note-cell')
+			.filter({ hasText: 'BBQ logistics' });
 		await expect.element(offNoteCell).toHaveTextContent('BBQ logistics');
 
-		const noClassRow = page.getByTestId('esl-schedule.row').filter({ hasText: "Sport's Day" });
-		const noClassNoteCell = noClassRow.locator('[data-testid="esl-schedule.note-cell"]');
+		const noClassNoteCell = page
+			.getByTestId('esl-schedule.note-cell')
+			.filter({ hasText: 'Bring water' });
 		await expect.element(noClassNoteCell).toHaveTextContent('Bring water');
 	});
 
