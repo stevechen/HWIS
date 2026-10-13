@@ -18,7 +18,8 @@ import {
 	translateHolidayCaption,
 	weekdayDatesBetween,
 	type EslEventTarget,
-	type EslEventType
+	type EslEventType,
+	type EslReminderKind
 } from '../shared/esl';
 import { assertExclusive } from './events';
 
@@ -35,11 +36,13 @@ import { assertExclusive } from './events';
  * the seed reads at seed time (t185 §3).
  */
 
-const dueTypeValidator = v.union(
-	v.literal('task'),
+const reminderKindValidator = v.union(
 	v.literal('quiz'),
-	v.literal('passport_due'),
-	v.literal('recording_due')
+	v.literal('passport'),
+	v.literal('recording'),
+	v.literal('task'),
+	v.literal('passport_check'),
+	v.literal('workbook_check')
 );
 
 const targetValidator = v.union(
@@ -55,6 +58,8 @@ const targetValidator = v.union(
 /** One draft row: the template's structure with its dates resolved. */
 type SeedDraft = {
 	type: EslEventType;
+	reminderKind?: EslReminderKind;
+	isBanner?: boolean;
 	title: string;
 	target: EslEventTarget;
 	date: string;
@@ -125,12 +130,13 @@ export const seed = mutation({
 		dueWindows: v.optional(
 			v.array(
 				v.object({
-					type: dueTypeValidator,
+					reminderKind: reminderKindValidator,
 					title: v.string(),
 					target: v.optional(targetValidator),
 					date: v.string(),
 					endDate: v.optional(v.string()),
-					note: v.optional(v.string())
+					note: v.optional(v.string()),
+					isBanner: v.optional(v.boolean())
 				})
 			)
 		),
@@ -340,12 +346,14 @@ export const seed = mutation({
 			checkDate(due.date);
 			if (due.endDate !== undefined) checkDate(due.endDate);
 			const title = due.title.trim();
-			const titleError = assertValidEslTitle(due.type, title);
+			const titleError = assertValidEslTitle('reminder', title, due.reminderKind);
 			if (titleError) throw new Error(describeEslEventError(titleError));
 			drafts.push({
-				type: due.type,
+				type: 'reminder',
+				reminderKind: due.reminderKind,
+				isBanner: due.isBanner ?? true,
 				title,
-				target: due.target ?? defaultTargetForEventType(due.type),
+				target: due.target ?? defaultTargetForEventType('reminder', due.reminderKind),
 				date: due.date,
 				...(due.endDate === undefined ? {} : { endDate: due.endDate }),
 				...(due.note === undefined || due.note.trim() === '' ? {} : { note: due.note.trim() })
@@ -361,12 +369,14 @@ export const seed = mutation({
 				date: draft.date,
 				endDate: draft.endDate,
 				startPeriod: draft.startPeriod,
-				endPeriod: draft.endPeriod
+				endPeriod: draft.endPeriod,
+				...(draft.reminderKind === undefined ? {} : { reminderKind: draft.reminderKind }),
+				...(draft.isBanner === undefined ? {} : { isBanner: draft.isBanner })
 			});
 			if (fieldError) throw new Error(describeEslEventError(fieldError));
-			const titleError = assertValidEslTitle(draft.type, draft.title);
+			const titleError = assertValidEslTitle(draft.type, draft.title, draft.reminderKind);
 			if (titleError) throw new Error(describeEslEventError(titleError));
-			const targetError = assertValidEslTarget(draft.type, draft.target);
+			const targetError = assertValidEslTarget(draft.type, draft.target, draft.reminderKind);
 			if (targetError) throw new Error(describeEslEventError(targetError));
 
 			if (draft.type === 'partial') {
@@ -391,6 +401,8 @@ export const seed = mutation({
 			const id = await ctx.db.insert('esl_events', {
 				semesterId: args.semesterId,
 				type: draft.type,
+				...(draft.reminderKind === undefined ? {} : { reminderKind: draft.reminderKind }),
+				...(draft.type === 'reminder' ? { isBanner: draft.isBanner ?? true } : {}),
 				title: draft.title,
 				target: draft.target,
 				date: draft.date,

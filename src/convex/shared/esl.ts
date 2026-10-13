@@ -1000,53 +1000,82 @@ export function isEslSemesterTerm(term: string): term is EslSemesterTerm {
 }
 
 /**
- * The ten typed school events an admin can place on a semester (v3, #210).
+ * The seven typed school events an admin can place on a semester (#216).
  *
  * `no_school` means absent (school closed, the day is gone); `no_class`
  * means present but free (assembly, Sport's Day — meetings keep their rows,
  * greyed). `partial` is a late start / early end with optional period
  * bounds. `exam` anchors term boundaries and the derived semester end.
- * `task` / `quiz` / `passport_due` / `recording_due` are the only ranged
- * types (reminder windows collapsing to the latest eligible class day in
- * the views). `start_school` is a first-day marker only. `g9_mock` is a
+ * `reminder` is the only ranged type (reminder windows collapsing to the
+ * latest eligible class day in the views), qualified by `reminderKind`.
+ * `start_school` is a first-day marker only. `g9_mock` is a
  * G9-only mock exam marker (single-date, like an exam but anchoring
  * nothing).
  */
 export const ESL_EVENT_TYPES = [
 	'start_school',
-	'quiz',
+	'reminder',
 	'no_school',
 	'no_class',
 	'partial',
 	'exam',
-	'passport_due',
-	'recording_due',
-	'task',
 	'g9_mock'
 ] as const;
 export type EslEventType = (typeof ESL_EVENT_TYPES)[number];
 
-/** Whether a string names one of the ten event types. */
+/** Whether a string names one of the seven event types. */
 export function isEslEventType(type: string): type is EslEventType {
 	return (ESL_EVENT_TYPES as readonly string[]).includes(type);
 }
 
 /**
- * The locked chip/banner title per fixed event type (#210). `task` and
- * `quiz` take a free-text title (required, always the banner — quiz drafts
- * default to `Unit N Quiz Due` via `quizTitle`); `exam` takes one of
+ * The six reminder kinds (#216): what a `reminder` row is reminding about.
+ * Quiz/task kinds take a free-text title; passport/recording/checks take
+ * their locked title from `ESL_REMINDER_TITLES`.
+ */
+export const ESL_REMINDER_KINDS = [
+	'quiz',
+	'passport',
+	'recording',
+	'task',
+	'passport_check',
+	'workbook_check'
+] as const;
+export type EslReminderKind = (typeof ESL_REMINDER_KINDS)[number];
+
+/** Whether a string names one of the six reminder kinds. */
+export function isEslReminderKind(kind: string): kind is EslReminderKind {
+	return (ESL_REMINDER_KINDS as readonly string[]).includes(kind);
+}
+
+/**
+ * The locked chip/banner title per fixed event type (#210, #216). `reminder`
+ * rows take their title per kind (see `ESL_REMINDER_TITLES`): `quiz` and
+ * `task` kinds take a free-text title (required, always the banner — quiz
+ * drafts default to `Unit N Quiz Due` via `quizTitle`); `exam` takes one of
  * `ESL_EXAM_TITLES`. Titles are explicit and never derived from notes.
  */
 export const ESL_EVENT_TITLES = {
 	start_school: 'Start at P3',
-	quiz: 'Quiz',
 	no_school: 'Off',
 	no_class: 'No class',
 	partial: 'No class',
-	passport_due: 'Passport due',
-	recording_due: 'Recording due',
 	g9_mock: 'G9 Mock Exam'
 } as const;
+
+/**
+ * The banner title per reminder kind (#216). `quiz`/`task` entries are the
+ * fallback a migration stamps when the legacy title is blank — live writes
+ * for those kinds keep their free-text title instead.
+ */
+export const ESL_REMINDER_TITLES: Record<EslReminderKind, string> = {
+	quiz: 'Quiz',
+	passport: 'Passport due',
+	recording: 'Recording due',
+	task: 'Task',
+	passport_check: 'Passport check',
+	workbook_check: 'Workbook check'
+};
 
 /** The three locked exam titles — the exam dropdown options. */
 export const ESL_EXAM_TITLES = ['Exam 1', 'Exam 2', 'Final Exam'] as const;
@@ -1058,32 +1087,39 @@ export const ESL_EXAM_TITLES = ['Exam 1', 'Exam 2', 'Final Exam'] as const;
  */
 export const ESL_EVENT_TYPE_LABELS: Record<EslEventType, string> = {
 	start_school: 'Start of school',
-	quiz: 'Quiz',
+	reminder: 'Reminder',
 	no_school: 'No school',
 	no_class: 'No class',
 	partial: 'Partial day',
 	exam: 'Exam',
-	passport_due: 'Passport due',
-	recording_due: 'Recording due',
-	task: 'Task',
 	g9_mock: 'G9 mock'
 };
 
-/** Pre-v3 event types and where they land in the v3 union (#210). */
+/** Pre-v3 event types and where they land in the current union (#210, #216). */
 const V3_TYPE_MIGRATION: Record<string, EslEventType> = {
 	start_school: 'start_school',
-	quiz: 'quiz',
+	quiz: 'reminder',
 	no_school: 'no_school',
 	off: 'no_school',
 	no_class: 'no_class',
 	partial: 'partial',
 	exam: 'exam',
-	passport_due: 'passport_due',
-	recording_due: 'recording_due',
+	passport_due: 'reminder',
+	recording_due: 'reminder',
+	task: 'reminder',
+	task_due: 'reminder',
+	homework_due: 'reminder',
+	g9_mock: 'g9_mock'
+};
+
+/** The v3 due-type behind each pre-reminder row (#216). */
+const V3_REMINDER_KIND_MIGRATION: Record<string, EslReminderKind> = {
+	quiz: 'quiz',
+	passport_due: 'passport',
+	recording_due: 'recording',
 	task: 'task',
 	task_due: 'task',
-	homework_due: 'task',
-	g9_mock: 'g9_mock'
+	homework_due: 'task'
 };
 
 /** Canonicalise a legacy exam title onto the locked set, case-insensitively. */
@@ -1093,35 +1129,57 @@ function canonicalExamTitle(raw: string): string | null {
 }
 
 /**
- * Map one pre-v3 event row onto the v3 model, or null when its type is
- * unknown. `homework_due` rows become `task`, `task_due` becomes `task`,
+ * Map one pre-v3 event row onto the current model, or null when its type is
+ * unknown. `homework_due`/`task_due` rows become `reminder` kind=task,
+ * `quiz` becomes kind=quiz, `passport_due`/`recording_due` their kinds,
  * `off` becomes `no_school`; the legacy display text becomes the explicit
  * `title` — locked per type, with displaced text preserved in `note`
- * (task rows keep their free-text title).
+ * (quiz/task-kind reminders keep their free-text title).
  *
  * Pure so the migration mutation stays a thin applier and the mapping stays
  * unit-testable.
  */
-export function migrateLegacyEslEvent(input: {
-	type: string;
-	label: string;
-	note?: string;
-}): { type: EslEventType; title: string; note?: string } | null {
+export function migrateLegacyEslEvent(input: { type: string; label: string; note?: string }):
+	| { type: EslEventType; title: string; note?: string }
+	| {
+			type: 'reminder';
+			title: string;
+			note?: string;
+			reminderKind: EslReminderKind;
+			isBanner: true;
+	  }
+	| null {
 	const mappedType = V3_TYPE_MIGRATION[input.type];
 	if (mappedType === undefined) return null;
 	const rawLabel = input.label.trim();
-	if (mappedType === 'task')
+	if (mappedType === 'reminder') {
+		const kind = V3_REMINDER_KIND_MIGRATION[input.type] ?? ('task' as EslReminderKind);
+		if (kind === 'quiz' || kind === 'task') {
+			return {
+				type: mappedType,
+				title: rawLabel === '' ? ESL_REMINDER_TITLES[kind] : rawLabel,
+				note: input.note,
+				reminderKind: kind,
+				isBanner: true as const
+			};
+		}
+		const locked = ESL_REMINDER_TITLES[kind];
+		if (rawLabel === locked || rawLabel === '')
+			return {
+				type: mappedType,
+				title: locked,
+				note: input.note,
+				reminderKind: kind,
+				isBanner: true as const
+			};
 		return {
 			type: mappedType,
-			title: rawLabel === '' ? 'Task' : rawLabel,
-			note: input.note
+			title: locked,
+			note: `${rawLabel}${input.note ? ` — ${input.note}` : ''}`,
+			reminderKind: kind,
+			isBanner: true as const
 		};
-	if (mappedType === 'quiz')
-		return {
-			type: mappedType,
-			title: rawLabel === '' ? ESL_EVENT_TITLES.quiz : rawLabel,
-			note: input.note
-		};
+	}
 	if (mappedType === 'exam') {
 		const canonical = canonicalExamTitle(rawLabel);
 		if (canonical !== null) return { type: mappedType, title: canonical, note: input.note };
@@ -1137,6 +1195,47 @@ export function migrateLegacyEslEvent(input: {
 		type: mappedType,
 		title: locked,
 		note: rawLabel === '' ? input.note : `${rawLabel}${input.note ? ` — ${input.note}` : ''}`
+	};
+}
+
+/**
+ * Map one v3 due row (`quiz`/`passport_due`/`recording_due`/`task`) onto
+ * the consolidated `reminder` model (#216), or null when its type is not a
+ * legacy due-type. The legacy title rides through (free-text kinds keep
+ * it; locked kinds keep theirs, blank falls back to the kind's title) and
+ * `isBanner` stamps true.
+ *
+ * Pure so the `migrateToReminder` mutation stays a thin applier.
+ */
+export function migrateToReminderEslEvent(input: { type: string; title: string; note?: string }): {
+	type: 'reminder';
+	title: string;
+	note?: string;
+	reminderKind: EslReminderKind;
+	isBanner: true;
+} | null {
+	const kind = V3_REMINDER_KIND_MIGRATION[input.type];
+	if (kind === undefined) return null;
+	const rawTitle = input.title.trim();
+	if (kind === 'quiz' || kind === 'task') {
+		return {
+			type: 'reminder',
+			title: rawTitle === '' ? ESL_REMINDER_TITLES[kind] : rawTitle,
+			note: input.note,
+			reminderKind: kind,
+			isBanner: true as const
+		};
+	}
+	const locked = ESL_REMINDER_TITLES[kind];
+	return {
+		type: 'reminder',
+		title: locked,
+		note:
+			rawTitle === '' || rawTitle === locked
+				? input.note
+				: `${rawTitle}${input.note ? ` — ${input.note}` : ''}`,
+		reminderKind: kind,
+		isBanner: true as const
 	};
 }
 
@@ -1157,30 +1256,44 @@ export function isEslEventTarget(target: string): target is EslEventTarget {
 }
 
 /**
- * The target each event type is locked to (#212), or null when the admin
- * picks from the full dropdown (Start of School, Partial, Task).
+ * The target each event type is locked to (#212, #216), or null when the admin
+ * picks from the full dropdown (Start of School, Partial, Reminder with
+ * kind=task).
  *
- * Quizzes are CLIL-only, passport/recording dues Comm-only, G9 mocks
- * G9-only; exams, no-school days, and no-class days reach everyone, so the
- * form locks them to All rather than offering a choice that would be
- * refused.
+ * Reminder kinds lock per kind (see `ESL_LOCKED_REMINDER_TARGETS`): quizzes
+ * are CLIL-only, passport/recording/checks Comm-only except workbook checks
+ * (CLIL), tasks open; exams, no-school days, and no-class days reach
+ * everyone, so the form locks them to All rather than offering a choice
+ * that would be refused.
  */
 export const ESL_LOCKED_EVENT_TARGETS: Record<EslEventType, EslEventTarget | null> = {
 	start_school: null,
-	quiz: 'CLIL',
+	reminder: null,
 	no_school: 'all',
 	no_class: 'all',
 	partial: null,
 	exam: 'all',
-	passport_due: 'Comm',
-	recording_due: 'Comm',
-	task: null,
 	g9_mock: 'G9'
 };
 
-/** The target a type is locked to, or null when the admin picks (Start/Partial/Task). */
+/** The target each reminder kind is locked to (#216), or null when open. */
+export const ESL_LOCKED_REMINDER_TARGETS: Record<EslReminderKind, EslEventTarget | null> = {
+	quiz: 'CLIL',
+	passport: 'Comm',
+	recording: 'Comm',
+	task: null,
+	passport_check: 'Comm',
+	workbook_check: 'CLIL'
+};
+
+/** The target a type is locked to, or null when the admin picks (Start/Partial/Task-kind reminder). */
 export function lockedTargetForEventType(type: EslEventType): EslEventTarget | null {
 	return ESL_LOCKED_EVENT_TARGETS[type];
+}
+
+/** The target a reminder kind is locked to, or null when the admin picks (task). */
+export function lockedTargetForReminderKind(kind: EslReminderKind): EslEventTarget | null {
+	return ESL_LOCKED_REMINDER_TARGETS[kind];
 }
 
 /**
@@ -1188,17 +1301,18 @@ export function lockedTargetForEventType(type: EslEventType): EslEventTarget | n
  * the dropdown types. The seed reads this for due windows without an
  * explicit target, and the form snaps to it on type switch.
  */
-export function defaultTargetForEventType(type: EslEventType): EslEventTarget {
+export function defaultTargetForEventType(
+	type: EslEventType,
+	reminderKind?: EslReminderKind
+): EslEventTarget {
+	if (type === 'reminder' && reminderKind !== undefined) {
+		return lockedTargetForReminderKind(reminderKind) ?? 'all';
+	}
 	return lockedTargetForEventType(type) ?? 'all';
 }
 
-/** The ranged due-types: the only types that may carry an inclusive endDate. */
-export const ESL_RANGED_EVENT_TYPES: readonly EslEventType[] = [
-	'task',
-	'quiz',
-	'passport_due',
-	'recording_due'
-];
+/** The ranged reminder type: the only type that may carry an inclusive endDate. */
+export const ESL_RANGED_EVENT_TYPES: readonly EslEventType[] = ['reminder'];
 
 /** Whether an event type takes an inclusive endDate range. */
 export function isRangedEventType(type: EslEventType): boolean {
@@ -1206,22 +1320,24 @@ export function isRangedEventType(type: EslEventType): boolean {
 }
 
 /**
- * Banner-only types hide the note field entirely (#211): Start of School,
- * Quiz, Exam, Passport/Recording due, G9 Mock. The backend ignores any note
- * written for them, so the form drops a stale note on type switch and omits
- * it from submit.
+ * Banner-only types hide the note field entirely (#211, #216): Start of
+ * School, Exam, G9 Mock, and reminders except kind=task (which takes an
+ * optional note). The backend ignores any note written for them, so the
+ * form drops a stale note on type switch and omits it from submit.
  */
 export const ESL_NOTE_HIDDEN_EVENT_TYPES: readonly EslEventType[] = [
 	'start_school',
-	'quiz',
 	'exam',
-	'passport_due',
-	'recording_due',
-	'g9_mock'
+	'g9_mock',
+	'reminder'
 ];
 
-/** Whether an event type hides the note field. */
-export function isNoteHiddenForEventType(type: EslEventType): boolean {
+/** Whether an event type hides the note field (task-kind reminders show it). */
+export function isNoteHiddenForEventType(
+	type: EslEventType,
+	reminderKind?: EslReminderKind
+): boolean {
+	if (type === 'reminder') return reminderKind !== 'task';
 	return (ESL_NOTE_HIDDEN_EVENT_TYPES as readonly EslEventType[]).includes(type);
 }
 
@@ -1267,26 +1383,48 @@ export type EslEventValidationError =
 	| { kind: 'badPeriod'; period: number }
 	| { kind: 'boundsNotAllowed'; type: EslEventType }
 	| { kind: 'boundsOrder'; startPeriod: number; endPeriod: number }
-	| { kind: 'emptyTitle'; type: EslEventType }
+	| { kind: 'emptyTitle'; type: EslEventType; reminderKind?: EslReminderKind }
 	| { kind: 'lockedTitle'; type: EslEventType; expected: readonly string[] }
-	| { kind: 'badTarget'; type: EslEventType; expected: EslEventTarget };
+	| {
+			kind: 'badTarget';
+			type: EslEventType;
+			expected: EslEventTarget;
+			reminderKind?: EslReminderKind;
+	  }
+	| { kind: 'missingReminderKind'; type: EslEventType }
+	| { kind: 'badReminderKind'; value: string }
+	| { kind: 'kindNotAllowed'; type: EslEventType }
+	| { kind: 'bannerNotAllowed'; type: EslEventType };
 
-/** Check an event's title: free text (required) on task and quiz, locked elsewhere. */
+/** Check an event's title: free text (required) on quiz/task-kind reminders, locked elsewhere. */
 export function assertValidEslTitle(
 	type: EslEventType,
-	title: string
+	title: string,
+	reminderKind?: EslReminderKind
 ): EslEventValidationError | null {
-	if (type === 'task' || type === 'quiz') {
-		return title.trim() === '' ? { kind: 'emptyTitle', type } : null;
+	if (type === 'reminder') {
+		if (reminderKind === undefined) return { kind: 'missingReminderKind', type };
+		if (reminderKind === 'quiz' || reminderKind === 'task') {
+			return title.trim() === '' ? { kind: 'emptyTitle', type, reminderKind } : null;
+		}
+		const expected: readonly string[] = [ESL_REMINDER_TITLES[reminderKind]];
+		return expected.includes(title) ? null : { kind: 'lockedTitle', type, expected };
 	}
 	const expected: readonly string[] = type === 'exam' ? ESL_EXAM_TITLES : [ESL_EVENT_TITLES[type]];
 	return expected.includes(title) ? null : { kind: 'lockedTitle', type, expected };
 }
-/** Check an event's target against its type's gate, or null when it is sound. */
+/** Check an event's target against its type's (and reminder kind's) gate, or null when sound. */
 export function assertValidEslTarget(
 	type: EslEventType,
-	target: EslEventTarget
+	target: EslEventTarget,
+	reminderKind?: EslReminderKind
 ): EslEventValidationError | null {
+	if (type === 'reminder') {
+		if (reminderKind === undefined) return { kind: 'missingReminderKind', type };
+		const locked = lockedTargetForReminderKind(reminderKind);
+		if (locked === null) return null;
+		return target === locked ? null : { kind: 'badTarget', type, expected: locked, reminderKind };
+	}
 	const locked = lockedTargetForEventType(type);
 	if (locked === null) return null;
 	return target === locked ? null : { kind: 'badTarget', type, expected: locked };
@@ -1298,8 +1436,19 @@ export function assertValidEslEvent(input: {
 	endDate?: string;
 	startPeriod?: number;
 	endPeriod?: number;
+	reminderKind?: string;
+	isBanner?: boolean;
 }): EslEventValidationError | null {
 	if (!isValidEslDate(input.date)) return { kind: 'badDate', date: input.date };
+
+	if (input.type === 'reminder') {
+		if (input.reminderKind === undefined) return { kind: 'missingReminderKind', type: input.type };
+		if (!isEslReminderKind(input.reminderKind))
+			return { kind: 'badReminderKind', value: input.reminderKind };
+	} else {
+		if (input.reminderKind !== undefined) return { kind: 'kindNotAllowed', type: input.type };
+		if (input.isBanner !== undefined) return { kind: 'bannerNotAllowed', type: input.type };
+	}
 
 	if (input.endDate !== undefined) {
 		if (!isRangedEventType(input.type)) {
@@ -1337,7 +1486,7 @@ export function describeEslEventError(error: EslEventValidationError): string {
 		case 'badEndDate':
 			return `${error.endDate} is not a valid date. Use YYYY-MM-DD.`;
 		case 'rangeNotAllowed':
-			return `Only tasks, quizzes, passport dues, and recording dues take a date range.`;
+			return `Only reminders take a date range.`;
 		case 'rangeOrder':
 			return `The range end ${error.endDate} is before its start ${error.date}.`;
 		case 'badPeriod':
@@ -1347,9 +1496,9 @@ export function describeEslEventError(error: EslEventValidationError): string {
 		case 'boundsOrder':
 			return `The partial starts at P${error.startPeriod} but ends at P${error.endPeriod}.`;
 		case 'emptyTitle':
-			return error.type === 'quiz'
+			return error.reminderKind === 'quiz'
 				? 'A quiz needs its own title — the banner always shows it (e.g. Unit 1 Quiz Due).'
-				: 'A task needs its own title — the banner always shows it.';
+				: 'A reminder of this kind needs its own title — the banner always shows it.';
 		case 'lockedTitle':
 			return (
 				'That type always shows ' +
@@ -1357,7 +1506,15 @@ export function describeEslEventError(error: EslEventValidationError): string {
 				' — put the details in the note instead.'
 			);
 		case 'badTarget':
-			return `${error.type} events always target ${error.expected === 'all' ? 'All' : error.expected}.`;
+			return `${error.reminderKind ?? error.type} events always target ${error.expected === 'all' ? 'All' : error.expected}.`;
+		case 'missingReminderKind':
+			return `A reminder needs its kind — quiz, passport, recording, task, passport_check, or workbook_check.`;
+		case 'badReminderKind':
+			return `${error.value} is not a reminder kind. Use quiz, passport, recording, task, passport_check, or workbook_check.`;
+		case 'kindNotAllowed':
+			return `Only reminders take a reminder kind.`;
+		case 'bannerNotAllowed':
+			return `Only reminders take a banner flag.`;
 	}
 }
 
@@ -1685,12 +1842,15 @@ export type ScheduleEventInput = {
 	note?: string;
 	startPeriod?: number;
 	endPeriod?: number;
+	reminderKind?: EslReminderKind;
+	isBanner?: boolean;
 };
 
 /** A due collapsed onto a day row: the title plus its reminder window. */
 export type ScheduleDue = {
 	title: string;
-	type: 'task' | 'quiz' | 'passport_due' | 'recording_due';
+	type: 'reminder';
+	reminderKind: EslReminderKind;
 	windowStart: string;
 	windowEnd: string;
 };
@@ -1964,13 +2124,13 @@ function countEslActiveDays(args: {
 /**
  * Build the teacher's day rows for a date range.
  *
- * Collapse: each ranged due (task/quiz/passport_due/recording_due) lands
- * once, on the latest active class day inside its window; earlier
- * occurrences are stripped (dues only attach to the collapse target), and a
- * window with no active day lands nowhere. Count-ups run per term toward
- * Exam 1 / Exam 2 / Final Exam as `Class k/n to <label>`, with G9-in-S2
- * anchored on the graduation ceremony; rows past the final anchor carry no
- * count (also the finals-TBD state before any exam exists).
+ * Collapse: each ranged `reminder` lands once, on the latest active class
+ * day inside its window; earlier occurrences are stripped (dues only attach
+ * to the collapse target), and a window with no active day lands nowhere.
+ * Count-ups run per term toward Exam 1 / Exam 2 / Final Exam as
+ * `Class k/n to <label>`, with G9-in-S2 anchored on the graduation
+ * ceremony; rows past the final anchor carry no count (also the finals-TBD
+ * state before any exam exists).
  */
 export function buildTeacherDayRows(args: {
 	meetings: readonly ScheduleMeetingInput[];
@@ -2088,13 +2248,8 @@ export function buildTeacherDayRows(args: {
 	}
 
 	for (const event of args.events) {
-		if (
-			event.type !== 'task' &&
-			event.type !== 'quiz' &&
-			event.type !== 'passport_due' &&
-			event.type !== 'recording_due'
-		)
-			continue;
+		if (event.type !== 'reminder') continue;
+		if (event.reminderKind === undefined) continue;
 		const windowEnd = event.endDate ?? event.date;
 		for (const row of rows) {
 			if (row.date < event.date || row.date > windowEnd) continue;
@@ -2130,7 +2285,8 @@ export function buildTeacherDayRows(args: {
 			if (laterExists) continue;
 			row.dues.push({
 				title: event.title,
-				type: event.type,
+				type: 'reminder',
+				reminderKind: event.reminderKind,
 				windowStart: event.date,
 				windowEnd
 			});
@@ -2557,6 +2713,8 @@ export type ChecklistCacheRow = {
 export type ChecklistEventRow = {
 	type: EslEventType;
 	date: string;
+	title?: string;
+	reminderKind?: EslReminderKind;
 };
 
 /**
@@ -2845,45 +3003,51 @@ export function quizTitle(unitNumber: number): string {
 	return `Unit ${unitNumber} Quiz Due`;
 }
 
-/** One unit draft: a free-title `task` row over the unit's range. */
+/** One unit draft: a free-title task-kind `reminder` over the unit's range. */
 export type UnitDraft = {
 	unit: string;
-	type: 'task';
+	type: 'reminder';
+	reminderKind: 'task';
 	title: string;
 	target: EslEventTarget;
 	date: string;
 	endDate: string;
+	isBanner: true;
 };
 
 /**
- * Draft the `task` row for a unit: free-text title, default target, the
- * unit's range. The row stays editable — title shifts, retargets, and
- * range moves all go through the ordinary event edit.
+ * Draft the task-kind `reminder` for a unit: free-text title, default
+ * target, the unit's range. The row stays editable — title shifts,
+ * retargets, and range moves all go through the ordinary event edit.
  */
 export function unitDraftForRange(unitNumber: number, range: UnitQuizRange): UnitDraft {
 	const title = unitTitle(unitNumber);
 	return {
 		unit: title,
-		type: 'task',
+		type: 'reminder',
+		reminderKind: 'task',
 		title,
-		target: defaultTargetForEventType('task'),
+		target: defaultTargetForEventType('reminder', 'task'),
 		date: range.date,
-		endDate: range.endDate
+		endDate: range.endDate,
+		isBanner: true as const
 	};
 }
 
-/** One quiz draft: a numbered-title ranged `quiz` row over its unit's range. */
+/** One quiz draft: a numbered-title ranged quiz-kind `reminder` over its unit's range. */
 export type QuizDraft = {
 	unit: string;
-	type: 'quiz';
+	type: 'reminder';
+	reminderKind: 'quiz';
 	title: string;
 	target: EslEventTarget;
 	date: string;
 	endDate: string;
+	isBanner: true;
 };
 
 /**
- * Draft the `quiz` row for a unit: the title defaults to
+ * Draft the quiz-kind `reminder` for a unit: the title defaults to
  * `Unit N Quiz Due` (free-text — admins edit the number after creation
  * when a unit shifts) and the target is always CLIL (the #212 per-type
  * gate). The `unit` label rides along for the #213 checklist display
@@ -2892,11 +3056,13 @@ export type QuizDraft = {
 export function quizDraftForUnit(unitNumber: number, range: UnitQuizRange): QuizDraft {
 	return {
 		unit: unitTitle(unitNumber),
-		type: 'quiz',
+		type: 'reminder',
+		reminderKind: 'quiz',
 		title: quizTitle(unitNumber),
-		target: defaultTargetForEventType('quiz'),
+		target: defaultTargetForEventType('reminder', 'quiz'),
 		date: range.date,
-		endDate: range.endDate
+		endDate: range.endDate,
+		isBanner: true as const
 	};
 }
 

@@ -145,7 +145,7 @@ describe('exam group starts (#213 group b anchors)', () => {
 		expect(
 			examGroupStarts([
 				{ type: 'no_school', title: 'Off', date: '2025-10-06' },
-				{ type: 'task', title: 'Unit 1', date: '2025-10-07' }
+				{ type: 'reminder', title: 'Unit 1', date: '2025-10-07' }
 			])
 		).toEqual([]);
 	});

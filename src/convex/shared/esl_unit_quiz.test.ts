@@ -212,25 +212,29 @@ describe('units and quizzes: six per semester', () => {
 		expect(quizTitle(2)).toBe('Unit 2 Quiz Due');
 	});
 
-	it('drafts a unit as a free-title task over its range', () => {
+	it('drafts a unit as a free-title task-kind reminder over its range', () => {
 		expect(unitDraftForRange(2, { date: '2025-10-06', endDate: '2025-10-12' })).toEqual({
 			unit: 'Unit 2',
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: 'Unit 2',
 			target: 'all',
 			date: '2025-10-06',
-			endDate: '2025-10-12'
+			endDate: '2025-10-12',
+			isBanner: true
 		});
 	});
 
 	it('drafts a quiz with the numbered Unit N Quiz Due title and CLIL target over its unit range', () => {
 		expect(quizDraftForUnit(2, { date: '2025-10-06', endDate: '2025-10-12' })).toEqual({
 			unit: 'Unit 2',
-			type: 'quiz',
+			type: 'reminder',
+			reminderKind: 'quiz',
 			title: 'Unit 2 Quiz Due',
 			target: 'CLIL',
 			date: '2025-10-06',
-			endDate: '2025-10-12'
+			endDate: '2025-10-12',
+			isBanner: true
 		});
 	});
 

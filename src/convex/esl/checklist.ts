@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import { requireEslAdmin, requireEslStaff } from '../auth';
 import {
 	ESL_EVENT_TITLES,
+	ESL_REMINDER_TITLES,
 	assertValidEslEvent,
 	assertValidEslTarget,
 	assertValidEslTitle,
@@ -24,6 +25,7 @@ import {
 	type EslDay,
 	type EslEventTarget,
 	type EslEventType,
+	type EslReminderKind,
 	type ScheduleEventInput,
 	type ScheduleMeetingInput
 } from '../shared/esl';
@@ -81,11 +83,17 @@ export const status = query({
 		);
 
 		const ofType = (type: string) => events.filter((event) => event.type === type).length;
+		const ofReminderKind = (kind: EslReminderKind) =>
+			events.filter((event) => event.type === 'reminder' && event.reminderKind === kind).length;
 		const unitExpectation = expectedUnitQuizDrafts(semester.term);
-		// Unit drafts are `Unit N` tasks in the #214 convention — manual
-		// free-text tasks (custom titles, no checklist entry) never match.
+		// Unit drafts are `Unit N` task-kind reminders in the #214/#216
+		// convention — manual free-text reminders (custom titles, no
+		// checklist entry) never match.
 		const unitsPresent = events.filter(
-			(event) => event.type === 'task' && /^unit \d+$/i.test(event.title)
+			(event) =>
+				event.type === 'reminder' &&
+				event.reminderKind === 'task' &&
+				/^unit \d+$/i.test(event.title)
 		).length;
 		const dues = expectedPassportRecordingCounts({
 			term: semester.term,
@@ -96,10 +104,10 @@ export const status = query({
 		return {
 			window,
 			off: { expected: off.expected, present: off.present, missing: off.missing, ok: off.ok },
-			quiz: { expected: unitExpectation.quizzes, present: ofType('quiz') },
+			quiz: { expected: unitExpectation.quizzes, present: ofReminderKind('quiz') },
 			units: { expected: unitExpectation.units, present: unitsPresent },
-			passport: { expected: dues.passport, present: ofType('passport_due') },
-			recording: { expected: dues.recording, present: ofType('recording_due') },
+			passport: { expected: dues.passport, present: ofReminderKind('passport') },
+			recording: { expected: dues.recording, present: ofReminderKind('recording') },
 			g9mock: {
 				expectedStarts: mockStarts,
 				expectedRows: mockStarts * 2,
@@ -117,6 +125,8 @@ function stepDate(date: string, deltaDays: number): string {
 
 type ChecklistDraft = {
 	type: EslEventType;
+	reminderKind?: EslReminderKind;
+	isBanner?: boolean;
 	title: string;
 	target: EslEventTarget;
 	date: string;
@@ -205,6 +215,8 @@ export const createMissing = mutation({
 				});
 			}
 		} else {
+			const ofReminderKind = (kind: EslReminderKind) =>
+				events.filter((event) => event.type === 'reminder' && event.reminderKind === kind);
 			const ofType = (type: string) => events.filter((event) => event.type === type);
 			// Placeholder dates walk back from the window end; a colliding
 			// candidate skips forward-earlier rather than failing the batch.
@@ -258,7 +270,9 @@ export const createMissing = mutation({
 				...(event.endDate === undefined ? {} : { endDate: event.endDate }),
 				...(event.note === undefined ? {} : { note: event.note }),
 				...(event.startPeriod === undefined ? {} : { startPeriod: event.startPeriod }),
-				...(event.endPeriod === undefined ? {} : { endPeriod: event.endPeriod })
+				...(event.endPeriod === undefined ? {} : { endPeriod: event.endPeriod }),
+				...(event.reminderKind === undefined ? {} : { reminderKind: event.reminderKind }),
+				...(event.isBanner === undefined ? {} : { isBanner: event.isBanner })
 			}));
 			// The six #214 ranges, aligned with the term's unit numbers:
 			// odd positions from each term window's median week, even
@@ -275,7 +289,7 @@ export const createMissing = mutation({
 			if (args.group === 'quiz') {
 				const missingCount = Math.max(
 					0,
-					expectedUnitQuizDrafts(semester.term).quizzes - ofType('quiz').length
+					expectedUnitQuizDrafts(semester.term).quizzes - ofReminderKind('quiz').length
 				);
 				// Quiz n rides its unit's range (the views collapse it to the
 				// last match date through the existing dues rule).
@@ -285,6 +299,8 @@ export const createMissing = mutation({
 					const draft = quizDraftForUnit(unitNumber, range);
 					drafts.push({
 						type: draft.type,
+						reminderKind: draft.reminderKind,
+						isBanner: true,
 						title: draft.title,
 						target: draft.target,
 						date: draft.date,
@@ -292,7 +308,7 @@ export const createMissing = mutation({
 					});
 				});
 			} else if (args.group === 'units') {
-				const present = ofType('task').filter((event) => /^unit \d+$/i.test(event.title));
+				const present = ofReminderKind('task').filter((event) => /^unit \d+$/i.test(event.title));
 				const missingCount = Math.max(
 					0,
 					expectedUnitQuizDrafts(semester.term).units - present.length
@@ -306,6 +322,8 @@ export const createMissing = mutation({
 					const draft = unitDraftForRange(unitNumber, range);
 					drafts.push({
 						type: draft.type,
+						reminderKind: draft.reminderKind,
+						isBanner: true,
 						title: draft.title,
 						target: draft.target,
 						date: draft.date,
@@ -318,12 +336,14 @@ export const createMissing = mutation({
 					...(args.g9S2 === true ? { g9S2: true as const } : {})
 				});
 				const want = args.group === 'passport' ? dues.passport : dues.recording;
-				const have = ofType(args.group === 'passport' ? 'passport_due' : 'recording_due').length;
-				const type = args.group === 'passport' ? 'passport_due' : 'recording_due';
+				const kind: EslReminderKind = args.group === 'passport' ? 'passport' : 'recording';
+				const have = ofReminderKind(kind).length;
 				for (const date of takeDates(Math.max(0, want - have))) {
 					drafts.push({
-						type,
-						title: ESL_EVENT_TITLES[type],
+						type: 'reminder',
+						reminderKind: kind,
+						isBanner: true,
+						title: ESL_REMINDER_TITLES[kind],
 						target: 'Comm',
 						date
 					});
@@ -363,12 +383,14 @@ export const createMissing = mutation({
 			const fieldError = assertValidEslEvent({
 				type: draft.type,
 				date: draft.date,
-				...(draft.endDate === undefined ? {} : { endDate: draft.endDate })
+				...(draft.endDate === undefined ? {} : { endDate: draft.endDate }),
+				...(draft.reminderKind === undefined ? {} : { reminderKind: draft.reminderKind }),
+				...(draft.isBanner === undefined ? {} : { isBanner: draft.isBanner })
 			});
 			if (fieldError) throw new Error(describeEslEventError(fieldError));
-			const titleError = assertValidEslTitle(draft.type, draft.title);
+			const titleError = assertValidEslTitle(draft.type, draft.title, draft.reminderKind);
 			if (titleError) throw new Error(describeEslEventError(titleError));
-			const targetError = assertValidEslTarget(draft.type, draft.target);
+			const targetError = assertValidEslTarget(draft.type, draft.target, draft.reminderKind);
 			if (targetError) throw new Error(describeEslEventError(targetError));
 			try {
 				await assertExclusive(ctx, {
@@ -386,6 +408,8 @@ export const createMissing = mutation({
 			await ctx.db.insert('esl_events', {
 				semesterId: args.semesterId,
 				type: draft.type,
+				...(draft.reminderKind === undefined ? {} : { reminderKind: draft.reminderKind }),
+				...(draft.type === 'reminder' ? { isBanner: draft.isBanner ?? true } : {}),
 				title: draft.title,
 				target: draft.target,
 				date: draft.date,

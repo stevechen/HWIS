@@ -472,24 +472,41 @@ export default defineSchema({
 		semesterId: v.id('esl_semesters'),
 		type: v.union(
 			v.literal('start_school'),
-			v.literal('quiz'),
+			v.literal('reminder'),
 			v.literal('no_school'),
 			v.literal('no_class'),
 			v.literal('partial'),
 			v.literal('exam'),
-			v.literal('passport_due'),
-			v.literal('recording_due'),
-			v.literal('task'),
 			v.literal('g9_mock')
 		),
-		/** Explicit chip/banner title: locked per type, free text on tasks. */
+		/**
+		 * What a `reminder` row reminds about (#216): quiz/passport/
+		 * recording/task/passport_check/workbook_check. Absent on every
+		 * non-reminder row.
+		 */
+		reminderKind: v.optional(
+			v.union(
+				v.literal('quiz'),
+				v.literal('passport'),
+				v.literal('recording'),
+				v.literal('task'),
+				v.literal('passport_check'),
+				v.literal('workbook_check')
+			)
+		),
+		/**
+		 * Week-banner flag (#216): true on reminders (the views render them
+		 * as week banners). Absent on every non-reminder row.
+		 */
+		isBanner: v.optional(v.boolean()),
+		/** Explicit chip/banner title: locked per type, free text on quiz/task-kind reminders. */
 		title: v.string(),
 		/**
 		 * Which classes this event affects. `all` reaches every teacher;
 		 * `G7`/`G8` reach that grade's classes, `H1` the grade 10 classes
 		 * (which have no target of their own and otherwise see `all`
-		 * events only). Per-type gating (#212) locks most types to one
-		 * target; only Start, Partial, and Task take a picked value.
+		 * events only). Per-type gating (#212, #216) locks most types to one
+		 * target; only Start, Partial, and task-kind reminders take a picked value.
 		 */
 		target: v.union(
 			v.literal('all'),
@@ -500,7 +517,7 @@ export default defineSchema({
 			v.literal('G9'),
 			v.literal('H1')
 		),
-		/** The date (`YYYY-MM-DD`), or the range start for due-types. */
+		/** The date (`YYYY-MM-DD`), or the range start for reminders. */
 		date: v.string(),
 		/**
 		 * The exam group this day belongs to (#212): every day of one exam
@@ -511,8 +528,7 @@ export default defineSchema({
 		 */
 		examGroup: v.optional(v.string()),
 		/**
-		 * Inclusive range end, due-types only (task/quiz/passport/recording
-		 * reminder ranges). Absent on every single-date type.
+		 * Inclusive range end, reminders only. Absent on every single-date type.
 		 */
 		endDate: v.optional(v.string()),
 		/** Free-form note, e.g. BBQ logistics or collection reminders. */

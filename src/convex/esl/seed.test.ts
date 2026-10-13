@@ -105,7 +105,7 @@ describe('seed math: isProtectedSeedEvent', () => {
 		expect(isProtectedSeedEvent({ type: 'no_class', title: 'No class', note: "Sport's Day" })).toBe(
 			false
 		);
-		expect(isProtectedSeedEvent({ type: 'task', title: 'Passport check' })).toBe(false);
+		expect(isProtectedSeedEvent({ type: 'reminder', title: 'Passport check' })).toBe(false);
 		expect(isProtectedSeedEvent({ type: 'no_school', title: 'Off', note: 'Moon Festival' })).toBe(
 			false
 		);
@@ -158,7 +158,7 @@ describe('esl/seed.seed S1', () => {
 			moonFestivalDate: '2025-10-06',
 			dueWindows: [
 				{
-					type: 'task',
+					reminderKind: 'task',
 					title: 'Passport Unit 1 due',
 					target: 'Comm',
 					date: '2025-09-17',
@@ -203,10 +203,12 @@ describe('esl/seed.seed S1', () => {
 
 		// Dues pass through with their windows.
 		expect(events.find((event) => event.title === 'Passport Unit 1 due')).toMatchObject({
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			target: 'Comm',
 			date: '2025-09-17',
-			endDate: '2025-09-24'
+			endDate: '2025-09-24',
+			isBanner: true
 		});
 
 		// The derived end pins to the last final day.
@@ -391,9 +393,9 @@ describe('esl/seed.seed S2', () => {
 		await expect(
 			t.mutation(api.esl.seed.seed, {
 				semesterId,
-				dueWindows: [{ type: 'quiz', title: 'Pop quiz', date: '2025-09-17' }]
+				dueWindows: [{ reminderKind: 'passport', title: 'Pop quiz', date: '2025-09-17' }]
 			})
-		).rejects.toThrow(/always shows "Quiz"/);
+		).rejects.toThrow(/always shows "Passport due"/);
 	});
 });
 
