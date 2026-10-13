@@ -10,7 +10,6 @@
 		defaultStartDate,
 		endPickerMondays,
 		mockOffDays,
-		mondayOfWeek,
 		schoolYearForTerm,
 		startPickerMondays,
 		suggestSemester,
@@ -39,7 +38,11 @@
 
 	let step = $state<Step>(1);
 	let term = $state<Term>(suggestion.term);
-	let startDate = $state(mondayOfWeek(defaultStartDate(suggestion.term, suggestion.schoolYear)));
+	// Feedback F2: the exact anchor date is the default (a Friday Aug 30
+	// stays a Friday); only a weekend anchor rolls to next Monday. Clicking
+	// picks that exact date — no snap-to-Monday (deliberate story-10
+	// deviation for visual validation).
+	let startDate = $state(defaultStartDate(suggestion.term, suggestion.schoolYear));
 
 	const schoolYear = $derived(schoolYearForTerm(term, today));
 	const startMondays = $derived(startPickerMondays(term, schoolYear));
@@ -86,7 +89,7 @@
 		if (next === term) return;
 		term = next;
 		const year = schoolYearForTerm(next, today);
-		startDate = mondayOfWeek(defaultStartDate(next, year));
+		startDate = defaultStartDate(next, year);
 		endDate = defaultEndDate(next, year);
 		offDays = [];
 		imported = false;
@@ -169,17 +172,18 @@
 			</div>
 			<div>
 				<h2 class="mb-2 text-sm font-semibold text-gray-800">
-					Pick the start week — any date snaps to that week's Monday
+					Pick the start date — the exact day you click becomes the start
 				</h2>
 				<WeekPicker
 					mondays={startMondays}
 					selectedDate={startDate}
+					snapToMonday={false}
 					onPick={(date) => (startDate = date)}
 					testId="wizard-prototype.start-picker"
 				/>
 			</div>
 			<p data-testid="wizard-prototype.start-summary" class="text-sm text-gray-700">
-				Start date: <strong>{startDate}</strong> (Monday)
+				Start date: <strong>{startDate}</strong>
 			</p>
 			<div class="flex justify-end">
 				<Button onclick={() => (step = 2)} data-testid="wizard-prototype.step-1-confirm">
@@ -200,6 +204,7 @@
 					mondays={endMondays}
 					selectedDate={endDate}
 					snapToMonday={false}
+					showWeekNumbers={false}
 					onPick={(date) => (endDate = date)}
 					testId="wizard-prototype.end-picker"
 				/>
@@ -228,6 +233,10 @@
 			<div
 				class="space-y-2 rounded-lg border border-dashed border-emerald-300 bg-emerald-50/50 p-3"
 			>
+				<p class="text-sm font-semibold text-gray-800">
+					Optional: import holidays
+					<span class="font-normal text-gray-500">(skip this if you like)</span>
+				</p>
 				<div class="flex flex-wrap items-center gap-2">
 					<Button
 						size="sm"
@@ -237,7 +246,9 @@
 					>
 						{imported ? 'Re-import mock holidays' : 'Import mock holidays'}
 					</Button>
-					<span class="text-xs text-gray-500">Mock only — stands in for the gov calendar feed.</span
+					<span class="text-xs text-gray-500"
+						>Mock only — stands in for the gov calendar feed. Skipping is fine: Confirm below works
+						without importing.</span
 					>
 				</div>
 				{#if imported}
@@ -314,7 +325,21 @@
 				</div>
 				<aside class="space-y-2">
 					<h2 class="text-sm font-semibold text-gray-800">Exam dates</h2>
-					{#if exams.length === 0}
+					{#if pendingHighlight.length > 0}
+						<div
+							data-testid="wizard-prototype.exam-pending"
+							class="rounded border border-dashed border-emerald-500 bg-emerald-50 p-2 text-sm"
+						>
+							<div class="flex items-center justify-between gap-2">
+								<strong class="text-emerald-900">{activeExam}</strong>
+								<span class="rounded bg-amber-200 px-1.5 py-px text-[11px] font-bold text-amber-900"
+									>Unconfirmed</span
+								>
+							</div>
+							<div class="text-emerald-900">{pendingHighlight.join(', ')}</div>
+						</div>
+					{/if}
+					{#if exams.length === 0 && pendingHighlight.length === 0}
 						<p data-testid="wizard-prototype.exams-empty" class="text-sm text-gray-500">
 							No exams set yet.
 						</p>

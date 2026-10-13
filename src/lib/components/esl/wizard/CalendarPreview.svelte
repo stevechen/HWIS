@@ -2,11 +2,13 @@
 	import type { PreviewWeek } from './wizard-dates';
 
 	/**
-	 * Semester calendar preview (spec #215, stories 15–20). School-week
-	 * rows with week numbers, weekend shading, grey off-day chips and red
-	 * exam chips. Read-only by default; `interactive` enables date clicks
-	 * (Step 3 exam picking) with `highlighted` marking the pending range.
-	 * Presentational — weeks arrive prebuilt from `buildPreviewWeeks`.
+	 * Semester calendar preview (spec #215, stories 15–20, as amended by
+	 * feedback F5/F6). School-week rows with week numbers, a weekday
+	 * header row, weekend dates in red text (no shaded background), grey
+	 * off-day chips and red exam chips. Read-only by default;
+	 * `interactive` enables date clicks (Step 3 exam picking) with
+	 * `highlighted` marking the pending range. Presentational — weeks
+	 * arrive prebuilt from `buildPreviewWeeks`.
 	 */
 
 	let {
@@ -40,9 +42,13 @@
 		if (hasExam) return 'border-red-500 bg-red-100 text-red-900';
 		if (isHighlighted) return 'border-emerald-500 bg-emerald-100 text-emerald-900';
 		if (hasOff) return 'border-stone-300 bg-stone-200 text-stone-600';
-		if (isWeekend) return 'border-gray-200 bg-gray-100 text-gray-400';
+		// Feedback F5: weekends read as red text on a plain background —
+		// no shaded weekend fill, so off/exam chips stay unambiguous.
+		if (isWeekend) return 'border-gray-200 bg-white text-red-600';
 		return 'border-gray-200 bg-white text-gray-800';
 	}
+
+	const WEEKDAY_HEADER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 </script>
 
 <div data-testid={testId} class="space-y-3">
@@ -54,7 +60,10 @@
 			<span class="inline-block size-3 rounded border border-red-500 bg-red-100"></span> Exam
 		</span>
 		<span class="flex items-center gap-1">
-			<span class="inline-block size-3 rounded border border-gray-200 bg-gray-100"></span> Weekend
+			<span
+				class="inline-block size-3 rounded border border-gray-200 bg-white text-center text-[8px] leading-3 font-bold text-red-600"
+				>S</span
+			> Weekend
 		</span>
 		{#if interactive}
 			<span class="flex items-center gap-1">
@@ -65,6 +74,16 @@
 	</div>
 
 	<div class="max-h-[480px] space-y-1 overflow-y-auto pr-1">
+		<div class="flex items-stretch gap-1" aria-hidden="true">
+			<div class="w-10 shrink-0"></div>
+			<div class="grid flex-1 grid-cols-7 gap-1">
+				{#each WEEKDAY_HEADER as label (label)}
+					<div class="px-1 py-0.5 text-center text-[11px] font-semibold text-gray-500">
+						{label}
+					</div>
+				{/each}
+			</div>
+		</div>
 		{#each weeks as week (week.monday)}
 			<div data-testid={`${testId}.week-${week.weekIndex}`} class="flex items-stretch gap-1">
 				<div

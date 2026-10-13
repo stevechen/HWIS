@@ -126,23 +126,28 @@ function springYear(schoolYear: string): number {
 }
 
 /**
- * Start default (story 9): S1 → Aug 30 or next Mon; S2 → Feb 11 or next
- * Mon. Always a Monday.
+ * Start default (story 9, as amended by visual-validation feedback F2):
+ * S1 → Aug 30 as-is; S2 → Feb 11 as-is; only a Sat/Sun anchor rolls
+ * forward to next Monday. Deliberate deviation from spec story 10
+ * (which snaps every pick to Monday): clicking a date picks that exact
+ * date so a Friday Aug 30 start is allowed.
  */
 export function defaultStartDate(term: Term, schoolYear: string): string {
 	const anchor =
 		term === 'S1' ? `${fallYear(schoolYear)}-08-30` : `${springYear(schoolYear)}-02-11`;
-	return nextMonday(anchor);
+	if (isWeekend(anchor)) return nextMonday(anchor);
+	return anchor;
 }
 
 /**
- * Step 1 picker rows (story 10): 2 weekly rows for S1 (week of Aug 30 +
- * next), 3 for S2 (Feb 11–25). Returns the row Mondays.
+ * Step 1 picker rows (story 10, as amended by feedback F1): 2 weekly rows
+ * for S1, 3 for S2, starting with the week containing the default start
+ * date. When the anchor falls on Sat/Sun the default rolls to Monday, so
+ * the anchor's week row is omitted entirely and the rows shift forward.
+ * Returns the row Mondays.
  */
 export function startPickerMondays(term: Term, schoolYear: string): string[] {
-	const anchor =
-		term === 'S1' ? `${fallYear(schoolYear)}-08-30` : `${springYear(schoolYear)}-02-11`;
-	const first = mondayOfWeek(anchor);
+	const first = mondayOfWeek(defaultStartDate(term, schoolYear));
 	const rows = term === 'S1' ? 2 : 3;
 	return Array.from({ length: rows }, (_, i) => addDays(first, i * 7));
 }

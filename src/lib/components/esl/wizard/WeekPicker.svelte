@@ -2,10 +2,12 @@
 	import { addDays, mondayOfWeek, weekdayLabel } from './wizard-dates';
 
 	/**
-	 * Weekly date picker (spec #215, stories 10/12). Renders one row per
-	 * Monday in `mondays`. Step 1 snaps to the week's Monday
-	 * (`snapToMonday`, the default); Step 2 picks the exact date. The
-	 * selected row highlights; in exact mode the selected cell does too.
+	 * Weekly date picker (spec #215, stories 10/12, as amended by feedback
+	 * F2/F3). Renders one row per Monday in `mondays`. Step 1 picks the
+	 * exact date (`snapToMonday: false`); Step 2 also picks the exact date.
+	 * In snap mode the selected row highlights; in exact mode only the
+	 * picked cell highlights, never the whole row. `showWeekNumbers`
+	 * hides the Week N label (Step 2 end weeks are not semester weeks).
 	 * Presentational — all dates arrive as props, so the prototype and
 	 * the real wizard share it unchanged.
 	 */
@@ -14,12 +16,14 @@
 		mondays,
 		selectedDate,
 		snapToMonday = true,
+		showWeekNumbers = true,
 		onPick,
 		testId = 'week-picker'
 	}: {
 		mondays: string[];
 		selectedDate: string | null;
 		snapToMonday?: boolean;
+		showWeekNumbers?: boolean;
 		onPick: (date: string) => void;
 		testId?: string;
 	} = $props();
@@ -35,21 +39,24 @@
 
 <div data-testid={testId} class="space-y-2">
 	{#each mondays as monday, row (monday)}
-		{@const rowSelected = selectedDate !== null && mondayOfWeek(selectedDate) === monday}
+		{@const rowSelected =
+			snapToMonday && selectedDate !== null && mondayOfWeek(selectedDate) === monday}
 		<div
 			data-testid={`${testId}.row-${row + 1}`}
 			class="flex flex-wrap items-center gap-1 rounded-lg border p-2 {rowSelected
 				? 'border-emerald-500 bg-emerald-50'
 				: 'border-gray-200 bg-white'}"
 		>
-			<span
-				data-testid={`${testId}.row-${row + 1}.label`}
-				class="mr-1 min-w-16 text-xs font-semibold {rowSelected
-					? 'text-emerald-900'
-					: 'text-gray-500'}"
-			>
-				Week {row + 1}{rowSelected ? ' ✓' : ''}
-			</span>
+			{#if showWeekNumbers}
+				<span
+					data-testid={`${testId}.row-${row + 1}.label`}
+					class="mr-1 min-w-16 text-xs font-semibold {rowSelected
+						? 'text-emerald-900'
+						: 'text-gray-500'}"
+				>
+					Week {row + 1}{rowSelected ? ' ✓' : ''}
+				</span>
+			{/if}
 			{#each Array.from({ length: 7 }, (_, i) => addDays(monday, i)) as date (date)}
 				{@const cellSelected = snapToMonday
 					? rowSelected && date === monday
