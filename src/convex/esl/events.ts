@@ -9,23 +9,32 @@ import {
 	assertValidEslTitle,
 	describeEslEventError,
 	expandExamDays,
+	isEslEventType,
 	isNoteHiddenForEventType,
 	isProtectedSeedEvent,
 	migrateLegacyEslEvent,
-	type EslEventType
+	migrateToReminderEslEvent,
+	type EslEventType,
+	type EslReminderKind
 } from '../shared/esl';
 
 const typeValidator = v.union(
 	v.literal('start_school'),
-	v.literal('quiz'),
+	v.literal('reminder'),
 	v.literal('no_school'),
 	v.literal('no_class'),
 	v.literal('partial'),
 	v.literal('exam'),
-	v.literal('passport_due'),
-	v.literal('recording_due'),
-	v.literal('task'),
 	v.literal('g9_mock')
+);
+
+const reminderKindValidator = v.union(
+	v.literal('quiz'),
+	v.literal('passport'),
+	v.literal('recording'),
+	v.literal('task'),
+	v.literal('passport_check'),
+	v.literal('workbook_check')
 );
 
 const targetValidator = v.union(
@@ -223,6 +232,8 @@ export const create = mutation({
 	args: {
 		semesterId: v.id('esl_semesters'),
 		type: typeValidator,
+		reminderKind: v.optional(reminderKindValidator),
+		isBanner: v.optional(v.boolean()),
 		title: v.string(),
 		target: v.optional(targetValidator),
 		date: v.string(),
@@ -241,10 +252,10 @@ export const create = mutation({
 		if (!semester) throw new Error('Semester not found');
 
 		const title = args.title.trim();
-		const titleError = assertValidEslTitle(args.type, title);
+		const titleError = assertValidEslTitle(args.type, title, args.reminderKind);
 		if (titleError) throw new Error(describeEslEventError(titleError));
 
-		const targetError = assertValidEslTarget(args.type, args.target ?? 'all');
+		const targetError = assertValidEslTarget(args.type, args.target ?? 'all', args.reminderKind);
 		if (targetError) throw new Error(describeEslEventError(targetError));
 
 		const fieldError = assertValidEslEvent({
@@ -252,7 +263,9 @@ export const create = mutation({
 			date: args.date,
 			endDate: args.endDate,
 			startPeriod: args.startPeriod,
-			endPeriod: args.endPeriod
+			endPeriod: args.endPeriod,
+			...(args.reminderKind === undefined ? {} : { reminderKind: args.reminderKind }),
+			...(args.isBanner === undefined ? {} : { isBanner: args.isBanner })
 		});
 		if (fieldError) throw new Error(describeEslEventError(fieldError));
 
@@ -268,9 +281,11 @@ export const create = mutation({
 			}
 		}
 
-		// Banner-only types carry no note (#211) — a client-supplied note is
-		// dropped, never stored.
-		const note = isNoteHiddenForEventType(args.type) ? undefined : args.note?.trim();
+		// Banner-only types carry no note (#211, #216) — a client-supplied note is
+		// dropped, never stored. Task-kind reminders keep their optional note.
+		const note = isNoteHiddenForEventType(args.type, args.reminderKind)
+			? undefined
+			: args.note?.trim();
 
 		if (args.type === 'exam') {
 			return await createExamGroup(ctx, args.semesterId, {
@@ -290,6 +305,8 @@ export const create = mutation({
 		return await ctx.db.insert('esl_events', {
 			semesterId: args.semesterId,
 			type: args.type,
+			...(args.reminderKind === undefined ? {} : { reminderKind: args.reminderKind }),
+			...(args.type === 'reminder' ? { isBanner: args.isBanner ?? true } : {}),
 			title,
 			target: args.target ?? 'all',
 			date: args.date,
@@ -333,6 +350,9 @@ export const update = mutation({
 	args: {
 		eventId: v.id('esl_events'),
 		type: v.optional(typeValidator),
+		reminderKind: v.optional(reminderKindValidator),
+		clearReminderKind: v.optional(v.boolean()),
+		isBanner: v.optional(v.boolean()),
 		title: v.optional(v.string()),
 		target: v.optional(targetValidator),
 		date: v.optional(v.string()),
@@ -352,12 +372,17 @@ export const update = mutation({
 		if (!event) throw new Error('Event not found');
 
 		const type = args.type ?? event.type;
+		const reminderKind =
+			args.clearReminderKind === true
+				? undefined
+				: ((args.reminderKind ?? event.reminderKind) as EslReminderKind | undefined);
+		const isBanner = args.isBanner ?? event.isBanner;
 		const title = args.title === undefined ? event.title : args.title.trim();
-		const titleError = assertValidEslTitle(type, title);
+		const titleError = assertValidEslTitle(type, title, reminderKind);
 		if (titleError) throw new Error(describeEslEventError(titleError));
 
 		const target = args.target ?? event.target;
-		const targetError = assertValidEslTarget(type, target);
+		const targetError = assertValidEslTarget(type, target, reminderKind);
 		if (targetError) throw new Error(describeEslEventError(targetError));
 
 		const date = args.date ?? event.date;
@@ -366,7 +391,15 @@ export const update = mutation({
 			args.clearPeriods === true ? undefined : (args.startPeriod ?? event.startPeriod);
 		const endPeriod = args.clearPeriods === true ? undefined : (args.endPeriod ?? event.endPeriod);
 
-		const fieldError = assertValidEslEvent({ type, date, endDate, startPeriod, endPeriod });
+		const fieldError = assertValidEslEvent({
+			type,
+			date,
+			endDate,
+			startPeriod,
+			endPeriod,
+			...(reminderKind === undefined ? {} : { reminderKind }),
+			...(type === 'reminder' && isBanner !== undefined ? { isBanner } : {})
+		});
 		if (fieldError) throw new Error(describeEslEventError(fieldError));
 
 		if (type === 'partial') {
@@ -405,9 +438,10 @@ export const update = mutation({
 			examGroup = title;
 		}
 
-		// Banner-only types carry no note (#211): the incoming note is ignored
+		// Banner-only types carry no note (#211, #216): the incoming note is ignored
 		// and a retarget onto a hidden type clears the stored note.
-		const note = isNoteHiddenForEventType(type)
+		// Task-kind reminders keep their optional note.
+		const note = isNoteHiddenForEventType(type, reminderKind)
 			? undefined
 			: args.note === undefined
 				? event.note
@@ -418,6 +452,10 @@ export const update = mutation({
 			title,
 			target,
 			date,
+			...(reminderKind === undefined ? { reminderKind: undefined } : { reminderKind }),
+			...(type === 'reminder'
+				? { isBanner: args.isBanner ?? event.isBanner ?? true }
+				: { isBanner: undefined }),
 			...(examGroup === undefined ? { examGroup: undefined } : { examGroup }),
 			...(endDate === undefined ? { endDate: undefined } : { endDate }),
 			...(note === undefined || note === '' ? { note: undefined } : { note }),
@@ -472,8 +510,9 @@ export const listBySemester = query({
 });
 
 /**
- * One-time v3 migration (#210): `homework_due` rows become `task`,
- * `task_due` becomes `task`, `off` becomes `no_school`, and every row's
+ * One-time v3 migration (#210, #216): `homework_due` rows become `reminder`
+ * kind=task, `task_due` becomes kind=task, `quiz`/`passport_due`/
+ * `recording_due` their kinds, `off` becomes `no_school`, and every row's
  * legacy `label` becomes the explicit `title` (see `migrateLegacyEslEvent`
  * for the mapping).
  *
@@ -498,7 +537,17 @@ export const migrateToV3 = mutation({
 				title?: unknown;
 				label?: unknown;
 				note?: unknown;
+				reminderKind?: unknown;
 			};
+			const hasTitle = typeof legacy.title === 'string' && legacy.title.trim() !== '';
+			// Rows already on the current union need nothing: v3 single-date
+			// types stamp no extra fields, reminders already carry their kind.
+			if (hasTitle && isEslEventType(legacy.type)) {
+				if (legacy.type !== 'reminder') continue;
+				if (typeof legacy.reminderKind === 'string' && legacy.reminderKind.trim() !== '') {
+					continue;
+				}
+			}
 			const rawTitle =
 				typeof legacy.title === 'string' && legacy.title.trim() !== ''
 					? legacy.title.trim()
@@ -519,19 +568,75 @@ export const migrateToV3 = mutation({
 			// whose label already reads canonical (e.g. exam "Exam 1")
 			// still needs its title stamped, or a re-tightened schema
 			// keeps rejecting the deployment on restart.
-			const hasTitle = typeof legacy.title === 'string' && legacy.title.trim() !== '';
+			const mappedKind =
+				mapped.type === 'reminder'
+					? (mapped as { reminderKind: EslReminderKind }).reminderKind
+					: undefined;
+			const currentKind = typeof legacy.reminderKind === 'string' ? legacy.reminderKind : undefined;
 			if (
 				hasTitle &&
 				legacy.type === mapped.type &&
 				rawTitle === mapped.title &&
-				(rawNote ?? undefined) === (mapped.note ?? undefined)
+				(rawNote ?? undefined) === (mapped.note ?? undefined) &&
+				currentKind === mappedKind
 			) {
 				continue;
 			}
 			await ctx.db.patch(event._id, {
 				type: mapped.type,
 				title: mapped.title,
-				...(mapped.note === undefined ? { note: undefined } : { note: mapped.note })
+				...(mapped.note === undefined ? { note: undefined } : { note: mapped.note }),
+				...(mapped.type === 'reminder'
+					? {
+							reminderKind: (mapped as { reminderKind: EslReminderKind }).reminderKind,
+							isBanner: true
+						}
+					: {})
+			});
+			migrated += 1;
+		}
+		return { total: events.length, migrated, skipped };
+	}
+});
+
+/**
+ * One-time reminder consolidation (#216): v3 `quiz` → `reminder`
+ * kind=quiz, `passport_due` → kind=passport, `recording_due` →
+ * kind=recording, `task` → kind=task (titles ride through, `isBanner`
+ * stamps true).
+ *
+ * Admin-only and idempotent: re-running reports zero migrated rows.
+ *
+ * cost: 1 full take of `esl_events` + 1 patch per legacy due row.
+ */
+export const migrateToReminder = mutation({
+	args: {},
+	handler: async (ctx) => {
+		await requireEslAdmin(ctx);
+
+		const events = await ctx.db.query('esl_events').collect();
+		let migrated = 0;
+		const skipped: string[] = [];
+		for (const event of events) {
+			const legacy = event as unknown as {
+				type: string;
+				title?: unknown;
+				note?: unknown;
+			};
+			const rawTitle = typeof legacy.title === 'string' ? legacy.title : '';
+			const rawNote = typeof legacy.note === 'string' ? legacy.note : undefined;
+			const mapped = migrateToReminderEslEvent({
+				type: legacy.type,
+				title: rawTitle,
+				...(rawNote === undefined ? {} : { note: rawNote })
+			});
+			if (mapped === null) continue;
+			await ctx.db.patch(event._id, {
+				type: mapped.type,
+				title: mapped.title,
+				...(mapped.note === undefined ? { note: undefined } : { note: mapped.note }),
+				reminderKind: mapped.reminderKind,
+				isBanner: true
 			});
 			migrated += 1;
 		}

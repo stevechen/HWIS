@@ -89,7 +89,9 @@ export const teacherDays = query({
 			...(event.endDate === undefined ? {} : { endDate: event.endDate }),
 			...(event.note === undefined ? {} : { note: event.note }),
 			...(event.startPeriod === undefined ? {} : { startPeriod: event.startPeriod }),
-			...(event.endPeriod === undefined ? {} : { endPeriod: event.endPeriod })
+			...(event.endPeriod === undefined ? {} : { endPeriod: event.endPeriod }),
+			...(event.reminderKind === undefined ? {} : { reminderKind: event.reminderKind }),
+			...(event.isBanner === undefined ? {} : { isBanner: event.isBanner })
 		}));
 
 		const examDates = events

@@ -4,14 +4,7 @@ import { render } from 'vitest-browser-svelte';
 import EventForm from '$lib/components/esl/EventForm.svelte';
 import { ESL_EVENT_TYPES } from '$convex/shared/esl';
 
-const HIDDEN_TYPES = [
-	'start_school',
-	'quiz',
-	'exam',
-	'passport_due',
-	'recording_due',
-	'g9_mock'
-] as const;
+const HIDDEN_TYPES = ['start_school', 'reminder', 'exam', 'g9_mock'] as const;
 
 const REQUIRED_TYPES = ['no_school', 'no_class', 'partial'] as const;
 
@@ -28,7 +21,7 @@ function renderForm() {
 	return { onsubmit };
 }
 
-describe('EventForm note visibility (#211)', () => {
+describe('EventForm note visibility (#211, #216)', () => {
 	it.each(HIDDEN_TYPES)('hides the note field for banner-only type %s', async (type) => {
 		renderForm();
 		await page.getByLabelText('Event type').selectOptions(type);
@@ -43,9 +36,10 @@ describe('EventForm note visibility (#211)', () => {
 		await expect.element(note).toBeRequired();
 	});
 
-	it('shows the note field as optional for task', async () => {
+	it('shows the note field as optional for task-kind reminders', async () => {
 		renderForm();
-		await page.getByLabelText('Event type').selectOptions('task');
+		await page.getByLabelText('Event type').selectOptions('reminder');
+		await page.getByLabelText('Reminder kind').selectOptions('task');
 		const note = page.getByLabelText('Note');
 		await expect.element(note).toBeInTheDocument();
 		await expect.element(note).not.toBeRequired();
@@ -53,7 +47,8 @@ describe('EventForm note visibility (#211)', () => {
 
 	it('omits the note from submit for a banner-only type', async () => {
 		const { onsubmit } = renderForm();
-		await page.getByLabelText('Event type').selectOptions('task');
+		await page.getByLabelText('Event type').selectOptions('reminder');
+		await page.getByLabelText('Reminder kind').selectOptions('task');
 		await page.getByLabelText('Note').fill('should be dropped');
 		await page.getByLabelText('Event type').selectOptions('exam');
 		await page.getByLabelText('Date').fill('2025-10-16');
@@ -64,7 +59,7 @@ describe('EventForm note visibility (#211)', () => {
 	});
 });
 
-describe('EventForm target gating (#212)', () => {
+describe('EventForm target gating (#212, #216)', () => {
 	it('offers every canonical event type in the dropdown', async () => {
 		renderForm();
 		const select = page.getByLabelText('Event type');
@@ -74,17 +69,22 @@ describe('EventForm target gating (#212)', () => {
 		}
 	});
 
-	it('locks the target to CLIL for quiz and snaps it on type switch', async () => {
+	it('locks the target to CLIL for quiz-kind reminders and snaps it on kind switch', async () => {
 		const { onsubmit } = renderForm();
-		await page.getByLabelText('Event type').selectOptions('task');
+		await page.getByLabelText('Event type').selectOptions('reminder');
+		await page.getByLabelText('Reminder kind').selectOptions('task');
 		await page.getByLabelText('Target').selectOptions('G7');
-		await page.getByLabelText('Event type').selectOptions('quiz');
+		await page.getByLabelText('Reminder kind').selectOptions('quiz');
 		const target = page.getByLabelText('Target');
 		await expect.element(target).toBeDisabled();
 		await expect.element(target).toHaveValue('CLIL');
 		await page.getByLabelText('Date', { exact: true }).fill('2025-09-02');
 		await page.getByRole('button', { name: 'Add event' }).click();
-		expect(onsubmit.mock.calls[0]?.[0]).toMatchObject({ type: 'quiz', target: 'CLIL' });
+		expect(onsubmit.mock.calls[0]?.[0]).toMatchObject({
+			type: 'reminder',
+			reminderKind: 'quiz',
+			target: 'CLIL'
+		});
 	});
 
 	it('locks exams, no-school, and no-class days to All', async () => {
@@ -97,15 +97,21 @@ describe('EventForm target gating (#212)', () => {
 		}
 	});
 
-	it('leaves Start, Partial, and Task on the full dropdown', async () => {
+	it('leaves Start, Partial, and task-kind reminders on the full dropdown', async () => {
 		renderForm();
-		for (const type of ['start_school', 'partial', 'task'] as const) {
+		for (const type of ['start_school', 'partial'] as const) {
 			await page.getByLabelText('Event type').selectOptions(type);
 			const target = page.getByLabelText('Target');
 			await expect.element(target).not.toBeDisabled();
 			await target.selectOptions('H1');
 			await expect.element(target).toHaveValue('H1');
 		}
+		await page.getByLabelText('Event type').selectOptions('reminder');
+		await page.getByLabelText('Reminder kind').selectOptions('task');
+		const target = page.getByLabelText('Target');
+		await expect.element(target).not.toBeDisabled();
+		await target.selectOptions('H1');
+		await expect.element(target).toHaveValue('H1');
 	});
 
 	it('shows the Start title prefilled and read-only', async () => {

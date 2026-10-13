@@ -138,6 +138,9 @@
 			.mutation(api.esl.events.update, {
 				eventId,
 				type: input.type,
+				...(input.type === 'reminder'
+					? { reminderKind: input.reminderKind, isBanner: input.isBanner }
+					: { clearReminderKind: true }),
 				title: input.title,
 				target: input.target,
 				date: input.date,
@@ -424,6 +427,8 @@
 											serverError={editError}
 											initial={{
 												type: event.type,
+												reminderKind: event.reminderKind,
+												isBanner: event.isBanner,
 												title: event.title,
 												target: event.target,
 												date: event.date,

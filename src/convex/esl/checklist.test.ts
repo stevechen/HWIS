@@ -67,7 +67,8 @@ describe('esl/checklist.status', () => {
 		for (let i = 0; i < 6; i++) {
 			await t.mutation(api.esl.events.create, {
 				semesterId,
-				type: 'quiz',
+				type: 'reminder',
+				reminderKind: 'quiz',
 				title: `Unit ${i + 1} Quiz Due`,
 				target: 'CLIL',
 				date: `2025-09-${String(10 + i).padStart(2, '0')}`
@@ -84,17 +85,19 @@ describe('esl/checklist.status', () => {
 		expect(status.g9mock.expectedStarts).toBe(3);
 	});
 
-	it('counts Unit N tasks toward units while manual tasks never count', async () => {
+	it('counts Unit N task-kind reminders toward units while manual ones never count', async () => {
 		const { t, semesterId } = await adminSemester('S1', '2025-08-31');
 		await t.mutation(api.esl.events.create, {
 			semesterId,
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: 'Unit 1',
 			date: '2025-09-10'
 		});
 		await t.mutation(api.esl.events.create, {
 			semesterId,
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: 'Collect permission slips',
 			date: '2025-09-11'
 		});
@@ -170,7 +173,9 @@ describe('esl/checklist.createMissing', () => {
 		expect(result.created).toHaveLength(6);
 		expect(result.skipped).toEqual([]);
 		const events = await t.query(api.esl.events.listBySemester, { semesterId });
-		const quizzes = events.filter((event) => event.type === 'quiz');
+		const quizzes = events.filter(
+			(event) => event.type === 'reminder' && event.reminderKind === 'quiz'
+		);
 		expect(quizzes).toHaveLength(6);
 		expect(quizzes.every((event) => event.target === 'CLIL')).toBe(true);
 		expect(quizzes.map((event) => event.title).sort((a, b) => a.localeCompare(b))).toEqual([
@@ -206,21 +211,22 @@ describe('esl/checklist.createMissing', () => {
 		const events = await t.query(api.esl.events.listBySemester, { semesterId });
 		expect(
 			events
-				.filter((event) => event.type === 'passport_due')
+				.filter((event) => event.type === 'reminder' && event.reminderKind === 'passport')
 				.every((event) => event.title === 'Passport due' && event.target === 'Comm')
 		).toBe(true);
 		expect(
 			events
-				.filter((event) => event.type === 'recording_due')
+				.filter((event) => event.type === 'reminder' && event.reminderKind === 'recording')
 				.every((event) => event.title === 'Recording due' && event.target === 'Comm')
 		).toBe(true);
 	});
 
-	it('fills unit drafts as ranged Unit N tasks (manual tasks never count)', async () => {
+	it('fills unit drafts as ranged Unit N task-kind reminders (manual ones never count)', async () => {
 		const { t, semesterId } = await adminSemester('S1', '2025-08-31');
 		await t.mutation(api.esl.events.create, {
 			semesterId,
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: 'Collect permission slips',
 			date: '2025-09-10'
 		});
@@ -293,7 +299,8 @@ describe('esl/checklist.createMissing', () => {
 		expect(result.skipped).toEqual([]);
 		expect(result.created).toHaveLength(6);
 		const events = await t.query(api.esl.events.listBySemester, { semesterId });
-		const unit = (title: string) => events.find((e) => e.type === 'task' && e.title === title);
+		const unit = (title: string) =>
+			events.find((e) => e.type === 'reminder' && e.reminderKind === 'task' && e.title === title);
 		// Even units sit in the exact 7 calendar days before their exam.
 		expect(unit('Unit 2')).toMatchObject({ date: '2025-10-06', endDate: '2025-10-12' });
 		expect(unit('Unit 4')).toMatchObject({ date: '2025-11-10', endDate: '2025-11-16' });

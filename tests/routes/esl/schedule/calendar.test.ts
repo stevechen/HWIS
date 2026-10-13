@@ -80,7 +80,8 @@ const ROWS: ScheduleDayRow[] = [
 		dues: [
 			{
 				title: 'Passport 1 due',
-				type: 'task',
+				type: 'reminder',
+				reminderKind: 'passport',
 				windowStart: '2025-09-01',
 				windowEnd: '2025-09-08'
 			}

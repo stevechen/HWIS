@@ -8,18 +8,24 @@
 		ESL_EVENT_TYPE_LABELS,
 		ESL_EXAM_TITLES,
 		ESL_PERIOD_NUMBERS,
+		ESL_REMINDER_KINDS,
+		ESL_REMINDER_TITLES,
 		EXAM_SEED_WEEKDAYS,
 		isNoteHiddenForEventType,
 		isNoteRequiredForEventType,
 		isRangedEventType,
 		lockedTargetForEventType,
+		lockedTargetForReminderKind,
 		type EslEventTarget,
-		type EslEventType
+		type EslEventType,
+		type EslReminderKind
 	} from '$convex/shared/esl';
 	import { boundaryCrossWarning, type SiblingSemester } from '$lib/esl-semesters';
 
 	export type EventFormInput = {
 		type: EslEventType;
+		reminderKind?: EslReminderKind;
+		isBanner?: boolean;
 		title: string;
 		target: EslEventTarget;
 		date: string;
@@ -31,6 +37,8 @@
 
 	export type EventFormInitial = {
 		type: EslEventType;
+		reminderKind?: EslReminderKind;
+		isBanner?: boolean;
 		title: string;
 		target: EslEventTarget;
 		date: string;
@@ -49,18 +57,24 @@
 
 	/**
 	 * The title a fresh draft of a type carries: locked titles arrive
-	 * prefilled (and stay locked), exams default to Exam 1, free-text types
-	 * (task, quiz) start blank for a manual row — the banner always shows
+	 * prefilled (and stay locked), exams default to Exam 1, quiz/task-kind
+	 * reminders start blank for a manual row — the banner always shows
 	 * their own text. Checklist quiz drafts arrive prefilled via `initial`.
 	 */
-	function defaultTitleFor(type: EslEventType): string {
-		if (type === 'task' || type === 'quiz') return '';
+	function defaultTitleFor(type: EslEventType, reminderKind?: EslReminderKind): string {
+		if (type === 'reminder') {
+			if (reminderKind === 'quiz' || reminderKind === 'task' || reminderKind === undefined)
+				return '';
+			return ESL_REMINDER_TITLES[reminderKind];
+		}
 		if (type === 'exam') return ESL_EXAM_TITLES[0];
 		return ESL_EVENT_TITLES[type];
 	}
 
 	type Draft = {
 		type: EslEventType;
+		reminderKind: EslReminderKind;
+		isBanner: boolean;
 		title: string;
 		target: EslEventTarget;
 		date: string;
@@ -72,13 +86,19 @@
 
 	function blankDraft(init?: EventFormInitial): Draft {
 		const type = init?.type ?? 'exam';
+		const reminderKind = init?.reminderKind ?? 'quiz';
 		// Editing a row seeded before per-type gating (#212) may carry a
 		// target its type no longer allows — snap to the locked value so the
 		// edit form opens submittable instead of refusing on save.
-		const locked = lockedTargetForEventType(type);
+		const locked =
+			type === 'reminder'
+				? lockedTargetForReminderKind(reminderKind)
+				: lockedTargetForEventType(type);
 		return {
 			type,
-			title: init?.title ?? defaultTitleFor(type),
+			reminderKind,
+			isBanner: init?.isBanner ?? true,
+			title: init?.title ?? defaultTitleFor(type, reminderKind),
 			target: locked ?? init?.target ?? 'all',
 			date: init?.date ?? '',
 			endDate: init?.endDate ?? '',
@@ -118,25 +138,34 @@
 
 	const ranged = $derived(isRangedEventType(draft.type));
 	const partial = $derived(draft.type === 'partial');
-	const noteHidden = $derived(isNoteHiddenForEventType(draft.type));
-	const noteRequired = $derived(isNoteRequiredForEventType(draft.type));
-	const isTask = $derived(draft.type === 'task');
-	const isQuiz = $derived(draft.type === 'quiz');
-	const isFreeTitle = $derived(isTask || isQuiz);
-	const isExam = $derived(draft.type === 'exam');
-	const lockedTitle = $derived(
-		draft.type === 'task' || draft.type === 'quiz' || draft.type === 'exam'
-			? null
-			: ESL_EVENT_TITLES[draft.type]
+	const isReminder = $derived(draft.type === 'reminder');
+	const noteHidden = $derived(
+		isNoteHiddenForEventType(draft.type, isReminder ? draft.reminderKind : undefined)
 	);
+	const noteRequired = $derived(isNoteRequiredForEventType(draft.type));
+	const isFreeTitle = $derived(
+		isReminder && (draft.reminderKind === 'task' || draft.reminderKind === 'quiz')
+	);
+	const isQuizKind = $derived(isReminder && draft.reminderKind === 'quiz');
+	const isExam = $derived(draft.type === 'exam');
+	const lockedTitle = $derived.by((): string | null => {
+		if (draft.type === 'reminder') return ESL_REMINDER_TITLES[draft.reminderKind];
+		if (draft.type === 'exam') return null;
+		return ESL_EVENT_TITLES[draft.type];
+	});
 	/**
-	 * Per-type target gating (#212): most types lock to one target (Quiz to
-	 * CLIL, exams/offs to All); only Start, Partial, and Task offer the
-	 * dropdown. The backend refuses a mistargeted write with the same rule,
-	 * so the form snaps on type switch rather than letting a stale target
-	 * ride along onto a locked type.
+	 * Per-type target gating (#212, #216): most types lock to one target;
+	 * reminders lock per kind (quiz/CLIL, passport+recording+checks/Comm,
+	 * workbook/CLIL); only Start, Partial, and task-kind reminders offer
+	 * the dropdown. The backend refuses a mistargeted write with the same
+	 * rule, so the form snaps on type/kind switch rather than letting a
+	 * stale target ride along onto a locked type.
 	 */
-	const lockedTarget = $derived(lockedTargetForEventType(draft.type));
+	const lockedTarget = $derived(
+		isReminder
+			? lockedTargetForReminderKind(draft.reminderKind)
+			: lockedTargetForEventType(draft.type)
+	);
 	/**
 	 * Exam creates fan out from the picked start date (#212): 2 teaching
 	 * days for Exam 1/2, 3 for the Final, pushing past weekends and off
@@ -156,9 +185,8 @@
 	);
 
 	function onTypeChange(next: EslEventType) {
-		const prev = draft.type;
 		draft.type = next;
-		// Ranges live on due-types only, bounds on partials only — switching
+		// Ranges live on reminders only, bounds on partials only — switching
 		// away drops the now-meaningless value so a stale end cannot ride
 		// along onto an exam the backend would refuse.
 		if (!isRangedEventType(next)) draft.endDate = '';
@@ -166,25 +194,42 @@
 			draft.startPeriod = '';
 			draft.endPeriod = '';
 		}
+		if (next === 'reminder') {
+			draft.isBanner = true;
+			onReminderKindChange(draft.reminderKind);
+			return;
+		}
 		// Banner-only types show no note field — switching onto one drops the
 		// now-meaningless text so a stale note cannot ride along on submit.
 		if (isNoteHiddenForEventType(next)) draft.note = '';
 		// Locked-target types snap to their target for the same reason: a
-		// G7 pick cannot ride along onto a quiz the backend would refuse.
+		// G7 pick cannot ride along onto a locked type the backend would refuse.
 		const locked = lockedTargetForEventType(next);
 		if (locked !== null) draft.target = locked;
 		// Titles are locked per type and never derived from the note: fixed
 		// types snap to their locked title, exams keep a valid exam title or
-		// fall back to Exam 1, free-text types (task, quiz) start blank unless
-		// already typed there — switching between them keeps the text.
-		if (next === 'task' || next === 'quiz') {
-			if (prev !== 'task' && prev !== 'quiz') draft.title = '';
-		} else if (next === 'exam') {
+		// fall back to Exam 1.
+		if (next === 'exam') {
 			if (!(ESL_EXAM_TITLES as readonly string[]).includes(draft.title)) {
 				draft.title = ESL_EXAM_TITLES[0];
 			}
 		} else {
 			draft.title = ESL_EVENT_TITLES[next];
+		}
+	}
+
+	function onReminderKindChange(next: EslReminderKind) {
+		const prev = draft.reminderKind;
+		draft.reminderKind = next;
+		if (isNoteHiddenForEventType('reminder', next)) draft.note = '';
+		const locked = lockedTargetForReminderKind(next);
+		if (locked !== null) draft.target = locked;
+		// Free-text kinds (quiz, task) keep typed text when switching between
+		// them; locked kinds snap to their title.
+		if (next === 'task' || next === 'quiz') {
+			if (prev !== 'task' && prev !== 'quiz') draft.title = '';
+		} else {
+			draft.title = ESL_REMINDER_TITLES[next];
 		}
 	}
 </script>
@@ -199,6 +244,7 @@
 		const parsedEnd = draft.endPeriod === '' ? undefined : Number(draft.endPeriod);
 		onsubmit({
 			type: draft.type,
+			...(isReminder ? { reminderKind: draft.reminderKind, isBanner: draft.isBanner } : {}),
 			title: draft.title.trim(),
 			target: draft.target,
 			date: draft.date,
@@ -224,22 +270,38 @@
 				{/each}
 			</select>
 		</div>
+		{#if isReminder}
+			<div class="flex flex-col gap-1">
+				<Label for="event-form-kind">Reminder kind</Label>
+				<select
+					id="event-form-kind"
+					value={draft.reminderKind}
+					disabled={busy}
+					onchange={(event) => onReminderKindChange(event.currentTarget.value as EslReminderKind)}
+					class="rounded border px-2 py-1 text-sm"
+				>
+					{#each ESL_REMINDER_KINDS as option (option)}
+						<option value={option}>{ESL_REMINDER_TITLES[option]}</option>
+					{/each}
+				</select>
+			</div>
+		{/if}
 		<div class="flex min-w-48 flex-1 flex-col gap-1">
 			<Label for="event-form-title">Title</Label>
 			{#if isFreeTitle}
 				<input
 					id="event-form-title"
 					type="text"
-					placeholder={isQuiz ? 'Unit 1 Quiz Due' : 'Passport Unit 3 due'}
+					placeholder={isQuizKind ? 'Unit 1 Quiz Due' : 'Passport Unit 3 due'}
 					bind:value={draft.title}
 					disabled={busy}
 					required
 					class="rounded border px-2 py-1 text-sm"
 				/>
 				<span class="text-xs text-gray-500"
-					>{#if isQuiz}Quizzes take a numbered title (Unit 1 Quiz Due, Unit 2 Quiz Due) — edit the
-						number after creation when a unit shifts.{:else}Tasks take a free-text title — always
-						the banner.{/if}</span
+					>{#if isQuizKind}Quizzes take a numbered title (Unit 1 Quiz Due, Unit 2 Quiz Due) — edit
+						the number after creation when a unit shifts.{:else}Tasks take a free-text title —
+						always the banner.{/if}</span
 				>
 			{:else if isExam}
 				<select
@@ -323,7 +385,21 @@
 					disabled={busy}
 					class="rounded border px-2 py-1 text-sm"
 				/>
-				<span class="text-xs text-gray-500">Reminder windows only — due-types take ranges.</span>
+				<span class="text-xs text-gray-500">Reminder windows only — reminders take ranges.</span>
+			</div>
+		{/if}
+		{#if isReminder}
+			<div class="flex flex-col gap-1">
+				<Label for="event-form-banner">Banner</Label>
+				<label class="flex items-center gap-2 text-sm">
+					<input
+						id="event-form-banner"
+						type="checkbox"
+						bind:checked={draft.isBanner}
+						disabled={busy}
+					/>
+					Show as week banner
+				</label>
 			</div>
 		{/if}
 		{#if partial}

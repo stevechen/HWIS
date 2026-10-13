@@ -4,7 +4,7 @@ import type { ConvexTestInstance } from '../test.setup';
 import { api } from '../_generated/api';
 import schema from '../schema';
 import type { Id } from '../_generated/dataModel';
-import type { EslEventTarget, EslEventType } from '../shared/esl';
+import type { EslEventTarget, EslEventType, EslReminderKind } from '../shared/esl';
 
 const YEAR = '2025-2026';
 
@@ -70,6 +70,8 @@ async function createEvent(
 	semesterId: Id<'esl_semesters'>,
 	event: {
 		type: EslEventType;
+		reminderKind?: EslReminderKind;
+		isBanner?: boolean;
 		title: string;
 		target?: EslEventTarget;
 		date: string;
@@ -140,7 +142,8 @@ describe('esl/schedule.teacherDays', () => {
 		// Reminder window Mon 9/8 – Wed 9/10: the teacher meets both days, so
 		// the due lands on Wed 9/10 with its window badge and nowhere else.
 		await createEvent(t, semesterId, {
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: 'Passport check',
 			date: '2025-09-08',
 			endDate: '2025-09-10'
@@ -159,7 +162,8 @@ describe('esl/schedule.teacherDays', () => {
 			dues: [
 				{
 					title: 'Passport check',
-					type: 'task',
+					type: 'reminder',
+					reminderKind: 'task',
 					windowStart: '2025-09-08',
 					windowEnd: '2025-09-10'
 				}
@@ -173,7 +177,8 @@ describe('esl/schedule.teacherDays', () => {
 		// Window Wed 9/10 – Fri 9/12 with Friday off: the due falls back to
 		// the latest eligible day, Wed 9/10.
 		await createEvent(t, semesterId, {
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: 'Recording due',
 			date: '2025-09-10',
 			endDate: '2025-09-12'
@@ -467,7 +472,7 @@ describe('esl/schedule.teacherDays', () => {
 		expect(g9Days.some((day) => day.date > '2026-06-05')).toBe(false);
 	});
 
-	it('filters dues by target (a CLIL quiz reaches CLIL only, a Comm task Comm only)', async () => {
+	it('filters dues by target (a CLIL quiz-kind reminder reaches CLIL only, a Comm task-kind Comm only)', async () => {
 		const { t, teacherId, semesterId, clilId } = await setupTeacherWorld();
 		// A second cohort's Comm class joins the teacher's load (one teacher
 		// cannot hold both classes of a cohort). It meets Tue P5 / Thu P6.
@@ -487,17 +492,19 @@ describe('esl/schedule.teacherDays', () => {
 			]
 		});
 		await t.mutation(api.esl.classes.assignTeacher, { id: secondComm, teacherId });
-		// Quiz is CLIL-locked, the task takes a Comm pick: each collapses
-		// onto its own lesson's latest eligible day.
+		// Quiz-kind reminders are CLIL-locked, task-kind takes a Comm pick:
+		// each collapses onto its own lesson's latest eligible day.
 		await createEvent(t, semesterId, {
-			type: 'quiz',
+			type: 'reminder',
+			reminderKind: 'quiz',
 			title: 'Unit 1 Quiz Due',
 			target: 'CLIL',
 			date: '2025-09-08',
 			endDate: '2025-09-10'
 		});
 		await createEvent(t, semesterId, {
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: 'Comm survey',
 			target: 'Comm',
 			date: '2025-09-08',
@@ -511,7 +518,7 @@ describe('esl/schedule.teacherDays', () => {
 		});
 
 		const clilWednesday = days.find((day) => day.date === '2025-09-10' && day.classId === clilId);
-		expect(clilWednesday?.dues.map((due) => due.title)).toEqual(['Quiz']);
+		expect(clilWednesday?.dues.map((due) => due.title)).toEqual(['Unit 1 Quiz Due']);
 		const commThursday = days.find(
 			(day) => day.date === '2025-09-11' && day.classId === secondComm
 		);
@@ -520,7 +527,7 @@ describe('esl/schedule.teacherDays', () => {
 			if (day.classId === clilId) {
 				expect(day.dues.map((due) => due.title)).not.toContain('Comm survey');
 			} else {
-				expect(day.dues.map((due) => due.title)).not.toContain('Quiz');
+				expect(day.dues.map((due) => due.title)).not.toContain('Unit 1 Quiz Due');
 			}
 		}
 	});

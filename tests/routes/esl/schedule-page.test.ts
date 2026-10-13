@@ -96,7 +96,8 @@ const DAY_ROWS: ScheduleDayRow[] = [
 		dues: [
 			{
 				title: 'Workbook check',
-				type: 'task',
+				type: 'reminder',
+				reminderKind: 'workbook_check',
 				windowStart: '2025-09-01',
 				windowEnd: '2025-09-03'
 			}

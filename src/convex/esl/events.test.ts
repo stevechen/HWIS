@@ -8,7 +8,8 @@ import {
 	defaultTargetForEventType,
 	describeEslEventError,
 	eventReachesClass,
-	lockedTargetForEventType
+	lockedTargetForEventType,
+	lockedTargetForReminderKind
 } from '../shared/esl';
 
 const YEAR = '2025-2026';
@@ -37,11 +38,12 @@ function singleId(created: Id<'esl_events'> | Id<'esl_events'>[]): Id<'esl_event
 describe('esl/events.create', () => {
 	afterEach(() => vi.restoreAllMocks());
 
-	it('creates a ranged task event with a default All target', async () => {
+	it('creates a ranged task-kind reminder with a default All target', async () => {
 		const { t, semesterId } = await seededSemester();
 		const created = await t.mutation(api.esl.events.create, {
 			semesterId,
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: 'Passport check',
 			date: '2025-09-17',
 			endDate: '2025-09-24'
@@ -49,11 +51,13 @@ describe('esl/events.create', () => {
 		const eventId = singleId(created);
 		const event = await t.query(api.esl.events.get, { eventId });
 		expect(event).toMatchObject({
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: 'Passport check',
 			target: 'all',
 			date: '2025-09-17',
-			endDate: '2025-09-24'
+			endDate: '2025-09-24',
+			isBanner: true
 		});
 	});
 
@@ -83,12 +87,13 @@ describe('esl/events.create', () => {
 		).rejects.toThrow(/always shows "Off"/);
 	});
 
-	it('refuses a blank task title', async () => {
+	it('refuses a blank task-kind reminder title', async () => {
 		const { t, semesterId } = await seededSemester();
 		await expect(
 			t.mutation(api.esl.events.create, {
 				semesterId,
-				type: 'task',
+				type: 'reminder',
+				reminderKind: 'task',
 				title: '   ',
 				date: '2025-09-25'
 			})
@@ -138,7 +143,8 @@ describe('esl/events.create', () => {
 		await expect(
 			t.mutation(api.esl.events.create, {
 				semesterId,
-				type: 'task',
+				type: 'reminder',
+				reminderKind: 'task',
 				title: 'Passport check',
 				date: '2025-10-16'
 			})
@@ -196,58 +202,72 @@ describe('esl/events.create', () => {
 	});
 
 	it.each([
-		['start_school', 'Start at P3', '2025-09-01', 'all'],
-		['quiz', 'Unit 1 Quiz Due', '2025-09-02', 'CLIL'],
-		['exam', 'Exam 1', '2025-10-16', 'all'],
-		['passport_due', 'Passport due', '2025-09-03', 'Comm'],
-		['recording_due', 'Recording due', '2025-09-04', 'Comm'],
-		['g9_mock', 'G9 Mock Exam', '2025-09-05', 'G9']
-	] as const)('ignores the note for banner-only type %s', async (type, title, date, target) => {
-		const { t, semesterId } = await seededSemester();
-		const created = await t.mutation(api.esl.events.create, {
-			semesterId,
-			type,
-			title,
-			target,
-			note: 'should be dropped',
-			date
-		});
-		const eventId = Array.isArray(created) ? created[0] : created;
-		if (!eventId) throw new Error('event create returned no rows');
-		const event = await t.query(api.esl.events.get, { eventId });
-		expect(event.note).toBeUndefined();
-	});
+		['start_school', undefined, 'Start at P3', '2025-09-01', 'all'],
+		['reminder', 'quiz', 'Unit 1 Quiz Due', '2025-09-02', 'CLIL'],
+		['exam', undefined, 'Exam 1', '2025-10-16', 'all'],
+		['reminder', 'passport', 'Passport due', '2025-09-03', 'Comm'],
+		['reminder', 'recording', 'Recording due', '2025-09-04', 'Comm'],
+		['reminder', 'passport_check', 'Passport check', '2025-09-06', 'Comm'],
+		['reminder', 'workbook_check', 'Workbook check', '2025-09-07', 'CLIL'],
+		['g9_mock', undefined, 'G9 Mock Exam', '2025-09-05', 'G9']
+	] as const)(
+		'ignores the note for banner-only type %s kind %s',
+		async (type, kind, title, date, target) => {
+			const { t, semesterId } = await seededSemester();
+			const created = await t.mutation(api.esl.events.create, {
+				semesterId,
+				type,
+				...(kind === undefined ? {} : { reminderKind: kind }),
+				title,
+				target,
+				note: 'should be dropped',
+				date
+			});
+			const eventId = Array.isArray(created) ? created[0] : created;
+			if (!eventId) throw new Error('event create returned no rows');
+			const event = await t.query(api.esl.events.get, { eventId });
+			expect(event.note).toBeUndefined();
+		}
+	);
 });
 
 describe('esl per-type target gating (#212)', () => {
-	it('locks quiz to CLIL, passport/recording dues to Comm, mocks to G9, exclusive types to all', () => {
-		expect(lockedTargetForEventType('quiz')).toBe('CLIL');
-		expect(lockedTargetForEventType('passport_due')).toBe('Comm');
-		expect(lockedTargetForEventType('recording_due')).toBe('Comm');
+	it('locks quiz-kind reminders to CLIL, passport/recording/checks to Comm, mocks to G9, exclusive types to all', () => {
+		expect(lockedTargetForReminderKind('quiz')).toBe('CLIL');
+		expect(lockedTargetForReminderKind('passport')).toBe('Comm');
+		expect(lockedTargetForReminderKind('recording')).toBe('Comm');
+		expect(lockedTargetForReminderKind('passport_check')).toBe('Comm');
+		expect(lockedTargetForReminderKind('workbook_check')).toBe('CLIL');
+		expect(lockedTargetForEventType('reminder')).toBeNull();
 		expect(lockedTargetForEventType('g9_mock')).toBe('G9');
 		expect(lockedTargetForEventType('exam')).toBe('all');
 		expect(lockedTargetForEventType('no_school')).toBe('all');
 		expect(lockedTargetForEventType('no_class')).toBe('all');
 	});
 
-	it('leaves Start, Partial, and Task open to the target dropdown', () => {
+	it('leaves Start, Partial, and task-kind reminders open to the target dropdown', () => {
 		expect(lockedTargetForEventType('start_school')).toBeNull();
 		expect(lockedTargetForEventType('partial')).toBeNull();
-		expect(lockedTargetForEventType('task')).toBeNull();
-		expect(defaultTargetForEventType('task')).toBe('all');
-		expect(defaultTargetForEventType('quiz')).toBe('CLIL');
+		expect(lockedTargetForReminderKind('task')).toBeNull();
+		expect(defaultTargetForEventType('reminder', 'task')).toBe('all');
+		expect(defaultTargetForEventType('reminder', 'quiz')).toBe('CLIL');
 	});
 
 	it('refuses a mistargeted write with a sentence naming the locked target', () => {
-		expect(assertValidEslTarget('quiz', 'Comm')).toMatchObject({
+		expect(assertValidEslTarget('reminder', 'Comm', 'quiz')).toMatchObject({
 			kind: 'badTarget',
 			expected: 'CLIL'
 		});
-		expect(describeEslEventError({ kind: 'badTarget', type: 'quiz', expected: 'CLIL' })).toMatch(
-			/CLIL/
-		);
+		expect(
+			describeEslEventError({
+				kind: 'badTarget',
+				type: 'reminder',
+				expected: 'CLIL',
+				reminderKind: 'quiz'
+			})
+		).toMatch(/CLIL/);
 		expect(assertValidEslTarget('exam', 'all')).toBeNull();
-		expect(assertValidEslTarget('task', 'G8')).toBeNull();
+		expect(assertValidEslTarget('reminder', 'G8', 'task')).toBeNull();
 	});
 
 	it('reaches G7/G8 grade classes and H1 grade-10 classes', () => {
@@ -264,12 +284,13 @@ describe('esl per-type target gating (#212)', () => {
 		expect(eventReachesClass('all', 'H10A', 10)).toBe(true);
 	});
 
-	it('refuses a quiz outside CLIL and an off outside all', async () => {
+	it('refuses a quiz-kind reminder outside CLIL and an off outside all', async () => {
 		const { t, semesterId } = await seededSemester();
 		await expect(
 			t.mutation(api.esl.events.create, {
 				semesterId,
-				type: 'quiz',
+				type: 'reminder',
+				reminderKind: 'quiz',
 				title: 'Unit 1 Quiz Due',
 				target: 'Comm',
 				date: '2025-09-02'
@@ -287,11 +308,12 @@ describe('esl per-type target gating (#212)', () => {
 		).rejects.toThrow(/all/i);
 	});
 
-	it('accepts dropdown targets on Start, Partial, and Task', async () => {
+	it('accepts dropdown targets on Start, Partial, and task-kind reminders', async () => {
 		const { t, semesterId } = await seededSemester();
 		const taskId = await t.mutation(api.esl.events.create, {
 			semesterId,
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: 'G8 survey',
 			target: 'G8',
 			date: '2025-09-03'
@@ -309,11 +331,12 @@ describe('esl per-type target gating (#212)', () => {
 		});
 	});
 
-	it('refuses retargeting onto a type whose gate the target breaks', async () => {
+	it('refuses retargeting onto a kind whose gate the target breaks', async () => {
 		const { t, semesterId } = await seededSemester();
 		const created = await t.mutation(api.esl.events.create, {
 			semesterId,
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: 'Check',
 			target: 'G7',
 			date: '2025-09-17'
@@ -321,16 +344,16 @@ describe('esl per-type target gating (#212)', () => {
 		const eventId = singleId(created);
 		if (Array.isArray(eventId)) throw new Error('task create fanned out');
 		await expect(
-			t.mutation(api.esl.events.update, { eventId, type: 'quiz', title: 'Quiz' })
+			t.mutation(api.esl.events.update, { eventId, reminderKind: 'quiz', title: 'Quiz' })
 		).rejects.toThrow(/CLIL/);
 		await t.mutation(api.esl.events.update, {
 			eventId,
-			type: 'quiz',
+			reminderKind: 'quiz',
 			title: 'Quiz',
 			target: 'CLIL'
 		});
 		const event = await t.query(api.esl.events.get, { eventId });
-		expect(event).toMatchObject({ type: 'quiz', target: 'CLIL' });
+		expect(event).toMatchObject({ type: 'reminder', reminderKind: 'quiz', target: 'CLIL' });
 	});
 });
 
@@ -516,7 +539,8 @@ describe('esl/events.update', () => {
 		const { t, semesterId } = await seededSemester();
 		const created = await t.mutation(api.esl.events.create, {
 			semesterId,
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: "Sport's Day setup",
 			date: '2025-10-24'
 		});
@@ -627,11 +651,12 @@ describe('esl/events.update', () => {
 		expect(event.note).toBeUndefined();
 	});
 
-	it('clears the note when an update retargets a row to a banner-only type', async () => {
+	it('clears the note when an update retargets a row to a banner-only kind', async () => {
 		const { t, semesterId } = await seededSemester();
 		const created = await t.mutation(api.esl.events.create, {
 			semesterId,
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: 'Passport check',
 			note: 'Unit 3',
 			date: '2025-09-17'
@@ -639,12 +664,12 @@ describe('esl/events.update', () => {
 		const eventId = singleId(created);
 		await t.mutation(api.esl.events.update, {
 			eventId,
-			type: 'quiz',
+			reminderKind: 'quiz',
 			title: 'Quiz',
 			target: 'CLIL'
 		});
 		const event = await t.query(api.esl.events.get, { eventId });
-		expect(event).toMatchObject({ type: 'quiz' });
+		expect(event).toMatchObject({ type: 'reminder', reminderKind: 'quiz' });
 		expect(event.note).toBeUndefined();
 	});
 });
@@ -714,11 +739,12 @@ describe('esl/events.remove', () => {
 });
 
 describe('esl/events.migrateToV3', () => {
-	it('reports zero migrated rows on a v3 database (idempotent)', async () => {
+	it('reports zero migrated rows on a current database (idempotent)', async () => {
 		const { t, semesterId } = await seededSemester();
 		await t.mutation(api.esl.events.create, {
 			semesterId,
-			type: 'task',
+			type: 'reminder',
+			reminderKind: 'task',
 			title: 'Passport check',
 			date: '2025-09-17'
 		});
