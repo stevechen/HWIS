@@ -13,6 +13,7 @@ import {
 	defaultTargetForEventType,
 	describeEslEventError,
 	findLunarOffDays,
+	g9MockDates,
 	isValidEslDate,
 	suggestExamEndDate,
 	translateHolidayCaption,
@@ -234,10 +235,10 @@ export const seed = mutation({
 
 		for (const mockStart of args.g9MockStarts ?? []) {
 			checkDate(mockStart);
-			// Fixed two-day g9_mock+G9 ranges — never exam-typed, so the term
-			// calculation stays safe (#184 constraints).
-			const [first, second] = [mockStart, nextCalendarDate(mockStart)];
-			[first, second].forEach((date, index) => {
+			// Fixed two-day g9_mock+G9 rows — never exam-typed, so the term
+			// calculation stays safe (#184 constraints). The pair comes from
+			// the shared rule `events.create` fans out with (#217).
+			g9MockDates(mockStart).forEach((date, index) => {
 				drafts.push({
 					type: 'g9_mock',
 					title: ESL_EVENT_TITLES.g9_mock,
