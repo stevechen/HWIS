@@ -12,11 +12,13 @@
 		defaultStartDate,
 		endPickerMondays,
 		EXAM_SLOT_CLASS_DAYS,
+		examOrderViolation,
 		isWeekend,
 		mockOffDays,
 		schoolYearForTerm,
 		startPickerMondays,
 		suggestSemester,
+		type ExamRangeBound,
 		type ExamSlot,
 		type MockOffDay,
 		type Term
@@ -91,9 +93,14 @@
 	// whose immediate-set fan-out would CROSS another slot's range stays
 	// clickable and is refused by `setExamDate`'s guard instead, so picking
 	// Exam 1 or Exam 2 blocks exactly TWO days and only Final blocks three.
-	// The real Step 3 ticket (#221) should mirror backend `assertExclusive`
-	// (forbid exam-over-exam, not warn) AND adopt this same dialog-free
-	// click-to-set model.
+	// Feedback F49: superseded for ORDER — every fan-out crossing is also
+	// an order violation (a crossed later range breaks "end before it
+	// starts", a crossed earlier range breaks "start after it ends"), so
+	// violating starts now render DISABLED via `orderViolations` below and
+	// the `setExamDate` clash/order guards only fire on programmatic
+	// clicks. The real Step 3 ticket (#221) should mirror backend
+	// `assertExclusive` (forbid exam-over-exam, not warn) AND adopt this
+	// same dialog-free click-to-set model.
 	const blockedDates = $derived(
 		exams.filter((exam) => exam.label !== activeExam).flatMap((exam) => exam.dates)
 	);
@@ -115,15 +122,55 @@
 		}
 		return out;
 	});
-	const examDisabledDates = $derived([...blockedDates, ...overflowStarts]);
-	const examDisabledTooltips = $derived(
-		Object.fromEntries(
+	// Feedback F49: chronological order gate (Exam 1 < Exam 2 < Final — the
+	// user asked for 1↔2 explicitly; Final extends the same rule as the
+	// tail). A free start whose fan-out would violate the order against any
+	// CONFIRMED range renders DISABLED with a tooltip naming the constraint
+	// (e.g. "Exam 1 must end before Exam 2 starts"), reusing the
+	// `disabledTooltips` mechanism. Unset slots constrain nothing.
+	const orderViolations = $derived.by(() => {
+		const tooltips: Record<string, string> = {};
+		const dates: string[] = [];
+		const others: ExamRangeBound[] = exams
+			.filter((exam) => exam.label !== activeExam && exam.dates.length > 0)
+			.map((exam) => ({
+				label: exam.label,
+				first: exam.dates[0],
+				last: exam.dates[exam.dates.length - 1]
+			}));
+		if (others.length === 0 || startDate > endDate) return { dates, tooltips };
+		let cursor = startDate;
+		for (let i = 0; i < 400 && cursor <= endDate; i++) {
+			if (!isWeekend(cursor) && !offDates.has(cursor) && !blockedDates.includes(cursor)) {
+				const fanned = collectClassDays(cursor, rangeLength, offDates);
+				const first = fanned[0];
+				const last = fanned[fanned.length - 1];
+				if (first !== undefined && last !== undefined) {
+					const violation = examOrderViolation(activeExam, first, last, others);
+					if (violation !== null) {
+						dates.push(cursor);
+						tooltips[cursor] = `${cursor} would break the exam order — ${violation}`;
+					}
+				}
+			}
+			cursor = addDays(cursor, 1);
+		}
+		return { dates, tooltips };
+	});
+	const examDisabledDates = $derived([
+		...blockedDates,
+		...overflowStarts,
+		...orderViolations.dates
+	]);
+	const examDisabledTooltips = $derived({
+		...orderViolations.tooltips,
+		...Object.fromEntries(
 			overflowStarts.map((date) => [
 				date,
 				`${date} would extend past the last school day — pick an earlier start`
 			])
 		)
-	);
+	});
 	const hoverHighlight = $derived(
 		hoverStart === null ? [] : collectClassDays(hoverStart, rangeLength, offDates)
 	);
@@ -164,6 +211,24 @@
 			.filter((exam) => exam.label !== 'Final')
 			.flatMap((exam) => exam.dates);
 		if (wanted.some((date) => takenByOthers.includes(date))) return;
+		// Feedback F49: the auto-default must satisfy the order too — skip
+		// a default that would start on/before a confirmed earlier slot's
+		// range (e.g. Exam 2 set at the very tail of the window).
+		if (
+			examOrderViolation(
+				'Final',
+				wanted[0],
+				wanted[wanted.length - 1],
+				exams
+					.filter((exam) => exam.label !== 'Final' && exam.dates.length > 0)
+					.map((exam) => ({
+						label: exam.label,
+						first: exam.dates[0],
+						last: exam.dates[exam.dates.length - 1]
+					}))
+			) !== null
+		)
+			return;
 		const current = exams.find((exam) => exam.label === 'Final');
 		if (current !== undefined && current.dates.join(',') === wanted.join(',')) return;
 		exams = [
@@ -209,6 +274,25 @@
 		const dates = collectClassDays(date, rangeLength, offDates);
 		if (dates.length === 0 || dates.some((d) => blockedDates.includes(d))) return;
 		if (dates[0] < startDate || dates[dates.length - 1] > endDate) return;
+		// Feedback F49: chronological order gate — quiet-refuse ranges that
+		// would break Exam 1 < Exam 2 < Final against any confirmed slot.
+		// (Violating starts also render disabled, so this guard only fires
+		// on programmatic clicks. Quietly ignore.)
+		if (
+			examOrderViolation(
+				activeExam,
+				dates[0],
+				dates[dates.length - 1],
+				exams
+					.filter((exam) => exam.label !== activeExam && exam.dates.length > 0)
+					.map((exam) => ({
+						label: exam.label,
+						first: exam.dates[0],
+						last: exam.dates[exam.dates.length - 1]
+					}))
+			) !== null
+		)
+			return;
 		exams = [
 			...exams.filter((exam) => exam.label !== activeExam),
 			{ label: activeExam, dates }

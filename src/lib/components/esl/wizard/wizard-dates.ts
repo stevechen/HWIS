@@ -90,6 +90,47 @@ export const EXAM_SLOT_CLASS_DAYS: Readonly<Record<ExamSlot, 2 | 3>> = {
 	Final: 3
 };
 
+/**
+ * Feedback F49: chronological order gate — Exam 1 < Exam 2 < Final as a
+ * full ordering. The user asked for 1↔2 explicitly; Final already sits at
+ * the tail by auto-default (last class days of the window), so the same
+ * rule extends to it. A slot's range must end strictly before every LATER
+ * slot's range starts, and start strictly after every EARLIER slot's range
+ * ends. Unset slots constrain nothing (only confirmed ranges bound).
+ */
+export const EXAM_SLOT_ORDER: readonly ExamSlot[] = ['Exam 1', 'Exam 2', 'Final'];
+
+export interface ExamRangeBound {
+	label: ExamSlot;
+	first: string;
+	last: string;
+}
+
+/**
+ * Feedback F49: canonical order-constraint message, or null when
+ * `[first, last]` for `active` satisfies the ordering against every
+ * confirmed `other` range. Phrased earlier-first so both tabs name the
+ * same constraint (e.g. `Exam 1 must end before Exam 2 starts`).
+ */
+export function examOrderViolation(
+	active: ExamSlot,
+	first: string,
+	last: string,
+	others: readonly ExamRangeBound[]
+): string | null {
+	const activeIndex = EXAM_SLOT_ORDER.indexOf(active);
+	for (const other of others) {
+		const otherIndex = EXAM_SLOT_ORDER.indexOf(other.label);
+		if (otherIndex < 0 || otherIndex === activeIndex) continue;
+		if (otherIndex > activeIndex) {
+			if (!(last < other.first)) return `${active} must end before ${other.label} starts`;
+		} else {
+			if (!(first > other.last)) return `${other.label} must end before ${active} starts`;
+		}
+	}
+	return null;
+}
+
 /** The Monday of the week containing `date` (`date` itself when Monday). */
 export function mondayOfWeek(date: string): string {
 	return addDays(date, -((weekdayOf(date) + 6) % 7));
