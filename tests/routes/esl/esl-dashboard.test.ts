@@ -47,8 +47,6 @@ describe('esl dashboard page', () => {
 
 		await expect.element(page.getByTestId('esl-dashboard.schedule')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl-dashboard.calendar')).toBeInTheDocument();
-		await expect
-			.element(page.getByTestId('esl-dashboard.admin'))
-			.not.toBeInTheDocument();
+		await expect.element(page.getByTestId('esl-dashboard.admin')).not.toBeInTheDocument();
 	});
 });

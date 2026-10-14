@@ -1,6 +1,6 @@
 import { mutation, query } from './_generated/server';
 import { v } from 'convex/values';
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { authComponent, requireAdminForSensitiveOperation } from './auth';
 
@@ -284,6 +284,7 @@ export const teardownByTag = mutation({
 			await deleteBackupsByTag(teardown);
 		}
 		if (isAll) {
+			await deleteEslByTag(teardown);
 			await deleteUsersByTag(teardown);
 			await deleteOrphanedClasses(teardown);
 		} else if (scope === 'students') {
@@ -295,8 +296,190 @@ export const teardownByTag = mutation({
 });
 
 /**
- * Sweep removing any row carrying any `e2eTag` (plus cascaded dependents and
- * orphaned classes). Backs the post-run cleanup job.
+ * ESL semester teardown: events → notes → meetings → classes → cohorts →
+ * availability → semesters. Children first — every child points at a tagged
+ * parent, but deleting the parent first would orphan them under another tag.
+ *
+ * Classes carry no tag, so a tagged cohort's classes are collected first and
+ * any notes/meetings on them deleted with them; sibling classes from another
+ * year in the same cohort are untouched (they belong to a different tag).
+ */
+async function deleteEslByTag(teardown: TeardownContext) {
+	const { ctx, e2eTag } = teardown;
+
+	const semesters = await ctx.db
+		.query('esl_semesters')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect();
+
+	const events = await ctx.db
+		.query('esl_events')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect();
+	for (const event of events) {
+		await ctx.db.delete(event._id);
+	}
+	if (events.length > 0) bump(teardown, 'esl_events', events.length);
+
+	const cohorts = await ctx.db
+		.query('esl_cohorts')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect();
+
+	const classes: Doc<'esl_classes'>[] = [];
+	for (const cohort of cohorts) {
+		const rows = await ctx.db
+			.query('esl_classes')
+			.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
+			.collect();
+		classes.push(...rows);
+	}
+
+	const notes = await ctx.db
+		.query('teacher_notes')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect();
+	for (const note of notes) {
+		await ctx.db.delete(note._id);
+	}
+	if (notes.length > 0) bump(teardown, 'teacher_notes', notes.length);
+
+	const meetings = await ctx.db
+		.query('esl_class_meetings')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect();
+	for (const meeting of meetings) {
+		await ctx.db.delete(meeting._id);
+	}
+	if (meetings.length > 0) bump(teardown, 'esl_class_meetings', meetings.length);
+
+	for (const cls of classes) {
+		await ctx.db.delete(cls._id);
+	}
+	if (classes.length > 0) bump(teardown, 'esl_classes', classes.length);
+
+	const students = await ctx.db
+		.query('esl_students')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect();
+	for (const student of students) {
+		await ctx.db.delete(student._id);
+	}
+	if (students.length > 0) bump(teardown, 'esl_students', students.length);
+
+	const availability = await ctx.db
+		.query('esl_teacher_availability')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect();
+	for (const row of availability) {
+		await ctx.db.delete(row._id);
+	}
+	if (availability.length > 0) bump(teardown, 'esl_teacher_availability', availability.length);
+
+	for (const cohort of cohorts) {
+		await ctx.db.delete(cohort._id);
+	}
+	if (cohorts.length > 0) bump(teardown, 'esl_cohorts', cohorts.length);
+
+	for (const semester of semesters) {
+		await ctx.db.delete(semester._id);
+	}
+	if (semesters.length > 0) bump(teardown, 'esl_semesters', semesters.length);
+}
+
+/**
+ * Delete every tagged row in the ESL semester graph, whatever tag it carries.
+ * The per-tag order above (children before parents, untagged cohort classes
+ * collected through their tagged cohort) applies unchanged — only the tag
+ * filter widens from one value to "any".
+ */
+async function deleteEslSweep(teardown: TeardownContext) {
+	const { ctx } = teardown;
+
+	const semesters = await ctx.db
+		.query('esl_semesters')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect();
+
+	const events = await ctx.db
+		.query('esl_events')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect();
+	for (const event of events) {
+		await ctx.db.delete(event._id);
+	}
+	if (events.length > 0) bump(teardown, 'esl_events', events.length);
+
+	const cohorts = await ctx.db
+		.query('esl_cohorts')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect();
+
+	const classes: Doc<'esl_classes'>[] = [];
+	for (const cohort of cohorts) {
+		const rows = await ctx.db
+			.query('esl_classes')
+			.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
+			.collect();
+		classes.push(...rows);
+	}
+
+	const notes = await ctx.db
+		.query('teacher_notes')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect();
+	for (const note of notes) {
+		await ctx.db.delete(note._id);
+	}
+	if (notes.length > 0) bump(teardown, 'teacher_notes', notes.length);
+
+	const meetings = await ctx.db
+		.query('esl_class_meetings')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect();
+	for (const meeting of meetings) {
+		await ctx.db.delete(meeting._id);
+	}
+	if (meetings.length > 0) bump(teardown, 'esl_class_meetings', meetings.length);
+
+	for (const cls of classes) {
+		await ctx.db.delete(cls._id);
+	}
+	if (classes.length > 0) bump(teardown, 'esl_classes', classes.length);
+
+	const students = await ctx.db
+		.query('esl_students')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect();
+	for (const student of students) {
+		await ctx.db.delete(student._id);
+	}
+	if (students.length > 0) bump(teardown, 'esl_students', students.length);
+
+	const availability = await ctx.db
+		.query('esl_teacher_availability')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect();
+	for (const row of availability) {
+		await ctx.db.delete(row._id);
+	}
+	if (availability.length > 0) bump(teardown, 'esl_teacher_availability', availability.length);
+
+	for (const cohort of cohorts) {
+		await ctx.db.delete(cohort._id);
+	}
+	if (cohorts.length > 0) bump(teardown, 'esl_cohorts', cohorts.length);
+
+	for (const semester of semesters) {
+		await ctx.db.delete(semester._id);
+	}
+	if (semesters.length > 0) bump(teardown, 'esl_semesters', semesters.length);
+}
+
+/**
+ * Sweep removing any row carrying any `e2eTag` in the ESL semester graph,
+ * mirroring the per-tag order above. Backs the post-run cleanup job alongside
+ * the legacy tables.
  */
 export const teardownAllTagged = mutation({
 	args: {},
@@ -409,6 +592,7 @@ export const teardownAllTagged = mutation({
 		}
 		if (userCount > 0) bump(teardown, 'users', userCount);
 
+		await deleteEslSweep(teardown);
 		await deleteOrphanedClasses(teardown);
 
 		return { deleted: teardown.deleted };
@@ -561,7 +745,14 @@ export const verifyCleanTeardown = query({
 			'point_categories',
 			'house_events',
 			'backups',
-			'users'
+			'users',
+			'esl_semesters',
+			'esl_events',
+			'esl_cohorts',
+			'teacher_notes',
+			'esl_class_meetings',
+			'esl_students',
+			'esl_teacher_availability'
 		] as const;
 		for (const table of tables) {
 			const docs = await ctx.db.query(table).collect();
@@ -570,6 +761,21 @@ export const verifyCleanTeardown = query({
 			).length;
 			if (count > 0) remaining[table] = count;
 		}
+		// Classes carry no tag of their own: a surviving tagged cohort with
+		// classes still attached means the ESL teardown left work behind.
+		const taggedCohorts = await ctx.db
+			.query('esl_cohorts')
+			.withIndex('by_e2eTag', (q) => q.eq('e2eTag', args.e2eTag))
+			.collect();
+		let orphanedClasses = 0;
+		for (const cohort of taggedCohorts) {
+			const rows = await ctx.db
+				.query('esl_classes')
+				.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
+				.collect();
+			orphanedClasses += rows.length;
+		}
+		if (orphanedClasses > 0) remaining['esl_classes'] = orphanedClasses;
 		return { e2eTag: args.e2eTag, remaining };
 	}
 });

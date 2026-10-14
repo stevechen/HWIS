@@ -1,8 +1,12 @@
 import {
 	getE2EUtils,
 	type CleanupScope,
+	type CreateEslEventOptions,
+	type CreateEslSemesterOptions,
 	type CreateStudentOptions,
 	type CreateHouseEventOptions,
+	type SeedEslSemesterOptions,
+	type UpdateEslEventOptions,
 	refreshClient
 } from '../src/lib/e2e-utils';
 import { CONVEX_JWT_COOKIE_NAME } from '../src/lib/e2e/session-keys';
@@ -298,6 +302,41 @@ export async function cleanupWeeklyReportTestData(tag?: string) {
 	return await withTeardownRetry('cleanupWeeklyReportTestData', () =>
 		utils.cleanupWeeklyReportTestData(tag)
 	);
+}
+
+export async function setEslRoleByEmail(email: string, eslRole: 'admin' | 'teacher' | null) {
+	const utils = getUtils();
+	return await utils.setEslRoleByEmail(email, eslRole);
+}
+
+export async function createEslSemester(opts: CreateEslSemesterOptions) {
+	const utils = getUtils();
+	return await utils.createEslSemester(opts);
+}
+
+export async function seedEslSemester(opts: SeedEslSemesterOptions) {
+	const utils = getUtils();
+	return await utils.seedEslSemester(opts);
+}
+
+export async function createEslEvent(opts: CreateEslEventOptions) {
+	const utils = getUtils();
+	return await utils.createEslEvent(opts);
+}
+
+export async function updateEslEvent(opts: UpdateEslEventOptions) {
+	const utils = getUtils();
+	return await utils.updateEslEvent(opts);
+}
+
+export async function removeEslEvent(eventId: string) {
+	const utils = getUtils();
+	return await utils.removeEslEvent(eventId);
+}
+
+export async function getEslSemester(semesterId: string) {
+	const utils = getUtils();
+	return await utils.getEslSemester(semesterId);
 }
 
 export function getE2EUtilsClient() {
