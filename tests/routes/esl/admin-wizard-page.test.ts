@@ -1,0 +1,112 @@
+import { page } from 'vitest/browser';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render } from 'vitest-browser-svelte';
+
+const gotoMock = vi.fn();
+
+vi.mock('$app/navigation', () => ({
+	goto: (...args: unknown[]) => gotoMock(...args)
+}));
+
+import WizardPage from '$src/routes/esl/admin/semesters/new/wizard/+page.svelte';
+
+const STORAGE_KEY = 'hwis:esl-wizard';
+
+function stored(): string | null {
+	return sessionStorage.getItem(STORAGE_KEY);
+}
+
+describe('ESL semester wizard route (shell only)', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		sessionStorage.clear();
+	});
+
+	it('renders the wizard shell on the route with the step 1 slot', async () => {
+		await render(WizardPage);
+
+		await expect.element(page.getByTestId('wizard.root')).toBeInTheDocument();
+		await expect.element(page.getByTestId('wizard.progress')).toHaveTextContent('Step 1 of 5');
+		await expect.element(page.getByTestId('wizard.step-1')).toBeInTheDocument();
+		await expect.element(page.getByTestId('wizard.step-1-placeholder')).toHaveTextContent(/Step 1/);
+	});
+
+	it('hands the seeded state down to the step slot', async () => {
+		await render(WizardPage);
+
+		// The shell seeds the suggestion; the slot echoes what it was handed.
+		const slot = page.getByTestId('wizard.step-1-placeholder');
+		await expect.element(slot).toHaveTextContent(/starting/i);
+		await expect
+			.element(page.getByTestId('wizard.step-1-suggestion'))
+			.toHaveTextContent(/\d{4}-\d{2}-\d{2}/);
+	});
+
+	it('advances to the step 2 slot and persists the step', async () => {
+		await render(WizardPage);
+
+		await page.getByRole('button', { name: 'Next' }).click();
+
+		await expect.element(page.getByTestId('wizard.step-1-placeholder')).not.toBeInTheDocument();
+		await expect.element(page.getByTestId('wizard.step-2')).toBeInTheDocument();
+		await expect.element(page.getByTestId('wizard.step-2-placeholder')).toHaveTextContent(/Step 2/);
+		await vi.waitFor(() => {
+			expect(stored()).toContain('"currentStep":2');
+		});
+	});
+
+	it('walks the stepper to any completed step', async () => {
+		await render(WizardPage);
+
+		await page.getByTestId('wizard.step-2-tab').click();
+
+		await expect
+			.element(page.getByTestId('wizard.step-2-tab'))
+			.toHaveAttribute('aria-current', 'step');
+		await expect.element(page.getByTestId('wizard.step-2-placeholder')).toBeInTheDocument();
+		await vi.waitFor(() => {
+			expect(stored()).toContain('"currentStep":2');
+		});
+
+		await page.getByTestId('wizard.step-1-tab').click();
+
+		await expect.element(page.getByTestId('wizard.step-1-placeholder')).toBeInTheDocument();
+	});
+
+	it('keeps the steps behind their prerequisites locked', async () => {
+		await render(WizardPage);
+
+		await expect.element(page.getByTestId('wizard.step-3-tab')).toBeDisabled();
+		await expect.element(page.getByTestId('wizard.step-4-tab')).toBeDisabled();
+		await expect.element(page.getByTestId('wizard.step-5-tab')).toBeDisabled();
+	});
+
+	it('resumes the stored step after a refresh', async () => {
+		const first = await render(WizardPage);
+		await page.getByRole('button', { name: 'Next' }).click();
+		await vi.waitFor(() => {
+			expect(stored()).toContain('"currentStep":2');
+		});
+		first.unmount();
+
+		await render(WizardPage);
+
+		await expect.element(page.getByTestId('wizard.step-2-placeholder')).toBeInTheDocument();
+		await expect.element(page.getByTestId('wizard.resumed')).toBeInTheDocument();
+	});
+
+	it('cancels by discarding the stored state and leaving the wizard', async () => {
+		await render(WizardPage);
+		await page.getByRole('button', { name: 'Next' }).click();
+		await vi.waitFor(() => {
+			expect(stored()).toContain('"currentStep":2');
+		});
+
+		await page.getByRole('button', { name: 'Cancel' }).click();
+
+		await vi.waitFor(() => {
+			expect(gotoMock).toHaveBeenCalledWith('/esl/admin/semesters');
+		});
+		expect(stored()).toBeNull();
+	});
+});

@@ -8,10 +8,14 @@ import {
 	ESL_RANGED_EVENT_TYPES,
 	ESL_REMINDER_KINDS,
 	ESL_REMINDER_TITLES,
+	ESL_START_SCHOOL_PERIODS,
+	assertValidEslEvent,
 	assertValidEslTarget,
 	assertValidEslTitle,
 	defaultTargetForEventType,
 	describeEslEventError,
+	dueWindowDates,
+	g9MockDates,
 	isEslEventType,
 	isEslReminderKind,
 	isProtectedSeedEvent,
@@ -270,5 +274,99 @@ describe('esl reminder consolidation (#216)', () => {
 	it('returns null for non-due types', () => {
 		expect(migrateToReminderEslEvent({ type: 'exam', title: 'Exam 1' })).toBeNull();
 		expect(migrateToReminderEslEvent({ type: 'reminder', title: 'Anything' })).toBeNull();
+	});
+});
+
+/**
+ * Ticket #217: the write rules the semester-setup wizard depends on — the
+ * first day's period window, the fixed two-day G9 mock, and the due windows
+ * that may never straddle an exam day.
+ */
+describe('esl wizard write rules (#217)', () => {
+	it('carries the first day of school as a P1–P2 window', () => {
+		expect(ESL_START_SCHOOL_PERIODS).toEqual({ startPeriod: 1, endPeriod: 2 });
+	});
+
+	it('lets the first day of school take period bounds and refuses them on every other type', () => {
+		expect(
+			assertValidEslEvent({
+				type: 'start_school',
+				date: '2025-09-01',
+				startPeriod: ESL_START_SCHOOL_PERIODS.startPeriod,
+				endPeriod: ESL_START_SCHOOL_PERIODS.endPeriod
+			})
+		).toBeNull();
+		expect(
+			assertValidEslEvent({ type: 'no_class', date: '2025-09-01', startPeriod: 3 })
+		).toMatchObject({ kind: 'boundsNotAllowed', type: 'no_class' });
+		expect(describeEslEventError({ kind: 'boundsNotAllowed', type: 'no_class' })).toMatch(
+			/partial/i
+		);
+		expect(
+			assertValidEslEvent({
+				type: 'start_school',
+				date: '2025-09-01',
+				startPeriod: 3,
+				endPeriod: 1
+			})
+		).toMatchObject({ kind: 'boundsOrder', startPeriod: 3, endPeriod: 1 });
+	});
+
+	it('spreads a G9 mock over two consecutive single dates', () => {
+		expect(g9MockDates('2025-09-05')).toEqual(['2025-09-05', '2025-09-06']);
+		expect(g9MockDates('2025-12-31')).toEqual(['2025-12-31', '2026-01-01']);
+	});
+
+	it('runs a due window over teaching days, past weekends', () => {
+		expect(
+			dueWindowDates({ startDate: '2025-10-17', dayCount: 3, blockedDates: new Set() })
+		).toEqual(['2025-10-17', '2025-10-20', '2025-10-21']);
+		// A weekend click snaps forward to the first teaching day.
+		expect(
+			dueWindowDates({ startDate: '2025-10-18', dayCount: 2, blockedDates: new Set() })
+		).toEqual(['2025-10-20', '2025-10-21']);
+	});
+
+	it('stops a due window short of a blocked day', () => {
+		// Wed 10/22 is an exam day: the window ends the teaching day before it,
+		// so the range never straddles one.
+		expect(
+			dueWindowDates({
+				startDate: '2025-10-20',
+				dayCount: 5,
+				blockedDates: new Set(['2025-10-22'])
+			})
+		).toEqual(['2025-10-20', '2025-10-21']);
+		// No blocked day in the way: the full five days run to Friday.
+		expect(
+			dueWindowDates({
+				startDate: '2025-10-20',
+				dayCount: 5,
+				blockedDates: new Set(['2025-10-29'])
+			})
+		).toEqual(['2025-10-20', '2025-10-21', '2025-10-22', '2025-10-23', '2025-10-24']);
+		// Past the blocked day the window fills again from the next teaching day.
+		expect(
+			dueWindowDates({
+				startDate: '2025-10-23',
+				dayCount: 5,
+				blockedDates: new Set(['2025-10-22'])
+			})
+		).toEqual(['2025-10-23', '2025-10-24', '2025-10-27', '2025-10-28', '2025-10-29']);
+	});
+
+	it('never lets a due window straddle a blocked day', () => {
+		const blocked = new Set(['2025-10-22']);
+		for (const startDate of ['2025-10-17', '2025-10-20', '2025-10-21']) {
+			const days = dueWindowDates({ startDate, dayCount: 5, blockedDates: blocked });
+			expect(days.length).toBeGreaterThan(0);
+			expect(days.every((date) => !blocked.has(date))).toBe(true);
+			expect(days.every((date) => date < '2025-10-22')).toBe(true);
+		}
+		// A start on the blocked day itself has no room: the window is empty
+		// and the caller places it on the next teaching day instead.
+		expect(dueWindowDates({ startDate: '2025-10-22', dayCount: 5, blockedDates: blocked })).toEqual(
+			[]
+		);
 	});
 });
