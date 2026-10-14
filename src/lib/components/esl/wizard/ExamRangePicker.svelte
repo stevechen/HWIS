@@ -7,7 +7,15 @@
 	 * preview the N-day range (2 for Exam 1/2, 3 for Final, skipping
 	 * weekends and off days), then confirm in the dialog. Emits the
 	 * confirmed dates via `onConfirm`; the parent owns the exam list and
-	 * feeds `takenDates` so ranges cannot overlap.
+	 * feeds `takenDates` so overlaps render as live greyed-out conflicts.
+	 *
+	 * Feedback F20: the overlap guard is deliberately REMOVED — the user
+	 * may set two exams on the same days and the clash shows live in the
+	 * calendar and the side list. Backend tension: production
+	 * `assertExclusive` currently refuses exam-on-exam; the real Step 3
+	 * ticket (#221) must decide warn-vs-refuse. This prototype allows +
+	 * visualizes; do not copy the allow-overlap into production without
+	 * that decision.
 	 */
 
 	let {
@@ -34,13 +42,15 @@
 	const pendingDates = $derived(
 		pendingStart === null ? [] : collectClassDays(pendingStart, rangeLength, offDates)
 	);
+	// Feedback F20: live signal only — never a refusal. Confirm stays
+	// enabled on overlap; the clash renders greyed in the calendar + list.
 	const overlapsTaken = $derived(pendingDates.some((date) => taken.has(date)));
 
 	let confirming = $state(false);
 	const dialogOpen = $derived(confirming && pendingDates.length > 0);
 
 	function openConfirm() {
-		if (pendingDates.length > 0 && !overlapsTaken) confirming = true;
+		if (pendingDates.length > 0) confirming = true;
 	}
 
 	function confirm() {
@@ -75,7 +85,7 @@
 				</Button>
 				<Button
 					size="sm"
-					disabled={pendingDates.length === 0 || overlapsTaken}
+					disabled={pendingDates.length === 0}
 					onclick={openConfirm}
 					data-testid={`${testId}.open-confirm`}
 				>
@@ -87,9 +97,10 @@
 	{#if overlapsTaken}
 		<p
 			data-testid={`${testId}.overlap`}
-			class="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700"
+			class="rounded border border-gray-300 bg-gray-100 p-2 text-xs text-gray-600"
 		>
-			That range overlaps an already-set exam — pick a different start day.
+			⚠ That range overlaps an already-set exam — allowed here; the double-booked days show greyed
+			in the calendar and the list.
 		</p>
 	{/if}
 

@@ -132,6 +132,37 @@
 		if (pending === null) return [];
 		return collectClassDays(pending, slot === 'Final' ? 3 : 2, offDates);
 	}
+
+	// Feedback F20: overlaps are allowed and visualized, never refused.
+	// A day conflicts when two confirmed exams share it, or when the
+	// active pending range hits another exam's dates. Backend tension:
+	// production `assertExclusive` refuses exam-on-exam — the real Step 3
+	// ticket (#221) must decide warn-vs-refuse before promotion.
+	const conflictDates = $derived.by(() => {
+		const all: string[] = exams.flatMap((exam) => exam.dates);
+		const dupes: string[] = [];
+		for (const date of all) {
+			if (all.indexOf(date) !== all.lastIndexOf(date) && !dupes.includes(date)) {
+				dupes.push(date);
+			}
+		}
+		const others: string[] = exams
+			.filter((exam) => exam.label !== activeExam)
+			.flatMap((exam) => exam.dates);
+		for (const date of pendingHighlight) {
+			if (others.includes(date) && !dupes.includes(date)) dupes.push(date);
+		}
+		return dupes.sort();
+	});
+
+	function slotConflicted(slot: ExamSlot): boolean {
+		const others: string[] = exams
+			.filter((exam) => exam.label !== slot)
+			.flatMap((exam) => exam.dates);
+		const confirmed = exams.find((exam) => exam.label === slot);
+		if (confirmed?.dates.some((date) => others.includes(date))) return true;
+		return slotPending(slot).some((date) => others.includes(date));
+	}
 </script>
 
 <div data-testid="wizard-prototype.root" class="mx-auto w-full max-w-6xl space-y-6 p-8">
@@ -210,75 +241,81 @@
 
 	{#if step === 2}
 		<section data-testid="wizard-prototype.step-2" class="space-y-4 rounded-lg border bg-white p-4">
-			<div>
-				<h2 class="mb-2 text-sm font-semibold text-gray-800">
-					{term}
-					{schoolYear} · starts {startDate} — pick the end date
-				</h2>
-				<WeekPicker
-					mondays={endMondays}
-					selectedDate={endDate}
-					snapToMonday={false}
-					showWeekNumbers={false}
-					onPick={(date) => (endDate = date)}
-					testId="wizard-prototype.end-picker"
-				/>
-			</div>
-			{#if endBeforeStart}
-				<p
-					data-testid="wizard-prototype.end-error"
-					class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
-				>
-					The end date ({endDate}) is before the start ({startDate}) — pick a later date.
-				</p>
-			{:else}
-				<p data-testid="wizard-prototype.end-summary" class="text-sm text-gray-700">
-					End date: <strong>{endDate}</strong>
-				</p>
-			{/if}
-			<label class="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
-				<input
-					type="checkbox"
-					bind:checked={lastExamDay}
-					data-testid="wizard-prototype.last-exam-day"
-					class="size-4 accent-emerald-700"
-				/>
-				This is also the last exam day (skip separate Final setup)
-			</label>
-			<div
-				class="space-y-2 rounded-lg border border-dashed border-emerald-300 bg-emerald-50/50 p-3"
-			>
-				<p class="text-sm font-semibold text-gray-800">
-					Optional: import holidays
-					<span class="font-normal text-gray-500">(skip this if you like)</span>
-				</p>
-				<div class="flex flex-wrap items-center gap-2">
-					<Button
-						size="sm"
-						variant="outline"
-						onclick={importMockHolidays}
-						data-testid="wizard-prototype.mock-import"
-					>
-						{imported ? 'Re-import mock holidays' : 'Import mock holidays'}
-					</Button>
-					<span class="text-xs text-gray-500"
-						>Mock only — stands in for the gov calendar feed. Skipping is fine: Confirm below works
-						without importing.</span
-					>
+			<div class="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+				<div class="space-y-4">
+					<div>
+						<h2 class="mb-2 text-sm font-semibold text-gray-800">
+							{term}
+							{schoolYear} · starts {startDate} — pick the end date
+						</h2>
+						<WeekPicker
+							mondays={endMondays}
+							selectedDate={endDate}
+							snapToMonday={false}
+							showWeekNumbers={false}
+							onPick={(date) => (endDate = date)}
+							testId="wizard-prototype.end-picker"
+						/>
+					</div>
+					{#if endBeforeStart}
+						<p
+							data-testid="wizard-prototype.end-error"
+							class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+						>
+							The end date ({endDate}) is before the start ({startDate}) — pick a later date.
+						</p>
+					{:else}
+						<p data-testid="wizard-prototype.end-summary" class="text-sm text-gray-700">
+							End date: <strong>{endDate}</strong>
+						</p>
+					{/if}
+					<label class="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
+						<input
+							type="checkbox"
+							bind:checked={lastExamDay}
+							data-testid="wizard-prototype.last-exam-day"
+							class="size-4 accent-emerald-700"
+						/>
+						This is also the last exam day (skip separate Final setup)
+					</label>
+					<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+						<Button
+							size="sm"
+							variant="ghost"
+							onclick={importMockHolidays}
+							data-testid="wizard-prototype.mock-import"
+							class="text-gray-600 underline decoration-dotted underline-offset-2"
+						>
+							{imported ? 'Re-import holidays' : 'Import holidays'}
+						</Button>
+						<span
+							>Optional — mock only, stands in for the gov calendar feed. Skipping is fine: Confirm
+							below works without importing.</span
+						>
+					</div>
+					{#if imported}
+						<p
+							data-testid="wizard-prototype.mock-import-status"
+							class="text-xs font-medium text-gray-700"
+						>
+							{offDays.length} off days imported from the government calendar
+						</p>
+						<ul
+							data-testid="wizard-prototype.mock-offdays"
+							class="space-y-0.5 text-xs text-gray-500"
+						>
+							{#each offDays as day (day.date)}
+								<li data-testid={`wizard-prototype.mock-offday-${day.date}`}>
+									{day.date} — 🎉 {day.name}
+								</li>
+							{/each}
+						</ul>
+					{/if}
 				</div>
-				{#if imported}
-					<ul data-testid="wizard-prototype.mock-offdays" class="space-y-0.5 text-sm text-gray-700">
-						{#each offDays as day (day.date)}
-							<li data-testid={`wizard-prototype.mock-offday-${day.date}`}>
-								{day.date} — 🎉 {day.name}
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</div>
-			<div>
-				<h2 class="mb-2 text-sm font-semibold text-gray-800">Semester preview (read-only)</h2>
-				<CalendarPreview {weeks} testId="wizard-prototype.preview" />
+				<div class="min-w-0">
+					<h2 class="mb-2 text-sm font-semibold text-gray-800">Semester preview (read-only)</h2>
+					<CalendarPreview {weeks} testId="wizard-prototype.preview" />
+				</div>
 			</div>
 			<div class="flex justify-between">
 				<Button
@@ -325,6 +362,17 @@
 				onConfirm={confirmExam}
 				testId="wizard-prototype.exam-picker"
 			/>
+			{#if conflictDates.length > 0}
+				<p
+					data-testid="wizard-prototype.exam-conflicts-note"
+					class="rounded border border-gray-300 bg-gray-100 p-2 text-xs text-gray-600"
+				>
+					⚠ {conflictDates.length} double-booked day{conflictDates.length === 1 ? '' : 's'} ({conflictDates.join(
+						', '
+					)}) — greyed here and in the calendar. The prototype allows overlaps; the real wizard will
+					decide warn-vs-refuse (ticket #221).
+				</p>
+			{/if}
 			<div class="grid gap-4 lg:grid-cols-[1fr_260px]">
 				<div>
 					<h2 class="mb-2 text-sm font-semibold text-gray-800">
@@ -334,6 +382,7 @@
 						{weeks}
 						interactive
 						highlighted={pendingHighlight}
+						conflicts={conflictDates}
 						onDateClick={(date) => (pendingByExam[activeExam] = date)}
 						testId="wizard-prototype.exam-calendar"
 					/>
@@ -349,38 +398,71 @@
 							{#each slots as slot (slot)}
 								{@const confirmed = exams.find((exam) => exam.label === slot)}
 								{@const pending = slotPending(slot)}
+								{@const conflicted = slotConflicted(slot)}
 								<li>
 									{#if confirmed !== undefined}
 										<div
 											data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}`}
-											class="rounded border border-red-200 bg-red-50 p-2 text-sm"
+											class="rounded border p-2 text-sm {conflicted
+												? 'border-gray-400 bg-gray-200'
+												: 'border-red-200 bg-red-50'}"
 										>
 											<div class="flex items-center justify-between gap-2">
-												<strong class="text-red-900">{confirmed.label}</strong>
-												<button
-													type="button"
-													onclick={() => removeExam(confirmed.label)}
-													data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}-remove`}
-													class="text-xs font-medium text-red-700 hover:underline"
+												<strong class={conflicted ? 'text-gray-600' : 'text-red-900'}
+													>{confirmed.label}</strong
 												>
-													Remove
-												</button>
+												<span class="flex items-center gap-2">
+													{#if conflicted}
+														<span
+															data-testid={`wizard-prototype.exam-conflict-${slot.replace(' ', '-')}`}
+															class="rounded bg-gray-500 px-1.5 py-px text-[11px] font-bold text-white"
+															>⚠ Double-booked</span
+														>
+													{/if}
+													<button
+														type="button"
+														onclick={() => removeExam(confirmed.label)}
+														data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}-remove`}
+														class="text-xs font-medium {conflicted
+															? 'text-gray-600'
+															: 'text-red-700'} hover:underline"
+													>
+														Remove
+													</button>
+												</span>
 											</div>
-											<div class="text-red-800">{confirmed.dates.join(', ')}</div>
+											<div class={conflicted ? 'text-gray-600' : 'text-red-800'}>
+												{confirmed.dates.join(', ')}
+											</div>
 										</div>
 									{:else if pending.length > 0}
 										<div
 											data-testid={`wizard-prototype.exam-pending-${slot.replace(' ', '-')}`}
-											class="rounded border border-dashed border-emerald-500 bg-emerald-50 p-2 text-sm"
+											class="rounded border border-dashed p-2 text-sm {conflicted
+												? 'border-gray-400 bg-gray-100'
+												: 'border-emerald-500 bg-emerald-50'}"
 										>
 											<div class="flex items-center justify-between gap-2">
-												<strong class="text-emerald-900">{slot}</strong>
-												<span
-													class="rounded bg-amber-200 px-1.5 py-px text-[11px] font-bold text-amber-900"
-													>Unconfirmed</span
+												<strong class={conflicted ? 'text-gray-600' : 'text-emerald-900'}
+													>{slot}</strong
 												>
+												<span class="flex items-center gap-1">
+													{#if conflicted}
+														<span
+															data-testid={`wizard-prototype.exam-conflict-${slot.replace(' ', '-')}`}
+															class="rounded bg-gray-500 px-1.5 py-px text-[11px] font-bold text-white"
+															>⚠ Double-booked</span
+														>
+													{/if}
+													<span
+														class="rounded bg-amber-200 px-1.5 py-px text-[11px] font-bold text-amber-900"
+														>Unconfirmed</span
+													>
+												</span>
 											</div>
-											<div class="text-emerald-900">{pending.join(', ')}</div>
+											<div class={conflicted ? 'text-gray-600' : 'text-emerald-900'}>
+												{pending.join(', ')}
+											</div>
 										</div>
 									{:else}
 										<div
@@ -396,7 +478,7 @@
 					{/if}
 				</aside>
 			</div>
-			<div class="flex justify-between">
+			<div class="flex justify-end gap-2">
 				<Button
 					variant="outline"
 					onclick={() => (step = 2)}
