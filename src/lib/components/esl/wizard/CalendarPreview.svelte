@@ -7,9 +7,11 @@
 	 * feedback F5/F6/F12/F15/F18/F20/F21/F23/F24/F27/F28/F33/F34/F36/F37). School-week rows with week
 	 * numbers, a weekday header row, weekend dates in red text (no shaded
 	 * background), grey off-day chips and red exam chips. Cells are fixed
-	 * ~56px squares (F29: `w-14 max-w-14 min-h-16`, fixed 3.5rem grid
-	 * tracks, left-aligned — leftover pane space stays empty, cells never
-	 * stretch). Feedback F40: NO per-cell month badges (F33 removed) and NO
+	 * 56px wide (F29: `w-14 max-w-14`, fixed 3.5rem grid tracks,
+	 * left-aligned — leftover pane space stays empty, cells never stretch)
+	 * and ~44px tall (F43: `min-h-11` — the across-week month title row
+	 * added vertical bulk, so day-cell height came back down from 64px to
+	 * compensate; net calendar height does not grow). Feedback F40: NO per-cell month badges (F33 removed) and NO
 	 * side-gutter month label (F36 removed) — each week ROW carries merged
 	 * month title cells spanning ACROSS the top of the row INSIDE the grid:
 	 * consecutive days in the same month grouped under ONE title cell
@@ -160,10 +162,15 @@
 				data-testid={`${testId}.week-${week.weekIndex}`}
 				class="flex items-stretch gap-0 {i > 0 ? '-mt-px' : ''}"
 			>
+				<!-- Feedback F42: the week-number gutter reads as a label
+					column, not a day cell — extrabold weight, a darker
+					emerald tint than any day tone, and a firm slate right
+					divider where it meets the grid. -->
 				<div
-					class="flex w-8 shrink-0 items-center justify-center text-xs font-bold text-white {i === 0
+					class="flex w-8 shrink-0 items-center justify-center border-r-[3px] border-r-slate-800 text-xs font-extrabold tracking-wide text-white {i ===
+					0
 						? 'rounded-t'
-						: ''} {i === weeks.length - 1 ? 'rounded-b' : ''} bg-emerald-800"
+						: ''} {i === weeks.length - 1 ? 'rounded-b' : ''} bg-emerald-950"
 					title={`School week ${week.weekIndex}, starting ${week.monday}`}
 				>
 					W{week.weekIndex}
@@ -210,7 +217,7 @@
 								onmouseenter={() => onDateHover(clickable ? day.date : null)}
 								onmouseleave={() => onDateHover(null)}
 								title={cellTitle}
-								class="-mt-px -ml-px flex min-h-16 w-14 max-w-14 flex-col items-center justify-start overflow-hidden border px-0 py-1 text-[11px] leading-tight {cellTone(
+								class="-mt-px -ml-px flex min-h-11 w-14 max-w-14 flex-col items-center justify-start overflow-hidden border px-0 py-1 text-[11px] leading-tight {cellTone(
 									day.isWeekend,
 									day.inRange,
 									day.offName !== null,
@@ -229,7 +236,7 @@
 							<div
 								data-testid={`${testId}.date-${day.date}`}
 								title={day.offName ?? day.examLabel ?? day.date}
-								class="-mt-px -ml-px flex min-h-16 w-14 max-w-14 flex-col items-center justify-start overflow-hidden border px-0 py-1 text-[11px] leading-tight {cellTone(
+								class="-mt-px -ml-px flex min-h-11 w-14 max-w-14 flex-col items-center justify-start overflow-hidden border px-0 py-1 text-[11px] leading-tight {cellTone(
 									day.isWeekend,
 									day.inRange,
 									day.offName !== null,

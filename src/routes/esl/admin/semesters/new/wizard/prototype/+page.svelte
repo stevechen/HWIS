@@ -55,7 +55,6 @@
 	const endMondays = $derived(endPickerMondays(term, schoolYear));
 
 	let endDate = $state(defaultEndDate(suggestion.term, initialSchoolYear));
-	let lastExamDay = $state(true);
 	let offDays = $state<MockOffDay[]>([]);
 	let imported = $state(false);
 	let exams = $state<SetExam[]>([]);
@@ -66,22 +65,14 @@
 	let showSummary = $state(false);
 
 	const offDates = $derived(new Set(offDays.map((day) => day.date)));
-	// Feedback F35: the Final TAB always renders so the slot's state is
-	// unmistakable (dates, or the reason it is skipped). `slots` below is
-	// the REQUIRED set — Final joins it only when the Step-2 box is
-	// unchecked — while the tabs iterate ALL_SLOTS.
+	// Feedback F41: Final is ALWAYS required — deliberate deviation from
+	// parent spec story 13 and retirement of the Step-2 "last exam day"
+	// checkbox per the domain owner (Final can't be skipped: every "Final
+	// not showing" report was the by-design inactive state). No inactive /
+	// skipped concept exists anywhere on this page: all three slots render
+	// as enabled tabs and all three gate Review.
 	const ALL_SLOTS: ExamSlot[] = ['Exam 1', 'Exam 2', 'Final'];
-	const finalActive = $derived(!lastExamDay);
-	const slots = $derived<ExamSlot[]>(
-		finalActive ? ['Exam 1', 'Exam 2', 'Final'] : ['Exam 1', 'Exam 2']
-	);
-	// Feedback F22: the Final exam renders on the calendar and in the side
-	// list exactly like Exam 1/2 whenever its slot is active — tabs, red
-	// chips, and RHS rows all iterate `slots`, and the weeks below are
-	// built from `visibleExams` so a stale Final never leaks onto the
-	// calendar after "last exam day" is re-checked.
-	const visibleExams = $derived(exams.filter((exam) => slots.includes(exam.label)));
-	const takenDates = $derived(visibleExams.flatMap((exam) => exam.dates));
+	const takenDates = $derived(exams.flatMap((exam) => exam.dates));
 	// Feedback F39: fan-out sizes read off EXAM_SLOT_CLASS_DAYS (the
 	// prototype mirror of production EXAM_SEED_WEEKDAYS) — Exam 1/2 select
 	// exactly 2 class days, only Final selects 3.
@@ -97,22 +88,24 @@
 	// (forbid exam-over-exam, not warn) AND adopt this same dialog-free
 	// click-to-set model.
 	const blockedDates = $derived(
-		visibleExams.filter((exam) => exam.label !== activeExam).flatMap((exam) => exam.dates)
+		exams.filter((exam) => exam.label !== activeExam).flatMap((exam) => exam.dates)
 	);
 	const previewEnd = $derived(takenDates.reduce((max, date) => (date > max ? date : max), endDate));
 	const hoverHighlight = $derived(
 		hoverStart === null ? [] : collectClassDays(hoverStart, rangeLength, offDates)
 	);
 	const activeExamDates = $derived(exams.find((exam) => exam.label === activeExam)?.dates ?? []);
-	// Feedback F37: the Review/advance gate stays — every REQUIRED slot
-	// (Exam 1, Exam 2, + Final when active) must hold a range.
-	const allRequiredSet = $derived(slots.every((slot) => exams.some((exam) => exam.label === slot)));
+	// Feedback F37: the Review/advance gate stays — every slot (Exam 1,
+	// Exam 2, Final) must hold a range.
+	const allRequiredSet = $derived(
+		ALL_SLOTS.every((slot) => exams.some((exam) => exam.label === slot))
+	);
 	const weeks = $derived(
 		buildPreviewWeeks(
 			startDate,
 			previewEnd,
 			offDays,
-			visibleExams.map((exam) => ({ label: exam.label, dates: exam.dates }))
+			exams.map((exam) => ({ label: exam.label, dates: exam.dates }))
 		)
 	);
 	const endBeforeStart = $derived(endDate < startDate);
@@ -266,15 +259,6 @@
 							End date: <strong>{endDate}</strong>
 						</p>
 					{/if}
-					<label class="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
-						<input
-							type="checkbox"
-							bind:checked={lastExamDay}
-							data-testid="wizard-prototype.last-exam-day"
-							class="size-4 accent-emerald-700"
-						/>
-						This is also the last exam day (skip separate Final setup)
-					</label>
 					<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
 						<Button
 							size="sm"
@@ -339,129 +323,87 @@
 				<span class="text-sm font-medium text-gray-700">Setting:</span>
 				{#each ALL_SLOTS as slot (slot)}
 					{@const done = exams.some((exam) => exam.label === slot)}
-					{@const inactive = slot === 'Final' && !finalActive}
-					<!-- Feedback F38: every tab — including an inactive Final —
-						activates its context on click, exactly like Exam 1/2. The
-						tab carries NO aria-disabled: Button's
-						`aria-disabled:pointer-events-none` variant would swallow
-						the click and the reason panel below would stay
-						unreachable. Inactive still reads greyed (opacity +
-						title); clicking it swaps to the reason panel instead of
-						the picker. -->
 					<Button
 						size="sm"
-						variant={activeExam === slot && !inactive ? 'default' : 'outline'}
+						variant={activeExam === slot ? 'default' : 'outline'}
 						onclick={() => {
 							activeExam = slot;
 							hoverStart = null;
 						}}
-						title={inactive ? 'Final skipped — the term ends on Exam 2' : undefined}
-						class={inactive ? 'cursor-not-allowed opacity-50' : undefined}
 						data-testid={`wizard-prototype.exam-tab-${slot.replace(' ', '-')}`}
 					>
 						{slot}{done ? ' ✓' : ''}
 					</Button>
 				{/each}
 			</div>
-			{#if lastExamDay}
-				<p data-testid="wizard-prototype.final-skipped" class="text-xs text-gray-500">
-					Final skipped — the term ends on Exam 2. Uncheck “last exam day” in Step 2 to set a
-					separate Final.
-				</p>
-			{/if}
-			{#if activeExam === 'Final' && !finalActive}
-				<div
-					data-testid="wizard-prototype.final-inactive-panel"
-					class="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600"
-				>
-					<p>
-						<strong>Final skipped — the term ends on Exam 2.</strong>
-					</p>
-					<p>
-						To set a separate Final, uncheck “This is also the last exam day” in Step 2, then come
-						back here.
-					</p>
-					<Button
-						size="sm"
-						variant="outline"
-						onclick={() => (step = 2)}
-						data-testid="wizard-prototype.final-inactive-back"
-					>
-						Back to Step 2
-					</Button>
+			<ExamRangePicker
+				examLabel={activeExam}
+				{rangeLength}
+				currentDates={activeExamDates}
+				onClear={() => removeExam(activeExam)}
+				testId="wizard-prototype.exam-picker"
+			/>
+			<div class="grid gap-4 lg:grid-cols-[1fr_260px]">
+				<div>
+					<h2 class="mb-2 text-sm font-semibold text-gray-800">
+						Click a class day to set the {activeExam} range ({rangeLength} class days) — reselect anytime
+						to move it
+					</h2>
+					<CalendarPreview
+						{weeks}
+						interactive
+						highlighted={hoverHighlight}
+						disabledDates={blockedDates}
+						onDateClick={setExamDate}
+						onDateHover={(date) => (hoverStart = date)}
+						testId="wizard-prototype.exam-calendar"
+					/>
 				</div>
-			{:else}
-				<ExamRangePicker
-					examLabel={activeExam}
-					{rangeLength}
-					currentDates={activeExamDates}
-					onClear={() => removeExam(activeExam)}
-					testId="wizard-prototype.exam-picker"
-				/>
-			{/if}
-			{#if activeExam !== 'Final' || finalActive}
-				<div class="grid gap-4 lg:grid-cols-[1fr_260px]">
-					<div>
-						<h2 class="mb-2 text-sm font-semibold text-gray-800">
-							Click a class day to set the {activeExam} range ({rangeLength} class days) — reselect anytime
-							to move it
-						</h2>
-						<CalendarPreview
-							{weeks}
-							interactive
-							highlighted={hoverHighlight}
-							disabledDates={blockedDates}
-							onDateClick={setExamDate}
-							onDateHover={(date) => (hoverStart = date)}
-							testId="wizard-prototype.exam-calendar"
-						/>
-					</div>
-					<aside class="space-y-2">
-						<h2 class="text-sm font-semibold text-gray-800">Exam dates</h2>
-						{#if visibleExams.length === 0}
-							<p data-testid="wizard-prototype.exams-empty" class="text-sm text-gray-500">
-								No exams set yet.
-							</p>
-						{:else}
-							<ul data-testid="wizard-prototype.exams-list" class="space-y-2">
-								{#each slots as slot (slot)}
-									{@const confirmed = exams.find((exam) => exam.label === slot)}
-									<li>
-										{#if confirmed !== undefined}
-											<div
-												data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}`}
-												class="rounded border border-red-200 bg-red-50 p-2 text-sm"
-											>
-												<div class="flex items-center justify-between gap-2">
-													<strong class="text-red-900">{confirmed.label}</strong>
-													<button
-														type="button"
-														onclick={() => removeExam(confirmed.label)}
-														data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}-remove`}
-														class="text-xs font-medium text-red-700 hover:underline"
-													>
-														Remove
-													</button>
-												</div>
-												<div class="text-red-800">
-													{confirmed.dates.join(', ')}
-												</div>
+				<aside class="space-y-2">
+					<h2 class="text-sm font-semibold text-gray-800">Exam dates</h2>
+					{#if exams.length === 0}
+						<p data-testid="wizard-prototype.exams-empty" class="text-sm text-gray-500">
+							No exams set yet.
+						</p>
+					{:else}
+						<ul data-testid="wizard-prototype.exams-list" class="space-y-2">
+							{#each ALL_SLOTS as slot (slot)}
+								{@const confirmed = exams.find((exam) => exam.label === slot)}
+								<li>
+									{#if confirmed !== undefined}
+										<div
+											data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}`}
+											class="rounded border border-red-200 bg-red-50 p-2 text-sm"
+										>
+											<div class="flex items-center justify-between gap-2">
+												<strong class="text-red-900">{confirmed.label}</strong>
+												<button
+													type="button"
+													onclick={() => removeExam(confirmed.label)}
+													data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}-remove`}
+													class="text-xs font-medium text-red-700 hover:underline"
+												>
+													Remove
+												</button>
 											</div>
-										{:else}
-											<div
-												data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}-empty`}
-												class="rounded border border-gray-200 bg-gray-50 p-2 text-sm text-gray-500"
-											>
-												<strong>{slot}</strong> — not set yet.
+											<div class="text-red-800">
+												{confirmed.dates.join(', ')}
 											</div>
-										{/if}
-									</li>
-								{/each}
-							</ul>
-						{/if}
-					</aside>
-				</div>
-			{/if}
+										</div>
+									{:else}
+										<div
+											data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}-empty`}
+											class="rounded border border-gray-200 bg-gray-50 p-2 text-sm text-gray-500"
+										>
+											<strong>{slot}</strong> — not set yet.
+										</div>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</aside>
+			</div>
 			<div class="flex justify-end gap-2">
 				<Button
 					variant="outline"
@@ -497,12 +439,8 @@
 				</h2>
 				<ul class="space-y-1 text-sm text-gray-700">
 					<li><strong>{term} {schoolYear}</strong> · {startDate} → {endDate}</li>
-					<li>
-						{offDays.length} mock off days{lastExamDay
-							? ' · Final skipped (term ends on Exam 2)'
-							: ' · Final set separately'}
-					</li>
-					{#each visibleExams as exam (exam.label)}
+					<li>{offDays.length} mock off days</li>
+					{#each exams as exam (exam.label)}
 						<li>{exam.label}: {exam.dates.join(', ')}</li>
 					{/each}
 				</ul>
