@@ -63,6 +63,9 @@
 	 * calendar reads "Placing <row> — click a date to set · ✕ cancel" and
 	 * the row shows a static chip. Cancel via the banner ✕ or by placing
 	 * another row.
+	 * Feedback F65: pair same-date gate — Anniversary and its makeup date
+	 * may not share a date, both directions (disabled date + naming
+	 * tooltip in each arming context, quiet refuse in the setters).
 	 */
 
 	const today = new Date().toISOString().slice(0, 10);
@@ -157,6 +160,13 @@
 	function setSingle(id: string, date: string) {
 		// F52 pairing: the makeup date cannot stand alone.
 		if (id === 'makeup' && singles['anniv'] == null) return;
+		// F65 pair same-date gate: Anniversary and its makeup date may not
+		// share a date, both directions. The Anniversary-side case only
+		// matters when makeup holds a date (clearing Anniversary clears
+		// makeup); same-date is never a valid intent so the setter refuses
+		// rather than clear-then-set.
+		if (id === 'makeup' && singles['anniv'] != null && date === singles['anniv']) return;
+		if (id === 'anniv' && singles['makeup'] != null && date === singles['makeup']) return;
 		if (isWeekend(date) || offSet.has(date) || examSet.has(date)) return;
 		if (date < startDate || date > endDate) return;
 		singles = { ...singles, [id]: date };
@@ -414,6 +424,22 @@
 	// Mocks carry only the order gate (blockOf is null for mock ids).
 	const armedGate = $derived.by<{ dates: string[]; tips: Record<string, string> }>(() => {
 		if (armed === null) return { dates: [], tips: {} };
+		// F65 pair same-date gate: with Anniversary armed, its own
+		// confirmed date renders disabled in the makeup context and vice
+		// versa (refuse-by-construction, same machinery as F49/F55).
+		if (armed === 'makeup') {
+			const anniv = singles['anniv'];
+			if (anniv != null)
+				return {
+					dates: [anniv],
+					tips: { [anniv]: 'The makeup date cannot be the Anniversary date' }
+				};
+		}
+		if (armed === 'anniv') {
+			const makeup = singles['makeup'];
+			if (makeup != null)
+				return { dates: [makeup], tips: { [makeup]: 'Anniversary cannot be the makeup date' } };
+		}
 		const series = seriesOf(armed);
 		if (series === null && blockOf(armed) === null) return { dates: [], tips: {} };
 		const isMock = armed.startsWith('mock');
