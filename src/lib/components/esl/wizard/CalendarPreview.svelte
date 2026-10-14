@@ -3,11 +3,12 @@
 
 	/**
 	 * Semester calendar preview (spec #215, stories 15–20, as amended by
-	 * feedback F5/F6). School-week rows with week numbers, a weekday
+	 * feedback F5/F6/F12). School-week rows with week numbers, a weekday
 	 * header row, weekend dates in red text (no shaded background), grey
-	 * off-day chips and red exam chips. Read-only by default;
-	 * `interactive` enables date clicks (Step 3 exam picking) with
-	 * `highlighted` marking the pending range. Presentational — weeks
+	 * off-day chips and red exam chips. Cells show the date number only —
+	 * the header row already carries the weekday names. Read-only by
+	 * default; `interactive` enables date clicks (Step 3 exam picking)
+	 * with `highlighted` marking the pending range. Presentational — weeks
 	 * arrive prebuilt from `buildPreviewWeeks`.
 	 */
 
@@ -114,7 +115,7 @@
 									? 'cursor-pointer hover:border-emerald-500'
 									: 'cursor-default'} {isHighlighted ? 'ring-2 ring-emerald-500' : ''}"
 							>
-								<span class="font-semibold">{day.weekday} {short(day.date)}</span>
+								<span class="font-semibold">{short(day.date)}</span>
 								{#if day.examLabel !== null}
 									<span
 										class="mt-0.5 rounded bg-red-600 px-1 py-px text-[10px] font-bold text-white"
@@ -138,7 +139,7 @@
 									isHighlighted
 								)}"
 							>
-								<span class="font-semibold">{day.weekday} {short(day.date)}</span>
+								<span class="font-semibold">{short(day.date)}</span>
 								{#if day.examLabel !== null}
 									<span
 										class="mt-0.5 rounded bg-red-600 px-1 py-px text-[10px] font-bold text-white"

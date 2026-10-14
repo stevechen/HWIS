@@ -42,13 +42,18 @@
 	// stays a Friday); only a weekend anchor rolls to next Monday. Clicking
 	// picks that exact date — no snap-to-Monday (deliberate story-10
 	// deviation for visual validation).
-	let startDate = $state(defaultStartDate(suggestion.term, suggestion.schoolYear));
+	// Feedback F8/F9: seed start/end from the same derived school year the
+	// pickers render (schoolYearForTerm), NOT suggestion.schoolYear —
+	// suggestSemester's Oct–Dec "next fall" year disagrees with the derived
+	// pill, which left both pickers with nothing highlighted on load.
+	const initialSchoolYear = schoolYearForTerm(suggestion.term, today);
+	let startDate = $state(defaultStartDate(suggestion.term, initialSchoolYear));
 
 	const schoolYear = $derived(schoolYearForTerm(term, today));
 	const startMondays = $derived(startPickerMondays(term, schoolYear));
 	const endMondays = $derived(endPickerMondays(term, schoolYear));
 
-	let endDate = $state(defaultEndDate(suggestion.term, suggestion.schoolYear));
+	let endDate = $state(defaultEndDate(suggestion.term, initialSchoolYear));
 	let lastExamDay = $state(true);
 	let offDays = $state<MockOffDay[]>([]);
 	let imported = $state(false);
@@ -116,6 +121,16 @@
 
 	function removeExam(label: ExamSlot) {
 		exams = exams.filter((exam) => exam.label !== label);
+	}
+
+	// Feedback F13: the right-hand list renders every slot live at once, so
+	// each slot needs its own pending range (Final spans 3 class days, the
+	// others 2). `pendingHighlight` above stays as the active tab's alias
+	// for the calendar highlight.
+	function slotPending(slot: ExamSlot): string[] {
+		const pending = pendingByExam[slot];
+		if (pending === null) return [];
+		return collectClassDays(pending, slot === 'Final' ? 3 : 2, offDates);
 	}
 </script>
 
@@ -325,43 +340,56 @@
 				</div>
 				<aside class="space-y-2">
 					<h2 class="text-sm font-semibold text-gray-800">Exam dates</h2>
-					{#if pendingHighlight.length > 0}
-						<div
-							data-testid="wizard-prototype.exam-pending"
-							class="rounded border border-dashed border-emerald-500 bg-emerald-50 p-2 text-sm"
-						>
-							<div class="flex items-center justify-between gap-2">
-								<strong class="text-emerald-900">{activeExam}</strong>
-								<span class="rounded bg-amber-200 px-1.5 py-px text-[11px] font-bold text-amber-900"
-									>Unconfirmed</span
-								>
-							</div>
-							<div class="text-emerald-900">{pendingHighlight.join(', ')}</div>
-						</div>
-					{/if}
-					{#if exams.length === 0 && pendingHighlight.length === 0}
+					{#if exams.length === 0 && slots.every((slot) => slotPending(slot).length === 0)}
 						<p data-testid="wizard-prototype.exams-empty" class="text-sm text-gray-500">
 							No exams set yet.
 						</p>
 					{:else}
 						<ul data-testid="wizard-prototype.exams-list" class="space-y-2">
-							{#each exams as exam (exam.label)}
-								<li
-									data-testid={`wizard-prototype.exam-${exam.label.replace(' ', '-')}`}
-									class="rounded border border-red-200 bg-red-50 p-2 text-sm"
-								>
-									<div class="flex items-center justify-between gap-2">
-										<strong class="text-red-900">{exam.label}</strong>
-										<button
-											type="button"
-											onclick={() => removeExam(exam.label)}
-											data-testid={`wizard-prototype.exam-${exam.label.replace(' ', '-')}-remove`}
-											class="text-xs font-medium text-red-700 hover:underline"
+							{#each slots as slot (slot)}
+								{@const confirmed = exams.find((exam) => exam.label === slot)}
+								{@const pending = slotPending(slot)}
+								<li>
+									{#if confirmed !== undefined}
+										<div
+											data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}`}
+											class="rounded border border-red-200 bg-red-50 p-2 text-sm"
 										>
-											Remove
-										</button>
-									</div>
-									<div class="text-red-800">{exam.dates.join(', ')}</div>
+											<div class="flex items-center justify-between gap-2">
+												<strong class="text-red-900">{confirmed.label}</strong>
+												<button
+													type="button"
+													onclick={() => removeExam(confirmed.label)}
+													data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}-remove`}
+													class="text-xs font-medium text-red-700 hover:underline"
+												>
+													Remove
+												</button>
+											</div>
+											<div class="text-red-800">{confirmed.dates.join(', ')}</div>
+										</div>
+									{:else if pending.length > 0}
+										<div
+											data-testid={`wizard-prototype.exam-pending-${slot.replace(' ', '-')}`}
+											class="rounded border border-dashed border-emerald-500 bg-emerald-50 p-2 text-sm"
+										>
+											<div class="flex items-center justify-between gap-2">
+												<strong class="text-emerald-900">{slot}</strong>
+												<span
+													class="rounded bg-amber-200 px-1.5 py-px text-[11px] font-bold text-amber-900"
+													>Unconfirmed</span
+												>
+											</div>
+											<div class="text-emerald-900">{pending.join(', ')}</div>
+										</div>
+									{:else}
+										<div
+											data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}-empty`}
+											class="rounded border border-gray-200 bg-gray-50 p-2 text-sm text-gray-500"
+										>
+											<strong>{slot}</strong> — not set yet.
+										</div>
+									{/if}
 								</li>
 							{/each}
 						</ul>
