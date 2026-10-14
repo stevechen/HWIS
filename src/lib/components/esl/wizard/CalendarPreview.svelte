@@ -46,6 +46,7 @@
 		interactive = false,
 		highlighted = [],
 		disabledDates = [],
+		disabledTooltips = {},
 		onDateClick = () => {},
 		onDateHover = () => {},
 		testId = 'calendar-preview'
@@ -54,6 +55,7 @@
 		interactive?: boolean;
 		highlighted?: string[];
 		disabledDates?: string[];
+		disabledTooltips?: Record<string, string>;
 		onDateClick?: (date: string) => void;
 		onDateHover?: (date: string | null) => void;
 		testId?: string;
@@ -89,7 +91,9 @@
 		// are refused by the parent's set guard instead, so a pick blocks
 		// exactly its own days (2 for Exam 1/2, 3 for Final). Real Step 3
 		// ticket #221 should mirror backend `assertExclusive`
-		// (forbid, not warn).
+		// (forbid, not warn). Feedback F46: free starts whose fan-out would
+		// overflow the term window are the exception — those arrive DISABLED
+		// (grey, via the parent disabled set) with an overflow tooltip.
 		if (isDisabled) return 'border-gray-300 bg-gray-200 text-gray-500';
 		if (isHighlighted) return 'border-emerald-500 bg-emerald-100 text-emerald-900';
 		if (hasOff) return 'border-stone-300 bg-stone-200 text-stone-600';
@@ -146,7 +150,7 @@
 		{/if}
 	</div>
 
-	<div class="space-y-0">
+	<div class="space-y-1">
 		<div class="flex items-stretch gap-0" aria-hidden="true">
 			<div class="w-8 shrink-0"></div>
 			<div class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0">
@@ -157,29 +161,22 @@
 				{/each}
 			</div>
 		</div>
-		{#each weeks as week, i (week.monday)}
-			<div
-				data-testid={`${testId}.week-${week.weekIndex}`}
-				class="flex items-stretch gap-0 {i > 0 ? '-mt-px' : ''}"
-			>
-				<!-- Feedback F42: the week-number gutter reads as a label
-					column, not a day cell — extrabold weight, a darker
-					emerald tint than any day tone, and a firm slate right
-					divider where it meets the grid. -->
+		{#each weeks as week (week.monday)}
+			<div data-testid={`${testId}.week-${week.weekIndex}`} class="flex items-stretch gap-0">
+				<!-- Feedback F42 + F44: the week-number gutter reads as a label
+					column attached to its OWN week row — per-row rounded
+					corners plus a 4px white gap (space-y-1) between rows break
+					up the old continuous dark bar so each W-number block reads
+					with its week. Rows stay compact; no return to the old
+					full-height continuous column. -->
 				<div
-					class="flex w-8 shrink-0 items-center justify-center border-r-[3px] border-r-slate-800 text-xs font-extrabold tracking-wide text-white {i ===
-					0
-						? 'rounded-t'
-						: ''} {i === weeks.length - 1 ? 'rounded-b' : ''} bg-emerald-950"
+					class="flex w-8 shrink-0 items-center justify-center rounded border-r-[3px] border-r-slate-800 bg-emerald-950 text-xs font-extrabold tracking-wide text-white"
 					title={`School week ${week.weekIndex}, starting ${week.monday}`}
 				>
 					W{week.weekIndex}
 				</div>
 				<div
-					class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0 overflow-hidden border border-gray-300 {i ===
-					0
-						? 'rounded-t-md'
-						: ''} {i === weeks.length - 1 ? 'rounded-b-md' : ''}"
+					class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0 overflow-hidden rounded-md border border-gray-300"
 				>
 					<div
 						data-testid={`${testId}.week-${week.weekIndex}-months`}
@@ -206,7 +203,7 @@
 						{@const cellTitle = isDisabled
 							? day.examLabel !== null
 								? `${day.date} is set in ${day.examLabel} — pick a free day`
-								: `${day.date} is not pickable — pick a free day`
+								: (disabledTooltips[day.date] ?? `${day.date} is not pickable — pick a free day`)
 							: (day.offName ?? day.examLabel ?? day.date)}
 						{#if interactive}
 							<button

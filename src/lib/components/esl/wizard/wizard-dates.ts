@@ -289,6 +289,30 @@ export function collectClassDays(from: string, count: number, offDays: Set<strin
 	return days;
 }
 
+/**
+ * Feedback F45: N class days on/before `before` (inclusive), walking
+ * backward and skipping weekends and `offDays`, never going below
+ * `startBound`. Returns ascending (earliest first) so the range reads
+ * like the forward fan-out. Shares arithmetic with `collectClassDays`
+ * (same skip rule, opposite direction). Used for the Final auto-default:
+ * the last 3 class days of the term window. May return fewer than
+ * `count` when the window is too short — the caller sets whatever fits.
+ */
+export function collectClassDaysBackward(
+	before: string,
+	count: number,
+	offDays: Set<string>,
+	startBound: string
+): string[] {
+	const days: string[] = [];
+	let cursor = before;
+	for (let i = 0; i < 366 && days.length < count && cursor >= startBound; i++) {
+		if (!isWeekend(cursor) && !offDays.has(cursor)) days.unshift(cursor);
+		cursor = addDays(cursor, -1);
+	}
+	return days;
+}
+
 export interface PreviewExam {
 	label: string;
 	dates: string[];

@@ -4,12 +4,15 @@
 	import ExamRangePicker from '$lib/components/esl/wizard/ExamRangePicker.svelte';
 	import WeekPicker from '$lib/components/esl/wizard/WeekPicker.svelte';
 	import {
+		addDays,
 		buildPreviewWeeks,
 		collectClassDays,
+		collectClassDaysBackward,
 		defaultEndDate,
 		defaultStartDate,
 		endPickerMondays,
 		EXAM_SLOT_CLASS_DAYS,
+		isWeekend,
 		mockOffDays,
 		schoolYearForTerm,
 		startPickerMondays,
@@ -63,6 +66,11 @@
 	// clicking SETS it. No pending state exists anywhere on this page.
 	let hoverStart = $state<string | null>(null);
 	let showSummary = $state(false);
+	// Feedback F45: tracks whether the user has manually touched the Final
+	// slot (set or removed it). The Final auto-default only (re)computes
+	// while this is false — any user reselect replaces the auto value and
+	// stops further auto-updates.
+	let finalTouched = $state(false);
 
 	const offDates = $derived(new Set(offDays.map((day) => day.date)));
 	// Feedback F41: Final is ALWAYS required — deliberate deviation from
@@ -72,7 +80,6 @@
 	// skipped concept exists anywhere on this page: all three slots render
 	// as enabled tabs and all three gate Review.
 	const ALL_SLOTS: ExamSlot[] = ['Exam 1', 'Exam 2', 'Final'];
-	const takenDates = $derived(exams.flatMap((exam) => exam.dates));
 	// Feedback F39: fan-out sizes read off EXAM_SLOT_CLASS_DAYS (the
 	// prototype mirror of production EXAM_SEED_WEEKDAYS) — Exam 1/2 select
 	// exactly 2 class days, only Final selects 3.
@@ -90,7 +97,33 @@
 	const blockedDates = $derived(
 		exams.filter((exam) => exam.label !== activeExam).flatMap((exam) => exam.dates)
 	);
-	const previewEnd = $derived(takenDates.reduce((max, date) => (date > max ? date : max), endDate));
+	// Feedback F46: no exam range may leave the term window. A free
+	// class-day start whose fan-out would end past endDate renders DISABLED
+	// (greyed, unclickable) instead of clickable-then-refused. Starts before
+	// startDate are out-of-range cells already, so only the end overflow is
+	// enumerated here; the `setExamDate` guard below covers both ends.
+	const overflowStarts = $derived.by(() => {
+		const out: string[] = [];
+		let cursor = startDate;
+		for (let i = 0; i < 400 && cursor <= endDate; i++) {
+			if (!isWeekend(cursor) && !offDates.has(cursor)) {
+				const fanned = collectClassDays(cursor, rangeLength, offDates);
+				const last = fanned[fanned.length - 1];
+				if (last === undefined || last > endDate) out.push(cursor);
+			}
+			cursor = addDays(cursor, 1);
+		}
+		return out;
+	});
+	const examDisabledDates = $derived([...blockedDates, ...overflowStarts]);
+	const examDisabledTooltips = $derived(
+		Object.fromEntries(
+			overflowStarts.map((date) => [
+				date,
+				`${date} would extend past the last school day — pick an earlier start`
+			])
+		)
+	);
 	const hoverHighlight = $derived(
 		hoverStart === null ? [] : collectClassDays(hoverStart, rangeLength, offDates)
 	);
@@ -103,12 +136,41 @@
 	const weeks = $derived(
 		buildPreviewWeeks(
 			startDate,
-			previewEnd,
+			endDate,
 			offDays,
 			exams.map((exam) => ({ label: exam.label, dates: exam.dates }))
 		)
 	);
 	const endBeforeStart = $derived(endDate < startDate);
+
+	// Feedback F45: Final auto-default (AUTO, not manual — consistent with
+	// the Steps 1/2 auto-pick-best-date pattern). Entering Step 3 with no
+	// Final yet populates the last 3 class days on/before endDate; the
+	// default recomputes when endDate/offDays change until the user manually
+	// touches Final. A user reselect (or removal) replaces the auto value
+	// for good. Too-short windows set whatever class days fit; a default
+	// that would cross another slot's confirmed dates is skipped entirely.
+	$effect(() => {
+		if (step !== 3 || finalTouched) return;
+		if (startDate > endDate) return;
+		const wanted = collectClassDaysBackward(
+			endDate,
+			EXAM_SLOT_CLASS_DAYS.Final,
+			offDates,
+			startDate
+		);
+		if (wanted.length === 0) return;
+		const takenByOthers = exams
+			.filter((exam) => exam.label !== 'Final')
+			.flatMap((exam) => exam.dates);
+		if (wanted.some((date) => takenByOthers.includes(date))) return;
+		const current = exams.find((exam) => exam.label === 'Final');
+		if (current !== undefined && current.dates.join(',') === wanted.join(',')) return;
+		exams = [
+			...exams.filter((exam) => exam.label !== 'Final'),
+			{ label: 'Final' as ExamSlot, dates: wanted }
+		].sort((a, b) => a.dates[0].localeCompare(b.dates[0]));
+	});
 
 	function selectTerm(next: Term) {
 		if (next === term) return;
@@ -119,6 +181,7 @@
 		offDays = [];
 		imported = false;
 		exams = [];
+		finalTouched = false;
 		activeExam = 'Exam 1';
 		hoverStart = null;
 	}
@@ -137,16 +200,28 @@
 		// refused here (quiet no-op) so the sibling tabs block exactly the
 		// confirmed days. These guards only fire on crossing/programmatic
 		// clicks. Quietly ignore.
+		// Feedback F46: exam ranges must stay inside [startDate, endDate] —
+		// refuse a start outside the window or a fan-out ending past it.
+		// (Overflow starts also render disabled, so this guard only fires on
+		// programmatic clicks. Quietly ignore.)
 		if (blockedDates.includes(date)) return;
+		if (date < startDate || date > endDate) return;
 		const dates = collectClassDays(date, rangeLength, offDates);
 		if (dates.length === 0 || dates.some((d) => blockedDates.includes(d))) return;
+		if (dates[0] < startDate || dates[dates.length - 1] > endDate) return;
 		exams = [
 			...exams.filter((exam) => exam.label !== activeExam),
 			{ label: activeExam, dates }
 		].sort((a, b) => a.dates[0].localeCompare(b.dates[0]));
+		// Feedback F45: a successful manual set on the Final slot retires
+		// the auto-default for good.
+		if (activeExam === 'Final') finalTouched = true;
 	}
 
 	function removeExam(label: ExamSlot) {
+		// Feedback F45: removing Final counts as a manual touch too — the
+		// auto-default must not pop back in after the user clears it.
+		if (label === 'Final') finalTouched = true;
 		exams = exams.filter((exam) => exam.label !== label);
 	}
 </script>
@@ -353,7 +428,8 @@
 						{weeks}
 						interactive
 						highlighted={hoverHighlight}
-						disabledDates={blockedDates}
+						disabledDates={examDisabledDates}
+						disabledTooltips={examDisabledTooltips}
 						onDateClick={setExamDate}
 						onDateHover={(date) => (hoverStart = date)}
 						testId="wizard-prototype.exam-calendar"
