@@ -150,7 +150,7 @@
 		{/if}
 	</div>
 
-	<div class="space-y-1">
+	<div class="space-y-0">
 		<div class="flex items-stretch gap-0" aria-hidden="true">
 			<div class="w-8 shrink-0"></div>
 			<div class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0">
@@ -163,20 +163,21 @@
 		</div>
 		{#each weeks as week (week.monday)}
 			<div data-testid={`${testId}.week-${week.weekIndex}`} class="flex items-stretch gap-0">
-				<!-- Feedback F42 + F44: the week-number gutter reads as a label
-					column attached to its OWN week row — per-row rounded
-					corners plus a 4px white gap (space-y-1) between rows break
-					up the old continuous dark bar so each W-number block reads
-					with its week. Rows stay compact; no return to the old
-					full-height continuous column. -->
+				<!-- Feedback F42 + F44/F47/F48: the week-number gutter reads as a
+					label column attached to its OWN week row — each dark
+					W-number block carries its own 2px vertical white
+					separation (my-[2px]) top AND bottom, first/last included,
+					so the blocks read as separate per-week labels. Day grids
+					stay flush (space-y-0, hairline dividers via -mt-px). All
+					corners square (F47) — no rounding anywhere on the grid. -->
 				<div
-					class="flex w-8 shrink-0 items-center justify-center rounded border-r-[3px] border-r-slate-800 bg-emerald-950 text-xs font-extrabold tracking-wide text-white"
+					class="my-[2px] flex w-8 shrink-0 items-center justify-center border-r-[3px] border-r-slate-800 bg-emerald-950 text-xs font-extrabold tracking-wide text-white"
 					title={`School week ${week.weekIndex}, starting ${week.monday}`}
 				>
 					W{week.weekIndex}
 				</div>
 				<div
-					class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0 overflow-hidden rounded-md border border-gray-300"
+					class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0 overflow-hidden border border-gray-300"
 				>
 					<div
 						data-testid={`${testId}.week-${week.weekIndex}-months`}
