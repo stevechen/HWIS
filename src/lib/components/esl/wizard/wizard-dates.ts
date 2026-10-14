@@ -39,6 +39,98 @@ export function weekdayLabel(date: string): string {
 	return WEEKDAY_LABELS[weekdayOf(date)] ?? '';
 }
 
+const MONTH_BADGES: readonly string[] = [
+	'JAN',
+	'FEB',
+	'MAR',
+	'APR',
+	'MAY',
+	'JUN',
+	'JUL',
+	'AUG',
+	'SEP',
+	'OCT',
+	'NOV',
+	'DEC'
+];
+
+/**
+ * Feedback F40: month title groups for one week ROW, rendered as merged
+ * header cells ACROSS the top of the row inside the grid (not a side
+ * gutter). Consecutive days in the same month collapse to one group whose
+ * `span` is the day count; a straddle week yields two groups (e.g. W18:
+ * DEC ×4 + JAN ×3); a single-month week yields one group spanning all 7.
+ * A 7-day row can never span more than two months. Derived from the row's
+ * actual dates.
+ */
+export function rowMonthSpans(dates: readonly string[]): Array<{ label: string; span: number }> {
+	const spans: Array<{ label: string; span: number }> = [];
+	for (const date of dates) {
+		const label = MONTH_BADGES[Number(date.slice(5, 7)) - 1] ?? '';
+		if (label === '') continue;
+		const last = spans[spans.length - 1];
+		if (last !== undefined && last.label === label) last.span += 1;
+		else spans.push({ label, span: 1 });
+	}
+	return spans;
+}
+
+/** Exam slots of the Step 3 picker. */
+export type ExamSlot = 'Exam 1' | 'Exam 2' | 'Final';
+
+/**
+ * Feedback F39: class-day fan-out per exam slot — the prototype mirror of
+ * production `EXAM_SEED_WEEKDAYS` (Exam 1→2, Exam 2→2, Final Exam→3). The
+ * single source the picker page reads instead of a hardcoded ternary, so
+ * only Final ever fans out to 3.
+ */
+export const EXAM_SLOT_CLASS_DAYS: Readonly<Record<ExamSlot, 2 | 3>> = {
+	'Exam 1': 2,
+	'Exam 2': 2,
+	Final: 3
+};
+
+/**
+ * Feedback F49: chronological order gate — Exam 1 < Exam 2 < Final as a
+ * full ordering. The user asked for 1↔2 explicitly; Final already sits at
+ * the tail by auto-default (last class days of the window), so the same
+ * rule extends to it. A slot's range must end strictly before every LATER
+ * slot's range starts, and start strictly after every EARLIER slot's range
+ * ends. Unset slots constrain nothing (only confirmed ranges bound).
+ */
+export const EXAM_SLOT_ORDER: readonly ExamSlot[] = ['Exam 1', 'Exam 2', 'Final'];
+
+export interface ExamRangeBound {
+	label: ExamSlot;
+	first: string;
+	last: string;
+}
+
+/**
+ * Feedback F49: canonical order-constraint message, or null when
+ * `[first, last]` for `active` satisfies the ordering against every
+ * confirmed `other` range. Phrased earlier-first so both tabs name the
+ * same constraint (e.g. `Exam 1 must end before Exam 2 starts`).
+ */
+export function examOrderViolation(
+	active: ExamSlot,
+	first: string,
+	last: string,
+	others: readonly ExamRangeBound[]
+): string | null {
+	const activeIndex = EXAM_SLOT_ORDER.indexOf(active);
+	for (const other of others) {
+		const otherIndex = EXAM_SLOT_ORDER.indexOf(other.label);
+		if (otherIndex < 0 || otherIndex === activeIndex) continue;
+		if (otherIndex > activeIndex) {
+			if (!(last < other.first)) return `${active} must end before ${other.label} starts`;
+		} else {
+			if (!(first > other.last)) return `${other.label} must end before ${active} starts`;
+		}
+	}
+	return null;
+}
+
 /** The Monday of the week containing `date` (`date` itself when Monday). */
 export function mondayOfWeek(date: string): string {
 	return addDays(date, -((weekdayOf(date) + 6) % 7));
@@ -126,23 +218,28 @@ function springYear(schoolYear: string): number {
 }
 
 /**
- * Start default (story 9): S1 → Aug 30 or next Mon; S2 → Feb 11 or next
- * Mon. Always a Monday.
+ * Start default (story 9, as amended by visual-validation feedback F2):
+ * S1 → Aug 30 as-is; S2 → Feb 11 as-is; only a Sat/Sun anchor rolls
+ * forward to next Monday. Deliberate deviation from spec story 10
+ * (which snaps every pick to Monday): clicking a date picks that exact
+ * date so a Friday Aug 30 start is allowed.
  */
 export function defaultStartDate(term: Term, schoolYear: string): string {
 	const anchor =
 		term === 'S1' ? `${fallYear(schoolYear)}-08-30` : `${springYear(schoolYear)}-02-11`;
-	return nextMonday(anchor);
+	if (isWeekend(anchor)) return nextMonday(anchor);
+	return anchor;
 }
 
 /**
- * Step 1 picker rows (story 10): 2 weekly rows for S1 (week of Aug 30 +
- * next), 3 for S2 (Feb 11–25). Returns the row Mondays.
+ * Step 1 picker rows (story 10, as amended by feedback F1): 2 weekly rows
+ * for S1, 3 for S2, starting with the week containing the default start
+ * date. When the anchor falls on Sat/Sun the default rolls to Monday, so
+ * the anchor's week row is omitted entirely and the rows shift forward.
+ * Returns the row Mondays.
  */
 export function startPickerMondays(term: Term, schoolYear: string): string[] {
-	const anchor =
-		term === 'S1' ? `${fallYear(schoolYear)}-08-30` : `${springYear(schoolYear)}-02-11`;
-	const first = mondayOfWeek(anchor);
+	const first = mondayOfWeek(defaultStartDate(term, schoolYear));
 	const rows = term === 'S1' ? 2 : 3;
 	return Array.from({ length: rows }, (_, i) => addDays(first, i * 7));
 }
@@ -229,6 +326,30 @@ export function collectClassDays(from: string, count: number, offDays: Set<strin
 	for (let i = 0; i < 366 && days.length < count; i++) {
 		if (!isWeekend(cursor) && !offDays.has(cursor)) days.push(cursor);
 		cursor = addDays(cursor, 1);
+	}
+	return days;
+}
+
+/**
+ * Feedback F45: N class days on/before `before` (inclusive), walking
+ * backward and skipping weekends and `offDays`, never going below
+ * `startBound`. Returns ascending (earliest first) so the range reads
+ * like the forward fan-out. Shares arithmetic with `collectClassDays`
+ * (same skip rule, opposite direction). Used for the Final auto-default:
+ * the last 3 class days of the term window. May return fewer than
+ * `count` when the window is too short — the caller sets whatever fits.
+ */
+export function collectClassDaysBackward(
+	before: string,
+	count: number,
+	offDays: Set<string>,
+	startBound: string
+): string[] {
+	const days: string[] = [];
+	let cursor = before;
+	for (let i = 0; i < 366 && days.length < count && cursor >= startBound; i++) {
+		if (!isWeekend(cursor) && !offDays.has(cursor)) days.unshift(cursor);
+		cursor = addDays(cursor, -1);
 	}
 	return days;
 }
