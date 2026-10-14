@@ -66,6 +66,12 @@
 	 * Feedback F65: pair same-date gate — Anniversary and its makeup date
 	 * may not share a date, both directions (disabled date + naming
 	 * tooltip in each arming context, quiet refuse in the setters).
+	 * Feedback F66: Graduation gated to after Exam 2 — dates on/before
+	 * Exam 2's last day render disabled with a naming tooltip and the
+	 * setter quietly refuses them.
+	 * Feedback F67: helper explainer removed — no "Days off..." paragraph
+	 * under the arming hint; the calendar's disabled dates speak for
+	 * themselves.
 	 */
 
 	const today = new Date().toISOString().slice(0, 10);
@@ -167,6 +173,12 @@
 		// rather than clear-then-set.
 		if (id === 'makeup' && singles['anniv'] != null && date === singles['anniv']) return;
 		if (id === 'anniv' && singles['makeup'] != null && date === singles['makeup']) return;
+		// F66: Graduation gated to after Exam 2.
+		if (id === 'grad') {
+			const e2 = anchors[1]?.dates ?? [];
+			const e2last = e2[e2.length - 1];
+			if (e2last !== undefined && date <= e2last) return;
+		}
 		if (isWeekend(date) || offSet.has(date) || examSet.has(date)) return;
 		if (date < startDate || date > endDate) return;
 		singles = { ...singles, [id]: date };
@@ -440,6 +452,25 @@
 			if (makeup != null)
 				return { dates: [makeup], tips: { [makeup]: 'Anniversary cannot be the makeup date' } };
 		}
+		// F66: Graduation gated to after Exam 2.
+		if (armed === 'grad') {
+			const e2 = anchors[1]?.dates ?? [];
+			const e2last = e2[e2.length - 1];
+			if (e2last !== undefined) {
+				const dates: string[] = [];
+				const tips: Record<string, string> = {};
+				let cursor = startDate;
+				while (cursor <= e2last && cursor <= endDate) {
+					if (!isWeekend(cursor) && !offSet.has(cursor) && !examSet.has(cursor)) {
+						dates.push(cursor);
+						tips[cursor] = 'Graduation must be after Exam 2';
+					}
+					cursor = addDays(cursor, 1);
+				}
+				return { dates, tips };
+			}
+			return { dates: [], tips: {} };
+		}
 		const series = seriesOf(armed);
 		if (series === null && blockOf(armed) === null) return { dates: [], tips: {} };
 		const isMock = armed.startsWith('mock');
@@ -620,11 +651,6 @@
 						? 'Passport Due 1 set — click a date: Due 1 sets, the rest auto-place in their blocks (batch-fill)'
 						: `${eventLabel(armed)} picked — click a school day to set it`}
 		</h2>
-		<p class="text-xs text-gray-500">
-			Days off and exam days can't be picked. Quiz and due windows skip exam days. Blocks split the
-			term at the exams: Block 1 runs from the first day of school to Exam 1, Block 2 from Exam 1 to
-			Exam 2, Block 3 from Exam 2 to the Final.
-		</p>
 	</div>
 
 	<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
@@ -844,7 +870,7 @@
 											<span
 												><strong>Graduation</strong> · No class · Grade 9 only · {fmt(
 													singles['grad'] == null ? [] : [singles['grad'] as string]
-												)}</span
+												)} <span class="ml-1 text-xs text-gray-500">· After Exam 2</span></span
 											>
 											{#if armed === 'grad'}
 												<span
