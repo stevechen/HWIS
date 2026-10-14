@@ -89,9 +89,19 @@
 	// double-booking is impossible and no conflict note/badges exist. The
 	// real Step 3 ticket (#221) should mirror backend `assertExclusive`
 	// (forbid exam-over-exam, not warn).
+	// Feedback F25: picked-but-unconfirmed ranges block too. The disabled
+	// set used to derive from CONFIRMED ranges only, so clicking a start
+	// day in Exam 1 left those days fully clickable in the Exam 2 tab
+	// until Review → Set — the pending range lived tab-local and never
+	// entered the derivation. `blockedDates` unions the other slots'
+	// confirmed AND pending ranges, and the picker/cal guard all read it.
 	const otherTakenDates = $derived(
 		visibleExams.filter((exam) => exam.label !== activeExam).flatMap((exam) => exam.dates)
 	);
+	const otherPendingDates = $derived(
+		slots.filter((slot) => slot !== activeExam).flatMap((slot) => slotPending(slot))
+	);
+	const blockedDates = $derived([...otherTakenDates, ...otherPendingDates]);
 	const pendingHighlight = $derived(
 		pendingByExam[activeExam] === null
 			? []
@@ -129,10 +139,17 @@
 	}
 
 	function confirmExam(dates: string[]) {
+		const confirmed = activeExam;
 		exams = [
 			...exams.filter((exam) => exam.label !== activeExam),
 			{ label: activeExam, dates }
 		].sort((a, b) => a.dates[0].localeCompare(b.dates[0]));
+		// Feedback F25: clear the CONFIRMED slot's pending while it is
+		// still the active one. The picker used to clear after `onConfirm`
+		// had already advanced tabs, wiping the next tab's staged pending
+		// and leaving this slot's stale (it resurrected as "Unconfirmed"
+		// if the exam was later removed).
+		pendingByExam[confirmed] = null;
 		const next = slots.find(
 			(slot) => slot !== activeExam && !exams.some((exam) => exam.label === slot)
 		);
@@ -154,9 +171,9 @@
 	}
 
 	function pickExamDate(date: string) {
-		// Defense-in-depth: taken days render disabled, so this guards only
+		// Defense-in-depth: blocked days render disabled, so this guards only
 		// against programmatic clicks. Quietly ignore — no banners.
-		if (otherTakenDates.includes(date)) return;
+		if (blockedDates.includes(date)) return;
 		pendingByExam[activeExam] = date;
 	}
 </script>
@@ -348,11 +365,17 @@
 					</Button>
 				{/each}
 			</div>
+			{#if lastExamDay}
+				<p data-testid="wizard-prototype.final-skipped" class="text-xs text-gray-500">
+					Final skipped — the term ends on Exam 2. Uncheck “last exam day” in Step 2 to set a
+					separate Final.
+				</p>
+			{/if}
 			<ExamRangePicker
 				examLabel={activeExam}
 				{rangeLength}
 				{offDates}
-				takenDates={otherTakenDates}
+				takenDates={blockedDates}
 				pendingStart={pendingByExam[activeExam]}
 				onPendingChange={(date) => (pendingByExam[activeExam] = date)}
 				onConfirm={confirmExam}
@@ -367,7 +390,7 @@
 						{weeks}
 						interactive
 						highlighted={pendingHighlight}
-						disabledDates={otherTakenDates}
+						disabledDates={blockedDates}
 						onDateClick={pickExamDate}
 						testId="wizard-prototype.exam-calendar"
 					/>
@@ -467,7 +490,11 @@
 				</h2>
 				<ul class="space-y-1 text-sm text-gray-700">
 					<li><strong>{term} {schoolYear}</strong> · {startDate} → {endDate}</li>
-					<li>{offDays.length} mock off days{lastExamDay ? '' : ' · Final set separately'}</li>
+					<li>
+						{offDays.length} mock off days{lastExamDay
+							? ' · Final skipped (term ends on Exam 2)'
+							: ' · Final set separately'}
+					</li>
 					{#each visibleExams as exam (exam.label)}
 						<li>{exam.label}: {exam.dates.join(', ')}</li>
 					{/each}

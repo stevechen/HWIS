@@ -7,8 +7,8 @@
 	 * preview the N-day range (2 for Exam 1/2, 3 for Final, skipping
 	 * weekends and off days), then confirm in the dialog. Emits the
 	 * confirmed dates via `onConfirm`; the parent owns the exam list and
-	 * feeds `takenDates` — the CONFIRMED dates of the OTHER exam slots —
-	 * so a pending range that touches them refuses quietly: the Review
+	 * feeds `takenDates` — the other slots' CONFIRMED dates plus their
+	 * pending (unconfirmed) ranges (F25) — so a pending range that touches them refuses quietly: the Review
 	 * button disables with a tooltip, no error banners.
 	 *
 	 * Feedback F23: refuse-by-construction replaces the F20 allow-and-label
@@ -58,8 +58,11 @@
 	}
 
 	function confirm() {
+		// Feedback F25: the parent clears this slot's pending inside
+		// `onConfirm` (while this tab is still active). Clearing here —
+		// after `onConfirm` has already advanced to the next tab — would
+		// wipe that tab's staged pending instead.
 		onConfirm(pendingDates);
-		onPendingChange(null);
 		confirming = false;
 	}
 
