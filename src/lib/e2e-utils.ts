@@ -79,6 +79,80 @@ export interface CreateEvaluationForStudentData {
 	e2eTag?: string;
 }
 
+export type EslTerm = 'S1' | 'S2';
+
+export type EslEventType =
+	| 'start_school'
+	| 'reminder'
+	| 'no_school'
+	| 'no_class'
+	| 'partial'
+	| 'exam'
+	| 'g9_mock';
+
+export type EslReminderKind =
+	| 'quiz'
+	| 'passport'
+	| 'recording'
+	| 'task'
+	| 'passport_check'
+	| 'workbook_check';
+
+export type EslEventTarget = 'all' | 'CLIL' | 'Comm' | 'G7' | 'G8' | 'G9' | 'H1';
+
+export interface CreateEslSemesterOptions {
+	year: string;
+	term: EslTerm;
+	startDate: string;
+	e2eTag?: string;
+}
+
+export interface SeedEslSemesterOptions {
+	semesterId: string;
+	examStarts?: { exam1?: string; exam2?: string; final?: string };
+	bbqDate?: string;
+	sportsDayDate?: string;
+	ceremonyDate?: string;
+	springBreakStart?: string;
+	springBreakEnd?: string;
+	anniversaryDate?: string;
+	moonFestivalDate?: string;
+	dragonBoatDate?: string;
+	e2eTag?: string;
+}
+
+export interface CreateEslEventOptions {
+	semesterId: string;
+	type: EslEventType;
+	reminderKind?: EslReminderKind;
+	isBanner?: boolean;
+	title: string;
+	target?: EslEventTarget;
+	date: string;
+	endDate?: string;
+	note?: string;
+	startPeriod?: number;
+	endPeriod?: number;
+	e2eTag?: string;
+}
+
+export interface UpdateEslEventOptions {
+	eventId: string;
+	type?: EslEventType;
+	reminderKind?: EslReminderKind;
+	clearReminderKind?: boolean;
+	isBanner?: boolean;
+	title?: string;
+	target?: EslEventTarget;
+	date?: string;
+	endDate?: string;
+	clearEndDate?: boolean;
+	note?: string;
+	startPeriod?: number;
+	endPeriod?: number;
+	clearPeriods?: boolean;
+}
+
 export interface SeedBaselineResult {
 	success: boolean;
 	timestamp: number;
@@ -143,6 +217,13 @@ export interface E2EUtils {
 	setRoleByToken: (token: string, role: string) => Promise<unknown>;
 	createWeeklyReportTestData: (tag?: string) => Promise<unknown>;
 	cleanupWeeklyReportTestData: (tag?: string) => Promise<unknown>;
+	setEslRoleByEmail: (email: string, eslRole: 'admin' | 'teacher' | null) => Promise<unknown>;
+	createEslSemester: (opts: CreateEslSemesterOptions) => Promise<unknown>;
+	seedEslSemester: (opts: SeedEslSemesterOptions) => Promise<unknown>;
+	createEslEvent: (opts: CreateEslEventOptions) => Promise<unknown>;
+	updateEslEvent: (opts: UpdateEslEventOptions) => Promise<unknown>;
+	removeEslEvent: (eventId: string) => Promise<unknown>;
+	getEslSemester: (semesterId: string) => Promise<unknown>;
 }
 
 export function getE2EUtils(): E2EUtils {
@@ -454,6 +535,50 @@ export function getE2EUtils(): E2EUtils {
 			return await c.mutation(api.testLifecycle.teardownByTag, {
 				scope: 'all',
 				e2eTag: tag || 'weekly-reports-test'
+			});
+		},
+
+		async setEslRoleByEmail(email: string, eslRole: 'admin' | 'teacher' | null) {
+			return await c.mutation(api.testSetup.setEslRoleByEmail, { email, eslRole });
+		},
+
+		async createEslSemester(opts: CreateEslSemesterOptions) {
+			return await c.mutation(api.esl.semesters.create, { ...opts });
+		},
+
+		async seedEslSemester(opts: SeedEslSemesterOptions) {
+			const { semesterId, ...rest } = opts;
+			return await c.mutation(api.esl.seed.seed, {
+				semesterId: semesterId as Id<'esl_semesters'>,
+				...rest
+			});
+		},
+
+		async createEslEvent(opts: CreateEslEventOptions) {
+			const { semesterId, ...rest } = opts;
+			return await c.mutation(api.esl.events.create, {
+				semesterId: semesterId as Id<'esl_semesters'>,
+				...rest
+			});
+		},
+
+		async updateEslEvent(opts: UpdateEslEventOptions) {
+			const { eventId, ...rest } = opts;
+			return await c.mutation(api.esl.events.update, {
+				eventId: eventId as Id<'esl_events'>,
+				...rest
+			});
+		},
+
+		async removeEslEvent(eventId: string) {
+			return await c.mutation(api.esl.events.remove, {
+				eventId: eventId as Id<'esl_events'>
+			});
+		},
+
+		async getEslSemester(semesterId: string) {
+			return await c.query(api.esl.semesters.get, {
+				semesterId: semesterId as Id<'esl_semesters'>
 			});
 		}
 	};

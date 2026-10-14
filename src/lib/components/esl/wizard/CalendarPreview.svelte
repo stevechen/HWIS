@@ -4,11 +4,9 @@
 
 	/**
 	 * Semester calendar preview (spec #215, stories 15–20, as amended by
-	 * feedback F5/F6/F12/F15/F18/F20/F21/F23/F24/F27/F28/F33/F34/F36/F37). School-week rows with week
-	 * numbers, a weekday header row, weekend dates in red text (no shaded
-	 * background), grey off-day chips and red exam chips. Cells are fixed
-	 * 56px wide (F29: `w-14 max-w-14`, fixed 3.5rem grid tracks,
-	 * left-aligned — leftover pane space stays empty, cells never stretch)
+	 * feedback F5/F6/F12/F15/F18/F20/F21/F23/F24/F27/F28/F33/F34/F36/F37/F68). School-week rows with
+	 * week numbers and a weekday header row, grey off-day chips and red exam chips. Cells fill fixed
+	 * 4.9rem grid tracks (F68: 5 weekday columns × 4.9rem = same 24.5rem total; weekends removed,
 	 * and ~44px tall (F43: `min-h-11` — the across-week month title row
 	 * added vertical bulk, so day-cell height came back down from 64px to
 	 * compensate; net calendar height does not grow). Feedback F40: NO per-cell month badges (F33 removed) and NO
@@ -17,12 +15,12 @@
 	 * consecutive days in the same month grouped under ONE title cell
 	 * (grid-column span = day count); a straddle week shows TWO titles
 	 * (e.g. DEC across Dec 28–31 + JAN across Jan 1–3); a single-month week
-	 * shows one title across all 7. Titles are merged header cells (white
-	 * text on slate — never red, so weekend indication stays as red day
-	 * letters/date text only), aligned over their days via the same 3.5rem
-	 * tracks, derived from the row's actual dates via `rowMonthSpans`.
-	 * The big day number is the plain day of month,
-	 * centered, no leading zeros; chips stack beneath as before. Feedback F34: week
+	 * shows one title across all 5. Titles are merged header cells (white
+	 * text on slate), aligned over their days via the same 4.9rem
+	 * tracks, derived from the row's weekday dates via `rowMonthSpans`.
+	 * The day number is the plain day of month, small (text-xs) at the
+	 * top-right corner, no leading zeros; chips stack beneath as before.
+	 * Feedback F34: week
 	 * rows are flush (no vertical gaps, hairline 1px dividers via -mt-px
 	 * border overlap) so the whole semester compresses into one view. No
 	 * internal scroll container: the page scrolls and every week renders
@@ -103,11 +101,11 @@
 		return 'border-gray-200 bg-white text-gray-800';
 	}
 
-	const WEEKDAY_HEADER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+	const WEEKDAY_HEADER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 </script>
 
 {#snippet cellBody(day: PreviewDay)}
-	<span class="text-center text-lg font-semibold tracking-tight">{dayNum(day.date)}</span>
+	<span class="self-end text-right text-xs font-semibold tracking-tight">{dayNum(day.date)}</span>
 	{#if day.examLabel !== null}
 		<span
 			class="mt-0.5 max-w-full rounded bg-red-600 px-1 py-px text-center text-[10px] font-bold break-words text-white"
@@ -130,12 +128,6 @@
 		<span class="flex items-center gap-1">
 			<span class="inline-block size-3 rounded border border-red-500 bg-red-100"></span> Exam
 		</span>
-		<span class="flex items-center gap-1">
-			<span
-				class="inline-block size-3 rounded border border-gray-200 bg-white text-center text-[8px] leading-3 font-bold text-red-600"
-				>S</span
-			> Weekend
-		</span>
 		{#if interactive}
 			<span class="flex items-center gap-1">
 				<span class="inline-block size-3 rounded border border-emerald-500 bg-emerald-100"></span>
@@ -153,7 +145,7 @@
 	<div class="space-y-0">
 		<div class="flex items-stretch gap-0" aria-hidden="true">
 			<div class="w-8 shrink-0"></div>
-			<div class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0">
+			<div class="grid shrink-0 grid-cols-[repeat(5,4.9rem)] gap-0">
 				{#each WEEKDAY_HEADER as label (label)}
 					<div class="min-w-0 px-0 py-0.5 text-center text-[11px] font-semibold text-gray-500">
 						{label}
@@ -177,14 +169,16 @@
 					W{week.weekIndex}
 				</div>
 				<div
-					class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0 overflow-hidden border border-gray-300"
+					class="grid shrink-0 grid-cols-[repeat(5,4.9rem)] gap-0 overflow-hidden border border-gray-300"
 				>
 					<div
 						data-testid={`${testId}.week-${week.weekIndex}-months`}
 						class="contents"
 						aria-hidden="true"
 					>
-						{#each rowMonthSpans(week.days.map((day) => day.date)) as group (group.label)}
+						{#each rowMonthSpans(week.days
+								.filter((day) => !day.isWeekend)
+								.map((day) => day.date)) as group (group.label)}
 							<div
 								data-month={group.label}
 								data-span={group.span}
@@ -196,7 +190,7 @@
 							</div>
 						{/each}
 					</div>
-					{#each week.days as day (day.date)}
+					{#each week.days.filter((day) => !day.isWeekend) as day (day.date)}
 						{@const isHighlighted = highlight.has(day.date)}
 						{@const isDisabled = disabled.has(day.date)}
 						{@const clickable =
@@ -215,7 +209,7 @@
 								onmouseenter={() => onDateHover(clickable ? day.date : null)}
 								onmouseleave={() => onDateHover(null)}
 								title={cellTitle}
-								class="-mt-px -ml-px flex min-h-11 w-14 max-w-14 flex-col items-center justify-start overflow-hidden border px-0 py-1 text-[11px] leading-tight {cellTone(
+								class="-mt-px -ml-px flex min-h-11 w-full flex-col items-stretch justify-start overflow-hidden border px-1 py-1 text-[11px] leading-tight {cellTone(
 									day.isWeekend,
 									day.inRange,
 									day.offName !== null,
@@ -234,7 +228,7 @@
 							<div
 								data-testid={`${testId}.date-${day.date}`}
 								title={day.offName ?? day.examLabel ?? day.date}
-								class="-mt-px -ml-px flex min-h-11 w-14 max-w-14 flex-col items-center justify-start overflow-hidden border px-0 py-1 text-[11px] leading-tight {cellTone(
+								class="-mt-px -ml-px flex min-h-11 w-full flex-col items-stretch justify-start overflow-hidden border px-1 py-1 text-[11px] leading-tight {cellTone(
 									day.isWeekend,
 									day.inRange,
 									day.offName !== null,
