@@ -67,11 +67,31 @@
 	let showSummary = $state(false);
 
 	const offDates = $derived(new Set(offDays.map((day) => day.date)));
-	const takenDates = $derived(exams.flatMap((exam) => exam.dates));
 	const slots = $derived<ExamSlot[]>(
 		lastExamDay ? ['Exam 1', 'Exam 2'] : ['Exam 1', 'Exam 2', 'Final']
 	);
+	// Feedback F22: the Final exam renders on the calendar and in the side
+	// list exactly like Exam 1/2 whenever its slot is active — tabs, red
+	// chips, and RHS rows all iterate `slots`, and the weeks below are
+	// built from `visibleExams` so a stale Final never leaks onto the
+	// calendar after "last exam day" is re-checked.
+	const visibleExams = $derived(exams.filter((exam) => slots.includes(exam.label)));
+	const takenDates = $derived(visibleExams.flatMap((exam) => exam.dates));
 	const rangeLength = $derived<2 | 3>(activeExam === 'Final' ? 3 : 2);
+	// Feedback F22: keep the active tab inside the visible slots — checking
+	// "last exam day" while the Final tab is open falls back to Exam 1.
+	$effect(() => {
+		if (!slots.includes(activeExam)) activeExam = 'Exam 1';
+	});
+	// Feedback F23: refuse-by-construction. Days confirmed in another exam
+	// slot are unpickable in the active tab — the derivation that used to
+	// feed ⚠ conflict labels now feeds the disabled-day set instead, so
+	// double-booking is impossible and no conflict note/badges exist. The
+	// real Step 3 ticket (#221) should mirror backend `assertExclusive`
+	// (forbid exam-over-exam, not warn).
+	const otherTakenDates = $derived(
+		visibleExams.filter((exam) => exam.label !== activeExam).flatMap((exam) => exam.dates)
+	);
 	const pendingHighlight = $derived(
 		pendingByExam[activeExam] === null
 			? []
@@ -85,7 +105,7 @@
 			startDate,
 			previewEnd,
 			offDays,
-			exams.map((exam) => ({ label: exam.label, dates: exam.dates }))
+			visibleExams.map((exam) => ({ label: exam.label, dates: exam.dates }))
 		)
 	);
 	const endBeforeStart = $derived(endDate < startDate);
@@ -133,35 +153,11 @@
 		return collectClassDays(pending, slot === 'Final' ? 3 : 2, offDates);
 	}
 
-	// Feedback F20: overlaps are allowed and visualized, never refused.
-	// A day conflicts when two confirmed exams share it, or when the
-	// active pending range hits another exam's dates. Backend tension:
-	// production `assertExclusive` refuses exam-on-exam — the real Step 3
-	// ticket (#221) must decide warn-vs-refuse before promotion.
-	const conflictDates = $derived.by(() => {
-		const all: string[] = exams.flatMap((exam) => exam.dates);
-		const dupes: string[] = [];
-		for (const date of all) {
-			if (all.indexOf(date) !== all.lastIndexOf(date) && !dupes.includes(date)) {
-				dupes.push(date);
-			}
-		}
-		const others: string[] = exams
-			.filter((exam) => exam.label !== activeExam)
-			.flatMap((exam) => exam.dates);
-		for (const date of pendingHighlight) {
-			if (others.includes(date) && !dupes.includes(date)) dupes.push(date);
-		}
-		return dupes.sort();
-	});
-
-	function slotConflicted(slot: ExamSlot): boolean {
-		const others: string[] = exams
-			.filter((exam) => exam.label !== slot)
-			.flatMap((exam) => exam.dates);
-		const confirmed = exams.find((exam) => exam.label === slot);
-		if (confirmed?.dates.some((date) => others.includes(date))) return true;
-		return slotPending(slot).some((date) => others.includes(date));
+	function pickExamDate(date: string) {
+		// Defense-in-depth: taken days render disabled, so this guards only
+		// against programmatic clicks. Quietly ignore — no banners.
+		if (otherTakenDates.includes(date)) return;
+		pendingByExam[activeExam] = date;
 	}
 </script>
 
@@ -356,23 +352,12 @@
 				examLabel={activeExam}
 				{rangeLength}
 				{offDates}
-				{takenDates}
+				takenDates={otherTakenDates}
 				pendingStart={pendingByExam[activeExam]}
 				onPendingChange={(date) => (pendingByExam[activeExam] = date)}
 				onConfirm={confirmExam}
 				testId="wizard-prototype.exam-picker"
 			/>
-			{#if conflictDates.length > 0}
-				<p
-					data-testid="wizard-prototype.exam-conflicts-note"
-					class="rounded border border-gray-300 bg-gray-100 p-2 text-xs text-gray-600"
-				>
-					⚠ {conflictDates.length} double-booked day{conflictDates.length === 1 ? '' : 's'} ({conflictDates.join(
-						', '
-					)}) — greyed here and in the calendar. The prototype allows overlaps; the real wizard will
-					decide warn-vs-refuse (ticket #221).
-				</p>
-			{/if}
 			<div class="grid gap-4 lg:grid-cols-[1fr_260px]">
 				<div>
 					<h2 class="mb-2 text-sm font-semibold text-gray-800">
@@ -382,14 +367,14 @@
 						{weeks}
 						interactive
 						highlighted={pendingHighlight}
-						conflicts={conflictDates}
-						onDateClick={(date) => (pendingByExam[activeExam] = date)}
+						disabledDates={otherTakenDates}
+						onDateClick={pickExamDate}
 						testId="wizard-prototype.exam-calendar"
 					/>
 				</div>
 				<aside class="space-y-2">
 					<h2 class="text-sm font-semibold text-gray-800">Exam dates</h2>
-					{#if exams.length === 0 && slots.every((slot) => slotPending(slot).length === 0)}
+					{#if visibleExams.length === 0 && slots.every((slot) => slotPending(slot).length === 0)}
 						<p data-testid="wizard-prototype.exams-empty" class="text-sm text-gray-500">
 							No exams set yet.
 						</p>
@@ -398,69 +383,40 @@
 							{#each slots as slot (slot)}
 								{@const confirmed = exams.find((exam) => exam.label === slot)}
 								{@const pending = slotPending(slot)}
-								{@const conflicted = slotConflicted(slot)}
 								<li>
 									{#if confirmed !== undefined}
 										<div
 											data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}`}
-											class="rounded border p-2 text-sm {conflicted
-												? 'border-gray-400 bg-gray-200'
-												: 'border-red-200 bg-red-50'}"
+											class="rounded border border-red-200 bg-red-50 p-2 text-sm"
 										>
 											<div class="flex items-center justify-between gap-2">
-												<strong class={conflicted ? 'text-gray-600' : 'text-red-900'}
-													>{confirmed.label}</strong
+												<strong class="text-red-900">{confirmed.label}</strong>
+												<button
+													type="button"
+													onclick={() => removeExam(confirmed.label)}
+													data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}-remove`}
+													class="text-xs font-medium text-red-700 hover:underline"
 												>
-												<span class="flex items-center gap-2">
-													{#if conflicted}
-														<span
-															data-testid={`wizard-prototype.exam-conflict-${slot.replace(' ', '-')}`}
-															class="rounded bg-gray-500 px-1.5 py-px text-[11px] font-bold text-white"
-															>⚠ Double-booked</span
-														>
-													{/if}
-													<button
-														type="button"
-														onclick={() => removeExam(confirmed.label)}
-														data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}-remove`}
-														class="text-xs font-medium {conflicted
-															? 'text-gray-600'
-															: 'text-red-700'} hover:underline"
-													>
-														Remove
-													</button>
-												</span>
+													Remove
+												</button>
 											</div>
-											<div class={conflicted ? 'text-gray-600' : 'text-red-800'}>
+											<div class="text-red-800">
 												{confirmed.dates.join(', ')}
 											</div>
 										</div>
 									{:else if pending.length > 0}
 										<div
 											data-testid={`wizard-prototype.exam-pending-${slot.replace(' ', '-')}`}
-											class="rounded border border-dashed p-2 text-sm {conflicted
-												? 'border-gray-400 bg-gray-100'
-												: 'border-emerald-500 bg-emerald-50'}"
+											class="rounded border border-dashed border-emerald-500 bg-emerald-50 p-2 text-sm"
 										>
 											<div class="flex items-center justify-between gap-2">
-												<strong class={conflicted ? 'text-gray-600' : 'text-emerald-900'}
-													>{slot}</strong
+												<strong class="text-emerald-900">{slot}</strong>
+												<span
+													class="rounded bg-amber-200 px-1.5 py-px text-[11px] font-bold text-amber-900"
+													>Unconfirmed</span
 												>
-												<span class="flex items-center gap-1">
-													{#if conflicted}
-														<span
-															data-testid={`wizard-prototype.exam-conflict-${slot.replace(' ', '-')}`}
-															class="rounded bg-gray-500 px-1.5 py-px text-[11px] font-bold text-white"
-															>⚠ Double-booked</span
-														>
-													{/if}
-													<span
-														class="rounded bg-amber-200 px-1.5 py-px text-[11px] font-bold text-amber-900"
-														>Unconfirmed</span
-													>
-												</span>
 											</div>
-											<div class={conflicted ? 'text-gray-600' : 'text-emerald-900'}>
+											<div class="text-emerald-900">
 												{pending.join(', ')}
 											</div>
 										</div>
@@ -487,7 +443,7 @@
 					Back
 				</Button>
 				<Button
-					disabled={exams.length === 0}
+					disabled={visibleExams.length === 0}
 					onclick={() => (showSummary = true)}
 					data-testid="wizard-prototype.finish"
 				>
@@ -512,7 +468,7 @@
 				<ul class="space-y-1 text-sm text-gray-700">
 					<li><strong>{term} {schoolYear}</strong> · {startDate} → {endDate}</li>
 					<li>{offDays.length} mock off days{lastExamDay ? '' : ' · Final set separately'}</li>
-					{#each exams as exam (exam.label)}
+					{#each visibleExams as exam (exam.label)}
 						<li>{exam.label}: {exam.dates.join(', ')}</li>
 					{/each}
 				</ul>

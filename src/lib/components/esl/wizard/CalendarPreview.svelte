@@ -3,37 +3,40 @@
 
 	/**
 	 * Semester calendar preview (spec #215, stories 15–20, as amended by
-	 * feedback F5/F6/F12/F15/F18/F20). School-week rows with week numbers, a
-	 * weekday header row, weekend dates in red text (no shaded background),
-	 * grey off-day chips and red exam chips. Cells show the date number
-	 * only — the header row already carries the weekday names. No internal
-	 * scroll container: the page scrolls and every week renders whole.
-	 * Cells are compact (`min-h-11` ≈ 44px touch target). Read-only by
-	 * default; `interactive` enables date clicks (Step 3 exam picking)
-	 * with `highlighted` marking the pending range. `conflicts` greys out
-	 * double-booked days with a badge (Step 3 allows overlaps and
-	 * visualizes them instead of refusing). Presentational — weeks arrive
-	 * prebuilt from `buildPreviewWeeks`.
+	 * feedback F5/F6/F12/F15/F18/F20/F21/F23). School-week rows with week
+	 * numbers, a weekday header row, weekend dates in red text (no shaded
+	 * background), grey off-day chips and red exam chips. Cells show the
+	 * date number only — the header row already carries the weekday names.
+	 * No internal scroll container: the page scrolls and every week renders
+	 * whole. Cells are compact (`min-h-11` ≈ 44px touch target) and narrow
+	 * (F21: `min-w-0` + thin padding/gaps so a whole semester fits; chips
+	 * wrap/stack instead of forcing width). Read-only by default;
+	 * `interactive` enables date clicks (Step 3 exam picking) with
+	 * `highlighted` marking the pending range. `disabledDates` greys out
+	 * days taken by another exam's CONFIRMED range — those cells are
+	 * unclickable with a quiet tooltip (F23: refuse-by-construction, so
+	 * double-booking is impossible and no conflict badges exist).
+	 * Presentational — weeks arrive prebuilt from `buildPreviewWeeks`.
 	 */
 
 	let {
 		weeks,
 		interactive = false,
 		highlighted = [],
-		conflicts = [],
+		disabledDates = [],
 		onDateClick = () => {},
 		testId = 'calendar-preview'
 	}: {
 		weeks: PreviewWeek[];
 		interactive?: boolean;
 		highlighted?: string[];
-		conflicts?: string[];
+		disabledDates?: string[];
 		onDateClick?: (date: string) => void;
 		testId?: string;
 	} = $props();
 
 	const highlight = $derived(new Set(highlighted));
-	const conflictSet = $derived(new Set(conflicts));
+	const disabled = $derived(new Set(disabledDates));
 
 	function short(date: string): string {
 		return date.slice(5).replace('-', '/');
@@ -45,12 +48,15 @@
 		hasOff: boolean,
 		hasExam: boolean,
 		isHighlighted: boolean,
-		isConflicted: boolean
+		isDisabled: boolean
 	): string {
 		if (!inRange) return 'border-gray-100 bg-gray-50 text-gray-300';
-		// Feedback F20: double-booked days read as greyed-out, whatever
-		// else they carry — the badge below names the conflict.
-		if (isConflicted) return 'border-gray-400 bg-gray-200 text-gray-500';
+		// Feedback F23: refuse-by-construction — a day taken by another
+		// exam's confirmed range reads as greyed/disabled, whatever else
+		// it carries. No conflict badges exist anymore; the mistake is
+		// impossible, so there is nothing to label. Real Step 3 ticket
+		// #221 should mirror backend `assertExclusive` (forbid, not warn).
+		if (isDisabled) return 'border-gray-300 bg-gray-200 text-gray-500';
 		if (hasExam) return 'border-red-500 bg-red-100 text-red-900';
 		if (isHighlighted) return 'border-emerald-500 bg-emerald-100 text-emerald-900';
 		if (hasOff) return 'border-stone-300 bg-stone-200 text-stone-600';
@@ -83,70 +89,75 @@
 				Pending range
 			</span>
 		{/if}
-		{#if interactive || conflictSet.size > 0}
+		{#if interactive || disabled.size > 0}
 			<span class="flex items-center gap-1">
-				<span class="inline-block size-3 rounded border border-gray-400 bg-gray-200"></span>
-				Double-booked
+				<span class="inline-block size-3 rounded border border-gray-300 bg-gray-200"></span>
+				Taken in another exam
 			</span>
 		{/if}
 	</div>
 
 	<div class="space-y-1">
-		<div class="flex items-stretch gap-1" aria-hidden="true">
-			<div class="w-10 shrink-0"></div>
-			<div class="grid flex-1 grid-cols-7 gap-1">
+		<div class="flex items-stretch gap-0.5" aria-hidden="true">
+			<div class="w-8 shrink-0"></div>
+			<div class="grid min-w-0 flex-1 grid-cols-7 gap-0.5">
 				{#each WEEKDAY_HEADER as label (label)}
-					<div class="px-1 py-0.5 text-center text-[11px] font-semibold text-gray-500">
+					<div class="min-w-0 px-0.5 py-0.5 text-center text-[11px] font-semibold text-gray-500">
 						{label}
 					</div>
 				{/each}
 			</div>
 		</div>
 		{#each weeks as week (week.monday)}
-			<div data-testid={`${testId}.week-${week.weekIndex}`} class="flex items-stretch gap-1">
+			<div data-testid={`${testId}.week-${week.weekIndex}`} class="flex items-stretch gap-0.5">
 				<div
-					class="flex w-10 shrink-0 items-center justify-center rounded bg-emerald-800 text-xs font-bold text-white"
+					class="flex w-8 shrink-0 items-center justify-center rounded bg-emerald-800 text-xs font-bold text-white"
 					title={`School week ${week.weekIndex}, starting ${week.monday}`}
 				>
 					W{week.weekIndex}
 				</div>
-				<div class="grid flex-1 grid-cols-7 gap-1">
+				<div class="grid min-w-0 flex-1 grid-cols-7 gap-0.5">
 					{#each week.days as day (day.date)}
 						{@const isHighlighted = highlight.has(day.date)}
-						{@const isConflicted = conflictSet.has(day.date)}
+						{@const isDisabled = disabled.has(day.date)}
 						{@const clickable =
-							interactive && day.inRange && !day.isWeekend && day.offName === null}
+							interactive && day.inRange && !day.isWeekend && day.offName === null && !isDisabled}
 						{#if interactive}
 							<button
 								type="button"
 								data-testid={`${testId}.date-${day.date}`}
 								disabled={!clickable}
 								onclick={() => onDateClick(day.date)}
-								title={day.offName ?? day.examLabel ?? day.date}
-								class="flex min-h-11 flex-col items-center justify-start rounded border px-1 py-1 text-[11px] leading-tight {cellTone(
+								title={isDisabled
+									? `${day.date} is set in ${day.examLabel ?? 'another exam'} — pick a free day`
+									: (day.offName ?? day.examLabel ?? day.date)}
+								class="flex min-h-11 min-w-0 flex-col items-center justify-start overflow-hidden rounded border px-0.5 py-1 text-[11px] leading-tight {cellTone(
 									day.isWeekend,
 									day.inRange,
 									day.offName !== null,
 									day.examLabel !== null,
 									isHighlighted,
-									isConflicted
+									isDisabled
 								)} {clickable
 									? 'cursor-pointer hover:border-emerald-500'
-									: 'cursor-default'} {isHighlighted ? 'ring-2 ring-emerald-500' : ''}"
+									: 'cursor-not-allowed'} {isHighlighted && !isDisabled
+									? 'ring-2 ring-emerald-500'
+									: ''}"
 							>
 								<span class="font-semibold">{short(day.date)}</span>
-								{#if isConflicted}
-									<span
-										class="mt-0.5 rounded bg-gray-500 px-1 py-px text-[10px] font-bold text-white"
-										>⚠ conflict</span
+								{#if isDisabled && day.examLabel !== null}
+									<span class="mt-0.5 max-w-full text-center text-[10px] break-words"
+										>{day.examLabel}</span
 									>
 								{:else if day.examLabel !== null}
 									<span
-										class="mt-0.5 rounded bg-red-600 px-1 py-px text-[10px] font-bold text-white"
+										class="mt-0.5 max-w-full rounded bg-red-600 px-1 py-px text-center text-[10px] font-bold break-words text-white"
 										>{day.examLabel}</span
 									>
 								{:else if day.offName !== null}
-									<span class="mt-0.5 text-[10px]">🎉 {day.offName.replace('Mock: ', '')}</span>
+									<span class="mt-0.5 max-w-full text-center text-[10px] break-words"
+										>🎉 {day.offName.replace('Mock: ', '')}</span
+									>
 								{:else if !day.inRange}
 									<span class="text-[10px]">·</span>
 								{/if}
@@ -155,28 +166,25 @@
 							<div
 								data-testid={`${testId}.date-${day.date}`}
 								title={day.offName ?? day.examLabel ?? day.date}
-								class="flex min-h-11 flex-col items-center justify-start rounded border px-1 py-1 text-[11px] leading-tight {cellTone(
+								class="flex min-h-11 min-w-0 flex-col items-center justify-start overflow-hidden rounded border px-0.5 py-1 text-[11px] leading-tight {cellTone(
 									day.isWeekend,
 									day.inRange,
 									day.offName !== null,
 									day.examLabel !== null,
 									isHighlighted,
-									isConflicted
+									isDisabled
 								)}"
 							>
 								<span class="font-semibold">{short(day.date)}</span>
-								{#if isConflicted}
+								{#if day.examLabel !== null}
 									<span
-										class="mt-0.5 rounded bg-gray-500 px-1 py-px text-[10px] font-bold text-white"
-										>⚠ conflict</span
-									>
-								{:else if day.examLabel !== null}
-									<span
-										class="mt-0.5 rounded bg-red-600 px-1 py-px text-[10px] font-bold text-white"
+										class="mt-0.5 max-w-full rounded bg-red-600 px-1 py-px text-center text-[10px] font-bold break-words text-white"
 										>{day.examLabel}</span
 									>
 								{:else if day.offName !== null}
-									<span class="mt-0.5 text-[10px]">🎉 {day.offName.replace('Mock: ', '')}</span>
+									<span class="mt-0.5 max-w-full text-center text-[10px] break-words"
+										>🎉 {day.offName.replace('Mock: ', '')}</span
+									>
 								{:else if !day.inRange}
 									<span class="text-[10px]">·</span>
 								{/if}
