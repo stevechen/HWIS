@@ -140,6 +140,7 @@
 					{classNames}
 					{eventNotes}
 					downloadName={`${semesterLabel} ${selectedClass.name} schedule`}
+					semesterStart={selected.startDate}
 				/>
 			</div>
 		{/if}

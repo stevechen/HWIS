@@ -98,6 +98,7 @@ const DAY_ROWS: ScheduleDayRow[] = [
 				title: 'Workbook check',
 				type: 'reminder',
 				reminderKind: 'workbook_check',
+				isBanner: false,
 				windowStart: '2025-09-01',
 				windowEnd: '2025-09-03'
 			}

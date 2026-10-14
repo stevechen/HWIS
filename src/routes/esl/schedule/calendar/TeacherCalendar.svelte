@@ -66,6 +66,8 @@
 				return 'bg-amber-200 text-amber-900';
 			case 'exam':
 				return 'bg-red-600 text-white';
+			case 'g9_mock':
+				return 'bg-red-100 text-red-800';
 			case 'oral':
 				return 'bg-orange-100 text-orange-900';
 			default:
@@ -81,6 +83,8 @@
 				return 'No-class';
 			case 'exam':
 				return 'Exam';
+			case 'g9_mock':
+				return 'Mock';
 			case 'oral':
 				return 'Oral Exam';
 			default:
@@ -90,7 +94,7 @@
 
 	function cellTone(status: CalendarCardStatus, past: boolean): string {
 		const base =
-			status === 'exam'
+			status === 'exam' || status === 'g9_mock'
 				? 'bg-red-50'
 				: status === 'teaching' || status === 'partial' || status === 'oral'
 					? 'bg-white'
@@ -214,11 +218,11 @@
 				<div class="min-w-0 flex-1">
 					{#if fragment.banners.length > 0}
 						<div class="flex flex-wrap gap-1.5 border-b bg-indigo-50/60 px-3 py-1.5">
-							{#each fragment.banners as banner (`${banner.title}|${banner.start}|${banner.end}`)}
+							{#each fragment.banners as banner (`${banner.title}|${banner.windowStart}|${banner.windowEnd}`)}
 								<span
 									class="rounded-full bg-indigo-200 px-2.5 py-0.5 text-xs font-semibold text-indigo-900"
 								>
-									{banner.title} · {slash(banner.start)}–{slash(banner.end)}
+									{banner.title} · {slash(banner.windowStart)}–{slash(banner.windowEnd)}
 								</span>
 							{/each}
 						</div>
@@ -249,7 +253,7 @@
 								{/if}
 								<header class="flex flex-wrap items-center gap-1.5">
 									<span class="font-semibold">{slash(card.date)} {card.weekdayLabel}</span>
-									{#if card.status !== 'off' && card.status !== 'no_class' && card.status !== 'exam'}
+									{#if card.status !== 'off' && card.status !== 'no_class' && card.status !== 'exam' && card.status !== 'g9_mock'}
 										<span class="text-xs text-stone-500">P{card.period}</span>
 									{/if}
 									{#if card.status !== 'teaching' && card.status !== 'partial'}
@@ -277,6 +281,13 @@
 								{/if}
 								{#each card.badges as badge (badge)}
 									<p class="mt-1 text-xs text-indigo-700">{badge}</p>
+								{/each}
+								{#each card.dues as due (`${due.title}|${due.windowStart}`)}
+									<p class="mt-1 text-xs font-semibold text-indigo-700">
+										{due.title}{due.windowStart !== due.windowEnd
+											? ` · ${slash(due.windowStart)}–${slash(due.windowEnd)}`
+											: ''}
+									</p>
 								{/each}
 								<textarea
 									aria-label="Note for {card.date}"

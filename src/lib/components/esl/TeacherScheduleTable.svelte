@@ -1,25 +1,33 @@
 <script lang="ts">
 	import type { ScheduleDayRow } from '$convex/shared/esl';
 	import {
+		bannerDueLabel,
+		bannerKey,
 		buildScheduleTsv,
+		buildWeekBanners,
 		countdownText,
 		descriptionText,
-		noteText
+		noteText,
+		weekIndexOf
 	} from '$lib/esl-schedule-list';
 
 	let {
 		rows,
 		classNames,
 		eventNotes,
-		downloadName
+		downloadName,
+		semesterStart
 	}: {
 		rows: ScheduleDayRow[];
 		classNames: Record<string, string>;
 		eventNotes: Record<string, string>;
 		downloadName: string;
+		/** The semester's first day, which fixes where each school week starts. */
+		semesterStart: string;
 	} = $props();
 
-	const tsv = $derived(buildScheduleTsv(rows, classNames, eventNotes));
+	const weekBanners = $derived(buildWeekBanners(rows, semesterStart));
+	const tsv = $derived(buildScheduleTsv(rows, classNames, eventNotes, semesterStart));
 
 	let toastMessage = $state('');
 	let showToast = $state(false);
@@ -145,9 +153,31 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each rows as row (`${row.date}-${row.classId}-${row.period}`)}
-				{@const greyed = row.status === 'off' || row.status === 'no_class'}
+			{#each rows as row, index (`${row.date}-${row.classId}-${row.period}`)}
+				{@const week = weekIndexOf(row.date, semesterStart)}
+				{@const newWeek = index === 0 || weekIndexOf(rows[index - 1].date, semesterStart) !== week}
+				{@const greyed =
+					row.status === 'off' || row.status === 'no_class' || row.status === 'g9_mock'}
 				{@const isExam = row.status === 'exam'}
+				{@const banners = weekBanners.get(week) ?? []}
+				{#if newWeek && banners.length > 0}
+					<tr data-testid="esl-schedule.banner-row">
+						<td
+							class="border border-gray-200 bg-indigo-50 p-2 text-indigo-900"
+							colspan={4}
+							data-testid="esl-schedule.banner-week"
+						>
+							<span class="font-semibold">Week {week}</span>
+							{#each banners as banner (bannerKey(banner))}
+								<span
+									data-testid="esl-schedule.banner"
+									class="ml-2 inline-block rounded bg-indigo-200 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-900"
+									>{bannerDueLabel(banner)}</span
+								>
+							{/each}
+						</td>
+					</tr>
+				{/if}
 				<tr
 					data-testid="esl-schedule.row"
 					class={['border-b border-gray-600', greyed && 'text-gray-400', isExam && 'text-red-500']}

@@ -82,6 +82,7 @@ const ROWS: ScheduleDayRow[] = [
 				title: 'Passport 1 due',
 				type: 'reminder',
 				reminderKind: 'passport',
+				isBanner: true,
 				windowStart: '2025-09-01',
 				windowEnd: '2025-09-08'
 			}

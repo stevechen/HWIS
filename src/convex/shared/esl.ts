@@ -1851,12 +1851,26 @@ export type ScheduleDue = {
 	title: string;
 	type: 'reminder';
 	reminderKind: EslReminderKind;
+	/**
+	 * Whether the due rides the week row as a banner (the default, `#224`)
+	 * instead of a day chip on the collapse day itself. Reminders default to
+	 * `true` at write time, so a row written before the flag existed reads as
+	 * a banner too.
+	 */
+	isBanner: boolean;
 	windowStart: string;
 	windowEnd: string;
 };
 
 /** The teaching status a day row carries. */
-export type ScheduleDayStatus = 'teaching' | 'off' | 'no_class' | 'exam' | 'partial' | 'oral_exam';
+export type ScheduleDayStatus =
+	| 'teaching'
+	| 'off'
+	| 'no_class'
+	| 'exam'
+	| 'partial'
+	| 'oral_exam'
+	| 'g9_mock';
 
 /**
  * The first period with class on the first day of school (#212): Start of
@@ -1955,6 +1969,8 @@ function isEslActiveDay(args: {
 	);
 	if (sameDay.some((event) => event.type === 'no_school' || event.type === 'exam')) return false;
 	if (sameDay.some((event) => event.type === 'no_class')) return false;
+	// A mock day replaces the lesson, like an exam day (#224).
+	if (sameDay.some((event) => event.type === 'g9_mock')) return false;
 	// Before P3 on the start day the school has not started yet (#212).
 	const start = sameDay.find((event) => event.type === 'start_school');
 	if (start && args.period < START_SCHOOL_FIRST_PERIOD) return false;
@@ -1998,6 +2014,11 @@ function resolveEslDayStatus(args: {
 	if (off) return { status: 'off', cause: off.title, badges: [], outOfWindow: false };
 	const noClass = dayEvents.find((event) => event.type === 'no_class');
 	if (noClass) return { status: 'no_class', cause: noClass.title, badges: [], outOfWindow: false };
+	// A G9 mock day is exam-like: the mock replaces the lesson, so the day
+	// renders as its own chip rather than a teaching row (#224). It anchors
+	// nothing, so it never counts toward an exam.
+	const g9Mock = dayEvents.find((event) => event.type === 'g9_mock');
+	if (g9Mock) return { status: 'g9_mock', cause: g9Mock.title, badges: [], outOfWindow: false };
 
 	const start = dayEvents.find((event) => event.type === 'start_school');
 	if (start && args.meeting.period < START_SCHOOL_FIRST_PERIOD) {
@@ -2169,7 +2190,12 @@ export function buildTeacherDayRows(args: {
 			let count: ScheduleDayRow['count'] = null;
 			if (status === 'exam') {
 				count = { position: 1, total: 1, label: cause ?? 'Exam' };
-			} else if (meeting.type === 'G9' && ceremony && date <= ceremony.date) {
+			} else if (
+				status !== 'g9_mock' &&
+				meeting.type === 'G9' &&
+				ceremony &&
+				date <= ceremony.date
+			) {
 				const position = countEslActiveDays({
 					meetings: args.meetings,
 					events: args.events,
@@ -2189,7 +2215,7 @@ export function buildTeacherDayRows(args: {
 					to: ceremony.date
 				});
 				count = { position, total, label: ceremony.note ?? ceremony.title };
-			} else {
+			} else if (status !== 'g9_mock') {
 				const reached = exams.filter((exam) =>
 					eventReachesClass(exam.target, meeting.type, meeting.cohortGrade)
 				);
@@ -2283,18 +2309,24 @@ export function buildTeacherDayRows(args: {
 					})
 			);
 			if (laterExists) continue;
+			const isBanner = event.isBanner ?? true;
 			row.dues.push({
 				title: event.title,
 				type: 'reminder',
 				reminderKind: event.reminderKind,
+				isBanner,
 				windowStart: event.date,
 				windowEnd
 			});
-			row.badges.push(
-				event.endDate && event.endDate !== event.date
-					? `due window ${event.date}–${event.endDate}`
-					: 'due'
-			);
+			// A banner carries its window in the week row (#224); only a day
+			// chip needs the window as a badge on the collapse day.
+			if (!isBanner) {
+				row.badges.push(
+					event.endDate && event.endDate !== event.date
+						? `due window ${event.date}–${event.endDate}`
+						: 'due'
+				);
+			}
 		}
 	}
 
