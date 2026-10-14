@@ -254,7 +254,11 @@
 
 	{#if step === 2}
 		<section data-testid="wizard-prototype.step-2" class="space-y-4 rounded-lg border bg-white p-4">
-			<div class="grid gap-6 lg:grid-cols-[420px_minmax(0,1fr)]">
+			<!-- Feedback F32: the controls column is flexible (1fr, always
+				beyond the old 420px so WeekPicker rows rarely wrap at
+				1280px) and the calendar pane shrink-wraps its fixed-width
+				grid (auto) — no wide blank gutter on the right. -->
+			<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
 				<div class="space-y-4">
 					<div>
 						<h2 class="mb-2 text-sm font-semibold text-gray-800">
