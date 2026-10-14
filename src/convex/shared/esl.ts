@@ -1008,9 +1008,9 @@ export function isEslSemesterTerm(term: string): term is EslSemesterTerm {
  * bounds. `exam` anchors term boundaries and the derived semester end.
  * `reminder` is the only ranged type (reminder windows collapsing to the
  * latest eligible class day in the views), qualified by `reminderKind`.
- * `start_school` is a first-day marker only. `g9_mock` is a
- * G9-only mock exam marker (single-date, like an exam but anchoring
- * nothing).
+ * `start_school` is the first-day marker and carries its P1–P2 window as
+ * period bounds. `g9_mock` is a G9-only mock exam marker (two consecutive
+ * single dates, like an exam but anchoring nothing).
  */
 export const ESL_EVENT_TYPES = [
 	'start_school',
@@ -1314,9 +1314,17 @@ export function defaultTargetForEventType(
 /** The ranged reminder type: the only type that may carry an inclusive endDate. */
 export const ESL_RANGED_EVENT_TYPES: readonly EslEventType[] = ['reminder'];
 
+/** The types that carry period bounds: partial days and the first day of school (#217). */
+export const ESL_PERIOD_BOUND_EVENT_TYPES: readonly EslEventType[] = ['partial', 'start_school'];
+
 /** Whether an event type takes an inclusive endDate range. */
 export function isRangedEventType(type: EslEventType): boolean {
 	return (ESL_RANGED_EVENT_TYPES as readonly EslEventType[]).includes(type);
+}
+
+/** Whether an event type takes start-from / end-at period bounds (#217). */
+export function takesPeriodBounds(type: EslEventType): boolean {
+	return (ESL_PERIOD_BOUND_EVENT_TYPES as readonly EslEventType[]).includes(type);
 }
 
 /**
@@ -1462,7 +1470,7 @@ export function assertValidEslEvent(input: {
 
 	const { startPeriod, endPeriod } = input;
 	if (startPeriod !== undefined || endPeriod !== undefined) {
-		if (input.type !== 'partial') {
+		if (!takesPeriodBounds(input.type)) {
 			return { kind: 'boundsNotAllowed', type: input.type };
 		}
 		for (const period of [startPeriod, endPeriod]) {
@@ -1492,9 +1500,9 @@ export function describeEslEventError(error: EslEventValidationError): string {
 		case 'badPeriod':
 			return `Period ${error.period} is not one of the school's periods (P1-P${ESL_PERIOD_NUMBERS.length}).`;
 		case 'boundsNotAllowed':
-			return `Only partial days take start-from / end-at periods.`;
+			return `Only Start of School and partial days take start-from / end-at periods.`;
 		case 'boundsOrder':
-			return `The partial starts at P${error.startPeriod} but ends at P${error.endPeriod}.`;
+			return `The window starts at P${error.startPeriod} but ends at P${error.endPeriod}.`;
 		case 'emptyTitle':
 			return error.reminderKind === 'quiz'
 				? 'A quiz needs its own title — the banner always shows it (e.g. Unit 1 Quiz Due).'
@@ -1863,9 +1871,29 @@ export type ScheduleDayStatus = 'teaching' | 'off' | 'no_class' | 'exam' | 'part
  * School reads `Start at P3`, so meetings before P3 that day render No
  * class while P3 and later run as usual. The title and the window are one
  * rule — the title is locked, so the period is a constant beside it rather
- * than a field an admin could set out of sync.
+ * than a field an admin could set out of sync. Rows that carry their own
+ * bounds (#217) are read through `startSchoolFirstPeriod` instead.
  */
 export const START_SCHOOL_FIRST_PERIOD = 3;
+
+/**
+ * The period window a Start of School row stores (#215 story 25, #217):
+ * P1–P2 have no class, so the day's teaching starts at
+ * `START_SCHOOL_FIRST_PERIOD`. Written onto the row by `events.create`
+ * (and kept across edits) so the first day's schedule is explicit data
+ * rather than an unwritten convention — the views read `endPeriod` from
+ * it, and rows predating the field fall back to the constant.
+ */
+export const ESL_START_SCHOOL_PERIODS = { startPeriod: 1, endPeriod: 2 } as const;
+
+/**
+ * The first teaching period of a first-day row: the period after its
+ * stored window ends, or the constant for rows written before the window
+ * existed (#217).
+ */
+export function startSchoolFirstPeriod(event: { endPeriod?: number }): number {
+	return (event.endPeriod ?? START_SCHOOL_FIRST_PERIOD - 1) + 1;
+}
 
 /** One rendered day-view row. */
 export type ScheduleDayRow = {
@@ -1955,9 +1983,9 @@ function isEslActiveDay(args: {
 	);
 	if (sameDay.some((event) => event.type === 'no_school' || event.type === 'exam')) return false;
 	if (sameDay.some((event) => event.type === 'no_class')) return false;
-	// Before P3 on the start day the school has not started yet (#212).
+	// Before the first-day window ends the school has not started yet (#212).
 	const start = sameDay.find((event) => event.type === 'start_school');
-	if (start && args.period < START_SCHOOL_FIRST_PERIOD) return false;
+	if (start && args.period < startSchoolFirstPeriod(start)) return false;
 	const meeting = args.meetings.find(
 		(m) =>
 			m.classId === args.classId && weekdayOfDate(args.date) === m.day && m.period === args.period
@@ -2000,11 +2028,13 @@ function resolveEslDayStatus(args: {
 	if (noClass) return { status: 'no_class', cause: noClass.title, badges: [], outOfWindow: false };
 
 	const start = dayEvents.find((event) => event.type === 'start_school');
-	if (start && args.meeting.period < START_SCHOOL_FIRST_PERIOD) {
+	if (start && args.meeting.period < startSchoolFirstPeriod(start)) {
 		return {
 			status: 'no_class',
 			cause: start.title,
-			badges: [`out-of-window P${args.meeting.period} (window from P${START_SCHOOL_FIRST_PERIOD})`],
+			badges: [
+				`out-of-window P${args.meeting.period} (window from P${startSchoolFirstPeriod(start)})`
+			],
 			outOfWindow: false
 		};
 	}
@@ -2325,6 +2355,22 @@ export const EXAM_SEED_WEEKDAYS: Readonly<Record<string, number>> = {
 export const G9_MOCK_SEED_DAYS = 2;
 
 /**
+ * The single dates a G9 mock occupies (#217): the fixed two-day pair from
+ * `startDate`, written as one single-date row each rather than as a range —
+ * a mock is never exam-typed, so it anchors no term boundary and has no
+ * `examGroup` to share. The seed's two-day rows walk the same way.
+ */
+export function g9MockDates(startDate: string): string[] {
+	const dates: string[] = [];
+	let cursor = startDate;
+	for (let index = 0; index < G9_MOCK_SEED_DAYS; index += 1) {
+		dates.push(cursor);
+		cursor = nextEslDate(cursor);
+	}
+	return dates;
+}
+
+/**
  * The suggested end of an exam range: start + (N-1) weekdays, skipping
  * weekends. The start counts as day one, so a Friday two-day exam ends the
  * following Monday. Always a suggestion — the seeded rows stay editable.
@@ -2367,6 +2413,36 @@ export function expandExamDays(args: {
 		if (weekdayOfDate(cursor) !== null && !args.offDates.has(cursor)) {
 			dates.push(cursor);
 		}
+		cursor = nextEslDate(cursor);
+	}
+	return dates;
+}
+
+/**
+ * The teaching days a due window spans (#217): `dayCount` school days from
+ * `startDate` inclusive, pushing past weekends but stopping dead at the
+ * first blocked date.
+ *
+ * A reminder range may never straddle an exam day — the write gate refuses
+ * it date by date — so the run ends at the last teaching day before the
+ * next blocked day even when fewer than `dayCount` days fit. The caller
+ * places the window where enough room exists (a Block-3 check window sits
+ * between Exam 2 and the Final), and a weekend start snaps forward to the
+ * first teaching day.
+ */
+export function dueWindowDates(args: {
+	startDate: string;
+	dayCount: number;
+	/** Dates the window may not touch: exam days and no-school days. */
+	blockedDates: ReadonlySet<string>;
+}): string[] {
+	const dates: string[] = [];
+	let cursor = args.startDate;
+	// Bounded walk: a window spans weeks, never a term, so the cap only
+	// guards against a pathological dayCount.
+	for (let step = 0; step < 400 && dates.length < args.dayCount; step += 1) {
+		if (args.blockedDates.has(cursor)) break;
+		if (weekdayOfDate(cursor) !== null) dates.push(cursor);
 		cursor = nextEslDate(cursor);
 	}
 	return dates;
@@ -2921,7 +2997,7 @@ export function listTermClassMeetings(args: {
 			}
 			if (dayEvents.some((event) => event.type === 'no_class')) continue;
 			const start = dayEvents.find((event) => event.type === 'start_school');
-			if (start && meeting.period < START_SCHOOL_FIRST_PERIOD) continue;
+			if (start && meeting.period < startSchoolFirstPeriod(start)) continue;
 			const partial = dayEvents.find((event) => event.type === 'partial');
 			if (
 				partial &&

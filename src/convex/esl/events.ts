@@ -3,17 +3,22 @@ import { v } from 'convex/values';
 import type { Doc, Id } from '../_generated/dataModel';
 import { requireEslAdmin, requireEslStaff } from '../auth';
 import {
+	ESL_START_SCHOOL_PERIODS,
 	EXAM_SEED_WEEKDAYS,
 	assertValidEslEvent,
 	assertValidEslTarget,
 	assertValidEslTitle,
+	defaultTargetForEventType,
 	describeEslEventError,
 	expandExamDays,
+	g9MockDates,
 	isEslEventType,
 	isNoteHiddenForEventType,
 	isProtectedSeedEvent,
 	migrateLegacyEslEvent,
 	migrateToReminderEslEvent,
+	takesPeriodBounds,
+	type EslEventTarget,
 	type EslEventType,
 	type EslReminderKind
 } from '../shared/esl';
@@ -159,6 +164,24 @@ function assertExamGroupAllowed(
 }
 
 /**
+ * The period bounds a write carries (#217): a partial day keeps exactly
+ * what the admin sent, while the first day of school always carries a
+ * window — P1–P2 by default, so the day's teaching starts at P3 and the
+ * first-day schedule is explicit data rather than an unwritten rule. An
+ * admin may still widen the window; the reversed pair is refused.
+ */
+function periodBoundsFor(
+	type: EslEventType,
+	sent: { startPeriod?: number; endPeriod?: number }
+): { startPeriod?: number; endPeriod?: number } {
+	if (type !== 'start_school') return sent;
+	return {
+		startPeriod: sent.startPeriod ?? ESL_START_SCHOOL_PERIODS.startPeriod,
+		endPeriod: sent.endPeriod ?? ESL_START_SCHOOL_PERIODS.endPeriod
+	};
+}
+
+/**
  * Fan one exam start out to its teaching-day rows, each sharing the title
  * as its `examGroup`. Exams and their groups are locked together: the title
  * is the group key, so a duplicate title or a fourth group refuses before
@@ -212,21 +235,57 @@ async function createExamGroup(
 }
 
 /**
+ * Fan one G9 mock start out to its two consecutive single-date rows (#217):
+ * the fixed two-day pair written as two dates rather than as a range,
+ * because a mock is never exam-typed — it anchors no term boundary and
+ * shares no `examGroup`. Not exclusive itself, so it still runs the same
+ * guard every write runs and refuses against an off or an exam day.
+ *
+ * cost: 1 exclusivity lookup per day + 1 insert per day.
+ */
+async function createG9MockGroup(
+	ctx: MutationCtx,
+	semesterId: Doc<'esl_semesters'>['_id'],
+	args: { title: string; target: EslEventTarget; startDate: string; e2eTag?: string }
+): Promise<Id<'esl_events'>[]> {
+	const dates = g9MockDates(args.startDate);
+	for (const date of dates) {
+		await assertExclusive(ctx, { semesterId, type: 'g9_mock', date });
+	}
+
+	const ids: Id<'esl_events'>[] = [];
+	for (const date of dates) {
+		ids.push(
+			await ctx.db.insert('esl_events', {
+				semesterId,
+				type: 'g9_mock',
+				title: args.title,
+				target: args.target,
+				date,
+				...(args.e2eTag === undefined ? {} : { e2eTag: args.e2eTag })
+			})
+		);
+	}
+	return ids;
+}
+
+/**
  * Create a typed event on a semester.
  *
  * Writes sit behind `requireEslAdmin`; reads are teacher-visible. Ranges live
- * on due-types only, partial bounds on partials only, one partial per date,
- * targets behind the per-type gate — each refused with the admin-facing
- * sentence from `describeEslEventError`.
+ * on due-types only, partial bounds on partials and the first day only, one
+ * partial per date, targets behind the per-type gate — each refused with the
+ * admin-facing sentence from `describeEslEventError`.
  *
- * Exams fan out: the date is the group's start, and the create writes one
- * row per teaching day (2 for Exam 1/2, 3 for the Final), pushing past
- * weekends and off days, every row sharing the title as its `examGroup`.
- * A duplicate title or a fourth group refuses; an off landing on an exam
- * day refuses through the same exclusivity every other write runs.
+ * Exams and G9 mocks fan out: the date is the group's start, and the create
+ * writes one row per day (2 for Exam 1/2, 3 for the Final, 2 consecutive
+ * single dates for a mock), pushing past weekends and off days, every exam row
+ * sharing the title as its `examGroup`. A duplicate title or a fourth group
+ * refuses; an off landing on an exam day refuses through the same exclusivity
+ * every other write runs.
  *
  * cost: field validation (no reads) + exclusivity lookups + 1 insert per
- * row (1 for every type but exam).
+ * row (1 for every type but exam and g9_mock).
  */
 export const create = mutation({
 	args: {
@@ -255,15 +314,23 @@ export const create = mutation({
 		const titleError = assertValidEslTitle(args.type, title, args.reminderKind);
 		if (titleError) throw new Error(describeEslEventError(titleError));
 
-		const targetError = assertValidEslTarget(args.type, args.target ?? 'all', args.reminderKind);
+		// The locked target is also the default, so a write that names the
+		// wrong one still refuses rather than silently retargeting.
+		const target = args.target ?? defaultTargetForEventType(args.type, args.reminderKind);
+		const targetError = assertValidEslTarget(args.type, target, args.reminderKind);
 		if (targetError) throw new Error(describeEslEventError(targetError));
+
+		const bounds = periodBoundsFor(args.type, {
+			startPeriod: args.startPeriod,
+			endPeriod: args.endPeriod
+		});
 
 		const fieldError = assertValidEslEvent({
 			type: args.type,
 			date: args.date,
 			endDate: args.endDate,
-			startPeriod: args.startPeriod,
-			endPeriod: args.endPeriod,
+			startPeriod: bounds.startPeriod,
+			endPeriod: bounds.endPeriod,
 			...(args.reminderKind === undefined ? {} : { reminderKind: args.reminderKind }),
 			...(args.isBanner === undefined ? {} : { isBanner: args.isBanner })
 		});
@@ -295,6 +362,15 @@ export const create = mutation({
 			});
 		}
 
+		if (args.type === 'g9_mock') {
+			return await createG9MockGroup(ctx, args.semesterId, {
+				title,
+				target,
+				startDate: args.date,
+				...(args.e2eTag === undefined ? {} : { e2eTag: args.e2eTag })
+			});
+		}
+
 		await assertExclusive(ctx, {
 			semesterId: args.semesterId,
 			type: args.type,
@@ -302,18 +378,24 @@ export const create = mutation({
 			endDate: args.endDate
 		});
 
+		// A reminder is the only ranged type, and its window stays optional:
+		// a due with one date reads `due` in the views while a window reads
+		// `due window X–Y`. Every occupied date runs the exclusivity guard,
+		// so a window can never straddle an exam or an off day (#217) — a
+		// wizard that wants N school days past an exam builds the window with
+		// `dueWindowDates` rather than hoping the write lands.
 		return await ctx.db.insert('esl_events', {
 			semesterId: args.semesterId,
 			type: args.type,
 			...(args.reminderKind === undefined ? {} : { reminderKind: args.reminderKind }),
 			...(args.type === 'reminder' ? { isBanner: args.isBanner ?? true } : {}),
 			title,
-			target: args.target ?? 'all',
+			target,
 			date: args.date,
 			...(args.endDate === undefined ? {} : { endDate: args.endDate }),
 			...(note === undefined || note === '' ? {} : { note }),
-			...(args.startPeriod === undefined ? {} : { startPeriod: args.startPeriod }),
-			...(args.endPeriod === undefined ? {} : { endPeriod: args.endPeriod }),
+			...(bounds.startPeriod === undefined ? {} : { startPeriod: bounds.startPeriod }),
+			...(bounds.endPeriod === undefined ? {} : { endPeriod: bounds.endPeriod }),
 			...(args.provenance === undefined ? {} : { provenance: args.provenance }),
 			...(args.unverified === undefined ? {} : { unverified: args.unverified }),
 			...(args.e2eTag === undefined ? {} : { e2eTag: args.e2eTag })
@@ -342,7 +424,8 @@ export const get = query({
  * row (the row's own dates never collide with itself).
  *
  * Clearing: an empty `note` clears it; `clearEndDate` drops the range end;
- * `clearPeriods` drops both partial bounds.
+ * `clearPeriods` drops both partial bounds — and re-stamps the first day's
+ * P1–P2 window, which a Start row always carries (#217).
  *
  * cost: 1 point read + exclusivity lookups over the new span + 1 patch.
  */
@@ -387,9 +470,17 @@ export const update = mutation({
 
 		const date = args.date ?? event.date;
 		const endDate = args.clearEndDate === true ? undefined : (args.endDate ?? event.endDate);
-		const startPeriod =
-			args.clearPeriods === true ? undefined : (args.startPeriod ?? event.startPeriod);
-		const endPeriod = args.clearPeriods === true ? undefined : (args.endPeriod ?? event.endPeriod);
+		const sentBounds = {
+			startPeriod: args.clearPeriods === true ? undefined : (args.startPeriod ?? event.startPeriod),
+			endPeriod: args.clearPeriods === true ? undefined : (args.endPeriod ?? event.endPeriod)
+		};
+		// A row retyped off a bounded type drops its stale bounds instead of
+		// being refused over fields the new type does not take at all.
+		const bounds = takesPeriodBounds(type)
+			? periodBoundsFor(type, sentBounds)
+			: { startPeriod: undefined, endPeriod: undefined };
+		const startPeriod = bounds.startPeriod;
+		const endPeriod = bounds.endPeriod;
 
 		const fieldError = assertValidEslEvent({
 			type,

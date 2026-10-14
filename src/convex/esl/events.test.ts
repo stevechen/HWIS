@@ -674,6 +674,342 @@ describe('esl/events.update', () => {
 	});
 });
 
+/**
+ * Ticket #217: the mutation surface the semester-setup wizard writes
+ * through — reminder kinds with their locked targets and banner default,
+ * due windows that may not straddle an exam day, the first day's stored
+ * P1–P2 window, and the two-day G9 mock.
+ */
+describe('esl/events wizard writes (#217)', () => {
+	it('locks each reminder kind to its own target when the target is omitted', async () => {
+		const { t, semesterId } = await seededSemester();
+		const cases = [
+			['quiz', 'Unit 1 Quiz Due', 'CLIL'],
+			['passport', 'Passport due', 'Comm'],
+			['recording', 'Recording due', 'Comm'],
+			['passport_check', 'Passport check', 'Comm'],
+			['workbook_check', 'Workbook check', 'CLIL'],
+			['task', 'Passport Unit 3 due', 'all']
+		] as const;
+		for (const [kind, title, target] of cases) {
+			const created = singleId(
+				await t.mutation(api.esl.events.create, {
+					semesterId,
+					type: 'reminder',
+					reminderKind: kind,
+					title,
+					date: '2025-09-17',
+					endDate: '2025-09-24'
+				})
+			);
+			const event = await t.query(api.esl.events.get, { eventId: created });
+			expect(event).toMatchObject({ type: 'reminder', reminderKind: kind, target });
+		}
+	});
+
+	it('refuses a reminder kind aimed outside its locked target', async () => {
+		const { t, semesterId } = await seededSemester();
+		for (const [kind, title, target] of [
+			['quiz', 'Unit 1 Quiz Due', 'Comm'],
+			['passport', 'Passport due', 'CLIL'],
+			['workbook_check', 'Workbook check', 'Comm'],
+			['passport_check', 'Passport check', 'CLIL']
+		] as const) {
+			await expect(
+				t.mutation(api.esl.events.create, {
+					semesterId,
+					type: 'reminder',
+					reminderKind: kind,
+					title,
+					target,
+					date: '2025-09-17',
+					endDate: '2025-09-24'
+				})
+			).rejects.toThrow(/CLIL|Comm/);
+		}
+	});
+
+	it('banks a reminder as a banner by default and keeps an explicit opt-out', async () => {
+		const { t, semesterId } = await seededSemester();
+		const bannerId = singleId(
+			await t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'reminder',
+				reminderKind: 'passport',
+				title: 'Passport due',
+				target: 'Comm',
+				date: '2025-09-17',
+				endDate: '2025-09-24'
+			})
+		);
+		expect(await t.query(api.esl.events.get, { eventId: bannerId })).toMatchObject({
+			isBanner: true
+		});
+		const quietId = singleId(
+			await t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'reminder',
+				reminderKind: 'passport',
+				title: 'Passport due',
+				target: 'Comm',
+				date: '2025-10-06',
+				endDate: '2025-10-10',
+				isBanner: false
+			})
+		);
+		expect(await t.query(api.esl.events.get, { eventId: quietId })).toMatchObject({
+			isBanner: false
+		});
+	});
+
+	it('refuses a range whose end falls before its start', async () => {
+		const { t, semesterId } = await seededSemester();
+		await expect(
+			t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'reminder',
+				reminderKind: 'passport',
+				title: 'Passport due',
+				target: 'Comm',
+				date: '2025-09-24',
+				endDate: '2025-09-17'
+			})
+		).rejects.toThrow(/before/i);
+	});
+
+	it('refuses a due window that straddles an exam day, naming it', async () => {
+		const { t, semesterId } = await seededSemester();
+		// Exam 1 fans out to Thu 10/16 + Fri 10/17.
+		await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'exam',
+			title: 'Exam 1',
+			date: '2025-10-16'
+		});
+		await expect(
+			t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'reminder',
+				reminderKind: 'passport',
+				title: 'Passport due',
+				target: 'Comm',
+				date: '2025-10-15',
+				endDate: '2025-10-18'
+			})
+		).rejects.toThrow(/2025-10-16 already holds an exam/);
+	});
+
+	it('accepts a due window that ends the teaching day before an exam', async () => {
+		const { t, semesterId } = await seededSemester();
+		await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'exam',
+			title: 'Exam 1',
+			date: '2025-10-16'
+		});
+		const created = singleId(
+			await t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'reminder',
+				reminderKind: 'passport',
+				title: 'Passport due',
+				target: 'Comm',
+				date: '2025-10-06',
+				endDate: '2025-10-15'
+			})
+		);
+		expect(await t.query(api.esl.events.get, { eventId: created })).toMatchObject({
+			date: '2025-10-06',
+			endDate: '2025-10-15'
+		});
+	});
+
+	it('fans Exam 2 out to two days sharing one examGroup', async () => {
+		const { t, semesterId } = await seededSemester();
+		const created = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'exam',
+			title: 'Exam 2',
+			date: '2025-11-17'
+		});
+		if (!Array.isArray(created) || created.length !== 2) {
+			throw new Error(`expected 2 Exam 2 rows, got ${JSON.stringify(created)}`);
+		}
+		const rows = [];
+		for (const eventId of created) {
+			rows.push(await t.query(api.esl.events.get, { eventId }));
+		}
+		expect(rows.map((row) => row.date)).toEqual(['2025-11-17', '2025-11-18']);
+		expect(rows.every((row) => row.examGroup === 'Exam 2' && row.target === 'all')).toBe(true);
+	});
+
+	it('fans a G9 mock out to two consecutive single-date rows', async () => {
+		const { t, semesterId } = await seededSemester();
+		const created = await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'g9_mock',
+			title: 'G9 Mock Exam',
+			date: '2025-09-05'
+		});
+		if (!Array.isArray(created) || created.length !== 2) {
+			throw new Error(`expected 2 g9_mock rows, got ${JSON.stringify(created)}`);
+		}
+		const rows = [];
+		for (const eventId of created) {
+			rows.push(await t.query(api.esl.events.get, { eventId }));
+		}
+		// Single dates, never a range: no endDate on either row.
+		expect(rows.map((row) => row.date)).toEqual(['2025-09-05', '2025-09-06']);
+		expect(rows.every((row) => row.endDate === undefined)).toBe(true);
+		expect(rows.every((row) => row.type === 'g9_mock' && row.target === 'G9')).toBe(true);
+		expect(rows.every((row) => row.title === 'G9 Mock Exam')).toBe(true);
+	});
+
+	it('refuses a G9 mock landing on an exam day', async () => {
+		const { t, semesterId } = await seededSemester();
+		await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'exam',
+			title: 'Exam 1',
+			date: '2025-10-16'
+		});
+		await expect(
+			t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'g9_mock',
+				title: 'G9 Mock Exam',
+				date: '2025-10-17'
+			})
+		).rejects.toThrow(/already holds an exam/);
+	});
+
+	it('defaults the first day of school to a P1–P2 window', async () => {
+		const { t, semesterId } = await seededSemester();
+		const created = singleId(
+			await t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'start_school',
+				title: 'Start at P3',
+				date: '2025-09-01'
+			})
+		);
+		expect(await t.query(api.esl.events.get, { eventId: created })).toMatchObject({
+			startPeriod: 1,
+			endPeriod: 2
+		});
+	});
+
+	it('keeps an explicit first-day window and refuses a reversed one', async () => {
+		const { t, semesterId } = await seededSemester();
+		const created = singleId(
+			await t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'start_school',
+				title: 'Start at P3',
+				date: '2025-09-01',
+				startPeriod: 2,
+				endPeriod: 3
+			})
+		);
+		expect(await t.query(api.esl.events.get, { eventId: created })).toMatchObject({
+			startPeriod: 2,
+			endPeriod: 3
+		});
+		await expect(
+			t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'start_school',
+				title: 'Start at P3',
+				date: '2025-09-02',
+				startPeriod: 4,
+				endPeriod: 2
+			})
+		).rejects.toThrow(/starts at P4 but ends at P2/);
+		await expect(
+			t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'no_class',
+				title: 'No class',
+				note: 'Assembly',
+				date: '2025-09-03',
+				startPeriod: 3
+			})
+		).rejects.toThrow(/partial/i);
+	});
+
+	it('keeps the first-day window across an edit and re-defaults it when cleared', async () => {
+		const { t, semesterId } = await seededSemester();
+		const created = singleId(
+			await t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'start_school',
+				title: 'Start at P3',
+				date: '2025-09-01'
+			})
+		);
+		await t.mutation(api.esl.events.update, { eventId: created, date: '2025-09-02' });
+		expect(await t.query(api.esl.events.get, { eventId: created })).toMatchObject({
+			date: '2025-09-02',
+			startPeriod: 1,
+			endPeriod: 2
+		});
+		await t.mutation(api.esl.events.update, { eventId: created, clearPeriods: true });
+		expect(await t.query(api.esl.events.get, { eventId: created })).toMatchObject({
+			startPeriod: 1,
+			endPeriod: 2
+		});
+	});
+
+	it('drops the first-day window when the row is retyped onto an unbounded type', async () => {
+		const { t, semesterId } = await seededSemester();
+		const created = singleId(
+			await t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'start_school',
+				title: 'Start at P3',
+				date: '2025-09-01'
+			})
+		);
+		await t.mutation(api.esl.events.update, {
+			eventId: created,
+			type: 'no_class',
+			title: 'No class',
+			note: 'Assembly'
+		});
+		const event = await t.query(api.esl.events.get, { eventId: created });
+		expect(event).toMatchObject({ type: 'no_class' });
+		expect(event.startPeriod).toBeUndefined();
+		expect(event.endPeriod).toBeUndefined();
+	});
+
+	it('refuses widening a due window onto an exam day via update', async () => {
+		const { t, semesterId } = await seededSemester();
+		await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'exam',
+			title: 'Exam 1',
+			date: '2025-10-16'
+		});
+		const created = singleId(
+			await t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'reminder',
+				reminderKind: 'passport',
+				title: 'Passport due',
+				date: '2025-10-06',
+				endDate: '2025-10-15'
+			})
+		);
+		await expect(
+			t.mutation(api.esl.events.update, { eventId: created, endDate: '2025-10-17' })
+		).rejects.toThrow(/2025-10-16 already holds an exam/);
+		await t.mutation(api.esl.events.update, { eventId: created, endDate: '2025-10-15' });
+		expect(await t.query(api.esl.events.get, { eventId: created })).toMatchObject({
+			endDate: '2025-10-15'
+		});
+	});
+});
+
 describe('esl/events.remove', () => {
 	it("deletes a deletable seeded row (Sport's Day, dues)", async () => {
 		const { t, semesterId } = await seededSemester();
