@@ -1,26 +1,32 @@
 <script lang="ts">
+	import { rowMonthLabel } from './wizard-dates';
 	import type { PreviewDay, PreviewWeek } from './wizard-dates';
 
 	/**
 	 * Semester calendar preview (spec #215, stories 15–20, as amended by
-	 * feedback F5/F6/F12/F15/F18/F20/F21/F23/F24/F27/F28/F33/F34). School-week rows with week
+	 * feedback F5/F6/F12/F15/F18/F20/F21/F23/F24/F27/F28/F33/F34/F36/F37). School-week rows with week
 	 * numbers, a weekday header row, weekend dates in red text (no shaded
 	 * background), grey off-day chips and red exam chips. Cells are fixed
 	 * ~56px squares (F29: `w-14 max-w-14 min-h-16`, fixed 3.5rem grid
 	 * tracks, left-aligned — leftover pane space stays empty, cells never
-	 * stretch). Feedback F33: every cell carries a month-abbreviation badge
-	 * on TOP (white text on sky-700, red-600 on weekends to preserve the
-	 * red-weekend read — the one accent avoids red-exam / grey-off /
-	 * green-highlight semantics) with the plain day number LARGE and
-	 * centered below; chips stack beneath as before. Feedback F34: week
+	 * stretch). Feedback F36: NO per-cell month badges (F33 removed) — each
+	 * week ROW carries ONE month label in a slim gutter reusing the
+	 * week-number gutter pattern (single month e.g. SEP, dual e.g.
+	 * SEP / OCT when the row straddles, derived from the row's actual dates
+	 * via `rowMonthLabel`); the gutter uses ONE neutral accent (white text
+	 * on slate) — never red, so weekend indication stays as red day
+	 * letters/date text only. The big day number is the plain day of month,
+	 * centered, no leading zeros; chips stack beneath as before. Feedback F34: week
 	 * rows are flush (no vertical gaps, hairline 1px dividers via -mt-px
 	 * border overlap) so the whole semester compresses into one view. No
 	 * internal scroll container: the page scrolls and every week renders
 	 * whole. Table-like cells (F24): zero inter-cell gaps with collapsed
 	 * single-pixel dividers. Read-only by default;
-	 * `interactive` enables date clicks (Step 3 exam picking) with
-	 * `highlighted` marking the pending range. `disabledDates` greys out
-	 * days taken by another exam's PENDING range (F25) — those cells are
+	 * `interactive` enables date clicks (Step 3 exam picking, F37:
+	 * dialog-free — a click SETS the range immediately) with `highlighted`
+	 * marking the hover preview range (`onDateHover` reports the hovered
+	 * date so the parent can fan it out). `disabledDates` greys out
+	 * days taken by another exam (F25) — those cells are
 	 * unclickable with a quiet tooltip (F23/F25: refuse-by-construction, so
 	 * double-booking is impossible and no conflict badges exist). CONFIRMED
 	 * exam dates always keep their red chip (F28) — even when taken
@@ -35,6 +41,7 @@
 		highlighted = [],
 		disabledDates = [],
 		onDateClick = () => {},
+		onDateHover = () => {},
 		testId = 'calendar-preview'
 	}: {
 		weeks: PreviewWeek[];
@@ -42,31 +49,12 @@
 		highlighted?: string[];
 		disabledDates?: string[];
 		onDateClick?: (date: string) => void;
+		onDateHover?: (date: string | null) => void;
 		testId?: string;
 	} = $props();
 
 	const highlight = $derived(new Set(highlighted));
 	const disabled = $derived(new Set(disabledDates));
-
-	function monthBadge(date: string): string {
-		// Feedback F33: the month lives in the top badge, so the big
-		// centered number below is the plain day of month.
-		const badges = [
-			'JAN',
-			'FEB',
-			'MAR',
-			'APR',
-			'MAY',
-			'JUN',
-			'JUL',
-			'AUG',
-			'SEP',
-			'OCT',
-			'NOV',
-			'DEC'
-		] as const;
-		return badges[Number(date.slice(5, 7)) - 1] ?? '';
-	}
 
 	function dayNum(date: string): number {
 		return Number(date.slice(8, 10));
@@ -84,17 +72,17 @@
 		// Feedback F28: a CONFIRMED exam date keeps its red identity even
 		// when taken relative to the active tab (still unclickable there —
 		// `clickable` below is unchanged — but never grey). Grey/disabled
-		// reads are reserved for pending-taken days, which carry no exam
-		// label yet. Previously `isDisabled` won here, so confirming
-		// auto-advanced the tab away and the just-set exam rendered as
-		// grey "taken" cells with a plain-text label — the user never saw
-		// a red Final marking.
+		// reads are reserved for unclickable starts with no exam chip
+		// (F37: free days whose fan-out would cross another exam).
 		if (hasExam) return 'border-red-500 bg-red-100 text-red-900';
 		// Feedback F23: refuse-by-construction — a day taken by another
-		// exam's pending range reads as greyed/disabled. No conflict
+		// exam reads as greyed/disabled. No conflict
 		// badges exist; the mistake is impossible, so there is nothing to
-		// label. Real Step 3 ticket #221 should mirror backend
-		// `assertExclusive` (forbid, not warn).
+		// label. Feedback F37: the grey set also covers free days whose
+		// immediate-set fan-out would cross another exam's range (the
+		// parent folds those starts into `disabledDates`) — exam-chip days
+		// keep red via the branch above. Real Step 3 ticket #221 should
+		// mirror backend `assertExclusive` (forbid, not warn).
 		if (isDisabled) return 'border-gray-300 bg-gray-200 text-gray-500';
 		if (isHighlighted) return 'border-emerald-500 bg-emerald-100 text-emerald-900';
 		if (hasOff) return 'border-stone-300 bg-stone-200 text-stone-600';
@@ -108,11 +96,6 @@
 </script>
 
 {#snippet cellBody(day: PreviewDay)}
-	<span
-		class="rounded-sm px-1 text-[9px] font-bold tracking-wider text-white {day.isWeekend
-			? 'bg-red-600'
-			: 'bg-sky-700'}">{monthBadge(day.date)}</span
-	>
 	<span class="text-center text-lg font-semibold tracking-tight">{dayNum(day.date)}</span>
 	{#if day.examLabel !== null}
 		<span
@@ -145,7 +128,7 @@
 		{#if interactive}
 			<span class="flex items-center gap-1">
 				<span class="inline-block size-3 rounded border border-emerald-500 bg-emerald-100"></span>
-				Pending range
+				Hover preview
 			</span>
 		{/if}
 		{#if interactive || disabled.size > 0}
@@ -159,6 +142,7 @@
 	<div class="space-y-0">
 		<div class="flex items-stretch gap-0" aria-hidden="true">
 			<div class="w-8 shrink-0"></div>
+			<div class="w-12 shrink-0"></div>
 			<div class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0">
 				{#each WEEKDAY_HEADER as label (label)}
 					<div class="min-w-0 px-0 py-0.5 text-center text-[11px] font-semibold text-gray-500">
@@ -181,6 +165,13 @@
 					W{week.weekIndex}
 				</div>
 				<div
+					data-testid={`${testId}.week-${week.weekIndex}-month`}
+					class="flex w-12 shrink-0 items-center justify-center bg-slate-600 px-0.5 text-center text-[9px] font-bold tracking-wide text-white"
+					title={`Month for school week ${week.weekIndex}: ${rowMonthLabel(week.days.map((day) => day.date))}`}
+				>
+					{rowMonthLabel(week.days.map((day) => day.date))}
+				</div>
+				<div
 					class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0 overflow-hidden border border-gray-300 {i ===
 					0
 						? 'rounded-t-md'
@@ -191,15 +182,20 @@
 						{@const isDisabled = disabled.has(day.date)}
 						{@const clickable =
 							interactive && day.inRange && !day.isWeekend && day.offName === null && !isDisabled}
+						{@const cellTitle = isDisabled
+							? day.examLabel !== null
+								? `${day.date} is set in ${day.examLabel} — pick a free day`
+								: `Starting here would touch another exam — pick a free day`
+							: (day.offName ?? day.examLabel ?? day.date)}
 						{#if interactive}
 							<button
 								type="button"
 								data-testid={`${testId}.date-${day.date}`}
 								disabled={!clickable}
 								onclick={() => onDateClick(day.date)}
-								title={isDisabled
-									? `${day.date} is set in ${day.examLabel ?? 'another exam'} — pick a free day`
-									: (day.offName ?? day.examLabel ?? day.date)}
+								onmouseenter={() => onDateHover(clickable ? day.date : null)}
+								onmouseleave={() => onDateHover(null)}
+								title={cellTitle}
 								class="-mt-px -ml-px flex min-h-16 w-14 max-w-14 flex-col items-center justify-start overflow-hidden border px-0 py-1 text-[11px] leading-tight {cellTone(
 									day.isWeekend,
 									day.inRange,

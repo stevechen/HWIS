@@ -39,6 +39,36 @@ export function weekdayLabel(date: string): string {
 	return WEEKDAY_LABELS[weekdayOf(date)] ?? '';
 }
 
+const MONTH_BADGES: readonly string[] = [
+	'JAN',
+	'FEB',
+	'MAR',
+	'APR',
+	'MAY',
+	'JUN',
+	'JUL',
+	'AUG',
+	'SEP',
+	'OCT',
+	'NOV',
+	'DEC'
+];
+
+/**
+ * Feedback F36: one month label per week ROW (not per cell). Derived from
+ * the row's actual dates — a single month when the whole week sits in one
+ * month (`SEP`), dual labels when the week straddles two (`SEP / OCT`).
+ * A 7-day row can never span more than two months.
+ */
+export function rowMonthLabel(dates: readonly string[]): string {
+	const seen: string[] = [];
+	for (const date of dates) {
+		const badge = MONTH_BADGES[Number(date.slice(5, 7)) - 1] ?? '';
+		if (badge !== '' && !seen.includes(badge)) seen.push(badge);
+	}
+	return seen.join(' / ');
+}
+
 /** The Monday of the week containing `date` (`date` itself when Monday). */
 export function mondayOfWeek(date: string): string {
 	return addDays(date, -((weekdayOf(date) + 6) % 7));
