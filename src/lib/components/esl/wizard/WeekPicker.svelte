@@ -38,7 +38,9 @@
 	}
 
 	function short(date: string): string {
-		return date.slice(5).replace('-', '/');
+		// Feedback F29: no leading zeros (8/5, not 08/05).
+		const [month, day] = date.slice(5).split('-');
+		return `${Number(month)}/${Number(day)}`;
 	}
 
 	const WEEKDAY_HEADER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

@@ -6,7 +6,7 @@
 	 * feedback F5/F6/F12/F15/F18/F20/F21/F23/F24/F27/F28). School-week rows with week
 	 * numbers, a weekday header row, weekend dates in red text (no shaded
 	 * background), grey off-day chips and red exam chips. Cells are fixed
-	 * ~44px squares (F27: `w-11 max-w-11 min-h-11`, fixed 2.75rem grid
+	 * ~56px squares (F29: `w-14 max-w-14 min-h-14`, fixed 3.5rem grid
 	 * tracks, left-aligned — leftover pane space stays empty, cells never
 	 * stretch) showing the date number CENTERED and LARGE (`text-base`)
 	 * with small chips beneath. No internal scroll container: the page scrolls
@@ -43,7 +43,9 @@
 	const disabled = $derived(new Set(disabledDates));
 
 	function short(date: string): string {
-		return date.slice(5).replace('-', '/');
+		// Feedback F29: no leading zeros (8/5, not 08/05).
+		const [month, day] = date.slice(5).split('-');
+		return `${Number(month)}/${Number(day)}`;
 	}
 
 	function cellTone(
@@ -112,7 +114,7 @@
 	<div class="space-y-1">
 		<div class="flex items-stretch gap-0" aria-hidden="true">
 			<div class="w-8 shrink-0"></div>
-			<div class="grid shrink-0 grid-cols-[repeat(7,2.75rem)] gap-0">
+			<div class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0">
 				{#each WEEKDAY_HEADER as label (label)}
 					<div class="min-w-0 px-0 py-0.5 text-center text-[11px] font-semibold text-gray-500">
 						{label}
@@ -129,7 +131,7 @@
 					W{week.weekIndex}
 				</div>
 				<div
-					class="grid shrink-0 grid-cols-[repeat(7,2.75rem)] gap-0 overflow-hidden rounded-md border border-gray-300"
+					class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0 overflow-hidden rounded-md border border-gray-300"
 				>
 					{#each week.days as day (day.date)}
 						{@const isHighlighted = highlight.has(day.date)}
@@ -145,7 +147,7 @@
 								title={isDisabled
 									? `${day.date} is set in ${day.examLabel ?? 'another exam'} — pick a free day`
 									: (day.offName ?? day.examLabel ?? day.date)}
-								class="-mt-px -ml-px flex min-h-11 w-11 max-w-11 flex-col items-center justify-start overflow-hidden border px-0 py-1 text-[11px] leading-tight {cellTone(
+								class="-mt-px -ml-px flex min-h-14 w-14 max-w-14 flex-col items-center justify-start overflow-hidden border px-0 py-1 text-[11px] leading-tight {cellTone(
 									day.isWeekend,
 									day.inRange,
 									day.offName !== null,
@@ -178,7 +180,7 @@
 							<div
 								data-testid={`${testId}.date-${day.date}`}
 								title={day.offName ?? day.examLabel ?? day.date}
-								class="-mt-px -ml-px flex min-h-11 w-11 max-w-11 flex-col items-center justify-start overflow-hidden border px-0 py-1 text-[11px] leading-tight {cellTone(
+								class="-mt-px -ml-px flex min-h-14 w-14 max-w-14 flex-col items-center justify-start overflow-hidden border px-0 py-1 text-[11px] leading-tight {cellTone(
 									day.isWeekend,
 									day.inRange,
 									day.offName !== null,

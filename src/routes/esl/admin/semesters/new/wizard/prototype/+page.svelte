@@ -254,7 +254,7 @@
 
 	{#if step === 2}
 		<section data-testid="wizard-prototype.step-2" class="space-y-4 rounded-lg border bg-white p-4">
-			<div class="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+			<div class="grid gap-6 lg:grid-cols-[420px_minmax(0,1fr)]">
 				<div class="space-y-4">
 					<div>
 						<h2 class="mb-2 text-sm font-semibold text-gray-800">
