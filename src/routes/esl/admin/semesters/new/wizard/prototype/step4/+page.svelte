@@ -318,6 +318,22 @@
 		{/each}
 	</div>
 
+	<div class="space-y-1">
+		<h2 class="text-sm font-semibold text-gray-800">
+			{armed === null
+				? 'Arm an event row (click its button), then click a calendar date to set it'
+				: armed === 'q1'
+					? 'Quiz 1 armed — click a date: Quiz 1 sets, all 6 auto-space (batch-fill)'
+					: armed === 'pd1'
+						? 'Passport Due 1 armed — click a date: Due 1 sets, the rest auto-place (batch-fill)'
+						: `${armed} armed — click a class day to set it`}
+		</h2>
+		<p class="text-xs text-gray-500">
+			Exam anchors: {anchors.map((a) => `${a.label} ${a.dates.join(', ')}`).join(' · ')}. Off/exam
+			days are unpickable; reminder ranges exclude exam days.
+		</p>
+	</div>
+
 	<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
 		<div class="min-w-0 space-y-4">
 			{#if tab === 'school'}
@@ -721,19 +737,6 @@
 		</div>
 
 		<div class="min-w-0">
-			<h2 class="mb-2 text-sm font-semibold text-gray-800">
-				{armed === null
-					? 'Arm an event row (click its button), then click a calendar date to set it'
-					: armed === 'q1'
-						? 'Quiz 1 armed — click a date: Quiz 1 sets, all 6 auto-space (batch-fill)'
-						: armed === 'pd1'
-							? 'Passport Due 1 armed — click a date: Due 1 sets, the rest auto-place (batch-fill)'
-							: `${armed} armed — click a class day to set it`}
-			</h2>
-			<p class="mb-2 text-xs text-gray-500">
-				Exam anchors: {anchors.map((a) => `${a.label} ${a.dates.join(', ')}`).join(' · ')}. Off/exam
-				days are unpickable; reminder ranges exclude exam days.
-			</p>
 			<CalendarPreview
 				{weeks}
 				interactive
