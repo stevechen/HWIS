@@ -4,17 +4,17 @@
 	import ExamRangePicker from '$lib/components/esl/wizard/ExamRangePicker.svelte';
 	import WeekPicker from '$lib/components/esl/wizard/WeekPicker.svelte';
 	import {
-		addDays,
 		buildPreviewWeeks,
 		collectClassDays,
 		defaultEndDate,
 		defaultStartDate,
 		endPickerMondays,
-		isWeekend,
+		EXAM_SLOT_CLASS_DAYS,
 		mockOffDays,
 		schoolYearForTerm,
 		startPickerMondays,
 		suggestSemester,
+		type ExamSlot,
 		type MockOffDay,
 		type Term
 	} from '$lib/components/esl/wizard/wizard-dates';
@@ -32,7 +32,6 @@
 	const suggestion = suggestSemester(today);
 
 	type Step = 1 | 2 | 3;
-	type ExamSlot = 'Exam 1' | 'Exam 2' | 'Final';
 	interface SetExam {
 		label: ExamSlot;
 		dates: string[];
@@ -83,34 +82,24 @@
 	// calendar after "last exam day" is re-checked.
 	const visibleExams = $derived(exams.filter((exam) => slots.includes(exam.label)));
 	const takenDates = $derived(visibleExams.flatMap((exam) => exam.dates));
-	const rangeLength = $derived<2 | 3>(activeExam === 'Final' ? 3 : 2);
+	// Feedback F39: fan-out sizes read off EXAM_SLOT_CLASS_DAYS (the
+	// prototype mirror of production EXAM_SEED_WEEKDAYS) — Exam 1/2 select
+	// exactly 2 class days, only Final selects 3.
+	const rangeLength = $derived(EXAM_SLOT_CLASS_DAYS[activeExam]);
 	// Feedback F37: refuse-by-construction, dialog-free edition. Days
-	// confirmed in another exam slot are unpickable in the active tab, and
-	// so is any free start whose immediate-set fan-out would CROSS another
-	// slot's range — both fold into the disabled-day set, so double-booking
-	// is impossible and no conflict note/badges exist. `blockedDates`
-	// derives from CONFIRMED ranges only (no pending machinery remains,
-	// which also simplifies F23). The real Step 3 ticket (#221) should
-	// mirror backend `assertExclusive` (forbid exam-over-exam, not warn)
-	// AND adopt this same dialog-free click-to-set model.
+	// confirmed in another exam slot are unpickable in the active tab, so
+	// double-booking is impossible and no conflict note/badges exist.
+	// Feedback F39: the disabled set is CONFIRMED days only — a free start
+	// whose immediate-set fan-out would CROSS another slot's range stays
+	// clickable and is refused by `setExamDate`'s guard instead, so picking
+	// Exam 1 or Exam 2 blocks exactly TWO days and only Final blocks three.
+	// The real Step 3 ticket (#221) should mirror backend `assertExclusive`
+	// (forbid exam-over-exam, not warn) AND adopt this same dialog-free
+	// click-to-set model.
 	const blockedDates = $derived(
 		visibleExams.filter((exam) => exam.label !== activeExam).flatMap((exam) => exam.dates)
 	);
 	const previewEnd = $derived(takenDates.reduce((max, date) => (date > max ? date : max), endDate));
-	// Every class-day start whose N-day fan-out would touch a blocked day
-	// renders disabled alongside the blocked days themselves.
-	const unpickableDates = $derived.by(() => {
-		const out: string[] = [...blockedDates];
-		let cursor = startDate;
-		for (let guard = 0; cursor <= previewEnd && guard < 400; guard++) {
-			if (!isWeekend(cursor) && !offDates.has(cursor) && !out.includes(cursor)) {
-				const span = collectClassDays(cursor, rangeLength, offDates);
-				if (span.some((date) => blockedDates.includes(date))) out.push(cursor);
-			}
-			cursor = addDays(cursor, 1);
-		}
-		return out;
-	});
 	const hoverHighlight = $derived(
 		hoverStart === null ? [] : collectClassDays(hoverStart, rangeLength, offDates)
 	);
@@ -150,9 +139,12 @@
 		// Feedback F37: click SETS the range immediately, replacing any
 		// prior range for this slot — no dialog, no pending, no tab advance
 		// (the user stays put and watches the red chips + RHS row appear).
-		// Defense-in-depth: blocked/colliding days render disabled, so these
-		// guards only fire on programmatic clicks. Quietly ignore.
-		if (unpickableDates.includes(date)) return;
+		// Feedback F39: blocked days render disabled; a free start whose
+		// fan-out would CROSS another slot's range stays clickable and is
+		// refused here (quiet no-op) so the sibling tabs block exactly the
+		// confirmed days. These guards only fire on crossing/programmatic
+		// clicks. Quietly ignore.
+		if (blockedDates.includes(date)) return;
 		const dates = collectClassDays(date, rangeLength, offDates);
 		if (dates.length === 0 || dates.some((d) => blockedDates.includes(d))) return;
 		exams = [
@@ -348,6 +340,14 @@
 				{#each ALL_SLOTS as slot (slot)}
 					{@const done = exams.some((exam) => exam.label === slot)}
 					{@const inactive = slot === 'Final' && !finalActive}
+					<!-- Feedback F38: every tab — including an inactive Final —
+						activates its context on click, exactly like Exam 1/2. The
+						tab carries NO aria-disabled: Button's
+						`aria-disabled:pointer-events-none` variant would swallow
+						the click and the reason panel below would stay
+						unreachable. Inactive still reads greyed (opacity +
+						title); clicking it swaps to the reason panel instead of
+						the picker. -->
 					<Button
 						size="sm"
 						variant={activeExam === slot && !inactive ? 'default' : 'outline'}
@@ -355,7 +355,6 @@
 							activeExam = slot;
 							hoverStart = null;
 						}}
-						aria-disabled={inactive}
 						title={inactive ? 'Final skipped — the term ends on Exam 2' : undefined}
 						class={inactive ? 'cursor-not-allowed opacity-50' : undefined}
 						data-testid={`wizard-prototype.exam-tab-${slot.replace(' ', '-')}`}
@@ -411,7 +410,7 @@
 							{weeks}
 							interactive
 							highlighted={hoverHighlight}
-							disabledDates={unpickableDates}
+							disabledDates={blockedDates}
 							onDateClick={setExamDate}
 							onDateHover={(date) => (hoverStart = date)}
 							testId="wizard-prototype.exam-calendar"

@@ -55,19 +55,40 @@ const MONTH_BADGES: readonly string[] = [
 ];
 
 /**
- * Feedback F36: one month label per week ROW (not per cell). Derived from
- * the row's actual dates — a single month when the whole week sits in one
- * month (`SEP`), dual labels when the week straddles two (`SEP / OCT`).
- * A 7-day row can never span more than two months.
+ * Feedback F40: month title groups for one week ROW, rendered as merged
+ * header cells ACROSS the top of the row inside the grid (not a side
+ * gutter). Consecutive days in the same month collapse to one group whose
+ * `span` is the day count; a straddle week yields two groups (e.g. W18:
+ * DEC ×4 + JAN ×3); a single-month week yields one group spanning all 7.
+ * A 7-day row can never span more than two months. Derived from the row's
+ * actual dates.
  */
-export function rowMonthLabel(dates: readonly string[]): string {
-	const seen: string[] = [];
+export function rowMonthSpans(dates: readonly string[]): Array<{ label: string; span: number }> {
+	const spans: Array<{ label: string; span: number }> = [];
 	for (const date of dates) {
-		const badge = MONTH_BADGES[Number(date.slice(5, 7)) - 1] ?? '';
-		if (badge !== '' && !seen.includes(badge)) seen.push(badge);
+		const label = MONTH_BADGES[Number(date.slice(5, 7)) - 1] ?? '';
+		if (label === '') continue;
+		const last = spans[spans.length - 1];
+		if (last !== undefined && last.label === label) last.span += 1;
+		else spans.push({ label, span: 1 });
 	}
-	return seen.join(' / ');
+	return spans;
 }
+
+/** Exam slots of the Step 3 picker. */
+export type ExamSlot = 'Exam 1' | 'Exam 2' | 'Final';
+
+/**
+ * Feedback F39: class-day fan-out per exam slot — the prototype mirror of
+ * production `EXAM_SEED_WEEKDAYS` (Exam 1→2, Exam 2→2, Final Exam→3). The
+ * single source the picker page reads instead of a hardcoded ternary, so
+ * only Final ever fans out to 3.
+ */
+export const EXAM_SLOT_CLASS_DAYS: Readonly<Record<ExamSlot, 2 | 3>> = {
+	'Exam 1': 2,
+	'Exam 2': 2,
+	Final: 3
+};
 
 /** The Monday of the week containing `date` (`date` itself when Monday). */
 export function mondayOfWeek(date: string): string {

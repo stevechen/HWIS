@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { rowMonthLabel } from './wizard-dates';
+	import { rowMonthSpans } from './wizard-dates';
 	import type { PreviewDay, PreviewWeek } from './wizard-dates';
 
 	/**
@@ -9,13 +9,17 @@
 	 * background), grey off-day chips and red exam chips. Cells are fixed
 	 * ~56px squares (F29: `w-14 max-w-14 min-h-16`, fixed 3.5rem grid
 	 * tracks, left-aligned — leftover pane space stays empty, cells never
-	 * stretch). Feedback F36: NO per-cell month badges (F33 removed) — each
-	 * week ROW carries ONE month label in a slim gutter reusing the
-	 * week-number gutter pattern (single month e.g. SEP, dual e.g.
-	 * SEP / OCT when the row straddles, derived from the row's actual dates
-	 * via `rowMonthLabel`); the gutter uses ONE neutral accent (white text
-	 * on slate) — never red, so weekend indication stays as red day
-	 * letters/date text only. The big day number is the plain day of month,
+	 * stretch). Feedback F40: NO per-cell month badges (F33 removed) and NO
+	 * side-gutter month label (F36 removed) — each week ROW carries merged
+	 * month title cells spanning ACROSS the top of the row INSIDE the grid:
+	 * consecutive days in the same month grouped under ONE title cell
+	 * (grid-column span = day count); a straddle week shows TWO titles
+	 * (e.g. DEC across Dec 28–31 + JAN across Jan 1–3); a single-month week
+	 * shows one title across all 7. Titles are merged header cells (white
+	 * text on slate — never red, so weekend indication stays as red day
+	 * letters/date text only), aligned over their days via the same 3.5rem
+	 * tracks, derived from the row's actual dates via `rowMonthSpans`.
+	 * The big day number is the plain day of month,
 	 * centered, no leading zeros; chips stack beneath as before. Feedback F34: week
 	 * rows are flush (no vertical gaps, hairline 1px dividers via -mt-px
 	 * border overlap) so the whole semester compresses into one view. No
@@ -78,11 +82,12 @@
 		// Feedback F23: refuse-by-construction — a day taken by another
 		// exam reads as greyed/disabled. No conflict
 		// badges exist; the mistake is impossible, so there is nothing to
-		// label. Feedback F37: the grey set also covers free days whose
-		// immediate-set fan-out would cross another exam's range (the
-		// parent folds those starts into `disabledDates`) — exam-chip days
-		// keep red via the branch above. Real Step 3 ticket #221 should
-		// mirror backend `assertExclusive` (forbid, not warn).
+		// label. Feedback F39: the grey set is CONFIRMED days only — free
+		// starts whose fan-out would cross another exam stay clickable and
+		// are refused by the parent's set guard instead, so a pick blocks
+		// exactly its own days (2 for Exam 1/2, 3 for Final). Real Step 3
+		// ticket #221 should mirror backend `assertExclusive`
+		// (forbid, not warn).
 		if (isDisabled) return 'border-gray-300 bg-gray-200 text-gray-500';
 		if (isHighlighted) return 'border-emerald-500 bg-emerald-100 text-emerald-900';
 		if (hasOff) return 'border-stone-300 bg-stone-200 text-stone-600';
@@ -142,7 +147,6 @@
 	<div class="space-y-0">
 		<div class="flex items-stretch gap-0" aria-hidden="true">
 			<div class="w-8 shrink-0"></div>
-			<div class="w-12 shrink-0"></div>
 			<div class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0">
 				{#each WEEKDAY_HEADER as label (label)}
 					<div class="min-w-0 px-0 py-0.5 text-center text-[11px] font-semibold text-gray-500">
@@ -165,18 +169,28 @@
 					W{week.weekIndex}
 				</div>
 				<div
-					data-testid={`${testId}.week-${week.weekIndex}-month`}
-					class="flex w-12 shrink-0 items-center justify-center bg-slate-600 px-0.5 text-center text-[9px] font-bold tracking-wide text-white"
-					title={`Month for school week ${week.weekIndex}: ${rowMonthLabel(week.days.map((day) => day.date))}`}
-				>
-					{rowMonthLabel(week.days.map((day) => day.date))}
-				</div>
-				<div
 					class="grid shrink-0 grid-cols-[repeat(7,3.5rem)] gap-0 overflow-hidden border border-gray-300 {i ===
 					0
 						? 'rounded-t-md'
 						: ''} {i === weeks.length - 1 ? 'rounded-b-md' : ''}"
 				>
+					<div
+						data-testid={`${testId}.week-${week.weekIndex}-months`}
+						class="contents"
+						aria-hidden="true"
+					>
+						{#each rowMonthSpans(week.days.map((day) => day.date)) as group (group.label)}
+							<div
+								data-month={group.label}
+								data-span={group.span}
+								title={`Month for school week ${week.weekIndex}: ${group.label}`}
+								style="grid-column: span {group.span} / span {group.span};"
+								class="-mt-px -ml-px border border-slate-500 bg-slate-600 px-0 py-0.5 text-center text-[10px] font-bold tracking-widest text-white first:ml-0"
+							>
+								{group.label}
+							</div>
+						{/each}
+					</div>
 					{#each week.days as day (day.date)}
 						{@const isHighlighted = highlight.has(day.date)}
 						{@const isDisabled = disabled.has(day.date)}
@@ -185,7 +199,7 @@
 						{@const cellTitle = isDisabled
 							? day.examLabel !== null
 								? `${day.date} is set in ${day.examLabel} — pick a free day`
-								: `Starting here would touch another exam — pick a free day`
+								: `${day.date} is not pickable — pick a free day`
 							: (day.offName ?? day.examLabel ?? day.date)}
 						{#if interactive}
 							<button
