@@ -57,6 +57,8 @@ export interface WizardStep2State {
 	endDate: string | null;
 	offDays: WizardOffDay[];
 	holidaysImported: boolean;
+	/** If true, the term ends on Exam 2 and Final exam is not needed. */
+	lastExamDay: boolean;
 }
 
 /** Step 3 — the three exam ranges (Exam 1/2 = 2 class days, Final = 3). */
@@ -113,7 +115,8 @@ export function createInitialWizardState(today: string): WizardState {
 		step2: {
 			endDate: defaultEndDate(suggestion.term, schoolYear),
 			offDays: [],
-			holidaysImported: false
+			holidaysImported: false,
+			lastExamDay: false
 		},
 		step3: { exams: [] },
 		step4: {},
@@ -281,7 +284,8 @@ function parseStep2(raw: unknown, seeded: WizardStep2State): WizardStep2State {
 		endDate: parseDate(raw.endDate) ?? seeded.endDate,
 		offDays,
 		holidaysImported:
-			typeof raw.holidaysImported === 'boolean' ? raw.holidaysImported : seeded.holidaysImported
+			typeof raw.holidaysImported === 'boolean' ? raw.holidaysImported : seeded.holidaysImported,
+		lastExamDay: typeof raw.lastExamDay === 'boolean' ? raw.lastExamDay : seeded.lastExamDay
 	};
 }
 
