@@ -1,18 +1,18 @@
 <script lang="ts">
+	import Step1Panel from '$lib/components/esl/wizard/Step1Panel.svelte';
 	import WizardShell from '$lib/components/esl/wizard/WizardShell.svelte';
 
 	/**
-	 * Semester setup wizard, shell only (ticket #218, spec #215) at
-	 * /esl/admin/semesters/new/wizard. The route sits under /esl/admin, so
-	 * `src/routes/esl/admin/+layout.svelte` is what keeps it admin-only (it
-	 * mirrors the backend's `requireEslAdmin`).
+	 * Semester setup wizard (spec #215) at /esl/admin/semesters/new/wizard.
+	 * The route sits under /esl/admin, so `src/routes/esl/admin/+layout.svelte`
+	 * is what keeps it admin-only (it mirrors the backend's `requireEslAdmin`).
 	 *
-	 * Only the shell and the step slots live here. Each panel below is a
-	 * marked placeholder for its own ticket, and each of those builds its
-	 * content as a component under `$lib/components/esl/wizard/` and swaps it
-	 * in for the note — the shell itself needs no change:
+	 * Step 1 is built (#219); every later panel below is a marked placeholder
+	 * for its own ticket, and each of those builds its content as a component
+	 * under `$lib/components/esl/wizard/` and swaps it in for the note — the
+	 * shell itself needs no change:
 	 *
-	 *   #219 Step 1 · #220 Step 2 · #221 Step 3 · #222 Step 4 · #223 Step 5
+	 *   #220 Step 2 · #221 Step 3 · #222 Step 4 · #223 Step 5
 	 *
 	 * Conventions every step ticket keeps:
 	 * - Read the shared state through `state`; change it through `update()`.
@@ -27,18 +27,9 @@
 </script>
 
 <WizardShell>
-	{#snippet children({ state, step })}
+	{#snippet children({ state, step, update })}
 		{#if step === 1}
-			<div data-testid="wizard.step-1-placeholder" class="space-y-2">
-				<h2 class="text-sm font-semibold text-gray-800">Semester &amp; start date</h2>
-				<p class="text-sm text-gray-500">
-					Step 1 arrives with #219 — the term picker and the start-date week rows.
-				</p>
-				<p data-testid="wizard.step-1-suggestion" class="text-sm text-gray-700">
-					Seeded for you: <strong>{state.step1.term} {state.step1.schoolYear}</strong>, starting
-					<strong>{state.step1.startDate}</strong>.
-				</p>
-			</div>
+			<Step1Panel {state} {update} />
 		{:else if step === 2}
 			<div data-testid="wizard.step-2-placeholder" class="space-y-2">
 				<h2 class="text-sm font-semibold text-gray-800">End date &amp; holidays</h2>

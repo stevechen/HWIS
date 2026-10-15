@@ -16,30 +16,32 @@ function stored(): string | null {
 	return sessionStorage.getItem(STORAGE_KEY);
 }
 
-describe('ESL semester wizard route (shell only)', () => {
+describe('ESL semester wizard route', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		sessionStorage.clear();
 	});
 
-	it('renders the wizard shell on the route with the step 1 slot', async () => {
+	it('renders the wizard shell on the route with the step 1 panel', async () => {
 		await render(WizardPage);
 
 		await expect.element(page.getByTestId('wizard.root')).toBeInTheDocument();
 		await expect.element(page.getByTestId('wizard.progress')).toHaveTextContent('Step 1 of 5');
 		await expect.element(page.getByTestId('wizard.step-1')).toBeInTheDocument();
-		await expect.element(page.getByTestId('wizard.step-1-placeholder')).toHaveTextContent(/Step 1/);
+		await expect.element(page.getByTestId('wizard.step-1-panel')).toBeInTheDocument();
 	});
 
-	it('hands the seeded state down to the step slot', async () => {
+	it('hands the seeded state down to the step 1 panel', async () => {
 		await render(WizardPage);
 
-		// The shell seeds the suggestion; the slot echoes what it was handed.
-		const slot = page.getByTestId('wizard.step-1-placeholder');
-		await expect.element(slot).toHaveTextContent(/starting/i);
+		// The shell seeds the suggestion; the panel shows what it was handed.
+		// The route runs at wall-clock date, so only the shapes are pinned.
+		const suggestion = page.getByTestId('wizard.step-1-suggestion');
+		await expect.element(suggestion).toHaveTextContent(/Suggested: (S1|S2) \d{4}-\d{4}/);
 		await expect
-			.element(page.getByTestId('wizard.step-1-suggestion'))
-			.toHaveTextContent(/\d{4}-\d{2}-\d{2}/);
+			.element(page.getByTestId('wizard.step-1-start-date'))
+			.toHaveTextContent(/Start Date: \d{4}-\d{2}-\d{2}/);
+		await expect.element(page.getByTestId('wizard.step-1-picker.row-1')).toBeInTheDocument();
 	});
 
 	it('advances to the step 2 slot and persists the step', async () => {
@@ -70,7 +72,7 @@ describe('ESL semester wizard route (shell only)', () => {
 
 		await page.getByTestId('wizard.step-1-tab').click();
 
-		await expect.element(page.getByTestId('wizard.step-1-placeholder')).toBeInTheDocument();
+		await expect.element(page.getByTestId('wizard.step-1-panel')).toBeInTheDocument();
 	});
 
 	it('keeps the steps behind their prerequisites locked', async () => {
