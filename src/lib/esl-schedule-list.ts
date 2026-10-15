@@ -1,8 +1,19 @@
-import { ESL_EXAM_TITLES, type ScheduleDayRow } from '$convex/shared/esl';
+import { ESL_EXAM_TITLES, type EslReminderKind, type ScheduleDayRow } from '$convex/shared/esl';
 
 /** Client-side class-type filter for the teacher list view. G10 has no target of its own. */
 export const SCHEDULE_TARGET_FILTERS = ['all', 'CLIL', 'Comm', 'G7', 'G8', 'G9', 'H1'] as const;
 export type ScheduleTargetFilter = (typeof SCHEDULE_TARGET_FILTERS)[number];
+
+/** `9/01` style short date for cards, banners, and the copied schedule. */
+export function slash(date: string): string {
+	return date.slice(5).replace('-', '/');
+}
+
+/** 1-based school-week index of a date from the semester start. */
+export function weekIndexOf(date: string, semesterStart: string): number {
+	const day = (value: string) => new Date(`${value}T12:00:00`).getTime();
+	return Math.floor((day(date) - day(semesterStart)) / (7 * 86400000)) + 1;
+}
 
 /** Lookup key joining an event's date to its title, shared by rows and dues. */
 export function eventNoteKey(date: string, title: string): string {
@@ -79,13 +90,20 @@ export function descriptionText(row: ScheduleDayRow, classNames: Record<string, 
 			return `${context} · No-class — ${row.cause ?? 'No class'}`;
 		case 'partial':
 		case 'oral_exam':
+		case 'g9_mock':
 		case 'teaching': {
 			const cause =
 				row.cause === null || (row.status === 'partial' && row.outOfWindow === true)
 					? ''
 					: ` · ${row.cause}`;
-			const dues = row.dues.length === 0 ? '' : ` · ${row.dues.map((due) => due.title).join('; ')}`;
-			return `${context}${cause}${dues}`;
+			// Banner dues ride the week row (#224), so they stay out of the
+			// day chip; chip dues append their titles as before.
+			const dues = row.dues
+				.filter((due) => !due.isBanner)
+				.map((due) => due.title)
+				.join('; ');
+			const dueText = dues === '' ? '' : ` · ${dues}`;
+			return `${context}${cause}${dueText}`;
 		}
 	}
 }
@@ -108,14 +126,93 @@ export function noteText(row: ScheduleDayRow, eventNotes: Record<string, string>
 	return notes.join('; ');
 }
 
+/** A reminder due riding a week row: the title plus the window it collapsed from. */
+export interface ScheduleWeekBanner {
+	title: string;
+	reminderKind: EslReminderKind;
+	windowStart: string;
+	windowEnd: string;
+}
+
+/**
+ * The banner chip text: the due title plus its window, the window dropped
+ * when a single day spans it. One source for the list row and the calendar
+ * week header, so the two views never word a window differently.
+ */
+export function bannerDueLabel(banner: {
+	title: string;
+	windowStart: string;
+	windowEnd: string;
+}): string {
+	return banner.windowStart === banner.windowEnd
+		? banner.title
+		: `${banner.title} · ${slash(banner.windowStart)}–${slash(banner.windowEnd)}`;
+}
+
+/** Stable key for the `{#each}` over one week's banners. */
+export function bannerKey(banner: ScheduleWeekBanner): string {
+	return `${banner.title}|${banner.windowStart}|${banner.windowEnd}`;
+}
+
+/**
+ * The banner dues landing in each school week (#224), keyed by the week
+ * number the week row carries.
+ *
+ * A due collapses onto one class day, but a teacher reads several classes at
+ * once and the same reminder reaches more than one of them — so a week shows
+ * each due once, ordered by its window. Chip dues (`isBanner` off) never
+ * become banners; they stay on their own day row.
+ */
+export function buildWeekBanners(
+	rows: readonly ScheduleDayRow[],
+	semesterStart: string
+): Map<number, ScheduleWeekBanner[]> {
+	const byWeek = new Map<number, ScheduleWeekBanner[]>();
+	const seen = new Set<string>();
+	for (const row of rows) {
+		for (const due of row.dues) {
+			if (!due.isBanner) continue;
+			const key = bannerKey(due);
+			if (seen.has(key)) continue;
+			seen.add(key);
+			const week = weekIndexOf(row.date, semesterStart);
+			const banners = byWeek.get(week) ?? [];
+			banners.push({
+				title: due.title,
+				reminderKind: due.reminderKind,
+				windowStart: due.windowStart,
+				windowEnd: due.windowEnd
+			});
+			byWeek.set(week, banners);
+		}
+	}
+	for (const banners of byWeek.values()) {
+		banners.sort(
+			(a, b) => a.windowStart.localeCompare(b.windowStart) || a.title.localeCompare(b.title)
+		);
+	}
+	return byWeek;
+}
+
 /** One TSV line per row, mirroring the scheduler's `#\tDate\tDescription\tNote` envelope. */
 export function buildScheduleTsv(
 	rows: readonly ScheduleDayRow[],
 	classNames: Record<string, string>,
-	eventNotes: Record<string, string>
+	eventNotes: Record<string, string>,
+	semesterStart: string
 ): string {
 	const lines = ['#\tDate\tDescription\tNote'];
+	const banners = buildWeekBanners(rows, semesterStart);
+	let week = 0;
 	for (const row of rows) {
+		const rowWeek = weekIndexOf(row.date, semesterStart);
+		if (rowWeek !== week) {
+			week = rowWeek;
+			const bannerText = (banners.get(week) ?? [])
+				.map((banner) => bannerDueLabel(banner))
+				.join('; ');
+			if (bannerText !== '') lines.push(`\t\tWeek ${week} · ${bannerText}\t`);
+		}
 		const badges = row.badges.length === 0 ? '' : ` (${row.badges.join('; ')})`;
 		lines.push(
 			[

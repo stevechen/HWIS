@@ -144,6 +144,7 @@ describe('esl/schedule.teacherDays', () => {
 		await createEvent(t, semesterId, {
 			type: 'reminder',
 			reminderKind: 'task',
+			isBanner: false,
 			title: 'Passport check',
 			date: '2025-09-08',
 			endDate: '2025-09-10'
@@ -170,6 +171,38 @@ describe('esl/schedule.teacherDays', () => {
 			]
 		});
 		expect(days[1].badges).toContain('due window 2025-09-08–2025-09-10');
+	});
+
+	it('marks a banner due as one and drops its day-chip badge (#224)', async () => {
+		const { t, teacherId, semesterId } = await setupTeacherWorld();
+		// The default banner flag: the reminder rides the week row instead of
+		// a day chip, so the collapse day carries no `due window` badge.
+		await createEvent(t, semesterId, {
+			type: 'reminder',
+			reminderKind: 'task',
+			title: 'Passport check',
+			date: '2025-09-08',
+			endDate: '2025-09-10'
+		});
+		asTeacher();
+
+		const days = await readDays(t, teacherId, semesterId, {
+			fromDate: '2025-09-08',
+			toDate: '2025-09-10'
+		});
+
+		expect(days[1].dues).toEqual([
+			{
+				title: 'Passport check',
+				type: 'reminder',
+				reminderKind: 'task',
+				isBanner: true,
+				windowStart: '2025-09-08',
+				windowEnd: '2025-09-10'
+			}
+		]);
+		expect(days[1].badges).not.toContain('due window 2025-09-08–2025-09-10');
+		expect(days[1].badges).toEqual([]);
 	});
 
 	it('lets an off day win the collapse (off-wins)', async () => {
@@ -470,6 +503,243 @@ describe('esl/schedule.teacherDays', () => {
 		// Graduated: the G9 schedule stops at the ceremony even though the
 		// window still runs to the final exam for everyone else.
 		expect(g9Days.some((day) => day.date > '2026-06-05')).toBe(false);
+	});
+
+	it('carries every reminder kind through the join, collapsed onto its own lesson', async () => {
+		const { t, teacherId, semesterId, clilId } = await setupTeacherWorld();
+		// A second cohort's Comm class joins the teacher's load (one teacher
+		// cannot hold both classes of a cohort). It meets Tue P5 / Thu P6.
+		const { classIds: secondIds } = await t.mutation(api.esl.cohorts.create, {
+			year: YEAR,
+			grade: 8,
+			level: 'Basic',
+			classNumber: '1'
+		});
+		const secondComm = secondIds[1];
+		await t.mutation(api.esl.classes.setSchedule, {
+			classId: secondComm,
+			year: YEAR,
+			meetings: [
+				{ day: 'Tuesday', period: 5 },
+				{ day: 'Thursday', period: 6 }
+			]
+		});
+		await t.mutation(api.esl.classes.assignTeacher, { id: secondComm, teacherId });
+		// One row per reminder kind, each landing on the latest class day of
+		// the lesson its locked target names.
+		const kinds: {
+			reminderKind: EslReminderKind;
+			title: string;
+			target: EslEventTarget;
+			date: string;
+			endDate?: string;
+		}[] = [
+			{
+				reminderKind: 'quiz',
+				title: 'Unit 1 Quiz Due',
+				target: 'CLIL',
+				date: '2025-09-08',
+				endDate: '2025-09-10'
+			},
+			{
+				reminderKind: 'workbook_check',
+				title: 'Workbook check',
+				target: 'CLIL',
+				date: '2025-09-05'
+			},
+			{
+				reminderKind: 'passport',
+				title: 'Passport due',
+				target: 'Comm',
+				date: '2025-09-09',
+				endDate: '2025-09-11'
+			},
+			{
+				reminderKind: 'recording',
+				title: 'Recording due',
+				target: 'Comm',
+				date: '2025-09-15',
+				endDate: '2025-09-18'
+			},
+			{
+				reminderKind: 'passport_check',
+				title: 'Passport check',
+				target: 'Comm',
+				date: '2025-09-09'
+			},
+			{
+				reminderKind: 'task',
+				title: 'Comm survey',
+				target: 'Comm',
+				date: '2025-09-08',
+				endDate: '2025-09-09'
+			}
+		];
+		for (const kind of kinds) {
+			await createEvent(t, semesterId, { type: 'reminder', ...kind });
+		}
+		asTeacher();
+
+		const days = await readDays(t, teacherId, semesterId, {
+			fromDate: '2025-09-05',
+			toDate: '2025-09-18'
+		});
+
+		const dueTitles = (date: string, classId: string) =>
+			days
+				.filter((day) => day.date === date && day.classId === classId)
+				.flatMap((day) => day.dues.map((due) => due.title))
+				.sort();
+		expect(dueTitles('2025-09-05', clilId)).toEqual(['Workbook check']);
+		expect(dueTitles('2025-09-10', clilId)).toEqual(['Unit 1 Quiz Due']);
+		expect(dueTitles('2025-09-09', secondComm)).toEqual(['Comm survey', 'Passport check']);
+		expect(dueTitles('2025-09-11', secondComm)).toEqual(['Passport due']);
+		expect(dueTitles('2025-09-18', secondComm)).toEqual(['Recording due']);
+		for (const day of days) {
+			const titles = day.dues.map((due) => due.title);
+			if (day.classId === clilId) {
+				expect(titles).not.toContain('Comm survey');
+			} else {
+				expect(titles).not.toContain('Unit 1 Quiz Due');
+			}
+		}
+	});
+
+	it('renders g9 mocks as consecutive day chips, never a range (#224)', async () => {
+		const { t, teacherId, semesterId } = await setupTeacherWorld();
+		// A G9 cohort is taught by one class of type `G9`; two of them give the
+		// teacher mock days back to back plus a class day after them.
+		const mockClasses: string[] = [];
+		for (const classNumber of ['1', '2']) {
+			const { classIds } = await t.mutation(api.esl.cohorts.create, {
+				year: YEAR,
+				grade: 9,
+				level: 'Basic',
+				classNumber
+			});
+			const [g9Id] = classIds;
+			await t.mutation(api.esl.classes.setSchedule, {
+				classId: g9Id,
+				year: YEAR,
+				meetings:
+					classNumber === '1'
+						? [
+								{ day: 'Monday', period: 2 },
+								{ day: 'Tuesday', period: 1 }
+							]
+						: [
+								{ day: 'Monday', period: 3 },
+								{ day: 'Wednesday', period: 4 }
+							]
+			});
+			await t.mutation(api.esl.classes.assignTeacher, { id: g9Id, teacherId });
+			mockClasses.push(g9Id);
+		}
+		const [mondayG9, wednesdayG9] = mockClasses;
+		// The seed writes two single-date g9_mock rows per mock start.
+		await createEvent(t, semesterId, {
+			type: 'g9_mock',
+			title: 'G9 Mock Exam',
+			target: 'G9',
+			date: '2025-09-08'
+		});
+		// A task-kind reminder may target G9: its window spans the mocks, so
+		// the collapse falls through to the next class day.
+		await createEvent(t, semesterId, {
+			type: 'reminder',
+			reminderKind: 'task',
+			title: 'Mock-week survey',
+			target: 'G9',
+			date: '2025-09-08',
+			endDate: '2025-09-10'
+		});
+		asTeacher();
+
+		const days = await readDays(t, teacherId, semesterId, {
+			fromDate: '2025-09-08',
+			toDate: '2025-09-10'
+		});
+
+		// Two consecutive day chips on the class that meets both mock days.
+		const mocks = days.filter((day) => day.classId === mondayG9 && day.date < '2025-09-10');
+		expect(mocks.map((day) => day.date)).toEqual(['2025-09-08', '2025-09-09']);
+		for (const mock of mocks) {
+			expect(mock).toMatchObject({ status: 'g9_mock', cause: 'G9 Mock Exam', dues: [] });
+			// A mock day is exam-like, so it carries no per-term count.
+			expect(mock.count).toBeNull();
+		}
+		// The window's only eligible class day is Wednesday, so the due lands
+		// there rather than on a mock day.
+		const wednesday = days.find((day) => day.date === '2025-09-10' && day.classId === wednesdayG9);
+		expect(wednesday?.dues.map((due) => due.title)).toEqual(['Mock-week survey']);
+		expect(wednesday).toMatchObject({ status: 'teaching' });
+		// Neither mock day collects the due, in either class.
+		for (const day of days.filter((row) => row.date < '2025-09-10')) {
+			expect(day.dues).toEqual([]);
+		}
+	});
+
+	it('greys P1 and P2 on the start day while P3 and later teach as usual (#224)', async () => {
+		const { t, teacherId, semesterId, clilId } = await setupTeacherWorld();
+		// A day carries one period per class, so three classes put P1, P2 and
+		// P3 on the same Tuesday: the first two grey, the third teaches.
+		await t.mutation(api.esl.classes.setSchedule, {
+			classId: clilId,
+			year: YEAR,
+			meetings: [
+				{ day: 'Tuesday', period: 1 },
+				{ day: 'Wednesday', period: 2 },
+				{ day: 'Friday', period: 3 }
+			]
+		});
+		const { classIds: secondIds } = await t.mutation(api.esl.cohorts.create, {
+			year: YEAR,
+			grade: 8,
+			level: 'Basic',
+			classNumber: '1'
+		});
+		await t.mutation(api.esl.classes.setSchedule, {
+			classId: secondIds[0],
+			year: YEAR,
+			meetings: [
+				{ day: 'Tuesday', period: 2 },
+				{ day: 'Wednesday', period: 3 },
+				{ day: 'Friday', period: 4 }
+			]
+		});
+		await t.mutation(api.esl.classes.assignTeacher, { id: secondIds[0], teacherId });
+		const { classIds: g9Ids } = await t.mutation(api.esl.cohorts.create, {
+			year: YEAR,
+			grade: 9,
+			level: 'Basic',
+			classNumber: '1'
+		});
+		await t.mutation(api.esl.classes.setSchedule, {
+			classId: g9Ids[0],
+			year: YEAR,
+			meetings: [
+				{ day: 'Tuesday', period: 3 },
+				{ day: 'Thursday', period: 4 }
+			]
+		});
+		await t.mutation(api.esl.classes.assignTeacher, { id: g9Ids[0], teacherId });
+		await createEvent(t, semesterId, {
+			type: 'start_school',
+			title: 'Start at P3',
+			date: '2025-09-02'
+		});
+		asTeacher();
+
+		const days = await readDays(t, teacherId, semesterId, {
+			fromDate: '2025-09-02',
+			toDate: '2025-09-02'
+		});
+
+		expect(days).toHaveLength(3);
+		const byPeriod = new Map(days.map((day) => [day.period, day]));
+		expect(byPeriod.get(1)).toMatchObject({ status: 'no_class', cause: 'Start at P3' });
+		expect(byPeriod.get(2)).toMatchObject({ status: 'no_class', cause: 'Start at P3' });
+		expect(byPeriod.get(3)).toMatchObject({ status: 'teaching', cause: null });
 	});
 
 	it('filters dues by target (a CLIL quiz-kind reminder reaches CLIL only, a Comm task-kind Comm only)', async () => {

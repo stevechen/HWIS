@@ -4,6 +4,22 @@ import { render } from 'vitest-browser-svelte';
 import TeacherScheduleTable from '$lib/components/esl/TeacherScheduleTable.svelte';
 import type { ScheduleDayRow } from '$convex/shared/esl';
 
+const SEMESTER_START = '2025-09-01';
+
+/** Renders the table the way `/esl/schedule` does, with one week of rows. */
+function renderTable(rows: ScheduleDayRow[], overrides: Record<string, unknown> = {}) {
+	return render(TeacherScheduleTable, {
+		props: {
+			rows,
+			classNames: CLASS_NAMES,
+			eventNotes: EVENT_NOTES,
+			downloadName: 'test',
+			semesterStart: SEMESTER_START,
+			...overrides
+		}
+	});
+}
+
 const MOCK_ROWS: ScheduleDayRow[] = [
 	{
 		date: '2025-09-01',
@@ -33,6 +49,7 @@ const MOCK_ROWS: ScheduleDayRow[] = [
 				title: 'Workbook check',
 				type: 'reminder',
 				reminderKind: 'workbook_check',
+				isBanner: false,
 				windowStart: '2025-09-01',
 				windowEnd: '2025-09-03'
 			}
@@ -123,14 +140,7 @@ describe('TeacherScheduleTable', () => {
 	});
 
 	it('renders table with correct headers: #, Date, Description, Note', async () => {
-		render(TeacherScheduleTable, {
-			props: {
-				rows: MOCK_ROWS,
-				classNames: CLASS_NAMES,
-				eventNotes: EVENT_NOTES,
-				downloadName: 'S1 2025-2026 G7 Basic 1 CLIL schedule'
-			}
-		});
+		renderTable(MOCK_ROWS);
 
 		await expect.element(page.getByRole('columnheader', { name: '#' })).toBeInTheDocument();
 		await expect.element(page.getByRole('columnheader', { name: 'Date' })).toBeInTheDocument();
@@ -143,14 +153,7 @@ describe('TeacherScheduleTable', () => {
 	});
 
 	it('renders countdown column with remaining counts', async () => {
-		render(TeacherScheduleTable, {
-			props: {
-				rows: MOCK_ROWS,
-				classNames: CLASS_NAMES,
-				eventNotes: EVENT_NOTES,
-				downloadName: 'test'
-			}
-		});
+		renderTable(MOCK_ROWS);
 
 		// No legacy count-up text anywhere in the countdown
 		await expect.element(page.getByText('Class 1/4 to Midterm exam')).not.toBeInTheDocument();
@@ -197,14 +200,7 @@ describe('TeacherScheduleTable', () => {
 	});
 
 	it('renders description column with correct content', async () => {
-		render(TeacherScheduleTable, {
-			props: {
-				rows: MOCK_ROWS,
-				classNames: CLASS_NAMES,
-				eventNotes: EVENT_NOTES,
-				downloadName: 'test'
-			}
-		});
+		renderTable(MOCK_ROWS);
 
 		await expect.element(page.getByText('G7 Basic 1 CLIL P1')).toBeInTheDocument();
 		// Dues collapse onto the description as titles; the window rides a badge chip.
@@ -231,14 +227,7 @@ describe('TeacherScheduleTable', () => {
 	});
 
 	it('renders note column with event notes', async () => {
-		render(TeacherScheduleTable, {
-			props: {
-				rows: MOCK_ROWS,
-				classNames: CLASS_NAMES,
-				eventNotes: EVENT_NOTES,
-				downloadName: 'test'
-			}
-		});
+		renderTable(MOCK_ROWS);
 
 		// Check note cells directly
 		const offNoteCell = page
@@ -253,14 +242,7 @@ describe('TeacherScheduleTable', () => {
 	});
 
 	it('applies correct row styling for statuses', async () => {
-		render(TeacherScheduleTable, {
-			props: {
-				rows: MOCK_ROWS,
-				classNames: CLASS_NAMES,
-				eventNotes: EVENT_NOTES,
-				downloadName: 'test'
-			}
-		});
+		renderTable(MOCK_ROWS);
 
 		const rows = page.getByTestId('esl-schedule.row').all();
 
@@ -281,14 +263,7 @@ describe('TeacherScheduleTable', () => {
 	});
 
 	it('shows download and copy buttons', async () => {
-		render(TeacherScheduleTable, {
-			props: {
-				rows: MOCK_ROWS,
-				classNames: CLASS_NAMES,
-				eventNotes: EVENT_NOTES,
-				downloadName: 'S1 2025-2026 G7 Basic 1 CLIL schedule'
-			}
-		});
+		renderTable(MOCK_ROWS);
 
 		await expect
 			.element(page.getByRole('button', { name: /download schedule as csv/i }))
@@ -297,14 +272,7 @@ describe('TeacherScheduleTable', () => {
 	});
 
 	it('includes TSV payload in template element', async () => {
-		render(TeacherScheduleTable, {
-			props: {
-				rows: MOCK_ROWS,
-				classNames: CLASS_NAMES,
-				eventNotes: EVENT_NOTES,
-				downloadName: 'S1 2025-2026 G7 Basic 1 CLIL schedule'
-			}
-		});
+		renderTable(MOCK_ROWS);
 
 		const payload = page.getByTestId('esl-schedule.tsv').element() as HTMLTemplateElement;
 		const tsv = payload.content.textContent ?? '';
@@ -320,14 +288,7 @@ describe('TeacherScheduleTable', () => {
 	});
 
 	it('names the downloaded file from the download name', async () => {
-		render(TeacherScheduleTable, {
-			props: {
-				rows: MOCK_ROWS,
-				classNames: CLASS_NAMES,
-				eventNotes: EVENT_NOTES,
-				downloadName: 'S1 2025-2026 G7 Basic 1 CLIL schedule'
-			}
-		});
+		renderTable(MOCK_ROWS, { downloadName: 'S1 2025-2026 G7 Basic 1 CLIL schedule' });
 
 		await expect
 			.element(page.getByRole('button', { name: /download schedule as csv/i }))
@@ -351,5 +312,154 @@ describe('TeacherScheduleTable', () => {
 
 		// The download name should be used for the filename
 		expect(downloads).toEqual(['S1 2025-2026 G7 Basic 1 CLIL schedule.csv']);
+	});
+});
+/**
+ * Reminder rendering (#224): a due collapses once per week and rides the week
+ * row as a banner, so three reminder rows become one decision. Only dues that
+ * opted out of the banner (`isBanner: false`) stay day chips.
+ */
+describe('TeacherScheduleTable reminders (#224)', () => {
+	const BANNER_ROWS: ScheduleDayRow[] = [
+		MOCK_ROWS[0],
+		MOCK_ROWS[1],
+		MOCK_ROWS[2],
+		{
+			date: '2025-09-08',
+			weekday: 'Monday',
+			classId: 'class_clil',
+			type: 'CLIL',
+			cohortGrade: 7,
+			period: 1,
+			status: 'teaching',
+			cause: null,
+			badges: [],
+			dues: [
+				{
+					title: 'Passport 1 due',
+					type: 'reminder',
+					reminderKind: 'passport',
+					isBanner: true,
+					windowStart: '2025-09-08',
+					windowEnd: '2025-09-10'
+				}
+			],
+			count: null
+		}
+	];
+
+	it('renders a banner due as a week row, not a day chip', async () => {
+		renderTable(BANNER_ROWS);
+
+		// The first school week carries no banner row at all.
+		await expect.element(page.getByTestId('esl-schedule.banner-week').first()).toBeInTheDocument();
+		const weekRows = page.getByTestId('esl-schedule.banner-week').all();
+		expect(weekRows).toHaveLength(1);
+		await expect.element(weekRows[0]).toHaveTextContent('Week 2');
+		await expect.element(weekRows[0]).toHaveTextContent('Passport 1 due · 09/08–09/10');
+		await expect
+			.element(page.getByTestId('esl-schedule.banner').filter({ hasText: 'Passport 1 due' }))
+			.toBeInTheDocument();
+	});
+
+	it('keeps the due off the day row it collapsed onto', async () => {
+		renderTable(BANNER_ROWS);
+
+		const monday = page.getByTestId('esl-schedule.row').filter({ hasText: '2025-09-08' });
+		await expect.element(monday).toHaveTextContent('G7 Basic 1 CLIL P1');
+		await expect.element(monday).not.toHaveTextContent('Passport 1 due');
+		await expect.element(monday.getByTestId('esl-schedule.badge')).not.toBeInTheDocument();
+	});
+
+	it('keeps a chip due on its own day row with the window badge', async () => {
+		renderTable(MOCK_ROWS);
+
+		const wednesday = page.getByTestId('esl-schedule.row').filter({ hasText: '2025-09-03' });
+		await expect.element(wednesday).toHaveTextContent('G7 Basic 1 CLIL P2 · Workbook check');
+		await expect
+			.element(page.getByTestId('esl-schedule.badge').filter({ hasText: 'due window' }))
+			.toBeInTheDocument();
+	});
+
+	it('greys a g9 mock day row with its cause and no countdown', async () => {
+		renderTable([
+			{
+				date: '2025-09-08',
+				weekday: 'Monday',
+				classId: 'class_g9',
+				type: 'G9',
+				cohortGrade: 9,
+				period: 1,
+				status: 'g9_mock',
+				cause: 'G9 Mock Exam',
+				badges: [],
+				dues: [],
+				count: null
+			},
+			{
+				date: '2025-09-09',
+				weekday: 'Tuesday',
+				classId: 'class_g9',
+				type: 'G9',
+				cohortGrade: 9,
+				period: 2,
+				status: 'g9_mock',
+				cause: 'G9 Mock Exam',
+				badges: [],
+				dues: [],
+				count: null
+			}
+		]);
+
+		const rows = page.getByTestId('esl-schedule.row').all();
+		const mocks = rows.filter((row) => row.element().textContent?.includes('G9 Mock Exam'));
+		expect(mocks).toHaveLength(2);
+		for (const mock of mocks) {
+			await expect.element(mock).toHaveTextContent(/09-0[89]/);
+			await expect.element(mock).toHaveClass(/text-gray-400/);
+		}
+		const countdowns = page.getByTestId('esl-schedule.countdown-cell').all();
+		expect(countdowns.map((cell) => cell.element().textContent?.trim())).toEqual(['', '']);
+	});
+
+	it('greys the pre-P3 start-day meetings with the Start at P3 cause', async () => {
+		renderTable([
+			{
+				date: '2025-09-01',
+				weekday: 'Monday',
+				classId: 'class_clil',
+				type: 'CLIL',
+				cohortGrade: 7,
+				period: 1,
+				status: 'no_class',
+				cause: 'Start at P3',
+				badges: ['out-of-window P1 (window from P3)'],
+				dues: [],
+				count: null
+			},
+			{
+				date: '2025-09-01',
+				weekday: 'Monday',
+				classId: 'class_clil',
+				type: 'CLIL',
+				cohortGrade: 7,
+				period: 3,
+				status: 'teaching',
+				cause: null,
+				badges: [],
+				dues: [],
+				count: null
+			}
+		]);
+
+		const rows = page.getByTestId('esl-schedule.row').all();
+		const greyed = rows.filter((row) => row.element().textContent?.includes('Start at P3'));
+		expect(greyed).toHaveLength(1);
+		await expect.element(greyed[0]).toHaveClass(/text-gray-400/);
+		await expect.element(greyed[0]).toHaveTextContent('G7 Basic 1 CLIL P1');
+		const teaching = rows.find((row) => row.element().textContent?.includes('G7 Basic 1 CLIL P3'));
+		expect(teaching).toBeDefined();
+		await expect.element(teaching!).toHaveTextContent('G7 Basic 1 CLIL P3');
+		await expect.element(teaching!).not.toHaveTextContent('Start at P3');
 	});
 });

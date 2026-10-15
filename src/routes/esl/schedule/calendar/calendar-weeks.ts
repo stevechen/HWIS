@@ -10,7 +10,21 @@ import type { ScheduleDayRow } from '$convex/shared/esl';
  * Pure and deterministic: `today` is a parameter, never a wall-clock read.
  */
 
-export type CalendarCardStatus = 'teaching' | 'off' | 'no_class' | 'exam' | 'partial' | 'oral';
+export type CalendarCardStatus =
+	| 'teaching'
+	| 'off'
+	| 'no_class'
+	| 'exam'
+	| 'partial'
+	| 'oral'
+	| 'g9_mock';
+
+export interface CalendarCardDue {
+	title: string;
+	reminderKind: string;
+	windowStart: string;
+	windowEnd: string;
+}
 
 export interface CalendarCard {
 	date: string;
@@ -20,14 +34,17 @@ export interface CalendarCard {
 	cause: string | null;
 	countdown: string | null;
 	badges: string[];
+	/** Dues that opted out of the week banner ride their own day card (#224). */
+	dues: CalendarCardDue[];
 	past: boolean;
 	isToday: boolean;
 }
 
 export interface CalendarBanner {
 	title: string;
-	start: string;
-	end: string;
+	reminderKind: string;
+	windowStart: string;
+	windowEnd: string;
 }
 
 export interface CalendarWeekFragment {
@@ -130,20 +147,37 @@ export function buildCalendarFragments(args: {
 					? `Class ${row.count.position}/${row.count.total} to ${row.count.label}`
 					: null,
 			badges: [...row.badges],
+			dues: [],
 			past: row.date < args.today,
 			isToday: row.date === args.today
 		});
 		const seen = bannered.get(weekIndex);
 		for (const due of row.dues) {
+			// Reminders default to banners (#224); only an explicit opt-out
+			// keeps a due on its own day card.
+			if (due.isBanner === false) {
+				fragment.cards[fragment.cards.length - 1].dues.push({
+					title: due.title,
+					reminderKind: due.reminderKind,
+					windowStart: due.windowStart,
+					windowEnd: due.windowEnd
+				});
+				continue;
+			}
 			const key = `${due.title}|${due.windowStart}|${due.windowEnd}`;
 			if (seen?.has(key)) continue;
 			seen?.add(key);
-			fragment.banners.push({ title: due.title, start: due.windowStart, end: due.windowEnd });
+			fragment.banners.push({
+				title: due.title,
+				reminderKind: due.reminderKind,
+				windowStart: due.windowStart,
+				windowEnd: due.windowEnd
+			});
 		}
 	}
 	for (const fragment of fragments) {
 		fragment.banners.sort(
-			(a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title)
+			(a, b) => a.windowStart.localeCompare(b.windowStart) || a.title.localeCompare(b.title)
 		);
 	}
 	const upcoming = ordered.map((row) => row.date).find((date) => date > args.today) ?? null;

@@ -2,15 +2,18 @@ import { describe, it, expect } from 'vitest';
 import {
 	buildEventNoteMap,
 	buildScheduleTsv,
+	buildWeekBanners,
+	bannerDueLabel,
 	classContext,
 	countdownText,
 	descriptionText,
 	eventNoteKey,
 	EXAM_LABELS,
-	noteText
+	noteText,
+	weekIndexOf
 } from '$lib/esl-schedule-list';
 import { ESL_EXAM_TITLES } from '$convex/shared/esl';
-import type { ScheduleDayRow } from '$convex/shared/esl';
+import type { ScheduleDayRow, ScheduleDue } from '$convex/shared/esl';
 
 function row(overrides: Partial<ScheduleDayRow>): ScheduleDayRow {
 	return {
@@ -25,6 +28,17 @@ function row(overrides: Partial<ScheduleDayRow>): ScheduleDayRow {
 		badges: [],
 		dues: [],
 		count: null,
+		...overrides
+	};
+}
+
+function due(overrides: Partial<ScheduleDue> & { title: string }): ScheduleDue {
+	return {
+		type: 'reminder',
+		reminderKind: 'task',
+		isBanner: true,
+		windowStart: '2025-09-01',
+		windowEnd: '2025-09-03',
 		...overrides
 	};
 }
@@ -75,7 +89,7 @@ describe('esl-schedule-list (#203 canonical columns)', () => {
 			row({ date: '2025-09-01', count: { position: 1, total: 2, label: 'Exam 1' } }),
 			row({ status: 'exam', cause: 'Exam 1', count: { position: 1, total: 1, label: 'Exam 1' } })
 		];
-		const tsv = buildScheduleTsv(rows, CLASS_NAMES, {});
+		const tsv = buildScheduleTsv(rows, CLASS_NAMES, {}, '2025-08-31');
 		const lines = tsv.split('\n');
 		expect(lines[0]).toBe('#\tDate\tDescription\tNote');
 		expect(lines[1]?.split('\t')).toEqual(['1', '2025-09-01', 'G7 Basic 1 CLIL P1', '']);
@@ -122,5 +136,130 @@ describe('esl-schedule-list (#203 canonical columns)', () => {
 
 	it('still exposes the class context helper the calendar reuses', () => {
 		expect(classContext(row({}), CLASS_NAMES)).toBe('G7 Basic 1 CLIL P1');
+	});
+});
+
+/**
+ * Reminder rendering (#224): a collapsed due rides the week row as a banner
+ * unless the event opted out of the banner, in which case it stays a day chip
+ * on the collapse day.
+ */
+describe('esl-schedule-list week banners (#224)', () => {
+	it('numbers school weeks from the semester start', () => {
+		expect(weekIndexOf('2025-09-01', '2025-09-01')).toBe(1);
+		expect(weekIndexOf('2025-09-05', '2025-09-01')).toBe(1);
+		expect(weekIndexOf('2025-09-08', '2025-09-01')).toBe(2);
+		expect(weekIndexOf('2025-09-29', '2025-09-01')).toBe(5);
+	});
+
+	it('labels a banner with its window, dropping a single-day window', () => {
+		expect(
+			bannerDueLabel({
+				title: 'Passport 1 due',
+				windowStart: '2025-09-01',
+				windowEnd: '2025-09-08'
+			})
+		).toBe('Passport 1 due · 09/01–09/08');
+		expect(
+			bannerDueLabel({
+				title: 'Passport check',
+				windowStart: '2025-09-05',
+				windowEnd: '2025-09-05'
+			})
+		).toBe('Passport check');
+	});
+
+	it('keeps a banner due out of the day-row description, keeps a chip one in it', () => {
+		const banner = descriptionText(row({ dues: [due({ title: 'Passport 1 due' })] }), CLASS_NAMES);
+		expect(banner).toBe('G7 Basic 1 CLIL P1');
+		const chip = descriptionText(
+			row({ dues: [due({ title: 'Passport 1 due', isBanner: false })] }),
+			CLASS_NAMES
+		);
+		expect(chip).toBe('G7 Basic 1 CLIL P1 · Passport 1 due');
+	});
+
+	it('groups the banner dues of a week under its school-week number', () => {
+		const rows = [
+			row({ date: '2025-09-01' }),
+			row({
+				date: '2025-09-05',
+				weekday: 'Friday',
+				dues: [
+					due({ title: 'Recording due', windowStart: '2025-09-02', windowEnd: '2025-09-05' }),
+					due({ title: 'Passport 1 due', windowStart: '2025-09-01', windowEnd: '2025-09-05' })
+				]
+			}),
+			// A chip due never becomes a banner.
+			row({
+				date: '2025-09-08',
+				dues: [due({ title: 'Comm survey', isBanner: false, windowStart: '2025-09-08' })]
+			})
+		];
+
+		const banners = buildWeekBanners(rows, '2025-09-01');
+
+		expect(banners.get(1)).toEqual([
+			{
+				title: 'Passport 1 due',
+				reminderKind: 'task',
+				windowStart: '2025-09-01',
+				windowEnd: '2025-09-05'
+			},
+			{
+				title: 'Recording due',
+				reminderKind: 'task',
+				windowStart: '2025-09-02',
+				windowEnd: '2025-09-05'
+			}
+		]);
+		// A week whose dues are all chips has no banner entry at all.
+		expect(banners.get(2)).toBeUndefined();
+	});
+
+	it('banners one due once even when several classes collapse onto the same week', () => {
+		const rows = [
+			row({ date: '2025-09-05', weekday: 'Friday', dues: [due({ title: 'Passport 1 due' })] }),
+			row({
+				date: '2025-09-08',
+				classId: 'class_comm',
+				type: 'Comm',
+				dues: [due({ title: 'Passport 1 due' })]
+			})
+		];
+
+		const banners = buildWeekBanners(rows, '2025-09-01');
+
+		expect(banners.get(1)?.map((banner) => banner.title)).toEqual(['Passport 1 due']);
+		expect(banners.get(2)).toBeUndefined();
+	});
+
+	it('emits a banner line per week in the TSV payload so a copy keeps the reminder', () => {
+		const rows = [
+			row({ date: '2025-09-01' }),
+			row({
+				date: '2025-09-05',
+				weekday: 'Friday',
+				dues: [due({ title: 'Passport 1 due', windowStart: '2025-09-01', windowEnd: '2025-09-05' })]
+			}),
+			row({
+				date: '2025-09-08',
+				dues: [due({ title: 'Passport 2 due', windowStart: '2025-09-08', windowEnd: '2025-09-10' })]
+			})
+		];
+
+		const tsv = buildScheduleTsv(rows, CLASS_NAMES, {}, '2025-09-01');
+		const lines = tsv.split('\n');
+
+		expect(lines[0]).toBe('#\tDate\tDescription\tNote');
+		expect(lines[1]).toBe('\t\tWeek 1 · Passport 1 due · 09/01–09/05\t');
+		expect(lines[2]).toBe('\t2025-09-01\tG7 Basic 1 CLIL P1\t');
+		expect(lines[4]).toBe('\t\tWeek 2 · Passport 2 due · 09/08–09/10\t');
+	});
+
+	it('emits no banner line when no banner due landed', () => {
+		const rows = [row({ date: '2025-09-01' }), row({ date: '2025-09-08' })];
+		const tsv = buildScheduleTsv(rows, CLASS_NAMES, {}, '2025-09-01');
+		expect(tsv.split('\n')).toHaveLength(3);
 	});
 });
