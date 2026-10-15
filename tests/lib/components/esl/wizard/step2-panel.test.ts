@@ -65,7 +65,27 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 			lastExamDay: true
 		},
 		step3: { exams: [] },
-		step4: {},
+		step4: {
+			singles: { anniv: null, makeup: null, sports: null, grad: null },
+			pairs: { mock1: null, mock2: null, mock3: null },
+			ranges: {
+				q1: null,
+				q2: null,
+				q3: null,
+				q4: null,
+				q5: null,
+				q6: null,
+				pd1: null,
+				pd2: null,
+				pd3: null,
+				rd1: null,
+				rd2: null,
+				rd3: null,
+				pcheck: null,
+				wcheck: null
+			},
+			sportsOn: true
+		},
 		step5: {}
 	};
 

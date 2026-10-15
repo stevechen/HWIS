@@ -69,7 +69,7 @@ export interface WizardStep2State {
 	endDate: string | null;
 	offDays: WizardOffDay[];
 	holidaysImported: boolean;
-/** "This is also the last exam day" checkbox — default true (Final hidden). */
+	/** "This is also the last exam day" checkbox — default true (Final hidden). */
 	lastExamDay: boolean;
 }
 
@@ -78,8 +78,41 @@ export interface WizardStep3State {
 	exams: WizardExamRange[];
 }
 
-/** Reserved slot for ticket #222 (Step 4 school/ESL event rows). */
-export type WizardStep4State = Record<never, never>;
+/** Step 4 — School and ESL event rows (ticket #222). */
+export interface WizardStep4State {
+	/** Single-date school events (date or null). */
+	singles: {
+		anniv: string | null;
+		makeup: string | null;
+		sports: string | null;
+		grad: string | null;
+	};
+	/** Two-consecutive-class-day school events (G9 Mocks). */
+	pairs: {
+		mock1: string[] | null;
+		mock2: string[] | null;
+		mock3: string[] | null;
+	};
+	/** Ranged ESL reminder events (arrays of class-day dates). */
+	ranges: {
+		q1: string[] | null;
+		q2: string[] | null;
+		q3: string[] | null;
+		q4: string[] | null;
+		q5: string[] | null;
+		q6: string[] | null;
+		pd1: string[] | null;
+		pd2: string[] | null;
+		pd3: string[] | null;
+		rd1: string[] | null;
+		rd2: string[] | null;
+		rd3: string[] | null;
+		pcheck: string[] | null;
+		wcheck: string[] | null;
+	};
+	/** Sports Day on/off (default true). */
+	sportsOn: boolean;
+}
 
 /** Reserved slot for ticket #223 (Step 5 preview / edit / custom events). */
 export type WizardStep5State = Record<never, never>;
@@ -134,15 +167,35 @@ export function createInitialWizardState(today: string): WizardState {
 			lastExamDay: true
 		},
 		step3: { exams: [] },
-		step4: {},
+		step4: {
+			singles: { anniv: null, makeup: null, sports: null, grad: null },
+			pairs: { mock1: null, mock2: null, mock3: null },
+			ranges: {
+				q1: null,
+				q2: null,
+				q3: null,
+				q4: null,
+				q5: null,
+				q6: null,
+				pd1: null,
+				pd2: null,
+				pd3: null,
+				rd1: null,
+				rd2: null,
+				rd3: null,
+				pcheck: null,
+				wcheck: null
+			},
+			sportsOn: true
+		},
 		step5: {}
 	};
 }
 
 /**
  * Whether a step holds everything the next one needs (spec: strict forward
- * flow — Step N depends only on Steps 1..N-1). Steps 4 and 5 have no content
- * yet; #222 and #223 replace those two cases with their own rules.
+ * flow — Step N depends only on Steps 1..N-1). Step 5 has no content yet;
+ * #223 replaces that case with its own rule.
  */
 export function isStepComplete(state: WizardState, step: WizardStepNumber): boolean {
 	switch (step) {
@@ -161,9 +214,46 @@ export function isStepComplete(state: WizardState, step: WizardStepNumber): bool
 			return EXAM_SLOT_ORDER.every((slot) =>
 				state.step3.exams.some((exam) => exam.label === slot && exam.dates.length > 0)
 			);
-		case 4:
-			// #222 declares Step 4's rule once its event rows exist.
-			return false;
+		case 4: {
+			// Every required Step 4 row is set: Sports Day (unless off),
+			// G9 mocks (2 S1 / 3 S2), Graduation + Anniversary pair (S2),
+			// all 6 quizzes, passport/recording dues (3 S1 / 2 S2 each),
+			// and both end-of-term checks.
+			const s4 = state.step4;
+			const s2 = state.step1.term === 'S2';
+			if (s4.sportsOn && s4.singles.sports === null) return false;
+			const mocks: ReadonlyArray<string[] | null> = s2
+				? [s4.pairs.mock1, s4.pairs.mock2, s4.pairs.mock3]
+				: [s4.pairs.mock1, s4.pairs.mock2];
+			if (mocks.some((m) => m === null || m.length === 0)) return false;
+			if (s2) {
+				if (s4.singles.grad === null) return false;
+				if (s4.singles.anniv === null || s4.singles.makeup === null) return false;
+			}
+			const quizzes: ReadonlyArray<string[] | null> = [
+				s4.ranges.q1,
+				s4.ranges.q2,
+				s4.ranges.q3,
+				s4.ranges.q4,
+				s4.ranges.q5,
+				s4.ranges.q6
+			];
+			if (quizzes.some((q) => q === null || q.length === 0)) return false;
+			const dues: ReadonlyArray<string[] | null> = s2
+				? [s4.ranges.pd1, s4.ranges.pd2, s4.ranges.rd1, s4.ranges.rd2]
+				: [
+						s4.ranges.pd1,
+						s4.ranges.pd2,
+						s4.ranges.pd3,
+						s4.ranges.rd1,
+						s4.ranges.rd2,
+						s4.ranges.rd3
+					];
+			if (dues.some((d) => d === null || d.length === 0)) return false;
+			if (s4.ranges.pcheck === null || s4.ranges.pcheck.length === 0) return false;
+			if (s4.ranges.wcheck === null || s4.ranges.wcheck.length === 0) return false;
+			return true;
+		}
 		case 5:
 			// The preview is ready once everything it previews is; #223 tightens
 			// this once there is something to save. Never true on its own,
@@ -268,7 +358,7 @@ function parseWizardState(raw: unknown, seeded: WizardState): WizardState | null
 		step1: parseStep1(raw.step1, seeded.step1),
 		step2: parseStep2(raw.step2, seeded.step2),
 		step3: parseStep3(raw.step3, seeded.step3),
-		step4: {},
+		step4: parseStep4(raw.step4, seeded.step4),
 		step5: {}
 	};
 }
@@ -336,4 +426,52 @@ function isSchoolYear(value: unknown): value is string {
 
 function parseDate(value: unknown): string | null {
 	return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+function parseStep4(raw: unknown, seeded: WizardStep4State): WizardStep4State {
+	if (!isRecord(raw)) return seeded;
+	const singles = isRecord(raw.singles)
+		? {
+				anniv: parseDate(raw.singles.anniv) ?? seeded.singles.anniv,
+				makeup: parseDate(raw.singles.makeup) ?? seeded.singles.makeup,
+				sports: parseDate(raw.singles.sports) ?? seeded.singles.sports,
+				grad: parseDate(raw.singles.grad) ?? seeded.singles.grad
+			}
+		: seeded.singles;
+	const pairs = isRecord(raw.pairs)
+		? {
+				mock1: parseDateArray(raw.pairs.mock1) ?? seeded.pairs.mock1,
+				mock2: parseDateArray(raw.pairs.mock2) ?? seeded.pairs.mock2,
+				mock3: parseDateArray(raw.pairs.mock3) ?? seeded.pairs.mock3
+			}
+		: seeded.pairs;
+	const ranges = isRecord(raw.ranges)
+		? {
+				q1: parseDateArray(raw.ranges.q1) ?? seeded.ranges.q1,
+				q2: parseDateArray(raw.ranges.q2) ?? seeded.ranges.q2,
+				q3: parseDateArray(raw.ranges.q3) ?? seeded.ranges.q3,
+				q4: parseDateArray(raw.ranges.q4) ?? seeded.ranges.q4,
+				q5: parseDateArray(raw.ranges.q5) ?? seeded.ranges.q5,
+				q6: parseDateArray(raw.ranges.q6) ?? seeded.ranges.q6,
+				pd1: parseDateArray(raw.ranges.pd1) ?? seeded.ranges.pd1,
+				pd2: parseDateArray(raw.ranges.pd2) ?? seeded.ranges.pd2,
+				pd3: parseDateArray(raw.ranges.pd3) ?? seeded.ranges.pd3,
+				rd1: parseDateArray(raw.ranges.rd1) ?? seeded.ranges.rd1,
+				rd2: parseDateArray(raw.ranges.rd2) ?? seeded.ranges.rd2,
+				rd3: parseDateArray(raw.ranges.rd3) ?? seeded.ranges.rd3,
+				pcheck: parseDateArray(raw.ranges.pcheck) ?? seeded.ranges.pcheck,
+				wcheck: parseDateArray(raw.ranges.wcheck) ?? seeded.ranges.wcheck
+			}
+		: seeded.ranges;
+	const sportsOn = typeof raw.sportsOn === 'boolean' ? raw.sportsOn : seeded.sportsOn;
+	return { singles, pairs, ranges, sportsOn };
+}
+
+function parseDateArray(value: unknown): string[] | null {
+	if (!Array.isArray(value)) return null;
+	const dates = value.flatMap((d): string[] => {
+		const parsed = parseDate(d);
+		return parsed === null ? [] : [parsed];
+	});
+	return dates.length > 0 ? dates : null;
 }

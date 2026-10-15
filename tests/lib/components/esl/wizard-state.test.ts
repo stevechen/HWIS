@@ -42,9 +42,29 @@ const OCTOBER_FRESH = {
 	currentStep: 1,
 	semesterId: null,
 	step1: { term: 'S1', schoolYear: '2026-2027', startDate: '2026-08-31' },
-step2: { endDate: '2027-01-20', offDays: [], holidaysImported: false, lastExamDay: true },
+	step2: { endDate: '2027-01-20', offDays: [], holidaysImported: false, lastExamDay: true },
 	step3: { exams: [] },
-	step4: {},
+	step4: {
+		singles: { anniv: null, makeup: null, sports: null, grad: null },
+		pairs: { mock1: null, mock2: null, mock3: null },
+		ranges: {
+			q1: null,
+			q2: null,
+			q3: null,
+			q4: null,
+			q5: null,
+			q6: null,
+			pd1: null,
+			pd2: null,
+			pd3: null,
+			rd1: null,
+			rd2: null,
+			rd3: null,
+			pcheck: null,
+			wcheck: null
+		},
+		sportsOn: true
+	},
 	step5: {}
 };
 
@@ -88,6 +108,77 @@ describe('wizardState', () => {
 
 			state.step3.exams.push({ label: 'Final', dates: ['2027-01-18', '2027-01-19', '2027-01-20'] });
 			expect(isStepComplete(state, 3)).toBe(true);
+		});
+
+		it('requires every Step 4 event row before step 4 counts as complete (S1)', () => {
+			const state = createInitialWizardState(OCTOBER_SEED);
+			expect(isStepComplete(state, 4)).toBe(false);
+
+			state.step4.singles.sports = '2026-09-30';
+			state.step4.pairs.mock1 = ['2026-10-05', '2026-10-06'];
+			expect(isStepComplete(state, 4)).toBe(false);
+
+			state.step4.pairs.mock2 = ['2026-10-12', '2026-10-13'];
+			for (const id of ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'] as const) {
+				state.step4.ranges[id] = ['2026-10-05', '2026-10-06', '2026-10-07'];
+			}
+			for (const id of ['pd1', 'pd2', 'pd3', 'rd1', 'rd2', 'rd3'] as const) {
+				state.step4.ranges[id] = ['2026-10-05', '2026-10-06', '2026-10-07'];
+			}
+			state.step4.ranges.pcheck = [
+				'2027-01-04',
+				'2027-01-05',
+				'2027-01-06',
+				'2027-01-07',
+				'2027-01-08'
+			];
+			expect(isStepComplete(state, 4)).toBe(false);
+
+			state.step4.ranges.wcheck = [
+				'2027-01-04',
+				'2027-01-05',
+				'2027-01-06',
+				'2027-01-07',
+				'2027-01-08'
+			];
+			expect(isStepComplete(state, 4)).toBe(true);
+		});
+
+		it('requires Graduation, the Anniversary pair and 3 mocks in S2 — but only 2 dues each', () => {
+			const state = createInitialWizardState('2026-03-10');
+			expect(state.step1.term).toBe('S2');
+			state.step4.singles.sports = '2027-04-19';
+			state.step4.pairs.mock1 = ['2027-03-01', '2027-03-02'];
+			state.step4.pairs.mock2 = ['2027-03-08', '2027-03-09'];
+			state.step4.pairs.mock3 = ['2027-03-15', '2027-03-16'];
+			for (const id of ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'] as const) {
+				state.step4.ranges[id] = ['2027-03-01', '2027-03-02', '2027-03-03'];
+			}
+			state.step4.ranges.pd1 = ['2027-03-01', '2027-03-02', '2027-03-03'];
+			state.step4.ranges.pd2 = ['2027-04-05', '2027-04-06', '2027-04-07'];
+			state.step4.ranges.rd1 = ['2027-03-01', '2027-03-02', '2027-03-03'];
+			state.step4.ranges.rd2 = ['2027-04-05', '2027-04-06', '2027-04-07'];
+			state.step4.ranges.pcheck = [
+				'2027-06-07',
+				'2027-06-08',
+				'2027-06-09',
+				'2027-06-10',
+				'2027-06-11'
+			];
+			state.step4.ranges.wcheck = [
+				'2027-06-07',
+				'2027-06-08',
+				'2027-06-09',
+				'2027-06-10',
+				'2027-06-11'
+			];
+			// Graduation + Anniversary pair still missing; pd3/rd3 stay null (not required in S2).
+			expect(isStepComplete(state, 4)).toBe(false);
+
+			state.step4.singles.grad = '2027-06-25';
+			state.step4.singles.anniv = '2027-03-22';
+			state.step4.singles.makeup = '2027-03-23';
+			expect(isStepComplete(state, 4)).toBe(true);
 		});
 
 		it('opens a step when it is complete, and always lets a reached step be revisited', () => {
