@@ -107,6 +107,27 @@ export interface CreateEslSemesterOptions {
 	e2eTag?: string;
 }
 
+export interface CreateEslCohortOptions {
+	year: string;
+	grade: number;
+	level?: string;
+	classNumber: string;
+	e2eTag?: string;
+}
+
+export type EslWeekday = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday';
+
+export interface SetEslClassScheduleOptions {
+	classId: string;
+	year: string;
+	meetings: { day: EslWeekday; period: number }[];
+}
+
+export interface AssignEslTeacherOptions {
+	classId: string;
+	teacherId: string;
+}
+
 export interface SeedEslSemesterOptions {
 	semesterId: string;
 	examStarts?: { exam1?: string; exam2?: string; final?: string };
@@ -219,6 +240,9 @@ export interface E2EUtils {
 	cleanupWeeklyReportTestData: (tag?: string) => Promise<unknown>;
 	setEslRoleByEmail: (email: string, eslRole: 'admin' | 'teacher' | null) => Promise<unknown>;
 	createEslSemester: (opts: CreateEslSemesterOptions) => Promise<unknown>;
+	createEslCohort: (opts: CreateEslCohortOptions) => Promise<{ classIds: string[] }>;
+	setEslClassSchedule: (opts: SetEslClassScheduleOptions) => Promise<unknown>;
+	assignEslTeacher: (opts: AssignEslTeacherOptions) => Promise<unknown>;
 	seedEslSemester: (opts: SeedEslSemesterOptions) => Promise<unknown>;
 	createEslEvent: (opts: CreateEslEventOptions) => Promise<unknown>;
 	updateEslEvent: (opts: UpdateEslEventOptions) => Promise<unknown>;
@@ -544,6 +568,27 @@ export function getE2EUtils(): E2EUtils {
 
 		async createEslSemester(opts: CreateEslSemesterOptions) {
 			return await c.mutation(api.esl.semesters.create, { ...opts });
+		},
+
+		async createEslCohort(opts: CreateEslCohortOptions) {
+			return (await c.mutation(api.esl.cohorts.create, { ...opts })) as {
+				classIds: string[];
+			};
+		},
+
+		async setEslClassSchedule(opts: SetEslClassScheduleOptions) {
+			const { classId, ...rest } = opts;
+			return await c.mutation(api.esl.classes.setSchedule, {
+				classId: classId as Id<'esl_classes'>,
+				...rest
+			});
+		},
+
+		async assignEslTeacher(opts: AssignEslTeacherOptions) {
+			return await c.mutation(api.esl.classes.assignTeacher, {
+				id: opts.classId as Id<'esl_classes'>,
+				teacherId: opts.teacherId as Id<'users'>
+			});
 		},
 
 		async seedEslSemester(opts: SeedEslSemesterOptions) {
