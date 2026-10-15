@@ -11,6 +11,7 @@ import {
 	assertValidEslTitle,
 	defaultTargetForEventType,
 	describeEslEventError,
+	isValidEslDate,
 	type EslEventTarget,
 	type EslReminderKind
 } from '../shared/esl';
@@ -110,9 +111,22 @@ export const saveSemester = action({
 			anniv: v.union(v.string(), v.null()),
 			makeup: v.union(v.string(), v.null()),
 			sports: v.union(v.string(), v.null()),
-			grad: v.union(v.string(), v.null())
+			grad: v.union(v.string(), v.null()),
+			bbq: v.union(v.string(), v.null())
 		}),
 		sportsOn: v.boolean(),
+		// Seed-service extras folded in (#229): named no-school days the
+		// template cannot know — spring-break ranges (expanded per calendar
+		// day like the seed did), ad-hoc days off, and explicit lunar
+		// fallbacks when the gov import has no row (lunar auto-resolution
+		// stays with the Step 2 gov import, which reads the same cache).
+		extras: v.array(
+			v.object({
+				name: v.string(),
+				startDate: v.string(),
+				endDate: v.optional(v.string())
+			})
+		),
 		pairs: v.object({
 			mock1: nullableDates,
 			mock2: nullableDates,
@@ -141,7 +155,7 @@ export const saveSemester = action({
 		ctx,
 		args
 	): Promise<{ semesterId: Id<'esl_semesters'>; eventIds: Id<'esl_events'>[] }> => {
-		await ctx.runQuery(internal.esl.seed.checkEslAdmin, {});
+		await ctx.runQuery(internal.esl.admin.checkEslAdmin, {});
 
 		const duplicate = await ctx.runQuery(internal.esl.wizards.findByYearTerm, {
 			year: args.year,
@@ -217,6 +231,45 @@ export const saveSemester = action({
 				date: args.singles.grad,
 				note: 'Graduation'
 			});
+		}
+		// BBQ (S1-only starter, folded from the seed): a partial afternoon —
+		// endPeriod only, like the seed wrote it — with the occasion in the
+		// note, since partial titles are locked.
+		if (args.singles.bbq !== null) {
+			writes.push({
+				type: 'partial',
+				title: ESL_EVENT_TITLES.partial,
+				target: 'all',
+				date: args.singles.bbq,
+				endPeriod: 4,
+				note: 'BBQ from 12:00'
+			});
+		}
+		// Extra no-school days, one row per calendar day (weekends count —
+		// a break is a break). Ranges refuse a backwards window; blank
+		// names refuse with the field named.
+		for (const extra of args.extras) {
+			const name = extra.name.trim();
+			if (name === '') throw new Error('An extra no-school day needs a name for its note.');
+			if (!isValidEslDate(extra.startDate)) {
+				throw new Error(`${extra.startDate} is not a valid date. Use YYYY-MM-DD.`);
+			}
+			const end = extra.endDate ?? extra.startDate;
+			if (!isValidEslDate(end)) {
+				throw new Error(`${end} is not a valid date. Use YYYY-MM-DD.`);
+			}
+			if (end < extra.startDate) {
+				throw new Error(`The extra break end ${end} is before its start ${extra.startDate}.`);
+			}
+			for (let date = extra.startDate; date <= end; date = nextCalendarDate(date)) {
+				writes.push({
+					type: 'no_school',
+					title: ESL_EVENT_TITLES.no_school,
+					target: 'all',
+					date,
+					note: name
+				});
+			}
 		}
 
 		// G9 mocks fan out to their two consecutive days inside `events.create`.
@@ -316,6 +369,12 @@ export const saveSemester = action({
 		return { semesterId, eventIds };
 	}
 });
+
+/** Step a `YYYY-MM-DD` date forward one calendar day (weekends count — a break is a break). */
+function nextCalendarDate(date: string): string {
+	const [year, month, day] = date.split('-').map(Number);
+	return new Date(Date.UTC(year, month - 1, day + 1, 12)).toISOString().slice(0, 10);
+}
 
 function customWrite(custom: WizardSaveCustom): EventWrite {
 	const text = (custom.note ?? custom.bannerText ?? '').trim();

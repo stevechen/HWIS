@@ -128,20 +128,6 @@ export interface AssignEslTeacherOptions {
 	teacherId: string;
 }
 
-export interface SeedEslSemesterOptions {
-	semesterId: string;
-	examStarts?: { exam1?: string; exam2?: string; final?: string };
-	bbqDate?: string;
-	sportsDayDate?: string;
-	ceremonyDate?: string;
-	springBreakStart?: string;
-	springBreakEnd?: string;
-	anniversaryDate?: string;
-	moonFestivalDate?: string;
-	dragonBoatDate?: string;
-	e2eTag?: string;
-}
-
 export interface CreateEslEventOptions {
 	semesterId: string;
 	type: EslEventType;
@@ -262,7 +248,6 @@ export interface E2EUtils {
 	createEslCohort: (opts: CreateEslCohortOptions) => Promise<{ classIds: string[] }>;
 	setEslClassSchedule: (opts: SetEslClassScheduleOptions) => Promise<unknown>;
 	assignEslTeacher: (opts: AssignEslTeacherOptions) => Promise<unknown>;
-	seedEslSemester: (opts: SeedEslSemesterOptions) => Promise<unknown>;
 	createEslEvent: (opts: CreateEslEventOptions) => Promise<unknown>;
 	updateEslEvent: (opts: UpdateEslEventOptions) => Promise<unknown>;
 	removeEslEvent: (eventId: string) => Promise<unknown>;
@@ -623,14 +608,6 @@ export function getE2EUtils(): E2EUtils {
 			return await c.mutation(api.esl.classes.assignTeacher, {
 				id: opts.classId as Id<'esl_classes'>,
 				teacherId: opts.teacherId as Id<'users'>
-			});
-		},
-
-		async seedEslSemester(opts: SeedEslSemesterOptions) {
-			const { semesterId, ...rest } = opts;
-			return await c.mutation(api.esl.seed.seed, {
-				semesterId: semesterId as Id<'esl_semesters'>,
-				...rest
 			});
 		},
 

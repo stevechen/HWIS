@@ -87,14 +87,20 @@ describe('EventForm target gating (#212, #216)', () => {
 		});
 	});
 
-	it('locks exams, no-school, and no-class days to All', async () => {
+	it('locks exams and no-school days to All; no-class is open', async () => {
 		renderForm();
-		for (const type of ['exam', 'no_school', 'no_class'] as const) {
+		for (const type of ['exam', 'no_school'] as const) {
 			await page.getByLabelText('Event type').selectOptions(type);
 			const target = page.getByLabelText('Target');
 			await expect.element(target).toBeDisabled();
 			await expect.element(target).toHaveValue('All');
 		}
+		// no-class is now open (Graduation defaults to G9, others to All)
+		await page.getByLabelText('Event type').selectOptions('no_class');
+		const target = page.getByLabelText('Target');
+		await expect.element(target).not.toBeDisabled();
+		// For open target types, the target shows as a select dropdown with 'All' as default
+		await expect.element(target).toHaveValue('all');
 	});
 
 	it('leaves Start, Partial, and task-kind reminders on the full dropdown', async () => {

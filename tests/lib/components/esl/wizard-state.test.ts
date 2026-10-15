@@ -45,7 +45,7 @@ const OCTOBER_FRESH = {
 	step2: { endDate: '2027-01-20', offDays: [], holidaysImported: false, lastExamDay: true },
 	step3: { exams: [] },
 	step4: {
-		singles: { anniv: null, makeup: null, sports: null, grad: null },
+		singles: { anniv: null, makeup: null, sports: null, grad: null, bbq: null },
 		pairs: { mock1: null, mock2: null, mock3: null },
 		ranges: {
 			q1: null,
@@ -63,7 +63,8 @@ const OCTOBER_FRESH = {
 			pcheck: null,
 			wcheck: null
 		},
-		sportsOn: true
+		sportsOn: true,
+		extras: []
 	},
 	step5: { customEvents: [], eventEdits: [] }
 };

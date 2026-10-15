@@ -30,7 +30,7 @@ export type WizardStepNumber = 1 | 2 | 3 | 4 | 5;
  * an old payload into a new parser.
  */
 export const WIZARD_STORAGE_KEY = 'hwis:esl-wizard';
-export const WIZARD_STATE_VERSION = 1;
+export const WIZARD_STATE_VERSION = 2;
 
 /** The three storage calls the wizard needs — `window.sessionStorage` fits. */
 export type WizardStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -78,7 +78,7 @@ export interface WizardStep3State {
 	exams: WizardExamRange[];
 }
 
-/** Step 4 — School and ESL event rows (ticket #222). */
+/** Step 4 — School and ESL event rows (ticket #222, seed starters #229). */
 export interface WizardStep4State {
 	/** Single-date school events (date or null). */
 	singles: {
@@ -86,6 +86,8 @@ export interface WizardStep4State {
 		makeup: string | null;
 		sports: string | null;
 		grad: string | null;
+		/** BBQ afternoon (S1 only starter, folded from the seed #229). */
+		bbq: string | null;
 	};
 	/** Two-consecutive-class-day school events (G9 Mocks). */
 	pairs: {
@@ -112,6 +114,25 @@ export interface WizardStep4State {
 	};
 	/** Sports Day on/off (default true). */
 	sportsOn: boolean;
+	/**
+	 * Named extra no-school days (folded from the seed #229): spring-break
+	 * ranges (expanded per calendar day at save), ad-hoc days off, and
+	 * explicit lunar fallbacks when the gov import has no row. Lunar
+	 * auto-resolution stays with the Step 2 gov import. Optional — the
+	 * Step 4 gate never requires entries here.
+	 */
+	extras: WizardExtraOff[];
+}
+
+/**
+ * One named extra no-school entry: a single day when `end` is null, else
+ * the inclusive range expanded per calendar day at save.
+ */
+export interface WizardExtraOff {
+	id: string;
+	name: string;
+	start: string;
+	end: string | null;
 }
 
 /**
@@ -195,7 +216,7 @@ export function createInitialWizardState(today: string): WizardState {
 		},
 		step3: { exams: [] },
 		step4: {
-			singles: { anniv: null, makeup: null, sports: null, grad: null },
+			singles: { anniv: null, makeup: null, sports: null, grad: null, bbq: null },
 			pairs: { mock1: null, mock2: null, mock3: null },
 			ranges: {
 				q1: null,
@@ -213,7 +234,8 @@ export function createInitialWizardState(today: string): WizardState {
 				pcheck: null,
 				wcheck: null
 			},
-			sportsOn: true
+			sportsOn: true,
+			extras: []
 		},
 		step5: {
 			customEvents: [],
@@ -528,7 +550,8 @@ function parseStep4(raw: unknown, seeded: WizardStep4State): WizardStep4State {
 				anniv: parseDate(raw.singles.anniv) ?? seeded.singles.anniv,
 				makeup: parseDate(raw.singles.makeup) ?? seeded.singles.makeup,
 				sports: parseDate(raw.singles.sports) ?? seeded.singles.sports,
-				grad: parseDate(raw.singles.grad) ?? seeded.singles.grad
+				grad: parseDate(raw.singles.grad) ?? seeded.singles.grad,
+				bbq: parseDate(raw.singles.bbq) ?? seeded.singles.bbq
 			}
 		: seeded.singles;
 	const pairs = isRecord(raw.pairs)
@@ -557,7 +580,19 @@ function parseStep4(raw: unknown, seeded: WizardStep4State): WizardStep4State {
 			}
 		: seeded.ranges;
 	const sportsOn = typeof raw.sportsOn === 'boolean' ? raw.sportsOn : seeded.sportsOn;
-	return { singles, pairs, ranges, sportsOn };
+	const extras = Array.isArray(raw.extras)
+		? raw.extras.flatMap((e): WizardExtraOff[] => {
+				if (!isRecord(e)) return [];
+				const name = typeof e.name === 'string' ? e.name : '';
+				if (name === '') return [];
+				const start = parseDate(e.start);
+				if (start === null) return [];
+				const end = e.end !== undefined ? parseDate(e.end) : null;
+				if (e.end !== undefined && end === null) return [];
+				return [{ id: e.id ?? `extra-${Date.now()}`, name, start, end }];
+			})
+		: seeded.extras;
+	return { singles, pairs, ranges, sportsOn, extras };
 }
 
 function parseDateArray(value: unknown): string[] | null {

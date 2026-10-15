@@ -1,8 +1,8 @@
 /**
  * Official-calendar CSV upload (ticket #207): dataset 14718 rows into the
- * year-keyed `esl_holiday_cache`, which stays the runtime source the seed
- * reads at seed time. The pure CSV seam (`parseHolidayCsv`,
- * `decodeHolidayBytes`) lives in `../shared/esl` so the setup page can
+ * year-keyed `esl_holiday_cache`, which stays the runtime source the wizard
+ * reads at setup time (Step 2 gov import stages off days into wizard state).
+ * The pure CSV seam (`parseHolidayCsv`, `decodeHolidayBytes`) lives in `../shared/esl` so the setup page can
  * decode files client-side; the write seam (`replaceYearCacheRows`,
  * `stampOffDayEvents`) lives in `./holidayWrites` so the actions below
  * can resolve it through the `internal` registry without a type cycle.
@@ -82,8 +82,8 @@ export const upload = mutation({
 
 /**
  * Stamp one official-calendar CSV's named off days straight into a
- * semester as `no_school` events. The cache upload only feeds the seed,
- * so semesters seeded before (or without) a CSV never gain their
+ * semester as `no_school` events. The cache upload alone writes no events,
+ * so semesters created before (or without) a CSV never gain their
  * holidays — Teacher's Day included. This closes that gap.
  *
  * cost: 1 semester read + 1 sibling lookup + 1 events take + 1 insert
@@ -301,7 +301,7 @@ export const previewGovImport = action({
 		rocYears: v.array(v.string())
 	},
 	handler: async (ctx, args): Promise<GovPreviewResult> => {
-		await ctx.runQuery(internal.esl.seed.checkEslAdmin, {});
+		await ctx.runQuery(internal.esl.admin.checkEslAdmin, {});
 		checkRocYears(args.rocYears);
 
 		if (args.semesterId !== undefined && args.draft !== undefined) {
@@ -399,7 +399,7 @@ export const importGovOffDays = action({
 		rocYears: v.array(v.string())
 	},
 	handler: async (ctx, args): Promise<GovImportResult> => {
-		await ctx.runQuery(internal.esl.seed.checkEslAdmin, {});
+		await ctx.runQuery(internal.esl.admin.checkEslAdmin, {});
 		checkRocYears(args.rocYears);
 
 		const page = await fetchGovText(GOV_DATASET_URL, 'The government dataset page');

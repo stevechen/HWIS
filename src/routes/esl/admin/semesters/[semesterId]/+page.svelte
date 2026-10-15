@@ -10,7 +10,6 @@
 	import SemesterHeader from '$lib/components/esl/SemesterHeader.svelte';
 	import HolidayOffDayImport from '$lib/components/esl/HolidayOffDayImport.svelte';
 	import EventForm, { type EventFormInput } from '$lib/components/esl/EventForm.svelte';
-	import SeedForm, { type SeedFormInput } from '$lib/components/esl/SeedForm.svelte';
 	import ChecklistPanel, { type ChecklistGroup } from '$lib/components/esl/ChecklistPanel.svelte';
 
 	const client = useConvexClient();
@@ -28,13 +27,6 @@
 
 	/**
 	 * The #209 end-date default for the seed form's final-exam box. S1
-	 * resolves the CNY run from the holiday cache (upload the year first —
-	 * the upload tiles above already cover both window years); S2 is pure
-	 * July 1. Reactive: landing the CSV recomputes the suggestion.
-	 */
-	const endDefaultQuery = useQuery(api.esl.semesters.endDateDefault, () =>
-		selected === null ? 'skip' : { year: selected.year, term: selected.term }
-	);
 
 	// Lexical `YYYY-MM-DD` compare, the same rule the backend uses.
 	const today = new Date().toISOString().slice(0, 10);
@@ -51,22 +43,6 @@
 		selected === null ? ('upcoming' as const) : semesterStatus(selected, today)
 	);
 	const source = $derived(selected === null ? null : derivedEndSource(events, selected.derivedEnd));
-
-	/** The #209 seed-form suggestion, derived from the end-date default query. */
-	const endDefault = $derived(endDefaultQuery.data ?? null);
-	const finalDefault = $derived(endDefault?.status === 'ready' ? endDefault.date : null);
-	const finalHint = $derived.by((): string | null => {
-		if (endDefault === null) return null;
-		if (endDefault.status === 'ready') {
-			return selected?.term === 'S1' && endDefault.cnyRunStart !== null
-				? `Suggested ${endDefault.date} — 14 days before the CNY break starts (${endDefault.cnyRunStart}). Adjust freely.`
-				: `Suggested ${endDefault.date} — adjust freely.`;
-		}
-		if (endDefault.status === 'missing-cache') {
-			return `Upload the ${endDefault.year} official calendar above and the suggested final date fills in.`;
-		}
-		return `No CNY break found in the ${endDefault.year} official calendar — enter the final date by hand.`;
-	});
 
 	/**
 	 * The other term of the same school year, for the advisory S1/S2 cross
@@ -94,12 +70,6 @@
 	let editError = $state<string | null>(null);
 	let pendingDeleteId = $state<string | null>(null);
 	let deleteBusy = $state(false);
-	let seedBusy = $state(false);
-	let seedError = $state<string | null>(null);
-	let seedReport = $state<{
-		createdCount: number;
-		unresolvedLunar: string[];
-	} | null>(null);
 	let checklistBusy = $state<ChecklistGroup | null>(null);
 	let checklistError = $state<string | null>(null);
 	let notice = $state('');
@@ -189,26 +159,6 @@
 			});
 	}
 
-	function seedDrafts(input: SeedFormInput) {
-		seedBusy = true;
-		seedError = null;
-		client
-			.mutation(api.esl.seed.seed, { semesterId, ...input })
-			.then((result) => {
-				seedReport = {
-					createdCount: result.created.length,
-					unresolvedLunar: result.unresolvedLunar
-				};
-				notice = `Seeded ${result.created.length} draft rows — fill or delete them below.`;
-			})
-			.catch((cause: unknown) => {
-				seedError = humanConvexErrorMessage(cause);
-			})
-			.finally(() => {
-				seedBusy = false;
-			});
-	}
-
 	/**
 	 * One-click create for one #213 checklist group. Advisory to the end:
 	 * collisions skip with a report in the notice, never a refusal, and the
@@ -285,18 +235,6 @@
 			</p>
 		{/if}
 
-		{#if events.length === 0}
-			<SeedForm
-				term={selected.term}
-				busy={seedBusy}
-				error={seedError}
-				report={seedReport}
-				{finalDefault}
-				{finalHint}
-				onseed={seedDrafts}
-			/>
-		{/if}
-
 		<ChecklistPanel
 			status={checklistQuery.data ?? null}
 			loading={checklistQuery.isLoading}
@@ -312,7 +250,7 @@
 					data-testid="esl-admin-semester-detail.no-events"
 					class="text-muted-foreground rounded-lg border border-dashed bg-white py-8 text-center text-sm"
 				>
-					No events yet — seed the drafts above, or add the first row below.
+					No events yet — add the first row below.
 				</p>
 			{:else}
 				<ul data-testid="esl-admin-semester-detail.events" class="space-y-2">

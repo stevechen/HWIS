@@ -13,7 +13,7 @@ const EXAMS = [
 	{ label: 'Final' as const, dates: ['2027-01-18', '2027-01-19', '2027-01-20'] }
 ];
 
-const SINGLES = { anniv: null, makeup: null, sports: '2026-10-07', grad: null };
+const SINGLES = { anniv: null, makeup: null, sports: '2026-10-07', grad: null, bbq: null };
 
 const RANGES = {
 	q1: ['2026-10-05', '2026-10-06', '2026-10-07'],
@@ -48,6 +48,7 @@ async function saveArgs(e2eTag?: string) {
 		},
 		ranges: RANGES,
 		customs: [],
+		extras: [],
 		...(e2eTag === undefined ? {} : { e2eTag })
 	};
 }

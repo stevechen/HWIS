@@ -44,7 +44,7 @@ const mockState = {
 		]
 	},
 	step4: {
-		singles: { anniv: null, makeup: null, sports: '2026-10-07', grad: null },
+		singles: { anniv: null, makeup: null, sports: '2026-10-07', grad: null, bbq: null },
 		pairs: { mock1: ['2026-10-12', '2026-10-13'], mock2: null, mock3: null },
 		ranges: {
 			q1: ['2026-10-19', '2026-10-20', '2026-10-21'],
@@ -62,7 +62,8 @@ const mockState = {
 			pcheck: null,
 			wcheck: null
 		},
-		sportsOn: true
+		sportsOn: true,
+		extras: []
 	},
 	step5: {
 		customEvents: [],

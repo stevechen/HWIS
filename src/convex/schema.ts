@@ -590,9 +590,9 @@ export default defineSchema({
 		.index('by_e2eTag', ['e2eTag']),
 
 	/**
-	 * Year-keyed Taiwan-Calendar day rows, written by the seed action
-	 * (`esl/seed.fetchTaiwanCalendarYear`) and read at seed time to resolve
-	 * lunar off days — never at teacher-view time (t185 §3).
+	 * Year-keyed Taiwan-Calendar day rows, written by the gov-import and CSV
+	 * upload paths (`esl/holidays`, `esl/holidayWrites`) and read at setup
+	 * time to resolve lunar off days — never at teacher-view time (t185 §3).
 	 *
 	 * One ~85KB GET per calendar year per deployment; every later seed is
 	 * served from here. Rows are replaced wholesale on refetch, so a stale

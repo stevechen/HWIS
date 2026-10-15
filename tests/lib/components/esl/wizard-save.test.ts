@@ -26,7 +26,7 @@ function s1State(): WizardState {
 			]
 		},
 		step4: {
-			singles: { anniv: null, makeup: null, sports: '2026-10-07', grad: null },
+			singles: { anniv: null, makeup: null, sports: '2026-10-07', grad: null, bbq: null },
 			pairs: { mock1: ['2026-10-12', '2026-10-13'], mock2: null, mock3: null },
 			ranges: {
 				q1: ['2026-10-05', '2026-10-06', '2026-10-07'],
@@ -44,7 +44,8 @@ function s1State(): WizardState {
 				pcheck: ['2027-01-04', '2027-01-05', '2027-01-06', '2027-01-07', '2027-01-08'],
 				wcheck: null
 			},
-			sportsOn: true
+			sportsOn: true,
+			extras: []
 		},
 		step5: { customEvents: [], eventEdits: [] }
 	};

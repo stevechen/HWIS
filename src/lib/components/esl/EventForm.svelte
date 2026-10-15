@@ -16,6 +16,7 @@
 		isRangedEventType,
 		lockedTargetForEventType,
 		lockedTargetForReminderKind,
+		defaultTargetForEventType,
 		type EslEventTarget,
 		type EslEventType,
 		type EslReminderKind
@@ -205,7 +206,12 @@
 		// Locked-target types snap to their target for the same reason: a
 		// G7 pick cannot ride along onto a locked type the backend would refuse.
 		const locked = lockedTargetForEventType(next);
-		if (locked !== null) draft.target = locked;
+		if (locked !== null) {
+			draft.target = locked;
+		} else {
+			// For open-target types, use the default target
+			draft.target = defaultTargetForEventType(next);
+		}
 		// Titles are locked per type and never derived from the note: fixed
 		// types snap to their locked title, exams keep a valid exam title or
 		// fall back to Exam 1.

@@ -1262,15 +1262,16 @@ export function isEslEventTarget(target: string): target is EslEventTarget {
  *
  * Reminder kinds lock per kind (see `ESL_LOCKED_REMINDER_TARGETS`): quizzes
  * are CLIL-only, passport/recording/checks Comm-only except workbook checks
- * (CLIL), tasks open; exams, no-school days, and no-class days reach
- * everyone, so the form locks them to All rather than offering a choice
- * that would be refused.
+ * (CLIL), tasks open; exams and no-school days reach everyone, so the form
+ * locks them to All rather than offering a choice that would be refused.
+ * No-class days stay open: Graduation is Grade 9 only (#229), while every
+ * other no-class day defaults to All.
  */
 export const ESL_LOCKED_EVENT_TARGETS: Record<EslEventType, EslEventTarget | null> = {
 	start_school: null,
 	reminder: null,
 	no_school: 'all',
-	no_class: 'all',
+	no_class: null,
 	partial: null,
 	exam: 'all',
 	g9_mock: 'G9'
@@ -1286,7 +1287,7 @@ export const ESL_LOCKED_REMINDER_TARGETS: Record<EslReminderKind, EslEventTarget
 	workbook_check: 'CLIL'
 };
 
-/** The target a type is locked to, or null when the admin picks (Start/Partial/Task-kind reminder). */
+/** The target a type is locked to, or null when the admin picks (Start/No-class/Partial/Task-kind reminder). */
 export function lockedTargetForEventType(type: EslEventType): EslEventTarget | null {
 	return ESL_LOCKED_EVENT_TARGETS[type];
 }
@@ -2504,7 +2505,7 @@ export function fridayBeforeDate(date: string): string {
 	return candidate;
 }
 
-/** Whether a seeded row is protected against deletion: exams + ceremony. */
+/** Whether a seeded or wizard-saved row is protected against deletion: exams + ceremony. */
 export function isProtectedSeedEvent(event: {
 	type: EslEventType;
 	title: string;
@@ -2514,9 +2515,9 @@ export function isProtectedSeedEvent(event: {
 	if (event.type === 'exam') return true;
 	// The S2 G9 cutoff — the same anchor `teacherDays` reads through
 	// `/graduation|ceremony/i` on no_class rows (title or note: titles
-	// are locked, so the ceremony names itself in the note). Per-type
-	// gating (#212) locks new ceremonies to All, but rows seeded before
-	// the gate keep their G9 target — both stay protected.
+	// are locked, so the ceremony names itself in the note). No-class
+	// days are open-targeted (#229): Graduation saves at G9 while older
+	// ceremony rows keep their All target — both stay protected.
 	return (
 		event.type === 'no_class' &&
 		(event.target === 'G9' || event.target === 'all' || event.target === undefined) &&

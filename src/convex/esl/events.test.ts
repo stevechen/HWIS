@@ -242,7 +242,8 @@ describe('esl per-type target gating (#212)', () => {
 		expect(lockedTargetForEventType('g9_mock')).toBe('G9');
 		expect(lockedTargetForEventType('exam')).toBe('all');
 		expect(lockedTargetForEventType('no_school')).toBe('all');
-		expect(lockedTargetForEventType('no_class')).toBe('all');
+		// no_class is now open (Graduation is G9, others default to all)
+		expect(lockedTargetForEventType('no_class')).toBeNull();
 	});
 
 	it('leaves Start, Partial, and task-kind reminders open to the target dropdown', () => {

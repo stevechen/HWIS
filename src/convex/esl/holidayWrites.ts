@@ -139,7 +139,7 @@ export function classifyOffDayRow(
  * Stamp parsed calendar rows into a semester as `no_school` events:
  * every `isHoliday` row with a caption becomes one locked-title `Off`
  * row, the translated English name riding in the note (the same shape
- * the seed's extra-off and lunar rows use). Rows outside the semester
+ * the wizard's extra-day-off rows use). Rows outside the semester
  * window are counted, never stamped; dates that already hold an event
  * are skipped, never overwritten; caption-less rows carry no name and
  * are skipped.

@@ -63,8 +63,13 @@ export interface SavePayload {
 		makeup: string | null;
 		sports: string | null;
 		grad: string | null;
+		bbq: string | null;
 	};
 	sportsOn: boolean;
+	// Named extra no-school days (folded from the seed #229): spring-break
+	// ranges, ad-hoc days off, and explicit lunar fallbacks when the gov
+	// import has no row. Expanded per calendar day at save.
+	extras: { name: string; startDate: string; endDate?: string }[];
 	pairs: {
 		mock1: string[] | null;
 		mock2: string[] | null;
@@ -213,6 +218,10 @@ function schoolDescriptors(state: WizardState): RowDescriptor[] {
 	single('anniv', 'Anniversary', 'no_class', 'all');
 	single('makeup', 'Anniversary makeup', 'no_school', 'all');
 	if (s4.sportsOn) single('sports', 'Sports Day', 'no_class', 'all');
+	// BBQ: partial afternoon (S1 starter, folded from the seed #229).
+	if (s4.singles.bbq !== null) {
+		single('bbq', 'BBQ', 'partial', 'all');
+	}
 	single('grad', 'Graduation', 'no_class', 'G9');
 	const pairIds: ReadonlyArray<keyof WizardStep4State['pairs']> = ['mock1', 'mock2', 'mock3'];
 	pairIds.forEach((id, i) => {
@@ -228,6 +237,25 @@ function schoolDescriptors(state: WizardState): RowDescriptor[] {
 			editable: true
 		});
 	});
+	return rows;
+}
+
+function extraDescriptors(state: WizardState): RowDescriptor[] {
+	const rows: RowDescriptor[] = [];
+	const extras = state.step4.extras;
+	for (const extra of extras) {
+		if (!extra.start) continue;
+		rows.push({
+			key: `step4:extra:${extra.id}`,
+			type: 'no_school',
+			title: 'Off',
+			dates: extra.end ? [extra.start, extra.end] : [extra.start],
+			note: extra.name,
+			target: 'all',
+			source: 'step4',
+			editable: true
+		});
+	}
 	return rows;
 }
 
@@ -382,6 +410,7 @@ export function buildPreviewRows(state: WizardState): PreviewRow[] {
 		...examDescriptors(state),
 		...schoolDescriptors(state),
 		...reminderDescriptors(state),
+		...extraDescriptors(state),
 		...customDescriptors(state.step5.customEvents)
 	];
 	const refanExam = (label: string, start: string): string[] => examFan(state, label, start);
@@ -525,6 +554,10 @@ export function buildSavePayload(
 		return next;
 	});
 
+	const extras = state.step4.extras
+		.filter((e) => e.start)
+		.map((e) => ({ name: e.name, startDate: e.start, endDate: e.end ?? undefined }));
+
 	return {
 		year: state.step1.schoolYear ?? '',
 		term: state.step1.term ?? 'S1',
@@ -535,11 +568,13 @@ export function buildSavePayload(
 			anniv: single('anniv'),
 			makeup: single('makeup'),
 			sports: single('sports'),
-			grad: single('grad')
+			grad: single('grad'),
+			bbq: single('bbq')
 		},
 		sportsOn: state.step4.sportsOn,
 		pairs: { mock1: pair('mock1'), mock2: pair('mock2'), mock3: pair('mock3') },
 		ranges,
+		extras,
 		customs,
 		...(e2eTag === undefined ? {} : { e2eTag })
 	};

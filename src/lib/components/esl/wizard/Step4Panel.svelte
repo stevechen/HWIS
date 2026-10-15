@@ -61,7 +61,7 @@
 	type PairId = keyof WizardStep4State['pairs'];
 	type RangeId = keyof WizardStep4State['ranges'];
 
-	const SINGLE_IDS: readonly SingleId[] = ['anniv', 'makeup', 'sports', 'grad'];
+	const SINGLE_IDS: readonly SingleId[] = ['anniv', 'makeup', 'sports', 'grad', 'bbq'];
 	const PAIR_IDS: readonly PairId[] = ['mock1', 'mock2', 'mock3'];
 	const QUIZ_IDS = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'] as const;
 
@@ -79,6 +79,7 @@
 	const pairs = $derived(step4.pairs);
 	const ranges = $derived(step4.ranges);
 	const sportsOn = $derived(step4.sportsOn);
+	const extras = $derived(step4.extras ?? []);
 
 	const offSet = $derived(new Set(offDays.map((day) => day.date)));
 	const examSet = $derived(new Set(exams.flatMap((exam) => exam.dates)));
@@ -103,6 +104,10 @@
 	function isPairId(id: string): id is PairId {
 		return (PAIR_IDS as readonly string[]).includes(id);
 	}
+	function isExtraId(id: string): boolean {
+		return id.startsWith('extra:');
+	}
+
 	function isBatchSource(id: string): boolean {
 		return id === 'q1' || id === 'pd1';
 	}
@@ -122,12 +127,14 @@
 		if (id === 'makeup') return 'Anniversary makeup date';
 		if (id === 'sports') return 'Sports Day';
 		if (id === 'grad') return 'Graduation';
+		if (id === 'bbq') return 'BBQ';
 		if (id === 'pcheck') return 'Passport Check';
 		if (id === 'wcheck') return 'Workbook Check';
 		if (id.startsWith('mock')) return `G9 Mock ${id.slice(4)}`;
 		if (id.startsWith('q')) return `Quiz ${id.slice(1)}`;
 		if (id.startsWith('pd')) return `Passport Due ${id.slice(2)}`;
 		if (id.startsWith('rd')) return `Recording Due ${id.slice(2)}`;
+		if (isExtraId(id)) return `Extra day off: ${id.slice(6)}`;
 		return id;
 	}
 
@@ -403,6 +410,29 @@
 			placed = setSingle(current, date);
 		} else if (isPairId(current)) {
 			placed = setPair(current, date);
+		} else if (isExtraId(current)) {
+			const extra = extras.find((e) => 'extra:' + e.id === current);
+			if (extra) {
+				if (extra.end) {
+					// Range extra: set the start date, keep the end
+					update((draft) => {
+						const idx = draft.step4.extras.findIndex((e) => 'extra:' + e.id === current);
+						if (idx >= 0) {
+							draft.step4.extras[idx] = { ...draft.step4.extras[idx], start: date };
+						}
+					});
+					placed = [date];
+				} else {
+					// Single-day extra
+					update((draft) => {
+						const idx = draft.step4.extras.findIndex((e) => 'extra:' + e.id === current);
+						if (idx >= 0) {
+							draft.step4.extras[idx] = { ...draft.step4.extras[idx], start: date };
+						}
+					});
+					placed = [date];
+				}
+			}
 		} else if (current === 'q1') {
 			// Batch source: picking the first date auto-fills the series.
 			const first = setRange(current as RangeId, date, QUIZ_DAYS);
@@ -438,13 +468,24 @@
 		if (armed === null) return [];
 		if (isSingleId(armed)) return singles[armed] == null ? [] : [singles[armed] as string];
 		if (isPairId(armed)) return pairs[armed] ?? [];
+		if (isExtraId(armed)) {
+			const extra = extras.find((e) => 'extra:' + e.id === armed);
+			if (extra) {
+				if (extra.end) {
+					// For range extras, return both start and end for highlighting
+					return [extra.start, extra.end];
+				}
+				return extra.start ? [extra.start] : [];
+			}
+			return [];
+		}
 		return ranges[armed as RangeId] ?? [];
 	});
 	const hoverPreview = $derived.by<string[]>(() => {
 		if (armed === null || hoverStart === null) return [];
 		// Single-date picks (and 2-day mock pairs, previewed by start day)
 		// preview exactly one day.
-		if (isSingleId(armed) || armed.startsWith('mock')) return [hoverStart];
+		if (isSingleId(armed) || armed.startsWith('mock') || isExtraId(armed)) return [hoverStart];
 		// Checks preview with the same end-bounded window the setter uses,
 		// so the preview can never show days the setter would refuse.
 		if ((armed === 'pcheck' || armed === 'wcheck') && endDate !== null) {
@@ -628,6 +669,19 @@
 				label: 'Workbook Check · CLIL · Block 3',
 				value: fmt(ranges['wcheck'])
 			});
+		// BBQ (S1 starter, folded from seed #229)
+		if (isS1 && singles.bbq !== null) {
+			rows.push({ label: 'BBQ · Partial day, All grades', value: singles.bbq });
+		}
+		// Extra days off (folded from seed #229)
+		for (const extra of extras) {
+			if (extra.start) {
+				rows.push({
+					label: `Extra day off: ${extra.name} · All grades`,
+					value: extra.end ? `${extra.start} → ${extra.end}` : extra.start
+				});
+			}
+		}
 		return rows;
 	});
 </script>
@@ -888,6 +942,72 @@
 							</div>
 						{/if}
 					</div>
+
+					<div class="rounded border bg-white">
+						<button
+							type="button"
+							onclick={() => toggle('extras')}
+							data-testid="wizard-step4.group-extras"
+							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
+						>
+							{(open['extras'] ?? false) ? '▾' : '▸'} Extra days off — {extras.length}
+						</button>
+						{#if open['extras'] ?? false}
+							<div class="space-y-2 px-3 pb-3">
+								{#each extras as extra (extra.id)}
+									<div
+										data-testid="wizard-step4.row-extra"
+										class="rounded border p-2 text-sm {armed === 'extra:' + extra.id
+											? 'border-emerald-500 bg-emerald-50'
+											: 'border-gray-200'}"
+									>
+										<div class="flex flex-wrap items-center justify-between gap-2">
+											<span
+												><strong>{extra.name}</strong> · Day off · {extra.end
+													? extra.start + ' → ' + extra.end
+													: extra.start}
+												<span class="ml-1 text-xs text-gray-500"
+													>· {extra.end ? 'Calendar days' : 'Single day'}</span
+												></span
+											>
+											{#if armed === 'extra:' + extra.id}
+												<span
+													class="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white"
+													>Placing ✓</span
+												>
+											{:else}
+												<Button
+													size="sm"
+													variant="outline"
+													onclick={() => arm('extra:' + extra.id)}
+													data-testid="wizard-step4.extra-arm"
+												>
+													{extra.end ? 'Set range' : 'Pick date'}
+												</Button>
+											{/if}
+										</div>
+									</div>
+								{/each}
+								<Button
+									size="sm"
+									variant="outline"
+									onclick={() => {
+										update((draft) => {
+											draft.step4.extras.push({
+												id: 'extra-' + Date.now(),
+												name: '',
+												start: '',
+												end: null
+											});
+										});
+									}}
+									data-testid="wizard-step4.extra-add"
+								>
+									Add extra day off
+								</Button>
+							</div>
+						{/if}
+					</div>
 				</section>
 			{:else}
 				<section data-testid="wizard-step4.esl-tab" class="space-y-3">
@@ -1044,6 +1164,41 @@
 							</div>
 						{/if}
 					</div>
+
+					{#if isS1}
+						<div
+							data-testid="wizard-step4.row-bbq"
+							class="rounded border p-2 text-sm {armed === 'bbq'
+								? 'border-emerald-500 bg-emerald-50'
+								: 'border-gray-200'}"
+						>
+							<div class="flex flex-wrap items-center justify-between gap-2">
+								<span
+									><strong>BBQ</strong> · Partial day · All grades · {fmt(
+										singles['bbq'] == null ? [] : [singles['bbq'] as string]
+									)}
+									<span class="ml-1 text-xs text-gray-500">· Periods 1–4, off from 12:00</span
+									></span
+								>
+								{#if armed === 'bbq'}
+									<span
+										data-testid="wizard-step4.bbq-chip"
+										class="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white"
+										>Placing ✓</span
+									>
+								{:else}
+									<Button
+										size="sm"
+										variant="outline"
+										onclick={() => arm('bbq')}
+										data-testid="wizard-step4.bbq-arm"
+									>
+										Pick date
+									</Button>
+								{/if}
+							</div>
+						</div>
+					{/if}
 
 					<div class="rounded border bg-white">
 						<button
