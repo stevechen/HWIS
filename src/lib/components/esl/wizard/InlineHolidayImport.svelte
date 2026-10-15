@@ -8,26 +8,39 @@
 	import { semesterUploadYears } from '$lib/esl-semesters';
 
 	/**
-	 * Inline holiday import for Step 2 of the wizard (ticket #220, spec #215).
+	 * Inline holiday import for Step 2 of the wizard (tickets #220/#223,
+	 * spec #215).
 	 *
-	 * One-click flow: auto-selects ROC years via semesterUploadYears(term, startDate)
-	 * → calls previewGovImport → immediately calls importGovOffDays → shows report.
-	 * Loading spinners during each phase.
+	 * Saved semesters: auto-selects ROC years via
+	 * semesterUploadYears(term, startDate) → previewGovImport → importGovOffDays
+	 * → report. Loading spinners during each phase.
+	 *
+	 * New semesters (`semesterId === 'new'`, the wizard path): the semester
+	 * does not exist yet and Cancel must write nothing, so the flow is
+	 * preview-only — previewGovImport runs against the draft context
+	 * (year/term/startDate) and Import STASHES the previewed days into
+	 * wizard state via `onImported` instead of writing events. The Step 5
+	 * save transaction writes them as `no_school` events.
 	 */
 
 	let {
 		semesterId,
 		term,
 		startDate,
+		schoolYear,
 		onImported
 	}: {
 		semesterId: string;
 		term: 'S1' | 'S2';
 		startDate: string;
+		schoolYear?: string | null;
 		onImported?: (offDays: { date: string; name: string }[]) => void;
 	} = $props();
 
 	const client = useConvexClient();
+
+	/** The wizard path: no semester row exists yet, so nothing may be written. */
+	const isNew = $derived(semesterId === 'new');
 
 	type GovYearOption = { rocYear: string; gregorian: string; checked: boolean };
 
@@ -39,6 +52,7 @@
 	let govError = $state<string | null>(null);
 	let govPreview = $state<GovPreviewResult | null>(null);
 	let govReport = $state<GovImportResult | null>(null);
+	let stagedCount = $state<number | null>(null);
 
 	// Initialize govYears from props - using $effect to capture initial values
 	$effect(() => {
@@ -60,6 +74,14 @@
 		govPreview = null;
 		govReport = null;
 		govError = null;
+		stagedCount = null;
+	}
+
+	/** Previewed days minus translation-unverifiable ones, for wizard state. */
+	function stageableDays(days: GovPreviewDay[]): { date: string; name: string }[] {
+		return days
+			.filter((day) => !day.needsReview)
+			.map((day) => ({ date: day.date, name: day.name }));
 	}
 
 	async function previewGov() {
@@ -68,13 +90,14 @@
 		govError = null;
 		govPreview = null;
 		govReport = null;
+		stagedCount = null;
 		try {
-			// semesterId is 'new' for new semesters; the action will handle this
-			// or the import will be re-run after semester creation in Step 5
-			govPreview = await client.action(api.esl.holidays.previewGovImport, {
-				semesterId: semesterId as Id<'esl_semesters'>,
-				rocYears: pickedYears
-			});
+			govPreview = isNew
+				? await previewDraft()
+				: await client.action(api.esl.holidays.previewGovImport, {
+						semesterId: semesterId as Id<'esl_semesters'>,
+						rocYears: pickedYears
+					});
 		} catch (cause) {
 			govError = humanConvexErrorMessage(cause);
 		} finally {
@@ -82,8 +105,27 @@
 		}
 	}
 
+	async function previewDraft(): Promise<GovPreviewResult> {
+		if (schoolYear == null || schoolYear === '') {
+			throw new Error('Pick the semester start date first.');
+		}
+		return await client.action(api.esl.holidays.previewGovImport, {
+			draft: { year: schoolYear, term, startDate },
+			rocYears: pickedYears
+		});
+	}
+
 	async function importGov() {
 		if (!canGovImport) return;
+		// Wizard path: stash the previewed days into wizard state — the
+		// Step 5 save transaction writes the events. No DB writes here.
+		if (isNew) {
+			const staged = stageableDays(govPreview?.days ?? []);
+			stagedCount = staged.length;
+			govPreview = null;
+			if (onImported) onImported(staged);
+			return;
+		}
 		govImporting = true;
 		govError = null;
 		govReport = null;
@@ -100,10 +142,7 @@
 
 			// Notify parent of imported off days
 			if (onImported && govReport) {
-				const importedOffDays: { date: string; name: string }[] = previewDays
-					.filter((day: GovPreviewDay) => !day.needsReview)
-					.map((day: GovPreviewDay) => ({ date: day.date, name: day.name }));
-				onImported(importedOffDays);
+				onImported(stageableDays(previewDays));
 			}
 		} catch (cause) {
 			govError = humanConvexErrorMessage(cause);
@@ -202,6 +241,14 @@
 			>
 				{govImporting ? 'Importing…' : 'Import these off days'}
 			</Button>
+		</div>
+	{/if}
+
+	{#if stagedCount !== null}
+		<div data-testid="wizard.step-2-holiday.gov-staged" class="space-y-2 text-sm">
+			<p class="rounded border border-emerald-200 bg-emerald-50 p-2 text-emerald-900">
+				{stagedCount} off day{stagedCount === 1 ? '' : 's'} staged — written when you save the semester.
+			</p>
 		</div>
 	{/if}
 

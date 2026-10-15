@@ -287,16 +287,45 @@ export type GovPreviewResult = {
 
 export const previewGovImport = action({
 	args: {
-		semesterId: v.id('esl_semesters'),
+		semesterId: v.optional(v.id('esl_semesters')),
+		// Draft context for a semester that does not exist yet (the setup
+		// wizard stages off days into wizard state; nothing is written
+		// until Step 5 saves). Exactly one of semesterId/draft is required.
+		draft: v.optional(
+			v.object({
+				year: v.string(),
+				term: v.union(v.literal('S1'), v.literal('S2')),
+				startDate: v.string()
+			})
+		),
 		rocYears: v.array(v.string())
 	},
 	handler: async (ctx, args): Promise<GovPreviewResult> => {
 		await ctx.runQuery(internal.esl.seed.checkEslAdmin, {});
 		checkRocYears(args.rocYears);
 
-		const context = await ctx.runQuery(internal.esl.holidayWrites.readImportContext, {
-			semesterId: args.semesterId
-		});
+		if (args.semesterId !== undefined && args.draft !== undefined) {
+			throw new Error('Pass exactly one of semesterId or draft context, not both.');
+		}
+		const target =
+			args.semesterId !== undefined
+				? { kind: 'saved' as const, semesterId: args.semesterId }
+				: args.draft !== undefined
+					? { kind: 'draft' as const, ...args.draft }
+					: null;
+		if (target === null) {
+			throw new Error('Pass exactly one of semesterId or draft context.');
+		}
+		const context =
+			target.kind === 'saved'
+				? await ctx.runQuery(internal.esl.holidayWrites.readImportContext, {
+						semesterId: target.semesterId
+					})
+				: await ctx.runQuery(internal.esl.holidayWrites.readDraftImportContext, {
+						year: target.year,
+						term: target.term,
+						startDate: target.startDate
+					});
 		const window = semesterImportWindow({
 			year: context.year,
 			term: context.term,

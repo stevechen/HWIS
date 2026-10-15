@@ -335,6 +335,25 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 				.not.toHaveTextContent('unset');
 		});
 
+		it('refuses check windows straddling an off day (save would fail)', async () => {
+			await start();
+
+			await page.getByTestId('wizard-step4.tab-esl').click();
+			await page.getByTestId('wizard-step4.group-checks').click();
+
+			// A 5-school-day window from Mon Dec 21 spans Fri Dec 25 (off) —
+			// events.create would refuse the straddle, so Step 4 refuses first.
+			await page
+				.getByTestId('wizard-step4.row-pcheck')
+				.getByRole('button', { name: 'Set window' })
+				.click();
+			await expect
+				.element(page.getByTestId('wizard-step4-calendar.date-2026-12-21'))
+				.toBeDisabled();
+			await page.getByTestId('wizard-step4-calendar.date-2026-12-21').click({ force: true });
+			await expect.element(page.getByTestId('wizard-step4.row-pcheck')).toHaveTextContent('unset');
+		});
+
 		it('G9 Mocks are 2-day consecutive events with order gate', async () => {
 			await start();
 

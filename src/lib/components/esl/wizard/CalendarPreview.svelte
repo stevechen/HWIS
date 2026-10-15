@@ -42,6 +42,7 @@
 	let {
 		weeks,
 		interactive = false,
+		clickableChips = false,
 		highlighted = [],
 		disabledDates = [],
 		disabledTooltips = {},
@@ -51,10 +52,16 @@
 	}: {
 		weeks: PreviewWeek[];
 		interactive?: boolean;
+		/**
+		 * Step 5 preview (#223): off/exam chips stay clickable so a click
+		 * can open that day's event for editing. Defaults off — Steps 3–4
+		 * keep refuse-by-construction (chips unclickable).
+		 */
+		clickableChips?: boolean;
 		highlighted?: string[];
 		disabledDates?: string[];
 		disabledTooltips?: Record<string, string>;
-		onDateClick?: (date: string) => void;
+		onDateClick?: (date: string, event?: MouseEvent) => void;
 		onDateHover?: (date: string | null) => void;
 		testId?: string;
 	} = $props();
@@ -194,7 +201,11 @@
 						{@const isHighlighted = highlight.has(day.date)}
 						{@const isDisabled = disabled.has(day.date)}
 						{@const clickable =
-							interactive && day.inRange && !day.isWeekend && day.offName === null && !isDisabled}
+							interactive &&
+							day.inRange &&
+							!day.isWeekend &&
+							(clickableChips || (day.offName === null && day.examLabel === null)) &&
+							!isDisabled}
 						{@const cellTitle = isDisabled
 							? day.examLabel !== null
 								? `${day.date} is set in ${day.examLabel} — pick a free day`
@@ -205,7 +216,7 @@
 								type="button"
 								data-testid={`${testId}.date-${day.date}`}
 								disabled={!clickable}
-								onclick={() => onDateClick(day.date)}
+								onclick={(e) => onDateClick(day.date, e)}
 								onmouseenter={() => onDateHover(clickable ? day.date : null)}
 								onmouseleave={() => onDateHover(null)}
 								title={cellTitle}

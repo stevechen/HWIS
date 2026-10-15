@@ -281,6 +281,22 @@
 		return `${eventLabel(id)} belongs to Block ${n} — between ${window.between}`;
 	}
 
+	// A fan-out spanning an off/exam day can never be saved
+	// (`events.create` refuses straddling windows with the date named), so
+	// Step 4 refuses it at pick time like every other gate. Weekends are
+	// fine — non-school days, not events. Mock pairs occupy single dates
+	// (never a span), so they cannot straddle.
+	function straddleViolation(id: string, first: string, last: string): string | null {
+		let cursor = addDays(first, 1);
+		while (cursor < last) {
+			if (offSet.has(cursor) || examSet.has(cursor)) {
+				return `${eventLabel(id)} crosses ${cursor} — pick a window clear of it`;
+			}
+			cursor = addDays(cursor, 1);
+		}
+		return null;
+	}
+
 	function setPair(id: PairId, date: string): string[] | null {
 		if (endDate === null) return null;
 		if (isWeekend(date) || offSet.has(date) || examSet.has(date)) return null;
@@ -308,6 +324,7 @@
 		if (last > endDate) return null;
 		if (blockViolation(id, first, last) !== null) return null;
 		if (orderViolation(id, first, last) !== null) return null;
+		if (straddleViolation(id, first, last) !== null) return null;
 		const placed = [...dates];
 		update((draft) => {
 			draft.step4.ranges[id] = placed;
@@ -318,6 +335,10 @@
 	// Batch-fill within block windows (F56): each id lands inside its own
 	// block; rows that no longer fit their block stay unset.
 	function batchWithinBlocks(ids: readonly string[], first: string, rangeDays: number, gap = 14) {
+		const fanout = (id: string, start: string): string[] =>
+			id === 'pcheck' || id === 'wcheck'
+				? dueWindowDates(start, skipSet, endDate ?? start)
+				: collectClassDays(start, rangeDays, skipSet);
 		const next: Record<string, string[]> = {};
 		let cursor: string | null = snapClass(first);
 		ids.forEach((id, i) => {
@@ -326,12 +347,20 @@
 			const window = n === null ? undefined : blockWindows.find((w) => w.n === n);
 			let start = cursor;
 			if (window !== undefined && start < window.start) start = window.start;
-			const snapped = snapClass(start);
+			let snapped = snapClass(start);
 			if (snapped === null) return;
-			const dates =
-				id === 'pcheck' || id === 'wcheck'
-					? dueWindowDates(snapped, skipSet, endDate ?? snapped)
-					: collectClassDays(snapped, rangeDays, skipSet);
+			// Batch-only: advance past straddling starts so every placed
+			// row is savable (a manual pick in the same spot is refused).
+			for (let bump = 0; bump < 400; bump++) {
+				const fan = fanout(id, snapped);
+				if (fan.length !== rangeDays) return;
+				const l = fan[fan.length - 1] as string;
+				if (straddleViolation(id, snapped, l) === null) break;
+				const advanced = snapClass(addDays(snapped, 1));
+				if (advanced === null) return;
+				snapped = advanced;
+			}
+			const dates = fanout(id, snapped);
 			const last = dates[dates.length - 1];
 			if (
 				dates.length === rangeDays &&
@@ -500,7 +529,9 @@
 				}
 				if (first !== null && last !== null) {
 					const violation =
-						blockViolation(armed, first, last) ?? orderViolation(armed, first, last);
+						blockViolation(armed, first, last) ??
+						orderViolation(armed, first, last) ??
+						straddleViolation(armed, first, last);
 					if (violation !== null) {
 						dates.push(cursor);
 						tips[cursor] = violation;

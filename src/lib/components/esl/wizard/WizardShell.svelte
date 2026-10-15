@@ -160,10 +160,8 @@
 			Back
 		</Button>
 		{#if step === 5}
-			<!-- Placement belongs to the shell; wiring the save action is #223. -->
-			<Button disabled title="Saving arrives with Step 5 (#223)" data-testid="wizard.save">
-				Save semester
-			</Button>
+			<!-- Save button is rendered by Step5Panel; shell only shows Back on the last step. -->
+			<div data-testid="wizard.step-5-footer-spacer" aria-hidden="true" />
 		{:else}
 			<Button
 				disabled={!canAdvance}
