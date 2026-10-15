@@ -2,9 +2,15 @@ import { action, internalQuery } from '../_generated/server';
 import { v } from 'convex/values';
 import { api, internal } from '../_generated/api';
 import type { Doc, Id } from '../_generated/dataModel';
+import { periodBoundsFor } from './events';
 import {
 	ESL_EVENT_TITLES,
 	ESL_REMINDER_TITLES,
+	assertValidEslEvent,
+	assertValidEslTarget,
+	assertValidEslTitle,
+	defaultTargetForEventType,
+	describeEslEventError,
 	type EslEventTarget,
 	type EslReminderKind
 } from '../shared/esl';
@@ -262,6 +268,32 @@ export const saveSemester = action({
 
 		for (const custom of args.customs as WizardSaveCustom[]) {
 			writes.push(customWrite(custom));
+		}
+
+		// Deterministic mapping errors fail here, before the first write —
+		// `events.create` re-checks every row at insert, but by then the
+		// semester would already exist. (Exclusivity against the DB needs no
+		// pre-check: the semester is brand new, so only intra-batch
+		// collisions matter, and the wizard gates forbid those at pick time.)
+		for (const event of writes) {
+			const titleError = assertValidEslTitle(event.type, event.title, event.reminderKind);
+			if (titleError !== null) throw new Error(describeEslEventError(titleError));
+			const target = event.target ?? defaultTargetForEventType(event.type, event.reminderKind);
+			const targetError = assertValidEslTarget(event.type, target, event.reminderKind);
+			if (targetError !== null) throw new Error(describeEslEventError(targetError));
+			const bounds = periodBoundsFor(event.type, {
+				startPeriod: event.startPeriod,
+				endPeriod: event.endPeriod
+			});
+			const fieldError = assertValidEslEvent({
+				type: event.type,
+				date: event.date,
+				...(event.endDate === undefined ? {} : { endDate: event.endDate }),
+				startPeriod: bounds.startPeriod,
+				endPeriod: bounds.endPeriod,
+				...(event.reminderKind === undefined ? {} : { reminderKind: event.reminderKind })
+			});
+			if (fieldError !== null) throw new Error(describeEslEventError(fieldError));
 		}
 
 		const semesterId = await ctx.runMutation(api.esl.semesters.create, {

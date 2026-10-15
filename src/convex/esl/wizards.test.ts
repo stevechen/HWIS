@@ -123,6 +123,31 @@ describe('esl/wizards.saveSemester', () => {
 		expect(semesters.filter((s) => s.year === YEAR && s.term === 'S1')).toHaveLength(1);
 	});
 
+	it('fails payload validation before creating the semester', async () => {
+		const t = await convexTest(schema, modules);
+		await seedEslStaff(t, { authId: 'esl-admin', eslRole: 'admin' });
+
+		const bad = await saveArgs();
+		await expect(
+			t.action(api.esl.wizards.saveSemester, {
+				...bad,
+				customs: [
+					{
+						id: 'custom-1',
+						type: 'banner',
+						startDate: '2026-10-14',
+						endDate: '2026-10-10',
+						bannerText: 'Backwards',
+						target: 'all'
+					}
+				]
+			})
+		).rejects.toThrow();
+
+		const semesters = await t.query(api.esl.semesters.list, {});
+		expect(semesters).toHaveLength(0);
+	});
+
 	it('refuses non-admin callers', async () => {
 		const t = await convexTest(schema, modules);
 		await seedEslStaff(t, { authId: 'esl-teacher', eslRole: 'teacher' });

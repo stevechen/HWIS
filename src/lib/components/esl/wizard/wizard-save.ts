@@ -110,6 +110,21 @@ function dayDiffDays(from: string, to: string): number {
 	return Math.round((day(to) - day(from)) / 86400000);
 }
 
+/**
+ * Refuse a ranged-reminder window spanning an off/exam day: `events.create`
+ * checks every occupied date, so saving it would fail naming the date.
+ * Weekends are fine (non-school, non-events); mock pairs occupy single
+ * dates and exams re-fan around skips, so only reminder windows qualify.
+ */
+function straddlesBlocked(first: string, last: string, blocked: Set<string>): string | null {
+	let cursor = addDaysLocal(first, 1);
+	while (cursor < last) {
+		if (blocked.has(cursor)) return cursor;
+		cursor = addDaysLocal(cursor, 1);
+	}
+	return null;
+}
+
 function addDaysLocal(date: string, n: number): string {
 	const [year, month, day] = date.split('-').map(Number);
 	return new Date(Date.UTC(year, month - 1, day + n, 12)).toISOString().slice(0, 10);
@@ -266,8 +281,8 @@ function customDescriptors(customs: WizardCustomEvent[]): RowDescriptor[] {
 					custom.startDate !== undefined && custom.endDate !== undefined
 						? [custom.startDate, custom.endDate]
 						: [],
-				note: custom.note,
-				target: 'all' as const,
+				note: custom.bannerText,
+				target: custom.target ?? 'all',
 				source: 'step5' as const,
 				editable: true,
 				customId: custom.id
@@ -451,6 +466,42 @@ export function buildSavePayload(
 		ids: ReadonlyArray<keyof WizardStep4State['ranges']>
 	): Record<string, string[] | null> => Object.fromEntries(ids.map((id) => [id, range(id)]));
 
+	const rangeIds = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'] as const;
+	const ranges: SavePayload['ranges'] = {
+		...rangeRecord(['q1', 'q2', 'q3', 'q4', 'q5', 'q6']),
+		...rangeRecord(['pd1', 'pd2', 'pd3']),
+		...rangeRecord(['rd1', 'rd2', 'rd3']),
+		...rangeRecord(['pcheck', 'wcheck'])
+	} as SavePayload['ranges'];
+
+	// Ranged reminders must not straddle an off/exam day (the save would
+	// refuse them naming the date) — fail here with the same clarity.
+	const blocked = new Set([
+		...state.step2.offDays.map((day) => day.date),
+		...state.step3.exams.flatMap((exam) => exam.dates)
+	]);
+	for (const [id, label] of [
+		...rangeIds.map((rangeId, i) => [rangeId, `Quiz ${i + 1}`] as const),
+		...(['pd1', 'pd2', 'pd3'] as const).map(
+			(rangeId, i) => [rangeId, `Passport Due ${i + 1}`] as const
+		),
+		...(['rd1', 'rd2', 'rd3'] as const).map(
+			(rangeId, i) => [rangeId, `Recording Due ${i + 1}`] as const
+		),
+		['pcheck', 'Passport Check'],
+		['wcheck', 'Workbook Check']
+	] as const) {
+		const dates = ranges[id];
+		if (dates !== null && dates.length > 1) {
+			const first = dates[0] as string;
+			const last = dates[dates.length - 1] as string;
+			const crossed = straddlesBlocked(first, last, blocked);
+			if (crossed !== null) {
+				throw new Error(`${label} window crosses ${crossed} — move it in Step 4.`);
+			}
+		}
+	}
+
 	const customs = state.step5.customEvents.map((custom) => {
 		const override = edited(`custom:${custom.id}`, {});
 		if (
@@ -488,12 +539,7 @@ export function buildSavePayload(
 		},
 		sportsOn: state.step4.sportsOn,
 		pairs: { mock1: pair('mock1'), mock2: pair('mock2'), mock3: pair('mock3') },
-		ranges: {
-			...rangeRecord(['q1', 'q2', 'q3', 'q4', 'q5', 'q6']),
-			...rangeRecord(['pd1', 'pd2', 'pd3']),
-			...rangeRecord(['rd1', 'rd2', 'rd3']),
-			...rangeRecord(['pcheck', 'wcheck'])
-		} as SavePayload['ranges'],
+		ranges,
 		customs,
 		...(e2eTag === undefined ? {} : { e2eTag })
 	};

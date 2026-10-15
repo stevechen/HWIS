@@ -206,4 +206,18 @@ describe('buildSavePayload', () => {
 			dates: ['2026-10-05', '2026-10-06']
 		});
 	});
+
+	it('refuses a reminder window straddling an off day', () => {
+		const state = s1State();
+		// Spans Tue Nov 10 (National Day off).
+		state.step4.ranges.q1 = ['2026-11-09', '2026-11-10', '2026-11-11'];
+		expect(() => buildSavePayload(state)).toThrow(/Quiz 1 window crosses 2026-11-10/);
+	});
+
+	it('accepts windows clear of off days', () => {
+		const state = s1State();
+		state.step4.ranges.q1 = ['2026-11-04', '2026-11-05', '2026-11-06'];
+		const payload = buildSavePayload(state);
+		expect(payload.ranges.q1).toEqual(['2026-11-04', '2026-11-05', '2026-11-06']);
+	});
 });

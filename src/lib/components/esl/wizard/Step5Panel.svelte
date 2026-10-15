@@ -47,7 +47,7 @@
 	let customType = $state<'meeting' | 'banner'>('meeting');
 	let customDate = $state('');
 	let customEndDate = $state('');
-	let customTarget = $state<'all' | 'CLIL' | 'Comm' | 'G7' | 'G8' | 'G9' | 'H1'>('all');
+	let customTarget = $state<'all' | 'CLIL' | 'Comm' | 'G9' | 'H1'>('all');
 	let customSubType = $state<'partial' | 'no_class' | 'task'>('task');
 	let customNote = $state('');
 	let customBannerText = $state('');
@@ -82,7 +82,7 @@
 
 	function addCustomEvent() {
 		if (customType === 'meeting') {
-			if (!customDate) return;
+			if (!customDate || customNote.trim() === '') return;
 			const id = `custom-${++customIdCounter}`;
 			update((draft) => {
 				draft.step5.customEvents.push({
@@ -101,14 +101,23 @@
 				draft.step5.customEvents.push({
 					id,
 					type: 'banner',
+					target: customTarget,
 					startDate: customDate,
 					endDate: customEndDate,
-					bannerText: customBannerText,
-					note: customNote || undefined
+					bannerText: customBannerText
 				});
 			});
 		}
 		closeCustomModal();
+	}
+
+	/** Calendar → edit (ticket #223): open the first row covering the date. */
+	function openCalendarEdit(date: string, event?: MouseEvent) {
+		const row = unifiedEvents.find(
+			(candidate) => candidate.date <= date && date <= (candidate.endDate ?? candidate.date)
+		);
+		if (row === undefined) return;
+		openEditPopover(row, event?.clientX ?? 0, event?.clientY ?? 0);
 	}
 
 	function openEditPopover(event: PreviewRow, clientX: number, clientY: number) {
@@ -124,13 +133,12 @@
 	}
 
 	function saveEdit() {
-		if (!editPopover.event) return;
+		const key = editPopover.event?.key;
+		if (key === undefined) return;
 		update((draft) => {
-			const existingIndex = draft.step5.eventEdits.findIndex(
-				(e) => e.eventKey === editPopover.event!.key
-			);
+			const existingIndex = draft.step5.eventEdits.findIndex((e) => e.eventKey === key);
 			const edit: WizardEventEdit = {
-				eventKey: editPopover.event!.key,
+				eventKey: key,
 				date: editDate || undefined,
 				endDate: editEndDate || undefined,
 				note: editNote || undefined
@@ -351,7 +359,13 @@
 		<!-- Calendar Preview -->
 		<div class="min-w-0">
 			<h3 class="mb-2 text-sm font-semibold text-gray-800">Calendar preview</h3>
-			<CalendarPreview {weeks} interactive={false} testId="wizard.step-5-calendar" />
+			<CalendarPreview
+				{weeks}
+				interactive
+				clickableChips
+				onDateClick={openCalendarEdit}
+				testId="wizard.step-5-calendar"
+			/>
 		</div>
 
 		<!-- Event List -->
@@ -429,13 +443,12 @@
 							<label class="mb-1 block text-sm font-medium text-gray-700">Target</label>
 							<select
 								bind:value={customTarget}
+								data-testid="wizard.step-5-custom-target"
 								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 							>
 								<option value="all">All grades</option>
 								<option value="CLIL">CLIL</option>
 								<option value="Comm">Communication</option>
-								<option value="G7">Grade 7</option>
-								<option value="G8">Grade 8</option>
 								<option value="G9">Grade 9</option>
 								<option value="H1">Grade 10</option>
 							</select>
@@ -457,13 +470,27 @@
 								bind:value={customNote}
 								rows={3}
 								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
-								placeholder="Optional detail text"
+								placeholder="Required detail text"
 							/>
 						</div>
 					</div>
 				{:else}
-					<!-- Banner fields -->
+					<!-- Banner fields: text doubles as the note (spec #215 story 28) -->
 					<div class="space-y-3">
+						<div>
+							<label class="mb-1 block text-sm font-medium text-gray-700">Target</label>
+							<select
+								bind:value={customTarget}
+								data-testid="wizard.step-5-custom-target"
+								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+							>
+								<option value="all">All grades</option>
+								<option value="CLIL">CLIL</option>
+								<option value="Comm">Communication</option>
+								<option value="G9">Grade 9</option>
+								<option value="H1">Grade 10</option>
+							</select>
+						</div>
 						<div>
 							<label class="mb-1 block text-sm font-medium text-gray-700">Start date</label>
 							<input
@@ -485,17 +512,9 @@
 							<input
 								type="text"
 								bind:value={customBannerText}
+								data-testid="wizard.step-5-custom-text"
 								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 								placeholder="Text to show on the week banner"
-							/>
-						</div>
-						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">Note</label>
-							<textarea
-								bind:value={customNote}
-								rows={3}
-								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
-								placeholder="Optional detail text"
 							/>
 						</div>
 					</div>
@@ -506,9 +525,10 @@
 					<Button variant="outline" onclick={closeCustomModal}>Cancel</Button>
 					<Button
 						disabled={customType === 'meeting'
-							? !customDate
+							? !customDate || customNote.trim() === ''
 							: !customDate || !customEndDate || !customBannerText}
 						onclick={addCustomEvent}
+						data-testid="wizard.step-5-custom-add"
 					>
 						Add event
 					</Button>

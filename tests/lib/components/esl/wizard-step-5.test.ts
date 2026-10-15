@@ -47,7 +47,7 @@ const mockState = {
 		singles: { anniv: null, makeup: null, sports: '2026-10-07', grad: null },
 		pairs: { mock1: ['2026-10-12', '2026-10-13'], mock2: null, mock3: null },
 		ranges: {
-			q1: ['2026-10-05', '2026-10-06', '2026-10-07'],
+			q1: ['2026-10-19', '2026-10-20', '2026-10-21'],
 			q2: null,
 			q3: null,
 			q4: null,
@@ -164,6 +164,36 @@ describe('Step 5 Panel', () => {
 			startDate: '2026-08-31'
 		});
 		expect(payload.exams).toHaveLength(3);
+	});
+
+	it('opens the edit popover from a calendar date', async () => {
+		await render(Step5Panel, { state: mockState, update: mockUpdate });
+
+		// Exam 1 covers Mon 2026-10-05 on the preview calendar.
+		await page.getByTestId('wizard.step-5-calendar.date-2026-10-05').click();
+
+		await expect.element(page.getByTestId('wizard.step-5-edit-popover')).toBeInTheDocument();
+	});
+
+	it('offers the ticket target list with a required text on custom events', async () => {
+		await render(Step5Panel, { state: mockState, update: mockUpdate });
+
+		await page.getByRole('button', { name: 'Add custom event' }).click();
+		const target = page.getByTestId('wizard.step-5-custom-target');
+		await expect.element(target).toBeInTheDocument();
+		// Native options are not in the accessibility tree until opened —
+		// read them off the DOM node (the ticket's target list, nothing more).
+		const select = (await target.element()) as HTMLSelectElement;
+		expect(Array.from(select.options).map((option) => option.value)).toEqual([
+			'all',
+			'CLIL',
+			'Comm',
+			'G9',
+			'H1'
+		]);
+
+		// Meeting with a date but no text keeps Add disabled (text is required).
+		await expect.element(page.getByRole('button', { name: 'Add event' })).toBeDisabled();
 	});
 
 	it('shows an inline error when saving fails', async () => {
