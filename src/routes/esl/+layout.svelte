@@ -53,6 +53,11 @@
 					class="rounded px-3 py-1.5 text-sm font-medium hover:bg-white/15">Schedule</a
 				>
 				<a
+					href="/esl/schedule/calendar"
+					data-testid="esl.nav.calendar"
+					class="rounded px-3 py-1.5 text-sm font-medium hover:bg-white/15">Calendar</a
+				>
+				<a
 					href="/esl/slips"
 					data-testid="esl.nav.slips"
 					class="rounded px-3 py-1.5 text-sm font-medium hover:bg-white/15">Slips</a
@@ -62,11 +67,13 @@
 					data-testid="esl.nav.zipgrade"
 					class="rounded px-3 py-1.5 text-sm font-medium hover:bg-white/15">ZipGrade</a
 				>
-				<a
-					href="/esl/admin"
-					data-testid="esl.nav.admin"
-					class="rounded px-3 py-1.5 text-sm font-medium hover:bg-white/15">Admin</a
-				>
+				{#if session.isEslAdmin}
+					<a
+						href="/esl/admin"
+						data-testid="esl.nav.admin"
+						class="rounded px-3 py-1.5 text-sm font-medium hover:bg-white/15">Admin</a
+					>
+				{/if}
 			</div>
 		</nav>
 		{@render children()}

@@ -26,6 +26,10 @@ export type Viewer = AccessSubject & {
 	englishName?: string;
 	chineseName?: string;
 	house?: string;
+	departmentRoles?: {
+		international?: 'admin' | 'teacher';
+		esl?: 'admin' | 'teacher';
+	};
 };
 
 export type SessionStatus = 'loading' | 'signedOut' | 'pending' | 'active';
@@ -118,3 +122,5 @@ export function settleViewer(auth: AuthInput, profile: ProfileInput): ViewerSess
 			user.profileExists === false
 	};
 }
+
+export type { AuthInput, ProfileInput };

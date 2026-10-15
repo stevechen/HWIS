@@ -1,14 +1,12 @@
 import type { Locator } from 'vitest/browser';
 
 /**
- * Chooses an option in a native `<select>`.
+ * Pick an option in a `<select>` the way a user would.
  *
- * The browser-mode locators do not expose Playwright's `selectOption`, so the
- * value is set on the element and a bubbling `change` event is dispatched —
- * which is exactly what Svelte's `bind:value` listens for.
+ * Route tests drive the semester/class pickers this way instead of reaching
+ * into `element().value`, because the Svelte components listen for the
+ * `change` event rather than reading the bound value directly.
  */
-export async function selectOption(locator: Locator, value: string): Promise<void> {
-	const element = (await locator.element()) as HTMLSelectElement;
-	element.value = value;
-	element.dispatchEvent(new Event('change', { bubbles: true }));
+export async function selectOption(select: Locator, value: string): Promise<void> {
+	await select.selectOptions(value);
 }

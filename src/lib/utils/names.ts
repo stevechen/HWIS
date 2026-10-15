@@ -1,10 +1,10 @@
 import { normalizeStaffName } from '$convex/shared/staff_name';
 
-export function cleanName(name?: string): string {
+export function cleanName(name?: string | null): string {
 	return normalizeStaffName(name);
 }
 
-export function initials(name?: string): string {
+export function initials(name?: string | null): string {
 	return (
 		cleanName(name)
 			.split(/\s+/)

@@ -1,6 +1,5 @@
 import {
 	getEvaluationCapabilities,
-	type DepartmentRoles,
 	type Role,
 	type StudentStatus,
 	type UserStatus
@@ -18,11 +17,14 @@ export interface ViewerSessionConfig {
 	role?: Role;
 	status?: UserStatus;
 	enrollmentStatus?: StudentStatus;
-	departmentRoles?: DepartmentRoles;
 	profileExists?: boolean;
 	name?: string;
 	email?: string;
 	studentId?: string;
+	departmentRoles?: {
+		international?: 'admin' | 'teacher';
+		esl?: 'admin' | 'teacher';
+	};
 	auth?: Partial<AuthInput>;
 }
 

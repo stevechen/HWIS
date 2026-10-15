@@ -1,6 +1,7 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { authComponent, requireAdminForSensitiveOperation } from './auth';
+import { resolveDepartmentRoles, type DepartmentRole } from './shared/authorization';
 
 interface TestUser {
 	id: string;
@@ -224,5 +225,61 @@ export const setupTestUsers = mutation({
 			eslAdminSessionToken,
 			expiresAt: expiresAt.getTime()
 		};
+	}
+});
+
+/**
+ * Test-only: grant (or clear) a user's ESL department role by email.
+ *
+ * E2E's seeded users are International staff by construction, so an ESL flow
+ * needs one of them promoted before it can touch `requireEslAdmin` writes.
+ * Behind `requireAdminForSensitiveOperation` like every other test-only write
+ * — reachable from the authenticated Convex HTTP client in specs, never from
+ * the app UI. Preserves the user's International assignment, mirroring
+ * `esl/staff.setEslRole` (which refuses self-edits; this one does not, since
+ * the caller is the admin session, not the target).
+ */
+export const setEslRoleByEmail = mutation({
+	args: {
+		email: v.string(),
+		eslRole: v.union(v.literal('admin'), v.literal('teacher'), v.null()),
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx, args.testToken);
+
+		const adapter = await authComponent.adapter(ctx)({
+			user: { fields: undefined }
+		});
+		const baUsers = (await adapter.findMany({ model: 'user', where: [] })) as Array<{
+			id: string;
+			email?: string;
+		}>;
+		const baUser = baUsers.find((u) => u.email?.toLowerCase() === args.email.toLowerCase());
+		if (!baUser) {
+			throw new Error(`Test user not found for email: ${args.email}`);
+		}
+
+		const profile = await ctx.db
+			.query('users')
+			.withIndex('by_authId', (q) => q.eq('authId', baUser.id))
+			.first();
+		if (!profile) {
+			throw new Error(`User profile not found for email: ${args.email}`);
+		}
+		if (profile.role === 'student') {
+			throw new Error('Students cannot hold ESL roles');
+		}
+
+		const current = resolveDepartmentRoles(profile);
+		const next: { international?: DepartmentRole; esl?: DepartmentRole } = {};
+		if (current.international) next.international = current.international;
+		if (args.eslRole) next.esl = args.eslRole;
+
+		await ctx.db.patch(profile._id, {
+			departmentRoles: Object.keys(next).length > 0 ? next : undefined
+		});
+
+		return { success: true, userId: profile._id, eslRole: args.eslRole };
 	}
 });

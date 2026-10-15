@@ -15,6 +15,7 @@
 
 	const sections = [
 		{ href: '/esl/admin', testId: 'esl-admin.nav.overview', label: 'Overview' },
+		{ href: '/esl/admin/semesters', testId: 'esl-admin.nav.semesters', label: 'Semesters' },
 		{ href: '/esl/admin/classes', testId: 'esl-admin.nav.classes', label: 'Classes' },
 		{ href: '/esl/admin/students', testId: 'esl-admin.nav.students', label: 'Students' },
 		{ href: '/esl/admin/users', testId: 'esl-admin.nav.users', label: 'Users' }
@@ -58,7 +59,9 @@
 					>Admin</span
 				>
 				{#each sections as section (section.href)}
-					{@const active = page.url.pathname === section.href}
+					{@const active =
+						page.url.pathname === section.href ||
+						(section.href !== '/esl/admin' && page.url.pathname.startsWith(`${section.href}/`))}
 					<a
 						href={section.href}
 						data-testid={section.testId}

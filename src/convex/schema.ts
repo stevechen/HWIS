@@ -437,6 +437,190 @@ export default defineSchema({
 		.index('by_e2eTag', ['e2eTag']),
 
 	/**
+	 * A semester term: S1 or S2 of a school year.
+	 *
+	 * Explicit startDate only — the end is derived at read time as the max
+	 * date of exam-type events (null until the first final is entered, when
+	 * views clamp to startDate..today). Pass dates as YYYY-MM-DD strings;
+	 * never take wall-clock reads in queries (pre-existing schoolYearOf
+	 * local-vs-Taipei drift is out of scope and must not widen).
+	 */
+	esl_semesters: defineTable({
+		/** School year in `YYYY-YYYY` form, e.g. `2025-2026`. */
+		year: v.string(),
+		/** Which half of the year. */
+		term: v.union(v.literal('S1'), v.literal('S2')),
+		/** First day of the term, `YYYY-MM-DD`. */
+		startDate: v.string(),
+		/**
+		 * Set only by end-to-end runs, so a test's semesters can be removed
+		 * afterwards on the same tag pattern the other tables use. Absent in
+		 * every real write.
+		 */
+		e2eTag: v.optional(v.string())
+	})
+		.index('by_year_term', ['year', 'term'])
+		.index('by_e2eTag', ['e2eTag']),
+
+	/**
+	 * A typed school event inside a semester: no-school vs no-class vs
+	 * partial vs exam vs dues, each with the schedule effect the teacher
+	 * views assume. Every row carries an explicit `title` (chip/banner text)
+	 * plus a separate `note` (detail line) — never derived from each other.
+	 */
+	esl_events: defineTable({
+		semesterId: v.id('esl_semesters'),
+		type: v.union(
+			v.literal('start_school'),
+			v.literal('reminder'),
+			v.literal('no_school'),
+			v.literal('no_class'),
+			v.literal('partial'),
+			v.literal('exam'),
+			v.literal('g9_mock')
+		),
+		/**
+		 * What a `reminder` row reminds about (#216): quiz/passport/
+		 * recording/task/passport_check/workbook_check. Absent on every
+		 * non-reminder row.
+		 */
+		reminderKind: v.optional(
+			v.union(
+				v.literal('quiz'),
+				v.literal('passport'),
+				v.literal('recording'),
+				v.literal('task'),
+				v.literal('passport_check'),
+				v.literal('workbook_check')
+			)
+		),
+		/**
+		 * Week-banner flag (#216): true on reminders (the views render them
+		 * as week banners). Absent on every non-reminder row.
+		 */
+		isBanner: v.optional(v.boolean()),
+		/** Explicit chip/banner title: locked per type, free text on quiz/task-kind reminders. */
+		title: v.string(),
+		/**
+		 * Which classes this event affects. `all` reaches every teacher;
+		 * `G7`/`G8` reach that grade's classes, `H1` the grade 10 classes
+		 * (which have no target of their own and otherwise see `all`
+		 * events only). Per-type gating (#212, #216) locks most types to one
+		 * target; only Start, Partial, and task-kind reminders take a picked value.
+		 */
+		target: v.union(
+			v.literal('all'),
+			v.literal('CLIL'),
+			v.literal('Comm'),
+			v.literal('G7'),
+			v.literal('G8'),
+			v.literal('G9'),
+			v.literal('H1')
+		),
+		/** The date (`YYYY-MM-DD`), or the range start for reminders. */
+		date: v.string(),
+		/**
+		 * The exam group this day belongs to (#212): every day of one exam
+		 * create shares its title (`Exam 1`, `Exam 2`, `Final Exam`), so a
+		 * multi-day exam is N rows with one group. Absent on every
+		 * non-exam row — and on exam rows written before the field existed,
+		 * which read back through their title.
+		 */
+		examGroup: v.optional(v.string()),
+		/**
+		 * Inclusive range end, reminders only. Absent on every single-date type.
+		 */
+		endDate: v.optional(v.string()),
+		/** Free-form note, e.g. BBQ logistics or collection reminders. */
+		note: v.optional(v.string()),
+		/**
+		 * Partial-day bounds: meetings before startPeriod / after endPeriod
+		 * are out-of-window. Partials only, each optional, validated 1–8.
+		 */
+		startPeriod: v.optional(v.number()),
+		endPeriod: v.optional(v.number()),
+		/**
+		 * Lunar provenance: how a seeded Moon Festival / Dragon Boat date was
+		 * resolved (`holiday_api` vs `admin_typed`), and whether the
+		 * admin-typed fallback is still unverified.
+		 */
+		provenance: v.optional(v.union(v.literal('holiday_api'), v.literal('admin_typed'))),
+		unverified: v.optional(v.boolean()),
+		/**
+		 * Set only by end-to-end runs, on the same tag pattern as every other
+		 * ESL table, so teardown stays one indexed read.
+		 */
+		e2eTag: v.optional(v.string())
+	})
+		.index('by_semester', ['semesterId'])
+		.index('by_semester_date', ['semesterId', 'date'])
+		.index('by_e2eTag', ['e2eTag']),
+
+	/**
+	 * A teacher's private per-meeting note, keyed by class and date: free
+	 * text for progress/prep/history, last-write-wins, no history, no edit
+	 * cutoff. The read gate is strictly the assigned teacher — no staff, no
+	 * admin, no covering teacher, no override path — so the gate lives in
+	 * `esl/notes` (assigned-teacher match), not in `requireEslStaff`.
+	 *
+	 * Surfaces on the calendar only, never the list. Pass dates as
+	 * `YYYY-MM-DD` strings, like every other ESL table.
+	 */
+	teacher_notes: defineTable({
+		/** The class the note belongs to. */
+		classId: v.id('esl_classes'),
+		/** The meeting date (`YYYY-MM-DD`) the note is about. */
+		date: v.string(),
+		/** The owning teacher: the class's assigned teacher at write time. */
+		teacherId: v.id('users'),
+		/** The note text. */
+		text: v.string(),
+		/** Wall-clock millis of the last write. */
+		updatedAt: v.number(),
+		/** Who last wrote (always the owner, by the gate). */
+		updatedBy: v.id('users'),
+		/**
+		 * Set only by end-to-end runs, on the same tag pattern as every other
+		 * ESL table, so teardown stays one indexed read.
+		 */
+		e2eTag: v.optional(v.string())
+	})
+		.index('by_class_teacher_date', ['classId', 'teacherId', 'date'])
+		.index('by_teacher', ['teacherId'])
+		.index('by_e2eTag', ['e2eTag']),
+
+	/**
+	 * Year-keyed Taiwan-Calendar day rows, written by the seed action
+	 * (`esl/seed.fetchTaiwanCalendarYear`) and read at seed time to resolve
+	 * lunar off days — never at teacher-view time (t185 §3).
+	 *
+	 * One ~85KB GET per calendar year per deployment; every later seed is
+	 * served from here. Rows are replaced wholesale on refetch, so a stale
+	 * provisional year (e.g. 2027 before the Executive Yuan publishes) is
+	 * refreshed rather than merged.
+	 */
+	esl_holiday_cache: defineTable({
+		/** Calendar year, e.g. `2026` — not the `YYYY-YYYY` school year. */
+		year: v.string(),
+		/** Day in the API's `YYYYMMDD` form, e.g. `20260619`. */
+		date: v.string(),
+		isHoliday: v.boolean(),
+		/** Festival caption, e.g. `中秋節`, `端午節`, `補假` — empty otherwise. */
+		caption: v.string(),
+		/**
+		 * True when `caption` is outside the cleaned translation map, so a
+		 * human still owes it an English label (#208: stored verbatim,
+		 * flagged for manual translation). Absent on rows written before
+		 * the flag existed.
+		 */
+		needsTranslation: v.optional(v.boolean()),
+		/** When the row was fetched (ms), for staleness reads. */
+		fetchedAt: v.number()
+	})
+		.index('by_year', ['year'])
+		.index('by_year_date', ['year', 'date']),
+
+	/**
 	 * An ESL student, enrolled into exactly one cohort. Transfer status is
 	 * tracked in place (`active` ⇄ `disabled` with a reason) rather than by
 	 * moving rows between cohorts, so the history of a cohort stays stable.

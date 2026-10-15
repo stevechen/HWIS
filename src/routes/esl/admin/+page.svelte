@@ -6,9 +6,19 @@
 		ESL Administration
 	</h1>
 	<p data-testid="esl-admin.subtitle" class="text-muted-foreground mt-2">
-		Manage classes, class teachers, rosters, and ESL department staff.
+		Manage semesters and events, classes, class teachers, rosters, and ESL department staff.
 	</p>
 	<nav aria-label="ESL administration sections" class="mt-6 grid gap-4 sm:grid-cols-2">
+		<a
+			href="/esl/admin/semesters"
+			data-testid="esl-admin.overview.semesters"
+			class="rounded-lg border bg-white p-6 shadow-sm hover:shadow"
+		>
+			<span class="text-lg font-semibold">Semesters</span>
+			<span class="text-muted-foreground mt-1 block text-sm">
+				Create S1/S2 terms, seed their draft events, and place typed dates on the calendar.
+			</span>
+		</a>
 		<a
 			href="/esl/admin/classes"
 			data-testid="esl-admin.overview.classes"
