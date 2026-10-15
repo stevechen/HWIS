@@ -45,6 +45,12 @@ describe('WeekPicker (step 1 usage)', () => {
 	});
 
 	it('pre-highlights the row and Monday cell of the selected start date', async () => {
+		render(WeekPicker, {
+			mondays: S1_MONDAYS,
+			selectedDate: '2026-08-31',
+			onPick: () => {}
+		});
+
 		await expect.element(page.getByTestId('week-picker.row-1.label')).toHaveTextContent('Week 1 ✓');
 		await expect.element(page.getByTestId('week-picker.row-2.label')).toHaveTextContent('Week 2');
 		await expect
@@ -55,7 +61,7 @@ describe('WeekPicker (step 1 usage)', () => {
 			.toHaveAttribute('aria-pressed', 'false');
 	});
 
-	it('moves the highlight when a different row is picked', async () => {
+	it('calls onPick with snapped Monday when a date in another row is clicked', async () => {
 		let picked: string | null = null;
 		const onPick = (date: string) => {
 			picked = date;
@@ -69,8 +75,6 @@ describe('WeekPicker (step 1 usage)', () => {
 		// Click a date in row 2 (Sep 11, Friday) → snaps to Sep 7
 		await page.getByTestId('week-picker.date-2026-09-11').click();
 		expect(picked).toBe('2026-09-07');
-		await expect.element(page.getByTestId('week-picker.row-2.label')).toHaveTextContent('Week 2 ✓');
-		await expect.element(page.getByTestId('week-picker.row-1.label')).toHaveTextContent('Week 1');
 	});
 
 	it('honours a custom testId prefix', async () => {

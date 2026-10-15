@@ -8,6 +8,11 @@ vi.mock('$app/navigation', () => ({
 	goto: (...args: unknown[]) => gotoMock(...args)
 }));
 
+vi.mock('convex-svelte', () => ({
+	useQuery: vi.fn(() => ({ data: undefined, isLoading: false, error: null })),
+	useConvexClient: vi.fn(() => ({ action: vi.fn(), mutation: vi.fn(), query: vi.fn() }))
+}));
+
 import WizardPage from '$src/routes/esl/admin/semesters/new/wizard/+page.svelte';
 
 const STORAGE_KEY = 'hwis:esl-wizard';
@@ -51,7 +56,9 @@ describe('ESL semester wizard route', () => {
 
 		await expect.element(page.getByTestId('wizard.step-1-placeholder')).not.toBeInTheDocument();
 		await expect.element(page.getByTestId('wizard.step-2')).toBeInTheDocument();
-		await expect.element(page.getByTestId('wizard.step-2-placeholder')).toHaveTextContent(/Step 2/);
+		// Step2Panel renders with testId "wizard.step-2" (the panel wrapper)
+		// Check for content specific to Step2Panel
+		await expect.element(page.getByTestId('wizard.step-2-end-picker')).toBeInTheDocument();
 		await vi.waitFor(() => {
 			expect(stored()).toContain('"currentStep":2');
 		});
@@ -65,7 +72,8 @@ describe('ESL semester wizard route', () => {
 		await expect
 			.element(page.getByTestId('wizard.step-2-tab'))
 			.toHaveAttribute('aria-current', 'step');
-		await expect.element(page.getByTestId('wizard.step-2-placeholder')).toBeInTheDocument();
+		// Step2Panel renders with testId "wizard.step-2"
+		await expect.element(page.getByTestId('wizard.step-2')).toBeInTheDocument();
 		await vi.waitFor(() => {
 			expect(stored()).toContain('"currentStep":2');
 		});
@@ -93,7 +101,7 @@ describe('ESL semester wizard route', () => {
 
 		await render(WizardPage);
 
-		await expect.element(page.getByTestId('wizard.step-2-placeholder')).toBeInTheDocument();
+		await expect.element(page.getByTestId('wizard.step-2')).toBeInTheDocument();
 		await expect.element(page.getByTestId('wizard.resumed')).toBeInTheDocument();
 	});
 
