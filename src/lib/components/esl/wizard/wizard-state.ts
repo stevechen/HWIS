@@ -114,8 +114,35 @@ export interface WizardStep4State {
 	sportsOn: boolean;
 }
 
-/** Reserved slot for ticket #223 (Step 5 preview / edit / custom events). */
-export type WizardStep5State = Record<never, never>;
+/**
+ * Step 5 — preview & save state.
+ * Stores custom events created by the admin and inline edits to any event.
+ */
+export interface WizardCustomEvent {
+	id: string; // client-generated temp ID (e.g., "custom-1")
+	type: 'meeting' | 'banner';
+	// Meeting-specific fields
+	date?: string;
+	target?: 'all' | 'CLIL' | 'Comm' | 'G7' | 'G8' | 'G9' | 'H1';
+	subType?: 'partial' | 'no_class' | 'task';
+	note?: string;
+	// Banner-specific fields
+	startDate?: string;
+	endDate?: string;
+	bannerText?: string;
+}
+
+export interface WizardEventEdit {
+	eventKey: string; // e.g., "step1:startDate", "step2:offDays:0", "step3:exams:Exam 1:0", "step4:school:anniv", "custom:custom-1"
+	date?: string;
+	note?: string;
+	endDate?: string; // for banner range
+}
+
+export interface WizardStep5State {
+	customEvents: WizardCustomEvent[];
+	eventEdits: WizardEventEdit[];
+}
 
 export interface WizardState {
 	/** The step on screen — persisted so a refresh lands where the admin left off. */
@@ -188,7 +215,10 @@ export function createInitialWizardState(today: string): WizardState {
 			},
 			sportsOn: true
 		},
-		step5: {}
+		step5: {
+			customEvents: [],
+			eventEdits: []
+		}
 	};
 }
 
@@ -260,9 +290,9 @@ export function isStepComplete(state: WizardState, step: WizardStepNumber): bool
 			return true;
 		}
 		case 5:
-			// The preview is ready once everything it previews is; #223 tightens
-			// this once there is something to save. Never true on its own,
-			// otherwise the last tab would open before anything is filled in.
+			// The preview is ready once everything it previews is (Step 4 complete).
+			// Step 5 itself has no additional required fields — the Save button
+			// is enabled once there is at least one event to save.
 			return isStepComplete(state, 4);
 	}
 }
@@ -364,7 +394,7 @@ function parseWizardState(raw: unknown, seeded: WizardState): WizardState | null
 		step2: parseStep2(raw.step2, seeded.step2),
 		step3: parseStep3(raw.step3, seeded.step3),
 		step4: parseStep4(raw.step4, seeded.step4),
-		step5: {}
+		step5: parseStep5(raw.step5, seeded.step5)
 	};
 }
 
@@ -419,6 +449,64 @@ function parseStep3(raw: unknown, seeded: WizardStep3State): WizardStep3State {
 		return [{ label: exam.label, dates }];
 	});
 	return { exams };
+}
+
+function parseStep5(raw: unknown, seeded: WizardStep5State): WizardStep5State {
+	if (!isRecord(raw)) return seeded;
+	const customEvents = Array.isArray(raw.customEvents)
+		? raw.customEvents.flatMap((event): WizardCustomEvent[] => {
+				if (!isRecord(event)) return [];
+				if (event.type !== 'meeting' && event.type !== 'banner') return [];
+				const id = typeof event.id === 'string' ? event.id : `custom-${Date.now()}`;
+				if (event.type === 'meeting') {
+					return [
+						{
+							id,
+							type: 'meeting',
+							date: parseDate(event.date) ?? undefined,
+							target:
+								typeof event.target === 'string' &&
+								['all', 'CLIL', 'Comm', 'G7', 'G8', 'G9', 'H1'].includes(event.target)
+									? (event.target as 'all' | 'CLIL' | 'Comm' | 'G7' | 'G8' | 'G9' | 'H1')
+									: undefined,
+							subType:
+								typeof event.subType === 'string' &&
+								['partial', 'no_class', 'task'].includes(event.subType)
+									? (event.subType as 'partial' | 'no_class' | 'task')
+									: undefined,
+							note: typeof event.note === 'string' ? event.note : undefined
+						}
+					];
+				} else {
+					return [
+						{
+							id,
+							type: 'banner',
+							startDate: parseDate(event.startDate) ?? undefined,
+							endDate: parseDate(event.endDate) ?? undefined,
+							bannerText: typeof event.bannerText === 'string' ? event.bannerText : undefined,
+							note: typeof event.note === 'string' ? event.note : undefined
+						}
+					];
+				}
+			})
+		: seeded.customEvents;
+	const eventEdits = Array.isArray(raw.eventEdits)
+		? raw.eventEdits.flatMap((edit): WizardEventEdit[] => {
+				if (!isRecord(edit)) return [];
+				const eventKey = typeof edit.eventKey === 'string' ? edit.eventKey : '';
+				if (!eventKey) return [];
+				return [
+					{
+						eventKey,
+						date: parseDate(edit.date) ?? undefined,
+						note: typeof edit.note === 'string' ? edit.note : undefined,
+						endDate: parseDate(edit.endDate) ?? undefined
+					}
+				];
+			})
+		: seeded.eventEdits;
+	return { customEvents, eventEdits };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

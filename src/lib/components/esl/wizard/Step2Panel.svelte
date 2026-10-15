@@ -133,6 +133,7 @@
 				semesterId={state.semesterId ?? 'new'}
 				term={term ?? 'S1'}
 				startDate={startDate ?? ''}
+				{schoolYear}
 				onImported={handleHolidaysImported}
 			/>
 		</div>

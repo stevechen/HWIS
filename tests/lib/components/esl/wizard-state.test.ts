@@ -65,7 +65,7 @@ const OCTOBER_FRESH = {
 		},
 		sportsOn: true
 	},
-	step5: {}
+	step5: { customEvents: [], eventEdits: [] }
 };
 
 describe('wizardState', () => {

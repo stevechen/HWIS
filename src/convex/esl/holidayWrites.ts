@@ -270,3 +270,32 @@ export const readImportContext = internalQuery({
 		};
 	}
 });
+
+/**
+ * Import context for a semester that does not exist yet (the setup
+ * wizard, ticket #223): the window derives from the draft's year/term/
+ * startDate, the sibling (if already saved) still bounds it, and nothing
+ * is taken yet. Returned shape matches `readImportContext` exactly.
+ */
+export const readDraftImportContext = internalQuery({
+	args: {
+		year: v.string(),
+		term: v.union(v.literal('S1'), v.literal('S2')),
+		startDate: v.string()
+	},
+	handler: async (ctx, args) => {
+		const sibling = await ctx.db
+			.query('esl_semesters')
+			.withIndex('by_year_term', (q) =>
+				q.eq('year', args.year).eq('term', args.term === 'S1' ? 'S2' : 'S1')
+			)
+			.first();
+		return {
+			year: args.year,
+			term: args.term,
+			startDate: args.startDate,
+			siblingStart: sibling?.startDate ?? null,
+			takenDates: [] as string[]
+		};
+	}
+});
