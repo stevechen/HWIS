@@ -131,21 +131,21 @@
 		return id;
 	}
 
-	function setSingle(id: SingleId, date: string): boolean {
-		if (startDate === null || endDate === null) return false;
+	function setSingle(id: SingleId, date: string): string[] | null {
+		if (startDate === null || endDate === null) return null;
 		// F52 pairing: the makeup date cannot stand alone.
-		if (id === 'makeup' && singles['anniv'] == null) return false;
+		if (id === 'makeup' && singles['anniv'] == null) return null;
 		// F65 pair same-date gate, both directions.
-		if (id === 'makeup' && singles['anniv'] != null && date === singles['anniv']) return false;
-		if (id === 'anniv' && singles['makeup'] != null && date === singles['makeup']) return false;
+		if (id === 'makeup' && singles['anniv'] != null && date === singles['anniv']) return null;
+		if (id === 'anniv' && singles['makeup'] != null && date === singles['makeup']) return null;
 		// F66: Graduation gated to after Exam 2.
 		if (id === 'grad') {
 			const e2 = exams.find((exam) => exam.label === 'Exam 2')?.dates ?? [];
 			const e2last = e2[e2.length - 1];
-			if (e2last !== undefined && date <= e2last) return false;
+			if (e2last !== undefined && date <= e2last) return null;
 		}
-		if (isWeekend(date) || offSet.has(date) || examSet.has(date)) return false;
-		if (date < startDate || date > endDate) return false;
+		if (isWeekend(date) || offSet.has(date) || examSet.has(date)) return null;
+		if (date < startDate || date > endDate) return null;
 		update((draft) => {
 			draft.step4.singles[id] = date;
 			// F52 pairing: setting Anniversary auto-suggests the makeup as
@@ -155,7 +155,7 @@
 				draft.step4.singles['makeup'] = next;
 			}
 		});
-		return true;
+		return [date];
 	}
 
 	function clearSingle(id: SingleId): void {
@@ -281,38 +281,38 @@
 		return `${eventLabel(id)} belongs to Block ${n} — between ${window.between}`;
 	}
 
-	function setPair(id: PairId, date: string): boolean {
-		if (endDate === null) return false;
-		if (isWeekend(date) || offSet.has(date) || examSet.has(date)) return false;
+	function setPair(id: PairId, date: string): string[] | null {
+		if (endDate === null) return null;
+		if (isWeekend(date) || offSet.has(date) || examSet.has(date)) return null;
 		const second = snapClass(addDays(date, 1));
-		if (second === null) return false;
-		if (orderViolation(id, date, second) !== null) return false;
+		if (second === null) return null;
+		if (orderViolation(id, date, second) !== null) return null;
 		const placed: [string, string] = [date, second];
 		update((draft) => {
 			draft.step4.pairs[id] = [...placed];
 		});
-		return true;
+		return [...placed];
 	}
 
-	function setRange(id: RangeId, date: string, days: number): boolean {
-		if (endDate === null) return false;
+	function setRange(id: RangeId, date: string, days: number): string[] | null {
+		if (endDate === null) return null;
 		const snapped = snapClass(date);
-		if (snapped === null) return false;
+		if (snapped === null) return null;
 		const dates =
 			id === 'pcheck' || id === 'wcheck'
 				? dueWindowDates(snapped, skipSet, endDate)
 				: collectClassDays(snapped, days, skipSet);
-		if (dates.length < days) return false;
+		if (dates.length < days) return null;
 		const first = dates[0] as string;
 		const last = dates[dates.length - 1] as string;
-		if (last > endDate) return false;
-		if (blockViolation(id, first, last) !== null) return false;
-		if (orderViolation(id, first, last) !== null) return false;
+		if (last > endDate) return null;
+		if (blockViolation(id, first, last) !== null) return null;
+		if (orderViolation(id, first, last) !== null) return null;
 		const placed = [...dates];
 		update((draft) => {
 			draft.step4.ranges[id] = placed;
 		});
-		return true;
+		return placed;
 	}
 
 	// Batch-fill within block windows (F56): each id lands inside its own
@@ -362,41 +362,46 @@
 		hoverStart = null;
 	}
 
+	// Confirm toast (ticket #222 acceptance criteria): names what the last
+	// calendar click set. Cleared by arming another row, cancelling, or ✕.
+	let confirmation = $state<string | null>(null);
+
 	function onCalendarClick(date: string) {
 		if (armed === null) return;
 		const current = armed;
-		let placed = false;
+		let placed: string[] | null = null;
 		if (isSingleId(current)) {
 			placed = setSingle(current, date);
 		} else if (isPairId(current)) {
 			placed = setPair(current, date);
-		} else {
-			// Batch sources: picking the first date auto-fills the series.
-			if (current === 'q1') {
-				if (setRange(current as RangeId, date, QUIZ_DAYS)) {
-					const start = ranges['q1']?.[0] ?? date;
-					batchQuizzes(start);
-					placed = true;
-				}
-			} else if (current === 'pd1') {
-				if (setRange(current as RangeId, date, DUE_DAYS)) {
-					const start = ranges['pd1']?.[0] ?? date;
-					batchPassports(start);
-					placed = true;
-				}
-			} else {
-				const days =
-					current === 'pcheck' || current === 'wcheck'
-						? CHECK_DAYS
-						: current.startsWith('q')
-							? QUIZ_DAYS
-							: DUE_DAYS;
-				placed = setRange(current as RangeId, date, days);
+		} else if (current === 'q1') {
+			// Batch source: picking the first date auto-fills the series.
+			const first = setRange(current as RangeId, date, QUIZ_DAYS);
+			if (first !== null) {
+				batchQuizzes(first[0] as string);
+				placed = first;
 			}
+		} else if (current === 'pd1') {
+			const first = setRange(current as RangeId, date, DUE_DAYS);
+			if (first !== null) {
+				batchPassports(first[0] as string);
+				placed = first;
+			}
+		} else {
+			const days =
+				current === 'pcheck' || current === 'wcheck'
+					? CHECK_DAYS
+					: current.startsWith('q')
+						? QUIZ_DAYS
+						: DUE_DAYS;
+			placed = setRange(current as RangeId, date, days);
 		}
 		// Promotion addition over the prototype: a successful placement
-		// completes the placing flow (the banner clears).
-		if (placed) disarm();
+		// completes the placing flow (the banner clears) and confirms.
+		if (placed !== null) {
+			confirmation = `${eventLabel(current)} set — ${fmt(placed)}`;
+			disarm();
+		}
 	}
 
 	// F62: static armed-row kinds.
@@ -411,12 +416,12 @@
 		// Single-date picks (and 2-day mock pairs, previewed by start day)
 		// preview exactly one day.
 		if (isSingleId(armed) || armed.startsWith('mock')) return [hoverStart];
-		const days =
-			armed === 'pcheck' || armed === 'wcheck'
-				? CHECK_DAYS
-				: armed.startsWith('q')
-					? QUIZ_DAYS
-					: DUE_DAYS;
+		// Checks preview with the same end-bounded window the setter uses,
+		// so the preview can never show days the setter would refuse.
+		if ((armed === 'pcheck' || armed === 'wcheck') && endDate !== null) {
+			return dueWindowDates(hoverStart, skipSet, endDate);
+		}
+		const days = armed.startsWith('q') ? QUIZ_DAYS : DUE_DAYS;
 		return collectClassDays(hoverStart, days, skipSet);
 	});
 	const highlighted = $derived([...new Set([...armedDates, ...hoverPreview])]);
@@ -534,10 +539,12 @@
 		// another row. The placing row shows a static chip, not a toggle.
 		armed = id;
 		hoverStart = null;
+		confirmation = null;
 	}
 
 	function cancelPlacing() {
 		disarm();
+		confirmation = null;
 	}
 
 	// Read-only summary of every set event.
@@ -1062,6 +1069,23 @@
 		</div>
 
 		<div class="min-w-0">
+			{#if confirmation !== null}
+				<div
+					data-testid="wizard-step4.confirm-toast"
+					class="mb-2 flex items-center justify-between gap-2 rounded border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-900"
+					role="status"
+				>
+					<span>{confirmation}</span>
+					<Button
+						size="sm"
+						variant="ghost"
+						onclick={() => (confirmation = null)}
+						aria-label="Dismiss confirmation"
+					>
+						✕
+					</Button>
+				</div>
+			{/if}
 			{#if armed !== null}
 				<div
 					data-testid="wizard-step4.placing-banner"

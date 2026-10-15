@@ -382,6 +382,18 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 				.toHaveClass(/ring-emerald-500/);
 		});
 
+		it('shows a confirm toast naming what the calendar click set', async () => {
+			await start();
+
+			await page.getByTestId('wizard-step4.sports-arm').click();
+			await page.getByTestId('wizard-step4-calendar.date-2026-10-05').click();
+
+			const toast = page.getByTestId('wizard-step4.confirm-toast');
+			await expect.element(toast).toBeInTheDocument();
+			await expect.element(toast).toHaveTextContent('Sports Day set');
+			await expect.element(toast).toHaveTextContent('2026-10-05');
+		});
+
 		it('hovering a date shows preview for multi-day events', async () => {
 			await start();
 

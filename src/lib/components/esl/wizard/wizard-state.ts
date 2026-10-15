@@ -192,6 +192,11 @@ export function createInitialWizardState(today: string): WizardState {
 	};
 }
 
+/** A Step 4 row counts as set when it holds at least one date. */
+function isSetRow(dates: readonly string[] | null): boolean {
+	return dates !== null && dates.length > 0;
+}
+
 /**
  * Whether a step holds everything the next one needs (spec: strict forward
  * flow — Step N depends only on Steps 1..N-1). Step 5 has no content yet;
@@ -222,15 +227,15 @@ export function isStepComplete(state: WizardState, step: WizardStepNumber): bool
 			const s4 = state.step4;
 			const s2 = state.step1.term === 'S2';
 			if (s4.sportsOn && s4.singles.sports === null) return false;
-			const mocks: ReadonlyArray<string[] | null> = s2
+			const mocks: ReadonlyArray<readonly string[] | null> = s2
 				? [s4.pairs.mock1, s4.pairs.mock2, s4.pairs.mock3]
 				: [s4.pairs.mock1, s4.pairs.mock2];
-			if (mocks.some((m) => m === null || m.length === 0)) return false;
+			if (mocks.some((m) => !isSetRow(m))) return false;
 			if (s2) {
 				if (s4.singles.grad === null) return false;
 				if (s4.singles.anniv === null || s4.singles.makeup === null) return false;
 			}
-			const quizzes: ReadonlyArray<string[] | null> = [
+			const quizzes: ReadonlyArray<readonly string[] | null> = [
 				s4.ranges.q1,
 				s4.ranges.q2,
 				s4.ranges.q3,
@@ -238,8 +243,8 @@ export function isStepComplete(state: WizardState, step: WizardStepNumber): bool
 				s4.ranges.q5,
 				s4.ranges.q6
 			];
-			if (quizzes.some((q) => q === null || q.length === 0)) return false;
-			const dues: ReadonlyArray<string[] | null> = s2
+			if (quizzes.some((q) => !isSetRow(q))) return false;
+			const dues: ReadonlyArray<readonly string[] | null> = s2
 				? [s4.ranges.pd1, s4.ranges.pd2, s4.ranges.rd1, s4.ranges.rd2]
 				: [
 						s4.ranges.pd1,
@@ -249,9 +254,9 @@ export function isStepComplete(state: WizardState, step: WizardStepNumber): bool
 						s4.ranges.rd2,
 						s4.ranges.rd3
 					];
-			if (dues.some((d) => d === null || d.length === 0)) return false;
-			if (s4.ranges.pcheck === null || s4.ranges.pcheck.length === 0) return false;
-			if (s4.ranges.wcheck === null || s4.ranges.wcheck.length === 0) return false;
+			if (dues.some((d) => !isSetRow(d))) return false;
+			if (!isSetRow(s4.ranges.pcheck)) return false;
+			if (!isSetRow(s4.ranges.wcheck)) return false;
 			return true;
 		}
 		case 5:
