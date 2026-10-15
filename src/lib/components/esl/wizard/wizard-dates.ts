@@ -331,6 +331,21 @@ export function collectClassDays(from: string, count: number, offDays: Set<strin
 }
 
 /**
+ * A 5-school-day window for Passport Check / Workbook Check (spec story 22).
+ * Skips weekends, off days, AND exam days (passed via `skipSet`).
+ * Returns the window dates or fewer if the term boundary is hit.
+ */
+export function dueWindowDates(start: string, skipSet: Set<string>, endBound: string): string[] {
+	const days: string[] = [];
+	let cursor = start;
+	for (let i = 0; i < 366 && days.length < 5 && cursor <= endBound; i++) {
+		if (!isWeekend(cursor) && !skipSet.has(cursor)) days.push(cursor);
+		cursor = addDays(cursor, 1);
+	}
+	return days;
+}
+
+/**
  * Feedback F45: N class days on/before `before` (inclusive), walking
  * backward and skipping weekends and `offDays`, never going below
  * `startBound`. Returns ascending (earliest first) so the range reads

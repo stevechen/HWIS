@@ -651,6 +651,60 @@ describe('holidays.previewGovImport', () => {
 			t.action(api.esl.holidays.previewGovImport, { semesterId, rocYears: ['1155'] })
 		).rejects.toThrow(/ROC year/);
 	});
+
+	it('previews a not-yet-saved semester from draft context (wizard #223)', async () => {
+		const t = await adminHarness();
+		stubGovFetch({ 'aaa.csv': GOV_CSV_115 });
+		const preview = await t.action(api.esl.holidays.previewGovImport, {
+			draft: { year: '2026-2027', term: 'S1', startDate: '2026-08-31' },
+			rocYears: ['115']
+		});
+		// Same window as the saved-semester harness above (no sibling yet).
+		expect(preview.years).toMatchObject([{ rocYear: '115', status: 'ok', holidays: 4 }]);
+		expect(preview.days).toEqual([
+			{ date: '2026-09-28', name: "Teacher's Day", needsReview: false }
+		]);
+		expect(preview).toMatchObject({ outOfRange: 1, plainWeekends: 1, skippedTaken: 0 });
+	});
+
+	it('bounds the draft window at an already-saved sibling', async () => {
+		const t = await adminHarness();
+		await t.mutation(api.esl.semesters.create, {
+			year: '2026-2027',
+			term: 'S2',
+			startDate: '2027-02-11'
+		});
+		stubGovFetch({ 'aaa.csv': GOV_CSV_115 });
+		const preview = await t.action(api.esl.holidays.previewGovImport, {
+			draft: { year: '2026-2027', term: 'S1', startDate: '2026-08-31' },
+			rocYears: ['115']
+		});
+		// 2026-09-28 still lands inside (before the S2 start); the bound only
+		// clips days past it.
+		expect(preview.days).toEqual([
+			{ date: '2026-09-28', name: "Teacher's Day", needsReview: false }
+		]);
+	});
+
+	it('requires exactly one of semesterId or draft', async () => {
+		const t = await adminHarness();
+		stubGovFetch({ 'aaa.csv': GOV_CSV_115 });
+		await expect(
+			t.action(api.esl.holidays.previewGovImport, { rocYears: ['115'] })
+		).rejects.toThrow(/exactly one/);
+		const semesterId = await t.mutation(api.esl.semesters.create, {
+			year: '2026-2027',
+			term: 'S1',
+			startDate: '2026-08-31'
+		});
+		await expect(
+			t.action(api.esl.holidays.previewGovImport, {
+				semesterId,
+				draft: { year: '2026-2027', term: 'S1', startDate: '2026-08-31' },
+				rocYears: ['115']
+			})
+		).rejects.toThrow(/exactly one/);
+	});
 });
 
 describe('holidays.importGovOffDays', () => {

@@ -36,6 +36,7 @@ import type * as esl_seed from "../esl/seed.js";
 import type * as esl_semesters from "../esl/semesters.js";
 import type * as esl_staff from "../esl/staff.js";
 import type * as esl_students from "../esl/students.js";
+import type * as esl_wizards from "../esl/wizards.js";
 import type * as evaluations from "../evaluations.js";
 import type * as houseEvents from "../houseEvents.js";
 import type * as http from "../http.js";
@@ -106,6 +107,7 @@ declare const fullApi: ApiFromModules<{
   "esl/semesters": typeof esl_semesters;
   "esl/staff": typeof esl_staff;
   "esl/students": typeof esl_students;
+  "esl/wizards": typeof esl_wizards;
   evaluations: typeof evaluations;
   houseEvents: typeof houseEvents;
   http: typeof http;

@@ -170,7 +170,7 @@ function assertExamGroupAllowed(
  * first-day schedule is explicit data rather than an unwritten rule. An
  * admin may still widen the window; the reversed pair is refused.
  */
-function periodBoundsFor(
+export function periodBoundsFor(
 	type: EslEventType,
 	sent: { startPeriod?: number; endPeriod?: number }
 ): { startPeriod?: number; endPeriod?: number } {

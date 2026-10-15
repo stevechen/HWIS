@@ -2,6 +2,8 @@
 	import Step1Panel from '$lib/components/esl/wizard/Step1Panel.svelte';
 	import Step2Panel from '$lib/components/esl/wizard/Step2Panel.svelte';
 	import Step3Panel from '$lib/components/esl/wizard/Step3Panel.svelte';
+	import Step4Panel from '$lib/components/esl/wizard/Step4Panel.svelte';
+	import Step5Panel from '$lib/components/esl/wizard/Step5Panel.svelte';
 	import WizardShell from '$lib/components/esl/wizard/WizardShell.svelte';
 
 	/**
@@ -10,12 +12,7 @@
 	 * is what keeps it admin-only (it mirrors the backend's `requireEslAdmin`).
 	 *
 	 * Step 1 is built (#219); Step 2 is built (#220); Step 3 is built (#221);
-	 * every later panel below is a marked placeholder
-	 * for its own ticket, and each of those builds its content as a component
-	 * under `$lib/components/esl/wizard/` and swaps it in for the note — the
-	 * shell itself needs no change:
-	 *
-	 *   #222 Step 4 · #223 Step 5
+	 * Step 4 is built (#222); Step 5 is built (#223).
 	 *
 	 * Conventions every step ticket keeps:
 	 * - Read the shared state through `state`; change it through `update()`.
@@ -38,19 +35,9 @@
 		{:else if step === 3}
 			<Step3Panel {state} {update} />
 		{:else if step === 4}
-			<div data-testid="wizard.step-4-placeholder" class="space-y-2">
-				<h2 class="text-sm font-semibold text-gray-800">Events</h2>
-				<p class="text-sm text-gray-500">
-					Step 4 arrives with #222 — the School and ESL tabs, anchored to the exam periods.
-				</p>
-			</div>
-		{:else}
-			<div data-testid="wizard.step-5-placeholder" class="space-y-2">
-				<h2 class="text-sm font-semibold text-gray-800">Preview & save</h2>
-				<p class="text-sm text-gray-500">
-					Step 5 arrives with #223 — the full preview, inline edits and the one-transaction save.
-				</p>
-			</div>
+			<Step4Panel {state} {update} />
+		{:else if step === 5}
+			<Step5Panel {state} {update} />
 		{/if}
 	{/snippet}
 </WizardShell>

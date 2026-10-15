@@ -65,8 +65,28 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 			lastExamDay: true
 		},
 		step3: { exams: [] },
-		step4: {},
-		step5: {}
+		step4: {
+			singles: { anniv: null, makeup: null, sports: null, grad: null },
+			pairs: { mock1: null, mock2: null, mock3: null },
+			ranges: {
+				q1: null,
+				q2: null,
+				q3: null,
+				q4: null,
+				q5: null,
+				q6: null,
+				pd1: null,
+				pd2: null,
+				pd3: null,
+				rd1: null,
+				rd2: null,
+				rd3: null,
+				pcheck: null,
+				wcheck: null
+			},
+			sportsOn: true
+		},
+		step5: { customEvents: [], eventEdits: [] }
 	};
 
 	function renderStep2(updateMock: (mutate: (draft: WizardState) => void) => void = vi.fn()) {
@@ -225,7 +245,7 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 			.toHaveAttribute('data-testid', 'wizard.step-2-event-2026-10-10');
 	});
 
-	it('one-click holiday import: preview then import', async () => {
+	it('one-click holiday import: preview then stage (wizard writes nothing)', async () => {
 		const update = vi.fn();
 		await renderStep2(update);
 
@@ -237,12 +257,29 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 			.element(page.getByTestId('wizard.step-2-holiday.gov-preview-result'))
 			.toBeInTheDocument();
 
-		// Click import
+		// Click import — stages into wizard state instead of writing events
 		await page.getByTestId('wizard.step-2-holiday.gov-import').click();
 
-		// Wait for import report
-		await expect.element(page.getByTestId('wizard.step-2-holiday.gov-report')).toBeInTheDocument();
-		await expect.element(page.getByText('2 off days added')).toBeInTheDocument();
+		// Staged note shows; no DB-backed report; exactly one backend call (preview)
+		await expect.element(page.getByTestId('wizard.step-2-holiday.gov-staged')).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId('wizard.step-2-holiday.gov-staged'))
+			.toHaveTextContent('2 off days staged');
+		await expect
+			.element(page.getByTestId('wizard.step-2-holiday.gov-report'))
+			.not.toBeInTheDocument();
+		expect(actionMock.mock.calls.length).toBe(1);
+
+		// The staged payload lands in wizard state via update()
+		expect(update).toHaveBeenCalledTimes(1);
+		const mutate = update.mock.calls[0]?.[0] as (draft: WizardState) => void;
+		const draft = structuredClone(mockState);
+		mutate(draft);
+		expect(draft.step2.offDays).toEqual([
+			{ date: '2026-09-28', name: "Teacher's Day" },
+			{ date: '2026-10-10', name: 'National Day' }
+		]);
+		expect(draft.step2.holidaysImported).toBe(true);
 	});
 
 	it('shows loading state during preview', async () => {
@@ -267,46 +304,10 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 		});
 	});
 
-	it('shows loading state during import', async () => {
-		let resolvePreview: (value: typeof PREVIEW_RESULT) => void;
-		const previewPromise = new Promise<typeof PREVIEW_RESULT>((resolve) => {
-			resolvePreview = resolve;
-		});
-		let resolveImport: (value: typeof IMPORT_REPORT) => void;
-		const importPromise = new Promise<typeof IMPORT_REPORT>((resolve) => {
-			resolveImport = resolve;
-		});
-
-		let callCount = 0;
-		actionMock.mockImplementation(() => {
-			callCount++;
-			if (callCount === 1) return previewPromise;
-			return importPromise;
-		});
-
-		const update = vi.fn();
-		await renderStep2(update);
-
-		await page.getByTestId('wizard.step-2-holiday.gov-preview').click();
-
-		// Wait for preview to complete
-		resolvePreview!(PREVIEW_RESULT);
-		await vi.waitFor(() => {
-			expect(actionMock.mock.calls.length).toBe(1);
-		});
-
-		// Now click import
-		await page.getByTestId('wizard.step-2-holiday.gov-import').click();
-
-		await expect
-			.element(page.getByTestId('wizard.step-2-holiday.gov-import'))
-			.toHaveTextContent('Importing…');
-
-		resolveImport!(IMPORT_REPORT);
-		await vi.waitFor(() => {
-			expect(actionMock.mock.calls.length).toBe(2);
-		});
-	});
+	// NOTE: wizard mode has no async import phase — Import stashes preview
+	// days into wizard state synchronously (the Step 5 save writes them).
+	// The DB-backed import flow is covered by step2-holiday-import.test.ts
+	// (real semesterId), including its 'Importing…' spinner.
 
 	it('updates offDays and holidaysImported in state after import', async () => {
 		const update = vi.fn();
@@ -315,8 +316,9 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 		await page.getByTestId('wizard.step-2-holiday.gov-preview').click();
 		await page.getByTestId('wizard.step-2-holiday.gov-import').click();
 
+		// Wizard mode stages via a single preview call — no DB import call.
 		await vi.waitFor(() => {
-			expect(actionMock.mock.calls.length).toBe(2);
+			expect(actionMock.mock.calls.length).toBe(1);
 		});
 
 		// The update function should have been called with the new offDays
