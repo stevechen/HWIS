@@ -643,12 +643,6 @@ describe('esl/schedule.teacherDays', () => {
 			target: 'G9',
 			date: '2025-09-08'
 		});
-		await createEvent(t, semesterId, {
-			type: 'g9_mock',
-			title: 'G9 Mock Exam',
-			target: 'G9',
-			date: '2025-09-09'
-		});
 		// A task-kind reminder may target G9: its window spans the mocks, so
 		// the collapse falls through to the next class day.
 		await createEvent(t, semesterId, {
