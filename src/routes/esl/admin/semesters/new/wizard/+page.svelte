@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Step1Panel from '$lib/components/esl/wizard/Step1Panel.svelte';
+	import Step3Panel from '$lib/components/esl/wizard/Step3Panel.svelte';
 	import WizardShell from '$lib/components/esl/wizard/WizardShell.svelte';
 
 	/**
@@ -32,7 +33,7 @@
 			<Step1Panel {state} {update} />
 		{:else if step === 2}
 			<div data-testid="wizard.step-2-placeholder" class="space-y-2">
-				<h2 class="text-sm font-semibold text-gray-800">End date &amp; holidays</h2>
+				<h2 class="text-sm font-semibold text-gray-800">End date & holidays</h2>
 				<p class="text-sm text-gray-500">
 					Step 2 arrives with #220 — the end-date rows, the holiday import and the first calendar
 					preview.
@@ -43,15 +44,7 @@
 				</p>
 			</div>
 		{:else if step === 3}
-			<div data-testid="wizard.step-3-placeholder" class="space-y-2">
-				<h2 class="text-sm font-semibold text-gray-800">Exam dates</h2>
-				<p class="text-sm text-gray-500">
-					Step 3 arrives with #221 — click-to-set exam ranges on the semester calendar.
-				</p>
-				<p data-testid="wizard.step-3-suggestion" class="text-sm text-gray-700">
-					<strong>{state.step3.exams.length}</strong> exam ranges set so far.
-				</p>
-			</div>
+			<Step3Panel {state} {update} />
 		{:else if step === 4}
 			<div data-testid="wizard.step-4-placeholder" class="space-y-2">
 				<h2 class="text-sm font-semibold text-gray-800">Events</h2>
@@ -61,7 +54,7 @@
 			</div>
 		{:else}
 			<div data-testid="wizard.step-5-placeholder" class="space-y-2">
-				<h2 class="text-sm font-semibold text-gray-800">Preview &amp; save</h2>
+				<h2 class="text-sm font-semibold text-gray-800">Preview & save</h2>
 				<p class="text-sm text-gray-500">
 					Step 5 arrives with #223 — the full preview, inline edits and the one-transaction save.
 				</p>
