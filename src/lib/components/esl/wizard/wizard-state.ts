@@ -35,6 +35,18 @@ export const WIZARD_STATE_VERSION = 1;
 /** The three storage calls the wizard needs — `window.sessionStorage` fits. */
 export type WizardStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
+/** What a step panel gets handed when it renders. */
+export interface WizardStepApi {
+	state: WizardState;
+	step: WizardStepNumber;
+	/**
+	 * Apply a change to the wizard state and persist it. Steps never
+	 * mutate `state` directly — going through here is what keeps the
+	 * sessionStorage copy and the screen in step.
+	 */
+	update: (mutate: (draft: WizardState) => void) => void;
+}
+
 export interface WizardOffDay {
 	date: string;
 	name: string;
@@ -57,6 +69,8 @@ export interface WizardStep2State {
 	endDate: string | null;
 	offDays: WizardOffDay[];
 	holidaysImported: boolean;
+	/** "This is also the last exam day" checkbox — default true (Final hidden). */
+	lastExamDay: boolean;
 }
 
 /** Step 3 — the three exam ranges (Exam 1/2 = 2 class days, Final = 3). */
@@ -73,6 +87,8 @@ export type WizardStep5State = Record<never, never>;
 export interface WizardState {
 	/** The step on screen — persisted so a refresh lands where the admin left off. */
 	currentStep: WizardStepNumber;
+	/** Optional semester ID when editing an existing semester (set after Step 5 save). */
+	semesterId: string | null;
 	step1: WizardStep1State;
 	step2: WizardStep2State;
 	step3: WizardStep3State;
@@ -105,6 +121,7 @@ export function createInitialWizardState(today: string): WizardState {
 	const schoolYear = schoolYearForTerm(suggestion.term, today);
 	return {
 		currentStep: 1,
+		semesterId: null,
 		step1: {
 			term: suggestion.term,
 			schoolYear,
@@ -113,7 +130,8 @@ export function createInitialWizardState(today: string): WizardState {
 		step2: {
 			endDate: defaultEndDate(suggestion.term, schoolYear),
 			offDays: [],
-			holidaysImported: false
+			holidaysImported: false,
+			lastExamDay: true
 		},
 		step3: { exams: [] },
 		step4: {},
@@ -246,6 +264,7 @@ function parseWizardState(raw: unknown, seeded: WizardState): WizardState | null
 	if (!isRecord(raw)) return null;
 	return {
 		currentStep: parseStepNumber(raw.currentStep) ?? seeded.currentStep,
+		semesterId: typeof raw.semesterId === 'string' ? raw.semesterId : seeded.semesterId,
 		step1: parseStep1(raw.step1, seeded.step1),
 		step2: parseStep2(raw.step2, seeded.step2),
 		step3: parseStep3(raw.step3, seeded.step3),
@@ -281,7 +300,8 @@ function parseStep2(raw: unknown, seeded: WizardStep2State): WizardStep2State {
 		endDate: parseDate(raw.endDate) ?? seeded.endDate,
 		offDays,
 		holidaysImported:
-			typeof raw.holidaysImported === 'boolean' ? raw.holidaysImported : seeded.holidaysImported
+			typeof raw.holidaysImported === 'boolean' ? raw.holidaysImported : seeded.holidaysImported,
+		lastExamDay: typeof raw.lastExamDay === 'boolean' ? raw.lastExamDay : seeded.lastExamDay
 	};
 }
 

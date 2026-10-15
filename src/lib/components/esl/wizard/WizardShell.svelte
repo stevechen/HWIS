@@ -12,35 +12,11 @@
 		WIZARD_STEPS,
 		writeWizardState,
 		type WizardState,
+		type WizardStepApi,
 		type WizardStepNumber,
 		type WizardStorage
 	} from './wizard-state';
 	import type { Snippet } from 'svelte';
-
-	/**
-	 * Wizard shell (ticket #218, spec #215) — the container every step plugs
-	 * into: the five-step stepper, the Back / Next / Cancel chrome, and the
-	 * `wizardState` object mirrored into `sessionStorage` on every change.
-	 *
-	 * The shell owns navigation and persistence only. Each step's content is
-	 * the step ticket's job (#219–#223): it arrives as the `children` snippet
-	 * and receives the live state, its own step number, and `update()` —
-	 * the single write path, so the session copy can never drift from what
-	 * is on screen. Step tickets must keep these test ids free for the shell:
-	 * `wizard.step-{n}` (the panel wrapper below) and `wizard.step-{n}-tab`.
-	 */
-
-	/** What a step panel gets handed when it renders. */
-	export interface WizardStepApi {
-		state: WizardState;
-		step: WizardStepNumber;
-		/**
-		 * Apply a change to the wizard state and persist it. Steps never
-		 * mutate `state` directly — going through here is what keeps the
-		 * sessionStorage copy and the screen in step.
-		 */
-		update: (mutate: (draft: WizardState) => void) => void;
-	}
 
 	let { children }: { children: Snippet<[WizardStepApi]> } = $props();
 

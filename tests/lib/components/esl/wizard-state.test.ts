@@ -40,8 +40,9 @@ class MemoryStorage implements WizardStorage {
 const OCTOBER_SEED = '2026-10-15';
 const OCTOBER_FRESH = {
 	currentStep: 1,
+	semesterId: null,
 	step1: { term: 'S1', schoolYear: '2026-2027', startDate: '2026-08-31' },
-	step2: { endDate: '2027-01-20', offDays: [], holidaysImported: false },
+	step2: { endDate: '2027-01-20', offDays: [], holidaysImported: false, lastExamDay: true },
 	step3: { exams: [] },
 	step4: {},
 	step5: {}
