@@ -1,11 +1,14 @@
 import {
 	getE2EUtils,
+	type AssignEslTeacherOptions,
 	type CleanupScope,
+	type CreateEslCohortOptions,
 	type CreateEslEventOptions,
 	type CreateEslSemesterOptions,
 	type CreateStudentOptions,
 	type CreateHouseEventOptions,
 	type SeedEslSemesterOptions,
+	type SetEslClassScheduleOptions,
 	type UpdateEslEventOptions,
 	refreshClient
 } from '../src/lib/e2e-utils';
@@ -312,6 +315,21 @@ export async function setEslRoleByEmail(email: string, eslRole: 'admin' | 'teach
 export async function createEslSemester(opts: CreateEslSemesterOptions) {
 	const utils = getUtils();
 	return await utils.createEslSemester(opts);
+}
+
+export async function createEslCohort(opts: CreateEslCohortOptions) {
+	const utils = getUtils();
+	return await utils.createEslCohort(opts);
+}
+
+export async function setEslClassSchedule(opts: SetEslClassScheduleOptions) {
+	const utils = getUtils();
+	return await utils.setEslClassSchedule(opts);
+}
+
+export async function assignEslTeacher(opts: AssignEslTeacherOptions) {
+	const utils = getUtils();
+	return await utils.assignEslTeacher(opts);
 }
 
 export async function seedEslSemester(opts: SeedEslSemesterOptions) {
