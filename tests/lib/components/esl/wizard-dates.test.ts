@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	defaultStartDate,
+	dueWindowDates,
 	schoolYearForTerm,
 	startPickerMondays,
 	suggestSemester,
@@ -116,6 +117,45 @@ describe('startPickerMondays', () => {
 			'2027-02-08',
 			'2027-02-15',
 			'2027-02-22'
+		]);
+	});
+});
+
+describe('dueWindowDates', () => {
+	it('walks 5 school days skipping weekends', () => {
+		// Mon 2026-10-05 → Fri 2026-10-09 straight (no skips).
+		expect(dueWindowDates('2026-10-05', new Set(), '2027-01-20')).toEqual([
+			'2026-10-05',
+			'2026-10-06',
+			'2026-10-07',
+			'2026-10-08',
+			'2026-10-09'
+		]);
+	});
+
+	it('skips weekends mid-window', () => {
+		// Thu 2026-10-08 start: Thu, Fri, then Mon–Wed (Sat/Sun skipped).
+		expect(dueWindowDates('2026-10-08', new Set(), '2027-01-20')).toEqual([
+			'2026-10-08',
+			'2026-10-09',
+			'2026-10-12',
+			'2026-10-13',
+			'2026-10-14'
+		]);
+	});
+
+	it('skips off days and exam days in the skip set', () => {
+		// Mon 2026-11-02 start with Tue off and Wed an exam day.
+		expect(
+			dueWindowDates('2026-11-02', new Set(['2026-11-03', '2026-11-04']), '2027-01-20')
+		).toEqual(['2026-11-02', '2026-11-05', '2026-11-06', '2026-11-09', '2026-11-10']);
+	});
+
+	it('stops at the term boundary with fewer than 5 days', () => {
+		expect(dueWindowDates('2027-01-18', new Set(), '2027-01-20')).toEqual([
+			'2027-01-18',
+			'2027-01-19',
+			'2027-01-20'
 		]);
 	});
 });
