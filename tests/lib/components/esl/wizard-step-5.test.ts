@@ -155,7 +155,7 @@ describe('Step 5 Panel', () => {
 		await expect.element(page.getByTestId('wizard.step-5-save-success')).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId('wizard.step-5-semester-link'))
-			.toHaveAttribute('href', '/esl/admin/semesters/sem123');
+			.toHaveAttribute('href', '/esl/admin/semesters/2026-2027-S1');
 
 		expect(actionMock).toHaveBeenCalledTimes(1);
 		const payload = actionMock.mock.calls[0]?.[1] as Record<string, unknown>;

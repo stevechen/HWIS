@@ -162,6 +162,13 @@
 	}
 
 	let savedSemesterId = $state<string | null>(null);
+	// Friendly slug for the post-save link (`2026-2027-S1`), from the same
+	// Step 1 year + term the save payload carries.
+	const savedSlug = $derived(
+		wizardState.step1.schoolYear !== null && wizardState.step1.term !== null
+			? `${wizardState.step1.schoolYear}-${wizardState.step1.term}`
+			: null
+	);
 
 	async function saveSemester() {
 		saveStatus = 'saving';
@@ -335,9 +342,9 @@
 			role="alert"
 		>
 			Semester saved successfully.
-			{#if savedSemesterId !== null}
+			{#if savedSemesterId !== null && savedSlug !== null}
 				<a
-					href={`/esl/admin/semesters/${savedSemesterId}`}
+					href={`/esl/admin/semesters/${savedSlug}`}
 					data-testid="wizard.step-5-semester-link"
 					class="ml-1 font-medium underline"
 				>

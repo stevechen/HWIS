@@ -293,8 +293,8 @@ export function mockOffDays(
 					[addDays(startDate, 9), 'Mock: Mid-Autumn Festival'],
 					[`${fall}-10-10`, 'Mock: National Day'],
 					[`${spring}-01-01`, "Mock: New Year's Day"],
-					[addDays(endDate, -12), 'Mock: Peace Memorial bridge'],
-					[addDays(endDate, -5), 'Mock: Tomb-Sweeping bridge']
+					[addDays(endDate, -12), 'Mock: Peace Memorial Day'],
+					[addDays(endDate, -5), 'Mock: Tomb-Sweeping Day']
 				]
 			: [
 					[addDays(startDate, 6), 'Mock: Peace Memorial Day'],

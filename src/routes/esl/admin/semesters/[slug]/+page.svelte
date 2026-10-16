@@ -6,27 +6,43 @@
 	import { Button } from '$lib/components/ui/button';
 	import { humanConvexErrorMessage } from '$lib/convex-error';
 	import { isProtectedSeedEvent } from '$convex/shared/esl';
-	import { derivedEndSource, semesterStatus, type SiblingSemester } from '$lib/esl-semesters';
+	import {
+		derivedEndSource,
+		parseSemesterSlug,
+		semesterStatus,
+		type SiblingSemester
+	} from '$lib/esl-semesters';
+	import {
+		buildPreviewWeeks,
+		mockOffDays,
+		type PreviewExam
+	} from '$lib/components/esl/wizard/wizard-dates';
 	import SemesterHeader from '$lib/components/esl/SemesterHeader.svelte';
 	import HolidayOffDayImport from '$lib/components/esl/HolidayOffDayImport.svelte';
 	import EventForm, { type EventFormInput } from '$lib/components/esl/EventForm.svelte';
 	import ChecklistPanel, { type ChecklistGroup } from '$lib/components/esl/ChecklistPanel.svelte';
+	import CalendarPreview from '$lib/components/esl/wizard/CalendarPreview.svelte';
 
 	const client = useConvexClient();
 
-	const rawId = $derived(page.params.semesterId ?? '');
-	const semesterId = $derived(rawId as Id<'esl_semesters'>);
+	const rawId = $derived(page.params.slug ?? '');
+	const parsed = $derived(parseSemesterSlug(rawId));
 
 	const semestersQuery = useQuery(api.esl.semesters.list, () => ({}));
-	const eventsQuery = useQuery(api.esl.events.listBySemester, () =>
-		rawId === '' ? 'skip' : { semesterId }
-	);
 	const semesters = $derived(semestersQuery.data ?? []);
-	const events = $derived(eventsQuery.data ?? []);
-	const selected = $derived(semesters.find((semester) => semester._id === rawId) ?? null);
+	// Friendly slug first (`2026-2027-S1`), raw Convex id as fallback so
+	// old bookmarks, e2e links, and wizard handoffs keep working.
+	const selected = $derived(
+		(parsed !== null
+			? semesters.find((semester) => semester.year === parsed.year && semester.term === parsed.term)
+			: semesters.find((semester) => semester._id === rawId)) ?? null
+	);
+	const semesterId = $derived(selected === null ? null : selected._id);
 
-	/**
-	 * The #209 end-date default for the seed form's final-exam box. S1
+	const eventsQuery = useQuery(api.esl.events.listBySemester, () =>
+		semesterId === null ? 'skip' : { semesterId }
+	);
+	const events = $derived(eventsQuery.data ?? []);
 
 	// Lexical `YYYY-MM-DD` compare, the same rule the backend uses.
 	const today = new Date().toISOString().slice(0, 10);
@@ -36,7 +52,7 @@
 	 * mocks with one-click create. Advisory only — the panel never blocks.
 	 */
 	const checklistQuery = useQuery(api.esl.checklist.status, () =>
-		selected === null ? 'skip' : { semesterId, today }
+		semesterId === null ? 'skip' : { semesterId, today }
 	);
 
 	const status = $derived(
@@ -63,6 +79,32 @@
 		};
 	});
 
+	/**
+	 * Calendar preview data (ticket #230): build weeks from semester dates,
+	 * exams, and mock off-days (real off-days come from HolidayOffDayImport).
+	 */
+	const previewEndDate = $derived(selected?.derivedEnd ?? today);
+	const previewExams = $derived(
+		selected === null
+			? []
+			: (events
+					.filter((e) => e.type === 'exam')
+					.map((e) => ({
+						label: e.title,
+						dates: e.endDate !== undefined ? [e.date, e.endDate] : [e.date]
+					})) as PreviewExam[])
+	);
+	const previewOffDays = $derived(
+		selected === null
+			? []
+			: mockOffDays(selected.term as 'S1' | 'S2', selected.year, selected.startDate, previewEndDate)
+	);
+	const previewWeeks = $derived(
+		selected === null
+			? []
+			: buildPreviewWeeks(selected.startDate, previewEndDate, previewOffDays, previewExams)
+	);
+
 	let createBusy = $state(false);
 	let createError = $state<string | null>(null);
 	let editingId = $state<string | null>(null);
@@ -75,6 +117,10 @@
 	let notice = $state('');
 
 	function createEvent(input: EventFormInput) {
+		if (semesterId === null) {
+			createError = 'Semester not found — back up to the list and pick another.';
+			return;
+		}
 		createBusy = true;
 		createError = null;
 		client
@@ -165,6 +211,10 @@
 	 * panel's own error line only shows transport-level failures.
 	 */
 	function createChecklistDrafts(group: ChecklistGroup) {
+		if (semesterId === null) {
+			checklistError = 'Semester not found — back up to the list and pick another.';
+			return;
+		}
 		checklistBusy = group;
 		checklistError = null;
 		client
@@ -242,6 +292,18 @@
 			error={checklistError}
 			oncreate={createChecklistDrafts}
 		/>
+
+		<!-- Calendar preview (ticket #230): wizard-style semester calendar -->
+		{#if selected}
+			<section class="space-y-3">
+				<h2 class="text-base font-semibold text-emerald-900">Semester calendar</h2>
+				<CalendarPreview
+					weeks={previewWeeks}
+					interactive={false}
+					testId="esl-admin-semester-detail.calendar"
+				/>
+			</section>
+		{/if}
 
 		<section class="space-y-3">
 			<h2 class="text-base font-semibold text-emerald-900">Events ({events.length})</h2>

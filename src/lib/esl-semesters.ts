@@ -45,6 +45,28 @@ export type SiblingSemester = {
 } | null;
 
 /**
+ * Friendly URL slug for a semester (ticket #230 follow-up). `year` is
+ * already `YYYY-YYYY` and unique per term on the backend (`by_year_term`),
+ * so `${year}-${term}` — e.g. `2026-2027-S1` — is unique, stable, and
+ * readable. The detail route resolves this slug (falling back to the raw
+ * Convex id for old bookmarks, e2e links, and the wizard save handoff).
+ */
+export function semesterSlug(semester: { year: string; term: 'S1' | 'S2' }): string {
+	return `${semester.year}-${semester.term}`;
+}
+
+/**
+ * Parse a detail-route slug back into year + term. Returns null for
+ * anything else (notably raw Convex ids, which the route passes through
+ * to the id lookup).
+ */
+export function parseSemesterSlug(slug: string): { year: string; term: 'S1' | 'S2' } | null {
+	const match = /^(\d{4}-\d{4})-(S1|S2)$/.exec(slug);
+	if (!match) return null;
+	return { year: match[1]!, term: match[2] as 'S1' | 'S2' };
+}
+
+/**
  * The Gregorian calendar years whose official CSVs a semester's window
  * spans — the setup page offers one upload per year (ticket #208). S1
  * starts in the fall and ends the next spring, so it always spans two

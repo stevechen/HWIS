@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import EventForm from '$lib/components/esl/EventForm.svelte';
 import { ESL_EVENT_TYPES } from '$convex/shared/esl';
+import { schoolYearForTerm, startPickerMondays } from '$lib/components/esl/wizard/wizard-dates';
 
 const HIDDEN_TYPES = ['start_school', 'reminder', 'exam', 'g9_mock'] as const;
 
@@ -19,6 +20,18 @@ function renderForm() {
 		onsubmit
 	});
 	return { onsubmit };
+}
+
+/**
+ * The form's WeekPicker derives its rows from the real today (no initial
+ * date), so the tests compute the same first Monday the component renders
+ * and click that exact cell — no wall-clock assumption beyond sharing the
+ * component's own helpers.
+ */
+function firstPickerMonday(): string {
+	const today = new Date().toISOString().slice(0, 10);
+	const year = schoolYearForTerm('S1', today);
+	return startPickerMondays('S1', year)[0] ?? '';
 }
 
 describe('EventForm note visibility (#211, #216)', () => {
@@ -51,7 +64,8 @@ describe('EventForm note visibility (#211, #216)', () => {
 		await page.getByLabelText('Reminder kind').selectOptions('task');
 		await page.getByLabelText('Note').fill('should be dropped');
 		await page.getByLabelText('Event type').selectOptions('exam');
-		await page.getByLabelText('Date').fill('2025-10-16');
+		// Pick the first available date from the WeekPicker
+		await page.getByTestId(`event-form.picker.date-${firstPickerMonday()}`).click();
 		await page.getByRole('button', { name: 'Add event' }).click();
 		expect(onsubmit).toHaveBeenCalledTimes(1);
 		expect(onsubmit.mock.calls[0]?.[0]).toMatchObject({ type: 'exam' });
@@ -78,7 +92,8 @@ describe('EventForm target gating (#212, #216)', () => {
 		const target = page.getByLabelText('Target');
 		await expect.element(target).toBeDisabled();
 		await expect.element(target).toHaveValue('CLIL');
-		await page.getByLabelText('Date', { exact: true }).fill('2025-09-02');
+		// Pick the first available date from the WeekPicker
+		await page.getByTestId(`event-form.picker.date-${firstPickerMonday()}`).click();
 		await page.getByRole('button', { name: 'Add event' }).click();
 		expect(onsubmit.mock.calls[0]?.[0]).toMatchObject({
 			type: 'reminder',

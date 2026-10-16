@@ -59,8 +59,7 @@
 		{/each}
 	</div>
 	{#each mondays as monday, row (monday)}
-		{@const rowSelected =
-			snapToMonday && selectedDate !== null && mondayOfWeek(selectedDate) === monday}
+		{@const rowSelected = snapToMonday && !!selectedDate && mondayOfWeek(selectedDate) === monday}
 		<div
 			data-testid={`${testId}.row-${row + 1}`}
 			class="flex flex-wrap items-center gap-1 rounded-lg border p-2 {rowSelected

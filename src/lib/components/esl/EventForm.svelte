@@ -22,6 +22,14 @@
 		type EslReminderKind
 	} from '$convex/shared/esl';
 	import { boundaryCrossWarning, type SiblingSemester } from '$lib/esl-semesters';
+	import {
+		startPickerMondays,
+		defaultStartDate,
+		schoolYearForTerm
+	} from '$lib/components/esl/wizard/wizard-dates';
+	import WeekPicker from '$lib/components/esl/wizard/WeekPicker.svelte';
+	import ExamRangePicker from '$lib/components/esl/wizard/ExamRangePicker.svelte';
+	import RecalculateHint from '$lib/components/esl/wizard/RecalculateHint.svelte';
 
 	export type EventFormInput = {
 		type: EslEventType;
@@ -173,6 +181,24 @@
 	 * days — one row per day sharing the title as its exam group.
 	 */
 	const examDayCount = $derived(isExam ? (EXAM_SEED_WEEKDAYS[draft.title] ?? 2) : 0);
+	// ExamRangePicker only takes 2 | 3; the backend fan-out agrees, so clamp.
+	const examRangeLength = $derived((examDayCount === 3 ? 3 : 2) as 2 | 3);
+
+	/**
+	 * Wizard-style date picking (ticket #230): WeekPicker for date selection,
+	 * ExamRangePicker for exam ranges. The school year is derived from the
+	 * semester term and the picked date (or initial date).
+	 */
+	const schoolYear = $derived(
+		draft.date !== ''
+			? schoolYearForTerm(term, draft.date)
+			: schoolYearForTerm(term, new Date().toISOString().slice(0, 10))
+	);
+	const mondays = $derived(startPickerMondays(term, schoolYear));
+	const defaultStart = $derived(draft.date !== '' ? defaultStartDate(term, schoolYear) : '');
+	const dateOverridden = $derived(
+		draft.date !== '' && defaultStart !== '' && draft.date !== defaultStart
+	);
 
 	/**
 	 * The S1/S2 cross check is advisory: an exam move that stretches a term
@@ -237,6 +263,14 @@
 		} else {
 			draft.title = ESL_REMINDER_TITLES[next];
 		}
+	}
+
+	function pickDate(date: string) {
+		draft.date = date;
+	}
+
+	function clearExamRange() {
+		draft.endDate = '';
 	}
 </script>
 
@@ -365,23 +399,52 @@
 	</div>
 
 	<div class="flex flex-wrap gap-3">
-		<div class="flex flex-col gap-1">
-			<Label for="event-form-date">Date</Label>
-			<input
-				id="event-form-date"
-				type="date"
-				bind:value={draft.date}
-				disabled={busy}
-				required
-				class="rounded border px-2 py-1 text-sm"
-			/>
-			{#if isExam}
-				<span class="text-xs text-gray-500"
-					>Start date — saves {examDayCount} teaching-day rows, skipping weekends and off days.</span
-				>
-			{/if}
+		<div class="flex w-full flex-col gap-1">
+			<Label>Date</Label>
+			<div class="space-y-2">
+				<WeekPicker
+					{mondays}
+					selectedDate={draft.date}
+					snapToMonday={!isExam}
+					onPick={pickDate}
+					testId="event-form.picker"
+				/>
+				{#if dateOverridden}
+					<RecalculateHint
+						testId="event-form.recalculate"
+						onRecalculate={() => {
+							draft.date = defaultStart;
+						}}
+					/>
+				{/if}
+				{#if isExam}
+					<span class="text-xs text-gray-500"
+						>Start date — saves {examDayCount} teaching-day rows, skipping weekends and off days.</span
+					>
+				{:else}
+					<span class="text-xs text-gray-500">Pick the week and day for this event.</span>
+				{/if}
+			</div>
 		</div>
-		{#if ranged}
+		{#if isExam}
+			<div class="flex w-full flex-col gap-1">
+				<Label>Exam range</Label>
+				<ExamRangePicker
+					examLabel={draft.title}
+					rangeLength={examRangeLength}
+					currentDates={draft.endDate ? [draft.date, draft.endDate] : [draft.date]}
+					onClear={clearExamRange}
+					testId="event-form.exam-range"
+				/>
+				{#if draft.endDate}
+					<RecalculateHint
+						testId="event-form.exam-recalculate"
+						onRecalculate={clearExamRange}
+						label="Clear range"
+					/>
+				{/if}
+			</div>
+		{:else if ranged}
 			<div class="flex flex-col gap-1">
 				<Label for="event-form-end">End date</Label>
 				<input
