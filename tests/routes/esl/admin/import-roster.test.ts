@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { getFunctionName } from 'convex/server';
 import { useQuery } from 'convex-svelte';
@@ -221,34 +221,34 @@ describe('ESL admin import page', () => {
 
 	describe('the year so far', () => {
 		it('shows all four grades as not yet provided on a fresh year', async () => {
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 
 			for (const grade of [7, 8, 9, 10]) {
 				await expect
 					.element(page.getByTestId(`esl-import.status.g${grade}.state`))
-					.toHaveTextContent('Not yet provided');
+					.toMatchTextContent('Not yet provided');
 			}
 		});
 	});
 
 	describe('choosing a file', () => {
 		it('stages the file and shows a dry run without writing anything', async () => {
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 
 			upload();
 
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
 			await expect
 				.element(page.getByTestId('esl-import.status.g9.state'))
-				.toHaveTextContent('Staged');
+				.toMatchTextContent('Staged');
 			// The plan: one renamed, one new, nothing disabled.
-			await expect.element(page.getByTestId('esl-import.plan.total.New')).toHaveTextContent('1');
+			await expect.element(page.getByTestId('esl-import.plan.total.New')).toMatchTextContent('1');
 			await expect
 				.element(page.getByTestId('esl-import.plan.total.Renamed'))
-				.toHaveTextContent('1');
+				.toMatchTextContent('1');
 			await expect
 				.element(page.getByTestId('esl-import.plan.total.Disabled'))
-				.toHaveTextContent('0');
+				.toMatchTextContent('0');
 			expect(mockMutation).not.toHaveBeenCalled();
 		});
 
@@ -261,7 +261,7 @@ describe('ESL admin import page', () => {
 			//
 			// The year is the only thing the admin states; the grade follows from it and
 			// the file's `115xxxx` IDs.
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			fileIds.mockReturnValue(['1150001', '1150399']);
 			givenParsed(
 				workbook({
@@ -285,7 +285,7 @@ describe('ESL admin import page', () => {
 			// synchronously would run before the parse had happened.
 			await expect
 				.element(page.getByTestId('esl-import.status.g7.state'))
-				.toHaveTextContent('Staged');
+				.toMatchTextContent('Staged');
 			// Placed as grade 7 without the admin having said so.
 			expect(readRosterWorkbook).toHaveBeenCalledWith(7);
 			// And no grade control was ever shown, because there was nothing to ask.
@@ -296,7 +296,7 @@ describe('ESL admin import page', () => {
 			// Grade 10 IDs are six digits where no levelled grade is numbered that
 			// way, so the ID says the grade outright and the page has nothing to ask
 			// the admin about it.
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			fileIds.mockReturnValue(['511024', '511355']);
 			givenParsed(
 				workbook({
@@ -318,7 +318,7 @@ describe('ESL admin import page', () => {
 
 			await expect
 				.element(page.getByTestId('esl-import.status.g10.state'))
-				.toHaveTextContent('Staged');
+				.toMatchTextContent('Staged');
 			expect(readRosterWorkbook).toHaveBeenCalledWith(10);
 		});
 
@@ -326,7 +326,7 @@ describe('ESL admin import page', () => {
 			// The control existed only for grade 10, and grade 10 now places itself. A
 			// file the IDs cannot place at all is refused, which is a different outcome
 			// from asking a question the IDs can answer.
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			fileIds.mockReturnValue(['12', '99']);
 			await setYear(YEAR);
 			upload('junk.xlsx');
@@ -334,7 +334,7 @@ describe('ESL admin import page', () => {
 			await expect.element(page.getByTestId('esl-import.grade')).not.toBeInTheDocument();
 			await expect
 				.element(page.getByTestId('esl-import.error'))
-				.toHaveTextContent('no scheme this can read');
+				.toMatchTextContent('no scheme this can read');
 			expect(readRosterWorkbook).not.toHaveBeenCalled();
 		});
 
@@ -342,7 +342,7 @@ describe('ESL admin import page', () => {
 			// The safeguard on deriving. Set the year to 2027-2028 and a grade 7 file's
 			// `115xxxx` IDs resolve cleanly to grade 8: consistent, and wrong. The
 			// file's own `ESL Group` column is the check, because it names the grade.
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			fileIds.mockReturnValue(['1150001']);
 			givenParsed(
 				workbook({
@@ -366,25 +366,25 @@ describe('ESL admin import page', () => {
 			// from the year field, which would just restate the wrong number.
 			const prompt = page.getByTestId('esl-import.yearPrompt');
 			await expect.element(prompt).toBeVisible();
-			await expect.element(prompt).toHaveTextContent(YEAR);
-			await expect.element(prompt).toHaveTextContent('2027-2028');
+			await expect.element(prompt).toMatchTextContent(YEAR);
+			await expect.element(prompt).toMatchTextContent('2027-2028');
 			await expect
 				.element(page.getByTestId('esl-import.status.g7.state'))
-				.toHaveTextContent('Not yet provided');
+				.toMatchTextContent('Not yet provided');
 		});
 
 		it('reports a file it could not read, and stages nothing', async () => {
 			readSheets.mockRejectedValue(new Error('the file is password protected'));
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 
 			upload();
 
 			await expect
 				.element(page.getByTestId('esl-import.error'))
-				.toHaveTextContent('password protected');
+				.toMatchTextContent('password protected');
 			await expect
 				.element(page.getByTestId('esl-import.status.g9.state'))
-				.toHaveTextContent('Not yet provided');
+				.toMatchTextContent('Not yet provided');
 		});
 
 		it('stages a grade 10 file under the year the admin chose', async () => {
@@ -417,7 +417,7 @@ describe('ESL admin import page', () => {
 					]
 				})
 			);
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 
 			await uploadGrade10();
@@ -427,7 +427,7 @@ describe('ESL admin import page', () => {
 			await expect.element(page.getByTestId('esl-import.yearPrompt')).not.toBeInTheDocument();
 			await expect
 				.element(page.getByTestId('esl-import.status.g10.state'))
-				.toHaveTextContent('Staged');
+				.toMatchTextContent('Staged');
 			expect(window.localStorage.getItem(`esl-import:${YEAR}`)).toContain('511101');
 		});
 
@@ -452,7 +452,7 @@ describe('ESL admin import page', () => {
 					]
 				})
 			);
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			await uploadGrade10();
 
 			// Two cohorts, one per level, each counting only its own students. They were
@@ -460,10 +460,10 @@ describe('ESL admin import page', () => {
 			// sections of one cohort; they are two rosters now (ADR-0023).
 			const levelA = page.getByTestId('esl-import.plan.cohort.10:A:01');
 			const levelB = page.getByTestId('esl-import.plan.cohort.10:B:01');
-			await expect.element(levelA).toHaveTextContent('H101A');
-			await expect.element(levelA).toHaveTextContent('1 students');
-			await expect.element(levelB).toHaveTextContent('H101B');
-			await expect.element(levelB).toHaveTextContent('1 students');
+			await expect.element(levelA).toMatchTextContent('H101A');
+			await expect.element(levelA).toMatchTextContent('1 students');
+			await expect.element(levelB).toMatchTextContent('H101B');
+			await expect.element(levelB).toMatchTextContent('1 students');
 		});
 
 		it('sends grade 10 section text, so the server re-reads what it parsed', async () => {
@@ -488,7 +488,7 @@ describe('ESL admin import page', () => {
 					]
 				})
 			);
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			await uploadGrade10();
 			await expect.element(page.getByTestId('esl-import.card.g10')).toBeInTheDocument();
 
@@ -503,16 +503,16 @@ describe('ESL admin import page', () => {
 
 		it('refuses a workbook holding two school years', async () => {
 			givenParsed(workbook({ derivedYear: { kind: 'conflict', years: [YEAR, '2027-2028'] } }));
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 
 			upload();
 
 			await expect
 				.element(page.getByTestId('esl-import.error'))
-				.toHaveTextContent('more than one school year');
+				.toMatchTextContent('more than one school year');
 			await expect
 				.element(page.getByTestId('esl-import.status.g9.state'))
-				.toHaveTextContent('Not yet provided');
+				.toMatchTextContent('Not yet provided');
 		});
 
 		it('shows another year’s draft when the year is changed', async () => {
@@ -523,14 +523,14 @@ describe('ESL admin import page', () => {
 					grades: { '8': { status: 'imported', result: IMPORTED_G8 } }
 				})
 			);
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			await setYear('2027-2028');
 
 			// The re-read is what makes a second visit useful: last year's import is
 			// visible without anything being re-uploaded.
 			await expect
 				.element(page.getByTestId('esl-import.status.g8.state'))
-				.toHaveTextContent('Imported');
+				.toMatchTextContent('Imported');
 		});
 
 		it('keeps the draft on screen while the year is half-typed', async () => {
@@ -541,11 +541,11 @@ describe('ESL admin import page', () => {
 					grades: { '8': { status: 'imported', result: IMPORTED_G8 } }
 				})
 			);
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			await setYear('2027-2028');
 			await expect
 				.element(page.getByTestId('esl-import.status.g8.state'))
-				.toHaveTextContent('Imported');
+				.toMatchTextContent('Imported');
 
 			await setYear('2027');
 
@@ -553,11 +553,11 @@ describe('ESL admin import page', () => {
 			// year would make the field feel like it had thrown the draft away.
 			await expect
 				.element(page.getByTestId('esl-import.status.g8.state'))
-				.toHaveTextContent('Imported');
+				.toMatchTextContent('Imported');
 		});
 
 		it('leaves the year field alone when a draft is applied', async () => {
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 			upload();
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
@@ -596,7 +596,7 @@ describe('ESL admin import page', () => {
 					]
 				})
 			);
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 
 			upload();
@@ -604,12 +604,12 @@ describe('ESL admin import page', () => {
 			const prompt = page.getByTestId('esl-import.yearPrompt');
 			// The year the file's own IDs imply for the grade it names, and the year on
 			// the page, so the mismatch reads either way round.
-			await expect.element(prompt).toHaveTextContent('2025-2026');
-			await expect.element(prompt).toHaveTextContent(YEAR);
+			await expect.element(prompt).toMatchTextContent('2025-2026');
+			await expect.element(prompt).toMatchTextContent(YEAR);
 			// Asked, not assumed: nothing is staged until the admin answers.
 			await expect
 				.element(page.getByTestId('esl-import.status.g7.state'))
-				.toHaveTextContent('Not yet provided');
+				.toMatchTextContent('Not yet provided');
 		});
 
 		it('carries both grades forward, then stages into the new year', async () => {
@@ -641,7 +641,7 @@ describe('ESL admin import page', () => {
 					]
 				})
 			);
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 			upload();
 			await expect.element(page.getByTestId('esl-import.yearPrompt')).toBeInTheDocument();
@@ -661,10 +661,10 @@ describe('ESL admin import page', () => {
 			// cannot be mistaken for a grade that was skipped.
 			await expect
 				.element(page.getByTestId('esl-import.advanceReport.g7'))
-				.toHaveTextContent('G7 → G8');
+				.toMatchTextContent('G7 → G8');
 			await expect
 				.element(page.getByTestId('esl-import.advanceReport.g8'))
-				.toHaveTextContent('G8 → G9');
+				.toMatchTextContent('G8 → G9');
 			// The page moves to the year it just carried into, so the field and the
 			// data cannot disagree.
 			await expect.element(page.getByTestId('esl-import.year')).toHaveValue('2027-2028');
@@ -682,7 +682,7 @@ describe('ESL admin import page', () => {
 						}
 			);
 			givenNextYearsFile();
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 			upload();
 			await expect.element(page.getByTestId('esl-import.yearPrompt')).toBeInTheDocument();
@@ -691,7 +691,7 @@ describe('ESL admin import page', () => {
 
 			await expect
 				.element(page.getByTestId('esl-import.advanceReport.g8'))
-				.toHaveTextContent('nothing to carry');
+				.toMatchTextContent('nothing to carry');
 			// And the file still stages: an empty grade is not a failed advance.
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
 		});
@@ -705,7 +705,7 @@ describe('ESL admin import page', () => {
 				)
 			);
 			givenNextYearsFile();
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 			upload();
 			await expect.element(page.getByTestId('esl-import.yearPrompt')).toBeInTheDocument();
@@ -714,7 +714,7 @@ describe('ESL admin import page', () => {
 
 			await expect
 				.element(page.getByTestId('esl-import.error'))
-				.toHaveTextContent('carry-forward does not account for');
+				.toMatchTextContent('carry-forward does not account for');
 			await expect.element(page.getByTestId('esl-import.card.g9')).not.toBeInTheDocument();
 			// The page stays on the year it was set to, not the one it failed on.
 			await expect.element(page.getByTestId('esl-import.year')).toHaveValue(YEAR);
@@ -722,7 +722,7 @@ describe('ESL admin import page', () => {
 
 		it('stages under the year the IDs indicate once accepted', async () => {
 			givenNextYearsFile();
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			await setYear(YEAR);
 			upload();
 			await expect.element(page.getByTestId('esl-import.yearPrompt')).toBeInTheDocument();
@@ -760,7 +760,7 @@ describe('ESL admin import page', () => {
 					]
 				})
 			);
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 
 			upload();
 
@@ -769,7 +769,7 @@ describe('ESL admin import page', () => {
 		});
 
 		it('leaves a name change unticked until the admin ticks it', async () => {
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			upload();
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
 
@@ -803,22 +803,22 @@ describe('ESL admin import page', () => {
 					]
 				})
 			);
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 
 			upload();
 
 			await expect
 				.element(page.getByTestId('esl-import.rejected.G9 Adv 1.47'))
-				.toHaveTextContent('Chinese name cell is empty');
+				.toMatchTextContent('Chinese name cell is empty');
 			await expect
 				.element(page.getByTestId('esl-import.skipped.ESL class'))
-				.toHaveTextContent('different ESL groups');
+				.toMatchTextContent('different ESL groups');
 		});
 	});
 
 	describe('applying', () => {
 		it('sends the file cell text and no unapproved renames', async () => {
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			upload();
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
 
@@ -848,7 +848,7 @@ describe('ESL admin import page', () => {
 		});
 
 		it('sends the ticked student once ticked', async () => {
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			upload();
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
 
@@ -861,7 +861,7 @@ describe('ESL admin import page', () => {
 		});
 
 		it('records the grade as imported and drops the staged file', async () => {
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			upload();
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
 
@@ -869,7 +869,7 @@ describe('ESL admin import page', () => {
 
 			await expect
 				.element(page.getByTestId('esl-import.status.g9.state'))
-				.toHaveTextContent('Imported');
+				.toMatchTextContent('Imported');
 			await expect.element(page.getByTestId('esl-import.card.g9')).not.toBeInTheDocument();
 			// The parsed rows are spent; what remains is the outcome.
 			const stored = window.localStorage.getItem(`esl-import:${YEAR}`);
@@ -879,7 +879,7 @@ describe('ESL admin import page', () => {
 
 		it('keeps the file staged when the server refuses it', async () => {
 			mockMutation.mockRejectedValue(new Error('Import refused: rows could not be read.'));
-			render(ImportRoster, { expanded: true });
+			await render(ImportRoster, { expanded: true });
 			upload();
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
 
@@ -887,7 +887,7 @@ describe('ESL admin import page', () => {
 
 			await expect
 				.element(page.getByTestId('esl-import.error'))
-				.toHaveTextContent('rows could not be read');
+				.toMatchTextContent('rows could not be read');
 			await expect.element(page.getByTestId('esl-import.card.g9')).toBeInTheDocument();
 		});
 	});

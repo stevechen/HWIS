@@ -300,8 +300,7 @@
 									}}
 									onchange={(event) => {
 										onSaveNote(card.date, event.currentTarget.value);
-									}}
-								></textarea>
+									}}></textarea>
 							</article>
 						{/each}
 					</div>

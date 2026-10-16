@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { buildViewerSession, type ViewerSessionConfig } from '../../mocks/route-mocks';
 
@@ -33,7 +33,7 @@ describe('Evaluations List', () => {
 	});
 
 	it('shows empty state when no evaluations', async () => {
-		render(EvaluationsPage);
+		await render(EvaluationsPage);
 		await expect.element(page.getByText('No evaluations found')).toBeInTheDocument();
 	});
 
@@ -45,7 +45,7 @@ describe('Evaluations List', () => {
 			error: new Error('Failed to load')
 		} as unknown as ReturnType<typeof useQuery>);
 
-		render(EvaluationsPage);
+		await render(EvaluationsPage);
 		await expect.element(page.getByText(/Error loading evaluations/)).toBeInTheDocument();
 	});
 });

@@ -589,7 +589,7 @@ function parseStep4(raw: unknown, seeded: WizardStep4State): WizardStep4State {
 				if (start === null) return [];
 				const end = e.end !== undefined ? parseDate(e.end) : null;
 				if (e.end !== undefined && end === null) return [];
-				return [{ id: e.id ?? `extra-${Date.now()}`, name, start, end }];
+				return [{ id: typeof e.id === 'string' ? e.id : `extra-${Date.now()}`, name, start, end }];
 			})
 		: seeded.extras;
 	return { singles, pairs, ranges, sportsOn, extras };

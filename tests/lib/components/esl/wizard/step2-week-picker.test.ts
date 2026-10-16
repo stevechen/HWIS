@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import WeekPicker from '$lib/components/esl/wizard/WeekPicker.svelte';
 
@@ -10,7 +10,7 @@ describe('WeekPicker — Step 2 end date', () => {
 
 	it('renders 2 rows for S1 (Jan 20 week + next)', async () => {
 		const mondays = ['2027-01-18', '2027-01-25']; // Jan 20 week + next
-		render(WeekPicker, {
+		await render(WeekPicker, {
 			mondays,
 			selectedDate: '2027-01-20',
 			snapToMonday: false,
@@ -29,7 +29,7 @@ describe('WeekPicker — Step 2 end date', () => {
 
 	it('renders 1 row for S2 (Jun 30 week)', async () => {
 		const mondays = ['2026-06-29']; // Jun 30 week
-		render(WeekPicker, {
+		await render(WeekPicker, {
 			mondays,
 			selectedDate: '2026-06-30',
 			snapToMonday: false,
@@ -47,7 +47,7 @@ describe('WeekPicker — Step 2 end date', () => {
 
 	it('highlights the default date cell (Jan 20 for S1)', async () => {
 		const mondays = ['2027-01-18', '2027-01-25'];
-		render(WeekPicker, {
+		await render(WeekPicker, {
 			mondays,
 			selectedDate: '2027-01-20',
 			snapToMonday: false,
@@ -64,7 +64,7 @@ describe('WeekPicker — Step 2 end date', () => {
 	it('clicking a date calls onPick with the exact date (snapToMonday=false)', async () => {
 		const mondays = ['2027-01-18', '2027-01-25'];
 		const onPick = vi.fn();
-		render(WeekPicker, {
+		await render(WeekPicker, {
 			mondays,
 			selectedDate: '2027-01-20',
 			snapToMonday: false,
@@ -80,7 +80,7 @@ describe('WeekPicker — Step 2 end date', () => {
 	it('weekend dates are not rendered in the grid (Mon-Fri only)', async () => {
 		const mondays = ['2027-01-18', '2027-01-25'];
 		const onPick = vi.fn();
-		render(WeekPicker, {
+		await render(WeekPicker, {
 			mondays,
 			selectedDate: '2027-01-20',
 			snapToMonday: false,
@@ -101,7 +101,7 @@ describe('WeekPicker — Step 2 end date', () => {
 
 	it('shows date numbers without leading zeros', async () => {
 		const mondays = ['2027-01-18', '2027-01-25'];
-		render(WeekPicker, {
+		await render(WeekPicker, {
 			mondays,
 			selectedDate: '2027-01-20',
 			snapToMonday: false,
@@ -113,10 +113,10 @@ describe('WeekPicker — Step 2 end date', () => {
 		// Check the first cell (Monday Jan 18) shows "1/18"
 		await expect
 			.element(page.getByTestId('wizard.step-2-end-picker.date-2027-01-18'))
-			.toHaveTextContent('1/18');
+			.toMatchTextContent('1/18');
 		// Check Friday Jan 22 shows "1/22"
 		await expect
 			.element(page.getByTestId('wizard.step-2-end-picker.date-2027-01-22'))
-			.toHaveTextContent('1/22');
+			.toMatchTextContent('1/22');
 	});
 });

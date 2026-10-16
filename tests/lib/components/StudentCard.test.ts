@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import StudentCard from '$lib/components/StudentCard.svelte';
 import type { MultiSelectState } from '$lib/utils/multiSelect.svelte';
@@ -29,7 +29,7 @@ const mockMultiSelect = {
 describe('StudentCard', () => {
 	describe('Rendering', () => {
 		it('renders the student name', async () => {
-			render(StudentCard, {
+			await render(StudentCard, {
 				student: mockStudent,
 				sourceHouse: 'Heracles',
 				multiSelect: mockMultiSelect,
@@ -39,7 +39,7 @@ describe('StudentCard', () => {
 		});
 
 		it('does not show Not Enrolled badge for enrolled students', async () => {
-			render(StudentCard, {
+			await render(StudentCard, {
 				student: mockStudent,
 				sourceHouse: 'Heracles',
 				multiSelect: mockMultiSelect,
@@ -49,7 +49,7 @@ describe('StudentCard', () => {
 		});
 
 		it('shows Not Enrolled badge for not enrolled students', async () => {
-			render(StudentCard, {
+			await render(StudentCard, {
 				student: mockNotEnrolledStudent,
 				sourceHouse: 'Heracles',
 				multiSelect: mockMultiSelect,
@@ -61,7 +61,7 @@ describe('StudentCard', () => {
 
 	describe('Dark Theme Readability', () => {
 		it('renders the student name with an explicit readable color class', async () => {
-			render(StudentCard, {
+			await render(StudentCard, {
 				student: mockStudent,
 				sourceHouse: 'Heracles',
 				multiSelect: mockMultiSelect,
@@ -74,7 +74,7 @@ describe('StudentCard', () => {
 		});
 
 		it('renders the Not Enrolled badge with a readable muted color class', async () => {
-			render(StudentCard, {
+			await render(StudentCard, {
 				student: mockNotEnrolledStudent,
 				sourceHouse: 'Heracles',
 				multiSelect: mockMultiSelect,
@@ -95,7 +95,7 @@ describe('StudentCard', () => {
 				toggleSelect: vi.fn()
 			} as unknown as MultiSelectState;
 
-			render(StudentCard, {
+			await render(StudentCard, {
 				student: mockStudent,
 				sourceHouse: 'Heracles',
 				multiSelect,
@@ -105,7 +105,7 @@ describe('StudentCard', () => {
 		});
 
 		it('hides checkbox when not in selection mode', async () => {
-			render(StudentCard, {
+			await render(StudentCard, {
 				student: mockStudent,
 				sourceHouse: 'Heracles',
 				multiSelect: mockMultiSelect,
@@ -115,7 +115,7 @@ describe('StudentCard', () => {
 		});
 
 		it('shows move label when not in selection mode', async () => {
-			render(StudentCard, {
+			await render(StudentCard, {
 				student: mockStudent,
 				sourceHouse: 'Heracles',
 				multiSelect: mockMultiSelect,
@@ -133,7 +133,7 @@ describe('StudentCard', () => {
 				toggleSelect: vi.fn()
 			} as unknown as MultiSelectState;
 
-			render(StudentCard, {
+			await render(StudentCard, {
 				student: mockStudent,
 				sourceHouse: 'Heracles',
 				multiSelect,
@@ -145,7 +145,7 @@ describe('StudentCard', () => {
 
 	describe('Orphaned Student', () => {
 		it('shows move-to-a-house label for orphaned students', async () => {
-			render(StudentCard, {
+			await render(StudentCard, {
 				student: mockStudent,
 				sourceHouse: 'orphaned',
 				multiSelect: mockMultiSelect,

@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const mockStudents = [
@@ -75,7 +75,7 @@ describe('Student Picker', () => {
 	});
 
 	it('shows a selected count header that updates reactively', async () => {
-		render(EvaluationFormPage);
+		await render(EvaluationFormPage);
 		await expect.element(page.getByText('0 selected')).toBeInTheDocument();
 
 		await page.getByRole('button', { name: 'Select John Doe' }).click();
@@ -86,7 +86,7 @@ describe('Student Picker', () => {
 	});
 
 	it('shows a removable chip for each selected student', async () => {
-		render(EvaluationFormPage);
+		await render(EvaluationFormPage);
 		await page.getByRole('button', { name: 'Select John Doe' }).click();
 
 		await expect.element(page.getByRole('button', { name: 'Remove John Doe' })).toBeInTheDocument();
@@ -96,7 +96,7 @@ describe('Student Picker', () => {
 	});
 
 	it('keeps selected students inline in alphabetical order with a checkmark and Deselect semantics', async () => {
-		render(EvaluationFormPage);
+		await render(EvaluationFormPage);
 		await page.getByRole('button', { name: 'Select John Doe' }).click();
 
 		// Selected row stays in place (no clumping) and keeps toggling
@@ -114,7 +114,7 @@ describe('Student Picker', () => {
 	});
 
 	it('renders the roster in the alphabetical order of the backing query', async () => {
-		render(EvaluationFormPage);
+		await render(EvaluationFormPage);
 		// The students.list query sorts by englishName ascending; the picker
 		// must preserve that order rather than clumping or re-sorting.
 		const [list] = await page.getByRole('list', { name: 'Students' }).elements();
@@ -125,13 +125,13 @@ describe('Student Picker', () => {
 	});
 
 	it('adds all filtered results with one tap', async () => {
-		render(EvaluationFormPage);
+		await render(EvaluationFormPage);
 		await page.getByRole('button', { name: 'Add all 3 results' }).click();
 		await expect.element(page.getByText('3 selected')).toBeInTheDocument();
 	});
 
 	it('smart-clears the search when every match is already selected', async () => {
-		render(EvaluationFormPage);
+		await render(EvaluationFormPage);
 		const search = page.getByPlaceholder('Filter by names (separated by commas) or ID...');
 		await search.fill('John');
 		await page.getByRole('button', { name: 'Select John Doe' }).click();
@@ -144,7 +144,7 @@ describe('Student Picker', () => {
 	});
 
 	it('shows an empty state when nothing matches', async () => {
-		render(EvaluationFormPage);
+		await render(EvaluationFormPage);
 		await page
 			.getByPlaceholder('Filter by names (separated by commas) or ID...')
 			.fill('zzzznomatch');
@@ -153,7 +153,7 @@ describe('Student Picker', () => {
 
 	describe('Submit Behavior', () => {
 		it('submits exactly the selected student IDs', async () => {
-			render(EvaluationFormPage);
+			await render(EvaluationFormPage);
 			await page.getByRole('button', { name: 'Select John Doe' }).click();
 			await page.getByRole('button', { name: 'Select Jane Smith' }).click();
 

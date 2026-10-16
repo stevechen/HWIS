@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import LeaderboardChristmasWorkshop from '$lib/components/LeaderboardChristmasWorkshop.svelte';
 import LeaderboardCnyLanternRow from '$lib/components/LeaderboardCnyLanternRow.svelte';
@@ -26,7 +26,7 @@ const HOUSES = [
 
 describe('seasonal boards promoted from prototype', () => {
 	it('Christmas workshop renders the ledger and drops the glyph row', async () => {
-		render(LeaderboardChristmasWorkshop, { houses: HOUSES, categories: CATEGORIES });
+		await render(LeaderboardChristmasWorkshop, { houses: HOUSES, categories: CATEGORIES });
 		await expect
 			.element(page.getByRole('heading', { name: 'Santa’s Workshop Ledger' }))
 			.toBeInTheDocument();
@@ -40,7 +40,7 @@ describe('seasonal boards promoted from prototype', () => {
 	});
 
 	it('CNY lantern row drops the glyph row and the visible house name', async () => {
-		render(LeaderboardCnyLanternRow, { houses: HOUSES });
+		await render(LeaderboardCnyLanternRow, { houses: HOUSES });
 		await expect.element(page.getByRole('heading', { name: 'Lantern Row' })).toBeInTheDocument();
 		await expect.element(page.getByText('2431')).toBeInTheDocument();
 		await expect.element(page.getByText('1730')).toBeInTheDocument();

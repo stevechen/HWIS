@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import Step2Panel from '$lib/components/esl/wizard/Step2Panel.svelte';
 import type { WizardState } from '$lib/components/esl/wizard/wizard-state';
@@ -66,7 +66,7 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 		},
 		step3: { exams: [] },
 		step4: {
-			singles: { anniv: null, makeup: null, sports: null, grad: null },
+			singles: { anniv: null, makeup: null, sports: null, grad: null, bbq: null },
 			pairs: { mock1: null, mock2: null, mock3: null },
 			ranges: {
 				q1: null,
@@ -84,7 +84,8 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 				pcheck: null,
 				wcheck: null
 			},
-			sportsOn: true
+			sportsOn: true,
+			extras: []
 		},
 		step5: { customEvents: [], eventEdits: [] }
 	};
@@ -264,7 +265,7 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 		await expect.element(page.getByTestId('wizard.step-2-holiday.gov-staged')).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId('wizard.step-2-holiday.gov-staged'))
-			.toHaveTextContent('2 off days staged');
+			.toMatchTextContent('2 off days staged');
 		await expect
 			.element(page.getByTestId('wizard.step-2-holiday.gov-report'))
 			.not.toBeInTheDocument();
@@ -296,7 +297,7 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 
 		await expect
 			.element(page.getByTestId('wizard.step-2-holiday.gov-preview'))
-			.toHaveTextContent('Reading…');
+			.toMatchTextContent('Reading…');
 
 		resolvePreview!(PREVIEW_RESULT);
 		await vi.waitFor(() => {

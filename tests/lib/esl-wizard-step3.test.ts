@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import Step3Panel from '$lib/components/esl/wizard/Step3Panel.svelte';
 import type { WizardState } from '$lib/components/esl/wizard/wizard-state';
@@ -34,7 +34,7 @@ describe('Step 3: Exam Dates', () => {
 			step3: { exams: [] }
 		});
 		const updateFn = vi.fn();
-		render(Step3Panel, { state, update: updateFn });
+		await render(Step3Panel, { state, update: updateFn });
 
 		await expect.element(page.getByTestId('wizard.step-3-panel')).toBeInTheDocument();
 		await expect.element(page.getByTestId('wizard.step-3-tab-exam-1')).toBeInTheDocument();
@@ -49,12 +49,12 @@ describe('Step 3: Exam Dates', () => {
 			step3: { exams: [] }
 		});
 		const updateFn = vi.fn();
-		render(Step3Panel, { state, update: updateFn });
+		await render(Step3Panel, { state, update: updateFn });
 
 		await expect.element(page.getByTestId('wizard.step-3-picker')).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId('wizard.step-3-picker.title'))
-			.toHaveTextContent('Exam 1 (2 class days)');
+			.toMatchTextContent('Exam 1 (2 class days)');
 		// When no dates set, shows "Not set yet" text (no test-id on that element)
 		await expect.element(page.getByText('Not set yet')).toBeInTheDocument();
 	});
@@ -70,7 +70,7 @@ describe('Step 3: Exam Dates', () => {
 			step3: { exams: [] }
 		});
 		const updateFn = vi.fn();
-		render(Step3Panel, { state, update: updateFn });
+		await render(Step3Panel, { state, update: updateFn });
 
 		// Hover over a date - the calendar should show hover preview
 		const calendar = page.getByTestId('wizard.step-3-calendar');
@@ -94,7 +94,7 @@ describe('Step 3: Exam Dates', () => {
 			step3: { exams: [] }
 		});
 		const updateFn = vi.fn();
-		render(Step3Panel, { state, update: updateFn });
+		await render(Step3Panel, { state, update: updateFn });
 
 		// Click on a valid class day
 		const dateCell = page.getByTestId('wizard.step-3-calendar.date-2026-08-31');
@@ -105,7 +105,7 @@ describe('Step 3: Exam Dates', () => {
 		await expect.element(page.getByTestId('wizard.step-3-confirm-dialog')).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId('wizard.step-3-confirm-dialog.message'))
-			.toHaveTextContent('Set Exam 1: Mon Aug 31 – Tue Sep 1');
+			.toMatchTextContent('Set Exam 1: Mon Aug 31 – Tue Sep 1');
 
 		// Click confirm
 		await page.getByTestId('wizard.step-3-confirm-dialog.confirm').click();
@@ -121,7 +121,7 @@ describe('Step 3: Exam Dates', () => {
 			step3: { exams: [{ label: 'Exam 2', dates: ['2026-10-12', '2026-10-13'] }] }
 		});
 		const updateFn = vi.fn();
-		render(Step3Panel, { state, update: updateFn });
+		await render(Step3Panel, { state, update: updateFn });
 
 		// Switch to Exam 1 tab
 		await page.getByTestId('wizard.step-3-tab-exam-1').click();
@@ -144,7 +144,7 @@ describe('Step 3: Exam Dates', () => {
 			step3: { exams: [] }
 		});
 		const updateFn = vi.fn();
-		render(Step3Panel, { state, update: updateFn });
+		await render(Step3Panel, { state, update: updateFn });
 
 		const finalTab = page.getByTestId('wizard.step-3-tab-final');
 		await expect.element(finalTab).toBeDisabled();
@@ -157,16 +157,18 @@ describe('Step 3: Exam Dates', () => {
 			step3: { exams: [{ label: 'Exam 1', dates: ['2026-08-31', '2026-09-01'] }] }
 		});
 		const updateFn = vi.fn();
-		render(Step3Panel, { state, update: updateFn });
+		await render(Step3Panel, { state, update: updateFn });
 
 		await expect.element(page.getByTestId('wizard.step-3-exam-list')).toBeInTheDocument();
-		await expect.element(page.getByTestId('wizard.step-3-exam-exam-1')).toHaveTextContent('Exam 1');
 		await expect
 			.element(page.getByTestId('wizard.step-3-exam-exam-1'))
-			.toHaveTextContent('2026-08-31');
+			.toMatchTextContent('Exam 1');
 		await expect
 			.element(page.getByTestId('wizard.step-3-exam-exam-1'))
-			.toHaveTextContent('2026-09-01');
+			.toMatchTextContent('2026-08-31');
+		await expect
+			.element(page.getByTestId('wizard.step-3-exam-exam-1'))
+			.toMatchTextContent('2026-09-01');
 	});
 
 	it('enables Confirm button when all required exams are set', async () => {
@@ -182,7 +184,7 @@ describe('Step 3: Exam Dates', () => {
 			}
 		});
 		const updateFn = vi.fn();
-		render(Step3Panel, { state, update: updateFn });
+		await render(Step3Panel, { state, update: updateFn });
 
 		const confirmButton = page.getByTestId('wizard.step-3-confirm');
 		await expect.element(confirmButton).not.toBeDisabled();
@@ -195,7 +197,7 @@ describe('Step 3: Exam Dates', () => {
 			step3: { exams: [{ label: 'Exam 1', dates: ['2026-08-31', '2026-09-01'] }] }
 		});
 		const updateFn = vi.fn();
-		render(Step3Panel, { state, update: updateFn });
+		await render(Step3Panel, { state, update: updateFn });
 
 		const confirmButton = page.getByTestId('wizard.step-3-confirm');
 		await expect.element(confirmButton).toBeDisabled();
@@ -208,7 +210,7 @@ describe('Step 3: Exam Dates', () => {
 			step3: { exams: [] }
 		});
 		const updateFn = vi.fn();
-		render(Step3Panel, { state, update: updateFn });
+		await render(Step3Panel, { state, update: updateFn });
 
 		// The date that would overflow (endDate) should be disabled
 		const dateCell = page.getByTestId('wizard.step-3-calendar.date-2027-01-20');
@@ -227,7 +229,7 @@ describe('Step 3: Exam Dates', () => {
 			step3: { exams: [{ label: 'Exam 1', dates: ['2026-08-31', '2026-09-01'] }] }
 		});
 		const updateFn = vi.fn();
-		render(Step3Panel, { state, update: updateFn });
+		await render(Step3Panel, { state, update: updateFn });
 
 		await page.getByTestId('wizard.step-3-picker.clear').click();
 		expect(updateFn).toHaveBeenCalled();

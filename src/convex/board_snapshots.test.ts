@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { convexTest, modules, mockAuthUser, seedUser, createStudentWithClass } from './test.setup';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { api, internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import schema from './schema';

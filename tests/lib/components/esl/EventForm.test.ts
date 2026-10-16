@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import EventForm from '$lib/components/esl/EventForm.svelte';
 import { ESL_EVENT_TYPES } from '$convex/shared/esl';

@@ -7,7 +7,6 @@ import {
 	type CreateEslSemesterOptions,
 	type CreateStudentOptions,
 	type CreateHouseEventOptions,
-	type SeedEslSemesterOptions,
 	type SetEslClassScheduleOptions,
 	type UpdateEslEventOptions,
 	refreshClient
@@ -344,11 +343,6 @@ export async function setEslClassSchedule(opts: SetEslClassScheduleOptions) {
 export async function assignEslTeacher(opts: AssignEslTeacherOptions) {
 	const utils = getUtils();
 	return await utils.assignEslTeacher(opts);
-}
-
-export async function seedEslSemester(opts: SeedEslSemesterOptions) {
-	const utils = getUtils();
-	return await utils.seedEslSemester(opts);
 }
 
 export async function createEslEvent(opts: CreateEslEventOptions) {

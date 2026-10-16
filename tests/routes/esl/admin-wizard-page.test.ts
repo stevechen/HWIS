@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const gotoMock = vi.fn();
@@ -31,7 +31,7 @@ describe('ESL semester wizard route', () => {
 		await render(WizardPage);
 
 		await expect.element(page.getByTestId('wizard.root')).toBeInTheDocument();
-		await expect.element(page.getByTestId('wizard.progress')).toHaveTextContent('Step 1 of 5');
+		await expect.element(page.getByTestId('wizard.progress')).toMatchTextContent('Step 1 of 5');
 		await expect.element(page.getByTestId('wizard.step-1')).toBeInTheDocument();
 		await expect.element(page.getByTestId('wizard.step-1-panel')).toBeInTheDocument();
 	});
@@ -42,10 +42,10 @@ describe('ESL semester wizard route', () => {
 		// The shell seeds the suggestion; the panel shows what it was handed.
 		// The route runs at wall-clock date, so only the shapes are pinned.
 		const suggestion = page.getByTestId('wizard.step-1-suggestion');
-		await expect.element(suggestion).toHaveTextContent(/Suggested: (S1|S2) \d{4}-\d{4}/);
+		await expect.element(suggestion).toMatchTextContent(/Suggested: (S1|S2) \d{4}-\d{4}/);
 		await expect
 			.element(page.getByTestId('wizard.step-1-start-date'))
-			.toHaveTextContent(/Start Date: \d{4}-\d{2}-\d{2}/);
+			.toMatchTextContent(/Start Date: \d{4}-\d{2}-\d{2}/);
 		await expect.element(page.getByTestId('wizard.step-1-picker.row-1')).toBeInTheDocument();
 	});
 

@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import InlineHolidayImport from '$lib/components/esl/wizard/InlineHolidayImport.svelte';
 
@@ -53,7 +53,7 @@ describe('InlineHolidayImport — one-click holiday import', () => {
 	});
 
 	it('auto-checks ROC years from semesterUploadYears (S1 = 2 years)', async () => {
-		render(InlineHolidayImport, {
+		await render(InlineHolidayImport, {
 			semesterId: 's1' as never,
 			term: 'S1',
 			startDate: '2026-08-31'
@@ -64,7 +64,7 @@ describe('InlineHolidayImport — one-click holiday import', () => {
 	});
 
 	it('auto-checks ROC years from semesterUploadYears (S2 = 1 year)', async () => {
-		render(InlineHolidayImport, {
+		await render(InlineHolidayImport, {
 			semesterId: 's1' as never,
 			term: 'S2',
 			startDate: '2026-02-11'
@@ -77,7 +77,7 @@ describe('InlineHolidayImport — one-click holiday import', () => {
 	});
 
 	it('shows preview when preview button is clicked', async () => {
-		render(InlineHolidayImport, {
+		await render(InlineHolidayImport, {
 			semesterId: 's1' as never,
 			term: 'S1',
 			startDate: '2026-08-31'
@@ -90,10 +90,10 @@ describe('InlineHolidayImport — one-click holiday import', () => {
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByTestId('wizard.step-2-holiday.gov-preview-result'))
-			.toHaveTextContent(/2026-09-28/);
+			.toMatchTextContent(/2026-09-28/);
 		await expect
 			.element(page.getByTestId('wizard.step-2-holiday.gov-preview-result'))
-			.toHaveTextContent("Teacher's Day");
+			.toMatchTextContent("Teacher's Day");
 	});
 
 	it('shows loading spinner during preview', async () => {
@@ -103,7 +103,7 @@ describe('InlineHolidayImport — one-click holiday import', () => {
 		});
 		actionMock.mockImplementationOnce(() => previewPromise);
 
-		render(InlineHolidayImport, {
+		await render(InlineHolidayImport, {
 			semesterId: 's1' as never,
 			term: 'S1',
 			startDate: '2026-08-31'
@@ -113,7 +113,7 @@ describe('InlineHolidayImport — one-click holiday import', () => {
 
 		await expect
 			.element(page.getByTestId('wizard.step-2-holiday.gov-preview'))
-			.toHaveTextContent('Reading…');
+			.toMatchTextContent('Reading…');
 
 		resolvePreview!(PREVIEW_RESULT);
 		await vi.waitFor(() => {
@@ -122,7 +122,7 @@ describe('InlineHolidayImport — one-click holiday import', () => {
 	});
 
 	it('imports holidays after preview and shows report', async () => {
-		render(InlineHolidayImport, {
+		await render(InlineHolidayImport, {
 			semesterId: 's1' as never,
 			term: 'S1',
 			startDate: '2026-08-31'
@@ -136,7 +136,7 @@ describe('InlineHolidayImport — one-click holiday import', () => {
 		await expect.element(page.getByTestId('wizard.step-2-holiday.gov-report')).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId('wizard.step-2-holiday.gov-report'))
-			.toHaveTextContent('2 off days added');
+			.toMatchTextContent('2 off days added');
 	});
 
 	it('shows loading spinner during import', async () => {
@@ -156,7 +156,7 @@ describe('InlineHolidayImport — one-click holiday import', () => {
 			return importPromise;
 		});
 
-		render(InlineHolidayImport, {
+		await render(InlineHolidayImport, {
 			semesterId: 's1' as never,
 			term: 'S1',
 			startDate: '2026-08-31'
@@ -175,7 +175,7 @@ describe('InlineHolidayImport — one-click holiday import', () => {
 
 		await expect
 			.element(page.getByTestId('wizard.step-2-holiday.gov-import'))
-			.toHaveTextContent('Importing…');
+			.toMatchTextContent('Importing…');
 
 		resolveImport!(IMPORT_REPORT);
 		await vi.waitFor(() => {
@@ -184,7 +184,7 @@ describe('InlineHolidayImport — one-click holiday import', () => {
 	});
 
 	it('disables preview when no years are checked', async () => {
-		render(InlineHolidayImport, {
+		await render(InlineHolidayImport, {
 			semesterId: 's1' as never,
 			term: 'S1',
 			startDate: '2026-08-31'
@@ -200,7 +200,7 @@ describe('InlineHolidayImport — one-click holiday import', () => {
 	});
 
 	it('clears preview and report when year selection changes', async () => {
-		render(InlineHolidayImport, {
+		await render(InlineHolidayImport, {
 			semesterId: 's1' as never,
 			term: 'S1',
 			startDate: '2026-08-31'

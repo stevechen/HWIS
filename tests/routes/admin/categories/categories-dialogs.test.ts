@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 // Mock categories data
@@ -50,7 +50,7 @@ describe('Categories Page - Delete Dialogs', () => {
 
 	describe('Category Delete Dialog', () => {
 		it('opens delete confirmation dialog', async () => {
-			render(CategoriesPage);
+			await render(CategoriesPage);
 			await expect.element(page.getByText('Leadership')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Delete' }).nth(0).click();
 			await expect
@@ -59,7 +59,7 @@ describe('Categories Page - Delete Dialogs', () => {
 		});
 
 		it('shows warning when category has evaluations', async () => {
-			render(CategoriesPage);
+			await render(CategoriesPage);
 			await expect.element(page.getByText('Leadership')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Delete' }).nth(0).click();
 
@@ -69,14 +69,14 @@ describe('Categories Page - Delete Dialogs', () => {
 		});
 
 		it('has cancel button in delete dialog', async () => {
-			render(CategoriesPage);
+			await render(CategoriesPage);
 			await expect.element(page.getByText('Leadership')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Delete' }).nth(0).click();
 			await expect.element(page.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
 		});
 
 		it('has confirm delete button in dialog', async () => {
-			render(CategoriesPage);
+			await render(CategoriesPage);
 			await expect.element(page.getByText('Leadership')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Delete' }).nth(0).click();
 			// The confirm button should have "Delete" text (exact match to distinguish from the row button)
@@ -88,7 +88,7 @@ describe('Categories Page - Delete Dialogs', () => {
 
 	describe('Edit Dialog', () => {
 		it('opens edit category dialog', async () => {
-			render(CategoriesPage);
+			await render(CategoriesPage);
 			await expect.element(page.getByText('Leadership')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Edit' }).nth(0).click();
 			await expect
@@ -97,7 +97,7 @@ describe('Categories Page - Delete Dialogs', () => {
 		});
 
 		it('pre-fills form with category data', async () => {
-			render(CategoriesPage);
+			await render(CategoriesPage);
 			await expect.element(page.getByText('Leadership')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Edit' }).nth(0).click();
 
@@ -114,7 +114,7 @@ describe('Categories Page - Add Form', () => {
 	});
 
 	it('opens add category form', async () => {
-		render(CategoriesPage);
+		await render(CategoriesPage);
 		await page.getByRole('button', { name: 'Add new category' }).click();
 		await expect
 			.element(page.getByRole('heading', { name: 'Add New Category' }))
@@ -122,13 +122,13 @@ describe('Categories Page - Add Form', () => {
 	});
 
 	it('has category name input in add form', async () => {
-		render(CategoriesPage);
+		await render(CategoriesPage);
 		await page.getByRole('button', { name: 'Add new category' }).click();
 		await expect.element(page.getByRole('textbox', { name: 'Category Name' })).toBeInTheDocument();
 	});
 
 	it('has cancel button in add form', async () => {
-		render(CategoriesPage);
+		await render(CategoriesPage);
 		await page.getByRole('button', { name: 'Add new category' }).click();
 		await expect.element(page.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
 	});
@@ -142,7 +142,7 @@ describe('Categories Page - Rename Toast', () => {
 	});
 
 	it('shows toast notification when renaming category with evaluations', async () => {
-		render(CategoriesPage);
+		await render(CategoriesPage);
 		await expect.element(page.getByText('Leadership')).toBeInTheDocument();
 
 		// Open edit dialog
@@ -160,7 +160,7 @@ describe('Categories Page - Rename Toast', () => {
 	});
 
 	it('shows evaluation count in rename toast', async () => {
-		render(CategoriesPage);
+		await render(CategoriesPage);
 		await expect.element(page.getByText('Leadership')).toBeInTheDocument();
 
 		// Open edit dialog
@@ -182,7 +182,7 @@ describe('Categories Page - Rename Toast', () => {
 	it('does not show toast when category has no evaluations', async () => {
 		mockQuery.mockResolvedValue(0); // No evaluations
 
-		render(CategoriesPage);
+		await render(CategoriesPage);
 		await expect.element(page.getByText('Leadership')).toBeInTheDocument();
 
 		// Open edit dialog

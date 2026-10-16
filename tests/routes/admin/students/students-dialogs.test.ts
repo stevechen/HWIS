@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const mockStudent = {
@@ -74,14 +74,14 @@ describe('Students Page - Edit and Delete Dialogs', () => {
 
 	describe('Edit Dialog', () => {
 		it('opens edit student dialog', async () => {
-			render(StudentsPage);
+			await render(StudentsPage);
 			await expect.element(page.getByText('John Doe')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Edit S12345' }).click();
 			await expect.element(page.getByRole('heading', { name: 'Edit Student' })).toBeInTheDocument();
 		});
 
 		it('pre-fills form with student data', async () => {
-			render(StudentsPage);
+			await render(StudentsPage);
 			await expect.element(page.getByText('John Doe')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Edit S12345' }).click();
 			await expect
@@ -98,7 +98,7 @@ describe('Students Page - Edit and Delete Dialogs', () => {
 
 	describe('Delete Dialog', () => {
 		it('opens delete confirmation dialog', async () => {
-			render(StudentsPage);
+			await render(StudentsPage);
 			await expect.element(page.getByText('John Doe')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Delete S12345' }).click();
 			await expect
@@ -107,7 +107,7 @@ describe('Students Page - Edit and Delete Dialogs', () => {
 		});
 
 		it('shows delete button for student without evaluations', async () => {
-			render(StudentsPage);
+			await render(StudentsPage);
 			await expect.element(page.getByText('John Doe')).toBeInTheDocument();
 			await page.getByRole('button', { name: 'Delete S12345' }).click();
 			await expect

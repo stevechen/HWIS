@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { makeViewerSession } from '../../mocks/route-mocks';
 import { useViewer } from '$lib/viewer.svelte';
@@ -26,7 +26,7 @@ describe('esl dashboard page', () => {
 				{ status: 'active', isEslStaff: true, isEslAdmin: true }
 			)
 		);
-		render(EslPage);
+		await render(EslPage);
 
 		await expect.element(page.getByTestId('esl-dashboard.title')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl-dashboard.schedule')).toBeInTheDocument();
@@ -43,7 +43,7 @@ describe('esl dashboard page', () => {
 				{ status: 'active', isEslStaff: true, isEslAdmin: false }
 			)
 		);
-		render(EslPage);
+		await render(EslPage);
 
 		await expect.element(page.getByTestId('esl-dashboard.schedule')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl-dashboard.calendar')).toBeInTheDocument();

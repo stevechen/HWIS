@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const gotoMock = vi.fn();
@@ -81,7 +81,7 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			await expect.element(page.getByTestId('wizard-step4.start-school')).toBeInTheDocument();
 			await expect
 				.element(page.getByTestId('wizard-step4.start-school'))
-				.toHaveTextContent('Periods 1–2 have no class');
+				.toMatchTextContent('Periods 1–2 have no class');
 		});
 
 		it('shows Off days accordion with imported holidays (read-only)', async () => {
@@ -92,10 +92,10 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			await expect.element(page.getByTestId('wizard-step4.offdays-list')).toBeInTheDocument();
 			await expect
 				.element(page.getByTestId('wizard-step4.offdays-list'))
-				.toHaveTextContent('National Day');
+				.toMatchTextContent('National Day');
 			await expect
 				.element(page.getByTestId('wizard-step4.offdays-list'))
-				.toHaveTextContent('Christmas bridge');
+				.toMatchTextContent('Christmas bridge');
 		});
 
 		it('shows Anniversary & Makeup pair (S1 only — no Anniversary in S1 per F58)', async () => {
@@ -121,7 +121,7 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			await expect.element(page.getByTestId('wizard-step4.row-mock3')).not.toBeInTheDocument();
 			await expect
 				.element(page.getByTestId('wizard-step4.row-mock1'))
-				.toHaveTextContent('2 days in a row');
+				.toMatchTextContent('2 days in a row');
 		});
 
 		it('does not show Graduation in S1', async () => {
@@ -145,7 +145,7 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			await expect.element(page.getByTestId('wizard-step4.placing-banner')).toBeInTheDocument();
 			await expect
 				.element(page.getByTestId('wizard-step4.placing-banner'))
-				.toHaveTextContent('Placing Sports Day');
+				.toMatchTextContent('Placing Sports Day');
 		});
 
 		it('clicking a calendar date sets Sports Day and clears armed state', async () => {
@@ -157,7 +157,7 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			await expect.element(page.getByTestId('wizard-step4.placing-banner')).not.toBeInTheDocument();
 			await expect
 				.element(page.getByTestId('wizard-step4.row-sports'))
-				.toHaveTextContent('2026-10-05');
+				.toMatchTextContent('2026-10-05');
 		});
 
 		it('Anniversary and Makeup same-date gate — both directions', async () => {
@@ -196,13 +196,13 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			await page.getByTestId('wizard-step4-calendar.date-2027-03-01').click();
 			await expect
 				.element(page.getByTestId('wizard-step4.row-anniv'))
-				.toHaveTextContent('2027-03-01');
+				.toMatchTextContent('2027-03-01');
 
 			// Setting Anniversary auto-suggests the makeup as the next class
 			// day (F52 pairing), so the row holds 2027-03-02, not 'unset'.
 			await expect
 				.element(page.getByTestId('wizard-step4.row-makeup'))
-				.toHaveTextContent('2027-03-02');
+				.toMatchTextContent('2027-03-02');
 
 			// Try to set Makeup to same date — should be refused
 			await page.getByTestId('wizard-step4.makeup-arm').click();
@@ -212,10 +212,10 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			await page.getByTestId('wizard-step4-calendar.date-2027-03-01').click({ force: true });
 			await expect
 				.element(page.getByTestId('wizard-step4.row-makeup'))
-				.toHaveTextContent('2027-03-02');
+				.toMatchTextContent('2027-03-02');
 			await expect
 				.element(page.getByTestId('wizard-step4.row-makeup'))
-				.not.toHaveTextContent('2027-03-01');
+				.not.toMatchTextContent('2027-03-01');
 		});
 	});
 
@@ -231,7 +231,7 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			await expect.element(page.getByTestId('wizard-step4.row-q6')).toBeInTheDocument();
 			await expect
 				.element(page.getByTestId('wizard-step4.row-q1'))
-				.toHaveTextContent('(batch start)');
+				.toMatchTextContent('(batch start)');
 		});
 
 		it('shows Passport Dues ×3 in S1 (×2 in S2)', async () => {
@@ -265,8 +265,8 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			await expect.element(page.getByTestId('wizard-step4.row-wcheck')).toBeInTheDocument();
 			await expect
 				.element(page.getByTestId('wizard-step4.row-pcheck'))
-				.toHaveTextContent('Communication');
-			await expect.element(page.getByTestId('wizard-step4.row-wcheck')).toHaveTextContent('CLIL');
+				.toMatchTextContent('Communication');
+			await expect.element(page.getByTestId('wizard-step4.row-wcheck')).toMatchTextContent('CLIL');
 		});
 
 		it('batch-fill: pick Quiz 1 → auto-places 6 quizzes across 3 blocks', async () => {
@@ -284,12 +284,14 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			await page.getByTestId('wizard-step4-calendar.date-2026-10-05').click();
 
 			// All 6 quizzes should be placed
-			await expect.element(page.getByTestId('wizard-step4.row-q1')).toHaveTextContent('2026-10-05');
-			await expect.element(page.getByTestId('wizard-step4.row-q2')).not.toHaveTextContent('unset');
-			await expect.element(page.getByTestId('wizard-step4.row-q3')).not.toHaveTextContent('unset');
-			await expect.element(page.getByTestId('wizard-step4.row-q4')).not.toHaveTextContent('unset');
-			await expect.element(page.getByTestId('wizard-step4.row-q5')).not.toHaveTextContent('unset');
-			await expect.element(page.getByTestId('wizard-step4.row-q6')).not.toHaveTextContent('unset');
+			await expect
+				.element(page.getByTestId('wizard-step4.row-q1'))
+				.toMatchTextContent('2026-10-05');
+			await expect.element(page.getByTestId('wizard-step4.row-q2')).not.toMatchTextContent('unset');
+			await expect.element(page.getByTestId('wizard-step4.row-q3')).not.toMatchTextContent('unset');
+			await expect.element(page.getByTestId('wizard-step4.row-q4')).not.toMatchTextContent('unset');
+			await expect.element(page.getByTestId('wizard-step4.row-q5')).not.toMatchTextContent('unset');
+			await expect.element(page.getByTestId('wizard-step4.row-q6')).not.toMatchTextContent('unset');
 		});
 
 		it('batch-fill: pick Passport Due 1 → auto-places dues across exam periods', async () => {
@@ -309,9 +311,13 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			// All 3 dues should be placed
 			await expect
 				.element(page.getByTestId('wizard-step4.row-pd1'))
-				.toHaveTextContent('2026-10-05');
-			await expect.element(page.getByTestId('wizard-step4.row-pd2')).not.toHaveTextContent('unset');
-			await expect.element(page.getByTestId('wizard-step4.row-pd3')).not.toHaveTextContent('unset');
+				.toMatchTextContent('2026-10-05');
+			await expect
+				.element(page.getByTestId('wizard-step4.row-pd2'))
+				.not.toMatchTextContent('unset');
+			await expect
+				.element(page.getByTestId('wizard-step4.row-pd3'))
+				.not.toMatchTextContent('unset');
 		});
 
 		it('reminder ranges exclude exam days (5-day window skips exams)', async () => {
@@ -332,7 +338,7 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			// Exam 2 is Dec 7-8, so a range starting Jan 4 should be fine
 			await expect
 				.element(page.getByTestId('wizard-step4.row-pcheck'))
-				.not.toHaveTextContent('unset');
+				.not.toMatchTextContent('unset');
 		});
 
 		it('refuses check windows straddling an off day (save would fail)', async () => {
@@ -351,7 +357,7 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 				.element(page.getByTestId('wizard-step4-calendar.date-2026-12-21'))
 				.toBeDisabled();
 			await page.getByTestId('wizard-step4-calendar.date-2026-12-21').click({ force: true });
-			await expect.element(page.getByTestId('wizard-step4.row-pcheck')).toHaveTextContent('unset');
+			await expect.element(page.getByTestId('wizard-step4.row-pcheck')).toMatchTextContent('unset');
 		});
 
 		it('G9 Mocks are 2-day consecutive events with order gate', async () => {
@@ -367,10 +373,10 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			// Should set 2 consecutive class days
 			await expect
 				.element(page.getByTestId('wizard-step4.row-mock1'))
-				.toHaveTextContent('2026-10-05');
+				.toMatchTextContent('2026-10-05');
 			await expect
 				.element(page.getByTestId('wizard-step4.row-mock1'))
-				.toHaveTextContent('2026-10-06');
+				.toMatchTextContent('2026-10-06');
 
 			// Try to set Mock 2 before Mock 1 — should be refused
 			await page
@@ -392,7 +398,7 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			await page.getByTestId('wizard-step4-calendar.date-2026-10-05').click();
 			await expect
 				.element(page.getByTestId('wizard-step4.row-sports'))
-				.toHaveTextContent('2026-10-05');
+				.toMatchTextContent('2026-10-05');
 
 			// Re-arming the row highlights its set date on the calendar.
 			await page.getByTestId('wizard-step4.sports-arm').click();
@@ -409,8 +415,8 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 
 			const toast = page.getByTestId('wizard-step4.confirm-toast');
 			await expect.element(toast).toBeInTheDocument();
-			await expect.element(toast).toHaveTextContent('Sports Day set');
-			await expect.element(toast).toHaveTextContent('2026-10-05');
+			await expect.element(toast).toMatchTextContent('Sports Day set');
+			await expect.element(toast).toMatchTextContent('2026-10-05');
 		});
 
 		it('hovering a date shows preview for multi-day events', async () => {
@@ -599,7 +605,7 @@ describe('wizard step 4 — events tabs (School / ESL)', () => {
 			await expect.element(page.getByTestId('wizard-step4.summary')).toBeInTheDocument();
 			await expect
 				.element(page.getByTestId('wizard-step4.summary'))
-				.toHaveTextContent('First day of school');
+				.toMatchTextContent('First day of school');
 		});
 	});
 });

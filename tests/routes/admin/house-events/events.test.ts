@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, afterEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const mockEventsData = [
@@ -42,49 +42,49 @@ describe('House Events Page', () => {
 
 	describe('Structure', () => {
 		it('renders page title', async () => {
-			render(EventsPage);
+			await render(EventsPage);
 			await expect.element(page.getByRole('heading', { name: 'House Events' })).toBeInTheDocument();
 		});
 
 		it('renders "New Event" button', async () => {
-			render(EventsPage);
+			await render(EventsPage);
 			await expect.element(page.getByRole('button', { name: 'New Event' })).toBeInTheDocument();
 		});
 
 		it('renders "Display House Scores" button', async () => {
-			render(EventsPage);
+			await render(EventsPage);
 			await expect
 				.element(page.getByRole('button', { name: 'Display House Scores' }))
 				.toBeInTheDocument();
 		});
 
 		it('renders event cards with title', async () => {
-			render(EventsPage);
+			await render(EventsPage);
 			await expect.element(page.getByText('Sports Day')).toBeInTheDocument();
 		});
 
 		it('renders event cards with date range', async () => {
-			render(EventsPage);
+			await render(EventsPage);
 			await expect.element(page.getByText(/jan 2024/i)).toBeInTheDocument();
 		});
 
 		it('renders event cards with points', async () => {
-			render(EventsPage);
+			await render(EventsPage);
 			await expect.element(page.getByText('Heracles')).toBeInTheDocument();
 		});
 
 		it('renders Edit button on event card', async () => {
-			render(EventsPage);
+			await render(EventsPage);
 			await expect.element(page.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
 		});
 
 		it('renders Delete button on event card', async () => {
-			render(EventsPage);
+			await render(EventsPage);
 			await expect.element(page.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
 		});
 
 		it('renders create/edit dialog with form fields', async () => {
-			render(EventsPage);
+			await render(EventsPage);
 			const newEventBtn = page.getByRole('button', { name: 'New Event' });
 			await newEventBtn.click();
 			await expect.element(page.getByRole('dialog')).toBeInTheDocument();
@@ -94,7 +94,7 @@ describe('House Events Page', () => {
 		});
 
 		it('renders delete confirmation dialog', async () => {
-			render(EventsPage);
+			await render(EventsPage);
 			const deleteBtn = page.getByRole('button', { name: 'Delete' });
 			await deleteBtn.click();
 			await expect.element(page.getByRole('dialog')).toBeInTheDocument();
@@ -102,7 +102,7 @@ describe('House Events Page', () => {
 		});
 
 		it('renders empty date fields as muted placeholders, dark once a date is entered', async () => {
-			render(EventsPage);
+			await render(EventsPage);
 			await page.getByRole('button', { name: 'New Event' }).click();
 
 			const startDate = page.getByTestId('house-events.event-dialog.start-date');
@@ -122,10 +122,10 @@ describe('House Events Page', () => {
 				isLoading: false,
 				isStale: false,
 				error: undefined
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 			} as any);
 
-			render(EventsPage);
+			await render(EventsPage);
 			await expect.element(page.getByText('No Events Yet')).toBeInTheDocument();
 		});
 	});
@@ -138,10 +138,10 @@ describe('House Events Page', () => {
 				isLoading: false,
 				isStale: false,
 				error: new Error('Failed to load')
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 			} as any);
 
-			render(EventsPage);
+			await render(EventsPage);
 			await expect.element(page.getByText('Failed to load events')).toBeInTheDocument();
 		});
 	});

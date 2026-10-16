@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { getFunctionName } from 'convex/server';
 import { useQuery } from 'convex-svelte';
@@ -219,7 +219,7 @@ describe('ESL teacher schedule list page', () => {
 	});
 
 	it('renders the canonical # | Date | Description | Note columns with no Day column', async () => {
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		await expect
 			.element(page.getByRole('heading', { name: 'My Semester Schedule' }))
@@ -234,7 +234,7 @@ describe('ESL teacher schedule list page', () => {
 	});
 
 	it('shows a remaining-count countdown per exam block on teaching rows', async () => {
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		await expect.element(page.getByText('2', { exact: true })).toBeInTheDocument();
 		await expect.element(page.getByText('1', { exact: true })).toBeInTheDocument();
@@ -243,7 +243,7 @@ describe('ESL teacher schedule list page', () => {
 	});
 
 	it('collapses dues onto the latest eligible day with a window badge, exactly once', async () => {
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		await expect.element(page.getByText('Workbook check')).toBeInTheDocument();
 		await expect.element(page.getByText('due window 2025-09-01–2025-09-03')).toBeInTheDocument();
@@ -255,45 +255,45 @@ describe('ESL teacher schedule list page', () => {
 	});
 
 	it('greys the off day with its cause and a celebrating mark', async () => {
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		const rows = page.getByTestId('esl-schedule.row').all();
 		const off = rows.find((row) => row.element().textContent?.includes('Moon Festival'));
 		expect(off).toBeDefined();
-		await expect.element(off!).toHaveTextContent(/Moon Festival/);
-		await expect.element(off!).toHaveTextContent(/🎉/);
+		await expect.element(off!).toMatchTextContent(/Moon Festival/);
+		await expect.element(off!).toMatchTextContent(/🎉/);
 		await expect.element(off!).toHaveClass(/text-gray-400/);
 	});
 
 	// TODO(#212): un-skip when per-type behavior lands — stale: Sport's Day row
 	// belongs to class_comm but the page defaults to the first class (class_clil).
 	it.skip('greys the no-class day with its cause while keeping the meeting row and period', async () => {
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		const rows = page.getByTestId('esl-schedule.row').all();
 		const noClass = rows.find((row) => row.element().textContent?.includes("Sport's Day"));
 		expect(noClass).toBeDefined();
-		await expect.element(noClass!).toHaveTextContent(/Sport's Day/);
-		await expect.element(noClass!).toHaveTextContent(/P5/);
+		await expect.element(noClass!).toMatchTextContent(/Sport's Day/);
+		await expect.element(noClass!).toMatchTextContent(/P5/);
 		await expect.element(noClass!).toHaveClass(/text-gray-400/);
 	});
 
 	it('renders the exam row red as a plain exam row with a blank countdown', async () => {
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		const rows = page.getByTestId('esl-schedule.row').all();
 		const exam = rows.find((row) => row.element().textContent?.includes('2025-09-12'));
 		expect(exam).toBeDefined();
-		await expect.element(exam!).toHaveTextContent(/Midterm exam/);
+		await expect.element(exam!).toMatchTextContent(/Midterm exam/);
 		await expect.element(exam!).toHaveClass(/text-red-500/);
 		const examCells = exam!.getByTestId('esl-schedule.countdown-cell');
-		await expect.element(examCells).toHaveTextContent(/^$/);
+		await expect.element(examCells).toMatchTextContent(/^$/);
 	});
 
 	// TODO(#212): un-skip when per-type behavior lands — stale: partial rows of the
 	// non-selected class never render under the default class filter.
 	it.skip('shows all partial meetings with the out-of-window badge on the early one', async () => {
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		await expect.element(page.getByText('out-of-window P1 (window from P2)')).toBeInTheDocument();
 		await expect.element(page.getByText('G7 Basic 1 CLIL P2 · Late start')).toBeInTheDocument();
@@ -303,26 +303,26 @@ describe('ESL teacher schedule list page', () => {
 	// TODO(#212): un-skip when per-type behavior lands — stale: oral row belongs to
 	// the non-selected class under the default class filter.
 	it.skip('marks the oral-exam meeting with its badge', async () => {
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		await expect.element(page.getByText('oral ahead of Midterm exam')).toBeInTheDocument();
 	});
 
 	it('shows the admin event note inline in the note column', async () => {
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		await expect.element(page.getByText('BBQ logistics')).toBeInTheDocument();
 	});
 
 	it('never surfaces an editable teacher-note field', async () => {
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		await expect.element(page.getByTestId('esl-schedule.row').first()).toBeInTheDocument();
 		await expect.element(page.getByRole('textbox')).not.toBeInTheDocument();
 	});
 
 	it('keeps CSV download and copy affordances with the TSV payload', async () => {
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		await expect
 			.element(page.getByRole('button', { name: /download schedule as csv/i }))
@@ -337,7 +337,7 @@ describe('ESL teacher schedule list page', () => {
 	// TODO(#212): un-skip when per-type behavior lands — stale: esl-schedule.target
 	// selector does not exist in the current page (no target dropdown rendered).
 	it.skip('filters rows by class-type target without refetching', async () => {
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		await expect.element(page.getByText('G7 Basic 1 CLIL P1')).toBeInTheDocument();
 		await selectOption(page.getByTestId('esl-schedule.target'), 'Comm');
@@ -352,14 +352,14 @@ describe('ESL teacher schedule list page', () => {
 				{ _id: 'sem_s1', year: '2025-2026', term: 'S1', startDate: '2025-09-01', derivedEnd: null }
 			]
 		});
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		await expect.element(page.getByText(/final exams TBD/i)).toBeInTheDocument();
 	});
 
 	it('prompts for a semester when none exist yet', async () => {
 		withSchedule({ semesters: [] });
-		render(SchedulePage);
+		await render(SchedulePage);
 
 		await expect.element(page.getByTestId('esl-schedule.empty')).toBeInTheDocument();
 	});

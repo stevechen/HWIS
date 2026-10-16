@@ -14,7 +14,7 @@
  * The counts are asserted exactly, so a change that quietly drops or duplicates a
  * student fails here rather than in September.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import XLSX from 'xlsx';
 // Relative rather than through the `$src` alias: this runs in the unit config,
 // which resolves paths from the file rather than from SvelteKit's aliases.

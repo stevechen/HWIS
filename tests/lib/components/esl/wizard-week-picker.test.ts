@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import WeekPicker from '$lib/components/esl/wizard/WeekPicker.svelte';
 
@@ -13,7 +13,7 @@ const S2_MONDAYS = ['2026-02-09', '2026-02-16', '2026-02-23'];
 
 describe('WeekPicker (step 1 usage)', () => {
 	it('renders one row per Monday with Mon–Fri cells only', async () => {
-		render(WeekPicker, { mondays: S2_MONDAYS, selectedDate: null, onPick: () => {} });
+		await render(WeekPicker, { mondays: S2_MONDAYS, selectedDate: null, onPick: () => {} });
 
 		await expect.element(page.getByTestId('week-picker.row-1')).toBeInTheDocument();
 		await expect.element(page.getByTestId('week-picker.row-2')).toBeInTheDocument();
@@ -33,7 +33,7 @@ describe('WeekPicker (step 1 usage)', () => {
 		const onPick = (date: string) => {
 			picked = date;
 		};
-		render(WeekPicker, { mondays: S1_MONDAYS, selectedDate: null, onPick });
+		await render(WeekPicker, { mondays: S1_MONDAYS, selectedDate: null, onPick });
 
 		// A Thursday in row 2 (Sep 10) snaps back to that row's Monday (Sep 7).
 		await page.getByTestId('week-picker.date-2026-09-10').click();
@@ -45,14 +45,16 @@ describe('WeekPicker (step 1 usage)', () => {
 	});
 
 	it('pre-highlights the row and Monday cell of the selected start date', async () => {
-		render(WeekPicker, {
+		await render(WeekPicker, {
 			mondays: S1_MONDAYS,
 			selectedDate: '2026-08-31',
 			onPick: () => {}
 		});
 
-		await expect.element(page.getByTestId('week-picker.row-1.label')).toHaveTextContent('Week 1 ✓');
-		await expect.element(page.getByTestId('week-picker.row-2.label')).toHaveTextContent('Week 2');
+		await expect
+			.element(page.getByTestId('week-picker.row-1.label'))
+			.toMatchTextContent('Week 1 ✓');
+		await expect.element(page.getByTestId('week-picker.row-2.label')).toMatchTextContent('Week 2');
 		await expect
 			.element(page.getByTestId('week-picker.date-2026-08-31'))
 			.toHaveAttribute('aria-pressed', 'true');
@@ -66,7 +68,7 @@ describe('WeekPicker (step 1 usage)', () => {
 		const onPick = (date: string) => {
 			picked = date;
 		};
-		render(WeekPicker, {
+		await render(WeekPicker, {
 			mondays: S1_MONDAYS,
 			selectedDate: '2026-08-31',
 			onPick
@@ -78,7 +80,7 @@ describe('WeekPicker (step 1 usage)', () => {
 	});
 
 	it('honours a custom testId prefix', async () => {
-		render(WeekPicker, {
+		await render(WeekPicker, {
 			mondays: S1_MONDAYS,
 			selectedDate: null,
 			onPick: () => {},

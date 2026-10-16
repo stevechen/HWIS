@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 vi.mock('convex-svelte', () => ({
@@ -54,7 +54,7 @@ describe('Classes Page', () => {
 
 	describe('Structure', () => {
 		it('renders grade filter checkboxes', async () => {
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			for (const grade of [7, 8, 9, 10, 11, 12]) {
 				await expect
@@ -64,7 +64,7 @@ describe('Classes Page', () => {
 		});
 
 		it('renders add class buttons for each grade', async () => {
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			// Check that add class buttons exist
 			const addButtons = page.getByRole('button', { name: /add class/i });
@@ -72,7 +72,7 @@ describe('Classes Page', () => {
 		});
 
 		it('renders IB toggle buttons for grade 11', async () => {
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			// Make grade 11 visible by clicking checkbox
 			await page.getByRole('checkbox', { name: '11' }).click();
@@ -82,7 +82,7 @@ describe('Classes Page', () => {
 		});
 
 		it('only grade 7 is visible by default', async () => {
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			// Grade 7 checkbox should be checked by default
 			await expect.element(page.getByRole('checkbox', { name: '7' })).toBeChecked();
@@ -102,7 +102,7 @@ describe('Classes Page', () => {
 		});
 
 		it('can show and hide grades using checkboxes', async () => {
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			const grade7Checkbox = page.getByRole('checkbox', { name: '7' });
 
@@ -132,7 +132,7 @@ describe('Classes Page', () => {
 				error: new Error('Failed to load')
 			} as unknown as ReturnType<typeof useQuery>);
 
-			render(ClassesPage);
+			await render(ClassesPage);
 			await expect.element(page.getByText('Error loading classes')).toBeInTheDocument();
 		});
 	});
@@ -144,10 +144,10 @@ describe('Classes Page', () => {
 				data: mockClassWithStudents,
 				isLoading: false,
 				error: null
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 			} as any);
 
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			const student = page.getByText('Alice');
 			await expect.element(student).toBeInTheDocument();
@@ -170,7 +170,7 @@ describe('Classes Page', () => {
 				error: null
 			} as unknown as ReturnType<typeof useQuery>);
 
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			const name = page.getByText('Alice');
 			await expect.element(name).toBeInTheDocument();
@@ -185,10 +185,10 @@ describe('Classes Page', () => {
 				data: mockClassWithStudents,
 				isLoading: false,
 				error: null
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 			} as any);
 
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			// Clicking a student outside select mode should not open a dialog
 			await page.getByRole('button', { name: /Move Alice/ }).click();
@@ -201,7 +201,7 @@ describe('Classes Page', () => {
 
 	describe('Multi-Select', () => {
 		it('renders Select button in grade 7 header', async () => {
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await expect
 				.element(page.getByRole('button', { name: 'Select grade 7' }))
@@ -209,7 +209,7 @@ describe('Classes Page', () => {
 		});
 
 		it('enters selection mode when grade Select is clicked', async () => {
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await page.getByRole('button', { name: 'Select grade 7' }).click();
 			await expect
@@ -218,7 +218,7 @@ describe('Classes Page', () => {
 		});
 
 		it('exits selection mode when Done is clicked', async () => {
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await page.getByRole('button', { name: 'Select grade 7' }).click();
 			await page.getByRole('button', { name: 'Done selecting in grade 7' }).click();
@@ -233,10 +233,10 @@ describe('Classes Page', () => {
 				data: mockClassWithStudents,
 				isLoading: false,
 				error: null
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 			} as any);
 
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await page.getByRole('button', { name: 'Select grade 7' }).click();
 
@@ -258,10 +258,10 @@ describe('Classes Page', () => {
 				data: mockClassWithStudents,
 				isLoading: false,
 				error: null
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 			} as any);
 
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await page.getByRole('button', { name: 'Select grade 7' }).click();
 			await page.getByRole('button', { name: /Select Alice/ }).click();

@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const gotoMock = vi.fn();
@@ -30,9 +30,9 @@ describe('wizard shell', () => {
 		await render(WizardShellHarness);
 
 		await expect.element(page.getByTestId('wizard.root')).toBeInTheDocument();
-		await expect.element(page.getByTestId('wizard.title')).toHaveTextContent('Semester setup');
+		await expect.element(page.getByTestId('wizard.title')).toMatchTextContent('Semester setup');
 		await expect.element(page.getByTestId('wizard.steps')).toBeInTheDocument();
-		await expect.element(page.getByTestId('wizard.progress')).toHaveTextContent('Step 1 of 5');
+		await expect.element(page.getByTestId('wizard.progress')).toMatchTextContent('Step 1 of 5');
 		await expect.element(page.getByTestId('wizard.step-1')).toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: 'Back' })).toBeDisabled();
 		await expect.element(page.getByRole('button', { name: 'Next' })).toBeEnabled();
@@ -72,7 +72,7 @@ describe('wizard shell', () => {
 		// A locked tab stays put even when clicked.
 		await page.getByTestId('wizard.step-4-tab').click({ force: true });
 
-		await expect.element(page.getByTestId('harness.step')).toHaveTextContent('1');
+		await expect.element(page.getByTestId('harness.step')).toMatchTextContent('1');
 	});
 
 	it('persists every step change to sessionStorage', async () => {
@@ -104,15 +104,15 @@ describe('wizard shell', () => {
 
 		await page.getByTestId('harness.set-start').click();
 
-		await expect.element(page.getByTestId('harness.start-date')).toHaveTextContent('2026-09-07');
+		await expect.element(page.getByTestId('harness.start-date')).toMatchTextContent('2026-09-07');
 
 		await page.getByRole('button', { name: 'Next' }).click();
-		await expect.element(page.getByTestId('harness.step')).toHaveTextContent('2');
+		await expect.element(page.getByTestId('harness.step')).toMatchTextContent('2');
 
 		await page.getByRole('button', { name: 'Back' }).click();
 
-		await expect.element(page.getByTestId('harness.step')).toHaveTextContent('1');
-		await expect.element(page.getByTestId('harness.start-date')).toHaveTextContent('2026-09-07');
+		await expect.element(page.getByTestId('harness.step')).toMatchTextContent('1');
+		await expect.element(page.getByTestId('harness.start-date')).toMatchTextContent('2026-09-07');
 	});
 
 	it('writes an update straight through to sessionStorage without moving steps', async () => {
@@ -123,7 +123,7 @@ describe('wizard shell', () => {
 		await vi.waitFor(() => {
 			expect(stored()).toContain('2026-09-07');
 		});
-		await expect.element(page.getByTestId('harness.step')).toHaveTextContent('1');
+		await expect.element(page.getByTestId('harness.step')).toMatchTextContent('1');
 	});
 
 	it('blocks Next while the current step is incomplete and lets a reached step stay clickable', async () => {
@@ -132,13 +132,13 @@ describe('wizard shell', () => {
 		await page.getByTestId('harness.clear-end').click();
 		await page.getByRole('button', { name: 'Next' }).click();
 
-		await expect.element(page.getByTestId('harness.step')).toHaveTextContent('2');
+		await expect.element(page.getByTestId('harness.step')).toMatchTextContent('2');
 		await expect.element(page.getByRole('button', { name: 'Next' })).toBeDisabled();
 
 		// Step 1 still counts as complete, so its tab stays reachable.
 		await page.getByTestId('wizard.step-1-tab').click();
 
-		await expect.element(page.getByTestId('harness.step')).toHaveTextContent('1');
+		await expect.element(page.getByTestId('harness.step')).toMatchTextContent('1');
 	});
 
 	it('resumes the stored step on a fresh mount and says so', async () => {
@@ -156,8 +156,8 @@ describe('wizard shell', () => {
 		// A refresh is a fresh mount reading the same sessionStorage.
 		await render(WizardShellHarness);
 
-		await expect.element(page.getByTestId('harness.step')).toHaveTextContent('2');
-		await expect.element(page.getByTestId('harness.start-date')).toHaveTextContent('2026-09-07');
+		await expect.element(page.getByTestId('harness.step')).toMatchTextContent('2');
+		await expect.element(page.getByTestId('harness.start-date')).toMatchTextContent('2026-09-07');
 		await expect.element(page.getByTestId('wizard.resumed')).toBeInTheDocument();
 	});
 

@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, beforeEach, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { setupConvexMocks, setupAuthMocks, resetMockOptions } from '../mocks/convex-mocks';
 
@@ -48,12 +48,12 @@ describe('access modal', () => {
 	});
 
 	it('modal appears for pending users', async () => {
-		render(Layout);
+		await render(Layout);
 		await expect.element(page.getByText('Access Restricted')).toBeVisible();
 	});
 
 	it('modal has correct message', async () => {
-		render(Layout);
+		await render(Layout);
 		await expect
 			.element(page.getByRole('heading', { name: 'Access Restricted' }))
 			.toBeInTheDocument();
@@ -63,7 +63,7 @@ describe('access modal', () => {
 	});
 
 	it('modal sign in again button is visible', async () => {
-		render(Layout);
+		await render(Layout);
 		await expect.element(page.getByRole('button', { name: 'Sign In Again' })).toBeVisible();
 	});
 });

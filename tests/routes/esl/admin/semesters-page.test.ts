@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { useQuery } from 'convex-svelte';
 
@@ -86,9 +86,9 @@ describe('ESL admin semesters page', () => {
 		await expect.element(chips.nth(1)).toBeInTheDocument();
 		await expect.element(chips.nth(2)).toBeInTheDocument();
 		// Check text content via toHaveTextContent
-		await expect.element(chips.first()).toHaveTextContent('Current');
-		await expect.element(chips.nth(1)).toHaveTextContent('Upcoming');
-		await expect.element(chips.nth(2)).toHaveTextContent('Current');
+		await expect.element(chips.first()).toMatchTextContent('Current');
+		await expect.element(chips.nth(1)).toMatchTextContent('Upcoming');
+		await expect.element(chips.nth(2)).toMatchTextContent('Current');
 	});
 
 	it('shows the derived end, or finals TBD while exam-less', async () => {

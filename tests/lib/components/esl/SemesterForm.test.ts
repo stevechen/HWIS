@@ -1,11 +1,11 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import SemesterForm from '$lib/components/esl/SemesterForm.svelte';
 
 describe('SemesterForm', () => {
 	it('renders year, term, and start-date fields with a create button', async () => {
-		render(SemesterForm, { busy: false, error: null, onsubmit: vi.fn() });
+		await render(SemesterForm, { busy: false, error: null, onsubmit: vi.fn() });
 		await expect.element(page.getByRole('textbox', { name: 'School year' })).toBeInTheDocument();
 		await expect.element(page.getByRole('combobox', { name: 'Term' })).toBeInTheDocument();
 		await expect.element(page.getByRole('textbox', { name: 'Start date' })).toBeInTheDocument();
@@ -14,7 +14,7 @@ describe('SemesterForm', () => {
 
 	it('submits the entered year, term, and start date', async () => {
 		const onsubmit = vi.fn();
-		render(SemesterForm, { busy: false, error: null, onsubmit });
+		await render(SemesterForm, { busy: false, error: null, onsubmit });
 		await page.getByRole('textbox', { name: 'School year' }).fill('2025-2026');
 		await page.getByRole('combobox', { name: 'Term' }).selectOptions('S2');
 		await page.getByRole('textbox', { name: 'Start date' }).fill('2026-02-09');
@@ -28,7 +28,7 @@ describe('SemesterForm', () => {
 	});
 
 	it('shows the refusal message when the term already exists', async () => {
-		render(SemesterForm, {
+		await render(SemesterForm, {
 			busy: false,
 			error: '2025-2026 S1 already exists.',
 			onsubmit: vi.fn()
@@ -37,7 +37,7 @@ describe('SemesterForm', () => {
 	});
 
 	it('disables the button while the save is in flight', async () => {
-		render(SemesterForm, { busy: true, error: null, onsubmit: vi.fn() });
+		await render(SemesterForm, { busy: true, error: null, onsubmit: vi.fn() });
 		await expect.element(page.getByRole('button', { name: 'Create semester' })).toBeDisabled();
 	});
 });

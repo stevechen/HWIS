@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vite-plus/test';
 import { splitSheet, readRosterWorkbook } from '$src/routes/esl/admin/classes/workbook';
 import { isGrade10Group, parseRosterGroup, parseRosterWorkbook } from '$convex/shared/esl_import';
 import { ESL_LEVELS } from '$convex/shared/esl';

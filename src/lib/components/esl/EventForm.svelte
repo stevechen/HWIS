@@ -513,8 +513,7 @@
 				required={noteRequired}
 				rows="2"
 				placeholder="BBQ from 12:00 — collect permission slips"
-				class="rounded border px-2 py-1 text-sm"
-			></textarea>
+				class="rounded border px-2 py-1 text-sm"></textarea>
 		</div>
 	{/if}
 

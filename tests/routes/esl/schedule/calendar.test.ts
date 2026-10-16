@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import type { ScheduleDayRow } from '$convex/shared/esl';
 import TeacherCalendar from '$src/routes/esl/schedule/calendar/TeacherCalendar.svelte';
@@ -211,7 +211,7 @@ describe('teacher calendar', () => {
 			semesterStart: '2025-08-31',
 			today: TODAY
 		});
-		render(TeacherCalendar, {
+		await render(TeacherCalendar, {
 			props: {
 				classes: CLASSES,
 				selectedClassId: 'class_clil',

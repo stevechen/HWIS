@@ -1,4 +1,4 @@
-import { vi, beforeEach, afterEach } from 'vitest';
+import { vi, beforeEach, afterEach } from 'vite-plus/test';
 
 if (typeof globalThis.global === 'undefined') {
 	(globalThis as typeof globalThis).global = globalThis;

@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const mockMutation = vi.fn().mockResolvedValue({});
@@ -43,31 +43,31 @@ describe('Admin Leaderboards Page', () => {
 	});
 
 	it('renders page title as heading', async () => {
-		render(LeaderboardsPage);
+		await render(LeaderboardsPage);
 		await expect
 			.element(page.getByRole('heading', { name: 'Leaderboard Management' }))
 			.toBeInTheDocument();
 	});
 
 	it('shows back to admin link', async () => {
-		render(LeaderboardsPage);
+		await render(LeaderboardsPage);
 		await expect.element(page.getByRole('link', { name: 'Back to Admin' })).toBeInTheDocument();
 	});
 
 	it('renders both board cards with merged toggle pills', async () => {
-		render(LeaderboardsPage);
+		await render(LeaderboardsPage);
 		await expect.element(page.getByTestId('admin-leaderboards.card-houses')).toBeInTheDocument();
 		await expect.element(page.getByTestId('admin-leaderboards.card-classes')).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId('admin-leaderboards.toggle-houses'))
-			.toHaveTextContent('Enabled');
+			.toMatchTextContent('Enabled');
 		await expect
 			.element(page.getByTestId('admin-leaderboards.toggle-classes'))
-			.toHaveTextContent('Disabled');
+			.toMatchTextContent('Disabled');
 	});
 
 	it('renders theme tiles for every theme of both boards', async () => {
-		render(LeaderboardsPage);
+		await render(LeaderboardsPage);
 		for (const board of ['houses', 'classes']) {
 			for (const theme of [
 				'default',
@@ -85,13 +85,13 @@ describe('Admin Leaderboards Page', () => {
 	});
 
 	it('renders open buttons', async () => {
-		render(LeaderboardsPage);
+		await render(LeaderboardsPage);
 		await expect.element(page.getByTestId('admin-leaderboards.open-houses')).toBeInTheDocument();
 		await expect.element(page.getByTestId('admin-leaderboards.open-classes')).toBeInTheDocument();
 	});
 
 	it('auto-captures a screenshot for every theme of both boards', async () => {
-		render(LeaderboardsPage);
+		await render(LeaderboardsPage);
 		for (const theme of THEME_IDS) {
 			await expect
 				.element(page.getByRole('img', { name: `${themeLabel(theme)} theme preview` }).first())
@@ -108,7 +108,7 @@ describe('Admin Leaderboards Page', () => {
 	});
 
 	it('persists each captured screenshot to the config', async () => {
-		render(LeaderboardsPage);
+		await render(LeaderboardsPage);
 		await expect
 			.element(page.getByRole('img', { name: 'Chinese New Year theme preview' }).first())
 			.toBeInTheDocument();
@@ -136,7 +136,7 @@ describe('Admin Leaderboards Page', () => {
 			isLoading: false,
 			error: null
 		} as never);
-		render(LeaderboardsPage);
+		await render(LeaderboardsPage);
 		await expect
 			.element(page.getByRole('img', { name: 'Christmas theme preview' }))
 			.toBeInTheDocument();
@@ -146,7 +146,7 @@ describe('Admin Leaderboards Page', () => {
 	it('opens the TV display URL in a new window', async () => {
 		const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 		try {
-			render(LeaderboardsPage);
+			await render(LeaderboardsPage);
 			await page.getByTestId('admin-leaderboards.open-classes').click();
 			expect(openSpy).toHaveBeenCalledWith(
 				'/leaderboard/classes?display=1',
@@ -160,7 +160,7 @@ describe('Admin Leaderboards Page', () => {
 
 	it('shows a fallback tile with retry when a capture fails', async () => {
 		vi.mocked(captureBoardThumbnail).mockRejectedValueOnce(new Error('boom'));
-		render(LeaderboardsPage);
+		await render(LeaderboardsPage);
 		await expect
 			.element(page.getByText('Preview unavailable', { exact: true }).first())
 			.toBeInTheDocument();

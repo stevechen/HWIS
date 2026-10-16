@@ -20,7 +20,8 @@
 	import SemesterHeader from '$lib/components/esl/SemesterHeader.svelte';
 	import HolidayOffDayImport from '$lib/components/esl/HolidayOffDayImport.svelte';
 	import EventForm, { type EventFormInput } from '$lib/components/esl/EventForm.svelte';
-	import ChecklistPanel, { type ChecklistGroup } from '$lib/components/esl/ChecklistPanel.svelte';
+	import ChecklistPanel from '$lib/components/esl/ChecklistPanel.svelte';
+	import type { ChecklistGroup } from '$lib/components/esl/ChecklistPanel.types';
 	import CalendarPreview from '$lib/components/esl/wizard/CalendarPreview.svelte';
 
 	const client = useConvexClient();

@@ -1,11 +1,11 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import MoveDialog from '$lib/components/MoveDialog.svelte';
 
 describe('MoveDialog', () => {
 	it('does not render when open is false', async () => {
-		render(MoveDialog, {
+		await render(MoveDialog, {
 			open: false,
 			onClose: vi.fn(),
 			title: 'Move Student',
@@ -15,7 +15,7 @@ describe('MoveDialog', () => {
 	});
 
 	it('renders when open is true', async () => {
-		render(MoveDialog, {
+		await render(MoveDialog, {
 			open: true,
 			onClose: vi.fn(),
 			title: 'Move Student',
@@ -25,7 +25,7 @@ describe('MoveDialog', () => {
 	});
 
 	it('renders the title', async () => {
-		render(MoveDialog, {
+		await render(MoveDialog, {
 			open: true,
 			onClose: vi.fn(),
 			title: 'Move Student',
@@ -35,7 +35,7 @@ describe('MoveDialog', () => {
 	});
 
 	it('renders the title with an explicit readable color class', async () => {
-		render(MoveDialog, {
+		await render(MoveDialog, {
 			open: true,
 			onClose: vi.fn(),
 			title: 'Move Student',
@@ -47,7 +47,7 @@ describe('MoveDialog', () => {
 	});
 
 	it('renders the subtitle when provided', async () => {
-		render(MoveDialog, {
+		await render(MoveDialog, {
 			open: true,
 			onClose: vi.fn(),
 			title: 'Move Student',
@@ -58,7 +58,7 @@ describe('MoveDialog', () => {
 	});
 
 	it('does not render subtitle when not provided', async () => {
-		render(MoveDialog, {
+		await render(MoveDialog, {
 			open: true,
 			onClose: vi.fn(),
 			title: 'Move Student',
@@ -68,7 +68,7 @@ describe('MoveDialog', () => {
 	});
 
 	it('renders target buttons', async () => {
-		render(MoveDialog, {
+		await render(MoveDialog, {
 			open: true,
 			onClose: vi.fn(),
 			title: 'Move Student',
@@ -83,7 +83,7 @@ describe('MoveDialog', () => {
 
 	it('fires target action when target button is clicked', async () => {
 		const action = vi.fn();
-		render(MoveDialog, {
+		await render(MoveDialog, {
 			open: true,
 			onClose: vi.fn(),
 			title: 'Move Student',
@@ -94,7 +94,7 @@ describe('MoveDialog', () => {
 	});
 
 	it('renders cancel button', async () => {
-		render(MoveDialog, {
+		await render(MoveDialog, {
 			open: true,
 			onClose: vi.fn(),
 			title: 'Move Student',
@@ -105,7 +105,7 @@ describe('MoveDialog', () => {
 
 	it('fires onClose when cancel button is clicked', async () => {
 		const onClose = vi.fn();
-		render(MoveDialog, {
+		await render(MoveDialog, {
 			open: true,
 			onClose,
 			title: 'Move Student',

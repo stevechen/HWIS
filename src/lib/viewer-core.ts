@@ -123,4 +123,4 @@ export function settleViewer(auth: AuthInput, profile: ProfileInput): ViewerSess
 	};
 }
 
-export type { AuthInput, ProfileInput };
+// AuthInput and ProfileInput types are already declared with 'export type' above.

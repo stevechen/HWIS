@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { sanitizeFilename } from '$lib/utils/backup';
 
@@ -57,7 +57,7 @@ describe('Backup Admin Page', () => {
 	});
 
 	it('renders core backup sections and action buttons', async () => {
-		render(BackupPage);
+		await render(BackupPage);
 
 		await expect.element(page.getByText('Backup History')).toBeInTheDocument();
 		await expect.element(page.getByText('Restore from File')).toBeInTheDocument();
@@ -73,7 +73,7 @@ describe('Backup Admin Page', () => {
 
 	it('shows empty state when no backups exist', async () => {
 		mockBackups = [];
-		render(BackupPage);
+		await render(BackupPage);
 		await expect.element(page.getByText('No backups found.')).toBeInTheDocument();
 	});
 
@@ -100,7 +100,7 @@ describe('Backup Admin Page', () => {
 			}
 		];
 
-		render(BackupPage);
+		await render(BackupPage);
 
 		await expect.element(page.getByText('My Fall Backup')).toBeInTheDocument();
 		await expect.element(page.getByText('You', { exact: true })).toBeInTheDocument();
@@ -140,7 +140,7 @@ describe('Backup Admin Page', () => {
 			}
 		];
 
-		render(BackupPage);
+		await render(BackupPage);
 
 		await expect.element(page.getByText('Bob Backup')).toBeInTheDocument();
 		await expect.element(page.getByText('Admin: Bob', { exact: true })).toBeInTheDocument();
@@ -166,7 +166,7 @@ describe('Backup Admin Page', () => {
 			}
 		];
 
-		render(BackupPage);
+		await render(BackupPage);
 
 		await expect.element(page.getByText('Bob Backup')).toBeInTheDocument();
 		await expect.element(page.getByText('Admin: Bob', { exact: true })).toBeInTheDocument();
@@ -204,7 +204,7 @@ describe('Backup Admin Page', () => {
 			}
 		];
 
-		render(BackupPage);
+		await render(BackupPage);
 
 		// Super can rename/delete system backups and other admins' backups
 		await expect.element(page.getByText('System: Safety')).toBeInTheDocument();
@@ -235,7 +235,7 @@ describe('Backup Admin Page', () => {
 			}
 		];
 
-		render(BackupPage);
+		await render(BackupPage);
 
 		await expect.element(page.getByText('My Backup')).toBeInTheDocument();
 		await expect.element(page.getByText('You', { exact: true })).toBeInTheDocument();
@@ -267,7 +267,7 @@ describe('Backup Admin Page', () => {
 			return el;
 		});
 
-		render(BackupPage);
+		await render(BackupPage);
 
 		await page.getByRole('button', { name: /download/i }).click();
 
@@ -287,7 +287,7 @@ describe('Backup Admin Page', () => {
 				data: { students: [] }
 			}
 		];
-		render(BackupPage);
+		await render(BackupPage);
 
 		await expect.element(page.getByRole('tab', { name: 'Snapshots' })).toBeInTheDocument();
 		await expect.element(page.getByRole('tab', { name: 'Daily' })).toBeInTheDocument();
@@ -304,7 +304,7 @@ describe('Backup Admin Page', () => {
 				data: { students: [] }
 			}
 		];
-		render(BackupPage);
+		await render(BackupPage);
 
 		await page.getByRole('tab', { name: 'Daily' }).click();
 
@@ -342,7 +342,7 @@ describe('Backup Admin Page', () => {
 				data: { students: [] }
 			}
 		];
-		render(BackupPage);
+		await render(BackupPage);
 
 		await page.getByRole('tab', { name: 'Daily' }).click();
 

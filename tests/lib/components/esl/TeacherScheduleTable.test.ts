@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import TeacherScheduleTable from '$lib/components/esl/TeacherScheduleTable.svelte';
 import type { ScheduleDayRow } from '$convex/shared/esl';
@@ -207,7 +207,7 @@ describe('TeacherScheduleTable', () => {
 		const dueDescCell = page
 			.getByTestId('esl-schedule.description-cell')
 			.filter({ hasText: 'G7 Basic 1 CLIL P2 · Workbook check' });
-		await expect.element(dueDescCell).toHaveTextContent('G7 Basic 1 CLIL P2 · Workbook check');
+		await expect.element(dueDescCell).toMatchTextContent('G7 Basic 1 CLIL P2 · Workbook check');
 		await expect.element(page.getByText('due window 2025-09-01–2025-09-03')).toBeInTheDocument();
 		await expect
 			.element(page.getByText('G7 Basic 1 CLIL P3 · 🎉 Off — Moon Festival'))
@@ -223,7 +223,7 @@ describe('TeacherScheduleTable', () => {
 		const examDescCell = page
 			.getByTestId('esl-schedule.description-cell')
 			.filter({ hasText: 'Final Exam' });
-		await expect.element(examDescCell).toHaveTextContent('Final Exam');
+		await expect.element(examDescCell).toMatchTextContent('Final Exam');
 	});
 
 	it('renders note column with event notes', async () => {
@@ -233,12 +233,12 @@ describe('TeacherScheduleTable', () => {
 		const offNoteCell = page
 			.getByTestId('esl-schedule.note-cell')
 			.filter({ hasText: 'BBQ logistics' });
-		await expect.element(offNoteCell).toHaveTextContent('BBQ logistics');
+		await expect.element(offNoteCell).toMatchTextContent('BBQ logistics');
 
 		const noClassNoteCell = page
 			.getByTestId('esl-schedule.note-cell')
 			.filter({ hasText: 'Bring water' });
-		await expect.element(noClassNoteCell).toHaveTextContent('Bring water');
+		await expect.element(noClassNoteCell).toMatchTextContent('Bring water');
 	});
 
 	it('applies correct row styling for statuses', async () => {
@@ -355,8 +355,8 @@ describe('TeacherScheduleTable reminders (#224)', () => {
 		await expect.element(page.getByTestId('esl-schedule.banner-week').first()).toBeInTheDocument();
 		const weekRows = page.getByTestId('esl-schedule.banner-week').all();
 		expect(weekRows).toHaveLength(1);
-		await expect.element(weekRows[0]).toHaveTextContent('Week 2');
-		await expect.element(weekRows[0]).toHaveTextContent('Passport 1 due · 09/08–09/10');
+		await expect.element(weekRows[0]).toMatchTextContent('Week 2');
+		await expect.element(weekRows[0]).toMatchTextContent('Passport 1 due · 09/08–09/10');
 		await expect
 			.element(page.getByTestId('esl-schedule.banner').filter({ hasText: 'Passport 1 due' }))
 			.toBeInTheDocument();
@@ -366,8 +366,8 @@ describe('TeacherScheduleTable reminders (#224)', () => {
 		renderTable(BANNER_ROWS);
 
 		const monday = page.getByTestId('esl-schedule.row').filter({ hasText: '2025-09-08' });
-		await expect.element(monday).toHaveTextContent('G7 Basic 1 CLIL P1');
-		await expect.element(monday).not.toHaveTextContent('Passport 1 due');
+		await expect.element(monday).toMatchTextContent('G7 Basic 1 CLIL P1');
+		await expect.element(monday).not.toMatchTextContent('Passport 1 due');
 		await expect.element(monday.getByTestId('esl-schedule.badge')).not.toBeInTheDocument();
 	});
 
@@ -375,7 +375,7 @@ describe('TeacherScheduleTable reminders (#224)', () => {
 		renderTable(MOCK_ROWS);
 
 		const wednesday = page.getByTestId('esl-schedule.row').filter({ hasText: '2025-09-03' });
-		await expect.element(wednesday).toHaveTextContent('G7 Basic 1 CLIL P2 · Workbook check');
+		await expect.element(wednesday).toMatchTextContent('G7 Basic 1 CLIL P2 · Workbook check');
 		await expect
 			.element(page.getByTestId('esl-schedule.badge').filter({ hasText: 'due window' }))
 			.toBeInTheDocument();
@@ -415,7 +415,7 @@ describe('TeacherScheduleTable reminders (#224)', () => {
 		const mocks = rows.filter((row) => row.element().textContent?.includes('G9 Mock Exam'));
 		expect(mocks).toHaveLength(2);
 		for (const mock of mocks) {
-			await expect.element(mock).toHaveTextContent(/09-0[89]/);
+			await expect.element(mock).toMatchTextContent(/09-0[89]/);
 			await expect.element(mock).toHaveClass(/text-gray-400/);
 		}
 		const countdowns = page.getByTestId('esl-schedule.countdown-cell').all();
@@ -456,10 +456,10 @@ describe('TeacherScheduleTable reminders (#224)', () => {
 		const greyed = rows.filter((row) => row.element().textContent?.includes('Start at P3'));
 		expect(greyed).toHaveLength(1);
 		await expect.element(greyed[0]).toHaveClass(/text-gray-400/);
-		await expect.element(greyed[0]).toHaveTextContent('G7 Basic 1 CLIL P1');
+		await expect.element(greyed[0]).toMatchTextContent('G7 Basic 1 CLIL P1');
 		const teaching = rows.find((row) => row.element().textContent?.includes('G7 Basic 1 CLIL P3'));
 		expect(teaching).toBeDefined();
-		await expect.element(teaching!).toHaveTextContent('G7 Basic 1 CLIL P3');
-		await expect.element(teaching!).not.toHaveTextContent('Start at P3');
+		await expect.element(teaching!).toMatchTextContent('G7 Basic 1 CLIL P3');
+		await expect.element(teaching!).not.toMatchTextContent('Start at P3');
 	});
 });

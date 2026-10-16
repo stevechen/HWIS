@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { getFunctionName } from 'convex/server';
 import { useQuery } from 'convex-svelte';
@@ -81,15 +81,15 @@ describe('ESL admin users page', () => {
 	});
 
 	it('summarises department membership', async () => {
-		render(UsersPage);
+		await render(UsersPage);
 
 		await expect
 			.element(page.getByTestId('esl-admin-users.summary'))
-			.toHaveTextContent('2 in the department · 1 ESL admin(s) · 3 staff total');
+			.toMatchTextContent('2 in the department · 1 ESL admin(s) · 3 staff total');
 	});
 
 	it('lists staff with their current ESL and International assignments', async () => {
-		render(UsersPage);
+		await render(UsersPage);
 
 		await expect.element(page.getByText('Ada Admin')).toBeInTheDocument();
 		await expect
@@ -101,7 +101,7 @@ describe('ESL admin users page', () => {
 	});
 
 	it('offers exactly the three ESL role choices', async () => {
-		render(UsersPage);
+		await render(UsersPage);
 
 		const select = page.getByRole('combobox', { name: 'ESL role for Theo Teacher' });
 		await expect.element(select).toBeInTheDocument();
@@ -112,7 +112,7 @@ describe('ESL admin users page', () => {
 	});
 
 	it('assigns the ESL admin role', async () => {
-		render(UsersPage);
+		await render(UsersPage);
 
 		await selectOption(
 			page.getByRole('combobox', { name: 'ESL role for Ivan International' }),
@@ -128,7 +128,7 @@ describe('ESL admin users page', () => {
 	});
 
 	it('clears the ESL role with a null assignment', async () => {
-		render(UsersPage);
+		await render(UsersPage);
 
 		await selectOption(page.getByRole('combobox', { name: 'ESL role for Theo Teacher' }), 'none');
 
@@ -142,17 +142,17 @@ describe('ESL admin users page', () => {
 
 	it('surfaces a refused change, e.g. changing your own ESL role', async () => {
 		mockMutation.mockRejectedValueOnce(new Error('You cannot change your own ESL role'));
-		render(UsersPage);
+		await render(UsersPage);
 
 		await selectOption(page.getByRole('combobox', { name: 'ESL role for Ada Admin' }), 'none');
 
 		await expect
 			.element(page.getByTestId('esl-admin-users.error'))
-			.toHaveTextContent('You cannot change your own ESL role');
+			.toMatchTextContent('You cannot change your own ESL role');
 	});
 
 	it('filters to ESL staff only', async () => {
-		render(UsersPage);
+		await render(UsersPage);
 
 		await page.getByTestId('esl-admin-users.only-esl').click();
 
@@ -161,7 +161,7 @@ describe('ESL admin users page', () => {
 	});
 
 	it('searches staff by name', async () => {
-		render(UsersPage);
+		await render(UsersPage);
 
 		await page.getByTestId('esl-admin-users.search').fill('theo');
 
@@ -170,7 +170,7 @@ describe('ESL admin users page', () => {
 	});
 
 	it('shows the empty state when nothing matches', async () => {
-		render(UsersPage);
+		await render(UsersPage);
 
 		await page.getByTestId('esl-admin-users.search').fill('nobody');
 

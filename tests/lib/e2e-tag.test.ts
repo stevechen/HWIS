@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { e2eTagFromSearch } from '$lib/e2e-tag';
 
 describe('e2eTagFromSearch', () => {

@@ -1,11 +1,11 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import SemesterHeader from '$lib/components/esl/SemesterHeader.svelte';
 
 describe('SemesterHeader', () => {
 	it('names the semester and shows its status chip', async () => {
-		render(SemesterHeader, {
+		await render(SemesterHeader, {
 			year: '2025-2026',
 			term: 'S1',
 			startDate: '2025-09-01',
@@ -18,7 +18,7 @@ describe('SemesterHeader', () => {
 	});
 
 	it('shows the derived end with its source exam', async () => {
-		render(SemesterHeader, {
+		await render(SemesterHeader, {
 			year: '2025-2026',
 			term: 'S1',
 			startDate: '2025-09-01',
@@ -30,7 +30,7 @@ describe('SemesterHeader', () => {
 	});
 
 	it('shows the finals-TBD banner while no exams exist', async () => {
-		render(SemesterHeader, {
+		await render(SemesterHeader, {
 			year: '2025-2026',
 			term: 'S1',
 			startDate: '2025-09-01',

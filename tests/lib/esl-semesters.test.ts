@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { parseSemesterSlug, semesterSlug, semesterUploadYears } from '$lib/esl-semesters';
 
 describe('semesterUploadYears (#208 both-year S1 setup)', () => {

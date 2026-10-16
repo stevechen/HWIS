@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 vi.mock('$app/navigation', () => ({
@@ -21,36 +21,36 @@ describe('wizard step 1 — semester & start date', () => {
 		await render(WizardStep1Harness, { today: '2026-08-15' });
 
 		const suggestion = page.getByTestId('wizard.step-1-suggestion');
-		await expect.element(suggestion).toHaveTextContent('S1');
-		await expect.element(suggestion).toHaveTextContent('2026-2027');
-		await expect.element(suggestion).toHaveTextContent('Jul–Sep');
+		await expect.element(suggestion).toMatchTextContent('S1');
+		await expect.element(suggestion).toMatchTextContent('2026-2027');
+		await expect.element(suggestion).toMatchTextContent('Jul–Sep');
 	});
 
 	it('suggests S2 of the current school year for Jan–Feb', async () => {
 		await render(WizardStep1Harness, { today: '2026-02-05' });
 
 		const suggestion = page.getByTestId('wizard.step-1-suggestion');
-		await expect.element(suggestion).toHaveTextContent('S2');
-		await expect.element(suggestion).toHaveTextContent('2025-2026');
-		await expect.element(suggestion).toHaveTextContent('Jan–Feb');
+		await expect.element(suggestion).toMatchTextContent('S2');
+		await expect.element(suggestion).toMatchTextContent('2025-2026');
+		await expect.element(suggestion).toMatchTextContent('Jan–Feb');
 	});
 
 	it('suggests S2 of the current school year for Mar–Jun', async () => {
 		await render(WizardStep1Harness, { today: '2026-04-10' });
 
 		const suggestion = page.getByTestId('wizard.step-1-suggestion');
-		await expect.element(suggestion).toHaveTextContent('S2');
-		await expect.element(suggestion).toHaveTextContent('2025-2026');
-		await expect.element(suggestion).toHaveTextContent('Mar–Jun');
+		await expect.element(suggestion).toMatchTextContent('S2');
+		await expect.element(suggestion).toMatchTextContent('2025-2026');
+		await expect.element(suggestion).toMatchTextContent('Mar–Jun');
 	});
 
 	it('suggests S1 of next year for Oct–Dec', async () => {
 		await render(WizardStep1Harness, { today: '2026-11-20' });
 
 		const suggestion = page.getByTestId('wizard.step-1-suggestion');
-		await expect.element(suggestion).toHaveTextContent('S1');
-		await expect.element(suggestion).toHaveTextContent('2027-2028');
-		await expect.element(suggestion).toHaveTextContent('Oct–Dec');
+		await expect.element(suggestion).toMatchTextContent('S1');
+		await expect.element(suggestion).toMatchTextContent('2027-2028');
+		await expect.element(suggestion).toMatchTextContent('Oct–Dec');
 	});
 
 	it('seeds the S1 start date and pre-highlights its week', async () => {
@@ -59,13 +59,13 @@ describe('wizard step 1 — semester & start date', () => {
 
 		await expect
 			.element(page.getByTestId('wizard.step-1-picker.row-1.label'))
-			.toHaveTextContent('Week 1 ✓');
+			.toMatchTextContent('Week 1 ✓');
 		await expect
 			.element(page.getByTestId('wizard.step-1-picker.row-2.label'))
-			.toHaveTextContent('Week 2');
+			.toMatchTextContent('Week 2');
 		await expect
 			.element(page.getByTestId('wizard.step-1-start-date'))
-			.toHaveTextContent('2026-08-31');
+			.toMatchTextContent('2026-08-31');
 	});
 
 	it('renders 2 weekly rows for S1', async () => {
@@ -85,10 +85,10 @@ describe('wizard step 1 — semester & start date', () => {
 		// starting Thursday Feb 11 2027 (a weekday, so no Monday roll).
 		await expect
 			.element(page.getByTestId('wizard.step-1-school-year'))
-			.toHaveTextContent('2026-2027');
+			.toMatchTextContent('2026-2027');
 		await expect
 			.element(page.getByTestId('wizard.step-1-start-date'))
-			.toHaveTextContent('2027-02-11');
+			.toMatchTextContent('2027-02-11');
 		await expect.element(page.getByTestId('wizard.step-1-picker.row-1')).toBeInTheDocument();
 		await expect.element(page.getByTestId('wizard.step-1-picker.row-2')).toBeInTheDocument();
 		await expect.element(page.getByTestId('wizard.step-1-picker.row-3')).toBeInTheDocument();
@@ -96,7 +96,7 @@ describe('wizard step 1 — semester & start date', () => {
 		// The default start week (week of Feb 11) is pre-highlighted.
 		await expect
 			.element(page.getByTestId('wizard.step-1-picker.row-1.label'))
-			.toHaveTextContent('Week 1 ✓');
+			.toMatchTextContent('Week 1 ✓');
 	});
 
 	it('switching back to S1 restores the fall window', async () => {
@@ -107,10 +107,10 @@ describe('wizard step 1 — semester & start date', () => {
 
 		await expect
 			.element(page.getByTestId('wizard.step-1-school-year'))
-			.toHaveTextContent('2026-2027');
+			.toMatchTextContent('2026-2027');
 		await expect
 			.element(page.getByTestId('wizard.step-1-start-date'))
-			.toHaveTextContent('2026-08-31');
+			.toMatchTextContent('2026-08-31');
 		await expect.element(page.getByTestId('wizard.step-1-picker.row-3')).not.toBeInTheDocument();
 	});
 
@@ -122,13 +122,13 @@ describe('wizard step 1 — semester & start date', () => {
 
 		await expect
 			.element(page.getByTestId('wizard.step-1-start-date'))
-			.toHaveTextContent('2026-09-07');
+			.toMatchTextContent('2026-09-07');
 		await expect
 			.element(page.getByTestId('wizard.step-1-picker.row-2.label'))
-			.toHaveTextContent('Week 2 ✓');
+			.toMatchTextContent('Week 2 ✓');
 		await expect
 			.element(page.getByTestId('wizard.step-1-picker.row-1.label'))
-			.toHaveTextContent('Week 1');
+			.toMatchTextContent('Week 1');
 	});
 
 	it('shows a Recalculate hint once the start date is manually moved, and restores the default', async () => {
@@ -143,7 +143,7 @@ describe('wizard step 1 — semester & start date', () => {
 		await page.getByTestId('wizard.step-1-recalculate-button').click();
 		await expect
 			.element(page.getByTestId('wizard.step-1-start-date'))
-			.toHaveTextContent('2026-08-31');
+			.toMatchTextContent('2026-08-31');
 		await expect.element(page.getByTestId('wizard.step-1-recalculate')).not.toBeInTheDocument();
 	});
 
@@ -154,10 +154,10 @@ describe('wizard step 1 — semester & start date', () => {
 		await page.getByTestId('wizard.step-1-picker.date-2026-09-10').click();
 		await page.getByTestId('wizard.step-1-confirm').click();
 
-		await expect.element(page.getByTestId('harness.step')).toHaveTextContent('2');
+		await expect.element(page.getByTestId('harness.step')).toMatchTextContent('2');
 		await expect
 			.element(page.getByTestId('wizard.step-1-start-date'))
-			.toHaveTextContent('2026-09-07');
+			.toMatchTextContent('2026-09-07');
 	});
 
 	it('keeps Confirm enabled while a start date is set and disables it when cleared', async () => {

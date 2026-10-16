@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 vi.mock('convex-svelte', () => ({
@@ -30,7 +30,7 @@ describe('Students Page', () => {
 	});
 
 	it('shows import and add student buttons', async () => {
-		render(StudentsPage);
+		await render(StudentsPage);
 		await expect
 			.element(page.getByRole('button', { name: 'Import students from file' }))
 			.toBeInTheDocument();
@@ -38,13 +38,13 @@ describe('Students Page', () => {
 	});
 
 	it('renders search input', async () => {
-		render(StudentsPage);
+		await render(StudentsPage);
 		const searchInput = page.getByPlaceholder('Search by name or student ID...');
 		await expect.element(searchInput).toBeInTheDocument();
 	});
 
 	it('renders filter dropdowns', async () => {
-		render(StudentsPage);
+		await render(StudentsPage);
 		const gradeFilter = page.getByRole('combobox', { name: /filter by grade/i });
 		await expect.element(gradeFilter).toBeInTheDocument();
 		const classFilter = page.getByRole('combobox', { name: /filter by class/i });
@@ -55,14 +55,14 @@ describe('Students Page', () => {
 	});
 
 	it('shows empty state when no students exist', async () => {
-		render(StudentsPage);
+		await render(StudentsPage);
 		await expect
 			.element(page.getByText('No students yet. Add one or import from Excel!'))
 			.toBeInTheDocument();
 	});
 
 	it('shows filtered empty state when filters match no results', async () => {
-		render(StudentsPage);
+		await render(StudentsPage);
 		// Set a filter that won't match any students
 		const searchInput = page.getByPlaceholder('Search by name or student ID...');
 		await searchInput.fill('nonexistent');
@@ -92,7 +92,7 @@ describe('Students Page', () => {
 				error: null
 			} as unknown as ReturnType<typeof useQuery>;
 		}) as typeof useQuery);
-		render(StudentsPage);
+		await render(StudentsPage);
 		const select = (await page
 			.getByRole('combobox', { name: /filter by class/i })
 			.element()) as HTMLSelectElement;
@@ -109,7 +109,7 @@ describe('Students Page', () => {
 			error: new Error('Failed to load')
 		} as unknown as ReturnType<typeof useQuery>);
 
-		render(StudentsPage);
+		await render(StudentsPage);
 		await expect.element(page.getByText(/Error loading students/)).toBeInTheDocument();
 	});
 });

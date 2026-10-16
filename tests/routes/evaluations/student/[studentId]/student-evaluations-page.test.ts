@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { createMockEvaluationSet } from '../../../../fixtures/evaluations';
 import {
@@ -77,7 +77,7 @@ describe('Student Evaluations Page — query gating while profile is loading', (
 	it('does not render the page content while the session is loading', async () => {
 		vi.mocked(useViewer).mockReturnValue(loadingSession());
 
-		render(StudentEvaluationsPage, { props: { data: {} } });
+		await render(StudentEvaluationsPage, { props: { data: {} } });
 
 		await expect.element(page.getByText('Loading user data...')).toBeInTheDocument();
 		await expect.element(page.getByRole('region', { name: 'Evaluations' })).not.toBeInTheDocument();
@@ -86,7 +86,7 @@ describe('Student Evaluations Page — query gating while profile is loading', (
 	it('renders the timeline for an enrolled student', async () => {
 		vi.mocked(useViewer).mockReturnValue(studentSession('Enrolled'));
 
-		render(StudentEvaluationsPage, { props: { data: {} } });
+		await render(StudentEvaluationsPage, { props: { data: {} } });
 
 		await expect.element(page.getByRole('region', { name: 'Evaluations' })).toBeInTheDocument();
 	});
@@ -94,7 +94,7 @@ describe('Student Evaluations Page — query gating while profile is loading', (
 	it('shows the access denied screen for a not-enrolled student', async () => {
 		vi.mocked(useViewer).mockReturnValue(studentSession('Not Enrolled'));
 
-		render(StudentEvaluationsPage, { props: { data: {} } });
+		await render(StudentEvaluationsPage, { props: { data: {} } });
 
 		await expect.element(page.getByRole('heading', { name: /Access Denied/i })).toBeInTheDocument();
 	});
@@ -102,7 +102,7 @@ describe('Student Evaluations Page — query gating while profile is loading', (
 	it('renders the timeline for an admin viewer', async () => {
 		vi.mocked(useViewer).mockReturnValue(adminSession());
 
-		render(StudentEvaluationsPage, { props: { data: {} } });
+		await render(StudentEvaluationsPage, { props: { data: {} } });
 
 		await expect.element(page.getByRole('region', { name: 'Evaluations' })).toBeInTheDocument();
 	});
@@ -110,7 +110,7 @@ describe('Student Evaluations Page — query gating while profile is loading', (
 	it('does not render a loading state once the session has settled', async () => {
 		vi.mocked(useViewer).mockReturnValue(studentSession('Enrolled'));
 
-		render(StudentEvaluationsPage, { props: { data: {} } });
+		await render(StudentEvaluationsPage, { props: { data: {} } });
 
 		await expect.element(page.getByText('Loading...')).not.toBeInTheDocument();
 	});

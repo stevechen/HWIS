@@ -1,7 +1,8 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
-import ChecklistPanel, { type ChecklistStatus } from '$lib/components/esl/ChecklistPanel.svelte';
+import ChecklistPanel from '$lib/components/esl/ChecklistPanel.svelte';
+import type { ChecklistStatus } from '$lib/components/esl/ChecklistPanel.types';
 
 function emptyStatus(overrides: Partial<ChecklistStatus> = {}): ChecklistStatus {
 	return {
@@ -33,21 +34,21 @@ describe('ChecklistPanel advisory groups (#213)', () => {
 	});
 
 	it('shows a loading state while the status query runs', async () => {
-		render(ChecklistPanel, panelProps({ status: null, loading: true }));
+		await render(ChecklistPanel, panelProps({ status: null, loading: true }));
 		await expect.element(page.getByTestId('checklist-panel.loading')).toBeInTheDocument();
 	});
 
 	it('renders four advisory groups with warning marks when missing', async () => {
-		render(ChecklistPanel, panelProps());
+		await render(ChecklistPanel, panelProps());
 		for (const group of ['off', 'unit-quiz', 'passport-recording', 'g9mock']) {
 			const row = page.getByTestId(`checklist-panel.group-${group}`);
 			await expect.element(row).toBeInTheDocument();
-			await expect.element(row).toHaveTextContent(/⚠/);
+			await expect.element(row).toMatchTextContent(/⚠/);
 		}
 	});
 
 	it('marks a complete group with a check and no create button', async () => {
-		render(
+		await render(
 			ChecklistPanel,
 			panelProps({
 				status: emptyStatus({
@@ -56,13 +57,13 @@ describe('ChecklistPanel advisory groups (#213)', () => {
 			})
 		);
 		const row = page.getByTestId('checklist-panel.group-off');
-		await expect.element(row).toHaveTextContent(/✓/);
+		await expect.element(row).toMatchTextContent(/✓/);
 		await expect.element(page.getByTestId('checklist-panel.create-off')).not.toBeInTheDocument();
 	});
 
 	it('creates missing off-days with one click', async () => {
 		const oncreate = vi.fn();
-		render(
+		await render(
 			ChecklistPanel,
 			panelProps({
 				status: emptyStatus({
@@ -77,9 +78,9 @@ describe('ChecklistPanel advisory groups (#213)', () => {
 	});
 
 	it('keeps task items manual-only with no checklist entry', async () => {
-		render(ChecklistPanel, panelProps());
+		await render(ChecklistPanel, panelProps());
 		const note = page.getByTestId('checklist-panel.task-note');
 		await expect.element(note).toBeInTheDocument();
-		await expect.element(note).toHaveTextContent(/manual/i);
+		await expect.element(note).toMatchTextContent(/manual/i);
 	});
 });
