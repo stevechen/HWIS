@@ -1,42 +1,55 @@
 <script lang="ts">
-	import { rowMonthSpans } from './wizard-dates';
+	import { monthRuns } from './wizard-dates';
 	import type { PreviewDay, PreviewWeek } from './wizard-dates';
 
 	/**
 	 * Semester calendar preview (spec #215, stories 15–20, as amended by
-	 * feedback F5/F6/F12/F15/F18/F20/F21/F23/F24/F27/F28/F33/F34/F36/F37/F68). School-week rows with
-	 * week numbers and a weekday header row, grey off-day chips and red exam chips. Cells fill fixed
-	 * 4.9rem grid tracks (F68: 5 weekday columns × 4.9rem = same 24.5rem total; weekends removed,
-	 * and ~44px tall (F43: `min-h-11` — the across-week month title row
-	 * added vertical bulk, so day-cell height came back down from 64px to
-	 * compensate; net calendar height does not grow). Feedback F40: NO per-cell month badges (F33 removed) and NO
-	 * side-gutter month label (F36 removed) — each week ROW carries merged
-	 * month title cells spanning ACROSS the top of the row INSIDE the grid:
-	 * consecutive days in the same month grouped under ONE title cell
-	 * (grid-column span = day count); a straddle week shows TWO titles
-	 * (e.g. DEC across Dec 28–31 + JAN across Jan 1–3); a single-month week
-	 * shows one title across all 5. Titles are merged header cells (white
-	 * text on slate), aligned over their days via the same 4.9rem
-	 * tracks, derived from the row's weekday dates via `rowMonthSpans`.
-	 * The day number is the plain day of month, small (text-xs) at the
-	 * top-right corner, no leading zeros; chips stack beneath as before.
-	 * Feedback F34: week
-	 * rows are flush (no vertical gaps, hairline 1px dividers via -mt-px
-	 * border overlap) so the whole semester compresses into one view. No
-	 * internal scroll container: the page scrolls and every week renders
-	 * whole. Table-like cells (F24): zero inter-cell gaps with collapsed
-	 * single-pixel dividers. Read-only by default;
-	 * `interactive` enables date clicks (Step 3 exam picking, F37:
+	 * feedback F5/F6/F12/F15/F18/F20/F21/F23/F24/F27/F28/F33/F34/F36/F37/F68 and
+	 * by the month-gutter rework). School-week rows with week numbers and a
+	 * weekday header row, grey off-day chips and red exam chips. Cells fill
+	 * fixed 4.9rem grid tracks (F68: 5 weekday columns × 4.9rem = same 24.5rem
+	 * total; weekends removed, and ~44px tall (F43: `min-h-11`) — net
+	 * calendar height does not grow.
+	 *
+	 * MONTH GUTTER REWORK (replaces F40's in-grid month title rows, which
+	 * are gone): the calendar body is ONE grid —
+	 * `2rem month | 2rem week | 4.9rem × 5 days` — with the header as
+	 * row 1 and each week row a `display: contents` wrapper, so a month
+	 * band can `grid-row: r / span n` and merge vertically across the
+	 * week rows it owns. Bands come from `monthRuns` (last in-range
+	 * weekday wins a straddle row), are light slate `bg-slate-200
+	 * text-slate-700` so they recede beside the dark week gutter, and
+	 * carry a 2px margin top and bottom — inside the run the band is
+	 * continuous; the separation is per BAND, not per week. A run whose
+	 * days are all out of range desaturates to `bg-gray-100
+	 * text-gray-400`. Labels are plain 3-letter badges, VERTICALLY
+	 * CENTERED in the band, with no year suffix; the `title` is the bare
+	 * badge. The weekday headers are right-aligned on `px-1` so each label
+	 * sits directly over its day numbers (also right-aligned).
+	 *
+	 * The week gutter now reads as a bare number under a `WK` header
+	 * (was `W1`, `W2`, …). Header cells are `MTH`, `WK`, then the
+	 * weekdays, uppercased and tracked so the month header can't be
+	 * confused with the Monday weekday label. Day cells keep their 1px
+	 * dividers but take them from explicit `border-r`/`border-b` (+`border-t`
+	 * on the opening row, `border-l` on the first day column) instead of
+	 * the old `-mt-px -ml-px` overlap, which in a shared grid would bleed
+	 * 1px into the week gutter's 3px border.
+	 *
+	 * Feedback F34: week rows are flush (no vertical gaps) so the whole
+	 * semester compresses into one view. No internal scroll container: the
+	 * page scrolls and every week renders whole. Table-like cells (F24): zero
+	 * inter-cell gaps with collapsed single-pixel dividers. Read-only by
+	 * default; `interactive` enables date clicks (Step 3 exam picking, F37:
 	 * dialog-free — a click SETS the range immediately) with `highlighted`
 	 * marking the hover preview range (`onDateHover` reports the hovered
-	 * date so the parent can fan it out). `disabledDates` greys out
-	 * days taken by another exam (F25) — those cells are
-	 * unclickable with a quiet tooltip (F23/F25: refuse-by-construction, so
-	 * double-booking is impossible and no conflict badges exist). CONFIRMED
-	 * exam dates always keep their red chip (F28) — even when taken
-	 * relative to the active tab, where they stay unclickable but never
-	 * read as grey. Presentational — weeks arrive prebuilt from
-	 * `buildPreviewWeeks`.
+	 * date so the parent can fan it out). `disabledDates` greys out days
+	 * taken by another exam (F25) — those cells are unclickable with a
+	 * quiet tooltip (F23/F25: refuse-by-construction, so double-booking is
+	 * impossible and no conflict badges exist). CONFIRMED exam dates always
+	 * keep their red chip (F28) — even when taken relative to the active
+	 * tab, where they stay unclickable but never read as grey. Presentational
+	 * — weeks arrive prebuilt from `buildPreviewWeeks`.
 	 */
 
 	let {
@@ -109,6 +122,16 @@
 	}
 
 	const WEEKDAY_HEADER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+	/**
+	 * Month bands for the left column. Header is grid row 1, so week row
+	 * `row` (0-based) lands on grid row `row + 2`.
+	 */
+	const runs = $derived(monthRuns(weeks));
+
+	/** Header cell shared look — uppercased + tracked so `MTH` never reads as the Monday weekday. */
+	const HEADER_LABEL =
+		'flex items-center justify-center py-0.5 text-[11px] font-bold tracking-widest uppercase';
 </script>
 
 {#snippet cellBody(day: PreviewDay)}
@@ -149,110 +172,113 @@
 		{/if}
 	</div>
 
-	<div class="space-y-0">
-		<div class="flex items-stretch gap-0" aria-hidden="true">
-			<div class="w-8 shrink-0"></div>
-			<div class="grid shrink-0 grid-cols-[repeat(5,4.9rem)] gap-0">
-				{#each WEEKDAY_HEADER as label (label)}
-					<div class="min-w-0 px-0 py-0.5 text-center text-[11px] font-semibold text-gray-500">
-						{label}
-					</div>
-				{/each}
+	<div
+		data-testid={`${testId}.month-col`}
+		class="grid w-max grid-cols-[2rem_2rem_repeat(5,4.9rem)] gap-0"
+	>
+		<!-- Header is grid row 1. Month bands and week rows sit below it. -->
+		<div style="grid-column: 1; grid-row: 1;" class="{HEADER_LABEL} text-slate-600">MTH</div>
+		<div style="grid-column: 2; grid-row: 1;" class="{HEADER_LABEL} text-slate-600">WK</div>
+		{#each WEEKDAY_HEADER as label, col (label)}
+			<div
+				style="grid-column: {3 + col}; grid-row: 1;"
+				class="min-w-0 px-1 py-0.5 text-right text-[11px] font-semibold text-gray-500"
+			>
+				{label}
 			</div>
-		</div>
-		{#each weeks as week (week.monday)}
-			<div data-testid={`${testId}.week-${week.weekIndex}`} class="flex items-stretch gap-0">
+		{/each}
+
+		<!-- One merged cell per month, spanning the week rows that month
+			owns. 2px above and below each RUN (never inside it) so bands
+			separate without breaking the merge. The abbreviation is centred
+			vertically in the band; `px-1` matches the day cells so the label
+			sits over its day numbers, which are right-aligned too. -->
+		{#each runs as run, runIndex (run.label)}
+			<div
+				data-testid={`${testId}.month-${run.label}`}
+				data-month={run.label}
+				data-rows={run.rows}
+				title={run.label}
+				style="grid-column: 1; grid-row: {run.startRow + 2} / span {run.rows};"
+				class="mt-[2px] flex min-w-0 items-center justify-center overflow-hidden px-1 text-center text-[10px] font-bold tracking-widest {run.outOfRange
+					? 'bg-gray-100 text-gray-400'
+					: 'bg-slate-200 text-slate-700'} {runIndex === runs.length - 1 ? 'mb-[2px]' : ''}"
+			>
+				{run.label}
+			</div>
+		{/each}
+
+		{#each weeks as week, row (week.monday)}
+			<div data-testid={`${testId}.week-${week.weekIndex}`} class="contents">
 				<!-- Feedback F42 + F44/F47/F48: the week-number gutter reads as a
-					label column attached to its OWN week row — each dark
-					W-number block carries its own 2px vertical white
-					separation (my-[2px]) top AND bottom, first/last included,
-					so the blocks read as separate per-week labels. Day grids
-					stay flush (space-y-0, hairline dividers via -mt-px). All
-					corners square (F47) — no rounding anywhere on the grid. -->
+					label column attached to its OWN week row — its own vertical
+					separation (my-px) top AND bottom, first/last included, so the
+					blocks read as separate per-week labels without the column
+					breaking into loud tiles beside the continuous month band. Day
+					grids stay flush. All corners square (F47) — no rounding
+					anywhere. The label is the bare school-week number under the
+					`WK` header; `title` keeps the full "School week N, starting
+					DATE" for hover. -->
 				<div
-					class="my-[2px] flex w-8 shrink-0 items-center justify-center border-r-[3px] border-r-slate-800 bg-emerald-950 text-xs font-extrabold tracking-wide text-white"
+					data-testid={`${testId}.week-${week.weekIndex}-number`}
 					title={`School week ${week.weekIndex}, starting ${week.monday}`}
+					style="grid-column: 2; grid-row: {row + 2};"
+					class="my-px flex items-center justify-center overflow-hidden border-r-[3px] border-r-slate-800 bg-emerald-950 text-xs font-extrabold tracking-wide text-white"
 				>
-					W{week.weekIndex}
+					{week.weekIndex}
 				</div>
-				<div
-					class="grid shrink-0 grid-cols-[repeat(5,4.9rem)] gap-0 overflow-hidden border border-gray-300"
-				>
-					<div
-						data-testid={`${testId}.week-${week.weekIndex}-months`}
-						class="contents"
-						aria-hidden="true"
-					>
-						{#each rowMonthSpans(week.days
-								.filter((day) => !day.isWeekend)
-								.map((day) => day.date)) as group (group.label)}
-							<div
-								data-month={group.label}
-								data-span={group.span}
-								title={`Month for school week ${week.weekIndex}: ${group.label}`}
-								style="grid-column: span {group.span} / span {group.span};"
-								class="-mt-px -ml-px border border-slate-500 bg-slate-600 px-0 py-0.5 text-center text-[10px] font-bold tracking-widest text-white first:ml-0"
-							>
-								{group.label}
-							</div>
-						{/each}
-					</div>
-					{#each week.days.filter((day) => !day.isWeekend) as day (day.date)}
-						{@const isHighlighted = highlight.has(day.date)}
-						{@const isDisabled = disabled.has(day.date)}
-						{@const clickable =
-							interactive &&
-							day.inRange &&
-							!day.isWeekend &&
-							(clickableChips || (day.offName === null && day.examLabel === null)) &&
-							!isDisabled}
-						{@const cellTitle = isDisabled
-							? day.examLabel !== null
-								? `${day.date} is set in ${day.examLabel} — pick a free day`
-								: (disabledTooltips[day.date] ?? `${day.date} is not pickable — pick a free day`)
-							: (day.offName ?? day.examLabel ?? day.date)}
-						{#if interactive}
-							<button
-								type="button"
-								data-testid={`${testId}.date-${day.date}`}
-								disabled={!clickable}
-								onclick={(e) => onDateClick(day.date, e)}
-								onmouseenter={() => onDateHover(clickable ? day.date : null)}
-								onmouseleave={() => onDateHover(null)}
-								title={cellTitle}
-								class="-mt-px -ml-px flex min-h-11 w-full flex-col items-stretch justify-start overflow-hidden border px-1 py-1 text-[11px] leading-tight {cellTone(
-									day.isWeekend,
-									day.inRange,
-									day.offName !== null,
-									day.examLabel !== null,
-									isHighlighted,
-									isDisabled
-								)} {clickable
-									? 'cursor-pointer hover:border-emerald-500'
-									: 'cursor-not-allowed'} {isHighlighted && !isDisabled
-									? 'ring-2 ring-emerald-500'
-									: ''}"
-							>
-								{@render cellBody(day)}
-							</button>
-						{:else}
-							<div
-								data-testid={`${testId}.date-${day.date}`}
-								title={day.offName ?? day.examLabel ?? day.date}
-								class="-mt-px -ml-px flex min-h-11 w-full flex-col items-stretch justify-start overflow-hidden border px-1 py-1 text-[11px] leading-tight {cellTone(
-									day.isWeekend,
-									day.inRange,
-									day.offName !== null,
-									day.examLabel !== null,
-									isHighlighted,
-									isDisabled
-								)}"
-							>
-								{@render cellBody(day)}
-							</div>
-						{/if}
-					{/each}
-				</div>
+				{#each week.days.filter((day) => !day.isWeekend) as day, col (day.date)}
+					{@const isHighlighted = highlight.has(day.date)}
+					{@const isDisabled = disabled.has(day.date)}
+					{@const clickable =
+						interactive &&
+						day.inRange &&
+						!day.isWeekend &&
+						(clickableChips || (day.offName === null && day.examLabel === null)) &&
+						!isDisabled}
+					{@const cellTitle = isDisabled
+						? day.examLabel !== null
+							? `${day.date} is set in ${day.examLabel} — pick a free day`
+							: (disabledTooltips[day.date] ?? `${day.date} is not pickable — pick a free day`)
+						: (day.offName ?? day.examLabel ?? day.date)}
+					{@const placement = `grid-column: ${3 + col}; grid-row: ${row + 2};`}
+					{@const box = `flex min-h-11 w-full flex-col items-stretch justify-start overflow-hidden px-1 py-1 text-[11px] leading-tight ${cellTone(
+						day.isWeekend,
+						day.inRange,
+						day.offName !== null,
+						day.examLabel !== null,
+						isHighlighted,
+						isDisabled
+					)} ${row === 0 ? 'border-t' : ''} ${col === 0 ? 'border-l' : ''}`}
+					{#if interactive}
+						<button
+							type="button"
+							data-testid={`${testId}.date-${day.date}`}
+							disabled={!clickable}
+							onclick={(e) => onDateClick(day.date, e)}
+							onmouseenter={() => onDateHover(clickable ? day.date : null)}
+							onmouseleave={() => onDateHover(null)}
+							title={cellTitle}
+							style={placement}
+							class="{box} border-r border-b {clickable
+								? 'cursor-pointer hover:border-emerald-500'
+								: 'cursor-not-allowed'} {isHighlighted && !isDisabled
+								? 'ring-2 ring-emerald-500'
+								: ''}"
+						>
+							{@render cellBody(day)}
+						</button>
+					{:else}
+						<div
+							data-testid={`${testId}.date-${day.date}`}
+							title={day.offName ?? day.examLabel ?? day.date}
+							style={placement}
+							class="{box} border-r border-b"
+						>
+							{@render cellBody(day)}
+						</div>
+					{/if}
+				{/each}
 			</div>
 		{/each}
 	</div>

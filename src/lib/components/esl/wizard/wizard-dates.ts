@@ -54,25 +54,57 @@ const MONTH_BADGES: readonly string[] = [
 	'DEC'
 ];
 
+export interface MonthRun {
+	/** Three-letter month badge, e.g. `AUG`. */
+	label: string;
+	/** 0-based index of the run's first week row within the input array. */
+	startRow: number;
+	/** How many consecutive week rows the run spans. */
+	rows: number;
+	/**
+	 * `true` when EVERY day in the run falls outside `[startDate, endDate]`
+	 * — only ever the semester's opening row. The calendar desaturates
+	 * these so a fully greyed row reads as deliberate, not broken.
+	 */
+	outOfRange: boolean;
+}
+
 /**
- * Feedback F40: month title groups for one week ROW, rendered as merged
- * header cells ACROSS the top of the row inside the grid (not a side
- * gutter). Consecutive days in the same month collapse to one group whose
- * `span` is the day count; a straddle week yields two groups (e.g. W18:
- * DEC ×4 + JAN ×3); a single-month week yields one group spanning all 7.
- * A 7-day row can never span more than two months. Derived from the row's
- * actual dates.
+ * Month bands for the calendar's left column: one run per month, each
+ * spanning every week row that month owns. A row is owned by the month of
+ * its LAST in-range weekday, so a straddle row (W6 = SEP 28 – OCT 2) goes
+ * whole to the NEWER month and the older band ends on the previous row —
+ * which puts each band's top edge on the row containing that month's
+ * first day. Rows are date-ordered and months advance monotonically, so the
+ * labels are non-decreasing and every month yields exactly ONE unbroken
+ * run (a month can be skipped entirely: a semester starting Mon 31 Aug has
+ * no all-August row, so AUG never gets a band).
+ *
+ * Falls back to the last weekday when a row has no in-range day at all
+ * (the opening row of a semester that starts mid-week), marking the run
+ * `outOfRange`.
  */
-export function rowMonthSpans(dates: readonly string[]): Array<{ label: string; span: number }> {
-	const spans: Array<{ label: string; span: number }> = [];
-	for (const date of dates) {
-		const label = MONTH_BADGES[Number(date.slice(5, 7)) - 1] ?? '';
-		if (label === '') continue;
-		const last = spans[spans.length - 1];
-		if (last !== undefined && last.label === label) last.span += 1;
-		else spans.push({ label, span: 1 });
-	}
-	return spans;
+export function monthRuns(weeks: readonly PreviewWeek[]): MonthRun[] {
+	const runs: MonthRun[] = [];
+	weeks.forEach((week, row) => {
+		const weekdays = week.days.filter((day) => !day.isWeekend);
+		const inRange = weekdays.filter((day) => day.inRange);
+		const pool = inRange.length > 0 ? inRange : weekdays;
+		const last = pool[pool.length - 1];
+		if (last === undefined) return;
+		const label = MONTH_BADGES[Number(last.date.slice(5, 7)) - 1] ?? '';
+		if (label === '') return;
+		const open = runs[runs.length - 1];
+		// `startRow + rows === row` keeps a band from bridging a gap in a
+		// caller-supplied (non-contiguous) weeks array.
+		if (open !== undefined && open.label === label && open.startRow + open.rows === row) {
+			open.rows += 1;
+			open.outOfRange = open.outOfRange && inRange.length === 0;
+			return;
+		}
+		runs.push({ label, startRow: row, rows: 1, outOfRange: inRange.length === 0 });
+	});
+	return runs;
 }
 
 /** Exam slots of the Step 3 picker. */

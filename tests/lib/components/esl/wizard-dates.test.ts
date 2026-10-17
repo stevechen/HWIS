@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vite-plus/test';
 import {
+	buildPreviewWeeks,
 	defaultStartDate,
 	dueWindowDates,
+	monthRuns,
 	schoolYearForTerm,
 	startPickerMondays,
 	suggestSemester,
@@ -157,5 +159,89 @@ describe('dueWindowDates', () => {
 			'2027-01-19',
 			'2027-01-20'
 		]);
+	});
+});
+
+/**
+ * Month bands for the calendar's left column. Every expectation below is a
+ * hand-worked literal from the week's real dates — never recomputed through
+ * the helper under test. The governing rule: a week row belongs to the month
+ * of its LAST in-range weekday, so a straddle row goes whole to the NEWER
+ * month and the older band ends on the previous row.
+ */
+describe('monthRuns', () => {
+	it('gives a straddle row whole to the newer month, so bands tile exactly once', () => {
+		// S1 starting Mon 2026-08-31 → 21 rows. Row 1 = Aug 31 + Sep 1–4, so
+		// SEP takes it whole. Row 5 = Sep 28 – Oct 2 → OCT. Row 14 = Nov 30 +
+		// Dec 1–4 → DEC. Row 18 = Dec 28 – Jan 1 → JAN.
+		const weeks = buildPreviewWeeks('2026-08-31', '2027-01-20', [], []);
+		expect(monthRuns(weeks)).toEqual([
+			{ label: 'SEP', startRow: 0, rows: 4, outOfRange: false },
+			{ label: 'OCT', startRow: 4, rows: 5, outOfRange: false },
+			{ label: 'NOV', startRow: 9, rows: 4, outOfRange: false },
+			{ label: 'DEC', startRow: 13, rows: 4, outOfRange: false },
+			{ label: 'JAN', startRow: 17, rows: 4, outOfRange: false }
+		]);
+	});
+
+	it('skips a month entirely when no row belongs to it', () => {
+		// AUG has exactly one grid day (Aug 31) and it shares its row with
+		// four September days, so AUG never gets a band.
+		const s1 = monthRuns(buildPreviewWeeks('2026-08-31', '2027-01-20', [], []));
+		expect(s1.map((run) => run.label)).not.toContain('AUG');
+
+		// S2: FEB covers rows 1–3, MAR rows 4–7, then row 8 (Mar 29 – Apr 2)
+		// goes whole to APR. The closing row (Jun 28 – Jul 2) counts only
+		// in-range days and the term ends Jun 30, so JUL never appears.
+		const s2 = monthRuns(buildPreviewWeeks('2027-02-11', '2027-06-30', [], []));
+		expect(s2).toEqual([
+			{ label: 'FEB', startRow: 0, rows: 3, outOfRange: false },
+			{ label: 'MAR', startRow: 3, rows: 4, outOfRange: false },
+			{ label: 'APR', startRow: 7, rows: 5, outOfRange: false },
+			{ label: 'MAY', startRow: 12, rows: 4, outOfRange: false },
+			{ label: 'JUN', startRow: 16, rows: 5, outOfRange: false }
+		]);
+		expect(s2.map((run) => run.label)).not.toContain('JUL');
+	});
+
+	it('flags the opening row when every one of its days is out of range', () => {
+		// Starting Sun 2026-08-30 puts row 1 at Aug 24–28 — all before the
+		// start date. It still gets an AUG band (via the last weekday), but
+		// marked so the calendar can desaturate it.
+		expect(monthRuns(buildPreviewWeeks('2026-08-30', '2027-01-20', [], []))).toEqual([
+			{ label: 'AUG', startRow: 0, rows: 1, outOfRange: true },
+			{ label: 'SEP', startRow: 1, rows: 4, outOfRange: false },
+			{ label: 'OCT', startRow: 5, rows: 5, outOfRange: false },
+			{ label: 'NOV', startRow: 10, rows: 4, outOfRange: false },
+			{ label: 'DEC', startRow: 14, rows: 4, outOfRange: false },
+			{ label: 'JAN', startRow: 18, rows: 4, outOfRange: false }
+		]);
+	});
+
+	it('covers every week row exactly once, with no gaps or overlaps', () => {
+		for (const [start, end] of [
+			['2026-08-30', '2027-01-20'],
+			['2026-08-31', '2027-01-20'],
+			['2027-02-11', '2027-06-30']
+		] as const) {
+			const weeks = buildPreviewWeeks(start, end, [], []);
+			const runs = monthRuns(weeks);
+			expect(runs[0]?.startRow).toBe(0);
+			let cursor = 0;
+			for (const run of runs) {
+				expect(run.startRow).toBe(cursor);
+				cursor += run.rows;
+			}
+			expect(cursor).toBe(weeks.length);
+		}
+	});
+
+	it('never emits the same label twice', () => {
+		const runs = monthRuns(buildPreviewWeeks('2026-08-30', '2027-01-20', [], []));
+		expect(new Set(runs.map((run) => run.label)).size).toBe(runs.length);
+	});
+
+	it('returns no bands for an empty semester', () => {
+		expect(monthRuns([])).toEqual([]);
 	});
 });

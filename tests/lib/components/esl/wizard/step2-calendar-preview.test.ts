@@ -35,7 +35,7 @@ describe('CalendarPreview — Step 2 read-only semester calendar + event list', 
 		await expect.element(page.getByText('Exam', { exact: true })).toBeInTheDocument();
 	});
 
-	it('renders week rows with school week numbers (W1, W2, ...)', async () => {
+	it('renders week rows with a bare school week number under the WK header', async () => {
 		await render(CalendarPreview, {
 			weeks,
 			interactive: false,
@@ -44,8 +44,12 @@ describe('CalendarPreview — Step 2 read-only semester calendar + event list', 
 
 		await expect.element(page.getByTestId('wizard.step-2-calendar.week-1')).toBeInTheDocument();
 		await expect
-			.element(page.getByTestId('wizard.step-2-calendar.week-1'))
-			.toMatchTextContent('W1');
+			.element(page.getByTestId('wizard.step-2-calendar.week-1-number'))
+			.toMatchTextContent(/^1$/);
+		await expect
+			.element(page.getByTestId('wizard.step-2-calendar.week-2-number'))
+			.toMatchTextContent(/^2$/);
+		await expect.element(page.getByText('WK', { exact: true })).toBeInTheDocument();
 	});
 
 	it('shows weekend cells are filtered out (Mon-Fri only)', async () => {
@@ -93,17 +97,28 @@ describe('CalendarPreview — Step 2 read-only semester calendar + event list', 
 		await expect.element(exam1Day2).toMatchTextContent('Exam 1');
 	});
 
-	it('renders month title groups across the week row', async () => {
+	it('renders merged month bands in the left column, one per month', async () => {
 		await render(CalendarPreview, {
 			weeks,
 			interactive: false,
 			testId: 'wizard.step-2-calendar'
 		});
 
-		// Week 1 should have AUG month span
+		await expect.element(page.getByTestId('wizard.step-2-calendar.month-col')).toBeInTheDocument();
+		await expect.element(page.getByText('MTH', { exact: true })).toBeInTheDocument();
+
+		// The semester starts Mon 2026-08-31, so row 1 (Aug 31 + Sep 1–4)
+		// belongs to SEP and AUG gets no band at all. SEP spans W1–W4, then
+		// OCT takes the Sep 28 – Oct 2 straddle row whole (W5–W9).
+		const sep = page.getByTestId('wizard.step-2-calendar.month-SEP');
+		await expect.element(sep).toHaveAttribute('data-rows', '4');
+		await expect.element(sep).toHaveTextContent('SEP');
 		await expect
-			.element(page.getByTestId('wizard.step-2-calendar.week-1-months'))
-			.toBeInTheDocument();
+			.element(page.getByTestId('wizard.step-2-calendar.month-OCT'))
+			.toHaveAttribute('data-rows', '5');
+		await expect
+			.element(page.getByTestId('wizard.step-2-calendar.month-AUG'))
+			.not.toBeInTheDocument();
 	});
 
 	it('read-only mode renders cells without button role', async () => {
