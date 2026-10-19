@@ -189,6 +189,7 @@ export type CleanupScope =
 	| 'backups'
 	| 'auditLogs'
 	| 'esl'
+	| 'international'
 	| 'all';
 
 export interface E2EUtils {
@@ -204,7 +205,7 @@ export interface E2EUtils {
 	seedBaseline: () => Promise<SeedBaselineResult>;
 	cleanupTestUsers: () => Promise<unknown>;
 	cleanupAuditLogs: (authIdString?: string) => Promise<unknown>;
-	setupTestUsers: () => Promise<SetupTestUsersResult>;
+	setupTestUsers: (department?: 'all' | 'international' | 'esl') => Promise<SetupTestUsersResult>;
 	cleanupTestBackupsByTimestamp: (since: number) => Promise<unknown>;
 	/** How many `backups` rows currently carry `e2eTag`, for tag-hygiene assertions. */
 	countBackupsByTag: (e2eTag: string) => Promise<number>;
@@ -351,9 +352,11 @@ export function getE2EUtils(): E2EUtils {
 			});
 		},
 
-		async setupTestUsers(): Promise<SetupTestUsersResult> {
+		async setupTestUsers(
+			department?: 'all' | 'international' | 'esl'
+		): Promise<SetupTestUsersResult> {
 			try {
-				const result = await c.mutation(api.testSetup.setupTestUsers, {});
+				const result = await c.mutation(api.testSetup.setupTestUsers, { department });
 				console.log('Setup test users result:', result);
 				return result as SetupTestUsersResult;
 			} catch (e) {
