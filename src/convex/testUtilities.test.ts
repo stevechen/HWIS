@@ -150,6 +150,27 @@ describe('test utilities', () => {
 		expect(eslAdmin?.status).toBe('active');
 	});
 
+	it('setupTestUsers can provision a single department', async () => {
+		const mock = createMockAdapter([]);
+		vi.spyOn(authComponent, 'adapter').mockImplementation(() => {
+			return (() => Promise.resolve(mock.adapter)) as never;
+		});
+
+		const t = rawConvexTest(schema, modules);
+		const result = await t.mutation(api.testSetup.setupTestUsers, { department: 'esl' });
+
+		const users = await t.run(async (ctx) => ctx.db.query('users').collect());
+		const names = users.map((u) => u.name).sort();
+		expect(names).toEqual(['Test ESL Admin', 'Test Super Admin']);
+
+		const eslAdmin = users.find((u) => u.name === 'Test ESL Admin');
+		expect(eslAdmin?.departmentRoles).toEqual({ esl: 'admin' });
+		expect(result.eslAdminUserId).toBeTruthy();
+		// The ESL-only setup does not fabricate International staff.
+		expect(result.teacherUserId).toBeUndefined();
+		expect(result.adminUserId).toBeUndefined();
+	});
+
 	it('dedupeUsers keeps newest per authId and is idempotent', async () => {
 		const mock = createMockAdapter([
 			{ id: 'ba-test', email: 'e2e-dup@hwis.test', name: 'Test BA' },

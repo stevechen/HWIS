@@ -4,6 +4,120 @@ import { modules } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
 import { authComponent } from './auth';
+import type { MutationCtx } from './_generated/server';
+
+/**
+ * Seeds one tagged row in every table the two departments own, all sharing one
+ * tag, so a scoped teardown can be judged by what it left behind rather than
+ * only by what it reported.
+ */
+async function seedDepartmentGraphs(ctx: MutationCtx, tag: string) {
+	const teacher = await ctx.db.insert('users', {
+		authId: 'e2e_teacher1',
+		name: 'Teacher',
+		role: 'teacher',
+		status: 'active'
+	});
+
+	const hwisClass = await ctx.db.insert('classes', { grade: 7, class: '1', e2eTag: tag });
+	const hwisStudent = await ctx.db.insert('students', {
+		englishName: 'HWIS Student',
+		chineseName: '國際',
+		studentId: 'S1',
+		classId: hwisClass,
+		status: 'Enrolled',
+		e2eTag: tag
+	});
+	const category = await ctx.db.insert('point_categories', { name: 'Category', e2eTag: tag });
+	await ctx.db.insert('evaluations', {
+		studentId: hwisStudent,
+		teacherId: teacher,
+		value: 1,
+		categoryId: category,
+		details: '',
+		timestamp: 1,
+		semesterId: 'S1',
+		e2eTag: tag
+	});
+	await ctx.db.insert('house_events', {
+		title: 'HWIS Event',
+		startDate: 1,
+		endDate: 2,
+		e2eTag: tag
+	});
+	await ctx.db.insert('audit_logs', {
+		action: 'create',
+		performerId: teacher,
+		targetTable: 'students',
+		targetId: hwisStudent,
+		timestamp: 1,
+		e2eTag: tag
+	});
+
+	const semester = await ctx.db.insert('esl_semesters', {
+		year: '2025-2026',
+		term: 'S1',
+		startDate: '2025-08-25',
+		e2eTag: tag
+	});
+	await ctx.db.insert('esl_events', {
+		semesterId: semester,
+		type: 'no_school',
+		title: 'ESL Event',
+		target: 'all',
+		date: '2025-09-01',
+		e2eTag: tag
+	});
+	const cohort = await ctx.db.insert('esl_cohorts', {
+		year: '2025-2026',
+		grade: 7,
+		level: 'A',
+		classNumber: '1',
+		status: 'active',
+		createdAt: 1,
+		e2eTag: tag
+	});
+	const eslClass = await ctx.db.insert('esl_classes', {
+		cohortId: cohort,
+		type: 'CLIL',
+		name: 'G7-A-1-CLIL',
+		status: 'active',
+		createdAt: 1
+	});
+	await ctx.db.insert('esl_students', {
+		cohortId: cohort,
+		englishName: 'ESL Student',
+		chineseName: '學生',
+		schoolStudentId: '7001001',
+		chineseClass: 'J101',
+		status: 'active',
+		enrolledAt: 1,
+		e2eTag: tag
+	});
+	await ctx.db.insert('esl_class_meetings', {
+		classId: eslClass,
+		year: '2025-2026',
+		day: 'Monday',
+		period: 1,
+		e2eTag: tag
+	});
+	await ctx.db.insert('teacher_notes', {
+		classId: eslClass,
+		date: '2025-09-01',
+		teacherId: teacher,
+		text: 'Note',
+		updatedAt: 1,
+		updatedBy: teacher,
+		e2eTag: tag
+	});
+	await ctx.db.insert('esl_teacher_availability', {
+		teacherId: teacher,
+		year: '2025-2026',
+		day: 'Monday',
+		period: 1,
+		e2eTag: tag
+	});
+}
 
 type BetterAuthUser = {
 	id: string;
@@ -440,6 +554,222 @@ describe('test data lifecycle', () => {
 		expect(second.deleted).toEqual({});
 	});
 
+	it('scope international removes HWIS rows only and leaves the ESL graph untouched', async () => {
+		const t = rawConvexTest(schema, modules);
+		await t.run(async (ctx) => {
+			await seedDepartmentGraphs(ctx, 'e2e-test_x');
+		});
+
+		const result = await t.mutation(api.testLifecycle.teardownByTag, {
+			scope: 'international',
+			e2eTag: 'e2e-test_x'
+		});
+
+		// Every deleted key names an HWIS table; nothing prefixed `esl` appears.
+		expect(Object.keys(result.deleted).sort()).toEqual([
+			'audit_logs',
+			'classes',
+			'evaluations',
+			'house_events',
+			'point_categories',
+			'students'
+		]);
+		expect(result.deleted.students).toBe(1);
+
+		const snapshot = await t.run(async (ctx) => ({
+			hwisStudents: await ctx.db.query('students').collect(),
+			categories: await ctx.db.query('point_categories').collect(),
+			evaluations: await ctx.db.query('evaluations').collect(),
+			houseEvents: await ctx.db.query('house_events').collect(),
+			hwisClasses: await ctx.db.query('classes').collect(),
+			eslSemesters: await ctx.db.query('esl_semesters').collect(),
+			eslEvents: await ctx.db.query('esl_events').collect(),
+			eslCohorts: await ctx.db.query('esl_cohorts').collect(),
+			eslClasses: await ctx.db.query('esl_classes').collect(),
+			eslStudents: await ctx.db.query('esl_students').collect(),
+			eslMeetings: await ctx.db.query('esl_class_meetings').collect(),
+			eslNotes: await ctx.db.query('teacher_notes').collect(),
+			eslAvailability: await ctx.db.query('esl_teacher_availability').collect()
+		}));
+
+		expect(snapshot.hwisStudents).toHaveLength(0);
+		expect(snapshot.categories).toHaveLength(0);
+		expect(snapshot.evaluations).toHaveLength(0);
+		expect(snapshot.houseEvents).toHaveLength(0);
+		expect(snapshot.hwisClasses).toHaveLength(0);
+
+		expect(snapshot.eslSemesters).toHaveLength(1);
+		expect(snapshot.eslEvents).toHaveLength(1);
+		expect(snapshot.eslCohorts).toHaveLength(1);
+		expect(snapshot.eslClasses).toHaveLength(1);
+		expect(snapshot.eslStudents).toHaveLength(1);
+		expect(snapshot.eslMeetings).toHaveLength(1);
+		expect(snapshot.eslNotes).toHaveLength(1);
+		expect(snapshot.eslAvailability).toHaveLength(1);
+	});
+
+	it('scope esl removes the whole ESL graph and leaves HWIS rows untouched', async () => {
+		const t = rawConvexTest(schema, modules);
+		await t.run(async (ctx) => {
+			await seedDepartmentGraphs(ctx, 'e2e-test_x');
+		});
+
+		const result = await t.mutation(api.testLifecycle.teardownByTag, {
+			scope: 'esl',
+			e2eTag: 'e2e-test_x'
+		});
+
+		expect(result.deleted).toEqual({
+			esl_events: 1,
+			teacher_notes: 1,
+			esl_class_meetings: 1,
+			esl_classes: 1,
+			esl_students: 1,
+			esl_teacher_availability: 1,
+			esl_cohorts: 1,
+			esl_semesters: 1
+		});
+
+		const snapshot = await t.run(async (ctx) => ({
+			hwisStudents: await ctx.db.query('students').collect(),
+			categories: await ctx.db.query('point_categories').collect(),
+			evaluations: await ctx.db.query('evaluations').collect(),
+			houseEvents: await ctx.db.query('house_events').collect(),
+			hwisClasses: await ctx.db.query('classes').collect(),
+			auditLogs: await ctx.db.query('audit_logs').collect(),
+			eslSemesters: await ctx.db.query('esl_semesters').collect(),
+			eslEvents: await ctx.db.query('esl_events').collect(),
+			eslCohorts: await ctx.db.query('esl_cohorts').collect(),
+			eslClasses: await ctx.db.query('esl_classes').collect(),
+			eslStudents: await ctx.db.query('esl_students').collect(),
+			eslMeetings: await ctx.db.query('esl_class_meetings').collect(),
+			eslNotes: await ctx.db.query('teacher_notes').collect(),
+			eslAvailability: await ctx.db.query('esl_teacher_availability').collect()
+		}));
+
+		expect(snapshot.eslSemesters).toHaveLength(0);
+		expect(snapshot.eslEvents).toHaveLength(0);
+		expect(snapshot.eslCohorts).toHaveLength(0);
+		expect(snapshot.eslClasses).toHaveLength(0);
+		expect(snapshot.eslStudents).toHaveLength(0);
+		expect(snapshot.eslMeetings).toHaveLength(0);
+		expect(snapshot.eslNotes).toHaveLength(0);
+		expect(snapshot.eslAvailability).toHaveLength(0);
+
+		expect(snapshot.hwisStudents.map((s) => s.studentId)).toEqual(['S1']);
+		expect(snapshot.categories).toHaveLength(1);
+		expect(snapshot.evaluations).toHaveLength(1);
+		expect(snapshot.houseEvents).toHaveLength(1);
+		expect(snapshot.hwisClasses).toHaveLength(1);
+		expect(snapshot.auditLogs).toHaveLength(1);
+	});
+
+	it('scope esl deletes an ESL-only test user but keeps a user holding both departments', async () => {
+		const t = rawConvexTest(schema, modules);
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'e2e_esl_only',
+				name: 'ESL Only',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { esl: 'teacher' },
+				e2eTag: 'e2e-test_x'
+			});
+			await ctx.db.insert('users', {
+				authId: 'e2e_hybrid',
+				name: 'Hybrid',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { international: 'teacher', esl: 'teacher' },
+				e2eTag: 'e2e-test_x'
+			});
+			await ctx.db.insert('users', {
+				authId: 'e2e_hwis_only',
+				name: 'HWIS Only',
+				role: 'teacher',
+				status: 'active',
+				e2eTag: 'e2e-test_x'
+			});
+		});
+
+		const result = await t.mutation(api.testLifecycle.teardownByTag, {
+			scope: 'esl',
+			e2eTag: 'e2e-test_x'
+		});
+		expect(result.deleted.users).toBe(1);
+
+		const users = await t.run(async (ctx) => ctx.db.query('users').collect());
+		expect(users.map((u) => u.authId).sort()).toEqual(['e2e_hwis_only', 'e2e_hybrid']);
+	});
+
+	it('scope international deletes an International-only test user but keeps shared and ESL users', async () => {
+		const t = rawConvexTest(schema, modules);
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'e2e_esl_only',
+				name: 'ESL Only',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { esl: 'teacher' },
+				e2eTag: 'e2e-test_x'
+			});
+			await ctx.db.insert('users', {
+				authId: 'e2e_hybrid',
+				name: 'Hybrid',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { international: 'teacher', esl: 'teacher' },
+				e2eTag: 'e2e-test_x'
+			});
+			await ctx.db.insert('users', {
+				authId: 'e2e_hwis_only',
+				name: 'HWIS Only',
+				role: 'teacher',
+				status: 'active',
+				e2eTag: 'e2e-test_x'
+			});
+		});
+
+		const result = await t.mutation(api.testLifecycle.teardownByTag, {
+			scope: 'international',
+			e2eTag: 'e2e-test_x'
+		});
+		expect(result.deleted.users).toBe(1);
+
+		const users = await t.run(async (ctx) => ctx.db.query('users').collect());
+		expect(users.map((u) => u.authId).sort()).toEqual(['e2e_esl_only', 'e2e_hybrid']);
+	});
+
+	it('scope all keeps a user who holds roles in both departments', async () => {
+		const t = rawConvexTest(schema, modules);
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'e2e_esl_only',
+				name: 'ESL Only',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { esl: 'teacher' },
+				e2eTag: 'e2e-test_x'
+			});
+			await ctx.db.insert('users', {
+				authId: 'e2e_hybrid',
+				name: 'Hybrid',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { international: 'teacher', esl: 'teacher' },
+				e2eTag: 'e2e-test_x'
+			});
+		});
+
+		await t.mutation(api.testLifecycle.teardownByTag, {
+			scope: 'all',
+			e2eTag: 'e2e-test_x'
+		});
+
+		const users = await t.run(async (ctx) => ctx.db.query('users').collect());
+		expect(users.map((u) => u.authId)).toEqual(['e2e_hybrid']);
+	});
+
 	it('teardownAllTagged removes any tagged rows and leaves untagged data', async () => {
 		const t = rawConvexTest(schema, modules);
 		await t.run(async (ctx) => {
@@ -546,6 +876,49 @@ describe('test data lifecycle', () => {
 		const second = await t.mutation(api.testLifecycle.teardownTestUsers, {});
 		expect(first.deleted.users).toBe(1);
 		expect(second.deleted.users).toBe(0);
+	});
+
+	it('teardownTestUsers keeps the ESL admin and a user holding both departments', async () => {
+		const mock = createMockAdapter([
+			{ id: 'esl-admin-id', email: 'esladmin@hwis.test', name: 'ESL Admin' },
+			{ id: 'hybrid-id', email: 'e2e-hybrid@hwis.test', name: 'Hybrid' },
+			{ id: 'esl-id', email: 'e2e-esl-only@hwis.test', name: 'ESL Only' }
+		]);
+		vi.spyOn(authComponent, 'adapter').mockImplementation(() => {
+			return (() => Promise.resolve(mock.adapter)) as never;
+		});
+
+		const t = rawConvexTest(schema, modules);
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'esl-admin-id',
+				name: 'ESL Admin',
+				role: 'admin',
+				status: 'active',
+				departmentRoles: { esl: 'admin' }
+			});
+			await ctx.db.insert('users', {
+				authId: 'hybrid-id',
+				name: 'Hybrid',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { international: 'teacher', esl: 'teacher' }
+			});
+			await ctx.db.insert('users', {
+				authId: 'esl-id',
+				name: 'ESL Only',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { esl: 'teacher' }
+			});
+		});
+
+		const result = await t.mutation(api.testLifecycle.teardownTestUsers, {});
+		expect(result.deleted.users).toBe(1);
+
+		const users = await t.run(async (ctx) => ctx.db.query('users').collect());
+		expect(users.map((u) => u.authId).sort()).toEqual(['esl-admin-id', 'hybrid-id']);
+		expect(mock.state.users.some((u) => u.email === 'esladmin@hwis.test')).toBe(true);
 	});
 
 	it('teardownBackupsByTimestamp respects the since cutoff', async () => {
