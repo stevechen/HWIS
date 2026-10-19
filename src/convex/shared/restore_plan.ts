@@ -14,6 +14,7 @@ import type { DataModel } from '../_generated/dataModel';
 import type { BackupSnapshot } from './backup_snapshot';
 import { SNAPSHOT_VERSION } from './backup_snapshot';
 import { normalizeStaffName } from './staff_name';
+import type { DepartmentRoles } from './authorization';
 
 type SerializedDocument<T> = Omit<T, '_id' | '_creationTime'> & { _id: string };
 
@@ -127,11 +128,33 @@ async function remapClasses(
 	return mapping;
 }
 
+// Merges a backed-up department assignment into the live one without ever
+// removing a live grant. A department the live user already belongs to keeps
+// its current rank (so a grant or demotion made after the backup survives),
+// while departments missing live are restored from the payload. This keeps an
+// ESL-only or hybrid user working across a restore instead of silently losing
+// the department they were assigned after the snapshot was taken.
+function mergeDepartmentRoles(
+	live: DepartmentRoles | undefined,
+	payload: DepartmentRoles | undefined
+): DepartmentRoles | undefined {
+	if (!payload) return live;
+	if (!live) return payload;
+	const merged: DepartmentRoles = {};
+	const international = live.international ?? payload.international;
+	const esl = live.esl ?? payload.esl;
+	if (international) merged.international = international;
+	if (esl) merged.esl = esl;
+	return merged;
+}
+
 // Recreates payload users. A user whose authId already exists is patched
-// (name/role/status) rather than duplicated so authenticated accounts keep
-// their live identity. Users with an authId absent from the live database are
-// skipped — a deleted user stays deleted across restores. Users without an
-// authId are always inserted fresh.
+// (name/role/status/departmentRoles) rather than duplicated so authenticated
+// accounts keep their live identity. Department roles are unioned rather than
+// overwritten: the payload only fills in departments the live user lacks.
+// Users with an authId absent from the live database are skipped — a deleted
+// user stays deleted across restores. Users without an authId are always
+// inserted fresh and receive the payload's department roles.
 async function remapUsers(
 	ctx: { db: GenericDatabaseWriter<DataModel> },
 	users: RestorePayload['users']
@@ -146,10 +169,15 @@ async function remapUsers(
 			: null;
 
 		if (existingUser) {
+			const departmentRoles = mergeDepartmentRoles(
+				existingUser.departmentRoles,
+				user.departmentRoles
+			);
 			await ctx.db.patch(existingUser._id, {
 				name: user.role === 'student' ? (user.name ?? undefined) : normalizeStaffName(user.name),
 				role: user.role ?? existingUser.role,
-				status: user.status ?? existingUser.status
+				status: user.status ?? existingUser.status,
+				...(departmentRoles ? { departmentRoles } : {})
 			});
 			mapping.set(user._id, existingUser._id);
 		} else if (user.authId) {
@@ -159,7 +187,8 @@ async function remapUsers(
 				authId: undefined,
 				name: user.role === 'student' ? (user.name ?? undefined) : normalizeStaffName(user.name),
 				role: user.role ?? 'teacher',
-				status: user.status ?? 'active'
+				status: user.status ?? 'active',
+				departmentRoles: user.departmentRoles
 			});
 			mapping.set(user._id, newUserId);
 		}

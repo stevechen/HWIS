@@ -3,10 +3,37 @@ import { v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { authComponent, requireAdminForSensitiveOperation } from './auth';
+import { resolveDepartmentRoles } from './shared/authorization';
 
 // Core infrastructure users that are shared across parallel tests and have
 // valid storageState; they must never be deleted by any teardown path.
-const PROTECTED_EMAILS = new Set(['teacher@hwis.test', 'admin@hwis.test', 'super@hwis.test']);
+const PROTECTED_EMAILS = new Set([
+	'teacher@hwis.test',
+	'admin@hwis.test',
+	'super@hwis.test',
+	'esladmin@hwis.test'
+]);
+
+/** Tables the International department owns. */
+const INTERNATIONAL_TARGET_TABLES = new Set([
+	'students',
+	'evaluations',
+	'point_categories',
+	'house_events',
+	'classes'
+]);
+
+/** Tables the ESL department owns, including the unprefixed notes table. */
+const ESL_TARGET_TABLES = new Set([
+	'esl_cohorts',
+	'esl_classes',
+	'esl_class_meetings',
+	'esl_teacher_availability',
+	'esl_semesters',
+	'esl_events',
+	'esl_students',
+	'teacher_notes'
+]);
 
 // AuthIds created by the test seeding mutations (dataFactory, testE2E, etc.).
 const TEST_AUTH_ID_PREFIXES = ['e2e_', 'e2e-', 'test_', 'eval_', 'e2e-test_'];
@@ -29,6 +56,11 @@ const SCOPE = v.union(
 	// and classes in one transaction and is invisible to every other scope, so
 	// without this a spec that imports a workbook leaves its year behind.
 	v.literal('esl'),
+	// The International department's tables, the mirror of `esl`. Backups are
+	// deliberately absent from both department scopes: a backup row is not yet
+	// department-scoped, and guessing from its contents would let one
+	// department's teardown delete the other's file.
+	v.literal('international'),
 	v.literal('all')
 );
 
@@ -90,13 +122,18 @@ async function deleteEvaluationsByTag(teardown: TeardownContext) {
 	return [...ids];
 }
 
-async function deleteAuditLogsByTag(teardown: TeardownContext) {
+async function deleteAuditLogsByTag(teardown: TeardownContext, targets?: ReadonlySet<string>) {
 	const ids = new Set<Id<'audit_logs'>>();
 	const tagged = await teardown.ctx.db
 		.query('audit_logs')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
-	for (const log of tagged) ids.add(log._id);
+	for (const log of tagged) {
+		// An audit log is shared infrastructure: only remove the rows whose
+		// target belongs to the department being torn down.
+		if (targets && !targets.has(log.targetTable)) continue;
+		ids.add(log._id);
+	}
 	for (const evaluationId of teardown.evaluationIds) {
 		const logs = await teardown.ctx.db
 			.query('audit_logs')
@@ -157,13 +194,21 @@ async function deleteBackupsByTag(teardown: TeardownContext) {
 	if (backups.length > 0) bump(teardown, 'backups', backups.length);
 }
 
-async function deleteUsersByTag(teardown: TeardownContext) {
+async function deleteUsersByTag(teardown: TeardownContext, department?: 'international' | 'esl') {
 	const users = await teardown.ctx.db
 		.query('users')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
 	let count = 0;
 	for (const user of users) {
+		const roles = resolveDepartmentRoles(user);
+		const isShared = roles.international !== undefined && roles.esl !== undefined;
+		// A user holding both departments is shared state, not this
+		// department's test data: removing them would strip the other
+		// department's access mid-run.
+		if (isShared) continue;
+		if (department === 'international' && roles.international === undefined) continue;
+		if (department === 'esl' && roles.esl === undefined) continue;
 		await teardown.ctx.db.delete(user._id);
 		count++;
 	}
@@ -231,9 +276,13 @@ async function deleteTestPerformerUser(teardown: TeardownContext) {
 /**
  * Remove every row matching `e2eTag` across the resource graph, cascading to
  * untagged dependents (evaluations and audit logs referencing tagged parents).
- * `scope` narrows teardown to a single data type. Cascade order is
- * deterministic: students → evaluations → audit_logs → point_categories →
- * house_events → backups → users → orphaned classes.
+ * `scope` narrows teardown to a single data type or department. `esl` touches
+ * only the ESL graph (and tagged ESL-only users); `international` touches only
+ * the HWIS graph (and tagged International-only users); `all` clears both.
+ * Cascade order is deterministic: students → evaluations → audit_logs →
+ * point_categories → house_events → backups → users → orphaned classes, with
+ * the ESL graph removed before users. A user holding roles in both departments
+ * is shared state and survives every scope.
  */
 export const teardownByTag = mutation({
 	args: {
@@ -255,45 +304,16 @@ export const teardownByTag = mutation({
 		};
 		const hasTag = args.e2eTag !== undefined;
 		const isAll = scope === 'all';
-
-		if (isAll || scope === 'esl') {
-			// Students before cohorts: a cohort cannot go while a student points at
-			// it, and the classes that teach it go with it.
-			const taggedStudents = await ctx.db
-				.query('esl_students')
-				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
-				.collect();
-			for (const student of taggedStudents) {
-				await ctx.db.delete(student._id);
-			}
-			if (taggedStudents.length > 0) teardown.deleted.eslStudents = taggedStudents.length;
-
-			const taggedCohorts = await ctx.db
-				.query('esl_cohorts')
-				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
-				.collect();
-			let eslClasses = 0;
-			for (const cohort of taggedCohorts) {
-				const classes = await ctx.db
-					.query('esl_classes')
-					.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
-					.collect();
-				for (const cls of classes) {
-					await ctx.db.delete(cls._id);
-				}
-				eslClasses += classes.length;
-				await ctx.db.delete(cohort._id);
-			}
-			if (taggedCohorts.length > 0) teardown.deleted.eslCohorts = taggedCohorts.length;
-			if (eslClasses > 0) teardown.deleted.eslClasses = eslClasses;
-		}
+		const isInternational = scope === 'international';
 
 		if (scope === 'auditLogs' && !hasTag) {
 			await deleteUntaggedAuditLogs(teardown);
 			return { deleted: teardown.deleted };
 		}
 
-		if (isAll || scope === 'students') {
+		// HWIS graph. `international` is the department-scoped name for exactly
+		// these tables; `esl` never reaches them.
+		if (isAll || isInternational || scope === 'students') {
 			const taggedStudents = await ctx.db
 				.query('students')
 				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
@@ -301,28 +321,50 @@ export const teardownByTag = mutation({
 			teardown.studentClassIds = taggedStudents.map((student) => student.classId);
 			await deleteStudentsByTag(teardown);
 		}
-		if (isAll || scope === 'students' || scope === 'evaluations') {
+		if (isAll || isInternational || scope === 'students' || scope === 'evaluations') {
 			await deleteEvaluationsByTag(teardown);
 		}
-		if (isAll || scope === 'students' || scope === 'evaluations' || scope === 'auditLogs') {
-			await deleteAuditLogsByTag(teardown);
+		if (
+			isAll ||
+			isInternational ||
+			scope === 'students' ||
+			scope === 'evaluations' ||
+			scope === 'auditLogs'
+		) {
+			await deleteAuditLogsByTag(
+				teardown,
+				isInternational ? INTERNATIONAL_TARGET_TABLES : undefined
+			);
 		}
 		if (scope === 'auditLogs') {
 			await deleteTestPerformerUser(teardown);
 		}
-		if (isAll || scope === 'categories') {
+		if (isAll || isInternational || scope === 'categories') {
 			await deleteCategoriesByTag(teardown);
 		}
-		if (isAll || scope === 'houseEvents') {
+		if (isAll || isInternational || scope === 'houseEvents') {
 			await deleteHouseEventsByTag(teardown);
 		}
+		// Backups carry no department column yet, so only the full sweep may
+		// touch them.
 		if (isAll || scope === 'backups') {
 			await deleteBackupsByTag(teardown);
+		}
+
+		if (scope === 'esl') {
+			await deleteAuditLogsByTag(teardown, ESL_TARGET_TABLES);
+			await deleteEslByTag(teardown);
+			await deleteUsersByTag(teardown, 'esl');
 		}
 		if (isAll) {
 			await deleteEslByTag(teardown);
 			await deleteUsersByTag(teardown);
+		}
+		if (isAll || isInternational) {
 			await deleteOrphanedClasses(teardown);
+		}
+		if (isInternational) {
+			await deleteUsersByTag(teardown, 'international');
 		} else if (scope === 'students') {
 			await deleteOrphanedClasses(teardown);
 		}
@@ -371,37 +413,69 @@ async function deleteEslByTag(teardown: TeardownContext) {
 		classes.push(...rows);
 	}
 
-	const notes = await ctx.db
+	// Rows under a tagged cohort/class are test data whether or not they carry
+	// the tag themselves, so the cascade also reaches untagged dependents.
+	const noteIds = new Set<Id<'teacher_notes'>>();
+	for (const note of await ctx.db
 		.query('teacher_notes')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
-		.collect();
-	for (const note of notes) {
-		await ctx.db.delete(note._id);
+		.collect()) {
+		noteIds.add(note._id);
 	}
-	if (notes.length > 0) bump(teardown, 'teacher_notes', notes.length);
-
-	const meetings = await ctx.db
+	const meetingIds = new Set<Id<'esl_class_meetings'>>();
+	for (const meeting of await ctx.db
 		.query('esl_class_meetings')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
-		.collect();
-	for (const meeting of meetings) {
-		await ctx.db.delete(meeting._id);
+		.collect()) {
+		meetingIds.add(meeting._id);
 	}
-	if (meetings.length > 0) bump(teardown, 'esl_class_meetings', meetings.length);
+	for (const cls of classes) {
+		for (const note of await ctx.db
+			.query('teacher_notes')
+			.withIndex('by_class_teacher_date', (q) => q.eq('classId', cls._id))
+			.collect()) {
+			noteIds.add(note._id);
+		}
+		for (const meeting of await ctx.db
+			.query('esl_class_meetings')
+			.withIndex('by_classId', (q) => q.eq('classId', cls._id))
+			.collect()) {
+			meetingIds.add(meeting._id);
+		}
+	}
+	for (const id of noteIds) {
+		await ctx.db.delete(id);
+	}
+	if (noteIds.size > 0) bump(teardown, 'teacher_notes', noteIds.size);
+	for (const id of meetingIds) {
+		await ctx.db.delete(id);
+	}
+	if (meetingIds.size > 0) bump(teardown, 'esl_class_meetings', meetingIds.size);
 
 	for (const cls of classes) {
 		await ctx.db.delete(cls._id);
 	}
 	if (classes.length > 0) bump(teardown, 'esl_classes', classes.length);
 
-	const students = await ctx.db
+	const studentIds = new Set<Id<'esl_students'>>();
+	for (const student of await ctx.db
 		.query('esl_students')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
-		.collect();
-	for (const student of students) {
-		await ctx.db.delete(student._id);
+		.collect()) {
+		studentIds.add(student._id);
 	}
-	if (students.length > 0) bump(teardown, 'esl_students', students.length);
+	for (const cohort of cohorts) {
+		for (const student of await ctx.db
+			.query('esl_students')
+			.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
+			.collect()) {
+			studentIds.add(student._id);
+		}
+	}
+	for (const id of studentIds) {
+		await ctx.db.delete(id);
+	}
+	if (studentIds.size > 0) bump(teardown, 'esl_students', studentIds.size);
 
 	const availability = await ctx.db
 		.query('esl_teacher_availability')
@@ -460,37 +534,67 @@ async function deleteEslSweep(teardown: TeardownContext) {
 		classes.push(...rows);
 	}
 
-	const notes = await ctx.db
+	const noteIds = new Set<Id<'teacher_notes'>>();
+	for (const note of await ctx.db
 		.query('teacher_notes')
 		.filter((q) => q.neq(q.field('e2eTag'), undefined))
-		.collect();
-	for (const note of notes) {
-		await ctx.db.delete(note._id);
+		.collect()) {
+		noteIds.add(note._id);
 	}
-	if (notes.length > 0) bump(teardown, 'teacher_notes', notes.length);
-
-	const meetings = await ctx.db
+	const meetingIds = new Set<Id<'esl_class_meetings'>>();
+	for (const meeting of await ctx.db
 		.query('esl_class_meetings')
 		.filter((q) => q.neq(q.field('e2eTag'), undefined))
-		.collect();
-	for (const meeting of meetings) {
-		await ctx.db.delete(meeting._id);
+		.collect()) {
+		meetingIds.add(meeting._id);
 	}
-	if (meetings.length > 0) bump(teardown, 'esl_class_meetings', meetings.length);
+	for (const cls of classes) {
+		for (const note of await ctx.db
+			.query('teacher_notes')
+			.withIndex('by_class_teacher_date', (q) => q.eq('classId', cls._id))
+			.collect()) {
+			noteIds.add(note._id);
+		}
+		for (const meeting of await ctx.db
+			.query('esl_class_meetings')
+			.withIndex('by_classId', (q) => q.eq('classId', cls._id))
+			.collect()) {
+			meetingIds.add(meeting._id);
+		}
+	}
+	for (const id of noteIds) {
+		await ctx.db.delete(id);
+	}
+	if (noteIds.size > 0) bump(teardown, 'teacher_notes', noteIds.size);
+	for (const id of meetingIds) {
+		await ctx.db.delete(id);
+	}
+	if (meetingIds.size > 0) bump(teardown, 'esl_class_meetings', meetingIds.size);
 
 	for (const cls of classes) {
 		await ctx.db.delete(cls._id);
 	}
 	if (classes.length > 0) bump(teardown, 'esl_classes', classes.length);
 
-	const students = await ctx.db
+	const studentIds = new Set<Id<'esl_students'>>();
+	for (const student of await ctx.db
 		.query('esl_students')
 		.filter((q) => q.neq(q.field('e2eTag'), undefined))
-		.collect();
-	for (const student of students) {
-		await ctx.db.delete(student._id);
+		.collect()) {
+		studentIds.add(student._id);
 	}
-	if (students.length > 0) bump(teardown, 'esl_students', students.length);
+	for (const cohort of cohorts) {
+		for (const student of await ctx.db
+			.query('esl_students')
+			.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
+			.collect()) {
+			studentIds.add(student._id);
+		}
+	}
+	for (const id of studentIds) {
+		await ctx.db.delete(id);
+	}
+	if (studentIds.size > 0) bump(teardown, 'esl_students', studentIds.size);
 
 	const availability = await ctx.db
 		.query('esl_teacher_availability')
@@ -690,7 +794,11 @@ export const teardownTestUsers = mutation({
 			);
 			const isKnownTestId = Boolean(authId && TEST_AUTH_IDS.has(authId));
 			const isOrphaned = !authId || !baByAuthId.has(authId);
-			if (matchesPrefix || isKnownTestId || isOrphaned || hasTestEmail) {
+			// A user holding both departments is shared across the two test
+			// suites; a sweep for one department's leftovers must not take it.
+			const roles = resolveDepartmentRoles(user);
+			const isShared = roles.international !== undefined && roles.esl !== undefined;
+			if (!isShared && (matchesPrefix || isKnownTestId || isOrphaned || hasTestEmail)) {
 				await ctx.db.delete(user._id);
 				deletedCount++;
 			}

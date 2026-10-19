@@ -109,6 +109,232 @@ describe('dataFactory.createEvaluationForStudent', () => {
 	});
 });
 
+describe('dataFactory department-aware factories', () => {
+	async function seeded() {
+		const t = await convexTest(schema, modules);
+		await seedUser(t, { authId: 'factory-admin', name: 'Factory Admin', role: 'admin' });
+		mockAuthUser({
+			authId: 'factory-admin',
+			name: 'Factory Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		return t;
+	}
+
+	it('createEslSemester writes an ESL semester and no HWIS rows', async () => {
+		const t = await seeded();
+
+		const semesterId = await t.mutation(api.dataFactory.createEslSemester, {
+			year: '2025-2026',
+			term: 'S1',
+			startDate: '2025-08-25',
+			e2eTag: 'esl-tag'
+		});
+
+		const semester = await t.run((ctx) => ctx.db.get(semesterId));
+		expect(semester?.year).toBe('2025-2026');
+		expect(semester?.e2eTag).toBe('esl-tag');
+
+		const hwis = await t.run(async (ctx) => ({
+			classes: await ctx.db.query('classes').collect(),
+			students: await ctx.db.query('students').collect(),
+			events: await ctx.db.query('house_events').collect()
+		}));
+		expect(hwis).toEqual({ classes: [], students: [], events: [] });
+	});
+
+	it('createEslCohort creates the cohort and its ESL classes only', async () => {
+		const t = await seeded();
+
+		const { cohortId, classIds } = await t.mutation(api.dataFactory.createEslCohort, {
+			year: '2025-2026',
+			grade: 7,
+			level: 'A',
+			classNumber: '1',
+			e2eTag: 'esl-tag'
+		});
+
+		const classes = await t.run((ctx) => Promise.all(classIds.map((id) => ctx.db.get(id))));
+		expect(classes.every((cls) => cls?.cohortId === cohortId)).toBe(true);
+		expect(classes.map((cls) => cls?.type).sort()).toEqual(['CLIL', 'Comm']);
+
+		const hwisClasses = await t.run((ctx) => ctx.db.query('classes').collect());
+		expect(hwisClasses).toHaveLength(0);
+	});
+
+	it('createEslClass adds a class to a cohort without touching HWIS classes', async () => {
+		const t = await seeded();
+		const { cohortId } = await t.mutation(api.dataFactory.createEslCohort, {
+			year: '2025-2026',
+			grade: 9,
+			classNumber: '1',
+			e2eTag: 'esl-tag'
+		});
+
+		const classId = await t.mutation(api.dataFactory.createEslClass, {
+			cohortId,
+			type: 'G9',
+			name: 'G9-1'
+		});
+
+		const cls = await t.run((ctx) => ctx.db.get(classId));
+		expect(cls?.cohortId).toBe(cohortId);
+		expect(cls?.name).toBe('G9-1');
+		expect(await t.run((ctx) => ctx.db.query('classes').collect())).toHaveLength(0);
+	});
+
+	it('createEslStudent references the ESL cohort, not an HWIS class', async () => {
+		const t = await seeded();
+		const { cohortId } = await t.mutation(api.dataFactory.createEslCohort, {
+			year: '2025-2026',
+			grade: 7,
+			level: 'A',
+			classNumber: '1',
+			e2eTag: 'esl-tag'
+		});
+
+		const studentId = await t.mutation(api.dataFactory.createEslStudent, {
+			cohortId,
+			englishName: 'Alice Chan',
+			chineseName: '陳小美',
+			schoolStudentId: '7001001',
+			e2eTag: 'esl-tag'
+		});
+
+		const student = await t.run((ctx) => ctx.db.get(studentId));
+		expect(student?.cohortId).toBe(cohortId);
+		expect(student?.schoolStudentId).toBe('7001001');
+		expect(await t.run((ctx) => ctx.db.query('students').collect())).toHaveLength(0);
+	});
+
+	it('createEslEvent writes an ESL event and no HWIS house event', async () => {
+		const t = await seeded();
+		const semesterId = await t.mutation(api.dataFactory.createEslSemester, {
+			e2eTag: 'esl-tag'
+		});
+
+		const eventId = await t.mutation(api.dataFactory.createEslEvent, {
+			semesterId,
+			type: 'no_school',
+			title: 'Moon Festival',
+			date: '2025-10-06',
+			e2eTag: 'esl-tag'
+		});
+
+		const event = await t.run((ctx) => ctx.db.get(eventId));
+		expect(event?.title).toBe('Moon Festival');
+		expect(event?.semesterId).toBe(semesterId);
+		expect(await t.run((ctx) => ctx.db.query('house_events').collect())).toHaveLength(0);
+	});
+
+	it('createEslMeeting and createEslNote stay inside the ESL graph', async () => {
+		const t = await seeded();
+		const teacherId = await t.run(async (ctx) => {
+			const users = await ctx.db.query('users').collect();
+			return users[0]._id;
+		});
+		const { classIds } = await t.mutation(api.dataFactory.createEslCohort, {
+			year: '2025-2026',
+			grade: 7,
+			level: 'A',
+			classNumber: '1',
+			e2eTag: 'esl-tag'
+		});
+		const [classId] = classIds;
+		if (!classId) throw new Error('expected the cohort factory to create classes');
+
+		const meetingId = await t.mutation(api.dataFactory.createEslMeeting, {
+			classId,
+			day: 'Tuesday',
+			period: 3,
+			e2eTag: 'esl-tag'
+		});
+		const noteId = await t.mutation(api.dataFactory.createEslNote, {
+			classId,
+			teacherId,
+			date: '2025-09-02',
+			text: 'Bring flashcards',
+			e2eTag: 'esl-tag'
+		});
+
+		expect((await t.run((ctx) => ctx.db.get(meetingId)))?.day).toBe('Tuesday');
+		expect((await t.run((ctx) => ctx.db.get(noteId)))?.text).toBe('Bring flashcards');
+		expect(await t.run((ctx) => ctx.db.query('classes').collect())).toHaveLength(0);
+		expect(await t.run((ctx) => ctx.db.query('students').collect())).toHaveLength(0);
+	});
+
+	it('createEslAvailability stays inside the ESL graph', async () => {
+		const t = await seeded();
+		const teacherId = await t.run(async (ctx) => {
+			const users = await ctx.db.query('users').collect();
+			return users[0]._id;
+		});
+
+		const availabilityId = await t.mutation(api.dataFactory.createEslAvailability, {
+			teacherId,
+			day: 'Friday',
+			period: 8,
+			e2eTag: 'esl-tag'
+		});
+
+		const row = await t.run((ctx) => ctx.db.get(availabilityId));
+		expect(row?.period).toBe(8);
+		expect(row?.e2eTag).toBe('esl-tag');
+	});
+
+	it('createTestUser accepts the departments a shared user belongs to', async () => {
+		const t = await seeded();
+
+		const eslUserId = await t.mutation(api.dataFactory.createTestUser, {
+			authId: 'e2e_esl_staff',
+			department: 'esl',
+			departmentRole: 'teacher',
+			e2eTag: 'esl-tag'
+		});
+		const hybridUserId = await t.mutation(api.dataFactory.createTestUser, {
+			authId: 'e2e_hybrid_staff',
+			department: 'both',
+			departmentRole: 'admin',
+			e2eTag: 'esl-tag'
+		});
+
+		expect((await t.run((ctx) => ctx.db.get(eslUserId)))?.departmentRoles).toEqual({
+			esl: 'teacher'
+		});
+		expect((await t.run((ctx) => ctx.db.get(hybridUserId)))?.departmentRoles).toEqual({
+			international: 'admin',
+			esl: 'admin'
+		});
+	});
+
+	it('createHwisClass and createStudentWithId write only HWIS tables', async () => {
+		const t = await seeded();
+
+		const classId = await t.mutation(api.dataFactory.createHwisClass, {
+			grade: 10,
+			class: '1',
+			e2eTag: 'hwis-tag'
+		});
+		await t.mutation(api.dataFactory.createStudentWithId, {
+			studentId: 'HW1001',
+			grade: 10,
+			class: '1',
+			e2eTag: 'hwis-tag'
+		});
+
+		expect((await t.run((ctx) => ctx.db.get(classId)))?.grade).toBe(10);
+		expect(await t.run((ctx) => ctx.db.query('students').collect())).toHaveLength(1);
+
+		const esl = await t.run(async (ctx) => ({
+			cohorts: await ctx.db.query('esl_cohorts').collect(),
+			students: await ctx.db.query('esl_students').collect(),
+			classes: await ctx.db.query('esl_classes').collect()
+		}));
+		expect(esl).toEqual({ cohorts: [], students: [], classes: [] });
+	});
+});
+
 describe('dataFactory.seedManyStudents', () => {
 	async function seedAsAdmin(args: {
 		count: number;
