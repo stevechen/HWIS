@@ -310,6 +310,111 @@ describe('restore plan', () => {
 		expect(users[0].role).toBe('admin');
 	});
 
+	test('existing user keeps live department role while gaining payload department role', async () => {
+		const t = await convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'hybrid-auth-id',
+				name: 'Hybrid Staff',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { international: 'teacher' }
+			});
+		});
+
+		const payload: RestorePayload = {
+			students: [],
+			evaluations: [],
+			users: [
+				{
+					_id: 'old_user',
+					authId: 'hybrid-auth-id',
+					name: 'Hybrid Staff',
+					role: 'teacher',
+					status: 'active',
+					departmentRoles: { esl: 'admin' }
+				}
+			],
+			categories: [],
+			classes: [],
+			houseEvents: []
+		};
+
+		await t.run(async (ctx) => applyRestore(ctx, payload));
+
+		const users = await t.run(async (ctx) => await ctx.db.query('users').collect());
+		expect(users).toHaveLength(1);
+		expect(users[0].departmentRoles).toEqual({
+			international: 'teacher',
+			esl: 'admin'
+		});
+	});
+
+	test('inserted user receives payload department roles', async () => {
+		const t = await convexTest(schema, modules);
+
+		const payload: RestorePayload = {
+			students: [],
+			evaluations: [],
+			users: [
+				{
+					_id: 'new_user',
+					name: 'New Esl Teacher',
+					role: 'teacher',
+					status: 'active',
+					departmentRoles: { esl: 'teacher' }
+				}
+			],
+			categories: [],
+			classes: [],
+			houseEvents: []
+		};
+
+		await t.run(async (ctx) => applyRestore(ctx, payload));
+
+		const users = await t.run(async (ctx) => await ctx.db.query('users').collect());
+		expect(users).toHaveLength(1);
+		expect(users[0].departmentRoles).toEqual({ esl: 'teacher' });
+	});
+
+	test('payload without department roles leaves live roles intact', async () => {
+		const t = await convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'esl-auth-id',
+				name: 'Esl Admin',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { esl: 'admin' }
+			});
+		});
+
+		const payload: RestorePayload = {
+			students: [],
+			evaluations: [],
+			users: [
+				{
+					_id: 'old_user',
+					authId: 'esl-auth-id',
+					name: 'Esl Admin',
+					role: 'teacher',
+					status: 'active'
+				}
+			],
+			categories: [],
+			classes: [],
+			houseEvents: []
+		};
+
+		await t.run(async (ctx) => applyRestore(ctx, payload));
+
+		const users = await t.run(async (ctx) => await ctx.db.query('users').collect());
+		expect(users).toHaveLength(1);
+		expect(users[0].departmentRoles).toEqual({ esl: 'admin' });
+	});
+
 	test('restores house events including optional housePoints', async () => {
 		const t = await convexTest(schema, modules);
 
