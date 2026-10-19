@@ -1,14 +1,19 @@
 <script lang="ts">
+	import { Trash2 } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import CalendarPreview from './CalendarPreview.svelte';
 	import type { WizardState, WizardStep4State } from './wizard-state';
 	import {
 		addDays,
 		buildPreviewWeeks,
+		CLIL_CLASSES_PER_QUIZ,
+		schoolWeekDates,
+		clilQuizWindow,
 		collectClassDays,
-		dueWindowDates,
 		isWeekend,
-		type MockOffDay
+		mondayOfWeek,
+		type MockOffDay,
+		weekOf
 	} from './wizard-dates';
 
 	/**
@@ -33,10 +38,10 @@
 	 * - F56: block gates — Block 1 = first day → Exam 1, Block 2 = Exam 1 →
 	 *   Exam 2, Block 3 = Exam 2 → Final. Quizzes 1–2 → B1, 3–4 → B2,
 	 *   5–6 → B3; dues 1 → B1, 2 → B2, 3 → B3 (S2: 2 dues → B1–B2);
-	 *   end-of-term checks → B3 only. Batch-fill lands each row in its block.
+	 *   end-of-term checks → B3 only. Every row is placed manually.
 	 * - F63: Anniversary + makeup render as one shared bordered card.
-	 * - F64: no arming toggle — "Pick date" / "Set batch start" /
-	 *   "Set dates" / "Set window"; a slim placing banner with ✕ cancel
+	 * - F64: no arming toggle — "Pick date" / "Set dates" /
+	 *   "Set window"; a slim placing banner with ✕ cancel
 	 *   while a row is placing. Promotion addition: a successful placement
 	 *   also disarms (the prototype kept placing until cancelled).
 	 * - F65: pair same-date gate both directions.
@@ -65,9 +70,7 @@
 	const PAIR_IDS: readonly PairId[] = ['mock1', 'mock2', 'mock3'];
 	const QUIZ_IDS = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'] as const;
 
-	const QUIZ_DAYS = 3;
-	const DUE_DAYS = 3;
-	const CHECK_DAYS = 5;
+	const DUE_DAYS = 5;
 
 	const term = $derived(wizardState.step1.term);
 	const startDate = $derived(wizardState.step1.startDate);
@@ -96,7 +99,13 @@
 	let tab = $state<Tab>('school');
 	let armed = $state<string | null>(null);
 	let hoverStart = $state<string | null>(null);
-	let open = $state<Record<string, boolean>>({ schoolFest: true, schoolTerm: true });
+	let open = $state<Record<string, boolean>>({
+		b1: true,
+		b2: true,
+		b3: true,
+		schoolFest: true,
+		schoolTerm: true
+	});
 
 	function isSingleId(id: string): id is SingleId {
 		return (SINGLE_IDS as readonly string[]).includes(id);
@@ -106,10 +115,6 @@
 	}
 	function isExtraId(id: string): boolean {
 		return id.startsWith('extra:');
-	}
-
-	function isBatchSource(id: string): boolean {
-		return id === 'q1' || id === 'pd1';
 	}
 
 	function snapClass(date: string): string | null {
@@ -179,6 +184,13 @@
 		}
 	}
 
+	function removeExtra(id: string): void {
+		update((draft) => {
+			draft.step4.extras = draft.step4.extras.filter((extra) => extra.id !== id);
+		});
+		if (armed === 'extra:' + id) disarm();
+	}
+
 	function seriesOf(id: string): { ids: readonly string[]; label: (i: number) => string } | null {
 		if (id.startsWith('mock')) return { ids: mockIds, label: (i) => `G9 Mock ${i + 1}` };
 		if (id.startsWith('q'))
@@ -195,12 +207,29 @@
 
 	// F55 order gate: `[first, last]` must sit strictly between the
 	// confirmed neighbors in its series, or null when it fits.
+	//
+	// Ranged ESL rows (quizzes, dues) are gated on OVERLAP rather than strict
+	// order: two 5-school-day windows inside one exam block cannot both sit
+	// "strictly before" each other, so demanding that made every candidate for
+	// either row collide with the other — a placed window could then never be
+	// moved and the row read as locked in place. Overlap is the real conflict:
+	// two windows may not share a day. Block membership (`blockViolation`)
+	// already carries the "which exam period" rule.
+	// Mock pairs keep the strict rule: they are short, so they can always be
+	// ordered, and "Mock 2 must follow Mock 1" is the real intent there.
+	//
+	// Overlap is the two-sided interval intersection
+	// (`first <= otherLast && otherFirst <= last`). A one-sided test such as
+	// `first <= otherLast` refuses every window that merely ENDS before its
+	// neighbour ends — which is most of them — and left a placed row with no
+	// selectable date anywhere.
 	function orderViolation(id: string, first: string, last: string): string | null {
 		const series = seriesOf(id);
 		if (series === null) return null;
 		const idx = series.ids.indexOf(id);
 		if (idx < 0) return null;
 		const label = series.label(idx);
+		const overlapOnly = id.startsWith('q') || id.startsWith('pd') || id.startsWith('rd');
 		for (let i = 0; i < series.ids.length; i++) {
 			if (i === idx) continue;
 			const other = confirmedRange(series.ids[i] as string);
@@ -208,6 +237,15 @@
 			const otherFirst = other[0] as string;
 			const otherLast = other[other.length - 1] as string;
 			const otherLabel = series.label(i);
+			if (overlapOnly) {
+				// Shares a day with this sibling, whichever side it sits on.
+				if (first <= otherLast && otherFirst <= last) {
+					return i < idx
+						? `${otherLabel} must end before ${label} starts`
+						: `${label} must end before ${otherLabel} starts`;
+				}
+				continue;
+			}
 			if (i < idx) {
 				if (!(first > otherLast)) return `${otherLabel} must end before ${label} starts`;
 			} else {
@@ -281,11 +319,63 @@
 
 	function blockViolation(id: string, first: string, last: string): string | null {
 		const n = blockOf(id);
-		if (n === null) return null;
-		const window = blockWindows.find((w) => w.n === n);
-		if (window === undefined) return null;
+		const window = blockWindowOf(id);
+		if (n === null || window === null) return null;
 		if (first >= window.start && last <= window.end) return null;
+		return blockMessage(id);
+	}
+
+	function blockWindowOf(id: string): BlockWindow | null {
+		const n = blockOf(id);
+		if (n === null) return null;
+		return blockWindows.find((w) => w.n === n) ?? null;
+	}
+
+	function blockMessage(id: string): string | null {
+		const n = blockOf(id);
+		const window = blockWindowOf(id);
+		if (n === null || window === null) return null;
 		return `${eventLabel(id)} belongs to Block ${n} — between ${window.between}`;
+	}
+
+	function isWeekEvent(id: string): boolean {
+		return id === 'pcheck' || id === 'wcheck' || id.startsWith('pd') || id.startsWith('rd');
+	}
+
+	function inBlock(id: string, date: string): boolean {
+		const window = blockWindowOf(id);
+		return window === null || (date >= window.start && date <= window.end);
+	}
+
+	/**
+	 * The dates a week-scoped row (Passport/Recording Due or Check) places
+	 * when anchored on `date`.
+	 *
+	 * The window is a SCHOOL WEEK, whatever number of school days it holds:
+	 * a four-day holiday week is as valid as a five-day one. A short week
+	 * (three or fewer school days, e.g. the days before an exam) also
+	 * collects the previous school week, so teachers have collection time.
+	 *
+	 * `currentWeek` never leaves the row's block. Days after the block end —
+	 * such as the days following Exam 1 that sit in the same calendar week —
+	 * belong to the next block and are never placed here. The block and order
+	 * gates check `currentWeek` / the saved range, so a short pre-exam week
+	 * is accepted while a post-exam day in the same week still is not.
+	 */
+	function weekWindow(id: string, date: string): { dates: string[]; currentWeek: string[] } {
+		const window = blockWindowOf(id);
+		const weekDates = schoolWeekDates(date, skipSet);
+		const currentWeek =
+			window === null
+				? weekDates
+				: weekDates.filter((day) => day >= window.start && day <= window.end);
+		if (currentWeek.length === 0) return { dates: [], currentWeek };
+		if (currentWeek.length <= 3) {
+			const prevMonday = addDays(mondayOfWeek(date), -7);
+			const prevWeekDates = schoolWeekDates(prevMonday, skipSet);
+			return { dates: [...prevWeekDates, ...currentWeek], currentWeek };
+		}
+		return { dates: currentWeek, currentWeek };
 	}
 
 	// A fan-out spanning an off/exam day can never be saved
@@ -317,21 +407,30 @@
 		return [...placed];
 	}
 
-	function setRange(id: RangeId, date: string, days: number): string[] | null {
-		if (endDate === null) return null;
-		const snapped = snapClass(date);
-		if (snapped === null) return null;
-		const dates =
-			id === 'pcheck' || id === 'wcheck'
-				? dueWindowDates(snapped, skipSet, endDate)
-				: collectClassDays(snapped, days, skipSet);
-		if (dates.length < days) return null;
+	/**
+	 * Quizzes span THREE CLIL class days, anchored on the school week the admin
+	 * clicks. Every day of a week resolves to the same window, so clicking
+	 * Jan 12 selects the same window as clicking Jan 11.
+	 *
+	 * The run walks forward from that week's Monday and skips weekends,
+	 * holidays and exam days, so a week whose Friday class is a holiday
+	 * (Christmas, New Year) simply reaches into the next week and still
+	 * delivers three classes. Refused only when fewer than three classes exist
+	 * before the term ends, when the window leaves the exam block, or when it
+	 * overlaps a sibling quiz.
+	 */
+	function setQuizWindow(id: RangeId, date: string): string[] | null {
+		if (startDate === null || endDate === null) return null;
+		const blockN = blockOf(id);
+		const gateEnd =
+			blockN !== null ? (blockWindows.find((w) => w.n === blockN)?.end ?? null) : null;
+		const dates = clilQuizWindow(date, skipSet, CLIL_CLASSES_PER_QUIZ, gateEnd);
+		if (dates.length < CLIL_CLASSES_PER_QUIZ) return null;
 		const first = dates[0] as string;
 		const last = dates[dates.length - 1] as string;
-		if (last > endDate) return null;
+		if (first < startDate || last > endDate) return null;
 		if (blockViolation(id, first, last) !== null) return null;
 		if (orderViolation(id, first, last) !== null) return null;
-		if (straddleViolation(id, first, last) !== null) return null;
 		const placed = [...dates];
 		update((draft) => {
 			draft.step4.ranges[id] = placed;
@@ -339,58 +438,27 @@
 		return placed;
 	}
 
-	// Batch-fill within block windows (F56): each id lands inside its own
-	// block; rows that no longer fit their block stay unset.
-	function batchWithinBlocks(ids: readonly string[], first: string, rangeDays: number, gap = 14) {
-		const fanout = (id: string, start: string): string[] =>
-			id === 'pcheck' || id === 'wcheck'
-				? dueWindowDates(start, skipSet, endDate ?? start)
-				: collectClassDays(start, rangeDays, skipSet);
-		const next: Record<string, string[]> = {};
-		let cursor: string | null = snapClass(first);
-		ids.forEach((id, i) => {
-			if (cursor === null) return;
-			const n = blockOf(id);
-			const window = n === null ? undefined : blockWindows.find((w) => w.n === n);
-			let start = cursor;
-			if (window !== undefined && start < window.start) start = window.start;
-			let snapped = snapClass(start);
-			if (snapped === null) return;
-			// Batch-only: advance past straddling starts so every placed
-			// row is savable (a manual pick in the same spot is refused).
-			for (let bump = 0; bump < 400; bump++) {
-				const fan = fanout(id, snapped);
-				if (fan.length !== rangeDays) return;
-				const l = fan[fan.length - 1] as string;
-				if (straddleViolation(id, snapped, l) === null) break;
-				const advanced = snapClass(addDays(snapped, 1));
-				if (advanced === null) return;
-				snapped = advanced;
-			}
-			const dates = fanout(id, snapped);
-			const last = dates[dates.length - 1];
-			if (
-				dates.length === rangeDays &&
-				(last ?? '') <= (endDate ?? '') &&
-				(window === undefined || (snapped >= window.start && (last ?? '') <= window.end))
-			) {
-				next[id] = dates;
-			}
-			cursor = i + 1 < ids.length ? snapClass(addDays(snapped, gap)) : null;
-		});
+	function setRange(id: RangeId, date: string): string[] | null {
+		if (endDate === null || !inBlock(id, date)) return null;
+		const week = weekWindow(id, date);
+		if (week.dates.length === 0) return null;
+		const dates = week.dates;
+		const first = dates[0] as string;
+		const last = dates[dates.length - 1] as string;
+		if (last > endDate) return null;
+		const currentFirst = week.currentWeek[0];
+		const currentLast = week.currentWeek[week.currentWeek.length - 1];
+		const blockViol =
+			currentFirst === undefined || currentLast === undefined
+				? blockMessage(id)
+				: blockViolation(id, currentFirst, currentLast);
+		if (blockViol !== null) return null;
+		if (orderViolation(id, first, last) !== null) return null;
+		const placed = [...dates];
 		update((draft) => {
-			for (const [id, dates] of Object.entries(next)) {
-				draft.step4.ranges[id as RangeId] = [...dates];
-			}
+			draft.step4.ranges[id] = placed;
 		});
-	}
-
-	function batchQuizzes(first: string) {
-		batchWithinBlocks(QUIZ_IDS as readonly string[], first, QUIZ_DAYS);
-	}
-
-	function batchPassports(first: string) {
-		batchWithinBlocks(passportIds, first, DUE_DAYS, 21);
+		return placed;
 	}
 
 	function disarm() {
@@ -433,27 +501,11 @@
 					placed = [date];
 				}
 			}
-		} else if (current === 'q1') {
-			// Batch source: picking the first date auto-fills the series.
-			const first = setRange(current as RangeId, date, QUIZ_DAYS);
-			if (first !== null) {
-				batchQuizzes(first[0] as string);
-				placed = first;
-			}
-		} else if (current === 'pd1') {
-			const first = setRange(current as RangeId, date, DUE_DAYS);
-			if (first !== null) {
-				batchPassports(first[0] as string);
-				placed = first;
-			}
+		} else if (current.startsWith('q')) {
+			// Quizzes pick a school week (3 CLIL classes), not a fixed run.
+			placed = setQuizWindow(current as RangeId, date);
 		} else {
-			const days =
-				current === 'pcheck' || current === 'wcheck'
-					? CHECK_DAYS
-					: current.startsWith('q')
-						? QUIZ_DAYS
-						: DUE_DAYS;
-			placed = setRange(current as RangeId, date, days);
+			placed = setRange(current as RangeId, date);
 		}
 		// Promotion addition over the prototype: a successful placement
 		// completes the placing flow (the banner clears) and confirms.
@@ -486,15 +538,63 @@
 		// Single-date picks (and 2-day mock pairs, previewed by start day)
 		// preview exactly one day.
 		if (isSingleId(armed) || armed.startsWith('mock') || isExtraId(armed)) return [hoverStart];
-		// Checks preview with the same end-bounded window the setter uses,
-		// so the preview can never show days the setter would refuse.
-		if ((armed === 'pcheck' || armed === 'wcheck') && endDate !== null) {
-			return dueWindowDates(hoverStart, skipSet, endDate);
+		// Quizzes preview the hovered week's CLIL classes, matching what the
+		// click will place — so the highlight never disagrees with the result.
+		if (armed.startsWith('q')) {
+			const blockN = blockOf(armed as string);
+			const gateEnd =
+				blockN !== null ? (blockWindows.find((w) => w.n === blockN)?.end ?? null) : null;
+			return clilQuizWindow(hoverStart, skipSet, CLIL_CLASSES_PER_QUIZ, gateEnd);
 		}
-		const days = armed.startsWith('q') ? QUIZ_DAYS : DUE_DAYS;
-		return collectClassDays(hoverStart, days, skipSet);
+		// Checks preview with the same block-bounded week window the setter
+		// uses, so the preview can never show days the setter would refuse.
+		if (isWeekEvent(armed)) return weekWindow(armed, hoverStart).dates;
+		return collectClassDays(hoverStart, DUE_DAYS, skipSet);
 	});
 	const highlighted = $derived([...new Set([...armedDates, ...hoverPreview])]);
+
+	/**
+	 * Disabled dates for an armed quiz row, computed per school WEEK. A week's
+	 * window is refused when fewer than three CLIL classes remain before the
+	 * term ends, when it leaves the exam block, or when it overlaps a sibling
+	 * quiz — in which case every school day of that week is disabled with the
+	 * same tooltip, because they all resolve to the same window.
+	 */
+	function quizWeekGate(armed: string): { dates: string[]; tips: Record<string, string> } {
+		const dates: string[] = [];
+		const tips: Record<string, string> = {};
+		if (startDate === null || endDate === null) return { dates, tips };
+		const blockN = blockOf(armed);
+		const gateEnd =
+			blockN !== null ? (blockWindows.find((w) => w.n === blockN)?.end ?? endDate) : endDate;
+
+		// Quizzes: week-based 3 CLIL classes. Dues and checks go through the
+		// general week loop below.
+		let cursor = startDate;
+		while (cursor <= endDate) {
+			if (!isWeekend(cursor) && !offSet.has(cursor) && !examSet.has(cursor)) {
+				const classes = clilQuizWindow(cursor, skipSet, CLIL_CLASSES_PER_QUIZ, gateEnd);
+				let violation: string | null = null;
+				if (classes.length < CLIL_CLASSES_PER_QUIZ) {
+					violation = `${eventLabel(armed)} needs ${CLIL_CLASSES_PER_QUIZ} CLIL classes — only ${classes.length} left before the term ends`;
+				} else {
+					const first = classes[0] as string;
+					const last = classes[classes.length - 1] as string;
+					if (first < startDate || last > endDate) {
+						violation = `${eventLabel(armed)} window ${first} → ${last} falls outside the semester`;
+					} else {
+						violation = blockViolation(armed, first, last) ?? orderViolation(armed, first, last);
+					}
+				}
+				if (violation !== null) {
+					dates.push(cursor);
+					tips[cursor] = violation;
+				}
+			}
+			cursor = addDays(cursor, 1);
+		}
+		return { dates, tips };
+	}
 
 	// F55/F60: per-armed starts disabled by the block + order gates, with
 	// naming tooltips. Mocks carry only the order gate.
@@ -535,48 +635,59 @@
 		}
 		const series = seriesOf(armed);
 		if (series === null && blockOf(armed) === null) return { dates: [], tips: {} };
+		// Quizzes are picked by WEEK: every school day of a usable week is a
+		// valid start, because the week — not the day — is what gets placed.
+		// Gating day-by-day (the old fan-out) left only the last usable start
+		// clickable, which read as "the dates are fixed".
+		if (armed.startsWith('q')) return quizWeekGate(armed);
 		const isMock = armed.startsWith('mock');
-		const days =
-			armed === 'pcheck' || armed === 'wcheck'
-				? CHECK_DAYS
-				: armed.startsWith('q')
-					? QUIZ_DAYS
-					: DUE_DAYS;
+		const days = DUE_DAYS;
 		const dates: string[] = [];
 		const tips: Record<string, string> = {};
 		let cursor = startDate;
 		while (cursor <= endDate) {
 			if (!isWeekend(cursor) && !offSet.has(cursor) && !examSet.has(cursor)) {
-				let first: string | null = null;
-				let last: string | null = null;
+				let violation: string | null = null;
 				if (isMock) {
 					const second = snapClass(addDays(cursor, 1));
-					if (second !== null) {
-						first = cursor;
-						last = second;
-					}
+					if (second !== null) violation = orderViolation(armed, cursor, second);
 				} else {
 					const snapped = snapClass(cursor);
 					if (snapped !== null) {
-						const fanout =
-							armed === 'pcheck' || armed === 'wcheck'
-								? dueWindowDates(snapped, skipSet, endDate)
-								: collectClassDays(snapped, days, skipSet);
-						if (fanout.length === days && (fanout[fanout.length - 1] ?? '') <= endDate) {
-							first = fanout[0] as string;
-							last = fanout[fanout.length - 1] as string;
+						if (isWeekEvent(armed)) {
+							if (!inBlock(armed, snapped)) {
+								violation = blockMessage(armed);
+							} else {
+								const week = weekWindow(armed, snapped);
+								if (week.dates.length > 0) {
+									const first = week.dates[0] as string;
+									const last = week.dates[week.dates.length - 1] as string;
+									violation =
+										week.currentWeek.length === 0
+											? blockMessage(armed)
+											: (blockViolation(
+													armed,
+													week.currentWeek[0] as string,
+													week.currentWeek[week.currentWeek.length - 1] as string
+												) ?? orderViolation(armed, first, last));
+								}
+							}
+						} else {
+							const fanout = collectClassDays(snapped, days, skipSet);
+							if (fanout.length > 0) {
+								const first = fanout[0] as string;
+								const last = fanout[fanout.length - 1] as string;
+								violation =
+									blockViolation(armed, first, last) ??
+									orderViolation(armed, first, last) ??
+									straddleViolation(armed, first, last);
+							}
 						}
 					}
 				}
-				if (first !== null && last !== null) {
-					const violation =
-						blockViolation(armed, first, last) ??
-						orderViolation(armed, first, last) ??
-						straddleViolation(armed, first, last);
-					if (violation !== null) {
-						dates.push(cursor);
-						tips[cursor] = violation;
-					}
+				if (violation !== null) {
+					dates.push(cursor);
+					tips[cursor] = violation;
 				}
 			}
 			cursor = addDays(cursor, 1);
@@ -585,6 +696,74 @@
 	});
 	const disabledDates = $derived([...new Set([...offSet, ...examSet, ...armedGate.dates])]);
 	const disabledTooltips = $derived(armedGate.tips);
+
+	function rangeSet(id: RangeId): boolean {
+		const value = ranges[id];
+		return value != null && value.length > 0;
+	}
+
+	interface EslRow {
+		id: string;
+		name: string;
+		meta: string;
+	}
+
+	interface EslBlock {
+		n: number;
+		range: string | null;
+		rows: EslRow[];
+	}
+
+	// ESL work is set block by block: every row that belongs to a block sits
+	// under that block, with its date window and a remaining count in the
+	// header. The admin never has to work out which block a quiz or due is in.
+	const eslBlocks = $derived.by<EslBlock[]>(() => {
+		const rowsOf = (n: number): EslRow[] => {
+			const rows: EslRow[] = [0, 1].map((offset) => ({
+				id: `q${(n - 1) * 2 + offset + 1}`,
+				name: `Quiz ${(n - 1) * 2 + offset + 1}`,
+				meta: 'CLIL'
+			}));
+			if (n <= passportIds.length) {
+				rows.push({ id: `pd${n}`, name: `Passport Due ${n}`, meta: 'Communication' });
+			}
+			if (n <= recordingIds.length) {
+				rows.push({ id: `rd${n}`, name: `Recording Due ${n}`, meta: 'Communication' });
+			}
+			if (n === 3) {
+				rows.push({ id: 'pcheck', name: 'Passport Check', meta: 'Communication' });
+				rows.push({ id: 'wcheck', name: 'Workbook Check', meta: 'CLIL' });
+			}
+			return rows;
+		};
+		return [1, 2, 3].map((n) => {
+			const window = blockWindows.find((w) => w.n === n);
+			return {
+				n,
+				range: window ? `${window.start} → ${window.end}` : null,
+				rows: rowsOf(n)
+			};
+		});
+	});
+
+	function remainingRows(block: EslBlock): number {
+		return block.rows.filter((row) => !rangeSet(row.id as RangeId)).length;
+	}
+
+	// School-side rows split the same way: what is missing from the no-class
+	// group, and what is missing from the Grade 9 group.
+	const schoolRemaining = $derived.by(() => {
+		let noClass = 0;
+		// The makeup date follows Anniversary, so it is not separate work.
+		if (!isS1) {
+			if (singles['anniv'] == null) noClass++;
+			else if (singles['makeup'] == null) noClass++;
+		}
+		if (sportsOn && singles['sports'] == null) noClass++;
+		let grade9 = mockIds.filter((id) => (pairs[id as PairId]?.length ?? 0) === 0).length;
+		if (!isS1 && singles['grad'] == null) grade9++;
+		return { noClass, grade9 };
+	});
 
 	const weeks = $derived(
 		startDate !== null && endDate !== null
@@ -622,9 +801,7 @@
 	// Read-only summary of every set event.
 	const summary = $derived.by(() => {
 		if (startDate === null) return [];
-		const rows: Array<{ label: string; value: string }> = [
-			{ label: 'First day of school', value: `${startDate} · Periods 1–2 have no class` }
-		];
+		const rows: Array<{ label: string; value: string }> = [];
 		const s = (label: string, id: SingleId) => {
 			const v = singles[id];
 			if (v != null) rows.push({ label, value: v });
@@ -710,8 +887,7 @@
 						data-testid="wizard-step4.start-school"
 						class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900"
 					>
-						<strong>First day of school</strong> — {startDate} · Periods 1–2 have no class (display only,
-						pinned to the start date).
+						<strong>First day of school</strong> · {startDate} · Periods 1–2 have no class
 					</div>
 
 					<div class="rounded border bg-white">
@@ -721,7 +897,7 @@
 							data-testid="wizard-step4.group-offdays"
 							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
 						>
-							{(open['offdays'] ?? false) ? '▾' : '▸'} Days off (imported, read-only) — {offDays.length}
+							{(open['offdays'] ?? false) ? '▾' : '▸'} Imported days off · {offDays.length}
 						</button>
 						{#if open['offdays'] ?? false}
 							<ul
@@ -740,11 +916,16 @@
 							type="button"
 							onclick={() => toggle('schoolFest')}
 							data-testid="wizard-step4.group-fest"
-							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
+							class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-800"
 						>
-							{(open['schoolFest'] ?? false) ? '▾' : '▸'}{isS1
-								? ' Sports Day'
-								: ' Anniversary & Sports Day'}
+							<span>{(open['schoolFest'] ?? false) ? '▾' : '▸'} No-class days · all grades</span>
+							<span
+								class="shrink-0 text-xs font-normal {schoolRemaining.noClass === 0
+									? 'text-emerald-700'
+									: 'text-gray-500'}"
+							>
+								{schoolRemaining.noClass === 0 ? 'All set' : `${schoolRemaining.noClass} left`}
+							</span>
 						</button>
 						{#if open['schoolFest'] ?? false}
 							<div class="space-y-2 px-3 pb-3">
@@ -760,7 +941,7 @@
 											class="flex flex-wrap items-center justify-between gap-2"
 										>
 											<span
-												><strong>Anniversary</strong> · No class · All grades · {fmt(
+												><strong>Anniversary</strong> · {fmt(
 													singles['anniv'] == null ? [] : [singles['anniv'] as string]
 												)}</span
 											>
@@ -798,13 +979,14 @@
 											class="mt-2 flex flex-wrap items-center justify-between gap-2 border-l-2 border-emerald-300 pl-3"
 										>
 											<span
-												><strong>Anniversary makeup date</strong> · Day off · {fmt(
+												><strong>Anniversary makeup</strong> · {fmt(
 													singles['makeup'] == null ? [] : [singles['makeup'] as string]
 												)}
-												<span class="ml-1 text-xs text-gray-500">(paired with Anniversary)</span>
-												{#if singles['anniv'] == null}<span class="ml-1 text-xs text-gray-500"
-														>· Set Anniversary first</span
-													>{/if}</span
+												<span class="ml-1 text-xs text-gray-500">
+													{singles['anniv'] == null
+														? 'Set Anniversary first'
+														: 'follows Anniversary'}
+												</span></span
 											>
 											{#if armed === 'makeup'}
 												<span
@@ -834,9 +1016,9 @@
 								>
 									<div class="flex flex-wrap items-center justify-between gap-2">
 										<span
-											><strong>Sports Day</strong> · No class · All grades · {sportsOn
+											><strong>Sports Day</strong> · {sportsOn
 												? fmt(singles['sports'] == null ? [] : [singles['sports'] as string])
-												: 'off this term'}</span
+												: 'not this term'}</span
 										>
 										<span class="flex items-center gap-2">
 											<label class="flex items-center gap-1 text-xs text-gray-600">
@@ -879,11 +1061,19 @@
 							type="button"
 							onclick={() => toggle('schoolTerm')}
 							data-testid="wizard-step4.group-term"
-							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
+							class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-800"
 						>
-							{(open['schoolTerm'] ?? false) ? '▾' : '▸'}{isS1
-								? ' G9 Mocks'
-								: ' G9 Mocks · Graduation'}
+							<span>
+								{(open['schoolTerm'] ?? false) ? '▾' : '▸'}
+								{isS1 ? 'Grade 9 · mocks' : 'Grade 9 · mocks and graduation'}
+							</span>
+							<span
+								class="shrink-0 text-xs font-normal {schoolRemaining.grade9 === 0
+									? 'text-emerald-700'
+									: 'text-gray-500'}"
+							>
+								{schoolRemaining.grade9 === 0 ? 'All set' : `${schoolRemaining.grade9} left`}
+							</span>
 						</button>
 						{#if open['schoolTerm'] ?? false}
 							<div class="space-y-2 px-3 pb-3">
@@ -896,9 +1086,9 @@
 									>
 										<div class="flex flex-wrap items-center justify-between gap-2">
 											<span
-												><strong>G9 Mock {i + 1}</strong> · Grade 9 · {(
-													pairs[id as PairId] ?? []
-												).join(', ') || 'unset'} (2 days in a row)</span
+												><strong>G9 Mock {i + 1}</strong> · {(pairs[id as PairId] ?? []).join(
+													', '
+												) || 'unset'} · 2 days in a row</span
 											>
 											{#if armed === id}
 												<span
@@ -922,9 +1112,9 @@
 									>
 										<div class="flex flex-wrap items-center justify-between gap-2">
 											<span
-												><strong>Graduation</strong> · No class · Grade 9 only · {fmt(
+												><strong>Graduation</strong> · {fmt(
 													singles['grad'] == null ? [] : [singles['grad'] as string]
-												)} <span class="ml-1 text-xs text-gray-500">· After Exam 2</span></span
+												)} <span class="ml-1 text-xs text-gray-500">after Exam 2</span></span
 											>
 											{#if armed === 'grad'}
 												<span
@@ -950,7 +1140,7 @@
 							data-testid="wizard-step4.group-extras"
 							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
 						>
-							{(open['extras'] ?? false) ? '▾' : '▸'} Extra days off — {extras.length}
+							{(open['extras'] ?? false) ? '▾' : '▸'} Extra days off · {extras.length}
 						</button>
 						{#if open['extras'] ?? false}
 							<div class="space-y-2 px-3 pb-3">
@@ -963,11 +1153,11 @@
 									>
 										<div class="flex flex-wrap items-center justify-between gap-2">
 											<span
-												><strong>{extra.name}</strong> · Day off · {extra.end
+												><strong>{extra.name || 'Untitled day off'}</strong> · {extra.end
 													? extra.start + ' → ' + extra.end
 													: extra.start}
 												<span class="ml-1 text-xs text-gray-500"
-													>· {extra.end ? 'Calendar days' : 'Single day'}</span
+													>{extra.end ? 'calendar days' : 'single day'}</span
 												></span
 											>
 											{#if armed === 'extra:' + extra.id}
@@ -985,6 +1175,16 @@
 													{extra.end ? 'Set range' : 'Pick date'}
 												</Button>
 											{/if}
+											<Button
+												size="icon-sm"
+												variant="ghost"
+												onclick={() => removeExtra(extra.id)}
+												data-testid="wizard-step4.extra-remove"
+												aria-label={`Remove extra day off ${extra.name || '(unnamed)'}`}
+												class="text-red-700 hover:bg-red-50 hover:text-red-800"
+											>
+												<Trash2 class="size-4" />
+											</Button>
 										</div>
 									</div>
 								{/each}
@@ -1011,159 +1211,10 @@
 				</section>
 			{:else}
 				<section data-testid="wizard-step4.esl-tab" class="space-y-3">
-					<div class="rounded border bg-white">
-						<button
-							type="button"
-							onclick={() => toggle('eslQuiz')}
-							data-testid="wizard-step4.group-quiz"
-							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
-						>
-							{(open['eslQuiz'] ?? false) ? '▾' : '▸'} CLIL Quizzes ×6 ({QUIZ_DAYS}-school-day
-							windows, one block each)
-						</button>
-						{#if open['eslQuiz'] ?? false}
-							<div class="space-y-2 px-3 pb-3">
-								<p class="text-xs text-gray-500">
-									Batch-fill: pick Quiz 1, then click a calendar date — all 6 auto-place ~2 weeks
-									apart, each inside its own block (Quizzes 1–2 → Block 1, 3–4 → Block 2, 5–6 →
-									Block 3), skipping weekends, days off and exam days. Each row stays adjustable
-									after.
-								</p>
-								<Button
-									size="sm"
-									variant="outline"
-									disabled={ranges['q1']?.[0] === undefined}
-									onclick={() =>
-										ranges['q1']?.[0] !== undefined && batchQuizzes(ranges['q1'][0] as string)}
-									data-testid="wizard-step4.quiz-batchfill"
-								>
-									Auto-place from Quiz 1
-								</Button>
-								{#each QUIZ_IDS as id, i (id)}
-									<div
-										data-testid={`wizard-step4.row-${id}`}
-										class="rounded border p-2 text-sm {armed === id
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
-									>
-										<div class="flex flex-wrap items-center justify-between gap-2">
-											<span>
-												<strong>Quiz {i + 1}</strong> · CLIL · {fmt(ranges[id])} · Block {blockOf(
-													id
-												)}
-												{#if id === 'q1'}<span class="ml-1 text-xs text-emerald-700"
-														>(batch start)</span
-													>{/if}
-											</span>
-											{#if armed === id}
-												<span
-													class="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white"
-													>{isBatchSource(id) ? 'Batch start ✓' : 'Placing ✓'}</span
-												>
-											{:else}
-												<Button size="sm" variant="outline" onclick={() => arm(id)}>
-													{id === 'q1' ? 'Set batch start' : 'Set window'}
-												</Button>
-											{/if}
-										</div>
-									</div>
-								{/each}
-							</div>
-						{/if}
-					</div>
-
-					<div class="rounded border bg-white">
-						<button
-							type="button"
-							onclick={() => toggle('eslDues')}
-							data-testid="wizard-step4.group-dues"
-							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
-						>
-							{(open['eslDues'] ?? false) ? '▾' : '▸'} Passport & Recording Dues ({isS1 ? '3' : '2'} each
-							this term)
-						</button>
-						{#if open['eslDues'] ?? false}
-							<div class="space-y-2 px-3 pb-3">
-								<p class="text-xs text-gray-500">
-									Batch-fill: pick Passport Due 1, then click a calendar date — the remaining dues
-									place ~3 weeks apart, each inside its own block, skipping weekends, days off and
-									exam days.
-									{#if isS1}S2 drops to 2 dues (Grade 9 graduates).{/if}
-								</p>
-								<Button
-									size="sm"
-									variant="outline"
-									disabled={ranges['pd1']?.[0] === undefined}
-									onclick={() =>
-										ranges['pd1']?.[0] !== undefined && batchPassports(ranges['pd1'][0] as string)}
-									data-testid="wizard-step4.passport-batchfill"
-								>
-									Auto-place from Passport Due 1
-								</Button>
-								{#each passportIds as id, i (id)}
-									<div
-										data-testid={`wizard-step4.row-${id}`}
-										class="rounded border p-2 text-sm {armed === id
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
-									>
-										<div class="flex flex-wrap items-center justify-between gap-2">
-											<span>
-												<strong>Passport Due {i + 1}</strong> · Communication · {fmt(
-													ranges[id as RangeId]
-												)} · Block
-												{blockOf(id)}
-												{#if id === 'pd1'}<span class="ml-1 text-xs text-emerald-700"
-														>(batch start)</span
-													>{/if}
-											</span>
-											{#if armed === id}
-												<span
-													class="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white"
-													>{isBatchSource(id) ? 'Batch start ✓' : 'Placing ✓'}</span
-												>
-											{:else}
-												<Button size="sm" variant="outline" onclick={() => arm(id)}>
-													{id === 'pd1' ? 'Set batch start' : 'Set window'}
-												</Button>
-											{/if}
-										</div>
-									</div>
-								{/each}
-								{#each recordingIds as id, i (id)}
-									<div
-										data-testid={`wizard-step4.row-${id}`}
-										class="rounded border p-2 text-sm {armed === id
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
-									>
-										<div class="flex flex-wrap items-center justify-between gap-2">
-											<span
-												><strong>Recording Due {i + 1}</strong> · Communication · {fmt(
-													ranges[id as RangeId]
-												)} · Block {blockOf(id)}</span
-											>
-											{#if armed === id}
-												<span
-													class="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white"
-													>Placing ✓</span
-												>
-											{:else}
-												<Button size="sm" variant="outline" onclick={() => arm(id)}>
-													Set window
-												</Button>
-											{/if}
-										</div>
-									</div>
-								{/each}
-								{#if !isS1}
-									<p class="text-xs text-gray-500">
-										Grade 9 graduated — only 2 passport / 2 recording dues in S2.
-									</p>
-								{/if}
-							</div>
-						{/if}
-					</div>
+					<p class="text-xs text-gray-500">
+						Pick a row, then a date on the calendar. Rows stay inside their block and skip weekends,
+						days off and exam days.
+					</p>
 
 					{#if isS1}
 						<div
@@ -1174,10 +1225,11 @@
 						>
 							<div class="flex flex-wrap items-center justify-between gap-2">
 								<span
-									><strong>BBQ</strong> · Partial day · All grades · {fmt(
+									><strong>BBQ</strong> · {fmt(
 										singles['bbq'] == null ? [] : [singles['bbq'] as string]
 									)}
-									<span class="ml-1 text-xs text-gray-500">· Periods 1–4, off from 12:00</span
+									<span class="ml-1 text-xs text-gray-500"
+										>· any time this term · periods 1–4, off from 12:00</span
 									></span
 								>
 								{#if armed === 'bbq'}
@@ -1200,57 +1252,76 @@
 						</div>
 					{/if}
 
-					<div class="rounded border bg-white">
-						<button
-							type="button"
-							onclick={() => toggle('eslCheck')}
-							data-testid="wizard-step4.group-checks"
-							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
-						>
-							{(open['eslCheck'] ?? false) ? '▾' : '▸'} End-of-term Checks (5-school-day windows, Block
-							3 only)
-						</button>
-						{#if open['eslCheck'] ?? false}
-							<div class="space-y-2 px-3 pb-3">
-								{#each [{ id: 'pcheck', label: 'Passport Check', where: 'Communication' }, { id: 'wcheck', label: 'Workbook Check', where: 'CLIL' }] as row (row.id)}
-									<div
-										data-testid={`wizard-step4.row-${row.id}`}
-										class="rounded border p-2 text-sm {armed === row.id
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
-									>
-										<div class="flex flex-wrap items-center justify-between gap-2">
-											<span
-												><strong>{row.label}</strong> · {row.where} · {fmt(
-													ranges[row.id as RangeId]
-												)} · Block 3</span
-											>
-											{#if armed === row.id}
-												<span
-													class="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white"
-													>Placing ✓</span
-												>
-											{:else}
-												<Button size="sm" variant="outline" onclick={() => arm(row.id)}>
-													Set window
-												</Button>
-											{/if}
+					{#each eslBlocks as block (block.n)}
+						<div class="rounded border bg-white">
+							<button
+								type="button"
+								onclick={() => toggle(`b${block.n}`)}
+								data-testid={`wizard-step4.block-${block.n}`}
+								class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-800"
+							>
+								<span class="min-w-0">
+									{(open[`b${block.n}`] ?? false) ? '▾' : '▸'} Block {block.n}
+									{#if block.range}
+										<span class="font-normal text-gray-500">· {block.range}</span>
+									{/if}
+								</span>
+								<span
+									class="shrink-0 text-xs font-normal {remainingRows(block) === 0
+										? 'text-emerald-700'
+										: 'text-gray-500'}"
+								>
+									{remainingRows(block) === 0 ? 'All set' : `${remainingRows(block)} left`}
+								</span>
+							</button>
+							{#if open[`b${block.n}`] ?? false}
+								<div class="space-y-2 px-3 pb-3">
+									{#each block.rows as row (row.id)}
+										<div
+											data-testid={`wizard-step4.row-${row.id}`}
+											class="rounded border p-2 text-sm {armed === row.id
+												? 'border-emerald-500 bg-emerald-50'
+												: 'border-gray-200'}"
+										>
+											<div class="flex flex-wrap items-center justify-between gap-2">
+												<span>
+													<strong>{row.name}</strong> · {row.meta} · {fmt(
+														ranges[row.id as RangeId]
+													)}
+												</span>
+												{#if armed === row.id}
+													<span
+														class="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white"
+														>Placing ✓</span
+													>
+												{:else}
+													<Button size="sm" variant="outline" onclick={() => arm(row.id)}>
+														Set window
+													</Button>
+												{/if}
+											</div>
 										</div>
-									</div>
-								{/each}
-							</div>
-						{/if}
-					</div>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					{/each}
 				</section>
 			{/if}
 
 			<section data-testid="wizard-step4.summary" class="rounded-lg border bg-white p-4">
-				<h2 class="mb-2 text-sm font-semibold text-gray-800">Summary (read-only, nothing saved)</h2>
-				<ul class="space-y-1 text-sm text-gray-700">
-					{#each summary as row, i (`${i}-${row.label}`)}
-						<li><strong>{row.label}:</strong> {row.value}</li>
-					{/each}
-				</ul>
+				<h2 class="mb-2 text-sm font-semibold text-gray-800">
+					Summary <span class="font-normal text-gray-500">· nothing saved yet</span>
+				</h2>
+				{#if summary.length === 0}
+					<p class="text-sm text-gray-500">Rows you set will appear here.</p>
+				{:else}
+					<ul class="space-y-1 text-sm text-gray-700">
+						{#each summary as row, i (`${i}-${row.label}`)}
+							<li><strong>{row.label}:</strong> {row.value}</li>
+						{/each}
+					</ul>
+				{/if}
 			</section>
 		</div>
 
@@ -1292,7 +1363,8 @@
 			<CalendarPreview
 				{weeks}
 				interactive
-				{highlighted}
+				highlighted={hoverPreview}
+				oldHighlighted={armedDates}
 				{disabledDates}
 				{disabledTooltips}
 				onDateClick={onCalendarClick}

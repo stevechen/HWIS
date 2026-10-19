@@ -20,8 +20,6 @@
 	const startDate = $derived(state.step1.startDate);
 	const endDate = $derived(state.step2.endDate);
 	const offDays = $derived(state.step2.offDays);
-	const lastExamDay = $derived(state.step2.lastExamDay ?? true);
-
 	const endMondays = $derived(term && schoolYear ? endPickerMondays(term, schoolYear) : []);
 	const defaultEnd = $derived(term && schoolYear ? defaultEndDate(term, schoolYear) : null);
 	const endBeforeStart = $derived(endDate !== null && startDate !== null && endDate < startDate);
@@ -44,12 +42,6 @@
 	function handleEndDatePick(date: string) {
 		update((draft: WizardState) => {
 			draft.step2.endDate = date;
-		});
-	}
-
-	function handleLastExamDayChange(checked: boolean) {
-		update((draft: WizardState) => {
-			draft.step2.lastExamDay = checked;
 		});
 	}
 
@@ -114,21 +106,6 @@
 				</div>
 			{/if}
 
-			<!-- "This is also the last exam day" checkbox (default on) -->
-			<div class="flex items-center gap-2">
-				<input
-					type="checkbox"
-					id="wizard-step-2-last-exam-day"
-					checked={lastExamDay}
-					onchange={(event) => handleLastExamDayChange(event.currentTarget.checked)}
-					data-testid="wizard.step-2-last-exam-day"
-					class="size-4 accent-emerald-700"
-				/>
-				<label for="wizard-step-2-last-exam-day" class="text-sm text-gray-700">
-					This is also the last exam day (no Final exam)
-				</label>
-			</div>
-
 			<InlineHolidayImport
 				semesterId={state.semesterId ?? 'new'}
 				term={term ?? 'S1'}
@@ -136,35 +113,36 @@
 				{schoolYear}
 				onImported={handleHolidaysImported}
 			/>
+
+			<!-- Event list right below import -->
+			<div data-testid="wizard.step-2-event-list" class="space-y-2">
+				<h3 class="text-sm font-semibold text-gray-800">Events</h3>
+				{#if sortedOffDays.length === 0}
+					<p class="text-sm text-gray-500">No events yet. Import holidays to add off days.</p>
+				{:else}
+					<ul class="space-y-1.5 text-sm">
+						{#each sortedOffDays as day (day.date)}
+							<li
+								data-testid={`wizard.step-2-event-${day.date}`}
+								class="flex items-center gap-2 rounded border border-stone-200 bg-stone-50 px-2 py-1.5"
+							>
+								<span class="flex items-center gap-1">
+									<span class="inline-block size-3 rounded border border-stone-300 bg-stone-200"
+									></span>
+									<strong class="text-stone-800">{day.name}</strong>
+								</span>
+								<span class="text-stone-600">{day.date}</span>
+								<span class="text-xs text-stone-500">Off day</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
 		</div>
 
 		<div class="min-w-0">
 			<h2 class="mb-2 text-sm font-semibold text-gray-800">Semester preview (read-only)</h2>
 			<CalendarPreview {weeks} testId="wizard.step-2-calendar" />
 		</div>
-	</div>
-
-	<!-- Event list on the right (below calendar on mobile) -->
-	<div data-testid="wizard.step-2-event-list" class="mt-4 space-y-2 lg:mt-0">
-		<h3 class="text-sm font-semibold text-gray-800">Events</h3>
-		{#if sortedOffDays.length === 0}
-			<p class="text-sm text-gray-500">No events yet. Import holidays to add off days.</p>
-		{:else}
-			<ul class="space-y-1.5 text-sm">
-				{#each sortedOffDays as day (day.date)}
-					<li
-						data-testid={`wizard.step-2-event-${day.date}`}
-						class="flex items-center gap-2 rounded border border-stone-200 bg-stone-50 px-2 py-1.5"
-					>
-						<span class="flex items-center gap-1">
-							<span class="inline-block size-3 rounded border border-stone-300 bg-stone-200"></span>
-							<strong class="text-stone-800">{day.name}</strong>
-						</span>
-						<span class="text-stone-600">{day.date}</span>
-						<span class="text-xs text-stone-500">Off day</span>
-					</li>
-				{/each}
-			</ul>
-		{/if}
 	</div>
 </div>

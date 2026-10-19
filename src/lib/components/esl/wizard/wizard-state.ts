@@ -69,8 +69,6 @@ export interface WizardStep2State {
 	endDate: string | null;
 	offDays: WizardOffDay[];
 	holidaysImported: boolean;
-	/** "This is also the last exam day" checkbox — default true (Final hidden). */
-	lastExamDay: boolean;
 }
 
 /** Step 3 — the three exam ranges (Exam 1/2 = 2 class days, Final = 3). */
@@ -211,8 +209,7 @@ export function createInitialWizardState(today: string): WizardState {
 		step2: {
 			endDate: defaultEndDate(suggestion.term, schoolYear),
 			offDays: [],
-			holidaysImported: false,
-			lastExamDay: true
+			holidaysImported: false
 		},
 		step3: { exams: [] },
 		step4: {
@@ -287,28 +284,6 @@ export function isStepComplete(state: WizardState, step: WizardStepNumber): bool
 				if (s4.singles.grad === null) return false;
 				if (s4.singles.anniv === null || s4.singles.makeup === null) return false;
 			}
-			const quizzes: ReadonlyArray<readonly string[] | null> = [
-				s4.ranges.q1,
-				s4.ranges.q2,
-				s4.ranges.q3,
-				s4.ranges.q4,
-				s4.ranges.q5,
-				s4.ranges.q6
-			];
-			if (quizzes.some((q) => !isSetRow(q))) return false;
-			const dues: ReadonlyArray<readonly string[] | null> = s2
-				? [s4.ranges.pd1, s4.ranges.pd2, s4.ranges.rd1, s4.ranges.rd2]
-				: [
-						s4.ranges.pd1,
-						s4.ranges.pd2,
-						s4.ranges.pd3,
-						s4.ranges.rd1,
-						s4.ranges.rd2,
-						s4.ranges.rd3
-					];
-			if (dues.some((d) => !isSetRow(d))) return false;
-			if (!isSetRow(s4.ranges.pcheck)) return false;
-			if (!isSetRow(s4.ranges.wcheck)) return false;
 			return true;
 		}
 		case 5:
@@ -447,8 +422,7 @@ function parseStep2(raw: unknown, seeded: WizardStep2State): WizardStep2State {
 		endDate: parseDate(raw.endDate) ?? seeded.endDate,
 		offDays,
 		holidaysImported:
-			typeof raw.holidaysImported === 'boolean' ? raw.holidaysImported : seeded.holidaysImported,
-		lastExamDay: typeof raw.lastExamDay === 'boolean' ? raw.lastExamDay : seeded.lastExamDay
+			typeof raw.holidaysImported === 'boolean' ? raw.holidaysImported : seeded.holidaysImported
 	};
 }
 

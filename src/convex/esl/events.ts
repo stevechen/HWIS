@@ -94,7 +94,18 @@ export async function assertExclusive(
 	}
 ): Promise<void> {
 	const exclusive = args.type === 'no_school' || args.type === 'exam';
-	for (const date of occupiedDates(args)) {
+	const spanned = occupiedDates(args);
+	for (const date of spanned) {
+		// A ranged reminder is a "give teachers this window" marker, not a set
+		// of classes: a quiz spans a whole Mon–Fri week, so it necessarily
+		// covers the non-class days (Tue/Thu) and very often a public holiday
+		// inside that week. Refusing it because a no-school day fell between
+		// its first and last date made most weeks unusable. So for a range we
+		// only require the ENDPOINTS to be clear, plus every date to be clear
+		// of an EXAM — an exam is real teaching time and a reminder running
+		// through one is never intended.
+		const interior = date !== args.date && date !== spanned[spanned.length - 1];
+		const skipNoSchoolCheck = !exclusive && interior;
 		const occupants = await ctx.db
 			.query('esl_events')
 			.withIndex('by_semester_date', (q) => q.eq('semesterId', args.semesterId).eq('date', date))
@@ -106,7 +117,11 @@ export async function assertExclusive(
 		if (others.length === 0) continue;
 		const collision = exclusive
 			? others[0]
-			: others.find((event) => event.type === 'no_school' || event.type === 'exam');
+			: others.find((event) =>
+					skipNoSchoolCheck
+						? event.type === 'exam'
+						: event.type === 'no_school' || event.type === 'exam'
+				);
 		if (collision) {
 			const cause =
 				collision.type === 'no_school'

@@ -61,8 +61,7 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 		step2: {
 			endDate: '2027-01-20',
 			offDays: [] as { date: string; name: string }[],
-			holidaysImported: false,
-			lastExamDay: true
+			holidaysImported: false
 		},
 		step3: { exams: [] },
 		step4: {
@@ -119,7 +118,7 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 		const state: WizardState = {
 			...mockState,
 			step1: { term: 'S2' as const, schoolYear: '2025-2026', startDate: '2026-02-11' },
-			step2: { endDate: '2026-06-30', offDays: [], holidaysImported: false, lastExamDay: true }
+			step2: { endDate: '2026-06-30', offDays: [], holidaysImported: false }
 		};
 		await render(Step2Panel, { state, step: 2, update });
 
@@ -154,29 +153,22 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 		const update = vi.fn();
 		await renderStep2(update);
 
-		await expect.element(page.getByText('End date:')).toBeInTheDocument();
-		await expect.element(page.getByText('2027-01-20')).toBeInTheDocument();
+		await expect.element(page.getByTestId('wizard.step-2-end-summary')).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId('wizard.step-2-end-summary'))
+			.toMatchTextContent('2027-01-20');
 	});
 
 	it('shows error when end date is before start date', async () => {
 		const update = vi.fn();
 		const state: WizardState = {
 			...mockState,
-			step2: { endDate: '2026-08-01', offDays: [], holidaysImported: false, lastExamDay: true }
+			step2: { endDate: '2026-08-01', offDays: [], holidaysImported: false }
 		};
 		await render(Step2Panel, { state, step: 2, update });
 
 		await expect.element(page.getByTestId('wizard.step-2-end-error')).toBeInTheDocument();
 		await expect.element(page.getByText(/before the start/)).toBeInTheDocument();
-	});
-
-	it('shows "This is also the last exam day" checkbox (default on)', async () => {
-		const update = vi.fn();
-		await renderStep2(update);
-
-		const checkbox = page.getByRole('checkbox', { name: /last exam day/i });
-		await expect.element(checkbox).toBeInTheDocument();
-		await expect.element(checkbox).toBeChecked();
 	});
 
 	it('renders InlineHolidayImport component', async () => {
@@ -203,8 +195,7 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 					{ date: '2026-09-28', name: "Teacher's Day" },
 					{ date: '2026-10-10', name: 'National Day' }
 				],
-				holidaysImported: true,
-				lastExamDay: true
+				holidaysImported: true
 			}
 		};
 		await render(Step2Panel, { state, step: 2, update });
@@ -225,8 +216,7 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 					{ date: '2026-10-10', name: 'National Day' },
 					{ date: '2026-09-28', name: "Teacher's Day" }
 				],
-				holidaysImported: true,
-				lastExamDay: true
+				holidaysImported: true
 			}
 		};
 		await render(Step2Panel, { state, step: 2, update });

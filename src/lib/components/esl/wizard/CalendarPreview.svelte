@@ -57,6 +57,7 @@
 		interactive = false,
 		clickableChips = false,
 		highlighted = [],
+		oldHighlighted = [],
 		disabledDates = [],
 		disabledTooltips = {},
 		onDateClick = () => {},
@@ -72,6 +73,7 @@
 		 */
 		clickableChips?: boolean;
 		highlighted?: string[];
+		oldHighlighted?: string[];
 		disabledDates?: string[];
 		disabledTooltips?: Record<string, string>;
 		onDateClick?: (date: string, event?: MouseEvent) => void;
@@ -80,6 +82,7 @@
 	} = $props();
 
 	const highlight = $derived(new Set(highlighted));
+	const oldHighlight = $derived(new Set(oldHighlighted));
 	const disabled = $derived(new Set(disabledDates));
 
 	function dayNum(date: string): number {
@@ -92,6 +95,7 @@
 		hasOff: boolean,
 		hasExam: boolean,
 		isHighlighted: boolean,
+		isOldHighlighted: boolean,
 		isDisabled: boolean
 	): string {
 		if (!inRange) return 'border-gray-100 bg-gray-50 text-gray-300';
@@ -113,7 +117,9 @@
 		// overflow the term window are the exception — those arrive DISABLED
 		// (grey, via the parent disabled set) with an overflow tooltip.
 		if (isDisabled) return 'border-gray-300 bg-gray-200 text-gray-500';
-		if (isHighlighted) return 'border-emerald-500 bg-emerald-100 text-emerald-900';
+		if (isHighlighted) return 'border-emerald-600 bg-emerald-100 text-emerald-950';
+		// Old/current selection — washed out.
+		if (isOldHighlighted) return 'border-emerald-200 bg-emerald-50 text-emerald-700';
 		if (hasOff) return 'border-stone-300 bg-stone-200 text-stone-600';
 		// Feedback F5: weekends read as red text on a plain background —
 		// no shaded weekend fill, so off/exam chips stay unambiguous.
@@ -248,6 +254,7 @@
 						day.offName !== null,
 						day.examLabel !== null,
 						isHighlighted,
+						oldHighlight.has(day.date),
 						isDisabled
 					)} ${row === 0 ? 'border-t' : ''} ${col === 0 ? 'border-l' : ''}`}
 					{#if interactive}
@@ -263,8 +270,10 @@
 							class="{box} border-r border-b {clickable
 								? 'cursor-pointer hover:border-emerald-500'
 								: 'cursor-not-allowed'} {isHighlighted && !isDisabled
-								? 'ring-2 ring-emerald-500'
-								: ''}"
+								? 'ring-2 ring-emerald-600'
+								: oldHighlight.has(day.date) && !isDisabled
+									? 'ring-1 ring-emerald-200'
+									: ''}"
 						>
 							{@render cellBody(day)}
 						</button>

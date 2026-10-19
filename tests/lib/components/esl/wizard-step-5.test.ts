@@ -33,8 +33,7 @@ const mockState = {
 			{ date: '2026-10-09', name: 'National Day' },
 			{ date: '2026-10-10', name: 'Double Ten Day' }
 		],
-		holidaysImported: true,
-		lastExamDay: true
+		holidaysImported: true
 	},
 	step3: {
 		exams: [

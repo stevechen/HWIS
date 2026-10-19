@@ -409,6 +409,13 @@
 					onPick={pickDate}
 					testId="event-form.picker"
 				/>
+				<input
+					id="event-form-date"
+					type="date"
+					bind:value={draft.date}
+					disabled={busy}
+					class="rounded border px-2 py-1 text-sm"
+				/>
 				{#if dateOverridden}
 					<RecalculateHint
 						testId="event-form.recalculate"

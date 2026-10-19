@@ -9,7 +9,7 @@
 	 * Presentational only — the field's owner decides when the override
 	 * exists and what recomputing means, so the shell has nothing to say
 	 * about it. Steps #219–#222 drop one of these next to any date they
-	 * auto-defaulted (Final exam, reminder ranges, batch-filled dues).
+	 * auto-defaulted (Final exam, reminder ranges).
 	 */
 	let {
 		label = 'Recalculate',
