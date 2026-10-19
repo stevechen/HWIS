@@ -3,11 +3,21 @@ import { internal } from './_generated/api';
 
 const crons = cronJobs();
 
+// Every department has its own nightly archive and its own heartbeat. They are
+// separate cron entries rather than one run that does both, so a failure in one
+// department cannot suppress or mislabel the other's snapshot.
 crons.daily(
-	'daily-drive-backup',
+	'daily-drive-backup-hwis',
 	{ hourUTC: 20, minuteUTC: 0 },
 	internal.driveBackup.scheduledBackup,
-	{}
+	{ department: 'international' }
+);
+
+crons.daily(
+	'daily-drive-backup-esl',
+	{ hourUTC: 20, minuteUTC: 15 },
+	internal.driveBackup.scheduledBackup,
+	{ department: 'esl' }
 );
 
 crons.daily(

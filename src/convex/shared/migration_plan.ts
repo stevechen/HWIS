@@ -31,7 +31,9 @@ export async function runYearEndMigration(
 	// Auto-backup first so the migration can be rolled back from a snapshot.
 	await createStoredBackup(ctx, {
 		source: 'system_migration',
-		e2eTag: options.e2eTag
+		e2eTag: options.e2eTag,
+		// Year-end migration is an International-only operation.
+		department: 'international'
 	});
 
 	// Clear evaluations and their audit logs.

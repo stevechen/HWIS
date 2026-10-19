@@ -151,7 +151,7 @@ describe('restoreFromBackup (chunked)', () => {
 		});
 
 		const backupId = await t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot);
 		});
 
@@ -597,7 +597,7 @@ describe('backup ownership, naming & permissions', () => {
 		});
 
 		const result = await t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				name: 'Custom Fall 2026 Backup',
 				creatorId: adminId,
@@ -626,7 +626,7 @@ describe('backup ownership, naming & permissions', () => {
 		});
 
 		const result = await t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				creatorId: adminId,
 				creatorName: 'Admin Bob',
@@ -658,7 +658,7 @@ describe('backup ownership, naming & permissions', () => {
 		});
 
 		const adminBackupId = await t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				name: 'Admin Backup',
 				creatorId: adminId,
@@ -669,7 +669,7 @@ describe('backup ownership, naming & permissions', () => {
 		});
 
 		const superBackupId = await t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				name: 'Super Backup',
 				creatorId: superId,
@@ -717,7 +717,7 @@ describe('backup ownership, naming & permissions', () => {
 		});
 
 		const backupId = await t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				name: 'Initial Name',
 				creatorId: ownerId,
@@ -727,7 +727,7 @@ describe('backup ownership, naming & permissions', () => {
 		});
 
 		const systemBackupId = await t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				name: 'System Snapshot',
 				source: 'system_migration'
@@ -795,7 +795,7 @@ describe('backup ownership, naming & permissions', () => {
 		});
 
 		const backupId = await t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				name: 'To Delete',
 				creatorId: ownerId,
@@ -805,7 +805,7 @@ describe('backup ownership, naming & permissions', () => {
 		});
 
 		const systemBackupId = await t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				name: 'System To Delete',
 				source: 'system_safety'
@@ -871,7 +871,7 @@ describe('backup ownership, naming & permissions', () => {
 		});
 
 		const admin1BackupId = await t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				creatorId: admin1Id,
 				creatorName: 'Admin 1',
@@ -880,7 +880,7 @@ describe('backup ownership, naming & permissions', () => {
 		});
 
 		const systemBackupId = await t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				source: 'system_migration'
 			});
@@ -961,7 +961,7 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 
 	function seedBackupOwnedBy(t: Awaited<ReturnType<typeof convexTest>>, ownerId: Id<'users'>) {
 		return t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				name: 'Owned Backup',
 				creatorId: ownerId,
@@ -973,7 +973,7 @@ describe('renameBackup & deleteBackup mutation authorization', () => {
 
 	function seedSystemBackup(t: Awaited<ReturnType<typeof convexTest>>) {
 		return t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				name: 'System Snapshot',
 				source: 'system_migration'
@@ -1246,7 +1246,7 @@ describe('getBackupChunk download scoping & unrestricted restore', () => {
 
 	function seedOwnerBackup(t: Awaited<ReturnType<typeof convexTest>>, ownerId: Id<'users'>) {
 		return t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				name: 'Owned Backup',
 				creatorId: ownerId,
@@ -1258,7 +1258,7 @@ describe('getBackupChunk download scoping & unrestricted restore', () => {
 
 	function seedSystemBackup(t: Awaited<ReturnType<typeof convexTest>>) {
 		return t.run(async (ctx) => {
-			const snapshot = await buildSnapshot(ctx);
+			const snapshot = await buildSnapshot(ctx, 'international');
 			return await insertBackupRecord(ctx, snapshot, {
 				name: 'System Snapshot',
 				source: 'system_migration'

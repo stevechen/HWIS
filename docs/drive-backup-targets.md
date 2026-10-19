@@ -31,10 +31,12 @@ Two layers prevent a repeat:
    `ALLOW_NONPROD_DRIVE_BACKUP=true` _and_ has a `GOOGLE_DRIVE_FOLDER_ID` of its
    own. Opting in without a folder is still refused — an opt-in that inherits
    prod's folder is the exact failure being fixed.
-2. **The filename.** Every file is named `backup-<env>-YYYY-MM-DD.json`, on prod
-   too. If a future misconfiguration does let a `dev` file reach the production
-   folder, its name says so before anyone opens it. A bare
-   `backup-YYYY-MM-DD.json` no longer exists on any deployment.
+2. **The filename.** International (HWIS) files are named
+   `backup-<env>-YYYY-MM-DD.json`, on prod too. ESL files add the department:
+   `backup-<env>-esl-YYYY-MM-DD.json`. If a future misconfiguration does let a
+   `dev` file reach the production folder, its name says so before anyone opens
+   it. A bare `backup-YYYY-MM-DD.json` no longer exists on any deployment, and
+   the two departments can never collide on one day.
 
 ## Knowing when it breaks
 
@@ -54,10 +56,13 @@ archive looks healthy right up until it is needed. Two mechanisms cover this:
    occasionally.
 
 Both read the `backupHeartbeats` table, written by `recordBackupSuccess` after
-Drive returns a file id. They deliberately do **not** list the Drive folder: a
-check that needs the Drive credential fails for the same reason the backup
-failed and cannot tell "the archive is stale" from "I cannot see anything".
-Reading our own table keeps detection working precisely when Drive is what broke.
+Drive returns a file id. Each department's nightly cron writes its own heartbeat
+row, and the watchdog judges both: a healthy HWIS archive cannot hide a dark ESL
+one. Legacy rows without a department read as International. They deliberately
+do **not** list the Drive folder: a check that needs the Drive credential fails
+for the same reason the backup failed and cannot tell "the archive is stale" from
+"I cannot see anything". Reading our own table keeps detection working precisely
+when Drive is what broke.
 
 The one failure this cannot catch is a total Convex outage, where no cron runs at
 all. Covering that needs an external scheduler, which is not in place.

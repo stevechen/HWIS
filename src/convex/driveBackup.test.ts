@@ -317,6 +317,25 @@ describe('buildDriveBackupFilename', () => {
 	it('never produces a bare date filename that could collide with another environment', () => {
 		expect(buildDriveBackupFilename('dev', day)).not.toBe('backup-2026-02-18.json');
 	});
+
+	it.each(['prod', 'dev', 'local', 'unknown'] as const)(
+		'marks ESL archives with a distinct name on %s',
+		(env) => {
+			expect(buildDriveBackupFilename(env, day, 'esl')).toBe(`backup-${env}-esl-2026-02-18.json`);
+		}
+	);
+
+	it('keeps the HWIS filename unchanged for an explicit international department', () => {
+		expect(buildDriveBackupFilename('prod', day, 'international')).toBe(
+			'backup-prod-2026-02-18.json'
+		);
+	});
+
+	it('never gives HWIS and ESL the same name on one day', () => {
+		expect(buildDriveBackupFilename('prod', day, 'international')).not.toBe(
+			buildDriveBackupFilename('prod', day, 'esl')
+		);
+	});
 });
 
 describe('decideDriveUpload', () => {
@@ -379,14 +398,26 @@ describe('backup snapshot parity across destinations', () => {
 		'users',
 		'categories',
 		'classes',
-		'houseEvents'
+		'houseEvents',
+		'leaderboardThumbnails',
+		'leaderboardSnapshots',
+		'eslCohorts',
+		'eslClasses',
+		'eslClassMeetings',
+		'eslTeacherAvailability',
+		'eslSemesters',
+		'eslEvents',
+		'eslStudents',
+		'teacherNotes'
 	] as (keyof BackupSnapshot)[];
 
-	it('buildSnapshot exposes exactly the six application data tables', async () => {
+	it('buildSnapshot exposes every department data table in a uniform shape', async () => {
 		const t = await convexTest(schema, modules);
-		const snapshot = await t.run(async (ctx) => buildSnapshot(ctx));
+		const snapshot = await t.run(async (ctx) => buildSnapshot(ctx, 'international'));
 
-		expect(Object.keys(snapshot).sort()).toEqual([...DATA_TABLES, 'exportedAt', 'version'].sort());
+		expect(Object.keys(snapshot).sort()).toEqual(
+			[...DATA_TABLES, 'exportedAt', 'version', 'department'].sort()
+		);
 	});
 
 	it('exportDataForCron carries the same data tables that buildSnapshot produces', async () => {
@@ -395,9 +426,28 @@ describe('backup snapshot parity across destinations', () => {
 		const drive = await t.query(api.backup.exportDataForCron, {
 			cronSecret: 'test-cron-secret'
 		});
-		const snapshot = await t.run(async (ctx) => buildSnapshot(ctx));
+		const snapshot = await t.run(async (ctx) => buildSnapshot(ctx, 'international'));
 
 		expect(Object.keys(drive).sort()).toEqual(Object.keys(snapshot).sort());
 		expect(DATA_TABLES.every((table) => drive[table] && snapshot[table])).toBe(true);
+	});
+});
+
+describe('scheduled department backups', () => {
+	it('wires a separate nightly cron per department with the department argument', async () => {
+		const { default: crons } = await import('./crons');
+		const scheduled = (
+			crons as unknown as {
+				crons: Record<string, { name: string; args: unknown[] }>;
+			}
+		).crons;
+
+		const hwis = scheduled['daily-drive-backup-hwis'];
+		const esl = scheduled['daily-drive-backup-esl'];
+
+		expect(hwis.name).toContain('scheduledBackup');
+		expect(esl.name).toContain('scheduledBackup');
+		expect(hwis.args).toEqual([expect.objectContaining({ department: 'international' })]);
+		expect(esl.args).toEqual([expect.objectContaining({ department: 'esl' })]);
 	});
 });

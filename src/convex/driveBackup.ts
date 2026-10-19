@@ -1,10 +1,12 @@
 'use node';
 
 import { action, internalAction, type ActionCtx } from './_generated/server';
+import { v } from 'convex/values';
 import { anyApi } from 'convex/server';
 import { JWT } from 'google-auth-library';
-import { canAccessAdminArea, type AccessSubject } from './shared/authorization';
+import { canAccessAdminArea, type AccessSubject, type Department } from './shared/authorization';
 import type { BackupSnapshot } from './shared/backup_snapshot';
+import { departmentValidator } from './shared/departments';
 import {
 	buildDriveBackupFilename,
 	decideDriveUpload,
@@ -141,7 +143,9 @@ function snapshotStats(snapshot: BackupSnapshot) {
 		users: snapshot.users.length,
 		categories: snapshot.categories.length,
 		classes: snapshot.classes.length,
-		houseEvents: snapshot.houseEvents.length
+		houseEvents: snapshot.houseEvents.length,
+		eslStudents: snapshot.eslStudents.length,
+		teacherNotes: snapshot.teacherNotes.length
 	};
 }
 
@@ -152,14 +156,18 @@ function snapshotStats(snapshot: BackupSnapshot) {
  * regardless, and a cron that throws on every non-prod deployment would bury the
  * real failure in noise.
  */
-async function uploadSnapshotBackup(ctx: ActionCtx, snapshot: BackupSnapshot) {
+async function uploadSnapshotBackup(
+	ctx: ActionCtx,
+	snapshot: BackupSnapshot,
+	department: Department
+) {
 	const environment = currentEnvironment();
 	const decision = decideDriveUpload({
 		environment,
 		nonProdUploadOptIn: readEnv('ALLOW_NONPROD_DRIVE_BACKUP') === 'true',
 		folderId: readEnv('GOOGLE_DRIVE_FOLDER_ID')
 	});
-	const filename = buildDriveBackupFilename(environment, new Date());
+	const filename = buildDriveBackupFilename(environment, new Date(), department);
 
 	if (!decision.allowed) {
 		console.warn(`[driveBackup] Skipping Drive upload of ${filename}: ${decision.reason}`);
@@ -168,6 +176,7 @@ async function uploadSnapshotBackup(ctx: ActionCtx, snapshot: BackupSnapshot) {
 			skipped: true as const,
 			filename,
 			environment,
+			department,
 			reason: decision.reason,
 			stats: snapshotStats(snapshot)
 		};
@@ -183,6 +192,7 @@ async function uploadSnapshotBackup(ctx: ActionCtx, snapshot: BackupSnapshot) {
 	await ctx.runMutation(anyApi.backupWatchdog.recordBackupSuccess, {
 		filename,
 		environment,
+		department,
 		fileId
 	});
 
@@ -191,6 +201,7 @@ async function uploadSnapshotBackup(ctx: ActionCtx, snapshot: BackupSnapshot) {
 		skipped: false as const,
 		filename,
 		environment,
+		department,
 		fileId,
 		createdTime,
 		stats: snapshotStats(snapshot)
@@ -215,16 +226,20 @@ export const backupToDrive = action({
 		}
 
 		const snapshot = (await ctx.runQuery(anyApi.backup.exportDataForCron, {
-			cronSecret
+			cronSecret,
+			department: 'international'
 		})) as BackupSnapshot;
-		return uploadSnapshotBackup(ctx, snapshot);
+		return uploadSnapshotBackup(ctx, snapshot, 'international');
 	}
 });
 
 export const scheduledBackup = internalAction({
-	args: {},
-	handler: async (ctx) => {
-		const result = await ctx.runMutation(anyApi.backup.createDailyBackup, {});
-		return uploadSnapshotBackup(ctx, result.snapshot);
+	args: {
+		department: v.optional(departmentValidator)
+	},
+	handler: async (ctx, args) => {
+		const department = args.department ?? 'international';
+		const result = await ctx.runMutation(anyApi.backup.createDailyBackup, { department });
+		return uploadSnapshotBackup(ctx, result.snapshot, department);
 	}
 });

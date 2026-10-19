@@ -49,6 +49,7 @@ import type * as seedAdmin from "../seedAdmin.js";
 import type * as shared_authorization from "../shared/authorization.js";
 import type * as shared_backup_snapshot from "../shared/backup_snapshot.js";
 import type * as shared_class_roster from "../shared/class_roster.js";
+import type * as shared_departments from "../shared/departments.js";
 import type * as shared_drive_backup_target from "../shared/drive_backup_target.js";
 import type * as shared_enrichment from "../shared/enrichment.js";
 import type * as shared_esl from "../shared/esl.js";
@@ -120,6 +121,7 @@ declare const fullApi: ApiFromModules<{
   "shared/authorization": typeof shared_authorization;
   "shared/backup_snapshot": typeof shared_backup_snapshot;
   "shared/class_roster": typeof shared_class_roster;
+  "shared/departments": typeof shared_departments;
   "shared/drive_backup_target": typeof shared_drive_backup_target;
   "shared/enrichment": typeof shared_enrichment;
   "shared/esl": typeof shared_esl;

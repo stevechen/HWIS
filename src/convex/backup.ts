@@ -6,34 +6,42 @@ import {
 	buildSnapshot,
 	createStoredBackup,
 	parseBackupSnapshot,
-	pruneOldBackups
+	pruneOldBackups,
+	resolveBackupDepartment
 } from './shared/backup_snapshot';
+import { departmentValidator } from './shared/departments';
 import { applyRestore, type RestorePayload } from './shared/restore_plan';
 import { runYearEndMigration } from './shared/migration_plan';
 
 export const exportData = query({
-	args: {},
-	handler: async (ctx) => {
+	args: {
+		department: v.optional(departmentValidator)
+	},
+	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
-		return await buildSnapshot(ctx);
+		return await buildSnapshot(ctx, args.department ?? 'international');
 	}
 });
 
 export const exportDataForCron = query({
-	args: { cronSecret: v.string() },
+	args: {
+		cronSecret: v.string(),
+		department: v.optional(departmentValidator)
+	},
 	handler: async (ctx, args) => {
 		const expectedSecret = process.env.CRON_SECRET;
 		if (!expectedSecret || args.cronSecret !== expectedSecret) {
 			throw new Error('Unauthorized');
 		}
-		return await buildSnapshot(ctx);
+		return await buildSnapshot(ctx, args.department ?? 'international');
 	}
 });
 
 export const createBackup = mutation({
 	args: {
 		name: v.optional(v.string()),
-		e2eTag: v.optional(v.string())
+		e2eTag: v.optional(v.string()),
+		department: v.optional(departmentValidator)
 	},
 	handler: async (ctx, args) => {
 		const user = await requireAdminForSensitiveOperation(ctx);
@@ -43,7 +51,8 @@ export const createBackup = mutation({
 			creatorName: user.name ?? (user.role === 'super' ? 'Super Admin' : 'Admin'),
 			creatorRole: user.role,
 			source: 'manual',
-			e2eTag: args.e2eTag
+			e2eTag: args.e2eTag,
+			department: args.department ?? 'international'
 		});
 
 		return {
@@ -78,8 +87,14 @@ export const restoreFromBackup = mutation({
 });
 
 export const createDailyBackup = internalMutation({
-	args: {},
-	handler: async (ctx) => createStoredBackup(ctx, { source: 'system_cron' })
+	args: {
+		department: v.optional(departmentValidator)
+	},
+	handler: async (ctx, args) =>
+		createStoredBackup(ctx, {
+			source: 'system_cron',
+			department: args.department ?? 'international'
+		})
 });
 
 export const restoreFromBackupPayload = mutation({
@@ -89,7 +104,11 @@ export const restoreFromBackupPayload = mutation({
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
-		await createStoredBackup(ctx, { source: 'system_safety', e2eTag: args.e2eTag });
+		await createStoredBackup(ctx, {
+			source: 'system_safety',
+			e2eTag: args.e2eTag,
+			department: 'international'
+		});
 
 		const data = args.backupData as RestorePayload;
 		const { skippedEvaluations } = await applyRestore(ctx, data);
@@ -155,6 +174,8 @@ export const listBackups = query({
 				const canDownload = canDownloadBackup(user, backup);
 				return {
 					...backup,
+					// Legacy rows predate the column; they are International backups.
+					department: resolveBackupDepartment(backup),
 					data: canDownload ? backup.data : undefined
 				};
 			});
