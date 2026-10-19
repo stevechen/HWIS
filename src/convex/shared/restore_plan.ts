@@ -41,16 +41,30 @@ type RestoreUser = SerializedDocument<BackupSnapshot['users'][number]>;
 type RestoreCategory = SerializedDocument<BackupSnapshot['categories'][number]>;
 type RestoreHouseEvent = Omit<BackupSnapshot['houseEvents'][number], '_id' | '_creationTime'>;
 
+// The HWIS restore path only consumes the original six collections. Newer
+// department-scoped arrays are carried by the snapshot but owned by the restore
+// workstream; omitting them here keeps this payload's contract unchanged.
 export type RestorePayload = Omit<
 	BackupSnapshot,
 	| 'exportedAt'
 	| 'version'
+	| 'department'
 	| 'students'
 	| 'evaluations'
 	| 'users'
 	| 'categories'
 	| 'classes'
 	| 'houseEvents'
+	| 'leaderboardThumbnails'
+	| 'leaderboardSnapshots'
+	| 'eslCohorts'
+	| 'eslClasses'
+	| 'eslClassMeetings'
+	| 'eslTeacherAvailability'
+	| 'eslSemesters'
+	| 'eslEvents'
+	| 'eslStudents'
+	| 'teacherNotes'
 > & {
 	exportedAt?: string;
 	version?: string;
