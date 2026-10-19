@@ -21,6 +21,8 @@
 		"test:ai": "bash scripts/run-tests-ai.sh",
 		"test:e2e": "bash scripts/run-e2e.sh; bash scripts/notify-test-done.sh \"$?\"",
 		"test:e2e:smoke": "bun run test:ai -- --grep=@smoke",
+		"test:e2e:hwis": "E2E_DEPARTMENT_TAGS=1 bun run test:ai -- --grep=@hwis",
+		"test:e2e:esl": "E2E_DEPARTMENT_TAGS=1 bun run test:ai -- --grep=@esl",
 		"test:e2e:ui": "bash scripts/run-e2e.sh --ui",
 		"test:e2e:cleanup": "bash scripts/run-e2e.sh --project=cleanup",
 		"test:e2e:setup": "bash scripts/run-e2e.sh --project=setup",
