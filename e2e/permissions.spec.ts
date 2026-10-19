@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures';
 
-test.describe('Permission Tests @smoke', () => {
+test.describe('Permission Tests @smoke @hwis', () => {
 	test('unauthenticated user is redirected to login for admin route', async ({ page }) => {
 		await page.goto('/admin/students');
 		await page.waitForSelector('body.hydrated');

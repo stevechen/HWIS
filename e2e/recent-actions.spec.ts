@@ -3,7 +3,7 @@ import { getTestSuffix } from './helpers';
 import { createStudent, createCategory, cleanupByTag } from './convex-client';
 import { NewEvaluationPage } from './pages';
 
-test.describe('Recent Actions - Batch', () => {
+test.describe('Recent Actions - Batch @hwis', () => {
 	test.use({ role: 'teacher' });
 
 	let suffix: string;

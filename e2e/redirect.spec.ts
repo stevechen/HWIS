@@ -1,7 +1,7 @@
 import { test } from './fixtures';
 import { expect } from './fixtures';
 
-test.describe('Authenticated Redirects @smoke', () => {
+test.describe('Authenticated Redirects @smoke @hwis', () => {
 	test.use({ role: 'teacher' });
 
 	test('redirects to evaluations when authenticated as teacher', async ({ page }) => {
@@ -13,7 +13,7 @@ test.describe('Authenticated Redirects @smoke', () => {
 	});
 });
 
-test.describe('Authenticated Admin Redirect @smoke', () => {
+test.describe('Authenticated Admin Redirect @smoke @hwis', () => {
 	test.use({ role: 'admin' });
 
 	test('redirects to admin when authenticated as admin', async ({ page }) => {

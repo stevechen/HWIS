@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures';
 import { AdminUsersPage } from './pages';
 
-test.describe('Users Page @users', () => {
+test.describe('Users Page @users @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let usersPage: AdminUsersPage;
@@ -43,7 +43,7 @@ test.describe('Users Page @users', () => {
 	});
 });
 
-test.describe('Users Page - Super User @users', () => {
+test.describe('Users Page - Super User @users @hwis', () => {
 	test.use({ role: 'super' });
 
 	let usersPage: AdminUsersPage;

@@ -7,7 +7,7 @@ import {
 	countBackupsByTag
 } from './convex-client';
 
-test.describe('Backup Management @backup @sequential', () => {
+test.describe('Backup Management @backup @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('backup');

@@ -3,7 +3,7 @@ import { getTestSuffix } from '../helpers';
 import { cleanupByTag, createCategory, createHouseEvent } from '../convex-client';
 import { HouseEventsDisplayPage } from '../pages';
 
-test.describe('House Display Page - E2E', () => {
+test.describe('House Display Page - E2E @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let suffix: string;

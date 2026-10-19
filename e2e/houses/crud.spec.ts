@@ -3,7 +3,7 @@ import { getUniqueTag } from '../helpers';
 import { cleanupByTag, createStudent } from '../convex-client';
 import { AdminHousesPage } from '../pages';
 
-test.describe('House Management - Integration', () => {
+test.describe('House Management - Integration @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let e2eTag: string;

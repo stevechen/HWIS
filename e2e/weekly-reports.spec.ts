@@ -8,7 +8,7 @@ import {
 import { getTestSuffix, getUniqueTag } from './helpers';
 import { AdminWeeklyReportsPage } from './pages';
 
-test.describe('Weekly Reports - Data Display @weekly @sequential', () => {
+test.describe('Weekly Reports - Data Display @weekly @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let e2eTag: string;
@@ -42,7 +42,7 @@ test.describe('Weekly Reports - Data Display @weekly @sequential', () => {
 	});
 });
 
-test.describe('Weekly Reports - Dialog Interactions @weekly @sequential', () => {
+test.describe('Weekly Reports - Dialog Interactions @weekly @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let e2eTag: string;
@@ -161,7 +161,7 @@ test.describe('Weekly Reports - Dialog Interactions @weekly @sequential', () => 
 	});
 });
 
-test.describe('Weekly Reports - Create Report @weekly @sequential', () => {
+test.describe('Weekly Reports - Create Report @weekly @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let suffix: string;
@@ -234,7 +234,7 @@ test.describe('Weekly Reports - Create Report @weekly @sequential', () => {
 	});
 });
 
-test.describe('Weekly Reports - Update Report @weekly @sequential', () => {
+test.describe('Weekly Reports - Update Report @weekly @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let suffix: string;
