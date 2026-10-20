@@ -63,13 +63,22 @@
 	// The read window is the whole semester: the join needs later exams for
 	// oral marks and per-term counts, and clamps to the derived end itself.
 	// Before the first final exists the window ends at today (finals TBD).
+	// Clamp toDate >= fromDate to avoid "range ends before it starts" for
+	// future semesters without exams yet.
+	const effectiveToDate = $derived(
+		semester && semester.derivedEnd && semester.derivedEnd > semester.startDate
+			? semester.derivedEnd
+			: semester && today > semester.startDate
+				? today
+				: (semester?.startDate ?? today)
+	);
 	const daysQuery = useQuery(api.esl.schedule.teacherDays, () =>
 		teacherId && semester
 			? {
 					teacherId,
 					semesterId: semester._id,
 					fromDate: semester.startDate,
-					toDate: semester.derivedEnd ?? today
+					toDate: effectiveToDate
 				}
 			: 'skip'
 	);
