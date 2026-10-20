@@ -106,6 +106,12 @@ export type OffDayStampReport = {
 	/** Named off days landing on Sat/Sun — no meetings run, so never stamped. */
 	weekendHolidays: number;
 	needsReview: string[];
+	/**
+	 * The exact rows this import wrote (`date` + translated name), so a
+	 * caller holding wizard state can merge them instead of reloading. Empty
+	 * on a re-run that inserts nothing.
+	 */
+	insertedDays: { date: string; name: string }[];
 };
 
 export type OffDayRowClass =
@@ -174,6 +180,7 @@ export async function stampOffDayEvents(
 	let plainWeekends = 0;
 	let weekendHolidays = 0;
 	const needsReview: string[] = [];
+	const insertedDays: { date: string; name: string }[] = [];
 
 	for (const row of rows) {
 		const classified = classifyOffDayRow(row, window);
@@ -199,10 +206,19 @@ export async function stampOffDayEvents(
 		});
 		taken.add(date);
 		inserted++;
+		insertedDays.push({ date, name: english });
 		if (needsTranslation) needsReview.push(`${date} ${row.caption}`);
 	}
 
-	return { inserted, skippedTaken, outOfRange, plainWeekends, weekendHolidays, needsReview };
+	return {
+		inserted,
+		skippedTaken,
+		outOfRange,
+		plainWeekends,
+		weekendHolidays,
+		needsReview,
+		insertedDays
+	};
 }
 
 const offDayRowValidator = v.object({

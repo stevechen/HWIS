@@ -3,6 +3,7 @@
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
 	import type { GovImportResult, GovPreviewResult } from '$convex/esl/holidays';
+	import type { OffDayStampReport } from '$convex/esl/holidayWrites';
 	import { decodeHolidayBytes } from '$convex/shared/esl';
 	import { Button } from '$lib/components/ui/button';
 	import { humanConvexErrorMessage } from '$lib/convex-error';
@@ -26,11 +27,18 @@
 	let {
 		semesterId,
 		term,
-		startDate
+		startDate,
+		onImported
 	}: {
 		semesterId: Id<'esl_semesters'>;
 		term: 'S1' | 'S2';
 		startDate: string;
+		/**
+		 * Called with the exact off days this import wrote (never the ones
+		 * it skipped). The edit wizard (#256) merges these into its Step 2
+		 * state so a later save cannot contradict the written rows.
+		 */
+		onImported?: (days: { date: string; name: string }[]) => void;
 	} = $props();
 
 	const client = useConvexClient();
@@ -96,6 +104,7 @@
 			// The semester changed underneath the preview — drop it so a
 			// second click cannot double-stamp from stale data.
 			govPreview = null;
+			onImported?.(govReport.events.insertedDays);
 		} catch (cause) {
 			govError = humanConvexErrorMessage(cause);
 		} finally {
@@ -109,14 +118,7 @@
 	const isDraggingOver = $derived(dragCounter > 0);
 	let importing = $state(false);
 	let error = $state<string | null>(null);
-	let report = $state<{
-		inserted: number;
-		skippedTaken: number;
-		outOfRange: number;
-		plainWeekends: number;
-		weekendHolidays: number;
-		needsReview: string[];
-	} | null>(null);
+	let report = $state<OffDayStampReport | null>(null);
 
 	const canImport = $derived(file !== null && !importing);
 
@@ -183,6 +185,7 @@
 				semesterId,
 				csvText
 			});
+			onImported?.(report.insertedDays);
 		} catch (cause) {
 			error = humanConvexErrorMessage(cause);
 		} finally {

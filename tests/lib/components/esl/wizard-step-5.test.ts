@@ -1,8 +1,11 @@
 import { page } from 'vite-plus/test/browser';
 import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
+import { getFunctionName } from 'convex/server';
+import { useQuery } from 'convex-svelte';
 
 const actionMock = vi.fn();
+const mutationMock = vi.fn();
 const gotoMock = vi.fn();
 
 vi.mock('$app/navigation', () => ({
@@ -16,7 +19,7 @@ vi.mock('convex-svelte', () => ({
 		error: null
 	})),
 	useConvexClient: vi.fn(() => ({
-		mutation: vi.fn().mockResolvedValue(undefined),
+		mutation: mutationMock,
 		query: vi.fn().mockResolvedValue({}),
 		action: actionMock
 	}))
@@ -263,6 +266,74 @@ describe('Step 5 Panel (edit mode)', () => {
 	function editState() {
 		return { ...mockState, semesterId: 'sem_s1' };
 	}
+
+	const STATUS = {
+		window: { start: '2026-08-31', end: '2027-01-20' },
+		off: { expected: [], present: [], missing: [], ok: true },
+		quiz: { expected: 6, present: 4 },
+		units: { expected: 6, present: 6 },
+		passport: { expected: 3, present: 3 },
+		recording: { expected: 3, present: 3 },
+		g9mock: { expectedStarts: 2, expectedRows: 4, presentRows: 4 }
+	};
+
+	function mockChecklistStatus() {
+		vi.mocked(useQuery).mockImplementation(((query: unknown) => {
+			if (getFunctionName(query as never) === 'esl/checklist:status') {
+				return { data: STATUS, isLoading: false, error: null };
+			}
+			return { data: null, isLoading: false, error: null };
+		}) as never);
+	}
+
+	it('shows the advisory checklist panel on the summary', async () => {
+		mockChecklistStatus();
+		await render(Step5Panel, { state: editState(), update: mockUpdate, mode: 'edit' });
+
+		await expect.element(page.getByTestId('checklist-panel')).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId('checklist-panel.group-unit-quiz'))
+			.toMatchTextContent('4/6');
+	});
+
+	it('keys the checklist status query to the loaded semester', async () => {
+		mockChecklistStatus();
+		await render(Step5Panel, { state: editState(), update: mockUpdate, mode: 'edit' });
+
+		const call = vi
+			.mocked(useQuery)
+			.mock.calls.find(([query]) => getFunctionName(query as never) === 'esl/checklist:status');
+		expect(call).toBeDefined();
+		if (call === undefined) return;
+		const args = (call[1] as () => Record<string, unknown>)();
+		expect(args).toMatchObject({ semesterId: 'sem_s1' });
+		expect(typeof args.today).toBe('string');
+	});
+
+	it('creates missing checklist drafts from the summary', async () => {
+		mockChecklistStatus();
+		mutationMock.mockResolvedValue({ created: ['Unit 5 Quiz Due'], skipped: [] });
+		await render(Step5Panel, { state: editState(), update: mockUpdate, mode: 'edit' });
+
+		await page.getByTestId('checklist-panel.create-quiz').click();
+
+		await vi.waitFor(() => {
+			expect(mutationMock).toHaveBeenCalledTimes(1);
+		});
+		const call = mutationMock.mock.calls[0];
+		expect(call).toBeDefined();
+		if (call === undefined) return;
+		expect(getFunctionName(call[0] as never)).toBe('esl/checklist:createMissing');
+		expect(call[1]).toMatchObject({ semesterId: 'sem_s1', group: 'quiz' });
+		await expect.element(page.getByTestId('wizard.step-5-checklist-notice')).toBeInTheDocument();
+	});
+
+	it('does not render the checklist panel while creating a semester', async () => {
+		mockChecklistStatus();
+		await render(Step5Panel, { state: mockState, update: mockUpdate });
+
+		await expect.element(page.getByTestId('checklist-panel')).not.toBeInTheDocument();
+	});
 
 	it('Save changes runs dry-run first and shows the change summary', async () => {
 		actionMock.mockResolvedValue(SUMMARY_NO_REMOVAL);
