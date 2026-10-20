@@ -1,5 +1,33 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { parseSemesterSlug, semesterSlug, semesterUploadYears } from '$lib/esl-semesters';
+import {
+	parseSemesterSlug,
+	pickDefaultSemester,
+	semesterSlug,
+	semesterUploadYears
+} from '$lib/esl-semesters';
+
+describe('pickDefaultSemester', () => {
+	const S1 = { id: 's1', startDate: '2026-08-31', derivedEnd: '2027-01-20' };
+	const S2 = { id: 's2', startDate: '2027-02-11', derivedEnd: null };
+
+	it('prefers the running term over a future sibling, even though the list is newest-first', () => {
+		expect(pickDefaultSemester([S2, S1], '2026-10-21')?.id).toBe('s1');
+	});
+
+	it('falls back to the most recent started term when none is running', () => {
+		const past = { id: 'p2', startDate: '2027-02-11', derivedEnd: '2027-06-30' };
+		const older = { id: 'p1', startDate: '2026-08-31', derivedEnd: '2027-01-20' };
+		expect(pickDefaultSemester([past, older], '2026-10-21')?.id).toBe('p1');
+	});
+
+	it('falls back to the first row when every term is still upcoming', () => {
+		expect(pickDefaultSemester([S2], '2026-10-21')?.id).toBe('s2');
+	});
+
+	it('returns null for an empty list', () => {
+		expect(pickDefaultSemester([], '2026-10-21')).toBeNull();
+	});
+});
 
 describe('semesterUploadYears (#208 both-year S1 setup)', () => {
 	it('spans both Gregorian years for an S1 fall start (fall 2026 → 2026+2027)', () => {

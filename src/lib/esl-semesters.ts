@@ -20,6 +20,27 @@ export function semesterStatus(
 	return today <= semester.derivedEnd ? 'current' : 'closed';
 }
 
+/**
+ * The semester a teacher-facing view should open on.
+ *
+ * The list query orders newest year/term first, so a future term (S2 before
+ * S1 has started) would otherwise shadow the term the teacher is living in.
+ * Prefer the term that is currently running, then the most recent one that
+ * has started, then the first row.
+ */
+export function pickDefaultSemester<T extends { startDate: string; derivedEnd: string | null }>(
+	semesters: readonly T[],
+	today: string
+): T | null {
+	if (semesters.length === 0) return null;
+	const current = semesters.find((semester) => semesterStatus(semester, today) === 'current');
+	if (current !== undefined) return current;
+	const started = semesters
+		.filter((semester) => semester.startDate <= today)
+		.sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
+	return started ?? semesters[0] ?? null;
+}
+
 /** The sibling term an exam date is judged against for the S1/S2 cross check. */
 export type SiblingSemester = {
 	year: string;

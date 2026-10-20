@@ -4,6 +4,7 @@
 	import { useViewer } from '$lib/viewer.svelte';
 	import TeacherScheduleTable from '$lib/components/esl/TeacherScheduleTable.svelte';
 	import { buildEventNoteMap } from '$lib/esl-schedule-list';
+	import { pickDefaultSemester } from '$lib/esl-semesters';
 
 	const session = useViewer();
 
@@ -12,14 +13,17 @@
 	const semestersQuery = useQuery(api.esl.semesters.list, () => ({}));
 	const semesters = $derived(semestersQuery.data ?? []);
 
+	const today = new Date().toISOString().slice(0, 10);
+
 	let pickedSemesterId = $state<string | null>(null);
 	const selected = $derived(
-		semesters.find((semester) => semester._id === pickedSemesterId) ?? semesters[0] ?? null
+		semesters.find((semester) => semester._id === pickedSemesterId) ??
+			pickDefaultSemester(semesters, today) ??
+			semesters[0] ??
+			null
 	);
 
 	let pickedClassId = $state<string | null>(null);
-
-	const today = new Date().toISOString().slice(0, 10);
 
 	const daysQuery = useQuery(api.esl.schedule.teacherDays, () =>
 		teacherId !== undefined && selected !== null
