@@ -20,22 +20,6 @@ export function semesterStatus(
 	return today <= semester.derivedEnd ? 'current' : 'closed';
 }
 
-/**
- * The exam row a derived end came from, so the detail screen can say
- * "ends 1/20, from Final exam" instead of showing a bare computed date.
- * Null while no exams exist (finals TBD). A non-matching end cannot happen
- * through the backend (the end *is* the max exam date), but if it ever does
- * the date still shows with a generic label rather than vanishing.
- */
-export function derivedEndSource(
-	events: { type: string; date: string; title: string }[],
-	derivedEnd: string | null
-): { date: string; label: string } | null {
-	if (derivedEnd === null) return null;
-	const source = events.find((event) => event.type === 'exam' && event.date === derivedEnd);
-	return { date: derivedEnd, label: source?.title ?? 'exam' };
-}
-
 /** The sibling term an exam date is judged against for the S1/S2 cross check. */
 export type SiblingSemester = {
 	year: string;

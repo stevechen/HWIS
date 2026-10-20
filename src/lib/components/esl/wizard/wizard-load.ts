@@ -1,7 +1,9 @@
 import {
+	ESL_LOCKED_NOTES,
 	ESL_REMINDER_TITLES,
 	EXAM_SEED_WEEKDAYS,
 	expandExamDays,
+	isChecklistDraftEvent,
 	type EslEventType,
 	type EslReminderKind
 } from '$convex/shared/esl';
@@ -43,6 +45,12 @@ import type {
  *   conventional title. Window interiors are not stored — they re-derive as
  *   the skip-filtered days between the stored endpoints (CLIL days for
  *   quizzes, school days for dues and checks);
+ * - checklist drafts never load: `Unit N` task drafts and
+ *   `Unit N Quiz Due` quiz drafts are shapes only `checklist.createMissing`
+ *   writes, so the loader consumes them silently (no inferred tag) and the
+ *   reconcile leaves them untouched. Named off-day drafts load like wizard
+ *   off days; a caption-less draft stays a nameless Step 2 off day rather
+ *   than a named multi-day extra (which the save would refuse);
  * - mock pairs — two row-adjacent rows per slot (`g9_mock` writes no
  *   grouping marker);
  * - extras — no-school rows that share a note and stay calendar-contiguous
@@ -140,13 +148,7 @@ const EXAM_LABELS: Record<string, 'Exam 1' | 'Exam 2' | 'Final'> = {
 };
 
 /** The note strings singles recover from (locked at save, see module docs). */
-const LOCKED_SINGLE_NOTES = new Set([
-	'Anniversary',
-	'Anniversary makeup',
-	'Sports Day',
-	'Graduation',
-	'BBQ from 12:00'
-]);
+const LOCKED_SINGLE_NOTES = new Set<string>(Object.values(ESL_LOCKED_NOTES));
 
 const TARGET_VALUES = ['all', 'CLIL', 'Comm', 'G7', 'G8', 'G9', 'H1'] as const;
 type LoaderTarget = Exclude<(typeof TARGET_VALUES)[number], never>;
@@ -176,7 +178,7 @@ function describeRow(row: WizardEventSource): string {
 
 function unmatchedDetail(row: WizardEventSource): string {
 	const span = row.endDate === undefined ? row.date : `${row.date}–${row.endDate}`;
-	return `${describeRow(row)} on ${span} fits no wizard slot — re-saving without edits would remove it.`;
+	return `${describeRow(row)} on ${span} fits no wizard slot — saving leaves it in place (only wizard-owned rows are reconciled).`;
 }
 
 /**
@@ -260,7 +262,10 @@ export function loadWizardState(
 	const offRows = rows.filter((row) => row.type === 'no_school');
 	const noClassRows = rows.filter((row) => row.type === 'no_class');
 	const partialRows = rows.filter((row) => row.type === 'partial');
-	const reminderRows = rows.filter((row) => row.type === 'reminder');
+	// Checklist drafts are consumed first, silently: they are real rows the
+	// wizard must preserve, and none of them fits a wizard-owned slot.
+	for (const row of rows.filter(isChecklistDraftEvent)) use(row);
+	const reminderRows = rows.filter((row) => row.type === 'reminder' && !used.has(row));
 	const mockRows = rows.filter((row) => row.type === 'g9_mock');
 
 	// ---- Start window: the semester row is the truth; a start-of-school
@@ -499,6 +504,15 @@ export function loadWizardState(
 	const extras: WizardExtraOff[] = [];
 	const offDays: WizardOffDay[] = [];
 	for (const [name, group] of offByName) {
+		// A caption-less draft has no note to name an extra with; each row
+		// stays a Step 2 off day so the save never throws on a blank name.
+		if (name.trim() === '') {
+			for (const row of group) {
+				use(row);
+				offDays.push({ date: row.date, name });
+			}
+			continue;
+		}
 		for (const run of contiguousRuns(group.map((row) => row.date))) {
 			const start = run[0];
 			const end = run[run.length - 1];

@@ -5,6 +5,7 @@ import type { Doc, Id } from '../_generated/dataModel';
 import { periodBoundsFor } from './events';
 import {
 	ESL_EVENT_TITLES,
+	ESL_LOCKED_NOTES,
 	ESL_REMINDER_TITLES,
 	EXAM_SEED_WEEKDAYS,
 	assertValidEslEvent,
@@ -244,13 +245,15 @@ function buildWizardWrites(payload: WizardSavePayload): DesiredRow[] {
 	});
 
 	// Off days first: exam fan-out skips no_school days already in the DB.
+	// A caption-less row (the checklist drafts unnamed holidays that way)
+	// stays note-less so the round-trip matches it byte-for-byte.
 	for (const day of payload.offDays) {
 		writes.push({
 			type: 'no_school',
 			title: ESL_EVENT_TITLES.no_school,
 			target: 'all',
 			date: day.date,
-			note: day.name,
+			...(day.name.trim() === '' ? {} : { note: day.name }),
 			family: { kind: 'off' }
 		});
 	}
@@ -276,7 +279,7 @@ function buildWizardWrites(payload: WizardSavePayload): DesiredRow[] {
 			title: ESL_EVENT_TITLES.no_class,
 			target: 'all',
 			date: payload.singles.anniv,
-			note: 'Anniversary',
+			note: ESL_LOCKED_NOTES.anniversary,
 			family: { kind: 'anniv' }
 		});
 	}
@@ -286,7 +289,7 @@ function buildWizardWrites(payload: WizardSavePayload): DesiredRow[] {
 			title: ESL_EVENT_TITLES.no_school,
 			target: 'all',
 			date: payload.singles.makeup,
-			note: 'Anniversary makeup',
+			note: ESL_LOCKED_NOTES.anniversaryMakeup,
 			family: { kind: 'makeup' }
 		});
 	}
@@ -296,7 +299,7 @@ function buildWizardWrites(payload: WizardSavePayload): DesiredRow[] {
 			title: ESL_EVENT_TITLES.no_class,
 			target: 'all',
 			date: payload.singles.sports,
-			note: 'Sports Day',
+			note: ESL_LOCKED_NOTES.sportsDay,
 			family: { kind: 'sports' }
 		});
 	}
@@ -306,7 +309,7 @@ function buildWizardWrites(payload: WizardSavePayload): DesiredRow[] {
 			title: ESL_EVENT_TITLES.no_class,
 			target: 'G9',
 			date: payload.singles.grad,
-			note: 'Graduation',
+			note: ESL_LOCKED_NOTES.graduation,
 			family: { kind: 'grad' }
 		});
 	}
@@ -320,7 +323,7 @@ function buildWizardWrites(payload: WizardSavePayload): DesiredRow[] {
 			target: 'all',
 			date: payload.singles.bbq,
 			endPeriod: 4,
-			note: 'BBQ from 12:00',
+			note: ESL_LOCKED_NOTES.bbq,
 			family: { kind: 'bbq' }
 		});
 	}
@@ -430,7 +433,7 @@ function buildWizardWrites(payload: WizardSavePayload): DesiredRow[] {
 		ranges.wcheck
 	);
 
-	for (const custom of payload.customs as WizardSaveCustom[]) {
+	for (const custom of payload.customs) {
 		writes.push({ ...customWrite(custom), family: { kind: 'custom', id: custom.id } });
 	}
 
@@ -697,11 +700,14 @@ function dayNumber(date: string): number {
 
 /** Whether an existing row is a leftover only the wizard could have written. */
 function isWizardLeftover(row: Doc<'esl_events'>): boolean {
-	if (row.type === 'no_class' && (row.note === 'Anniversary' || row.note === 'Sports Day')) {
+	if (
+		row.type === 'no_class' &&
+		(row.note === ESL_LOCKED_NOTES.anniversary || row.note === ESL_LOCKED_NOTES.sportsDay)
+	) {
 		return true;
 	}
-	if (row.type === 'no_school' && row.note === 'Anniversary makeup') return true;
-	if (row.type === 'partial' && row.note === 'BBQ from 12:00') return true;
+	if (row.type === 'no_school' && row.note === ESL_LOCKED_NOTES.anniversaryMakeup) return true;
+	if (row.type === 'partial' && row.note === ESL_LOCKED_NOTES.bbq) return true;
 	if (row.type === 'reminder' && row.reminderKind === 'quiz' && /^Quiz \d+$/.test(row.title)) {
 		return true;
 	}
@@ -722,15 +728,15 @@ function matchesFamily(family: Family, desired: DesiredRow, row: Doc<'esl_events
 			// foreign row from a neighbouring day.
 			return row.type === 'no_school' && row.date === desired.date;
 		case 'anniv':
-			return row.type === 'no_class' && row.note === 'Anniversary';
+			return row.type === 'no_class' && row.note === ESL_LOCKED_NOTES.anniversary;
 		case 'makeup':
-			return row.type === 'no_school' && row.note === 'Anniversary makeup';
+			return row.type === 'no_school' && row.note === ESL_LOCKED_NOTES.anniversaryMakeup;
 		case 'sports':
-			return row.type === 'no_class' && row.note === 'Sports Day';
+			return row.type === 'no_class' && row.note === ESL_LOCKED_NOTES.sportsDay;
 		case 'grad':
-			return row.type === 'no_class' && row.note === 'Graduation';
+			return row.type === 'no_class' && row.note === ESL_LOCKED_NOTES.graduation;
 		case 'bbq':
-			return row.type === 'partial' && row.note === 'BBQ from 12:00';
+			return row.type === 'partial' && row.note === ESL_LOCKED_NOTES.bbq;
 		case 'mock':
 			return row.type === 'g9_mock' && row.title === ESL_EVENT_TITLES.g9_mock;
 		case 'exam':
@@ -897,7 +903,7 @@ function planReconcile(
 		if (row.type !== 'no_school') continue;
 		// An 'Anniversary makeup' row the payload no longer names is a
 		// wizard leftover headed for deletion — its date frees up.
-		if (row.note === 'Anniversary makeup' && !desiredOffDates.has(row.date)) continue;
+		if (row.note === ESL_LOCKED_NOTES.anniversaryMakeup && !desiredOffDates.has(row.date)) continue;
 		offDates.add(row.date);
 	}
 
