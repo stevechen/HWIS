@@ -60,3 +60,4 @@ handoff/
 # Agent worktree checkouts
 worktrees/
 
+.vitest/

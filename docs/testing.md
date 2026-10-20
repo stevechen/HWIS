@@ -537,6 +537,47 @@ bunx playwright test e2e/students/crud.spec.ts
 bunx playwright test e2e/students/crud.spec.ts --workers=1
 ```
 
+### Department Tags
+
+Every e2e spec carries a department tag in its top-level `describe`/`test` title so
+the suite can be run per department:
+
+| Tag      | Meaning                                                           |
+| -------- | ----------------------------------------------------------------- |
+| `@hwis`  | HWIS (International) specs, plus cross-department specs           |
+| `@esl`   | ESL specs, plus cross-department specs                            |
+| `@infra` | Setup/cleanup infrastructure; not selected by department-tag runs |
+
+Cross-department specs (`wizard-flow`, `setup`) carry both `@hwis` and `@esl`.
+`setup` also carries `@infra`; `cleanup` carries only `@infra`. Existing
+`@esl-import`/`@esl-wizard` tags still match `--grep=@esl` (substring match).
+
+```bash
+# Department-scoped runs (route through the token-saving compressor).
+# These scripts set E2E_DEPARTMENT_TAGS=1 themselves.
+bun run test:e2e:hwis   # E2E_DEPARTMENT_TAGS=1 bun run test:ai -- --grep=@hwis
+bun run test:e2e:esl    # E2E_DEPARTMENT_TAGS=1 bun run test:ai -- --grep=@esl
+
+# Verify selection without running the suite
+bunx playwright test --list --grep=@hwis
+bunx playwright test --list --grep=@esl
+```
+
+A `--grep` run still executes the `setup` project because project dependencies
+are not filtered. Because Playwright also runs dependency projects **in full**,
+tagged runs set `E2E_DEPARTMENT_TAGS=1`, which makes the filtered projects depend
+on `setup` only instead of chaining through `cleanup-after-parallel` (otherwise a
+tagged run would drag the whole parallel suite in). Calling Playwright directly
+with `--grep` **must** set it too, e.g.
+`E2E_DEPARTMENT_TAGS=1 bunx playwright test --grep=@esl`; without the variable
+the project graph keeps the full `cleanup-after-parallel` dependency chain. Destructive `@auth-sequential`
+session/logout specs are excluded from tagged runs — logging out the shared
+storageState users would invalidate sessions other workers still need; run the
+full suite for those. The trailing `cleanup` project is not selected by
+department tags (same as `test:e2e:smoke`), so run `bun run test:e2e:cleanup`
+afterwards if the tagged run created data. The compressor keeps the filter in its
+output, e.g. `@hwis: All 124 tests passed.` or `## Failures @esl (1/14)`.
+
 ### Convex Reactivity Pattern
 
 When testing mutations that create data:

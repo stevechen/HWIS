@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const mockAuditLogs = [
@@ -38,7 +38,7 @@ describe('Audit Admin Page', () => {
 	});
 
 	it('renders filter controls and table', async () => {
-		render(AuditPage);
+		await render(AuditPage);
 		await expect.element(page.getByRole('button', { name: 'Columns control' })).toBeInTheDocument();
 		await expect.element(page.getByPlaceholder('Student')).toBeInTheDocument();
 		await expect.element(page.getByPlaceholder('Teacher')).toBeInTheDocument();
@@ -46,14 +46,14 @@ describe('Audit Admin Page', () => {
 	});
 
 	it('renders audit log content', async () => {
-		render(AuditPage);
+		await render(AuditPage);
 		await expect.element(page.getByText('Student One')).toBeInTheDocument();
 		await expect.element(page.getByText('Admin User')).toBeInTheDocument();
 		await expect.element(page.getByText('Created')).toBeInTheDocument();
 	});
 
 	it('shows empty filtered state and clear filters action', async () => {
-		render(AuditPage);
+		await render(AuditPage);
 		const studentFilter = page.getByPlaceholder('Student');
 		await studentFilter.fill('does-not-exist');
 		await expect.element(page.getByText('No matching audit logs found.')).toBeInTheDocument();

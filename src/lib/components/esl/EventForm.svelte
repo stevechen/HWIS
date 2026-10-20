@@ -409,6 +409,13 @@
 					onPick={pickDate}
 					testId="event-form.picker"
 				/>
+				<input
+					id="event-form-date"
+					type="date"
+					bind:value={draft.date}
+					disabled={busy}
+					class="rounded border px-2 py-1 text-sm"
+				/>
 				{#if dateOverridden}
 					<RecalculateHint
 						testId="event-form.recalculate"
@@ -513,8 +520,7 @@
 				required={noteRequired}
 				rows="2"
 				placeholder="BBQ from 12:00 — collect permission slips"
-				class="rounded border px-2 py-1 text-sm"
-			></textarea>
+				class="rounded border px-2 py-1 text-sm"></textarea>
 		</div>
 	{/if}
 

@@ -1,5 +1,5 @@
-import { page, userEvent } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page, userEvent } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { getFunctionName } from 'convex/server';
 import { useQuery } from 'convex-svelte';
@@ -149,14 +149,14 @@ describe('ESL teacher profile page', () => {
 	});
 
 	it('renders the teacher name as heading with a back link', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		await expect.element(page.getByRole('heading', { name: 'Theo Teacher' })).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl-admin-user-profile.back')).toBeInTheDocument();
 	});
 
 	it('shows the teacher name once, in the page heading rather than the info card', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		await expect.element(page.getByRole('heading', { name: 'Theo Teacher' })).toBeInTheDocument();
 		expect(
@@ -165,7 +165,7 @@ describe('ESL teacher profile page', () => {
 	});
 
 	it('keeps identity, roles, and contact in the info card', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		const header = page.getByTestId('esl-admin-user-profile.header');
 		await expect.element(header.getByText('International · teacher')).toBeInTheDocument();
@@ -175,24 +175,24 @@ describe('ESL teacher profile page', () => {
 	});
 
 	it('shows the email address as a mail link', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		const email = page.getByTestId('esl-admin-user-profile.email');
-		await expect.element(email).toHaveTextContent('theo@hwhs.tc.edu.tw');
+		await expect.element(email).toMatchTextContent('theo@hwhs.tc.edu.tw');
 		await expect.element(email).toHaveAttribute('href', 'mailto:theo@hwhs.tc.edu.tw');
 	});
 
 	it('shows no-email state when the address is missing', async () => {
 		withProfile({ ...PROFILE, email: undefined });
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.email'))
-			.toHaveTextContent('No email on file');
+			.toMatchTextContent('No email on file');
 	});
 
 	it('offers the school years in a picker', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		const year = page.getByTestId('esl-admin-user-profile.year');
 		await expect.element(year).toBeInTheDocument();
@@ -201,33 +201,33 @@ describe('ESL teacher profile page', () => {
 	});
 
 	it('totals the teaching load with a per-class breakdown', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.periods'))
-			.toHaveTextContent('5 periods/week');
+			.toMatchTextContent('5 periods/week');
 	});
 
 	it('shows the teaching load on one line with the year beside it', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.periods'))
-			.toHaveTextContent('5 periods/week · 2025-2026');
+			.toMatchTextContent('5 periods/week · 2025-2026');
 	});
 
 	it('hides the year tail when viewing the current year', async () => {
 		const currentYear = schoolYearOf(new Date());
 		withProfile({ ...PROFILE, years: [currentYear, '2025-2026'] });
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		const periods = page.getByTestId('esl-admin-user-profile.periods');
-		await expect.element(periods).toHaveTextContent('5 periods/week');
+		await expect.element(periods).toMatchTextContent('5 periods/week');
 		await expect.element(periods).not.toHaveTextContent(currentYear);
 	});
 
 	it('lists classes with rooms, flagging unset rooms', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		await expect.element(page.getByText('G7 Basic 1 CLIL')).toBeInTheDocument();
 		await expect.element(page.getByText('G7 Basic 2 Comm')).toBeInTheDocument();
@@ -236,7 +236,7 @@ describe('ESL teacher profile page', () => {
 	});
 
 	it('shows meeting chips inside each class row', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		const rows = page.getByTestId('esl-admin-user-profile.class-row');
 		await expect.element(rows.getByText('Mo P1')).toBeInTheDocument();
@@ -244,7 +244,7 @@ describe('ESL teacher profile page', () => {
 	});
 
 	it('shows each class once, as name plus room without rates or cohort labels', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		const rows = page.getByTestId('esl-admin-user-profile.class-row');
 		await expect.element(rows.getByText('G7 Basic 1 CLIL')).toBeInTheDocument();
@@ -254,47 +254,47 @@ describe('ESL teacher profile page', () => {
 	});
 
 	it('renders the live-status section', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		await expect.element(page.getByTestId('esl-admin-user-profile.now')).toBeInTheDocument();
 	});
 
 	it('shows the past-year notice in the status strip when reviewing an old year', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.now'))
-			.toHaveTextContent('Current-class status applies to');
+			.toMatchTextContent('Current-class status applies to');
 	});
 
 	it('shows the empty state when nothing is assigned', async () => {
 		withProfile({ ...PROFILE, classes: [] });
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.empty'))
-			.toHaveTextContent('No classes assigned in 2025-2026.');
+			.toMatchTextContent('No classes assigned in 2025-2026.');
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.periods'))
-			.toHaveTextContent('0 periods/week');
+			.toMatchTextContent('0 periods/week');
 	});
 
 	it('shows a loading state while the profile resolves', async () => {
 		withProfile(undefined);
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.loading'))
-			.toHaveTextContent('Loading profile…');
+			.toMatchTextContent('Loading profile…');
 	});
 
 	it('shows the not-found state for a bad user id', async () => {
 		withProfileError('User not found');
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.not-found'))
-			.toHaveTextContent('Staff member not found.');
+			.toMatchTextContent('Staff member not found.');
 	});
 });
 
@@ -306,19 +306,19 @@ describe('ESL teacher profile availability buttons', () => {
 	});
 
 	it('shows both header buttons to ESL admins', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.availability.trigger'))
-			.toHaveTextContent('Set availability');
+			.toMatchTextContent('Set availability');
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.schedule.trigger'))
-			.toHaveTextContent('View weekly schedule');
+			.toMatchTextContent('View weekly schedule');
 	});
 
 	it('hides both buttons from non-admin viewers', async () => {
 		await signInAsNonAdmin();
-		render(ProfilePage);
+		await render(ProfilePage);
 
 		await expect.element(page.getByTestId('esl-admin-user-profile.title')).toBeInTheDocument();
 		expect(page.getByTestId('esl-admin-user-profile.availability.trigger').elements()).toHaveLength(
@@ -328,7 +328,7 @@ describe('ESL teacher profile availability buttons', () => {
 	});
 
 	it('opens the availability dialog on an empty grid with the hint and a disabled Save', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 		await openAvailabilityDialog();
 
 		expect(page.getByTestId('esl-admin-user-profile.availability.cell').elements()).toHaveLength(
@@ -336,13 +336,13 @@ describe('ESL teacher profile availability buttons', () => {
 		);
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.availability.hint'))
-			.toHaveTextContent('All periods available — click a slot to mark NA.');
+			.toMatchTextContent('All periods available — click a slot to mark NA.');
 		const saveButton = page.getByTestId('esl-admin-user-profile.availability.save');
 		await expect.element(saveButton).toBeDisabled();
 	});
 
 	it('toggles a slot to NA and back, gating Save on dirtiness', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 		await openAvailabilityDialog();
 
 		const saveButton = page.getByTestId('esl-admin-user-profile.availability.save');
@@ -353,7 +353,7 @@ describe('ESL teacher profile availability buttons', () => {
 		if (!mondayFirst) throw new Error('no Mo P1 cell');
 		await userEvent.click(mondayFirst);
 
-		await expect.element(mondayFirst).toHaveTextContent('NA');
+		await expect.element(mondayFirst).toMatchTextContent('NA');
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.availability.note'))
 			.toBeInTheDocument();
@@ -367,7 +367,7 @@ describe('ESL teacher profile availability buttons', () => {
 	});
 
 	it('saves a toggled slot with its note and confirms on the page', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 		await openAvailabilityDialog();
 
 		const mondayFirst = page
@@ -384,14 +384,14 @@ describe('ESL teacher profile availability buttons', () => {
 
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.notice'))
-			.toHaveTextContent('Availability saved for 2025-2026: 1 blocked period');
+			.toMatchTextContent('Availability saved for 2025-2026: 1 blocked period');
 		expect(page.getByTestId('esl-admin-user-profile.availability.dialog').elements()).toHaveLength(
 			0
 		);
 	});
 
 	it('asks to confirm discarding when closed with unsaved toggles', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 		await openAvailabilityDialog();
 
 		const cells = page.getByTestId('esl-admin-user-profile.availability.cell').elements();
@@ -422,7 +422,7 @@ describe('ESL teacher profile availability buttons', () => {
 				note: 'HWIS homeroom'
 			}
 		]);
-		render(ProfilePage);
+		await render(ProfilePage);
 		await openAvailabilityDialog();
 
 		const blocked = page
@@ -430,7 +430,7 @@ describe('ESL teacher profile availability buttons', () => {
 			.elements()
 			.filter((cell) => cell.getAttribute('data-blocked') === 'true');
 		expect(blocked).toHaveLength(1);
-		await expect.element(blocked[0]).toHaveTextContent('NA');
+		await expect.element(blocked[0]).toMatchTextContent('NA');
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.availability.note'))
 			.toHaveValue('HWIS homeroom');
@@ -441,13 +441,13 @@ describe('ESL teacher profile availability buttons', () => {
 	it('opens both dialogs on the profile’s selected school year', async () => {
 		// Both dialogs act on the profile's display year only: switching the
 		// picker re-points the write and the read, with no cross-year carryover.
-		render(ProfilePage);
+		await render(ProfilePage);
 		await selectOption(page.getByTestId('esl-admin-user-profile.year'), '2024-2025');
 
 		await openAvailabilityDialog();
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.availability.dialog'))
-			.toHaveTextContent('Theo Teacher · 2024-2025');
+			.toMatchTextContent('Theo Teacher · 2024-2025');
 		await userEvent.click(page.getByTestId('esl-admin-user-profile.availability.cancel'));
 		expect(page.getByTestId('esl-admin-user-profile.availability.dialog').elements()).toHaveLength(
 			0
@@ -456,11 +456,11 @@ describe('ESL teacher profile availability buttons', () => {
 		await openScheduleDialog();
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.schedule.dialog'))
-			.toHaveTextContent('Theo Teacher · 2024-2025');
+			.toMatchTextContent('Theo Teacher · 2024-2025');
 	});
 
 	it('opens the weekly schedule as a read-only 40-cell grid', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 		await openScheduleDialog();
 
 		expect(page.getByTestId('esl-admin-user-profile.schedule.cell').elements()).toHaveLength(40);
@@ -470,7 +470,7 @@ describe('ESL teacher profile availability buttons', () => {
 	});
 
 	it('shows ESL-taught cells with short name plus room and type/cohort tooltip', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 		await openScheduleDialog();
 
 		const mondayFirst = page
@@ -478,8 +478,8 @@ describe('ESL teacher profile availability buttons', () => {
 			.elements()
 			.find((cell) => (cell.getAttribute('aria-label') ?? '').startsWith('Mo P1 teaches'));
 		if (!mondayFirst) throw new Error('no Mo P1 taught cell');
-		await expect.element(mondayFirst).toHaveTextContent('G7 Bas. 1');
-		await expect.element(mondayFirst).toHaveTextContent('ESL A');
+		await expect.element(mondayFirst).toMatchTextContent('G7 Bas. 1');
+		await expect.element(mondayFirst).toMatchTextContent('ESL A');
 		await expect.element(mondayFirst).toHaveAttribute('title', expect.stringContaining('CLIL'));
 		await expect
 			.element(mondayFirst)
@@ -487,7 +487,7 @@ describe('ESL teacher profile availability buttons', () => {
 	});
 
 	it('flags unset rooms on ESL-taught cells', async () => {
-		render(ProfilePage);
+		await render(ProfilePage);
 		await openScheduleDialog();
 
 		const tuesdaySecond = page
@@ -495,8 +495,8 @@ describe('ESL teacher profile availability buttons', () => {
 			.elements()
 			.find((cell) => (cell.getAttribute('aria-label') ?? '').startsWith('Tu P2 teaches'));
 		if (!tuesdaySecond) throw new Error('no Tu P2 taught cell');
-		await expect.element(tuesdaySecond).toHaveTextContent('G7 Bas. 2');
-		await expect.element(tuesdaySecond).toHaveTextContent('Room not set');
+		await expect.element(tuesdaySecond).toMatchTextContent('G7 Bas. 2');
+		await expect.element(tuesdaySecond).toMatchTextContent('Room not set');
 	});
 
 	it('shows NA blocks with the note beneath and the full note in the tooltip', async () => {
@@ -509,7 +509,7 @@ describe('ESL teacher profile availability buttons', () => {
 				note: 'HWIS homeroom'
 			}
 		]);
-		render(ProfilePage);
+		await render(ProfilePage);
 		await openScheduleDialog();
 
 		const blocked = page
@@ -517,10 +517,10 @@ describe('ESL teacher profile availability buttons', () => {
 			.elements()
 			.find((cell) => (cell.getAttribute('aria-label') ?? '').startsWith('Mo P3 unavailable'));
 		if (!blocked) throw new Error('no Mo P3 blocked cell');
-		await expect.element(blocked).toHaveTextContent('NA');
+		await expect.element(blocked).toMatchTextContent('NA');
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.schedule.note'))
-			.toHaveTextContent('HWIS homeroom');
+			.toMatchTextContent('HWIS homeroom');
 		await expect
 			.element(blocked)
 			.toHaveAttribute('title', expect.stringContaining('HWIS homeroom'));
@@ -535,7 +535,7 @@ describe('ESL teacher profile availability buttons', () => {
 				period: 3
 			}
 		]);
-		render(ProfilePage);
+		await render(ProfilePage);
 		await openScheduleDialog();
 
 		const blocked = page
@@ -543,7 +543,7 @@ describe('ESL teacher profile availability buttons', () => {
 			.elements()
 			.find((cell) => (cell.getAttribute('aria-label') ?? '').startsWith('Mo P3 unavailable'));
 		if (!blocked) throw new Error('no Mo P3 blocked cell');
-		await expect.element(blocked).toHaveTextContent('NA');
+		await expect.element(blocked).toMatchTextContent('NA');
 		expect(page.getByTestId('esl-admin-user-profile.schedule.note').elements()).toHaveLength(0);
 	});
 
@@ -557,7 +557,7 @@ describe('ESL teacher profile availability buttons', () => {
 				note: 'HWIS homeroom'
 			}
 		]);
-		render(ProfilePage);
+		await render(ProfilePage);
 		await openScheduleDialog();
 
 		const mondayFirst = page
@@ -565,8 +565,8 @@ describe('ESL teacher profile availability buttons', () => {
 			.elements()
 			.find((cell) => (cell.getAttribute('aria-label') ?? '').startsWith('Mo P1 teaches'));
 		if (!mondayFirst) throw new Error('no Mo P1 taught cell');
-		await expect.element(mondayFirst).toHaveTextContent('G7 Bas. 1');
-		await expect.element(mondayFirst).not.toHaveTextContent('NA');
+		await expect.element(mondayFirst).toMatchTextContent('G7 Bas. 1');
+		await expect.element(mondayFirst).not.toMatchTextContent('NA');
 	});
 
 	it('shows the empty-week notice when nothing is scheduled', async () => {
@@ -578,13 +578,13 @@ describe('ESL teacher profile availability buttons', () => {
 				error: null
 			};
 		}) as never);
-		render(ProfilePage);
+		await render(ProfilePage);
 		await openScheduleDialog();
 
 		expect(page.getByTestId('esl-admin-user-profile.schedule.cell').elements()).toHaveLength(40);
 		await expect
 			.element(page.getByTestId('esl-admin-user-profile.schedule.empty'))
-			.toHaveTextContent('No classes or NA blocks in 2025-2026.');
+			.toMatchTextContent('No classes or NA blocks in 2025-2026.');
 	});
 
 	it('holds the empty-week notice until the availability query resolves', async () => {
@@ -602,7 +602,7 @@ describe('ESL teacher profile availability buttons', () => {
 				error: null
 			};
 		}) as never);
-		render(ProfilePage);
+		await render(ProfilePage);
 		await openScheduleDialog();
 
 		expect(page.getByTestId('esl-admin-user-profile.schedule.cell').elements()).toHaveLength(40);

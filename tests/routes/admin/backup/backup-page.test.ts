@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { sanitizeFilename } from '$lib/utils/backup';
 
@@ -15,6 +15,7 @@ let mockBackups:
 			creatorName?: string;
 			creatorRole?: 'super' | 'admin' | 'teacher' | 'student';
 			source?: string;
+			department?: 'international' | 'esl';
 			createdAt: number;
 			data: { students?: unknown[] };
 	  }>
@@ -57,7 +58,7 @@ describe('Backup Admin Page', () => {
 	});
 
 	it('renders core backup sections and action buttons', async () => {
-		render(BackupPage);
+		await render(BackupPage);
 
 		await expect.element(page.getByText('Backup History')).toBeInTheDocument();
 		await expect.element(page.getByText('Restore from File')).toBeInTheDocument();
@@ -73,7 +74,7 @@ describe('Backup Admin Page', () => {
 
 	it('shows empty state when no backups exist', async () => {
 		mockBackups = [];
-		render(BackupPage);
+		await render(BackupPage);
 		await expect.element(page.getByText('No backups found.')).toBeInTheDocument();
 	});
 
@@ -100,7 +101,7 @@ describe('Backup Admin Page', () => {
 			}
 		];
 
-		render(BackupPage);
+		await render(BackupPage);
 
 		await expect.element(page.getByText('My Fall Backup')).toBeInTheDocument();
 		await expect.element(page.getByText('You', { exact: true })).toBeInTheDocument();
@@ -140,7 +141,7 @@ describe('Backup Admin Page', () => {
 			}
 		];
 
-		render(BackupPage);
+		await render(BackupPage);
 
 		await expect.element(page.getByText('Bob Backup')).toBeInTheDocument();
 		await expect.element(page.getByText('Admin: Bob', { exact: true })).toBeInTheDocument();
@@ -166,7 +167,7 @@ describe('Backup Admin Page', () => {
 			}
 		];
 
-		render(BackupPage);
+		await render(BackupPage);
 
 		await expect.element(page.getByText('Bob Backup')).toBeInTheDocument();
 		await expect.element(page.getByText('Admin: Bob', { exact: true })).toBeInTheDocument();
@@ -204,7 +205,7 @@ describe('Backup Admin Page', () => {
 			}
 		];
 
-		render(BackupPage);
+		await render(BackupPage);
 
 		// Super can rename/delete system backups and other admins' backups
 		await expect.element(page.getByText('System: Safety')).toBeInTheDocument();
@@ -235,7 +236,7 @@ describe('Backup Admin Page', () => {
 			}
 		];
 
-		render(BackupPage);
+		await render(BackupPage);
 
 		await expect.element(page.getByText('My Backup')).toBeInTheDocument();
 		await expect.element(page.getByText('You', { exact: true })).toBeInTheDocument();
@@ -267,7 +268,7 @@ describe('Backup Admin Page', () => {
 			return el;
 		});
 
-		render(BackupPage);
+		await render(BackupPage);
 
 		await page.getByRole('button', { name: /download/i }).click();
 
@@ -287,7 +288,7 @@ describe('Backup Admin Page', () => {
 				data: { students: [] }
 			}
 		];
-		render(BackupPage);
+		await render(BackupPage);
 
 		await expect.element(page.getByRole('tab', { name: 'Snapshots' })).toBeInTheDocument();
 		await expect.element(page.getByRole('tab', { name: 'Daily' })).toBeInTheDocument();
@@ -304,7 +305,7 @@ describe('Backup Admin Page', () => {
 				data: { students: [] }
 			}
 		];
-		render(BackupPage);
+		await render(BackupPage);
 
 		await page.getByRole('tab', { name: 'Daily' }).click();
 
@@ -342,7 +343,7 @@ describe('Backup Admin Page', () => {
 				data: { students: [] }
 			}
 		];
-		render(BackupPage);
+		await render(BackupPage);
 
 		await page.getByRole('tab', { name: 'Daily' }).click();
 
@@ -360,5 +361,42 @@ describe('Backup Admin Page', () => {
 	it('sanitizeFilename replaces unsafe characters with underscores', async () => {
 		expect(sanitizeFilename('My/Backup: Name?.json')).toBe('My_Backup__Name_.json');
 		expect(sanitizeFilename('plain-name_1.txt')).toBe('plain-name_1.txt');
+	});
+
+	it('hides ESL backups and keeps legacy department-less rows visible', async () => {
+		mockBackups = [
+			{
+				_id: 'backup-intl',
+				name: 'International Snapshot',
+				filename: 'backup-intl.json',
+				department: 'international',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			},
+			{
+				_id: 'backup-esl',
+				name: 'ESL Snapshot',
+				filename: 'backup-esl.json',
+				department: 'esl',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			},
+			{
+				_id: 'backup-legacy',
+				name: 'Legacy Snapshot',
+				filename: 'backup-legacy.json',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			}
+		];
+
+		await render(BackupPage);
+
+		await expect.element(page.getByText('International Snapshot')).toBeInTheDocument();
+		await expect.element(page.getByText('Legacy Snapshot')).toBeInTheDocument();
+		await expect.element(page.getByText('ESL Snapshot')).not.toBeInTheDocument();
 	});
 });

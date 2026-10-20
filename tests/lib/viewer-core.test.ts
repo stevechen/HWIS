@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { getEvaluationCapabilities, type AuthorizationActor } from '$convex/shared/authorization';
 import type { Id } from '$convex/_generated/dataModel';
 import { settleViewer, type AuthInput, type ProfileInput, type Viewer } from '$lib/viewer-core';

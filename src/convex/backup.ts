@@ -1,49 +1,94 @@
 import { query, mutation, internalMutation } from './_generated/server';
 import { v } from 'convex/values';
-import { requireAdminForSensitiveOperation, requireSuperForSensitiveOperation } from './auth';
-import { canDownloadBackup, canRenameBackup, canDeleteBackup } from './shared/authorization';
+import {
+	requireAdminForSensitiveOperation,
+	requireDepartmentRestoreAdmin,
+	requireSuperForSensitiveOperation,
+	requireUserProfileForSensitiveOperation
+} from './auth';
+import {
+	canAdministerDepartment,
+	canDownloadBackup,
+	canRenameBackup,
+	canDeleteBackup,
+	type Department
+} from './shared/authorization';
 import {
 	buildSnapshot,
 	createStoredBackup,
 	parseBackupSnapshot,
-	pruneOldBackups
+	pruneOldBackups,
+	resolveBackupDepartment
 } from './shared/backup_snapshot';
-import { applyRestore, type RestorePayload } from './shared/restore_plan';
+import { BACKUP_DEPARTMENTS, departmentValidator, normalizeDepartment } from './shared/departments';
+import {
+	applyEslRestore,
+	applyRestore,
+	assertEslRestorePayload,
+	assertHwisRestorePayload,
+	type EslRestorePayload,
+	type RestorePayload
+} from './shared/restore_plan';
 import { runYearEndMigration } from './shared/migration_plan';
 
+/**
+ * Department-scoped backup authority. Deliberately *not* the global admin gate:
+ * an ESL-only admin is stored with base role `teacher`, so the legacy
+ * `isAdmin` check would refuse the department's own admin (ADR-0010/#231).
+ */
+async function requireBackupDepartmentAdmin(
+	ctx: Parameters<typeof requireUserProfileForSensitiveOperation>[0],
+	department: Department
+) {
+	const user = await requireUserProfileForSensitiveOperation(ctx);
+	if (!canAdministerDepartment(user, department)) {
+		throw new Error(`Forbidden: ${department} admin access required`);
+	}
+	return user;
+}
+
 export const exportData = query({
-	args: {},
-	handler: async (ctx) => {
-		await requireAdminForSensitiveOperation(ctx);
-		return await buildSnapshot(ctx);
+	args: {
+		department: v.optional(departmentValidator)
+	},
+	handler: async (ctx, args) => {
+		const department = normalizeDepartment(args.department);
+		await requireBackupDepartmentAdmin(ctx, department);
+		return await buildSnapshot(ctx, department);
 	}
 });
 
 export const exportDataForCron = query({
-	args: { cronSecret: v.string() },
+	args: {
+		cronSecret: v.string(),
+		department: v.optional(departmentValidator)
+	},
 	handler: async (ctx, args) => {
 		const expectedSecret = process.env.CRON_SECRET;
 		if (!expectedSecret || args.cronSecret !== expectedSecret) {
 			throw new Error('Unauthorized');
 		}
-		return await buildSnapshot(ctx);
+		return await buildSnapshot(ctx, args.department ?? 'international');
 	}
 });
 
 export const createBackup = mutation({
 	args: {
 		name: v.optional(v.string()),
-		e2eTag: v.optional(v.string())
+		e2eTag: v.optional(v.string()),
+		department: v.optional(departmentValidator)
 	},
 	handler: async (ctx, args) => {
-		const user = await requireAdminForSensitiveOperation(ctx);
+		const department = normalizeDepartment(args.department);
+		const user = await requireBackupDepartmentAdmin(ctx, department);
 		const { backupId, snapshot } = await createStoredBackup(ctx, {
 			name: args.name,
 			creatorId: user._id,
 			creatorName: user.name ?? (user.role === 'super' ? 'Super Admin' : 'Admin'),
 			creatorRole: user.role,
 			source: 'manual',
-			e2eTag: args.e2eTag
+			e2eTag: args.e2eTag,
+			department
 		});
 
 		return {
@@ -58,16 +103,32 @@ export const restoreFromBackup = mutation({
 		backupId: v.id('backups')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx);
 		const backup = await ctx.db.get(args.backupId);
 		if (!backup) throw new Error('Backup not found');
+
+		// Legacy rows carry no `department`; they are International backups.
+		const department = resolveBackupDepartment(backup);
+		await requireDepartmentRestoreAdmin(ctx, department);
 
 		const chunks = await ctx.db
 			.query('backup_chunks')
 			.withIndex('by_backupId_chunkIndex', (q) => q.eq('backupId', args.backupId))
 			.collect();
-		const data = (backup.data ??
-			parseBackupSnapshot(chunks.sort((a, b) => a.chunkIndex - b.chunkIndex))) as RestorePayload;
+		const raw =
+			backup.data ?? parseBackupSnapshot(chunks.sort((a, b) => a.chunkIndex - b.chunkIndex));
+
+		if (department === 'esl') {
+			const data = raw as EslRestorePayload;
+			assertEslRestorePayload(data);
+			const { skippedReferences } = await applyEslRestore(ctx, data);
+			return {
+				message: `Restored ESL data: ${data.eslCohorts.length} cohorts, ${data.eslClasses.length} classes, ${data.eslStudents.length} students, ${data.teacherNotes.length - skippedReferences.length} notes (${skippedReferences.length} skipped)`,
+				skippedReferences: skippedReferences.length > 0 ? skippedReferences : undefined
+			};
+		}
+
+		const data = raw as RestorePayload;
+		assertHwisRestorePayload(data);
 		const { skippedEvaluations } = await applyRestore(ctx, data);
 
 		return {
@@ -78,18 +139,52 @@ export const restoreFromBackup = mutation({
 });
 
 export const createDailyBackup = internalMutation({
-	args: {},
-	handler: async (ctx) => createStoredBackup(ctx, { source: 'system_cron' })
+	args: {
+		department: v.optional(departmentValidator)
+	},
+	handler: async (ctx, args) =>
+		createStoredBackup(ctx, {
+			source: 'system_cron',
+			department: args.department ?? 'international'
+		})
 });
 
 export const restoreFromBackupPayload = mutation({
 	args: {
 		backupData: v.any(),
+		department: v.optional(departmentValidator),
 		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx);
-		await createStoredBackup(ctx, { source: 'system_safety', e2eTag: args.e2eTag });
+		// Default to the payload's own department when the caller omits it, so a
+		// legacy International payload restores as International and an ESL
+		// snapshot cannot be applied through the International path by accident.
+		const department = normalizeDepartment(
+			args.department ??
+				(args.backupData as { department?: 'international' | 'esl' } | null)?.department
+		);
+		await requireDepartmentRestoreAdmin(ctx, department);
+		// Validate the payload before the safety snapshot is written, so an
+		// incompatible upload rejects with no writes at all.
+		if (department === 'esl') {
+			assertEslRestorePayload(args.backupData);
+		} else {
+			assertHwisRestorePayload(args.backupData);
+		}
+		await createStoredBackup(ctx, {
+			source: 'system_safety',
+			e2eTag: args.e2eTag,
+			department
+		});
+
+		if (department === 'esl') {
+			const data = args.backupData as EslRestorePayload;
+			const { skippedReferences } = await applyEslRestore(ctx, data);
+			return {
+				message: `Restored ESL data: ${data.eslCohorts.length} cohorts, ${data.eslClasses.length} classes, ${data.eslStudents.length} students, ${data.teacherNotes.length - skippedReferences.length} notes (${skippedReferences.length} skipped)`,
+				skippedReferences: skippedReferences.length > 0 ? skippedReferences : undefined
+			};
+		}
 
 		const data = args.backupData as RestorePayload;
 		const { skippedEvaluations } = await applyRestore(ctx, data);
@@ -104,7 +199,9 @@ export const restoreFromBackupPayload = mutation({
 export const clearAllData = mutation({
 	args: {},
 	handler: async (ctx) => {
-		await requireAdminForSensitiveOperation(ctx);
+		// International-only, like the year-end migration: this clears HWIS
+		// entities and International backups. ESL data and ESL backups survive.
+		await requireBackupDepartmentAdmin(ctx, 'international');
 		const students = await ctx.db.query('students').collect();
 		const evaluations = await ctx.db.query('evaluations').collect();
 		const categories = await ctx.db.query('point_categories').collect();
@@ -118,6 +215,8 @@ export const clearAllData = mutation({
 		for (const cls of classes) await ctx.db.delete(cls._id);
 		for (const event of houseEvents) await ctx.db.delete(event._id);
 		for (const backup of backups) {
+			// Legacy rows carry no department and are International backups.
+			if (resolveBackupDepartment(backup) !== 'international') continue;
 			const chunks = await ctx.db
 				.query('backup_chunks')
 				.withIndex('by_backupId', (q) => q.eq('backupId', backup._id))
@@ -144,17 +243,37 @@ export const clearAllData = mutation({
 
 export const listBackups = query({
 	args: {
-		_trigger: v.optional(v.number())
+		_trigger: v.optional(v.number()),
+		department: v.optional(departmentValidator)
 	},
-	handler: async (ctx) => {
-		const user = await requireAdminForSensitiveOperation(ctx);
+	handler: async (ctx, args) => {
+		const user = await requireUserProfileForSensitiveOperation(ctx);
+		// The backend decides visibility; the page's own department filter is
+		// defence in depth, not the authorization boundary (ADR-0010).
+		const requested =
+			args.department === undefined ? undefined : normalizeDepartment(args.department);
+		const allowed = BACKUP_DEPARTMENTS.filter((department) =>
+			canAdministerDepartment(user, department)
+		);
+		if (allowed.length === 0) {
+			throw new Error('Forbidden: department admin access required');
+		}
+		if (requested !== undefined && !allowed.includes(requested)) {
+			throw new Error(`Forbidden: ${requested} admin access required`);
+		}
+		const visible = requested === undefined ? allowed : [requested];
+
 		const backups = await ctx.db.query('backups').collect();
 		return backups
+			.filter((backup) => visible.includes(resolveBackupDepartment(backup)))
 			.sort((a, b) => b.createdAt - a.createdAt)
 			.map((backup) => {
-				const canDownload = canDownloadBackup(user, backup);
+				const department = resolveBackupDepartment(backup);
+				const canDownload = canDownloadBackup(user, backup, department);
 				return {
 					...backup,
+					// Legacy rows predate the column; they are International backups.
+					department,
 					data: canDownload ? backup.data : undefined
 				};
 			});
@@ -167,11 +286,14 @@ export const getBackupChunk = query({
 		chunkIndex: v.number()
 	},
 	handler: async (ctx, args) => {
-		const user = await requireAdminForSensitiveOperation(ctx);
+		const user = await requireUserProfileForSensitiveOperation(ctx);
 		const backup = await ctx.db.get(args.backupId);
 		if (!backup) throw new Error('Backup not found');
 
-		if (!canDownloadBackup(user, backup)) {
+		if (
+			!canAdministerDepartment(user, resolveBackupDepartment(backup)) ||
+			!canDownloadBackup(user, backup, resolveBackupDepartment(backup))
+		) {
 			throw new Error('Forbidden');
 		}
 
@@ -190,11 +312,14 @@ export const renameBackup = mutation({
 		name: v.string()
 	},
 	handler: async (ctx, args) => {
-		const user = await requireAdminForSensitiveOperation(ctx);
+		const user = await requireUserProfileForSensitiveOperation(ctx);
 		const backup = await ctx.db.get(args.backupId);
 		if (!backup) throw new Error('Backup not found');
 
-		if (!canRenameBackup(user, backup)) {
+		if (
+			!canAdministerDepartment(user, resolveBackupDepartment(backup)) ||
+			!canRenameBackup(user, backup, resolveBackupDepartment(backup))
+		) {
 			throw new Error('Forbidden');
 		}
 
@@ -214,11 +339,14 @@ export const deleteBackup = mutation({
 		backupId: v.id('backups')
 	},
 	handler: async (ctx, args) => {
-		const user = await requireAdminForSensitiveOperation(ctx);
+		const user = await requireUserProfileForSensitiveOperation(ctx);
 		const backup = await ctx.db.get(args.backupId);
 		if (!backup) throw new Error('Backup not found');
 
-		if (!canDeleteBackup(user, backup)) {
+		if (
+			!canAdministerDepartment(user, resolveBackupDepartment(backup)) ||
+			!canDeleteBackup(user, backup, resolveBackupDepartment(backup))
+		) {
 			throw new Error('Forbidden');
 		}
 
@@ -290,7 +418,9 @@ export const clearEvaluations = mutation({
 export const advanceGradesAndClearEvaluations = mutation({
 	args: { e2eTag: v.optional(v.string()) },
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx);
+		// International-only: ESL advancement is a separate flow and is never
+		// triggered from this mutation, and an ESL-only admin must not run it.
+		await requireBackupDepartmentAdmin(ctx, 'international');
 		const result = await runYearEndMigration(ctx, { e2eTag: args.e2eTag });
 
 		return {

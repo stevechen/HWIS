@@ -1,4 +1,4 @@
-import type { Locator } from 'vitest/browser';
+import type { Locator } from 'vite-plus/test/browser';
 
 /**
  * Pick an option in a `<select>` the way a user would.

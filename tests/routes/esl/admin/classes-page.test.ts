@@ -1,5 +1,5 @@
-import { page, userEvent } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page, userEvent } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { getFunctionName } from 'convex/server';
 import { selectOption } from '../../../lib/select';
@@ -208,7 +208,7 @@ describe('ESL admin cohorts page', () => {
 	describe('cohort list', () => {
 		it('shows the paired CLIL and Comm classes of a grade 7 cohort', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			// The pair shares one grid cell so the two cards stay adjacent and
 			// cannot be split by an unrelated card.
@@ -217,34 +217,34 @@ describe('ESL admin cohorts page', () => {
 				.toBeInTheDocument();
 			await expect
 				.element(page.getByTestId('esl-admin-classes.card.class_clil'))
-				.toHaveTextContent('G7 Basic 1 CLIL');
+				.toMatchTextContent('G7 Basic 1 CLIL');
 			await expect
 				.element(page.getByTestId('esl-admin-classes.card.class_comm'))
-				.toHaveTextContent('G7 Basic 1 Comm');
+				.toMatchTextContent('G7 Basic 1 Comm');
 		});
 
 		it('filters by year', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			// G9 is the only cohort in 2026-2027.
 			await selectOption(page.getByTestId('esl-admin-classes.filter.year'), '2026-2027');
 
-			await expect.element(page.getByTestId('esl-admin-classes.count')).toHaveTextContent('(1)');
+			await expect.element(page.getByTestId('esl-admin-classes.count')).toMatchTextContent('(1)');
 		});
 
 		it('filters by grade', async () => {
 			withLevelledCohortsOnly();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await selectOption(page.getByTestId('esl-admin-classes.filter.grade'), '9');
 
-			await expect.element(page.getByTestId('esl-admin-classes.count')).toHaveTextContent('(1)');
+			await expect.element(page.getByTestId('esl-admin-classes.count')).toMatchTextContent('(1)');
 		});
 
 		it('shows the empty state when the filters match nothing', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await selectOption(page.getByTestId('esl-admin-classes.filter.grade'), '8');
 
@@ -253,25 +253,25 @@ describe('ESL admin cohorts page', () => {
 
 		it('shows each grade 10 level as its own cohort with one class', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await expect
 				.element(page.getByTestId('esl-admin-classes.card.class_h10a'))
-				.toHaveTextContent('H101A');
+				.toMatchTextContent('H101A');
 			await expect
 				.element(page.getByTestId('esl-admin-classes.card.class_h10b'))
-				.toHaveTextContent('H101B');
+				.toMatchTextContent('H101B');
 		});
 
 		it('labels a grade 10 cohort by its base class and level, not a level name', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			// The year is a page-level heading, not a per-card label: the class
 			// names carry no year, so the card reads H101A and nothing else.
 			const card = page.getByTestId('esl-admin-classes.card.class_h10a');
-			await expect.element(card).toHaveTextContent('H101A');
-			await expect.element(card).not.toHaveTextContent('2025-2026');
+			await expect.element(card).toMatchTextContent('H101A');
+			await expect.element(card).not.toMatchTextContent('2025-2026');
 		});
 	});
 
@@ -281,7 +281,7 @@ describe('ESL admin cohorts page', () => {
 		// it, or a status badge reading `active` forever, said nothing.
 		it('renders cards, not a table', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			expect(page.getByRole('table').elements()).toHaveLength(0);
 			expect(page.getByRole('columnheader').elements()).toHaveLength(0);
@@ -294,10 +294,10 @@ describe('ESL admin cohorts page', () => {
 			// With a schedule row, so the card renders its schedule line rather
 			// than "Loading…".
 			withSchedule([{ ...SOUND_CLIL }]);
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			const card = page.getByTestId('esl-admin-classes.card.class_clil');
-			await expect.element(card).toHaveTextContent('G7 Basic 1 CLIL');
+			await expect.element(card).toMatchTextContent('G7 Basic 1 CLIL');
 			await expect
 				.element(card.getByTestId('esl-admin-classes.teacher.class_clil'))
 				.toBeInTheDocument();
@@ -310,7 +310,7 @@ describe('ESL admin cohorts page', () => {
 	describe('the removed create-class form', () => {
 		it('offers no way to hand-build a cohort', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await expect.element(page.getByTestId('esl-admin-classes.create')).not.toBeInTheDocument();
 			await expect
@@ -322,27 +322,27 @@ describe('ESL admin cohorts page', () => {
 		// form that is gone.
 		it('points an empty department at the roster import instead', async () => {
 			mockQueries({ 'esl/cohorts:list': [], 'esl/staff:listAssignable': ASSIGNABLE });
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await expect
 				.element(page.getByTestId('esl-admin-classes.empty'))
-				.toHaveTextContent('Import a grade roster');
+				.toMatchTextContent('Import a grade roster');
 		});
 	});
 
 	describe('the import section', () => {
 		it('is collapsed until it is asked for', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			const toggle = page.getByTestId('esl-admin-classes.import.toggle');
-			await expect.element(toggle).toHaveTextContent('Import a roster');
+			await expect.element(toggle).toMatchTextContent('Import a roster');
 			await expect.element(page.getByTestId('esl-import.year')).not.toBeInTheDocument();
 		});
 
 		it('offers the workbook picker once opened', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await page.getByTestId('esl-admin-classes.import.toggle').click();
 
@@ -355,7 +355,7 @@ describe('ESL admin cohorts page', () => {
 			// No "No schedule" text: the card shows the work outstanding as three
 			// `?` chips, which are what the admin clicks to start.
 			withSchedule([{ ...SOUND_CLIL, meetings: [] }]);
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			const cell = page.getByTestId('esl-admin-classes.schedule.class_clil');
 			const chips = cell.getByTestId('esl-admin-classes.schedule.chip').elements();
@@ -367,12 +367,12 @@ describe('ESL admin cohorts page', () => {
 
 		it('shows the meetings a class meets as chips', async () => {
 			withSchedule([{ ...SOUND_CLIL }]);
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			const cell = page.getByTestId('esl-admin-classes.schedule.class_clil');
-			await expect.element(cell).toHaveTextContent('Mo P1');
-			await expect.element(cell).toHaveTextContent('We P2');
-			await expect.element(cell).toHaveTextContent('Fr P3');
+			await expect.element(cell).toMatchTextContent('Mo P1');
+			await expect.element(cell).toMatchTextContent('We P2');
+			await expect.element(cell).toMatchTextContent('Fr P3');
 		});
 
 		it('marks the card when a clash names another class', async () => {
@@ -390,7 +390,7 @@ describe('ESL admin cohorts page', () => {
 					]
 				}
 			]);
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			const card = page.getByTestId('esl-admin-classes.card.class_clil');
 			await expect.element(card.getByTestId('esl-admin-classes.card.conflict')).toBeInTheDocument();
@@ -403,20 +403,20 @@ describe('ESL admin cohorts page', () => {
 
 		it('reads No room on the readout when the room is missing', async () => {
 			withSchedule([{ ...SOUND_CLIL, room: null }]);
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			const card = page.getByTestId('esl-admin-classes.card.class_clil');
 			await expect
 				.element(card.getByTestId('esl-admin-classes.room.readout'))
-				.toHaveTextContent('No room');
+				.toMatchTextContent('No room');
 		});
 
 		it('shows no marker at all for a sound schedule', async () => {
 			withSchedule([{ ...SOUND_CLIL }]);
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			const card = page.getByTestId('esl-admin-classes.card.class_clil');
-			await expect.element(card).toHaveTextContent('G7 Basic 1 CLIL');
+			await expect.element(card).toMatchTextContent('G7 Basic 1 CLIL');
 			expect(card.getByTestId('esl-admin-classes.card.conflict').elements()).toHaveLength(0);
 		});
 	});
@@ -429,23 +429,23 @@ describe('ESL admin cohorts page', () => {
 		 */
 		it('shows the room on the card readout, with no control beside it', async () => {
 			withSchedule([{ ...SOUND_CLIL }]);
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			const card = page.getByTestId('esl-admin-classes.card.class_clil');
 			await expect
 				.element(card.getByTestId('esl-admin-classes.room.readout'))
-				.toHaveTextContent('ESL A');
+				.toMatchTextContent('ESL A');
 			expect(page.getByTestId('esl-admin-classes.room.select').elements()).toHaveLength(0);
 		});
 
 		it('reads "No room" when the class has none', async () => {
 			withSchedule([{ ...SOUND_CLIL, room: null }]);
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			const card = page.getByTestId('esl-admin-classes.card.class_clil');
 			await expect
 				.element(card.getByTestId('esl-admin-classes.room.readout'))
-				.toHaveTextContent('No room');
+				.toMatchTextContent('No room');
 		});
 
 		/** Open the CLIL picker's room grid: the only picker on the page. */
@@ -456,7 +456,7 @@ describe('ESL admin cohorts page', () => {
 		// ESL classes normally sit in ESL A-G, so choosing is the common act.
 		it('offers the department rooms as buttons in the picker', async () => {
 			withSchedule([{ ...SOUND_CLIL, room: null }]);
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await openRoomGrid();
 
@@ -467,7 +467,7 @@ describe('ESL admin cohorts page', () => {
 
 		it('saves a picked room with the week in one mutation', async () => {
 			withSchedule([{ ...SOUND_CLIL, room: null }]);
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await openRoomGrid();
 			await roomButton('ESL C').click();
@@ -495,7 +495,7 @@ describe('ESL admin cohorts page', () => {
 		// out of ESL rooms, so they must stay typeable through Other.
 		it('saves a typed room from the Other field with the week', async () => {
 			withSchedule([{ ...SOUND_CLIL, room: null }]);
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await openRoomGrid();
 			await page.getByTestId('esl-admin-classes.schedule.room.other').click();
@@ -519,7 +519,7 @@ describe('ESL admin cohorts page', () => {
 
 		it('clears the room by choosing the picked room again with the week', async () => {
 			withSchedule([{ ...SOUND_CLIL }]);
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await openRoomGrid();
 			await roomButton('ESL A').click();
@@ -579,7 +579,7 @@ describe('ESL admin cohorts page', () => {
 			// and writes the pair atomically. The notice names both, so it never
 			// claims one class was saved when two were.
 			withPair();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await page.getByTestId('esl-admin-classes.schedule.toggle').first().click();
 			await page.getByTestId('esl-admin-classes.schedule.save').click();
@@ -594,14 +594,14 @@ describe('ESL admin cohorts page', () => {
 			expect(mockMutation).toHaveBeenCalledTimes(1);
 			await expect
 				.element(page.getByTestId('esl-admin-classes.notice'))
-				.toHaveTextContent('Schedule saved for H101A + H101B');
+				.toMatchTextContent('Schedule saved for H101A + H101B');
 		});
 	});
 
 	describe('class teacher assignment', () => {
 		it('offers the assignable staff and shows the current teacher', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			const select = page.getByTestId('esl-admin-classes.teacher.class_g9');
 			await expect.element(select).toHaveValue('user_t1');
@@ -613,7 +613,7 @@ describe('ESL admin cohorts page', () => {
 
 		it('assigns a teacher to an unassigned class', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await selectOption(page.getByTestId('esl-admin-classes.teacher.class_clil'), 'user_t2');
 
@@ -627,7 +627,7 @@ describe('ESL admin cohorts page', () => {
 
 		it('clears a teacher when the empty option is chosen', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await selectOption(page.getByTestId('esl-admin-classes.teacher.class_g9'), '');
 
@@ -646,13 +646,13 @@ describe('ESL admin cohorts page', () => {
 		// hundred rows is not a mistake worth risking.
 		it('archives a whole year behind a confirm', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			// The oldest year is the default target: the one most likely finished.
 			await page.getByTestId('esl-admin-classes.archiveYear').click();
 			await expect
 				.element(page.getByTestId('esl-admin-classes.archiveConfirm'))
-				.toHaveTextContent('2025-2026');
+				.toMatchTextContent('2025-2026');
 
 			await page.getByTestId('esl-admin-classes.archiveConfirm.yes').click();
 
@@ -665,7 +665,7 @@ describe('ESL admin cohorts page', () => {
 
 		it('cancelling the confirm archives nothing', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await page.getByTestId('esl-admin-classes.archiveYear').click();
 			await page.getByTestId('esl-admin-classes.archiveConfirm.no').click();
@@ -676,7 +676,7 @@ describe('ESL admin cohorts page', () => {
 
 		it('restores an archived year from the lifecycle filter', async () => {
 			withCohorts();
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await selectOption(page.getByTestId('esl-admin-classes.filter.archived'), 'archived');
 			await page.getByTestId('esl-admin-classes.archiveYear').click();
@@ -692,14 +692,14 @@ describe('ESL admin cohorts page', () => {
 		it('surfaces a failed maintenance action', async () => {
 			withCohorts();
 			mockMutation.mockRejectedValueOnce(new Error('Cohort not found'));
-			render(ClassesPage);
+			await render(ClassesPage);
 
 			await page.getByTestId('esl-admin-classes.archiveYear').click();
 			await page.getByTestId('esl-admin-classes.archiveConfirm.yes').click();
 
 			await expect
 				.element(page.getByTestId('esl-admin-classes.error'))
-				.toHaveTextContent('Cohort not found');
+				.toMatchTextContent('Cohort not found');
 		});
 	});
 });

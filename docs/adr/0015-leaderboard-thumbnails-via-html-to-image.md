@@ -15,7 +15,7 @@ Candidates evaluated (ticket #115):
 
 1. **html2canvas** — re-implements painting in JS. The upstream release (1.4.1) is
    unmaintained and throws `Attempting to parse an unsupported color function
-"oklch"` on Tailwind v4 output (oklch/oklab/color-mix). Only scattered forks
+   "oklch"` on Tailwind v4 output (oklch/oklab/color-mix). Only scattered forks
    (html2canvas-pro, html2canvas-oklch) patch this; picking a fork means betting
    on a one-off maintainer.
 2. **dom-to-image / rasterizehtml** — same SVG-foreignObject family as

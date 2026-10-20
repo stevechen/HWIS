@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { getFunctionName } from 'convex/server';
 import { useQuery } from 'convex-svelte';
@@ -80,13 +80,13 @@ describe('ESL admin students page', () => {
 
 	describe('cohort selection', () => {
 		it('prompts for a cohort before showing a roster', async () => {
-			render(StudentsPage);
+			await render(StudentsPage);
 
 			await expect.element(page.getByTestId('esl-admin-students.no-class')).toBeInTheDocument();
 		});
 
 		it('lists the cohorts to choose from', async () => {
-			render(StudentsPage);
+			await render(StudentsPage);
 
 			await expect
 				.element(page.getByRole('option', { name: '2025-2026 G7 Basic 1' }))
@@ -95,7 +95,7 @@ describe('ESL admin students page', () => {
 
 		it('shows the empty state for a cohort with no students', async () => {
 			withRoster([]);
-			render(StudentsPage);
+			await render(StudentsPage);
 
 			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 
@@ -105,7 +105,7 @@ describe('ESL admin students page', () => {
 
 	describe('roster table', () => {
 		it('renders each student with their status and reason', async () => {
-			render(StudentsPage);
+			await render(StudentsPage);
 			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 
 			await expect.element(page.getByTestId('esl-admin-students.row').first()).toBeInTheDocument();
@@ -115,16 +115,16 @@ describe('ESL admin students page', () => {
 		});
 
 		it('counts only active students', async () => {
-			render(StudentsPage);
+			await render(StudentsPage);
 			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 
 			await expect
 				.element(page.getByTestId('esl-admin-students.active-count'))
-				.toHaveTextContent('(1 active)');
+				.toMatchTextContent('(1 active)');
 		});
 
 		it('offers a re-enrol action for a transferred-out student', async () => {
-			render(StudentsPage);
+			await render(StudentsPage);
 			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 
 			await expect.element(page.getByTestId('esl-admin-students.reactivate')).toBeInTheDocument();
@@ -133,17 +133,17 @@ describe('ESL admin students page', () => {
 
 	describe('enrolment form', () => {
 		it('blocks enrolment until a cohort is chosen', async () => {
-			render(StudentsPage);
+			await render(StudentsPage);
 
 			await expect.element(page.getByTestId('esl-admin-students.form.submit')).toBeDisabled();
 			await expect
 				.element(page.getByTestId('esl-admin-students.form.hint'))
-				.toHaveTextContent('Choose a class first');
+				.toMatchTextContent('Choose a class first');
 			expect(mockMutation).not.toHaveBeenCalled();
 		});
 
 		it('enables enrolment once a cohort is chosen', async () => {
-			render(StudentsPage);
+			await render(StudentsPage);
 
 			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 
@@ -151,7 +151,7 @@ describe('ESL admin students page', () => {
 		});
 
 		it('submits the student fields to the enrolment mutation', async () => {
-			render(StudentsPage);
+			await render(StudentsPage);
 
 			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 			await page.getByTestId('esl-admin-students.form.englishName').fill('Carol Ho');
@@ -175,7 +175,7 @@ describe('ESL admin students page', () => {
 			mockMutation.mockRejectedValueOnce(
 				new Error('Student 100234 is already enrolled in this class')
 			);
-			render(StudentsPage);
+			await render(StudentsPage);
 
 			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 			await page.getByTestId('esl-admin-students.form.englishName').fill('Carol Ho');
@@ -186,7 +186,7 @@ describe('ESL admin students page', () => {
 
 			await expect
 				.element(page.getByTestId('esl-admin-students.form.error'))
-				.toHaveTextContent('already enrolled in this class');
+				.toMatchTextContent('already enrolled in this class');
 		});
 	});
 
@@ -194,8 +194,8 @@ describe('ESL admin students page', () => {
 		// The CSV/TSV paste path is gone (#140). A pasted list of names has no class
 		// column, so it cannot say the one thing the workbook does, and the page now
 		// points at the importer instead of offering a worse version of it.
-		beforeEach(() => {
-			render(StudentsPage);
+		beforeEach(async () => {
+			await render(StudentsPage);
 		});
 
 		it('offers no paste box', async () => {
@@ -212,13 +212,13 @@ describe('ESL admin students page', () => {
 		it('explains why a pasted list of names cannot stand in', async () => {
 			await expect
 				.element(page.getByTestId('esl-admin-students.import'))
-				.toHaveTextContent('from the sheet they are on');
+				.toMatchTextContent('from the sheet they are on');
 		});
 	});
 
 	describe('transfer status', () => {
 		beforeEach(async () => {
-			render(StudentsPage);
+			await render(StudentsPage);
 			await selectOption(page.getByTestId('esl-admin-students.class'), 'cohort_g7');
 		});
 
@@ -229,7 +229,7 @@ describe('ESL admin students page', () => {
 
 			await expect
 				.element(page.getByTestId('esl-admin-students.transfer.error'))
-				.toHaveTextContent('A status reason is required when disabling a student');
+				.toMatchTextContent('A status reason is required when disabling a student');
 			expect(mockMutation).not.toHaveBeenCalled();
 		});
 

@@ -200,7 +200,7 @@
 	 */
 	function open() {
 		const partnerMeetings = partner?.meetings ?? [];
-		const union = [...classRecord.meetings.map((m) => ({ day: m.day, period: m.period }))];
+		const union = classRecord.meetings.map((m) => ({ day: m.day, period: m.period }));
 		const keys = new SvelteSet(union.map((m) => `${m.day} ${m.period}`));
 		for (const m of partnerMeetings) {
 			if (!keys.has(`${m.day} ${m.period}`)) {

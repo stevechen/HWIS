@@ -189,6 +189,7 @@ export type CleanupScope =
 	| 'backups'
 	| 'auditLogs'
 	| 'esl'
+	| 'international'
 	| 'all';
 
 export interface E2EUtils {
@@ -204,7 +205,7 @@ export interface E2EUtils {
 	seedBaseline: () => Promise<SeedBaselineResult>;
 	cleanupTestUsers: () => Promise<unknown>;
 	cleanupAuditLogs: (authIdString?: string) => Promise<unknown>;
-	setupTestUsers: () => Promise<SetupTestUsersResult>;
+	setupTestUsers: (department?: 'all' | 'international' | 'esl') => Promise<SetupTestUsersResult>;
 	cleanupTestBackupsByTimestamp: (since: number) => Promise<unknown>;
 	/** How many `backups` rows currently carry `e2eTag`, for tag-hygiene assertions. */
 	countBackupsByTag: (e2eTag: string) => Promise<number>;
@@ -244,6 +245,8 @@ export interface E2EUtils {
 	 */
 	eslStudentCohorts: (year: string, grade: number) => Promise<Record<string, string>>;
 	setEslRoleByEmail: (email: string, eslRole: 'admin' | 'teacher' | null) => Promise<unknown>;
+	/** Super-only test helper: delete every ESL table row. */
+	clearEslData: () => Promise<unknown>;
 	createEslSemester: (opts: CreateEslSemesterOptions) => Promise<unknown>;
 	createEslCohort: (opts: CreateEslCohortOptions) => Promise<{ classIds: string[] }>;
 	setEslClassSchedule: (opts: SetEslClassScheduleOptions) => Promise<unknown>;
@@ -347,13 +350,15 @@ export function getE2EUtils(): E2EUtils {
 			// that performer's tagged logs and removes the performer user.
 			return await c.mutation(api.testLifecycle.teardownByTag, {
 				scope: 'auditLogs',
-				...((authIdString && { e2eTag: authIdString }) ?? {})
+				...(authIdString && { e2eTag: authIdString })
 			});
 		},
 
-		async setupTestUsers(): Promise<SetupTestUsersResult> {
+		async setupTestUsers(
+			department?: 'all' | 'international' | 'esl'
+		): Promise<SetupTestUsersResult> {
 			try {
-				const result = await c.mutation(api.testSetup.setupTestUsers, {});
+				const result = await c.mutation(api.testSetup.setupTestUsers, { department });
 				console.log('Setup test users result:', result);
 				return result as SetupTestUsersResult;
 			} catch (e) {
@@ -468,7 +473,7 @@ export function getE2EUtils(): E2EUtils {
 		async createCategory(opts?: CreateCategoryOptions) {
 			try {
 				return await c.mutation(api.dataFactory.createCategory, {
-					...(opts || {})
+					...opts
 				});
 			} catch {
 				console.log('Create category error');
@@ -584,6 +589,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async setEslRoleByEmail(email: string, eslRole: 'admin' | 'teacher' | null) {
 			return await c.mutation(api.testSetup.setEslRoleByEmail, { email, eslRole });
+		},
+
+		async clearEslData() {
+			return await c.mutation(api.testSetup.clearEslData, {});
 		},
 
 		async createEslSemester(opts: CreateEslSemesterOptions) {

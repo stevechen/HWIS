@@ -277,8 +277,7 @@
 							bind:value={details}
 							placeholder="Enter specific details about the behavior..."
 							class="bg-background border-input focus-visible:ring-ring ring-offset-background placeholder:text-muted-foreground mt-1 min-h-20 w-full flex-1 resize-none rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-							rows="4"
-						></textarea>
+							rows="4"></textarea>
 					</label>
 				</div>
 

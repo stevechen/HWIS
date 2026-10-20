@@ -199,7 +199,7 @@ function schoolDescriptors(state: WizardState): RowDescriptor[] {
 	const single = (
 		id: keyof WizardStep4State['singles'],
 		label: string,
-		type: 'no_class' | 'no_school',
+		type: 'no_class' | 'no_school' | 'partial',
 		target: EslEventTarget
 	) => {
 		const date = s4.singles[id];
@@ -441,6 +441,7 @@ export function buildSavePayload(
 	offDays: { date: string; name: string }[];
 	exams: SaveExamRange[];
 	singles: SavePayload['singles'];
+	extras: SavePayload['extras'];
 	sportsOn: boolean;
 	pairs: SavePayload['pairs'];
 	ranges: SavePayload['ranges'];

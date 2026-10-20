@@ -314,34 +314,51 @@ export function isSystemBackup(backup?: BackupSubject): boolean {
 	return Boolean(backup?.source && backup.source.startsWith('system_'));
 }
 
-/** True when active admin/super may download the backup: Super, backup owner, or any admin if it's a system backup. */
+/**
+ * Admin-area authority over a backup: either a global Admin/Super (the legacy
+ * gate) or, when the backup's department is known, an Active admin of that
+ * department. The latter is what lets an ESL-only admin (base role `teacher`)
+ * manage the department's backups without granting International access.
+ */
+function hasBackupAdminAuthority(
+	subject: AccessSubject & { _id?: Id<'users'> },
+	department?: Department
+): boolean {
+	if (canAccessAdminArea(subject)) return true;
+	return department !== undefined && canAdministerDepartment(subject, department);
+}
+
+/** True when the subject may download the backup: Super, backup owner, or any admin if it's a system backup. */
 export function canDownloadBackup(
 	subject: AccessSubject & { _id?: Id<'users'> },
-	backup: BackupSubject
+	backup: BackupSubject,
+	department?: Department
 ): boolean {
-	if (!canAccessAdminArea(subject)) return false;
+	if (!hasBackupAdminAuthority(subject, department)) return false;
 	if (isSuper(subject)) return true;
 	if (isSystemBackup(backup)) return true;
 	return Boolean(subject._id && backup.creatorId === subject._id);
 }
 
-/** True when active admin/super may rename the backup: Super can rename any backup, or owner if not a system backup. */
+/** True when the subject may rename the backup: Super can rename any backup, or owner if not a system backup. */
 export function canRenameBackup(
 	subject: AccessSubject & { _id?: Id<'users'> },
-	backup: BackupSubject
+	backup: BackupSubject,
+	department?: Department
 ): boolean {
-	if (!canAccessAdminArea(subject)) return false;
+	if (!hasBackupAdminAuthority(subject, department)) return false;
 	if (isSuper(subject)) return true;
 	if (isSystemBackup(backup)) return false;
 	return Boolean(subject._id && backup.creatorId === subject._id);
 }
 
-/** True when active admin/super may delete the backup: Super can delete any backup, or owner if not a system backup. */
+/** True when the subject may delete the backup: Super can delete any backup, or owner if not a system backup. */
 export function canDeleteBackup(
 	subject: AccessSubject & { _id?: Id<'users'> },
-	backup: BackupSubject
+	backup: BackupSubject,
+	department?: Department
 ): boolean {
-	if (!canAccessAdminArea(subject)) return false;
+	if (!hasBackupAdminAuthority(subject, department)) return false;
 	if (isSuper(subject)) return true;
 	if (isSystemBackup(backup)) return false;
 	return Boolean(subject._id && backup.creatorId === subject._id);
@@ -350,4 +367,34 @@ export function canDeleteBackup(
 /** True when active admin/super may restore from a backup: any active admin or super. */
 export function canRestoreBackup(subject: AccessSubject): boolean {
 	return canAccessAdminArea(subject);
+}
+
+/**
+ * True when the subject may administer *department-scoped* data (backups,
+ * restores, year-end migration): a Super user or an Active admin of that
+ * department.
+ *
+ * A legacy admin (base role `admin`, no `departmentRoles`) reads as an
+ * International admin through `resolveDepartmentRoles`, so the original
+ * HWIS behaviour is preserved. An ESL-only admin (base role `teacher`,
+ * `departmentRoles.esl === 'admin'`) passes the ESL gate but is refused an
+ * International one, closing the cross-department hole where a single global
+ * admin check let either side overwrite the other.
+ *
+ * Both the backend guards and the UI must decide against this predicate
+ * (ADR-0010); the per-department admin predicates it delegates to are the
+ * only place that knowledge lives.
+ */
+export function canAdministerDepartment(subject: AccessSubject, department: Department): boolean {
+	if (subject.status !== 'active') return false;
+	return department === 'esl' ? isEslAdmin(subject) : isInternationalAdmin(subject);
+}
+
+/**
+ * True when the subject may restore a *department-scoped* backup. Restoring is
+ * the same authority as administering the department's backups, named
+ * separately because restore is the destructive operation callers audit.
+ */
+export function canRestoreDepartment(subject: AccessSubject, department: Department): boolean {
+	return canAdministerDepartment(subject, department);
 }

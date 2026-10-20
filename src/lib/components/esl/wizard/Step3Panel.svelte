@@ -21,7 +21,7 @@
 	 *
 	 * - Exam 1: 2 class days (required)
 	 * - Exam 2: 2 class days (required)
-	 * - Final: 3 class days (required unless Step 2's "last exam day" is checked)
+	 * - Final: 3 class days (required)
 	 *
 	 * Uses the same dialog-free click-to-set model as the prototype:
 	 * hover a free day → preview fan-out; click → confirm dialog → sets range.
@@ -42,7 +42,6 @@
 	const startDate = $derived(wizardState.step1.startDate);
 	const endDate = $derived(wizardState.step2?.endDate);
 	const step2OffDays = $derived(wizardState.step2?.offDays ?? []);
-	const lastExamDay = $derived(wizardState.step2?.lastExamDay ?? false);
 	const exams = $derived(wizardState.step3?.exams ?? []);
 
 	// Use mock off days for now; Step 2 (#220) will wire real gov import
@@ -139,9 +138,7 @@
 	const activeExamDates = $derived(exams.find((exam) => exam.label === activeExam)?.dates ?? []);
 
 	// All required exams set?
-	const requiredSlots: ExamSlot[] = lastExamDay
-		? ['Exam 1', 'Exam 2']
-		: ['Exam 1', 'Exam 2', 'Final'];
+	const requiredSlots: ExamSlot[] = ['Exam 1', 'Exam 2', 'Final'];
 	const allRequiredSet = $derived(
 		requiredSlots.every((slot) =>
 			exams.some((exam) => exam.label === slot && exam.dates.length > 0)
@@ -168,8 +165,6 @@
 	$effect(() => {
 		if (!startDate || !endDate || startDate > endDate) return;
 		if (finalTouched) return;
-		if (lastExamDay) return; // No Final needed
-
 		const wanted = collectClassDaysBackward(
 			endDate,
 			EXAM_SLOT_CLASS_DAYS.Final,
@@ -318,7 +313,6 @@
 	<div class="flex flex-wrap items-center gap-2">
 		<span class="text-sm font-medium text-gray-700">Setting:</span>
 		{#each ['Exam 1', 'Exam 2', 'Final'] as slot (slot)}
-			{@const isRequired = slot !== 'Final' || !lastExamDay}
 			{@const done = exams.some((exam) => exam.label === slot && exam.dates.length > 0)}
 			<Button
 				size="sm"
@@ -327,10 +321,9 @@
 					activeExam = slot as 'Exam 1' | 'Exam 2' | 'Final';
 					hoverStart = null;
 				}}
-				disabled={slot === 'Final' && lastExamDay}
 				data-testid={`wizard.step-3-tab-${slot.toLowerCase().replace(' ', '-')}`}
 			>
-				{slot}{isRequired && done ? ' ✓' : ''}{slot === 'Final' && lastExamDay ? ' (skipped)' : ''}
+				{slot}{done ? ' ✓' : ''}
 			</Button>
 		{/each}
 	</div>

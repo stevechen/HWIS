@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { cleanName, initials } from '$src/routes/admin/users/batch-utils';
 
 describe('cleanName', () => {

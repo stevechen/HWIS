@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 vi.mock('convex-svelte', () => ({
@@ -31,14 +31,14 @@ describe('Weekly Reports Page', () => {
 
 	describe('Structure', () => {
 		it('renders main region with aria-label', async () => {
-			render(WeeklyReportsPage);
+			await render(WeeklyReportsPage);
 			await expect.element(page.getByRole('main', { name: 'Weekly Reports' })).toBeInTheDocument();
 		});
 	});
 
 	describe('Empty State', () => {
 		it('renders empty state when no reports', async () => {
-			render(WeeklyReportsPage);
+			await render(WeeklyReportsPage);
 			await expect.element(page.getByText('No weekly reports available yet.')).toBeInTheDocument();
 		});
 	});
@@ -52,7 +52,7 @@ describe('Weekly Reports Page', () => {
 				error: new Error('Failed to load')
 			} as unknown as ReturnType<typeof useQuery>);
 
-			render(WeeklyReportsPage);
+			await render(WeeklyReportsPage);
 			await expect.element(page.getByText(/Error loading reports/)).toBeInTheDocument();
 		});
 	});

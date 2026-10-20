@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import type { Doc, Id } from './_generated/dataModel';
 import {
 	isAdmin,
@@ -27,6 +27,8 @@ import {
 	isActiveInternationalStaff,
 	isActiveEslStaff,
 	resolveDepartmentRoles,
+	canAdministerDepartment,
+	canRestoreDepartment,
 	type AccessSubject,
 	type Role,
 	type UserStatus
@@ -538,5 +540,57 @@ describe('department predicates', () => {
 		expect(isActiveInternationalStaff(makeUser({ role: 'teacher', status: 'pending' }))).toBe(
 			false
 		);
+	});
+});
+
+describe('canAdministerDepartment', () => {
+	it('admits an active department admin and refuses the other department', () => {
+		const eslAdmin = makeUser({ role: 'teacher', departmentRoles: { esl: 'admin' } });
+
+		expect(canAdministerDepartment(eslAdmin, 'esl')).toBe(true);
+		expect(canAdministerDepartment(eslAdmin, 'international')).toBe(false);
+
+		const internationalAdmin = makeUser({ role: 'admin' });
+		expect(canAdministerDepartment(internationalAdmin, 'international')).toBe(true);
+		expect(canAdministerDepartment(internationalAdmin, 'esl')).toBe(false);
+	});
+
+	it('admits super users to both departments and refuses non-admins', () => {
+		const superUser = makeUser({ role: 'super' });
+		expect(canAdministerDepartment(superUser, 'international')).toBe(true);
+		expect(canAdministerDepartment(superUser, 'esl')).toBe(true);
+
+		expect(canAdministerDepartment(makeUser({ role: 'teacher' }), 'international')).toBe(false);
+		expect(
+			canAdministerDepartment(
+				makeUser({ role: 'teacher', departmentRoles: { esl: 'teacher' } }),
+				'esl'
+			)
+		).toBe(false);
+	});
+
+	it('requires an Active account', () => {
+		const pendingEslAdmin = makeUser({
+			role: 'teacher',
+			status: 'pending',
+			departmentRoles: { esl: 'admin' }
+		});
+
+		expect(canAdministerDepartment(pendingEslAdmin, 'esl')).toBe(false);
+	});
+
+	it('backs canRestoreDepartment so backup and restore share one policy', () => {
+		for (const subject of [
+			makeUser({ role: 'super' }),
+			makeUser({ role: 'admin' }),
+			makeUser({ role: 'teacher', departmentRoles: { esl: 'admin' } }),
+			makeUser({ role: 'teacher', departmentRoles: { international: 'teacher', esl: 'admin' } })
+		]) {
+			for (const department of ['international', 'esl'] as const) {
+				expect(canRestoreDepartment(subject, department)).toBe(
+					canAdministerDepartment(subject, department)
+				);
+			}
+		}
 	});
 });

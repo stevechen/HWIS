@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const actionMock = vi.fn();
@@ -33,8 +33,7 @@ const mockState = {
 			{ date: '2026-10-09', name: 'National Day' },
 			{ date: '2026-10-10', name: 'Double Ten Day' }
 		],
-		holidaysImported: true,
-		lastExamDay: true
+		holidaysImported: true
 	},
 	step3: {
 		exams: [
@@ -98,17 +97,17 @@ describe('Step 5 Panel', () => {
 
 		// Start of school event (dates render formatted: "Mon, Aug 31")
 		await expect.element(page.getByText('Start of school')).toBeInTheDocument();
-		await expect.element(page.getByTestId('wizard.step-5-event-list')).toHaveTextContent('Aug 31');
+		await expect.element(page.getByTestId('wizard.step-5-event-list')).toMatchTextContent('Aug 31');
 
 		// Off days and exams, scoped to the event list (the calendar
 		// shows the same names on its day chips; exam titles repeat in
 		// their group badges, so assert on container text)
 		const list = page.getByTestId('wizard.step-5-event-list');
-		await expect.element(list).toHaveTextContent('National Day');
-		await expect.element(list).toHaveTextContent('Double Ten Day');
-		await expect.element(list).toHaveTextContent('Exam 1');
-		await expect.element(list).toHaveTextContent('Exam 2');
-		await expect.element(list).toHaveTextContent('Final');
+		await expect.element(list).toMatchTextContent('National Day');
+		await expect.element(list).toMatchTextContent('Double Ten Day');
+		await expect.element(list).toMatchTextContent('Exam 1');
+		await expect.element(list).toMatchTextContent('Exam 2');
+		await expect.element(list).toMatchTextContent('Final');
 	});
 
 	it('shows Save and Cancel buttons', async () => {

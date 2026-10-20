@@ -1,18 +1,23 @@
 // Year-end migration decisions (ADR-0006).
 //
-// The single home for the grade-migration workflow: write an auto-backup first,
-// clear evaluations/audit logs/house events, graduate grade 12 (any status),
-// remove Not Enrolled students, advance enrolled students into the next
-// grade's matching section (creating target classes on demand and deduplicating
-// them), clear homeroom teachers, and delete empty classes while keeping
-// protected IB classes at grades 11-12. `backup.ts` remains the authoritative
-// enforcer of who may run the migration and reports the result (ADR-0002);
-// this module only decides and executes the migration itself.
+// The single home for the International (HWIS) grade-migration workflow: write a
+// department-scoped auto-backup first, clear evaluations/audit logs/house events,
+// graduate grade 12 (any status), remove Not Enrolled students, advance enrolled
+// students into the next grade's matching section (creating target classes on
+// demand and deduplicating them), clear homeroom teachers, and delete empty
+// classes while keeping protected IB classes at grades 11-12. ESL cohorts advance
+// through their own flow in `esl_advancement.ts`; this module never reads or
+// writes ESL tables, and refuses a non-International department outright.
+// `backup.ts` remains the authoritative enforcer of who may run the migration and
+// reports the result (ADR-0002); this module only decides and executes the
+// migration itself.
 
 import type { Id } from '../_generated/dataModel';
 import type { GenericDatabaseWriter } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
+import type { Department } from './authorization';
 import { createStoredBackup } from './backup_snapshot';
+import { normalizeDepartment } from './departments';
 
 export type MigrationResult = {
 	gradesAdvanced: number;
@@ -26,12 +31,26 @@ export type MigrationResult = {
 
 export async function runYearEndMigration(
 	ctx: { db: GenericDatabaseWriter<DataModel> },
-	options: { e2eTag?: string }
+	options: { e2eTag?: string; department?: Department }
 ): Promise<MigrationResult> {
+	const department = normalizeDepartment(options.department);
+
+	// ESL has its own advancement flow (shared/esl_advancement.ts), which plans
+	// cohorts and students rather than mutating this department's tables. There
+	// is no ESL branch here, so refuse instead of silently running International
+	// year-end work against ESL data.
+	if (department !== 'international') {
+		throw new Error(
+			'Year-end migration is an International-only operation. ESL advancement uses the separate ESL advancement flow (shared/esl_advancement.ts); this mutation never reads or writes ESL tables.'
+		);
+	}
+
 	// Auto-backup first so the migration can be rolled back from a snapshot.
 	await createStoredBackup(ctx, {
 		source: 'system_migration',
-		e2eTag: options.e2eTag
+		e2eTag: options.e2eTag,
+		// Year-end migration is an International-only operation.
+		department
 	});
 
 	// Clear evaluations and their audit logs.

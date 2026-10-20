@@ -1,8 +1,8 @@
-import { expect, test, describe } from 'vitest';
+import { expect, test, describe } from 'vite-plus/test';
 import { convexTest, modules, createStudentWithClass } from './test.setup';
 import schema from './schema';
 import { applyRestore, type RestorePayload } from './shared/restore_plan';
-import { SNAPSHOT_VERSION } from './shared/backup_snapshot';
+import { SNAPSHOT_VERSION, buildSnapshot } from './shared/backup_snapshot';
 
 function emptyPayload(): RestorePayload {
 	return {
@@ -310,6 +310,111 @@ describe('restore plan', () => {
 		expect(users[0].role).toBe('admin');
 	});
 
+	test('existing user keeps live department role while gaining payload department role', async () => {
+		const t = await convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'hybrid-auth-id',
+				name: 'Hybrid Staff',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { international: 'teacher' }
+			});
+		});
+
+		const payload: RestorePayload = {
+			students: [],
+			evaluations: [],
+			users: [
+				{
+					_id: 'old_user',
+					authId: 'hybrid-auth-id',
+					name: 'Hybrid Staff',
+					role: 'teacher',
+					status: 'active',
+					departmentRoles: { esl: 'admin' }
+				}
+			],
+			categories: [],
+			classes: [],
+			houseEvents: []
+		};
+
+		await t.run(async (ctx) => applyRestore(ctx, payload));
+
+		const users = await t.run(async (ctx) => await ctx.db.query('users').collect());
+		expect(users).toHaveLength(1);
+		expect(users[0].departmentRoles).toEqual({
+			international: 'teacher',
+			esl: 'admin'
+		});
+	});
+
+	test('inserted user receives payload department roles', async () => {
+		const t = await convexTest(schema, modules);
+
+		const payload: RestorePayload = {
+			students: [],
+			evaluations: [],
+			users: [
+				{
+					_id: 'new_user',
+					name: 'New Esl Teacher',
+					role: 'teacher',
+					status: 'active',
+					departmentRoles: { esl: 'teacher' }
+				}
+			],
+			categories: [],
+			classes: [],
+			houseEvents: []
+		};
+
+		await t.run(async (ctx) => applyRestore(ctx, payload));
+
+		const users = await t.run(async (ctx) => await ctx.db.query('users').collect());
+		expect(users).toHaveLength(1);
+		expect(users[0].departmentRoles).toEqual({ esl: 'teacher' });
+	});
+
+	test('payload without department roles leaves live roles intact', async () => {
+		const t = await convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'esl-auth-id',
+				name: 'Esl Admin',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { esl: 'admin' }
+			});
+		});
+
+		const payload: RestorePayload = {
+			students: [],
+			evaluations: [],
+			users: [
+				{
+					_id: 'old_user',
+					authId: 'esl-auth-id',
+					name: 'Esl Admin',
+					role: 'teacher',
+					status: 'active'
+				}
+			],
+			categories: [],
+			classes: [],
+			houseEvents: []
+		};
+
+		await t.run(async (ctx) => applyRestore(ctx, payload));
+
+		const users = await t.run(async (ctx) => await ctx.db.query('users').collect());
+		expect(users).toHaveLength(1);
+		expect(users[0].departmentRoles).toEqual({ esl: 'admin' });
+	});
+
 	test('restores house events including optional housePoints', async () => {
 		const t = await convexTest(schema, modules);
 
@@ -528,5 +633,140 @@ describe('restore plan', () => {
 		};
 
 		await expect(t.run(async (ctx) => applyRestore(ctx, payload))).resolves.toBeDefined();
+	});
+});
+
+describe('restore versioning & snapshot completeness', () => {
+	function serialize<T>(value: T): T {
+		return JSON.parse(JSON.stringify(value)) as T;
+	}
+
+	async function seedLeaderboardRows(t: Awaited<ReturnType<typeof convexTest>>) {
+		await t.run(async (ctx) => {
+			await ctx.db.insert('leaderboard_thumbnails', {
+				board: 'houses',
+				theme: 'default',
+				url: 'https://example.test/thumb.png',
+				updatedAt: 1
+			});
+			await ctx.db.insert('leaderboard_snapshots', {
+				board: 'classes',
+				stats: '{"rows":[]}',
+				generatedAt: 2,
+				watermark: 3
+			});
+		});
+	}
+
+	test('2.0 round-trip restores leaderboard thumbnails and snapshots', async () => {
+		const t = await convexTest(schema, modules);
+		await createStudentWithClass(t, {
+			englishName: 'Round Trip',
+			chineseName: '學生',
+			studentId: 'STU001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+		await seedLeaderboardRows(t);
+
+		const payload = serialize(await t.run(async (ctx) => buildSnapshot(ctx, 'international')));
+		expect(payload.version).toBe(SNAPSHOT_VERSION);
+
+		await t.run(async (ctx) => {
+			for (const table of [
+				'leaderboard_thumbnails',
+				'leaderboard_snapshots',
+				'students',
+				'evaluations',
+				'classes',
+				'point_categories',
+				'house_events'
+			] as const) {
+				for (const row of await ctx.db.query(table).collect()) {
+					await ctx.db.delete(row._id);
+				}
+			}
+		});
+
+		await t.run(async (ctx) => applyRestore(ctx, payload));
+
+		const thumbnails = await t.run(async (ctx) => ctx.db.query('leaderboard_thumbnails').collect());
+		const snapshots = await t.run(async (ctx) => ctx.db.query('leaderboard_snapshots').collect());
+		expect(thumbnails.map((row) => row.url)).toEqual(['https://example.test/thumb.png']);
+		expect(snapshots.map((row) => row.watermark)).toEqual([3]);
+		expect(await t.run(async (ctx) => ctx.db.query('students').collect())).toHaveLength(1);
+	});
+
+	test('a 1.0 HWIS payload still restores with leaderboard arrays absent', async () => {
+		const t = await convexTest(schema, modules);
+		await createStudentWithClass(t, {
+			englishName: 'Legacy',
+			chineseName: '舊',
+			studentId: 'STU001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+		await seedLeaderboardRows(t);
+
+		const payload = { ...emptyPayload(), version: '1.0' };
+		expect('leaderboardThumbnails' in payload).toBe(false);
+
+		await expect(t.run(async (ctx) => applyRestore(ctx, payload))).resolves.toBeDefined();
+
+		// The legacy payload has no leaderboard rows, so the restore clears the
+		// live ones rather than leaving stale data behind.
+		expect(
+			await t.run(async (ctx) => ctx.db.query('leaderboard_thumbnails').collect())
+		).toHaveLength(0);
+		expect(
+			await t.run(async (ctx) => ctx.db.query('leaderboard_snapshots').collect())
+		).toHaveLength(0);
+	});
+
+	test('an unknown version rejects before any write', async () => {
+		const t = await convexTest(schema, modules);
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'Survivor',
+			chineseName: '生存者',
+			studentId: 'STU001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+		await seedLeaderboardRows(t);
+
+		const payload = { ...emptyPayload(), version: '999.0' };
+		await expect(t.run(async (ctx) => applyRestore(ctx, payload))).rejects.toThrow(
+			/Incompatible schema version/
+		);
+
+		const students = await t.run(async (ctx) => ctx.db.query('students').collect());
+		expect(students.map((student) => student._id)).toEqual([studentId]);
+		expect(
+			await t.run(async (ctx) => ctx.db.query('leaderboard_thumbnails').collect())
+		).toHaveLength(1);
+	});
+
+	test('a structurally broken payload rejects before any write', async () => {
+		const t = await convexTest(schema, modules);
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'Survivor',
+			chineseName: '生存者',
+			studentId: 'STU001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		await expect(
+			t.run(async (ctx) =>
+				applyRestore(ctx, { version: SNAPSHOT_VERSION } as unknown as RestorePayload)
+			)
+		).rejects.toThrow(/Invalid backup payload/);
+
+		const students = await t.run(async (ctx) => ctx.db.query('students').collect());
+		expect(students.map((student) => student._id)).toEqual([studentId]);
 	});
 });

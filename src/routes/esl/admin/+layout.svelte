@@ -18,7 +18,8 @@
 		{ href: '/esl/admin/semesters', testId: 'esl-admin.nav.semesters', label: 'Semesters' },
 		{ href: '/esl/admin/classes', testId: 'esl-admin.nav.classes', label: 'Classes' },
 		{ href: '/esl/admin/students', testId: 'esl-admin.nav.students', label: 'Students' },
-		{ href: '/esl/admin/users', testId: 'esl-admin.nav.users', label: 'Users' }
+		{ href: '/esl/admin/users', testId: 'esl-admin.nav.users', label: 'Users' },
+		{ href: '/esl/admin/backup', testId: 'esl-admin.nav.backup', label: 'Backup' }
 	] as const;
 
 	setContext('eslAdminAuth', {

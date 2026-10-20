@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import {
 	clearWizardState,
 	createInitialWizardState,
@@ -42,7 +42,7 @@ const OCTOBER_FRESH = {
 	currentStep: 1,
 	semesterId: null,
 	step1: { term: 'S1', schoolYear: '2026-2027', startDate: '2026-08-31' },
-	step2: { endDate: '2027-01-20', offDays: [], holidaysImported: false, lastExamDay: true },
+	step2: { endDate: '2027-01-20', offDays: [], holidaysImported: false },
 	step3: { exams: [] },
 	step4: {
 		singles: { anniv: null, makeup: null, sports: null, grad: null, bbq: null },
@@ -111,37 +111,33 @@ describe('wizardState', () => {
 			expect(isStepComplete(state, 3)).toBe(true);
 		});
 
-		it('requires every Step 4 event row before step 4 counts as complete (S1)', () => {
+		it('Step 4 is complete once Sports Day and both G9 Mocks are set (S1)', () => {
 			const state = createInitialWizardState(OCTOBER_SEED);
 			expect(isStepComplete(state, 4)).toBe(false);
 
-			state.step4.singles.sports = '2026-09-30';
+			// Sports Day off ⇒ the sports date is no longer required.
+			state.step4.sportsOn = false;
 			state.step4.pairs.mock1 = ['2026-10-05', '2026-10-06'];
 			expect(isStepComplete(state, 4)).toBe(false);
 
 			state.step4.pairs.mock2 = ['2026-10-12', '2026-10-13'];
-			for (const id of ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'] as const) {
-				state.step4.ranges[id] = ['2026-10-05', '2026-10-06', '2026-10-07'];
-			}
-			for (const id of ['pd1', 'pd2', 'pd3', 'rd1', 'rd2', 'rd3'] as const) {
-				state.step4.ranges[id] = ['2026-10-05', '2026-10-06', '2026-10-07'];
-			}
-			state.step4.ranges.pcheck = [
-				'2027-01-04',
-				'2027-01-05',
-				'2027-01-06',
-				'2027-01-07',
-				'2027-01-08'
-			];
+			expect(isStepComplete(state, 4)).toBe(true);
+
+			// Quizzes, dues and the end-of-term checks are optional: they are
+			// placed by hand and never block the step.
+			expect(state.step4.ranges.q1).toBeNull();
+			expect(state.step4.ranges.pcheck).toBeNull();
+			expect(state.step4.ranges.wcheck).toBeNull();
+		});
+
+		it('Step 4 still requires a Sports Day date while Sports Day is on (S1)', () => {
+			const state = createInitialWizardState(OCTOBER_SEED);
+			state.step4.sportsOn = true;
+			state.step4.pairs.mock1 = ['2026-10-05', '2026-10-06'];
+			state.step4.pairs.mock2 = ['2026-10-12', '2026-10-13'];
 			expect(isStepComplete(state, 4)).toBe(false);
 
-			state.step4.ranges.wcheck = [
-				'2027-01-04',
-				'2027-01-05',
-				'2027-01-06',
-				'2027-01-07',
-				'2027-01-08'
-			];
+			state.step4.singles.sports = '2026-09-30';
 			expect(isStepComplete(state, 4)).toBe(true);
 		});
 

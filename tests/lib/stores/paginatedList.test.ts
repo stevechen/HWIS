@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vite-plus/test';
 import { tick } from 'svelte';
 import { render } from 'vitest-browser-svelte';
 import { createPaginatedList, type PaginatedPage } from '$lib/stores/paginatedList.svelte';
@@ -86,7 +86,7 @@ describe('createPaginatedList', () => {
 		// must depend only on `data`, not on the store's cursor — otherwise a cursor
 		// advance re-fires accept with stale data and clears `isLoadingMore` mid-fetch
 		// (spinner vanishes, double-fires).
-		const harness = render(PaginatedListHarness, { props: { list, data: page1 } });
+		const harness = await render(PaginatedListHarness, { props: { list, data: page1 } });
 		await tick();
 		expect(list.items.map((i) => i._id)).toEqual(['a', 'b']);
 

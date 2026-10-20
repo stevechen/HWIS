@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { createRawSnippet } from 'svelte';
 import { buildViewerSession, type ViewerSessionConfig } from '../../../mocks/route-mocks';
@@ -125,6 +125,7 @@ describe('esl admin layout auth gate', () => {
 		await expect.element(page.getByTestId('esl-admin.nav.classes')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl-admin.nav.students')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl-admin.nav.users')).toBeInTheDocument();
+		await expect.element(page.getByTestId('esl-admin.nav.backup')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl-admin.nav.back')).toBeInTheDocument();
 	});
 });

@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { createMockEvaluationSet } from '../../fixtures/evaluations';
 import { buildViewerSession, type ViewerSessionConfig } from '../../mocks/route-mocks';
@@ -38,7 +38,7 @@ describe('Teacher Evaluations Page', () => {
 
 	describe('Static Structure', () => {
 		it('renders New button', async () => {
-			render(TeacherEvaluationsPage);
+			await render(TeacherEvaluationsPage);
 			// Use exact: true to avoid matching "Newest First" button
 			await expect
 				.element(page.getByRole('button', { name: 'New', exact: true }))
@@ -46,21 +46,21 @@ describe('Teacher Evaluations Page', () => {
 		});
 
 		it('renders student filter input', async () => {
-			render(TeacherEvaluationsPage);
+			await render(TeacherEvaluationsPage);
 			await expect
 				.element(page.getByRole('textbox', { name: 'Filter by student' }))
 				.toBeInTheDocument();
 		});
 
 		it('renders evaluations timeline', async () => {
-			render(TeacherEvaluationsPage);
+			await render(TeacherEvaluationsPage);
 			await expect.element(page.getByRole('region', { name: 'Evaluations' })).toBeInTheDocument();
 		});
 	});
 
 	describe('Filter Functionality', () => {
 		it('student filter input accepts text', async () => {
-			render(TeacherEvaluationsPage);
+			await render(TeacherEvaluationsPage);
 			const studentFilter = page.getByRole('textbox', { name: 'Filter by student' });
 			await studentFilter.fill('Alice');
 			await expect.element(studentFilter).toHaveValue('Alice');
@@ -69,7 +69,7 @@ describe('Teacher Evaluations Page', () => {
 
 	describe('Evaluation Cards', () => {
 		it('renders evaluation cards as links', async () => {
-			render(TeacherEvaluationsPage);
+			await render(TeacherEvaluationsPage);
 			// Cards should be links - check that at least one link exists
 			const link = page.getByRole('link').first();
 			await expect.element(link).toBeInTheDocument();
@@ -78,7 +78,7 @@ describe('Teacher Evaluations Page', () => {
 
 	describe('Accessibility', () => {
 		it('New button has accessible name', async () => {
-			render(TeacherEvaluationsPage);
+			await render(TeacherEvaluationsPage);
 			// Use exact: true to avoid matching "Newest First" button
 			await expect
 				.element(page.getByRole('button', { name: 'New', exact: true }))
@@ -86,19 +86,19 @@ describe('Teacher Evaluations Page', () => {
 		});
 
 		it('filter input has accessible label', async () => {
-			render(TeacherEvaluationsPage);
+			await render(TeacherEvaluationsPage);
 			await expect
 				.element(page.getByRole('textbox', { name: 'Filter by student' }))
 				.toBeInTheDocument();
 		});
 
 		it('timeline region has aria-label', async () => {
-			render(TeacherEvaluationsPage);
+			await render(TeacherEvaluationsPage);
 			await expect.element(page.getByRole('region', { name: 'Evaluations' })).toBeInTheDocument();
 		});
 
 		it('cards are keyboard focusable', async () => {
-			render(TeacherEvaluationsPage);
+			await render(TeacherEvaluationsPage);
 			const card = page.getByRole('button', { name: /Evaluation/ }).first();
 			await expect.element(card).toHaveAttribute('tabindex', '0');
 		});

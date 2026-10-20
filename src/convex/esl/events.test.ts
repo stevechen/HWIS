@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach, vi } from 'vitest';
+import { describe, expect, it, afterEach, vi } from 'vite-plus/test';
 import { convexTest, modules, seedEslStaff } from '../test.setup';
 import { api } from '../_generated/api';
 import schema from '../schema';
@@ -798,6 +798,53 @@ describe('esl/events wizard writes (#217)', () => {
 				endDate: '2025-10-18'
 			})
 		).rejects.toThrow(/2025-10-16 already holds an exam/);
+	});
+
+	it('accepts a quiz window that spans a no-school day inside it', async () => {
+		// A quiz window is a full Mon–Fri week, so it routinely covers a
+		// public holiday in the middle. Only the endpoints must be clear.
+		const { t, semesterId } = await seededSemester();
+		await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'no_school',
+			title: 'Off',
+			note: 'National Day',
+			date: '2025-10-10'
+		});
+		const created = singleId(
+			await t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'reminder',
+				reminderKind: 'quiz',
+				title: 'Quiz 1',
+				target: 'CLIL',
+				date: '2025-10-06',
+				endDate: '2025-10-13'
+			})
+		);
+		expect(created).toBeTruthy();
+	});
+
+	it('still refuses a reminder whose ENDPOINT is a no-school day', async () => {
+		const { t, semesterId } = await seededSemester();
+		await t.mutation(api.esl.events.create, {
+			semesterId,
+			type: 'no_school',
+			title: 'Off',
+			note: 'National Day',
+			date: '2025-10-10'
+		});
+		await expect(
+			t.mutation(api.esl.events.create, {
+				semesterId,
+				type: 'reminder',
+				reminderKind: 'quiz',
+				title: 'Quiz 1',
+				target: 'CLIL',
+				date: '2025-10-06',
+				endDate: '2025-10-10'
+			})
+		).rejects.toThrow(/2025-10-10 already holds a no-school day/);
 	});
 
 	it('accepts a due window that ends the teaching day before an exam', async () => {

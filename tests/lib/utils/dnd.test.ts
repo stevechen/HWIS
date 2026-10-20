@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { draggable, dropZone, dragState } from '$lib/utils/dnd.svelte';
 
 // Ensure desktop viewport for drag-and-drop tests

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { convexTest, modules, seedEslStaff } from '../test.setup';
 import { api } from '../_generated/api';
 import schema from '../schema';

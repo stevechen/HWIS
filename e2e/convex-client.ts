@@ -7,7 +7,6 @@ import {
 	type CreateEslSemesterOptions,
 	type CreateStudentOptions,
 	type CreateHouseEventOptions,
-	type SeedEslSemesterOptions,
 	type SetEslClassScheduleOptions,
 	type UpdateEslEventOptions,
 	refreshClient
@@ -326,6 +325,15 @@ export async function setEslRoleByEmail(email: string, eslRole: 'admin' | 'teach
 	return await utils.setEslRoleByEmail(email, eslRole);
 }
 
+/**
+ * Super-only test helper: delete every ESL table row (cohorts, students,
+ * classes, meetings, availability, semesters, events, notes, holiday cache).
+ */
+export async function clearEslData() {
+	const utils = getUtils();
+	return await utils.clearEslData();
+}
+
 export async function createEslSemester(opts: CreateEslSemesterOptions) {
 	const utils = getUtils();
 	return await utils.createEslSemester(opts);
@@ -344,11 +352,6 @@ export async function setEslClassSchedule(opts: SetEslClassScheduleOptions) {
 export async function assignEslTeacher(opts: AssignEslTeacherOptions) {
 	const utils = getUtils();
 	return await utils.assignEslTeacher(opts);
-}
-
-export async function seedEslSemester(opts: SeedEslSemesterOptions) {
-	const utils = getUtils();
-	return await utils.seedEslSemester(opts);
 }
 
 export async function createEslEvent(opts: CreateEslEventOptions) {

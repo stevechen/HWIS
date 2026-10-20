@@ -222,7 +222,7 @@ export const createMissing = mutation({
 			// candidate skips forward-earlier rather than failing the batch.
 			const takeDates = (count: number, step = 1): string[] => {
 				const dates: string[] = [];
-				for (let cursor = window.end; cursor >= window.start && dates.length < count; ) {
+				for (let cursor = window.end; cursor >= window.start && dates.length < count;) {
 					dates.push(cursor);
 					cursor = stepDate(cursor, -step);
 				}

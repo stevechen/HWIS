@@ -54,25 +54,57 @@ const MONTH_BADGES: readonly string[] = [
 	'DEC'
 ];
 
+export interface MonthRun {
+	/** Three-letter month badge, e.g. `AUG`. */
+	label: string;
+	/** 0-based index of the run's first week row within the input array. */
+	startRow: number;
+	/** How many consecutive week rows the run spans. */
+	rows: number;
+	/**
+	 * `true` when EVERY day in the run falls outside `[startDate, endDate]`
+	 * — only ever the semester's opening row. The calendar desaturates
+	 * these so a fully greyed row reads as deliberate, not broken.
+	 */
+	outOfRange: boolean;
+}
+
 /**
- * Feedback F40: month title groups for one week ROW, rendered as merged
- * header cells ACROSS the top of the row inside the grid (not a side
- * gutter). Consecutive days in the same month collapse to one group whose
- * `span` is the day count; a straddle week yields two groups (e.g. W18:
- * DEC ×4 + JAN ×3); a single-month week yields one group spanning all 7.
- * A 7-day row can never span more than two months. Derived from the row's
- * actual dates.
+ * Month bands for the calendar's left column: one run per month, each
+ * spanning every week row that month owns. A row is owned by the month of
+ * its LAST in-range weekday, so a straddle row (W6 = SEP 28 – OCT 2) goes
+ * whole to the NEWER month and the older band ends on the previous row —
+ * which puts each band's top edge on the row containing that month's
+ * first day. Rows are date-ordered and months advance monotonically, so the
+ * labels are non-decreasing and every month yields exactly ONE unbroken
+ * run (a month can be skipped entirely: a semester starting Mon 31 Aug has
+ * no all-August row, so AUG never gets a band).
+ *
+ * Falls back to the last weekday when a row has no in-range day at all
+ * (the opening row of a semester that starts mid-week), marking the run
+ * `outOfRange`.
  */
-export function rowMonthSpans(dates: readonly string[]): Array<{ label: string; span: number }> {
-	const spans: Array<{ label: string; span: number }> = [];
-	for (const date of dates) {
-		const label = MONTH_BADGES[Number(date.slice(5, 7)) - 1] ?? '';
-		if (label === '') continue;
-		const last = spans[spans.length - 1];
-		if (last !== undefined && last.label === label) last.span += 1;
-		else spans.push({ label, span: 1 });
-	}
-	return spans;
+export function monthRuns(weeks: readonly PreviewWeek[]): MonthRun[] {
+	const runs: MonthRun[] = [];
+	weeks.forEach((week, row) => {
+		const weekdays = week.days.filter((day) => !day.isWeekend);
+		const inRange = weekdays.filter((day) => day.inRange);
+		const pool = inRange.length > 0 ? inRange : weekdays;
+		const last = pool[pool.length - 1];
+		if (last === undefined) return;
+		const label = MONTH_BADGES[Number(last.date.slice(5, 7)) - 1] ?? '';
+		if (label === '') return;
+		const open = runs[runs.length - 1];
+		// `startRow + rows === row` keeps a band from bridging a gap in a
+		// caller-supplied (non-contiguous) weeks array.
+		if (open !== undefined && open.label === label && open.startRow + open.rows === row) {
+			open.rows += 1;
+			open.outOfRange = open.outOfRange && inRange.length === 0;
+			return;
+		}
+		runs.push({ label, startRow: row, rows: 1, outOfRange: inRange.length === 0 });
+	});
+	return runs;
 }
 
 /** Exam slots of the Step 3 picker. */
@@ -132,6 +164,17 @@ export function examOrderViolation(
 }
 
 /** The Monday of the week containing `date` (`date` itself when Monday). */
+function previousCLIL(date: string, skipSet: Set<string>): string | null {
+	let cursor = addDays(date, -1);
+	while (cursor >= '2026-01-01') {
+		if (CLIL_CLASS_WEEKDAYS.includes(weekdayOf(cursor)) && !skipSet.has(cursor)) {
+			return cursor;
+		}
+		cursor = addDays(cursor, -1);
+	}
+	return null;
+}
+
 export function mondayOfWeek(date: string): string {
 	return addDays(date, -((weekdayOf(date) + 6) % 7));
 }
@@ -331,18 +374,143 @@ export function collectClassDays(from: string, count: number, offDays: Set<strin
 }
 
 /**
+ * CLIL class weekdays, as 0-based `Date.getDay()` values: Monday, Wednesday,
+ * Friday. This is the schedule for the coming years; earlier semesters ran
+ * Mon/Tue/Thu or Tue/Thu/Fri. Kept as one exported constant so widening the
+ * set later is a one-line change.
+ *
+ * Why it matters: under this schedule the classes are never three consecutive
+ * days, so three of them always spread across a week or more.
+ */
+export const CLIL_CLASS_WEEKDAYS: readonly number[] = [1, 3, 5];
+
+/**
+ * How many CLIL class days a quiz window spans. The teacher needs a real
+ * chance to run the quiz, and three classes is that measure — not "a calendar
+ * week". The two differ whenever a holiday eats a class day: the week of
+ * Mon 2026-12-21 has only Mon 21 and Wed 23 before Christmas on Fri 25, so
+ * the window runs on to 2026-12-28 and still delivers three classes.
+ */
+export const CLIL_CLASSES_PER_QUIZ = 3;
+
+/**
+ * The school week (Mon–Sun) containing `date`, as its 7 calendar days.
+ * Every day of the week anchors the same window, so clicking any day of a week
+ * selects that window.
+ */
+export function weekOf(date: string): string[] {
+	const monday = mondayOfWeek(date);
+	return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+}
+
+/**
+ * The `count` CLIL class days of a quiz window anchored on the school week
+ * containing `date`, walking FORWARD and skipping days that are not school days
+ * (`skipSet` = weekends, imported off days, exam days).
+ *
+ * Anchoring on the week's Monday is what makes every day of a week equivalent:
+ * clicking Mon 21 or Thu 24 both resolve to 21, 23, 28. The window may reach
+ * into the following week when a holiday removed one of this week's classes —
+ * that is how it still delivers `count` classes. Returns fewer than `count`
+ * when the term boundary or a block edge cuts the run short.
+ */
+export function clilQuizWindow(
+	date: string,
+	skipSet: Set<string>,
+	count = CLIL_CLASSES_PER_QUIZ,
+	gateEnd: string | null = null
+): string[] {
+	// Find 3 CLIL class days starting from the week's Monday, going forward.
+	// Anchoring on the Monday is what makes every day of a week select the
+	// same window.
+	// If 1 or 2 of the next forward classes fall past `gateEnd` (exam/block
+	// boundary), backfill that many from the previous CLIL days.
+	const fwdPool: string[] = [];
+	let cursor = mondayOfWeek(date);
+	let i = 0;
+	while (fwdPool.length < count + 2 && i < 366) {
+		if (CLIL_CLASS_WEEKDAYS.includes(weekdayOf(cursor)) && !skipSet.has(cursor)) {
+			fwdPool.push(cursor);
+		}
+		cursor = addDays(cursor, 1);
+		i++;
+	}
+
+	// Default: first 3 going forward.
+	const base = fwdPool.slice(0, count);
+	if (base.length < count) return base;
+
+	if (!gateEnd) return base;
+
+	// Count how many of the 2 additional forward days are past the gate.
+	// base[0] = date (must be included), base[1] = +1, base[2] = +2.
+	const past1 = base[1] > gateEnd;
+	const past2 = base[2] > gateEnd ? true : false;
+
+	if (!past1 && !past2) {
+		return base; // 0 past: [date, fwd1, fwd2]
+	}
+
+	if (!past1 && past2) {
+		// 1 past (fwd2): backfill 1 from previous CLIL day.
+		const prev = previousCLIL(date, skipSet);
+		if (prev !== null && prev < base[1]) {
+			return [prev, base[0], base[1]];
+		}
+		return base.slice(0, count);
+	}
+
+	if (past1 && past2) {
+		// 2 past (fwd1, fwd2): backfill 2 from previous CLIL days.
+		const prev2 = previousCLIL(date, skipSet);
+		const prev1 = prev2 !== null ? previousCLIL(prev2, skipSet) : null;
+		if (prev1 !== null && prev2 !== null) {
+			return [prev1, prev2, base[0]];
+		}
+		if (prev2 !== null) {
+			return [prev2, base[0]]; // only 2 available
+		}
+		return [base[0]];
+	}
+
+	return base.slice(0, count);
+}
+
+/**
  * A 5-school-day window for Passport Check / Workbook Check (spec story 22).
  * Skips weekends, off days, AND exam days (passed via `skipSet`).
  * Returns the window dates or fewer if the term boundary is hit.
  */
-export function dueWindowDates(start: string, skipSet: Set<string>, endBound: string): string[] {
+export function dueWindowDates(
+	start: string,
+	skipSet: Set<string>,
+	endBound: string,
+	count = 5
+): string[] {
 	const days: string[] = [];
 	let cursor = start;
-	for (let i = 0; i < 366 && days.length < 5 && cursor <= endBound; i++) {
+	for (let i = 0; i < 366 && days.length < count && cursor <= endBound; i++) {
 		if (!isWeekend(cursor) && !skipSet.has(cursor)) days.push(cursor);
 		cursor = addDays(cursor, 1);
 	}
 	return days;
+}
+
+/**
+ * Collect all school days (Mon-Fri, skip weekends/holidays/exams) in the
+ * week containing `date`. Used for passport/recording checks that point to
+ * a full week rather than specific class days.
+ */
+export function schoolWeekDates(date: string, skipSet: Set<string>): string[] {
+	const monday = mondayOfWeek(date);
+	const dates: string[] = [];
+	for (let i = 0; i < 5; i++) {
+		const day = addDays(monday, i);
+		if (!skipSet.has(day)) {
+			dates.push(day);
+		}
+	}
+	return dates;
 }
 
 /**

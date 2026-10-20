@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import HolidayCsvUpload from '$lib/components/esl/HolidayCsvUpload.svelte';
 
@@ -29,29 +29,29 @@ describe('HolidayCsvUpload', () => {
 	});
 
 	it('links to dataset 14718', async () => {
-		render(HolidayCsvUpload, { year: '2025' });
+		await render(HolidayCsvUpload, { year: '2025' });
 		const link = page.getByTestId('esl-holiday-upload.dataset-link');
 		await expect.element(link).toBeInTheDocument();
 		await expect.element(link).toHaveAttribute('href', 'https://data.gov.tw/dataset/14718');
 	});
 
 	it('shows the expected format hint', async () => {
-		render(HolidayCsvUpload, { year: '2025' });
+		await render(HolidayCsvUpload, { year: '2025' });
 		const hint = page.getByTestId('esl-holiday-upload.format-hint');
-		await expect.element(hint).toHaveTextContent(/西元日期,星期,是否放假,備註/);
-		await expect.element(hint).toHaveTextContent(/YYYYMMDD/);
-		await expect.element(hint).toHaveTextContent(/是否放假=2/);
+		await expect.element(hint).toMatchTextContent(/西元日期,星期,是否放假,備註/);
+		await expect.element(hint).toMatchTextContent(/YYYYMMDD/);
+		await expect.element(hint).toMatchTextContent(/是否放假=2/);
 	});
 
 	it('prefills the year and keeps submit disabled until a file is picked', async () => {
-		render(HolidayCsvUpload, { year: '2025' });
+		await render(HolidayCsvUpload, { year: '2025' });
 		await expect.element(page.getByTestId('esl-holiday-upload.year')).toHaveValue('2025');
 		await expect.element(page.getByTestId('esl-holiday-upload.file')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl-holiday-upload.submit')).toBeDisabled();
 	});
 
 	it('uploads the picked file and reports inserted/updated/deleted', async () => {
-		render(HolidayCsvUpload, { year: '2025' });
+		await render(HolidayCsvUpload, { year: '2025' });
 		const input = page.getByTestId('esl-holiday-upload.file').element() as HTMLInputElement;
 		const picked = new File([CSV], 'calendar.csv', { type: 'text/csv' });
 		const transfer = new DataTransfer();
@@ -68,7 +68,7 @@ describe('HolidayCsvUpload', () => {
 
 		await expect
 			.element(page.getByTestId('esl-holiday-upload.success'))
-			.toHaveTextContent(/2025.*2 rows.*1 off.*2 inserted.*0 updated.*0 deleted/);
+			.toMatchTextContent(/2025.*2 rows.*1 off.*2 inserted.*0 updated.*0 deleted/);
 		expect(mutationMock).toHaveBeenCalledOnce();
 		const args = mutationMock.mock.calls[0]?.[1] as { year: string; csvText: string };
 		expect(args.year).toBe('2025');

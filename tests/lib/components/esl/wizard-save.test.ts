@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { buildPreviewRows, buildSavePayload } from '$lib/components/esl/wizard/wizard-save';
 import type { WizardState } from '$lib/components/esl/wizard/wizard-state';
 
@@ -15,8 +15,7 @@ function s1State(): WizardState {
 		step2: {
 			endDate: '2027-01-20',
 			offDays: [{ date: '2026-11-10', name: 'National Day' }],
-			holidaysImported: true,
-			lastExamDay: false
+			holidaysImported: true
 		},
 		step3: {
 			exams: [

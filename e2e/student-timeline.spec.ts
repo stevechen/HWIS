@@ -3,7 +3,7 @@ import { getTestSuffix } from './helpers';
 import { createStudentWithEvaluations, createCategory, cleanupByTag } from './convex-client';
 import { StudentTimelinePage } from './pages';
 
-test.describe('Student Timeline Long-Press @timeline-longpress @sequential', () => {
+test.describe('Student Timeline Long-Press @timeline-longpress @sequential @hwis', () => {
 	test.use({ role: 'teacher' });
 
 	let suffix: string;
@@ -59,7 +59,7 @@ test.describe('Student Timeline Long-Press @timeline-longpress @sequential', () 
 	});
 });
 
-test.describe('Student Timeline Long-Press Admin @timeline-longpress @sequential', () => {
+test.describe('Student Timeline Long-Press Admin @timeline-longpress @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let suffix: string;
@@ -110,7 +110,7 @@ test.describe('Student Timeline Long-Press Admin @timeline-longpress @sequential
 	});
 });
 
-test.describe('Student Timeline Edit Dialog @timeline-longpress @sequential', () => {
+test.describe('Student Timeline Edit Dialog @timeline-longpress @sequential @hwis', () => {
 	test.use({ role: 'teacher' });
 
 	let suffix: string;
@@ -171,7 +171,7 @@ test.describe('Student Timeline Edit Dialog @timeline-longpress @sequential', ()
 	});
 });
 
-test.describe('Score Tally Bar @score-tally @sequential', () => {
+test.describe('Score Tally Bar @score-tally @sequential @hwis', () => {
 	// Use admin auth to see all evaluations (not just teacher's own)
 	test.use({ role: 'admin' });
 

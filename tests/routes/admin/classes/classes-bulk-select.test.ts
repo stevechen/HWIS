@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 vi.mock('convex-svelte', () => ({
@@ -84,7 +84,7 @@ describe('Classes Page - Bulk Select and Move', () => {
 				error: undefined
 			});
 
-		render(ClassesPage);
+		await render(ClassesPage);
 
 		await page.getByRole('button', { name: 'Select grade 7' }).click();
 
@@ -115,7 +115,7 @@ describe('Classes Page - Bulk Select and Move', () => {
 				error: undefined
 			});
 
-		render(ClassesPage);
+		await render(ClassesPage);
 
 		await page.getByRole('button', { name: 'Select grade 7' }).click();
 
@@ -147,7 +147,7 @@ describe('Classes Page - Bulk Select and Move', () => {
 				error: undefined
 			});
 
-		render(ClassesPage);
+		await render(ClassesPage);
 
 		await page.getByRole('button', { name: 'Select grade 7' }).click();
 		await page.getByRole('button', { name: /Select Alice/ }).click();
@@ -199,7 +199,7 @@ describe('Classes Page - Bulk Select and Move', () => {
 				error: undefined
 			});
 
-		render(ClassesPage);
+		await render(ClassesPage);
 
 		await page.getByRole('button', { name: 'Select grade 7' }).click();
 		await page.getByRole('button', { name: /Select Alice/ }).click();
@@ -249,7 +249,7 @@ describe('Classes Page - Bulk Select and Move', () => {
 				error: undefined
 			});
 
-		render(ClassesPage);
+		await render(ClassesPage);
 
 		// Need to show grade 11 first
 		await page.getByRole('checkbox', { name: '11' }).click();
@@ -278,7 +278,7 @@ describe('Classes Page - Bulk Select and Move', () => {
 				error: undefined
 			});
 
-		render(ClassesPage);
+		await render(ClassesPage);
 
 		await page.getByRole('button', { name: 'Select grade 7' }).click();
 		await page.getByRole('button', { name: 'Done selecting in grade 7' }).click();

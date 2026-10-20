@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import HolidayOffDayImport from '$lib/components/esl/HolidayOffDayImport.svelte';
 
@@ -72,14 +72,14 @@ describe('HolidayOffDayImport', () => {
 	});
 
 	it('offers the semester years checked with preview enabled', async () => {
-		render(HolidayOffDayImport, { ...PROPS });
+		await render(HolidayOffDayImport, { ...PROPS });
 		await expect.element(page.getByTestId('esl-offday-import.gov-year-115')).toBeChecked();
 		await expect.element(page.getByTestId('esl-offday-import.gov-year-116')).toBeChecked();
 		await expect.element(page.getByTestId('esl-offday-import.gov-preview')).toBeEnabled();
 	});
 
 	it('disables preview when every year is unchecked', async () => {
-		render(HolidayOffDayImport, { ...PROPS });
+		await render(HolidayOffDayImport, { ...PROPS });
 		for (const rocYear of ['115', '116']) {
 			(
 				page.getByTestId(`esl-offday-import.gov-year-${rocYear}`).element() as HTMLInputElement
@@ -89,29 +89,29 @@ describe('HolidayOffDayImport', () => {
 	});
 
 	it('previews days then imports them on confirmation', async () => {
-		render(HolidayOffDayImport, { ...PROPS });
+		await render(HolidayOffDayImport, { ...PROPS });
 		click('esl-offday-import.gov-preview');
 
 		const result = page.getByTestId('esl-offday-import.gov-preview-result');
 		await expect.element(result).toBeInTheDocument();
-		await expect.element(result).toHaveTextContent(/2026-09-28.*Teacher's Day/);
+		await expect.element(result).toMatchTextContent(/2026-09-28.*Teacher's Day/);
 		await expect.element(page.getByTestId('esl-offday-import.gov-import')).toBeEnabled();
 
 		click('esl-offday-import.gov-import');
 		await expect
 			.element(page.getByTestId('esl-offday-import.gov-report'))
-			.toHaveTextContent(/1 off day added/);
+			.toMatchTextContent(/1 off day added/);
 		expect(actionMock).toHaveBeenCalledTimes(2);
 	});
 
 	it('keeps the manual dropzone with submit disabled until a file is picked', async () => {
-		render(HolidayOffDayImport, { ...PROPS });
+		await render(HolidayOffDayImport, { ...PROPS });
 		await expect.element(page.getByTestId('esl-offday-import.dropzone')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl-offday-import.submit')).toBeDisabled();
 	});
 
 	it('links to dataset 14718', async () => {
-		render(HolidayOffDayImport, { ...PROPS });
+		await render(HolidayOffDayImport, { ...PROPS });
 		const link = page.getByTestId('esl-offday-import.dataset-link');
 		await expect.element(link).toBeInTheDocument();
 		await expect.element(link).toHaveAttribute('href', 'https://data.gov.tw/dataset/14718');

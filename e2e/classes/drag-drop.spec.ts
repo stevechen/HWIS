@@ -3,7 +3,7 @@ import { getTestSuffix, getUniqueTag, getTestStudentId } from '../helpers';
 import { cleanupByTag, createStudent, createClass } from '../convex-client';
 import { AdminClassesPage } from '../pages';
 
-test.describe('Drag and Drop Student Movement', () => {
+test.describe('Drag and Drop Student Movement @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const e2eTag = getUniqueTag('dragDrop');

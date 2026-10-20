@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import CalendarPreview from '$lib/components/esl/wizard/CalendarPreview.svelte';
 import { buildPreviewWeeks, type MockOffDay } from '$lib/components/esl/wizard/wizard-dates';
@@ -23,7 +23,7 @@ describe('CalendarPreview — Step 2 read-only semester calendar + event list', 
 	const weeks = buildPreviewWeeks('2026-08-31', '2027-01-20', mockOffDays, mockExams);
 
 	it('renders the calendar with legend', async () => {
-		render(CalendarPreview, {
+		await render(CalendarPreview, {
 			weeks,
 			interactive: false,
 			testId: 'wizard.step-2-calendar'
@@ -35,19 +35,25 @@ describe('CalendarPreview — Step 2 read-only semester calendar + event list', 
 		await expect.element(page.getByText('Exam', { exact: true })).toBeInTheDocument();
 	});
 
-	it('renders week rows with school week numbers (W1, W2, ...)', async () => {
-		render(CalendarPreview, {
+	it('renders week rows with a bare school week number under the WK header', async () => {
+		await render(CalendarPreview, {
 			weeks,
 			interactive: false,
 			testId: 'wizard.step-2-calendar'
 		});
 
 		await expect.element(page.getByTestId('wizard.step-2-calendar.week-1')).toBeInTheDocument();
-		await expect.element(page.getByTestId('wizard.step-2-calendar.week-1')).toHaveTextContent('W1');
+		await expect
+			.element(page.getByTestId('wizard.step-2-calendar.week-1-number'))
+			.toMatchTextContent(/^1$/);
+		await expect
+			.element(page.getByTestId('wizard.step-2-calendar.week-2-number'))
+			.toMatchTextContent(/^2$/);
+		await expect.element(page.getByText('WK', { exact: true })).toBeInTheDocument();
 	});
 
 	it('shows weekend cells are filtered out (Mon-Fri only)', async () => {
-		render(CalendarPreview, {
+		await render(CalendarPreview, {
 			weeks,
 			interactive: false,
 			testId: 'wizard.step-2-calendar'
@@ -64,7 +70,7 @@ describe('CalendarPreview — Step 2 read-only semester calendar + event list', 
 	});
 
 	it('shows off days with celebration emoji and name', async () => {
-		render(CalendarPreview, {
+		await render(CalendarPreview, {
 			weeks,
 			interactive: false,
 			testId: 'wizard.step-2-calendar'
@@ -72,12 +78,12 @@ describe('CalendarPreview — Step 2 read-only semester calendar + event list', 
 
 		// Sep 28 is a Monday - "Teacher's Day" off day
 		const offDayCell = page.getByTestId('wizard.step-2-calendar.date-2026-09-28');
-		await expect.element(offDayCell).toHaveTextContent('🎉');
-		await expect.element(offDayCell).toHaveTextContent("Teacher's Day");
+		await expect.element(offDayCell).toMatchTextContent('🎉');
+		await expect.element(offDayCell).toMatchTextContent("Teacher's Day");
 	});
 
 	it('shows exams with label', async () => {
-		render(CalendarPreview, {
+		await render(CalendarPreview, {
 			weeks,
 			interactive: false,
 			testId: 'wizard.step-2-calendar'
@@ -85,27 +91,38 @@ describe('CalendarPreview — Step 2 read-only semester calendar + event list', 
 
 		// Oct 5-6 is Exam 1
 		const exam1Day1 = page.getByTestId('wizard.step-2-calendar.date-2026-10-05');
-		await expect.element(exam1Day1).toHaveTextContent('Exam 1');
+		await expect.element(exam1Day1).toMatchTextContent('Exam 1');
 
 		const exam1Day2 = page.getByTestId('wizard.step-2-calendar.date-2026-10-06');
-		await expect.element(exam1Day2).toHaveTextContent('Exam 1');
+		await expect.element(exam1Day2).toMatchTextContent('Exam 1');
 	});
 
-	it('renders month title groups across the week row', async () => {
-		render(CalendarPreview, {
+	it('renders merged month bands in the left column, one per month', async () => {
+		await render(CalendarPreview, {
 			weeks,
 			interactive: false,
 			testId: 'wizard.step-2-calendar'
 		});
 
-		// Week 1 should have AUG month span
+		await expect.element(page.getByTestId('wizard.step-2-calendar.month-col')).toBeInTheDocument();
+		await expect.element(page.getByText('MTH', { exact: true })).toBeInTheDocument();
+
+		// The semester starts Mon 2026-08-31, so row 1 (Aug 31 + Sep 1–4)
+		// belongs to SEP and AUG gets no band at all. SEP spans W1–W4, then
+		// OCT takes the Sep 28 – Oct 2 straddle row whole (W5–W9).
+		const sep = page.getByTestId('wizard.step-2-calendar.month-SEP');
+		await expect.element(sep).toHaveAttribute('data-rows', '4');
+		await expect.element(sep).toHaveTextContent('SEP');
 		await expect
-			.element(page.getByTestId('wizard.step-2-calendar.week-1-months'))
-			.toBeInTheDocument();
+			.element(page.getByTestId('wizard.step-2-calendar.month-OCT'))
+			.toHaveAttribute('data-rows', '5');
+		await expect
+			.element(page.getByTestId('wizard.step-2-calendar.month-AUG'))
+			.not.toBeInTheDocument();
 	});
 
 	it('read-only mode renders cells without button role', async () => {
-		render(CalendarPreview, {
+		await render(CalendarPreview, {
 			weeks,
 			interactive: false,
 			testId: 'wizard.step-2-calendar'
@@ -117,7 +134,7 @@ describe('CalendarPreview — Step 2 read-only semester calendar + event list', 
 	});
 
 	it('out-of-range days show middle dot', async () => {
-		render(CalendarPreview, {
+		await render(CalendarPreview, {
 			weeks,
 			interactive: false,
 			testId: 'wizard.step-2-calendar'
@@ -126,7 +143,7 @@ describe('CalendarPreview — Step 2 read-only semester calendar + event list', 
 		// Days after end date (Jan 20) - Jan 21 is after end date
 		const outOfRangeCell = page.getByTestId('wizard.step-2-calendar.date-2027-01-21');
 		await expect.element(outOfRangeCell).toBeInTheDocument();
-		await expect.element(outOfRangeCell).toHaveTextContent('·');
+		await expect.element(outOfRangeCell).toMatchTextContent('·');
 	});
 });
 

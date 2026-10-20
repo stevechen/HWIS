@@ -3,7 +3,7 @@ import { getTestSuffix, getUniqueTag } from '../helpers';
 import { cleanupByTag, createStudent, createClass } from '../convex-client';
 import { AdminClassesPage } from '../pages';
 
-test.describe('Classes CRUD', () => {
+test.describe('Classes CRUD @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const e2eTag = getUniqueTag('classCrud');

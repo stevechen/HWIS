@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
+import { departmentValidator } from './shared/departments';
 
 export default defineSchema({
 	users: defineTable({
@@ -57,10 +58,18 @@ export default defineSchema({
 		completedAt: v.number(),
 		filename: v.string(),
 		environment: v.string(),
+		/**
+		 * Which department's archive this heartbeat proves. Absent on rows
+		 * written before the HWIS/ESL split; those read as `international`.
+		 * Each nightly cron writes its own row, so the watchdog can judge both
+		 * archives independently.
+		 */
+		department: v.optional(departmentValidator),
 		fileId: v.optional(v.string())
 	})
 		.index('by_completedAt', ['completedAt'])
-		.index('by_environment', ['environment']),
+		.index('by_environment', ['environment'])
+		.index('by_department_completedAt', ['department', 'completedAt']),
 
 	accounts: defineTable({
 		userId: v.id('users'),
@@ -176,11 +185,17 @@ export default defineSchema({
 		data: v.optional(v.any()),
 		chunkCount: v.optional(v.number()),
 		studentsCount: v.optional(v.number()),
+		/**
+		 * Which department this snapshot belongs to. Absent on rows written
+		 * before the HWIS/ESL split; those read as `international`.
+		 */
+		department: v.optional(departmentValidator),
 		createdAt: v.number(),
 		e2eTag: v.optional(v.string())
 	})
 		.index('by_createdAt', ['createdAt'])
 		.index('by_creatorId', ['creatorId'])
+		.index('by_department_createdAt', ['department', 'createdAt'])
 		.index('by_e2eTag', ['e2eTag']),
 
 	backup_chunks: defineTable({

@@ -9,14 +9,17 @@ import authConfig from './auth.config';
 import { resolveEffectiveTestToken } from './testAuth';
 import {
 	canAccessAdminArea,
+	canRestoreDepartment,
 	isActiveEslStaff,
 	isActiveInternationalStaff,
 	isActiveStaff,
 	isEslAdmin,
 	isInternationalAdmin,
 	isSuper,
+	type Department,
 	type DepartmentRoles
 } from './shared/authorization';
+import { normalizeDepartment } from './shared/departments';
 
 function normalizeEnvValue(value?: string | null): string | undefined {
 	if (!value) return undefined;
@@ -409,4 +412,26 @@ export const requireAdminForSensitiveOperation = async (ctx: AuthCtx, testToken?
 export const requireSuperForSensitiveOperation = async (ctx: AuthCtx, testToken?: string) => {
 	const effectiveTestToken = resolveEffectiveTestToken(testToken);
 	return await requireSuperRole(ctx, effectiveTestToken);
+};
+
+/**
+ * Department-scoped restore gate (backup separation, #238/#246).
+ *
+ * Restoring a backup may only be performed by an Active admin of the backup's
+ * own department, or a Super user. This mirrors the global admin check for
+ * legacy International admins but admits ESL-only admins (base role
+ * `teacher`, `departmentRoles.esl === 'admin'`) and refuses cross-department
+ * restores that the single global gate used to allow.
+ */
+export const requireDepartmentRestoreAdmin = async (
+	ctx: AuthCtx,
+	department: Department,
+	testToken?: string
+) => {
+	const effectiveTestToken = resolveEffectiveTestToken(testToken);
+	const user = await requireUserProfile(ctx, effectiveTestToken);
+	if (!canRestoreDepartment(user, normalizeDepartment(department))) {
+		throw new Error(`Forbidden: ${normalizeDepartment(department)} admin access required`);
+	}
+	return user;
 };

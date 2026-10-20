@@ -1,5 +1,5 @@
-import { page, userEvent } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page, userEvent } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { roomButton } from '../../../lib/esl-schedule';
 
@@ -116,16 +116,16 @@ describe('ScheduleCell grade 10 pair editing', () => {
 	it('announces that saving also schedules the partner', async () => {
 		// A cross-class write the UI does not name reads as the admin having edited
 		// more than the card they opened.
-		render(ScheduleCell, { props: scheduleProps(PAIR_PROPS) });
+		await render(ScheduleCell, { props: scheduleProps(PAIR_PROPS) });
 
 		await userEvent.click(page.getByTestId('esl-admin-classes.schedule.toggle'));
 		await expect
 			.element(page.getByTestId('esl-admin-classes.schedule.pair'))
-			.toHaveTextContent('H101B');
+			.toMatchTextContent('H101B');
 	});
 
 	it('shows no pair notice for a class scheduled alone', async () => {
-		render(ScheduleCell, { props: scheduleProps() });
+		await render(ScheduleCell, { props: scheduleProps() });
 
 		await userEvent.click(page.getByTestId('esl-admin-classes.schedule.toggle'));
 		expect(page.getByTestId('esl-admin-classes.schedule.pair').elements()).toHaveLength(0);
@@ -135,7 +135,7 @@ describe('ScheduleCell grade 10 pair editing', () => {
 		// The whole rule: there is one week to author, so both ids are written from
 		// the one picker rather than reconciled afterwards.
 		const onsave = vi.fn();
-		render(ScheduleCell, { props: scheduleProps({ ...PAIR_PROPS, onsave }) });
+		await render(ScheduleCell, { props: scheduleProps({ ...PAIR_PROPS, onsave }) });
 
 		await userEvent.click(page.getByTestId('esl-admin-classes.schedule.toggle'));
 		await userEvent.click(page.getByTestId('esl-admin-classes.schedule.save'));
@@ -146,7 +146,7 @@ describe('ScheduleCell grade 10 pair editing', () => {
 
 	it('writes only its own id when it has no partner', async () => {
 		const onsave = vi.fn();
-		render(ScheduleCell, { props: scheduleProps({ onsave }) });
+		await render(ScheduleCell, { props: scheduleProps({ onsave }) });
 
 		await userEvent.click(page.getByTestId('esl-admin-classes.schedule.toggle'));
 		await userEvent.click(page.getByTestId('esl-admin-classes.schedule.save'));
@@ -157,20 +157,20 @@ describe('ScheduleCell grade 10 pair editing', () => {
 	it('names both sections on the pair save button', async () => {
 		// The button is the notice: it must never claim one class was saved when
 		// two were.
-		render(ScheduleCell, { props: scheduleProps(PAIR_PROPS) });
+		await render(ScheduleCell, { props: scheduleProps(PAIR_PROPS) });
 
 		await userEvent.click(page.getByTestId('esl-admin-classes.schedule.toggle'));
 
 		await expect
 			.element(page.getByTestId('esl-admin-classes.schedule.save'))
-			.toHaveTextContent('Save H101A + H101B');
+			.toMatchTextContent('Save H101A + H101B');
 	});
 
 	it('opens a diverged pair on the union, flagged and unsavable until aligned', async () => {
 		// The partner meets Mo P1 and Tu P5; this section Mo P1 and We P2. The
 		// draft is all three, the two unshared cells are flagged, and Save stays
 		// disabled until the draft is one identical set.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				...PAIR_PROPS,
 				partner: {
@@ -193,7 +193,7 @@ describe('ScheduleCell grade 10 pair editing', () => {
 
 		await expect
 			.element(page.getByTestId('esl-admin-classes.schedule.impact'))
-			.toHaveTextContent('H101B');
+			.toMatchTextContent('H101B');
 		expect(
 			page.getByTestId('esl-admin-classes.schedule.save').element().hasAttribute('disabled')
 		).toBe(true);
@@ -201,7 +201,7 @@ describe('ScheduleCell grade 10 pair editing', () => {
 
 	it('enables the pair save once the draft converges to one set', async () => {
 		const onsave = vi.fn();
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				...PAIR_PROPS,
 				onsave,
@@ -234,7 +234,7 @@ describe('ScheduleCell grade 10 pair editing', () => {
 	it('names the partner slot a converged draft would remove', async () => {
 		// Saving one set writes it to both sections, so the partner's dropped
 		// Tu P5 is a removal the admin should see before pressing Save.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				...PAIR_PROPS,
 				partner: {
@@ -253,16 +253,16 @@ describe('ScheduleCell grade 10 pair editing', () => {
 		await userEvent.click(slots[21]);
 
 		const impact = page.getByTestId('esl-admin-classes.schedule.impact');
-		await expect.element(impact).toHaveTextContent('Tu P5');
-		await expect.element(impact).toHaveTextContent('H101B');
-		await expect.element(impact).toHaveTextContent('removes it');
+		await expect.element(impact).toMatchTextContent('Tu P5');
+		await expect.element(impact).toMatchTextContent('H101B');
+		await expect.element(impact).toMatchTextContent('removes it');
 	});
 });
 
 describe('ScheduleCell chips', () => {
 	it('shows one chip per required meeting, in week order', async () => {
 		// G9 meets twice.
-		render(ScheduleCell, { props: scheduleProps() });
+		await render(ScheduleCell, { props: scheduleProps() });
 
 		// `.first()` because there are two chips: the chip test id is deliberately
 		// shared, so a strict lookup would fail on a page that is working correctly.
@@ -280,7 +280,7 @@ describe('ScheduleCell chips', () => {
 	it('pads an unscheduled class to its requirement with empty chips', async () => {
 		// CLIL meets three times. Nothing saved, so all three slots are placeholders:
 		// the card shows the work outstanding rather than appearing to be done.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, type: 'CLIL', meetings: [] }
 			})
@@ -297,7 +297,7 @@ describe('ScheduleCell chips', () => {
 	it('separates an empty slot from a valid one without relying on colour', async () => {
 		// One of two meetings saved. Red for both would make a half-built year read
 		// as a wall of errors rather than a wall of blanks.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, meetings: [{ day: 'Monday', period: 1 }] }
 			})
@@ -312,7 +312,7 @@ describe('ScheduleCell chips', () => {
 		// The tooltip has to name the class and the slot, not just say "conflict".
 		// The wording comes from the gate, which was always going to be a fuller
 		// sentence than the badge's "shares its teacher".
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: {
 					...CLASS_RECORD,
@@ -352,7 +352,7 @@ describe('ScheduleCell chips', () => {
 				period: 2
 			}
 		];
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, scheduleProblem: null, problems }
 			})
@@ -372,7 +372,7 @@ describe('ScheduleCell chips', () => {
 				period: 1
 			}
 		];
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, scheduleProblem: null, problems }
 			})
@@ -387,7 +387,7 @@ describe('ScheduleCell chips', () => {
 	it('leaves the chips green for a fault with no slot of its own', async () => {
 		// `cohort-teacher` is about the pair, not a meeting, so there is no one chip
 		// to redden. The card marker is where it shows.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: {
 					...CLASS_RECORD,
@@ -409,7 +409,7 @@ describe('ScheduleCell chips', () => {
 		// `missing-room` is not a meeting fault: the schedule is sound, and the
 		// room control carries that problem in its own border. Marking the chips
 		// red would send the admin hunting for a fault that is not in the meetings.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, scheduleProblem: { state: 'missing-room' } }
 			})
@@ -440,7 +440,7 @@ describe('ScheduleCell floating picker', () => {
 		// it". Stacking them instead failed the save with a shape error the admin had
 		// to decode, having clicked exactly what they meant.
 		const onsave = vi.fn();
-		render(ScheduleCell, { props: scheduleProps({ onsave }) });
+		await render(ScheduleCell, { props: scheduleProps({ onsave }) });
 
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 
@@ -461,7 +461,7 @@ describe('ScheduleCell floating picker', () => {
 
 	it('clears a day’s lesson when its own slot is picked again', async () => {
 		const onsave = vi.fn();
-		render(ScheduleCell, { props: scheduleProps({ onsave }) });
+		await render(ScheduleCell, { props: scheduleProps({ onsave }) });
 
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 		await userEvent.click(slotAt(1, 0)); // Monday P1, already picked
@@ -478,7 +478,7 @@ describe('ScheduleCell floating picker', () => {
 		// The case the whole panel exists for: a week that looks fine but collides with
 		// a neighbour. Save must be disabled *and* say why — a disabled button with no
 		// explanation reads as a broken picker. One line: slot, class, room.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, room: 'ESL A' },
 				neighbours: [
@@ -498,7 +498,7 @@ describe('ScheduleCell floating picker', () => {
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 
 		const impact = page.getByTestId('esl-admin-classes.schedule.impact');
-		await expect.element(impact).toHaveTextContent('Mo P1 - G8 Advanced 3 Comm @ESL A');
+		await expect.element(impact).toMatchTextContent('Mo P1 - G8 Advanced 3 Comm @ESL A');
 
 		expect(
 			page.getByTestId('esl-admin-classes.schedule.save').element().hasAttribute('disabled')
@@ -510,7 +510,7 @@ describe('ScheduleCell floating picker', () => {
 		// neighbour teaches it in the same room. The clean We P2 pick stays
 		// emerald. Both lift above the shared dividers so their borders read
 		// whole rather than eaten by the neighbour.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, room: 'ESL A' },
 				neighbours: [
@@ -544,7 +544,7 @@ describe('ScheduleCell floating picker', () => {
 	it('marks the colliding cell blocked and leaves it visible', async () => {
 		// A cell that vanished would look like a broken grid; the admin would hunt for
 		// a slot they can actually click.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, room: 'ESL A' },
 				neighbours: [
@@ -574,7 +574,7 @@ describe('ScheduleCell floating picker', () => {
 	it('labels teacher-unavailable slots NA, quoting the note in the tooltip', async () => {
 		// Display text only: the NA block still refuses the save through the
 		// unchanged gate, and the cell reads NA with the note on hover.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, teacherId: 'k17teacher' },
 				availabilityByTeacher: {
@@ -588,7 +588,7 @@ describe('ScheduleCell floating picker', () => {
 		const cells = page.getByTestId('esl-admin-classes.schedule.cell').elements();
 		// Row-major: Th P3 is period index 2 times five days plus day index 3.
 		const na = cells[2 * 5 + 3];
-		await expect.element(na).toHaveTextContent('NA');
+		await expect.element(na).toMatchTextContent('NA');
 		expect(na.getAttribute('title')).toContain('lunch duty');
 		// A free slot stays blank.
 		expect(cells[1].textContent?.trim()).toBe('');
@@ -598,7 +598,7 @@ describe('ScheduleCell floating picker', () => {
 		// The draft's own pick wins over NA (story 25): Mo P1 is both picked and
 		// blocked, so the cell reads as a red conflict rather than doubling up
 		// with an NA label.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, teacherId: 'k17teacher' },
 				availabilityByTeacher: {
@@ -613,14 +613,14 @@ describe('ScheduleCell floating picker', () => {
 		// Row-major: index 0 is P1/Monday — the picked-but-blocked slot.
 		const mondayFirst = cells[0];
 		expect(mondayFirst.getAttribute('data-conflict')).toBe('true');
-		await expect.element(mondayFirst).not.toHaveTextContent('NA');
+		await expect.element(mondayFirst).not.toMatchTextContent('NA');
 		expect(mondayFirst.getAttribute('title')).toContain('lunch duty');
 	});
 
 	it('leaves slots blocked for other reasons blank rather than NA', async () => {
 		// NA names the teacher-availability rule only: a room clash keeps its
 		// blank cell, with the reason in the tooltip.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, room: 'ESL A' },
 				neighbours: [
@@ -645,7 +645,7 @@ describe('ScheduleCell floating picker', () => {
 
 	it('resolves a blocked draft with one click of Find free slots', async () => {
 		const onsave = vi.fn();
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				onsave,
 				classRecord: { ...CLASS_RECORD, room: 'ESL A' },
@@ -664,12 +664,12 @@ describe('ScheduleCell floating picker', () => {
 
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 		const impact = page.getByTestId('esl-admin-classes.schedule.impact');
-		await expect.element(impact).toHaveTextContent('G8 Advanced 3 Comm');
+		await expect.element(impact).toMatchTextContent('G8 Advanced 3 Comm');
 
 		await userEvent.click(page.getByTestId('esl-admin-classes.schedule.suggest'));
 
 		// Cleared: the impact line reads clean, and Save is live again.
-		await expect.element(impact).toHaveTextContent('No conflicts');
+		await expect.element(impact).toMatchTextContent('No conflicts');
 		expect(
 			page.getByTestId('esl-admin-classes.schedule.save').element().hasAttribute('disabled')
 		).toBe(false);
@@ -679,7 +679,7 @@ describe('ScheduleCell floating picker', () => {
 	});
 
 	it('keeps the row height unchanged when the picker opens', async () => {
-		render(ScheduleCell, { props: scheduleProps() });
+		await render(ScheduleCell, { props: scheduleProps() });
 
 		const row = page.getByTestId(`esl-admin-classes.schedule.${CLASS_RECORD.classId}`).element();
 		const before = row.getBoundingClientRect().height;
@@ -693,7 +693,7 @@ describe('ScheduleCell floating picker', () => {
 	});
 
 	it('opens from anywhere on the schedule line, not just the icon', async () => {
-		render(ScheduleCell, { props: scheduleProps() });
+		await render(ScheduleCell, { props: scheduleProps() });
 
 		// The strip's job is "open this class's picker"; an admin should not have
 		// to work out which of two small things is the button.
@@ -703,7 +703,7 @@ describe('ScheduleCell floating picker', () => {
 	});
 
 	it('takes the panel out of flow, so it overlays rather than expands', async () => {
-		render(ScheduleCell, { props: scheduleProps() });
+		await render(ScheduleCell, { props: scheduleProps() });
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 
 		const panel = page.getByTestId('esl-admin-classes.schedule.editor').element();
@@ -713,7 +713,7 @@ describe('ScheduleCell floating picker', () => {
 	});
 
 	it('pins the panel under its trigger without moving the card', async () => {
-		render(ScheduleCell, { props: scheduleProps() });
+		await render(ScheduleCell, { props: scheduleProps() });
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 
 		const toggle = page.getByTestId('esl-admin-classes.schedule.toggle').element();
@@ -730,7 +730,7 @@ describe('ScheduleCell floating picker', () => {
 	});
 
 	it('names the trigger as an anchor, unique per class', async () => {
-		render(ScheduleCell, { props: scheduleProps() });
+		await render(ScheduleCell, { props: scheduleProps() });
 
 		const toggle = page.getByTestId('esl-admin-classes.schedule.toggle').element();
 		// Anchor positioning resolves by name, so a shared name would tie two rows'
@@ -741,7 +741,7 @@ describe('ScheduleCell floating picker', () => {
 	});
 
 	it('closes on Escape and returns focus to the trigger', async () => {
-		render(ScheduleCell, { props: scheduleProps() });
+		await render(ScheduleCell, { props: scheduleProps() });
 
 		const toggle = page.getByTestId('esl-admin-classes.schedule.toggle');
 		await toggle.click();
@@ -759,7 +759,7 @@ describe('ScheduleCell floating picker', () => {
 	});
 
 	it('reports its expanded state to assistive tech', async () => {
-		render(ScheduleCell, { props: scheduleProps() });
+		await render(ScheduleCell, { props: scheduleProps() });
 
 		const toggle = page.getByTestId('esl-admin-classes.schedule.toggle');
 		await expect.element(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -785,7 +785,7 @@ describe('ScheduleCell room grid', () => {
 	}
 
 	it('offers department rooms then homerooms, single-select', async () => {
-		render(ScheduleCell, { props: scheduleProps() });
+		await render(ScheduleCell, { props: scheduleProps() });
 
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 
@@ -810,7 +810,7 @@ describe('ScheduleCell room grid', () => {
 
 	it('sends the picked room with the week, and nothing when unchanged', async () => {
 		const onsave = vi.fn();
-		render(ScheduleCell, { props: scheduleProps({ onsave }) });
+		await render(ScheduleCell, { props: scheduleProps({ onsave }) });
 
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 		await userEvent.click(roomButton('ESL B'));
@@ -824,7 +824,7 @@ describe('ScheduleCell room grid', () => {
 		// Absent means "leave it": a slots-only edit must not rewrite the room or
 		// re-trigger the room rule.
 		const onsave = vi.fn();
-		render(ScheduleCell, { props: scheduleProps({ onsave }) });
+		await render(ScheduleCell, { props: scheduleProps({ onsave }) });
 
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 		await userEvent.click(page.getByTestId('esl-admin-classes.schedule.save'));
@@ -836,7 +836,7 @@ describe('ScheduleCell room grid', () => {
 	it('marks the held room busy, naming holder and slot', async () => {
 		// The draft holds Mo P1 in ESL A, which the neighbour already teaches in
 		// ESL A — so the button says so, rather than failing the save later.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, room: 'ESL B' },
 				neighbours: heldRoomNeighbours()
@@ -847,15 +847,15 @@ describe('ScheduleCell room grid', () => {
 
 		const button = roomButton('ESL A');
 		expect(button.getAttribute('data-busy')).toBe('true');
-		await expect.element(button).toHaveTextContent('G8 Advanced 3 Comm');
-		await expect.element(button).toHaveTextContent('Mo P1');
+		await expect.element(button).toMatchTextContent('G8 Advanced 3 Comm');
+		await expect.element(button).toMatchTextContent('Mo P1');
 		expect(roomButton('ESL B').getAttribute('data-busy')).toBe('false');
 	});
 
 	it('clears the busy mark when the draft moves off the held slot', async () => {
 		// Busy is draft ∩ saved: moving Monday's lesson away frees ESL A again,
 		// with no save in between.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, room: 'ESL B' },
 				neighbours: heldRoomNeighbours()
@@ -871,18 +871,18 @@ describe('ScheduleCell room grid', () => {
 	});
 
 	it('keeps a persistent impact line, clean and clashing', async () => {
-		render(ScheduleCell, { props: scheduleProps() });
+		await render(ScheduleCell, { props: scheduleProps() });
 
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 		await expect
 			.element(page.getByTestId('esl-admin-classes.schedule.impact'))
-			.toHaveTextContent('No conflicts');
+			.toMatchTextContent('No conflicts');
 	});
 
 	it('names the disturbed class and room on the impact line', async () => {
 		// Slot, class, room — the one line the panel states, with the full
 		// sentence living only in the cell tooltip.
-		render(ScheduleCell, {
+		await render(ScheduleCell, {
 			props: scheduleProps({
 				classRecord: { ...CLASS_RECORD, room: 'ESL A' },
 				neighbours: heldRoomNeighbours()
@@ -892,13 +892,13 @@ describe('ScheduleCell room grid', () => {
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 
 		const impact = page.getByTestId('esl-admin-classes.schedule.impact');
-		await expect.element(impact).toHaveTextContent('Mo P1 - G8 Advanced 3 Comm @ESL A');
-		await expect.element(impact).not.toHaveTextContent('is taken by');
+		await expect.element(impact).toMatchTextContent('Mo P1 - G8 Advanced 3 Comm @ESL A');
+		await expect.element(impact).not.toMatchTextContent('is taken by');
 	});
 
 	it('reveals the Other field and saves the typed room', async () => {
 		const onsave = vi.fn();
-		render(ScheduleCell, { props: scheduleProps({ onsave }) });
+		await render(ScheduleCell, { props: scheduleProps({ onsave }) });
 
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 		await userEvent.click(page.getByTestId('esl-admin-classes.schedule.room.other'));
@@ -917,7 +917,7 @@ describe('ScheduleCell room grid', () => {
 		// Toggle-off, like the slot cells: no separate clear control. The saved
 		// room starts selected, so one click empties the draft.
 		const onsave = vi.fn();
-		render(ScheduleCell, { props: scheduleProps({ onsave }) });
+		await render(ScheduleCell, { props: scheduleProps({ onsave }) });
 
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 		const picked = page
@@ -939,7 +939,7 @@ describe('ScheduleCell keyboard grid', () => {
 	}
 
 	it('moves across the slot grid with arrow keys, space toggles', async () => {
-		render(ScheduleCell, { props: scheduleProps() });
+		await render(ScheduleCell, { props: scheduleProps() });
 
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 
@@ -966,7 +966,7 @@ describe('ScheduleCell keyboard grid', () => {
 	});
 
 	it('steps between room buttons with arrow keys', async () => {
-		render(ScheduleCell, { props: scheduleProps() });
+		await render(ScheduleCell, { props: scheduleProps() });
 
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 
@@ -1008,7 +1008,7 @@ describe('ClassCard', () => {
 	}
 
 	it('carries a stable test id and a readable slug', async () => {
-		render(ClassCard, { props: cardProps() });
+		await render(ClassCard, { props: cardProps() });
 
 		const card = page.getByTestId(`esl-admin-classes.card.${CLASS_RECORD.classId}`).element();
 		expect(card).toBeTruthy();
@@ -1020,25 +1020,25 @@ describe('ClassCard', () => {
 	it('shows the room on the card face, not only inside the picker', async () => {
 		// The room used to be reachable only behind the schedule disclosure, which
 		// meant a "Missing room" badge named a problem with no visible way to fix it.
-		render(ClassCard, { props: cardProps() });
+		await render(ClassCard, { props: cardProps() });
 
 		await expect
 			.element(page.getByTestId('esl-admin-classes.room.readout'))
-			.toHaveTextContent('ESL A');
+			.toMatchTextContent('ESL A');
 	});
 
 	it('offers no room control on the card face', async () => {
 		// The room is authored in the schedule picker, where the draft slots are
 		// visible and the busy marks react to them. Editing it beside a week it
 		// cannot see is how clashes were discovered only after saving.
-		render(ClassCard, { props: cardProps() });
+		await render(ClassCard, { props: cardProps() });
 
 		expect(page.getByTestId('esl-admin-classes.room.select').elements()).toHaveLength(0);
 		expect(page.getByTestId('esl-admin-classes.room.input').elements()).toHaveLength(0);
 	});
 
 	it('reads No room grey-dashed when the schedule is sound but unroomed', async () => {
-		render(ClassCard, {
+		await render(ClassCard, {
 			props: cardProps({
 				schedule: {
 					meetings: MEETINGS,
@@ -1050,7 +1050,7 @@ describe('ClassCard', () => {
 		});
 
 		const readout = page.getByTestId('esl-admin-classes.room.readout');
-		await expect.element(readout).toHaveTextContent('No room');
+		await expect.element(readout).toMatchTextContent('No room');
 		// The chips' `empty` grey, not a colour of its own: one card, one language.
 		expect(readout.element().className).toContain('text-muted-foreground');
 	});
@@ -1059,7 +1059,7 @@ describe('ClassCard', () => {
 		// `missing-room` is the *schedule's* verdict, so a class with no schedule is
 		// reported `no-schedule` and never `missing-room`. Reading the badge alone would
 		// paint a roomless, unscheduled class as settled.
-		render(ClassCard, {
+		await render(ClassCard, {
 			props: cardProps({
 				schedule: {
 					meetings: [],
@@ -1071,12 +1071,12 @@ describe('ClassCard', () => {
 		});
 
 		const readout = page.getByTestId('esl-admin-classes.room.readout');
-		await expect.element(readout).toHaveTextContent('No room');
+		await expect.element(readout).toMatchTextContent('No room');
 		expect(readout.element().className).toContain('text-muted-foreground');
 	});
 
 	it('marks the teacher select grey-dashed while it is unassigned', async () => {
-		render(ClassCard, { props: cardProps({ classRow: { ...CARD_CLASS, teacherId: null } }) });
+		await render(ClassCard, { props: cardProps({ classRow: { ...CARD_CLASS, teacherId: null } }) });
 
 		expect(
 			page.getByTestId(`esl-admin-classes.teacher.${CARD_CLASS._id}`).element().className
@@ -1086,7 +1086,7 @@ describe('ClassCard', () => {
 	it('marks the teacher select emerald once a teacher is assigned', async () => {
 		// A separate test from the grey-dashed case: two `render` calls in one test leave the
 		// first card in the document, and the shared test id would match that one.
-		render(ClassCard, {
+		await render(ClassCard, {
 			props: cardProps({
 				classRow: { ...CARD_CLASS, teacherId: 'k17teacher' as Id<'users'> }
 			})
@@ -1101,7 +1101,7 @@ describe('ClassCard', () => {
 		// The marker covers conflicts the admin did not cause: a class is never
 		// re-saved when a *neighbour* breaks it, so nothing else on the card would
 		// change to tell them.
-		render(ClassCard, {
+		await render(ClassCard, {
 			props: cardProps({
 				schedule: {
 					meetings: MEETINGS,
@@ -1121,11 +1121,11 @@ describe('ClassCard', () => {
 
 		await expect
 			.element(page.getByTestId('esl-admin-classes.card.conflict'))
-			.toHaveTextContent('!');
+			.toMatchTextContent('!');
 	});
 
 	it('leaves a clean card unmarked', async () => {
-		render(ClassCard, { props: cardProps() });
+		await render(ClassCard, { props: cardProps() });
 
 		expect(page.getByTestId('esl-admin-classes.card.conflict').elements()).toHaveLength(0);
 	});
@@ -1134,16 +1134,16 @@ describe('ClassCard', () => {
 		// Both classes of a cohort teach one roster, so this is a cohort figure —
 		// which is the point: a room's capacity is only meaningful against how many
 		// people are in it.
-		render(ClassCard, { props: cardProps({ studentCount: 22 }) });
+		await render(ClassCard, { props: cardProps({ studentCount: 22 }) });
 
-		await expect.element(page.getByTestId('esl-admin-classes.students')).toHaveTextContent('22');
+		await expect.element(page.getByTestId('esl-admin-classes.students')).toMatchTextContent('22');
 	});
 
 	it('shows the whole class name, wrapping rather than truncating', async () => {
 		// `truncate` was cutting `G7 Pre-Elementary 1 CLIL` to `G7 Pre-Elementary 1
 		// Co…`, which removes exactly the part that tells two classes apart.
 		const longest = 'G7 Pre-Elementary 1 CLIL';
-		render(ClassCard, {
+		await render(ClassCard, {
 			props: cardProps({
 				classRow: {
 					_id: CLASS_RECORD.classId,
@@ -1203,7 +1203,7 @@ describe('ClassCard availability dialog', () => {
 	it('sits beside the teacher select once a teacher is assigned', async () => {
 		// Blocking a slot is one step from assigning: the dialog opens from the
 		// card, not from a page elsewhere.
-		render(ClassCard, { props: availabilityProps() });
+		await render(ClassCard, { props: availabilityProps() });
 
 		const trigger = page.getByTestId('esl-admin-classes.availability.trigger');
 		await expect.element(trigger).toBeInTheDocument();
@@ -1212,7 +1212,7 @@ describe('ClassCard availability dialog', () => {
 
 	it('shows no dialog trigger while the class is unassigned', async () => {
 		// No teacher, nobody to block.
-		render(ClassCard, {
+		await render(ClassCard, {
 			props: availabilityProps({
 				classRow: {
 					_id: CLASS_RECORD.classId,
@@ -1238,7 +1238,7 @@ describe('ClassCard availability dialog', () => {
 	it('opens on the saved blocks, shown read-only with the note beside each', async () => {
 		// Display, not editing: blocked slots read as checked and disabled, and
 		// the note is text — there is nothing here that writes.
-		render(ClassCard, { props: availabilityProps() });
+		await render(ClassCard, { props: availabilityProps() });
 
 		await userEvent.click(page.getByTestId('esl-admin-classes.availability.trigger'));
 
@@ -1254,14 +1254,14 @@ describe('ClassCard availability dialog', () => {
 
 		const notes = page.getByTestId('esl-admin-classes.availability.note').elements();
 		expect(notes).toHaveLength(1);
-		await expect.element(notes[0]).toHaveTextContent('lunch duty');
+		await expect.element(notes[0]).toMatchTextContent('lunch duty');
 	});
 
 	it('marks the slots the teacher already teaches, naming the class', async () => {
 		// Assigned hours mark the grid like blocks do: a teacher in one room
 		// cannot take another class then. Own meetings (Mo P1, We P2) and the
 		// neighbour's (Tu P5) all read gray, each naming its holder.
-		render(ClassCard, { props: availabilityProps() });
+		await render(ClassCard, { props: availabilityProps() });
 
 		await userEvent.click(page.getByTestId('esl-admin-classes.availability.trigger'));
 
@@ -1280,7 +1280,7 @@ describe('ClassCard availability dialog', () => {
 	});
 
 	it('offers no editing controls: nothing here writes', async () => {
-		render(ClassCard, { props: availabilityProps() });
+		await render(ClassCard, { props: availabilityProps() });
 
 		await userEvent.click(page.getByTestId('esl-admin-classes.availability.trigger'));
 
@@ -1293,7 +1293,7 @@ describe('ClassCard availability dialog', () => {
 	it('leaves the blocks untouched when a cell is clicked', async () => {
 		// Clicking the label, the way a user would: a disabled checkbox takes
 		// no input, so the grid still shows exactly the one saved block.
-		render(ClassCard, { props: availabilityProps() });
+		await render(ClassCard, { props: availabilityProps() });
 
 		await userEvent.click(page.getByTestId('esl-admin-classes.availability.trigger'));
 
@@ -1307,7 +1307,7 @@ describe('ClassCard availability dialog', () => {
 		// No list: a teacher with ten classes would grow the dialog past the
 		// viewport. Each taught cell carries its short tag instead, with the
 		// full class name in the tooltip for collisions.
-		render(ClassCard, { props: availabilityProps() });
+		await render(ClassCard, { props: availabilityProps() });
 
 		await userEvent.click(page.getByTestId('esl-admin-classes.availability.trigger'));
 
@@ -1322,7 +1322,7 @@ describe('ClassCard availability dialog', () => {
 	it('reads a blocked non-teaching slot as NA, quoting the note in the tooltip', async () => {
 		// Thursday P3 is blocked and taught by nobody: it reads NA rather than
 		// blank, with the note on hover exactly as the picker refusal quotes it.
-		render(ClassCard, {
+		await render(ClassCard, {
 			props: availabilityProps({
 				availabilityByTeacher: {
 					k17teacher: [{ day: 'Thursday' as const, period: 3, note: 'lunch duty' }]
@@ -1334,21 +1334,21 @@ describe('ClassCard availability dialog', () => {
 
 		const blocked = blockedCells();
 		expect(blocked).toHaveLength(1);
-		await expect.element(blocked[0]).toHaveTextContent('NA');
+		await expect.element(blocked[0]).toMatchTextContent('NA');
 		expect(blocked[0].getAttribute('title')).toContain('lunch duty');
 	});
 
 	it('keeps the class tag, not NA, where a block overlaps a taught slot', async () => {
 		// The default fixture blocks Mo P1, which the class itself teaches: the
 		// cell keeps the class tag so the two busy reasons stay distinct.
-		render(ClassCard, { props: availabilityProps() });
+		await render(ClassCard, { props: availabilityProps() });
 
 		await userEvent.click(page.getByTestId('esl-admin-classes.availability.trigger'));
 
 		const blocked = blockedCells();
 		expect(blocked).toHaveLength(1);
-		await expect.element(blocked[0]).toHaveTextContent('G9 Adv. 1');
-		await expect.element(blocked[0]).not.toHaveTextContent('NA');
+		await expect.element(blocked[0]).toMatchTextContent('G9 Adv. 1');
+		await expect.element(blocked[0]).not.toMatchTextContent('NA');
 	});
 });
 
@@ -1358,7 +1358,7 @@ describe('ClassCard script hygiene', () => {
 		// valid markup to Svelte — it just renders as visible text under every card,
 		// which typecheck and the functional assertions above both sail straight
 		// past. This is the one assertion that notices.
-		render(ClassCard, {
+		await render(ClassCard, {
 			props: {
 				classRow: {
 					_id: CLASS_RECORD.classId,

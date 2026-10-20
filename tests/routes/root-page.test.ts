@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { createRawSnippet } from 'svelte';
 import { buildViewerSession, type ViewerSessionConfig } from '../mocks/route-mocks';
@@ -194,7 +194,7 @@ describe('Root Page', () => {
 			})
 		);
 
-		render(EslLayout, {
+		await render(EslLayout, {
 			props: { children: createRawSnippet(() => ({ render: () => '<span>ESL CONTENT</span>' })) }
 		});
 
@@ -202,7 +202,7 @@ describe('Root Page', () => {
 		await expect.element(page.getByTestId('esl.nav.schedule')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl.nav.slips')).toBeInTheDocument();
 		await expect.element(page.getByTestId('esl.nav.zipgrade')).toBeInTheDocument();
-		await expect.element(page.getByTestId('esl.nav.admin')).toBeInTheDocument();
+		await expect.element(page.getByTestId('esl.nav.admin')).not.toBeInTheDocument();
 		await expect.element(page.getByText('ESL CONTENT')).toBeInTheDocument();
 	});
 
@@ -210,7 +210,7 @@ describe('Root Page', () => {
 		const { useViewer } = await import('$lib/viewer.svelte');
 		vi.mocked(useViewer).mockReturnValue(settledAuthenticated());
 
-		render(EslLayout, {
+		await render(EslLayout, {
 			props: { children: createRawSnippet(() => ({ render: () => '<span>ESL CONTENT</span>' })) }
 		});
 

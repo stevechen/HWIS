@@ -3,7 +3,7 @@ import { getTestSuffix, getStudentId } from './helpers';
 import { createStudent, createCategory, cleanupByTag } from './convex-client';
 import { AdminStudentsPage, NewEvaluationPage } from './pages';
 
-test.describe('Bulk Operations @bulk @sequential', () => {
+test.describe('Bulk Operations @bulk @sequential @hwis', () => {
 	test.describe('Bulk Evaluation Creation', () => {
 		test.use({ role: 'teacher' });
 

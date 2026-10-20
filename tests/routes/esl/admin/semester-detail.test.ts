@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { useQuery } from 'convex-svelte';
 
@@ -72,7 +72,7 @@ describe('ESL admin semester detail page (friendly slug)', () => {
 
 	it('resolves a friendly slug to the semester and renders its calendar', async () => {
 		routeParams.slug = '2026-2027-S1';
-		render(DetailPage);
+		await render(DetailPage);
 		// Header shows the term; the wizard-built calendar preview renders.
 		await expect.element(page.getByText('2026-2027')).toBeInTheDocument();
 		await expect
@@ -86,7 +86,7 @@ describe('ESL admin semester detail page (friendly slug)', () => {
 
 	it('still resolves a legacy Convex id (old bookmarks, e2e links)', async () => {
 		routeParams.slug = 'sem_s1';
-		render(DetailPage);
+		await render(DetailPage);
 		await expect.element(page.getByText('2026-2027')).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId('esl-admin-semester-detail.calendar'))
@@ -95,7 +95,7 @@ describe('ESL admin semester detail page (friendly slug)', () => {
 
 	it('reports a missing semester for an unknown slug', async () => {
 		routeParams.slug = '1999-2000-S9';
-		render(DetailPage);
+		await render(DetailPage);
 		await expect.element(page.getByTestId('esl-admin-semester-detail.missing')).toBeInTheDocument();
 	});
 });

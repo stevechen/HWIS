@@ -30,7 +30,7 @@ import { getTestSuffix } from './helpers';
  * Run targeted: `bun run test:ai -- e2e/wizard-flow.spec.ts`
  */
 
-test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard', () => {
+test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @sequential @hwis @esl', () => {
 	test.use({ role: 'admin' });
 
 	let testE2eTag: string | null = null;
@@ -235,32 +235,11 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard', (
 			}
 
 			await page.getByTestId('wizard-step4.tab-esl').click();
-			await page.getByTestId('wizard-step4.group-quiz').click();
-			await page
-				.getByTestId('wizard-step4.row-q1')
-				.getByRole('button', { name: 'Set batch start' })
-				.click();
-			const quizCells = await stepCalendarCells(page, 'wizard-step4-calendar').all();
-			expect(quizCells.length).toBeGreaterThan(0);
-			await quizCells[0]!.click();
 			for (let q = 1; q <= 6; q++) {
 				const rowId = `wizard-step4.row-q${q}`;
-				const text = (await page.getByTestId(rowId).textContent()) ?? '';
-				if (text.includes('unset')) {
-					expect(await placeRow(page, rowId, { row: rowId, button: 'Set window' }, q > 4)).toBe(
-						true
-					);
-				}
+				expect(await placeRow(page, rowId, { row: rowId, button: 'Set window' }, q > 4)).toBe(true);
 			}
 
-			await page.getByTestId('wizard-step4.group-dues').click();
-			await page
-				.getByTestId('wizard-step4.row-pd1')
-				.getByRole('button', { name: 'Set batch start' })
-				.click();
-			const dueCells = await stepCalendarCells(page, 'wizard-step4-calendar').all();
-			expect(dueCells.length).toBeGreaterThan(0);
-			await dueCells[0]!.click();
 			for (let d = 1; d <= dueCount; d++) {
 				for (const prefix of ['pd', 'rd'] as const) {
 					const rowId = `wizard-step4.row-${prefix}${d}`;
@@ -274,7 +253,6 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard', (
 				}
 			}
 
-			await page.getByTestId('wizard-step4.group-checks').click();
 			expect(
 				await placeRow(
 					page,
@@ -573,7 +551,6 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard', (
 		await expect(page.getByTestId('wizard-step4.row-grad')).toBeVisible();
 
 		await page.getByTestId('wizard-step4.tab-esl').click();
-		await page.getByTestId('wizard-step4.group-dues').click();
 		await expect(page.getByTestId('wizard-step4.row-pd1')).toBeVisible();
 		await expect(page.getByTestId('wizard-step4.row-pd2')).toBeVisible();
 		await expect(page.getByTestId('wizard-step4.row-pd3')).not.toBeVisible();
