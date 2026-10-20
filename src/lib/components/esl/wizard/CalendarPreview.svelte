@@ -261,6 +261,7 @@
 						<button
 							type="button"
 							data-testid={`${testId}.date-${day.date}`}
+							data-date={day.date}
 							disabled={!clickable}
 							onclick={(e) => onDateClick(day.date, e)}
 							onmouseenter={() => onDateHover(clickable ? day.date : null)}
@@ -280,6 +281,7 @@
 					{:else}
 						<div
 							data-testid={`${testId}.date-${day.date}`}
+							data-date={day.date}
 							title={day.offName ?? day.examLabel ?? day.date}
 							style={placement}
 							class="{box} border-r border-b"

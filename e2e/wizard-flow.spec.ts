@@ -174,10 +174,7 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @se
 			const endDateText = await page.getByTestId('wizard.step-2-end-summary').textContent();
 			expect(endDateText).not.toContain('—');
 
-			// Uncheck "last exam day" so Step 3 exercises the Final range.
-			await expect(page.getByTestId('wizard.step-2-last-exam-day')).toBeChecked();
-			await page.getByTestId('wizard.step-2-last-exam-day').click();
-			await expect(page.getByTestId('wizard.step-2-last-exam-day')).not.toBeChecked();
+			// The Step-2 "last exam day" toggle was retired; the Final range is derived.
 
 			await page.getByTestId('wizard.step-2-holiday.gov-preview').click();
 			await expect(page.getByTestId('wizard.step-2-holiday.gov-preview-result')).toBeVisible({
@@ -312,7 +309,14 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @se
 			await expect(page.getByTestId('wizard.step-5-edit-popover')).toBeVisible();
 			await page.getByPlaceholder('Optional detail').fill('E2E field day');
 			await page.getByRole('button', { name: 'Save changes' }).click();
-			await expect(list).toContainText('E2E field day');
+			// Rows are one line now, so the note is not printed in the list;
+			// reopen the row and read the note back from the popover.
+			await page.getByRole('button', { name: /^Edit Sports Day/ }).click();
+			await expect(page.getByPlaceholder('Optional detail')).toHaveValue('E2E field day');
+			await page
+				.getByTestId('wizard.step-5-edit-popover')
+				.getByRole('button', { name: 'Cancel' })
+				.click();
 
 			await page.getByRole('button', { name: 'Save semester' }).click();
 			await expect(page.getByTestId('wizard.step-5-save-success')).toBeVisible({

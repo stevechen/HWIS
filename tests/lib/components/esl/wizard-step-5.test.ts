@@ -103,19 +103,33 @@ describe('Step 5 Panel', () => {
 	it('shows events from all previous steps in the list', async () => {
 		await render(Step5Panel, { state: mockState, update: mockUpdate });
 
-		// Start of school event (dates render formatted: "Mon, Aug 31")
+		// Start of school event (short date, weekday dropped: "8/31")
 		await expect.element(page.getByText('Start of school')).toBeInTheDocument();
-		await expect.element(page.getByTestId('wizard.step-5-event-list')).toMatchTextContent('Aug 31');
+		await expect.element(page.getByTestId('wizard.step-5-event-list')).toMatchTextContent('8/31');
 
 		// Off days and exams, scoped to the event list (the calendar
-		// shows the same names on its day chips; exam titles repeat in
-		// their group badges, so assert on container text)
+		// shows the same names on its day chips). Notes are no longer
+		// printed on the row — only the title and its date.
 		const list = page.getByTestId('wizard.step-5-event-list');
-		await expect.element(list).toMatchTextContent('National Day');
-		await expect.element(list).toMatchTextContent('Double Ten Day');
+		await expect.element(list).toMatchTextContent('10/9');
+		await expect.element(list).toMatchTextContent('10/10');
 		await expect.element(list).toMatchTextContent('Exam 1');
 		await expect.element(list).toMatchTextContent('Exam 2');
 		await expect.element(list).toMatchTextContent('Final');
+	});
+
+	it('orders the list by block and date and drops weekday text', async () => {
+		await render(Step5Panel, { state: mockState, update: mockUpdate });
+
+		const list = page.getByTestId('wizard.step-5-event-list');
+		const text = list.element().textContent ?? '';
+		const order = ['Block 1', 'Exam 1', 'Block 2', 'Exam 2', 'Block 3', 'Final'];
+		const positions = order.map((label) => text.indexOf(label));
+		expect(positions.every((position) => position >= 0)).toBe(true);
+		expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+
+		// Weekday text is gone from the list (the calendar keeps its headers).
+		expect(text).not.toMatch(/\b(Mon|Tue|Wed|Thu|Fri)\b/);
 	});
 
 	it('shows Save and Cancel buttons', async () => {

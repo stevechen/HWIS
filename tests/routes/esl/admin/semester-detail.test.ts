@@ -145,10 +145,12 @@ describe('ESL admin semester edit wizard ([slug] route)', () => {
 
 		// The loader recovered the saved rows: start-of-school and the
 		// off day surface in the preview list (the stray task row that
-		// fits no slot lives only in the inferred report below).
+		// fits no slot lives only in the inferred report below). Rows are
+		// title + short date now; the off-day name lives in the popover.
 		const list = page.getByTestId('wizard.step-5-event-list');
 		await expect.element(list).toMatchTextContent('Start of school');
-		await expect.element(list).toMatchTextContent('Mid-Autumn Festival');
+		await expect.element(list).toMatchTextContent('Off');
+		await expect.element(list).toMatchTextContent('9/25');
 	});
 
 	it('surfaces the inferred report inline on the summary, never as a modal', async () => {

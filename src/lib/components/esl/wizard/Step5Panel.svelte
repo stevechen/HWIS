@@ -14,6 +14,12 @@
 	import { buildPreviewWeeks, type MockOffDay, type PreviewWeek } from './wizard-dates';
 	import { buildPreviewRows, buildSavePayload, type PreviewRow } from './wizard-save';
 	import {
+		buildPreviewSections,
+		formatPreviewDateRange,
+		formatSectionRange,
+		formatShortDate
+	} from './wizard-blocks';
+	import {
 		clearWizardState,
 		type WizardEventEdit,
 		type WizardMode,
@@ -91,6 +97,13 @@
 	// save payload, so preview and saved events can never disagree.
 	const unifiedEvents = $derived(buildPreviewRows(wizardState));
 
+	// Block axis: one section per ESL block (each closes on its exam), plus a
+	// tail for anything after the Final. Missing exam anchors fall back to a
+	// flat date sort (see wizard-blocks).
+	const previewSections = $derived(
+		buildPreviewSections(unifiedEvents, exams, startDate ?? null, endDate ?? null)
+	);
+
 	// Calendar preview weeks
 	const weeks: PreviewWeek[] = $derived(
 		startDate && endDate
@@ -122,6 +135,176 @@
 	let editNote = $state('');
 	let saveStatus: 'idle' | 'saving' | 'success' | 'error' = $state('idle');
 	let saveError = $state<string | null>(null);
+
+	// ---- Block connectors (best effort, Step 5 only) -------------------
+	// Four lines: one across the top, then one per block. Each block line
+	// leaves the calendar at the bottom of the week that closes the block
+	// (the Exam 1 / Exam 2 / Final week) and lands at the bottom of that
+	// block's last event row. The two columns have different row heights, so
+	// the lines slant — that slant is the grouping. Below `lg` the columns
+	// stack, so the overlay is cleared.
+	let panelEl = $state<HTMLElement>();
+	let listEl = $state<HTMLElement>();
+	let calendarEl = $state<HTMLElement>();
+	let listPad = $state(0);
+	let connectors = $state<{ key: string; d: string }[]>([]);
+	const axisKey = $derived(
+		previewSections.sections.map((section) => `${section.key}:${section.events.length}`).join('|')
+	);
+
+	type Rect = { top: number; bottom: number };
+
+	/** Every rendered calendar day cell, in viewport coordinates. */
+	function calendarRects(): Record<string, Rect> {
+		const rects: Record<string, Rect> = {};
+		if (panelEl === undefined) return rects;
+		for (const cell of panelEl.querySelectorAll<HTMLElement>('[data-date]')) {
+			const date = cell.dataset.date;
+			if (date === undefined) continue;
+			const rect = cell.getBoundingClientRect();
+			if (rect.height <= 0) continue;
+			rects[date] = { top: rect.top, bottom: rect.bottom };
+		}
+		return rects;
+	}
+
+	function spanForRange(rects: Record<string, Rect>, start: string, end: string): Rect | null {
+		let top = Number.POSITIVE_INFINITY;
+		let bottom = Number.NEGATIVE_INFINITY;
+		for (const [date, rect] of Object.entries(rects)) {
+			if (date < start || date > end) continue;
+			if (rect.top < top) top = rect.top;
+			if (rect.bottom > bottom) bottom = rect.bottom;
+		}
+		return top === Number.POSITIVE_INFINITY ? null : { top, bottom };
+	}
+
+	function calendarGrid(): HTMLElement | null {
+		if (panelEl === undefined) return null;
+		return panelEl.querySelector<HTMLElement>('[data-testid="wizard.step-5-calendar.month-col"]');
+	}
+
+	function clearAlignment() {
+		if (listPad !== 0) listPad = 0;
+		if (connectors.length > 0) connectors = [];
+	}
+
+	/** Nudge the list down (never up) so "above Block 1" sits level with the
+	 * calendar's top edge — that makes connector 1 horizontal. */
+	function measureAlignment() {
+		if (!previewSections.aligned || panelEl === undefined || listEl === undefined) {
+			clearAlignment();
+			return;
+		}
+		if (typeof window === 'undefined' || !window.matchMedia('(min-width: 1024px)').matches) {
+			clearAlignment();
+			return;
+		}
+		const grid = calendarGrid();
+		const firstSection = listEl.querySelector<HTMLElement>('[data-block-section]');
+		if (grid === null || firstSection === null) {
+			clearAlignment();
+			return;
+		}
+		const pad = Math.max(
+			0,
+			Math.round(
+				grid.getBoundingClientRect().top - firstSection.getBoundingClientRect().top + listPad
+			)
+		);
+		if (pad !== listPad) listPad = pad;
+		requestAnimationFrame(() => requestAnimationFrame(measureConnectors));
+	}
+
+	function measureConnectors() {
+		if (!previewSections.aligned || panelEl === undefined || listEl === undefined) {
+			connectors = [];
+			return;
+		}
+		if (typeof window === 'undefined' || !window.matchMedia('(min-width: 1024px)').matches) {
+			connectors = [];
+			return;
+		}
+		const grid = calendarGrid();
+		if (grid === null) {
+			connectors = [];
+			return;
+		}
+		const panelRect = panelEl.getBoundingClientRect();
+		const gridRect = grid.getBoundingClientRect();
+		const listRect = listEl.getBoundingClientRect();
+		const x1 = Math.round(gridRect.right - panelRect.left);
+		const x2 = Math.round(listRect.left - panelRect.left);
+		if (x2 - x1 < 8) {
+			connectors = [];
+			return;
+		}
+		const rects = calendarRects();
+		const next: { key: string; d: string }[] = [];
+
+		// 1. Calendar top → above the Block 1 header.
+		const firstSection = listEl.querySelector<HTMLElement>('[data-block-section]');
+		const listTop = Math.round(
+			(firstSection?.getBoundingClientRect().top ?? listRect.top) - panelRect.top
+		);
+		next.push({
+			key: 'top',
+			d: `M ${x1} ${Math.round(gridRect.top - panelRect.top)} L ${x2} ${listTop}`
+		});
+
+		// 2–4. One line per block: closing week bottom → last event row bottom.
+		for (const section of previewSections.sections) {
+			if (section.kind !== 'block') continue;
+			if (section.start === null || section.end === null || section.events.length === 0) continue;
+			const span = spanForRange(rects, section.start, section.end);
+			if (span === null) continue;
+			const sectionEl = listEl.querySelector<HTMLElement>(`[data-block-section="${section.key}"]`);
+			if (sectionEl === null) continue;
+			const rows = sectionEl.querySelectorAll<HTMLElement>('[data-event-row]');
+			const lastRow: Element = rows.length > 0 ? rows[rows.length - 1]! : sectionEl;
+			const calBottom = section.key === 'block-3' ? gridRect.bottom : span.bottom;
+			next.push({
+				key: section.key,
+				d: `M ${x1} ${Math.round(calBottom - panelRect.top)} L ${x2} ${Math.round(
+					lastRow.getBoundingClientRect().bottom - panelRect.top
+				)}`
+			});
+		}
+
+		if (JSON.stringify(next) !== JSON.stringify(connectors)) connectors = next;
+	}
+
+	function connectorTone(key: string): string {
+		switch (key) {
+			case 'block-1':
+				return 'text-emerald-500';
+			case 'block-2':
+				return 'text-sky-500';
+			case 'block-3':
+				return 'text-amber-500';
+			default:
+				return 'text-gray-400';
+		}
+	}
+
+	$effect(() => {
+		// Re-measure after paint whenever the block axis changes.
+		if (axisKey.length === 0 && previewSections.sections.length === 0) return;
+		const frame = requestAnimationFrame(() => measureAlignment());
+		return () => cancelAnimationFrame(frame);
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const remeasure = () => measureAlignment();
+		window.addEventListener('resize', remeasure);
+		const observer = new ResizeObserver(remeasure);
+		if (calendarEl !== undefined) observer.observe(calendarEl);
+		return () => {
+			window.removeEventListener('resize', remeasure);
+			observer.disconnect();
+		};
+	});
 
 	// Custom event ID counter
 	let customIdCounter = $state(0);
@@ -347,17 +530,6 @@
 		editError = null;
 	}
 
-	// Format date for display
-	function formatDate(date: string): string {
-		const d = new Date(`${date}T00:00:00Z`);
-		return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-	}
-
-	function formatDateRange(start: string, end: string): string {
-		if (start === end) return formatDate(start);
-		return `${formatDate(start)} – ${formatDate(end)}`;
-	}
-
 	// Event type colors for list
 	function getEventColor(event: PreviewRow): string {
 		switch (event.type) {
@@ -394,7 +566,8 @@
 
 {#snippet eventListItem(event: PreviewRow)}
 	<div
-		class="cursor-pointer rounded border p-2 text-sm transition-colors hover:bg-gray-50 {getEventColor(
+		data-event-row
+		class="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 rounded border px-2 py-1 text-xs leading-snug transition-colors hover:bg-gray-50 {getEventColor(
 			event
 		)}"
 		onclick={(e) => openEditPopover(event, e.clientX, e.clientY)}
@@ -407,53 +580,41 @@
 		}}
 		tabindex="0"
 		role="button"
-		aria-label={`Edit ${event.title} on ${formatDate(event.date)}`}
+		aria-label={`Edit ${event.title} on ${formatShortDate(event.date)}`}
+		title={event.note ?? undefined}
 	>
-		<div class="flex items-start justify-between gap-2">
-			<div class="min-w-0 flex-1">
-				<div class="flex flex-wrap items-center gap-2">
-					<span class="truncate font-medium">{event.title}</span>
-					{#if event.examGroup}
-						<span class="rounded bg-white/70 px-1.5 py-0.5 text-[10px] font-medium"
-							>{event.examGroup}</span
-						>
-					{/if}
-					{#if getTargetBadge(event)}
-						<span class="rounded bg-white/70 px-1.5 py-0.5 text-[10px] font-medium"
-							>{getTargetBadge(event)}</span
-						>
-					{/if}
-					{#if event.customId}
-						<span class="rounded bg-white/70 px-1.5 py-0.5 text-[10px] font-medium">Custom</span>
-					{/if}
-				</div>
-				<div class="mt-0.5 text-xs opacity-80">
-					{event.endDate && event.endDate !== event.date
-						? formatDateRange(event.date, event.endDate)
-						: formatDate(event.date)}
-					{#if event.note}
-						<span class="ml-2">— {event.note}</span>
-					{/if}
-				</div>
-			</div>
-			{#if event.customId}
-				<button
-					type="button"
-					class="ml-2 text-xs text-red-600 hover:underline"
-					onclick={(e) => {
-						e.stopPropagation();
-						removeCustomEvent(event.customId!);
-					}}
-					aria-label={`Remove custom event ${event.title}`}
-				>
-					Remove
-				</button>
-			{/if}
-		</div>
+		<span class="min-w-0 font-medium break-words">{event.title}</span>
+		{#if event.examGroup && event.examGroup !== event.title}
+			<span class="rounded bg-white/70 px-1 py-0.5 text-[10px] font-medium">{event.examGroup}</span>
+		{/if}
+		{#if getTargetBadge(event)}
+			<span class="rounded bg-white/70 px-1 py-0.5 text-[10px] font-medium"
+				>{getTargetBadge(event)}</span
+			>
+		{/if}
+		{#if event.customId}
+			<span class="rounded bg-white/70 px-1 py-0.5 text-[10px] font-medium">Custom</span>
+		{/if}
+		<span class="ml-auto shrink-0 text-[11px] tabular-nums opacity-75">
+			{formatPreviewDateRange(event.date, event.endDate)}
+		</span>
+		{#if event.customId}
+			<button
+				type="button"
+				class="shrink-0 text-[11px] text-red-600 hover:underline"
+				onclick={(e) => {
+					e.stopPropagation();
+					removeCustomEvent(event.customId!);
+				}}
+				aria-label={`Remove custom event ${event.title}`}
+			>
+				Remove
+			</button>
+		{/if}
 	</div>
 {/snippet}
 
-<div data-testid="wizard.step-5-panel" class="space-y-4">
+<div bind:this={panelEl} data-testid="wizard.step-5-panel" class="relative space-y-4">
 	<!-- Header with actions -->
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<div>
@@ -608,10 +769,12 @@
 		{/key}
 	{/if}
 
-	<!-- Calendar preview + Event list side by side -->
-	<div class="grid gap-6 lg:grid-cols-[1fr_380px]">
+	<!-- Calendar preview + Event list side by side. The calendar keeps its
+		intrinsic width so the gutter (the grid gap) stays narrow enough to
+		draw block connectors between the two columns. -->
+	<div class="grid gap-x-10 gap-y-6 lg:grid-cols-[auto_minmax(0,1fr)]">
 		<!-- Calendar Preview -->
-		<div class="min-w-0">
+		<div class="min-w-0" bind:this={calendarEl}>
 			<h3 class="mb-2 text-sm font-semibold text-gray-800">Calendar preview</h3>
 			<CalendarPreview
 				{weeks}
@@ -623,28 +786,65 @@
 		</div>
 
 		<!-- Event List -->
-		<aside data-testid="wizard.step-5-event-list" class="max-h-[600px] space-y-3 overflow-y-auto">
+		<aside
+			bind:this={listEl}
+			data-testid="wizard.step-5-event-list"
+			class="min-w-0 space-y-3 lg:max-w-[520px]"
+		>
 			<h3 class="text-sm font-semibold text-gray-800">All events ({unifiedEvents.length})</h3>
 
 			{#if unifiedEvents.length === 0}
 				<p class="text-sm text-gray-500">No events configured yet.</p>
 			{:else}
-				<!-- Grouped by source for clarity -->
-				{#each [{ source: 'step1', label: 'Semester' }, { source: 'step2', label: 'Holidays' }, { source: 'step3', label: 'Exams' }, { source: 'step4', label: 'School/ESL events' }, { source: 'step5', label: 'Custom events' }] as group (group.source)}
-					{#if unifiedEvents.some((e) => e.source === group.source)}
-						<div class="space-y-1">
-							<h4 class="mb-1 text-xs font-medium tracking-wide text-gray-500 uppercase">
-								{group.label}
-							</h4>
-							{#each unifiedEvents.filter((e) => e.source === group.source) as event (event.key)}
-								{@render eventListItem(event)}
-							{/each}
-						</div>
-					{/if}
-				{/each}
+				<!-- Ordered by block, then date (wizard-blocks). No inner scroll:
+					the page grows so blocks stay on one unbroken vertical axis. -->
+				<div class="space-y-3" style:padding-top={listPad > 0 ? `${listPad}px` : undefined}>
+					{#each previewSections.sections as section (section.key)}
+						<section data-block-section={section.key} class="space-y-1">
+							{#if section.label}
+								<h4
+									class="flex flex-wrap items-baseline gap-x-1.5 text-xs font-medium tracking-wide text-gray-500 uppercase"
+								>
+									<span>{section.label}</span>
+									{#if section.start !== null}
+										<span class="font-normal tracking-normal text-gray-400 normal-case"
+											>· {formatSectionRange(section)} · {section.events.length}
+											{section.events.length === 1 ? 'event' : 'events'}</span
+										>
+									{/if}
+								</h4>
+							{/if}
+							{#if section.events.length === 0}
+								<p class="px-1 text-xs text-gray-400">No events</p>
+							{:else}
+								{#each section.events as event (event.key)}
+									{@render eventListItem(event)}
+								{/each}
+							{/if}
+						</section>
+					{/each}
+				</div>
 			{/if}
 		</aside>
 	</div>
+
+	<!-- Block connectors: link each block's calendar span to its event group
+		in the gutter, the way Kaleidoscope joins diff hunks. Decoration only. -->
+	<svg
+		class="pointer-events-none absolute inset-0 hidden h-full w-full lg:block"
+		aria-hidden="true"
+	>
+		{#each connectors as connector (connector.key)}
+			<path
+				d={connector.d}
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.5"
+				stroke-linejoin="round"
+				class={connectorTone(connector.key)}
+			/>
+		{/each}
+	</svg>
 
 	<!-- Custom Event Modal -->
 	{#if showCustomModal}
