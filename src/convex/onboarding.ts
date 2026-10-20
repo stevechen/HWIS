@@ -93,6 +93,69 @@ export const ensureUserProfile = mutation({
 	}
 });
 
+/**
+ * Ensures the authenticated user has an ESL department role.
+ * Call this from ESL pages when the user might have an old profile
+ * missing the `departmentRoles.esl` field.
+ */
+export const ensureEslDepartmentRole = mutation({
+	args: {},
+	handler: async (ctx) => {
+		const authUser = await getAuthenticatedUser(ctx);
+
+		if (!authUser) {
+			throw new Error('Not authenticated');
+		}
+
+		const authId = authUser.authId || (typeof authUser._id === 'string' ? authUser._id : undefined);
+		if (!authId) {
+			throw new Error('Missing authId');
+		}
+
+		// Get email directly from Better Auth (not from profile, which doesn't have email field)
+		const betterAuthUser = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
+		const userEmail = betterAuthUser?.email?.toLowerCase();
+
+		// Students don't need ESL department roles
+		if (isStudentEmailAddress(userEmail)) {
+			return { updated: false, reason: 'student' };
+		}
+
+		const allowlistedRole = getAllowlistedRole(userEmail);
+		const role = allowlistedRole ?? 'teacher';
+		const eslRole = mapRoleToEsl(role);
+		const internationalRole = mapRoleToInternational(role);
+
+		const existing = await ctx.db
+			.query('users')
+			.withIndex('by_authId', (q) => q.eq('authId', authId))
+			.first();
+
+		if (!existing) {
+			// No profile yet - ensureUserProfile will create it
+			return { updated: false, reason: 'no_profile' };
+		}
+
+		// Check if ESL department role is already set correctly
+		const currentRoles = existing.departmentRoles ?? {};
+		const currentEslRole = currentRoles.esl;
+
+		if (currentEslRole === eslRole && currentRoles.international === internationalRole) {
+			return { updated: false, reason: 'already_correct', eslRole: currentEslRole };
+		}
+
+		// Update the department roles
+		await ctx.db.patch(existing._id, {
+			departmentRoles: {
+				international: internationalRole,
+				esl: eslRole
+			}
+		});
+
+		return { updated: true, eslRole, previousEslRole: currentEslRole ?? null };
+	}
+});
+
 export const setMyRole = mutation({
 	args: {
 		role: v.optional(v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'))),
