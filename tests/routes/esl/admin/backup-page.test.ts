@@ -74,16 +74,50 @@ describe('ESL admin backup page', () => {
 		};
 	});
 
-	it('renders the ESL backup manager without the HWIS-only file and danger sections', async () => {
+	it('renders the ESL backup manager without the HWIS-only file section', async () => {
 		await render(BackupHarness);
 
 		await expect.element(page.getByText('Backup History')).toBeInTheDocument();
 		await expect
 			.element(page.getByRole('button', { name: 'Force Backup Now' }))
 			.toBeInTheDocument();
-		// File restore and clear-all are HWIS-only until the ESL restore path (#246).
+		// File restore is International-only. The clear-data Danger Zone is
+		// Super-only, so a plain ESL admin must not see it either.
 		await expect.element(page.getByText('Restore from File')).not.toBeInTheDocument();
 		await expect.element(page.getByText('Danger Zone')).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Clear ESL Data' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('shows the ESL Danger Zone clear button to super users', async () => {
+		mockViewer = {
+			viewer: { _id: 'user-super', role: 'super', name: 'Sam Super' },
+			isAdmin: true,
+			status: 'active'
+		};
+
+		await render(BackupHarness);
+
+		await expect.element(page.getByText('Danger Zone')).toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Clear ESL Data' })).toBeInTheDocument();
+	});
+
+	it('clears ESL data via clearEslData when a super user confirms', async () => {
+		mockViewer = {
+			viewer: { _id: 'user-super', role: 'super', name: 'Sam Super' },
+			isAdmin: true,
+			status: 'active'
+		};
+
+		await render(BackupHarness);
+
+		await page.getByRole('button', { name: 'Clear ESL Data' }).click();
+		await page.getByRole('button', { name: 'Confirm & Clear' }).click();
+
+		await vi.waitFor(() =>
+			expect(mockMutation).toHaveBeenCalledWith(api.testSetup.clearEslData, {})
+		);
 	});
 
 	it('lists only ESL backups and hides International rows', async () => {

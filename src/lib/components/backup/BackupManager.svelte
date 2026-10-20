@@ -47,6 +47,15 @@
 	const isSuperUser = $derived(session.viewer?.role === 'super');
 	const departmentLabel = $derived(department === 'esl' ? 'ESL' : 'International');
 
+	// The Danger Zone has two shapes: the International card clears HWIS entities
+	// and International backups for any International admin; the ESL card clears
+	// only ESL department data and is Super-only (mirrors `clearEslData`'s gate).
+	const showDangerZone = $derived(department === 'international' || isSuperUser);
+	const clearButtonLabel = $derived(department === 'esl' ? 'Clear ESL Data' : 'Clear All Data');
+	const clearScopeLabel = $derived(
+		department === 'esl' ? 'ALL ESL department data' : 'ALL International data'
+	);
+
 	let showForceBackupDialog = $state(false);
 	let customBackupName = $state('');
 	let showRestoreDialog = $state(false);
@@ -306,7 +315,11 @@
 	async function handleClearAll() {
 		isClearing = true;
 		try {
-			await client.mutation(api.backup.clearAllData, {});
+			if (department === 'esl') {
+				await client.mutation(api.testSetup.clearEslData, {});
+			} else {
+				await client.mutation(api.backup.clearAllData, {});
+			}
 		} catch (e) {
 			alert('Failed: ' + (e instanceof Error ? e.message : String(e)));
 		} finally {
@@ -659,10 +672,10 @@
 		</Card.Content>
 	</Card.Root>
 
-	<!-- Danger Zone Card — International only. `clearAllData` clears HWIS
-	     entities and International backups; ESL data and ESL backups survive,
-	     so it is not offered on the ESL page. -->
-	{#if department === 'international'}
+	<!-- Danger Zone Card. The International card clears HWIS entities and
+	     International backups (ESL data and ESL backups survive). The ESL card
+	     clears only ESL department data and is Super-only. -->
+	{#if showDangerZone}
 		<Card.Root class="border-destructive">
 			<Card.Header>
 				<div class="mb-2 flex items-center gap-3">
@@ -673,7 +686,11 @@
 					</div>
 					<Card.Title>Danger Zone</Card.Title>
 				</div>
-				<Card.Description>Permanently delete all data.</Card.Description>
+				<Card.Description>
+					{department === 'esl'
+						? 'Permanently delete all ESL department data.'
+						: 'Permanently delete all data.'}
+				</Card.Description>
 			</Card.Header>
 			<Card.Content>
 				<Button
@@ -681,8 +698,9 @@
 					class="w-full"
 					onclick={() => (showClearDialog = true)}
 					disabled={isClearing}
+					data-testid="backup.clear-data"
 				>
-					{isClearing ? 'Clearing...' : 'Clear All Data'}
+					{isClearing ? 'Clearing...' : clearButtonLabel}
 				</Button>
 			</Card.Content>
 		</Card.Root>
@@ -941,7 +959,7 @@
 			<h2 class="text-lg font-semibold">Clear All Data</h2>
 			<div class="py-4">
 				<p class="text-destructive text-sm font-medium">
-					This will permanently delete ALL data. This cannot be undone.
+					This will permanently delete {clearScopeLabel}. This cannot be undone.
 				</p>
 			</div>
 			<div class="flex justify-end gap-2">

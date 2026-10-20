@@ -245,6 +245,8 @@ export interface E2EUtils {
 	 */
 	eslStudentCohorts: (year: string, grade: number) => Promise<Record<string, string>>;
 	setEslRoleByEmail: (email: string, eslRole: 'admin' | 'teacher' | null) => Promise<unknown>;
+	/** Super-only test helper: delete every ESL table row. */
+	clearEslData: () => Promise<unknown>;
 	createEslSemester: (opts: CreateEslSemesterOptions) => Promise<unknown>;
 	createEslCohort: (opts: CreateEslCohortOptions) => Promise<{ classIds: string[] }>;
 	setEslClassSchedule: (opts: SetEslClassScheduleOptions) => Promise<unknown>;
@@ -587,6 +589,10 @@ export function getE2EUtils(): E2EUtils {
 
 		async setEslRoleByEmail(email: string, eslRole: 'admin' | 'teacher' | null) {
 			return await c.mutation(api.testSetup.setEslRoleByEmail, { email, eslRole });
+		},
+
+		async clearEslData() {
+			return await c.mutation(api.testSetup.clearEslData, {});
 		},
 
 		async createEslSemester(opts: CreateEslSemesterOptions) {

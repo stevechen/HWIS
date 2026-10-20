@@ -1,6 +1,10 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { authComponent, requireAdminForSensitiveOperation } from './auth';
+import {
+	authComponent,
+	requireAdminForSensitiveOperation,
+	requireSuperForSensitiveOperation
+} from './auth';
 import {
 	resolveDepartmentRoles,
 	type Department,
@@ -248,5 +252,54 @@ export const setEslRoleByEmail = mutation({
 		});
 
 		return { success: true, userId: profile._id, eslRole: args.eslRole };
+	}
+});
+
+/**
+ * Test-only: clear all ESL department data.
+ *
+ * Deletes all ESL tables: cohorts, students, classes, class meetings,
+ * teacher availability, semesters, events, teacher notes, and holiday cache.
+ * Does NOT touch International tables (students, evaluations, etc.) or users.
+ *
+ * Requires a Super user (or the unit-test super token) like other sensitive
+ * test-only mutations. Useful for manual testing and E2E test teardown.
+ */
+export const clearEslData = mutation({
+	args: {
+		testToken: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireSuperForSensitiveOperation(ctx, args.testToken);
+
+		// Clear ESL tables in dependency order (children first)
+		const teacherNotes = await ctx.db.query('teacher_notes').collect();
+		for (const note of teacherNotes) await ctx.db.delete(note._id);
+
+		const eslEvents = await ctx.db.query('esl_events').collect();
+		for (const event of eslEvents) await ctx.db.delete(event._id);
+
+		const eslSemesters = await ctx.db.query('esl_semesters').collect();
+		for (const semester of eslSemesters) await ctx.db.delete(semester._id);
+
+		const eslTeacherAvailability = await ctx.db.query('esl_teacher_availability').collect();
+		for (const avail of eslTeacherAvailability) await ctx.db.delete(avail._id);
+
+		const eslClassMeetings = await ctx.db.query('esl_class_meetings').collect();
+		for (const meeting of eslClassMeetings) await ctx.db.delete(meeting._id);
+
+		const eslClasses = await ctx.db.query('esl_classes').collect();
+		for (const cls of eslClasses) await ctx.db.delete(cls._id);
+
+		const eslStudents = await ctx.db.query('esl_students').collect();
+		for (const student of eslStudents) await ctx.db.delete(student._id);
+
+		const eslCohorts = await ctx.db.query('esl_cohorts').collect();
+		for (const cohort of eslCohorts) await ctx.db.delete(cohort._id);
+
+		const eslHolidayCache = await ctx.db.query('esl_holiday_cache').collect();
+		for (const holiday of eslHolidayCache) await ctx.db.delete(holiday._id);
+
+		return { message: 'ESL data cleared' };
 	}
 });
