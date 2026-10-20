@@ -5,7 +5,8 @@ import { render } from 'vitest-browser-svelte';
 const gotoMock = vi.fn();
 
 vi.mock('$app/navigation', () => ({
-	goto: (...args: unknown[]) => gotoMock(...args)
+	goto: (...args: unknown[]) => gotoMock(...args),
+	beforeNavigate: vi.fn()
 }));
 
 import WizardPage from '$src/routes/esl/admin/semesters/new/wizard/+page.svelte';

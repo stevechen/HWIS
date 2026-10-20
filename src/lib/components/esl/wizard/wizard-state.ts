@@ -26,6 +26,14 @@ import {
 export type WizardStepNumber = 1 | 2 | 3 | 4 | 5;
 
 /**
+ * What the shell is hosting: `create` walks a new semester with sequential
+ * gating and session resume; `edit` opens a loaded semester (initialState),
+ * keeps every step freely navigable, and never touches sessionStorage until
+ * a successful save clears it.
+ */
+export type WizardMode = 'create' | 'edit';
+
+/**
  * Versioned key so a shape change starts a fresh wizard instead of feeding
  * an old payload into a new parser.
  */
@@ -39,12 +47,21 @@ export type WizardStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 export interface WizardStepApi {
 	state: WizardState;
 	step: WizardStepNumber;
+	/** Create walks a new semester; edit reconciles a loaded one (Step 5). */
+	mode?: WizardMode;
 	/**
 	 * Apply a change to the wizard state and persist it. Steps never
 	 * mutate `state` directly — going through here is what keeps the
 	 * sessionStorage copy and the screen in step.
 	 */
 	update: (mutate: (draft: WizardState) => void) => void;
+	/**
+	 * Edit mode only: disarm the unsaved-changes guards after a save landed.
+	 * Without it the success redirect back to the semester list would be
+	 * vetoed by the guard, because the state still differs from what the
+	 * loader recovered. A no-op in create mode.
+	 */
+	markSaved?: () => void;
 }
 
 export interface WizardOffDay {

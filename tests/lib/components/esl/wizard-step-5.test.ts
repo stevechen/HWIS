@@ -3,6 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const actionMock = vi.fn();
+const gotoMock = vi.fn();
+
+vi.mock('$app/navigation', () => ({
+	goto: (...args: unknown[]) => gotoMock(...args)
+}));
 
 vi.mock('convex-svelte', () => ({
 	useQuery: vi.fn(() => ({
@@ -214,5 +219,157 @@ describe('Step 5 Panel', () => {
 
 		await expect.element(page.getByText(/Semester explode/)).toBeInTheDocument();
 		await expect.element(page.getByTestId('wizard.step-5-save-success')).not.toBeInTheDocument();
+	});
+});
+
+/**
+ * Edit mode (ticket #255): "Save changes" runs a dry-run reconcile first,
+ * shows the change summary, confirms when rows are removed, then writes.
+ * Success clears the session wizard state and returns to the semesters list.
+ */
+describe('Step 5 Panel (edit mode)', () => {
+	const SUMMARY_NO_REMOVAL = {
+		added: 1,
+		changed: 2,
+		removed: 0,
+		startDateChanged: false,
+		dryRun: true,
+		addedEvents: [{ type: 'reminder', title: 'Quiz 2', date: '2026-11-10' }],
+		changedEvents: [
+			{ eventId: 'e7', title: 'Quiz 1', date: '2026-10-19' },
+			{ eventId: 'e9', title: 'Start of school', date: '2026-08-31' }
+		],
+		removedEvents: []
+	};
+
+	const SUMMARY_WITH_REMOVAL = {
+		added: 0,
+		changed: 1,
+		removed: 2,
+		startDateChanged: false,
+		dryRun: true,
+		addedEvents: [],
+		changedEvents: [{ eventId: 'e7', title: 'Quiz 1', date: '2026-10-19' }],
+		removedEvents: [
+			{ eventId: 'e1', title: 'Quiz 2', date: '2026-11-10' },
+			{ eventId: 'e2', title: 'Custom banner', date: '2026-12-01' }
+		]
+	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	function editState() {
+		return { ...mockState, semesterId: 'sem_s1' };
+	}
+
+	it('Save changes runs dry-run first and shows the change summary', async () => {
+		actionMock.mockResolvedValue(SUMMARY_NO_REMOVAL);
+		await render(Step5Panel, { state: editState(), update: mockUpdate, mode: 'edit' });
+
+		await page.getByRole('button', { name: 'Save changes' }).click();
+
+		await expect.element(page.getByTestId('wizard.step-5-edit-summary')).toBeInTheDocument();
+		expect(actionMock).toHaveBeenCalledTimes(1);
+		const args = actionMock.mock.calls[0]?.[1] as Record<string, unknown>;
+		expect(args).toMatchObject({
+			semesterId: 'sem_s1',
+			dryRun: true,
+			year: '2026-2027',
+			term: 'S1',
+			startDate: '2026-08-31'
+		});
+		await expect.element(page.getByTestId('wizard.step-5-summary-added')).toMatchTextContent('1');
+		await expect.element(page.getByTestId('wizard.step-5-summary-changed')).toMatchTextContent('2');
+		await expect.element(page.getByTestId('wizard.step-5-summary-removed')).toMatchTextContent('0');
+		// Nothing removed — no removal confirm.
+		await expect.element(page.getByTestId('wizard.step-5-confirm')).not.toBeInTheDocument();
+	});
+
+	it('applies the real save right from the summary when nothing is removed', async () => {
+		actionMock
+			.mockResolvedValueOnce(SUMMARY_NO_REMOVAL) // dry-run
+			.mockResolvedValueOnce(SUMMARY_NO_REMOVAL); // real save
+		sessionStorage.setItem('hwis:esl-wizard', '{"stale":"draft"}');
+		const markSaved = vi.fn();
+		await render(Step5Panel, {
+			state: editState(),
+			update: mockUpdate,
+			mode: 'edit',
+			markSaved
+		});
+
+		await page.getByRole('button', { name: 'Save changes' }).click();
+		await page.getByTestId('wizard.step-5-apply').click();
+
+		await expect.element(page.getByTestId('wizard.step-5-save-success')).toBeInTheDocument();
+		expect(actionMock).toHaveBeenCalledTimes(2);
+		const realArgs = actionMock.mock.calls[1]?.[1] as Record<string, unknown>;
+		expect(realArgs).toMatchObject({ semesterId: 'sem_s1', dryRun: false });
+		// Session wizard state is cleared and the route returns to the list.
+		expect(sessionStorage.getItem('hwis:esl-wizard')).toBeNull();
+		// The guard is disarmed before routing, or the redirect would be vetoed.
+		expect(markSaved).toHaveBeenCalledTimes(1);
+		await vi.waitFor(() => {
+			expect(gotoMock).toHaveBeenCalledWith('/esl/admin/semesters');
+		});
+	});
+
+	it('confirms before saving when the dry-run reports removals', async () => {
+		actionMock
+			.mockResolvedValueOnce(SUMMARY_WITH_REMOVAL) // dry-run
+			.mockResolvedValueOnce(SUMMARY_WITH_REMOVAL); // real save
+		await render(Step5Panel, { state: editState(), update: mockUpdate, mode: 'edit' });
+
+		await page.getByRole('button', { name: 'Save changes' }).click();
+		await expect.element(page.getByTestId('wizard.step-5-edit-summary')).toBeInTheDocument();
+
+		const confirm = page.getByTestId('wizard.step-5-confirm');
+		await expect.element(confirm).toBeInTheDocument();
+		await expect.element(confirm).toMatchTextContent('Quiz 2');
+		await expect.element(confirm).toMatchTextContent('Custom banner');
+		await expect.element(page.getByTestId('wizard.step-5-summary-removed')).toMatchTextContent('2');
+
+		// No real save happens before the confirm click.
+		expect(actionMock).toHaveBeenCalledTimes(1);
+		await page.getByTestId('wizard.step-5-apply').click();
+		await expect.element(page.getByTestId('wizard.step-5-save-success')).toBeInTheDocument();
+		expect(actionMock).toHaveBeenCalledTimes(2);
+		const secondCall = actionMock.mock.calls[1];
+		expect(secondCall).toBeDefined();
+		if (secondCall === undefined) return;
+		expect((secondCall[1] as Record<string, unknown>).dryRun).toBe(false);
+		await vi.waitFor(() => {
+			expect(gotoMock).toHaveBeenCalledWith('/esl/admin/semesters');
+		});
+	});
+
+	it('Keep editing abandons the review without touching the backend', async () => {
+		actionMock.mockResolvedValue(SUMMARY_WITH_REMOVAL);
+		await render(Step5Panel, { state: editState(), update: mockUpdate, mode: 'edit' });
+
+		await page.getByRole('button', { name: 'Save changes' }).click();
+		await expect.element(page.getByTestId('wizard.step-5-edit-summary')).toBeInTheDocument();
+
+		await page.getByRole('button', { name: 'Keep editing' }).click();
+
+		await expect.element(page.getByTestId('wizard.step-5-edit-summary')).not.toBeInTheDocument();
+		expect(actionMock).toHaveBeenCalledTimes(1);
+		expect(gotoMock).not.toHaveBeenCalled();
+	});
+
+	it('shows the backend refusal as the standard error region', async () => {
+		actionMock.mockRejectedValueOnce(
+			new Error('Exam rows cannot be removed — move the exam in Step 3 instead.')
+		);
+		await render(Step5Panel, { state: editState(), update: mockUpdate, mode: 'edit' });
+
+		await page.getByRole('button', { name: 'Save changes' }).click();
+
+		await expect.element(page.getByText(/Exam rows cannot be removed/)).toBeInTheDocument();
+		expect(actionMock).toHaveBeenCalledTimes(1);
+		await expect.element(page.getByTestId('wizard.step-5-save-success')).not.toBeInTheDocument();
+		expect(gotoMock).not.toHaveBeenCalled();
 	});
 });
