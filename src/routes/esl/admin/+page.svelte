@@ -49,5 +49,15 @@
 				Assign ESL Admin and ESL Teacher roles to staff.
 			</span>
 		</a>
+		<a
+			href="/esl/admin/backup"
+			data-testid="esl-admin.overview.backup"
+			class="rounded-lg border bg-white p-6 shadow-sm hover:shadow"
+		>
+			<span class="text-lg font-semibold">Backup &amp; Restore</span>
+			<span class="text-muted-foreground mt-1 block text-sm">
+				Create and restore snapshots of ESL department data.
+			</span>
+		</a>
 	</nav>
 </div>
