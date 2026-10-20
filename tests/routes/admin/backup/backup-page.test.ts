@@ -15,6 +15,7 @@ let mockBackups:
 			creatorName?: string;
 			creatorRole?: 'super' | 'admin' | 'teacher' | 'student';
 			source?: string;
+			department?: 'international' | 'esl';
 			createdAt: number;
 			data: { students?: unknown[] };
 	  }>
@@ -360,5 +361,42 @@ describe('Backup Admin Page', () => {
 	it('sanitizeFilename replaces unsafe characters with underscores', async () => {
 		expect(sanitizeFilename('My/Backup: Name?.json')).toBe('My_Backup__Name_.json');
 		expect(sanitizeFilename('plain-name_1.txt')).toBe('plain-name_1.txt');
+	});
+
+	it('hides ESL backups and keeps legacy department-less rows visible', async () => {
+		mockBackups = [
+			{
+				_id: 'backup-intl',
+				name: 'International Snapshot',
+				filename: 'backup-intl.json',
+				department: 'international',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			},
+			{
+				_id: 'backup-esl',
+				name: 'ESL Snapshot',
+				filename: 'backup-esl.json',
+				department: 'esl',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			},
+			{
+				_id: 'backup-legacy',
+				name: 'Legacy Snapshot',
+				filename: 'backup-legacy.json',
+				source: 'manual',
+				createdAt: Date.now(),
+				data: { students: [] }
+			}
+		];
+
+		await render(BackupPage);
+
+		await expect.element(page.getByText('International Snapshot')).toBeInTheDocument();
+		await expect.element(page.getByText('Legacy Snapshot')).toBeInTheDocument();
+		await expect.element(page.getByText('ESL Snapshot')).not.toBeInTheDocument();
 	});
 });
