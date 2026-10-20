@@ -43,7 +43,8 @@ const IMPORT_REPORT = {
 		outOfRange: 2,
 		plainWeekends: 3,
 		weekendHolidays: 1,
-		needsReview: []
+		needsReview: [],
+		insertedDays: [{ date: '2026-09-28', name: "Teacher's Day" }]
 	}
 } as const;
 
@@ -102,6 +103,20 @@ describe('HolidayOffDayImport', () => {
 			.element(page.getByTestId('esl-offday-import.gov-report'))
 			.toMatchTextContent(/1 off day added/);
 		expect(actionMock).toHaveBeenCalledTimes(2);
+	});
+
+	it('reports the rows it actually inserted so parents can merge them', async () => {
+		const onImported = vi.fn();
+		await render(HolidayOffDayImport, { ...PROPS, onImported });
+		click('esl-offday-import.gov-preview');
+		await expect
+			.element(page.getByTestId('esl-offday-import.gov-preview-result'))
+			.toBeInTheDocument();
+		click('esl-offday-import.gov-import');
+
+		await vi.waitFor(() => {
+			expect(onImported).toHaveBeenCalledWith([{ date: '2026-09-28', name: "Teacher's Day" }]);
+		});
 	});
 
 	it('keeps the manual dropzone with submit disabled until a file is picked', async () => {

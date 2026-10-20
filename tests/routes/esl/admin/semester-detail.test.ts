@@ -83,7 +83,7 @@ const EVENTS = [
 	}
 ];
 
-/** Dispatch the two queries the edit page makes. `api` is a Proxy
+/** Dispatch the queries the edit page makes. `api` is a Proxy
  * (`anyApi`) that mints a fresh reference object per access, so identity
  * comparison can never match — the stable function name can. */
 function mockQueries() {
@@ -95,9 +95,27 @@ function mockQueries() {
 		if (name === 'esl/events:listBySemester') {
 			return { data: EVENTS, isLoading: false, error: null };
 		}
+		if (name === 'esl/checklist:status') {
+			return { data: CHECKLIST_STATUS, isLoading: false, error: null };
+		}
 		return { data: null, isLoading: false, error: null };
 	}) as never);
 }
+
+const CHECKLIST_STATUS = {
+	window: { start: '2026-08-31', end: '2027-01-20' },
+	off: {
+		expected: ['2026-09-25'],
+		present: ['2026-09-25'],
+		missing: [],
+		ok: true
+	},
+	quiz: { expected: 6, present: 2 },
+	units: { expected: 6, present: 6 },
+	passport: { expected: 3, present: 3 },
+	recording: { expected: 3, present: 3 },
+	g9mock: { expectedStarts: 2, expectedRows: 4, presentRows: 4 }
+};
 
 describe('ESL admin semester edit wizard ([slug] route)', () => {
 	beforeEach(() => {
@@ -141,6 +159,16 @@ describe('ESL admin semester edit wizard ([slug] route)', () => {
 		// instead of silently mapping it.
 		await expect.element(page.getByTestId('wizard.inferred')).toBeInTheDocument();
 		await expect.element(page.getByTestId('wizard.inferred')).toMatchTextContent('Stray note');
+	});
+
+	it('shows the advisory checklist on the summary after load', async () => {
+		routeParams.slug = '2026-2027-S1';
+		await render(EditPage);
+
+		await expect.element(page.getByTestId('checklist-panel')).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId('checklist-panel.group-unit-quiz'))
+			.toMatchTextContent('2/6');
 	});
 
 	it('free-navigates to earlier steps with the loader data intact', async () => {

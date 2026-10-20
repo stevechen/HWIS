@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { useConvexClient } from 'convex-svelte';
+	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { isNoteHiddenForEventType } from '$convex/shared/esl';
 	import type { ReconcileSummary } from '$convex/esl/wizards';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { Button } from '$lib/components/ui/button';
+	import { humanConvexErrorMessage } from '$lib/convex-error';
 	import { e2eTagFromUrl } from '$lib/e2e-tag';
+	import ChecklistPanel from '../ChecklistPanel.svelte';
+	import type { ChecklistGroup } from '../ChecklistPanel.types';
 	import CalendarPreview from './CalendarPreview.svelte';
 	import { buildPreviewWeeks, type MockOffDay, type PreviewWeek } from './wizard-dates';
 	import { buildPreviewRows, buildSavePayload, type PreviewRow } from './wizard-save';
@@ -32,6 +35,51 @@
 	} = $props();
 
 	const client = useConvexClient();
+
+	// ---- Advisory checklist (ticket #256, moved off the retired detail
+	// page): status of the four expected-default groups plus one-click
+	// draft creation. Edit mode only — a semester that does not exist yet
+	// has nothing to check. `semesterId` is the loader's real id.
+	const today = new Date().toISOString().slice(0, 10);
+	const checklistQuery = useQuery(api.esl.checklist.status, () => {
+		const semesterId = loadedSemesterId();
+		return semesterId === null ? 'skip' : { semesterId, today };
+	});
+	let checklistBusy = $state<ChecklistGroup | null>(null);
+	let checklistError = $state<string | null>(null);
+	let checklistNotice = $state('');
+
+	/**
+	 * One-click draft creation. The Convex status query is reactive, so the
+	 * panel refreshes itself once the rows land; the wizard state stays
+	 * untouched on purpose — these are drafts the reconcile save preserves
+	 * (#253), not events the admin configured in Steps 2–5.
+	 */
+	function createChecklistDrafts(group: ChecklistGroup) {
+		const semesterId = loadedSemesterId();
+		if (semesterId === null) {
+			checklistError = 'No loaded semester — reopen the semester from the list.';
+			return;
+		}
+		checklistBusy = group;
+		checklistError = null;
+		checklistNotice = '';
+		client
+			.mutation(api.esl.checklist.createMissing, { semesterId, today, group })
+			.then((result) => {
+				const skipped = result.skipped.length > 0 ? ` Skipped: ${result.skipped.join('; ')}` : '';
+				checklistNotice =
+					result.created.length > 0
+						? `Created ${result.created.length} draft row${result.created.length === 1 ? '' : 's'}.${skipped}`
+						: `Checklist already complete — nothing missing for that group.${skipped}`;
+			})
+			.catch((cause: unknown) => {
+				checklistError = humanConvexErrorMessage(cause);
+			})
+			.finally(() => {
+				checklistBusy = null;
+			});
+	}
 
 	// Derived data from previous steps
 	const startDate = $derived(wizardState.step1.startDate);
@@ -536,6 +584,29 @@
 		>
 			{mode === 'create' ? saveError : (editError ?? 'Failed to save semester')}
 		</div>
+	{/if}
+
+	{#if mode === 'edit' && wizardState.semesterId !== null}
+		{#key wizardState.semesterId}
+			<div data-testid="wizard.step-5-checklist" class="space-y-2">
+				<ChecklistPanel
+					status={checklistQuery.data ?? null}
+					loading={checklistQuery.isLoading}
+					busyGroup={checklistBusy}
+					error={checklistError}
+					oncreate={createChecklistDrafts}
+				/>
+				{#if checklistNotice}
+					<p
+						data-testid="wizard.step-5-checklist-notice"
+						class="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+						role="status"
+					>
+						{checklistNotice}
+					</p>
+				{/if}
+			</div>
+		{/key}
 	{/if}
 
 	<!-- Calendar preview + Event list side by side -->

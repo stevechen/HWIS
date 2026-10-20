@@ -100,7 +100,7 @@
 				{#if step === 1}
 					<Step1Panel {state} {update} />
 				{:else if step === 2}
-					<Step2Panel {state} {step} {update} />
+					<Step2Panel {state} {step} {update} {mode} />
 				{:else if step === 3}
 					<Step3Panel {state} {update} />
 				{:else if step === 4}

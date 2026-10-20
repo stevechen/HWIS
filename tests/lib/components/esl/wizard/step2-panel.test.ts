@@ -41,7 +41,11 @@ const IMPORT_REPORT = {
 		outOfRange: 0,
 		plainWeekends: 0,
 		weekendHolidays: 0,
-		needsReview: []
+		needsReview: [],
+		insertedDays: [
+			{ date: '2026-09-28', name: "Teacher's Day" },
+			{ date: '2026-10-10', name: 'National Day' }
+		]
 	}
 } as const;
 
@@ -176,6 +180,56 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 		await renderStep2(update);
 
 		await expect.element(page.getByTestId('wizard.step-2-holiday')).toBeInTheDocument();
+		await expect.element(page.getByTestId('esl-offday-import.root')).not.toBeInTheDocument();
+	});
+
+	it('renders the saved-semester holiday import in edit mode instead', async () => {
+		const update = vi.fn();
+		await render(Step2Panel, {
+			state: { ...mockState, semesterId: 'sem_s1' },
+			step: 2,
+			update,
+			mode: 'edit'
+		});
+
+		await expect.element(page.getByTestId('esl-offday-import.root')).toBeInTheDocument();
+		await expect.element(page.getByTestId('wizard.step-2-holiday')).not.toBeInTheDocument();
+		// The full import card (automatic + manual CSV) is available here.
+		await expect.element(page.getByTestId('esl-offday-import.dropzone')).toBeInTheDocument();
+	});
+
+	it('merges imported off days into wizard state so the save cannot contradict them', async () => {
+		const update = vi.fn();
+		const state: WizardState = {
+			...mockState,
+			semesterId: 'sem_s1',
+			step2: {
+				endDate: '2027-01-20',
+				offDays: [{ date: '2026-09-28', name: "Teacher's Day" }],
+				holidaysImported: false
+			}
+		};
+		await render(Step2Panel, { state, step: 2, update, mode: 'edit' });
+
+		await page.getByTestId('esl-offday-import.gov-preview').click();
+		await expect
+			.element(page.getByTestId('esl-offday-import.gov-preview-result'))
+			.toBeInTheDocument();
+		await page.getByTestId('esl-offday-import.gov-import').click();
+
+		await vi.waitFor(() => {
+			expect(update).toHaveBeenCalledTimes(1);
+		});
+		const mutate = update.mock.calls[0]?.[0] as (draft: WizardState) => void;
+		const draft = structuredClone(state);
+		mutate(draft);
+		// Only the rows the backend reports as inserted are merged, once each.
+		expect(draft.step2.offDays).toEqual([
+			{ date: '2026-09-28', name: "Teacher's Day" },
+			{ date: '2026-10-10', name: 'National Day' }
+		]);
+		expect(draft.step2.holidaysImported).toBe(true);
+		expect(update).toHaveBeenCalledTimes(1);
 	});
 
 	it('renders CalendarPreview (read-only) on the left', async () => {
