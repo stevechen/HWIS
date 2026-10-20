@@ -147,6 +147,9 @@ describe('test utilities', () => {
 		// Without this, `/esl/admin` refuses the only user the harness can sign in
 		// as, and no e2e test can reach the department's pages.
 		expect(eslAdmin?.departmentRoles).toEqual({ esl: 'admin' });
+		// The real ESL-only shape: base role `teacher`, admin rank in the
+		// department. A base `admin` role would leak International access.
+		expect(eslAdmin?.role).toBe('teacher');
 		expect(eslAdmin?.status).toBe('active');
 	});
 

@@ -4,6 +4,7 @@ import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { authComponent, requireAdminForSensitiveOperation } from './auth';
 import { resolveDepartmentRoles } from './shared/authorization';
+import { resolveBackupDepartment } from './shared/backup_snapshot';
 
 // Core infrastructure users that are shared across parallel tests and have
 // valid storageState; they must never be deleted by any teardown path.
@@ -57,9 +58,8 @@ const SCOPE = v.union(
 	// without this a spec that imports a workbook leaves its year behind.
 	v.literal('esl'),
 	// The International department's tables, the mirror of `esl`. Backups are
-	// deliberately absent from both department scopes: a backup row is not yet
-	// department-scoped, and guessing from its contents would let one
-	// department's teardown delete the other's file.
+	// department-scoped now (`backups.department`, legacy = international), so
+	// each department scope also removes only its own tagged backups + chunks.
 	v.literal('international'),
 	v.literal('all')
 );
@@ -178,20 +178,24 @@ async function deleteHouseEventsByTag(teardown: TeardownContext) {
 	if (events.length > 0) bump(teardown, 'house_events', events.length);
 }
 
-async function deleteBackupsByTag(teardown: TeardownContext) {
+async function deleteBackupsByTag(teardown: TeardownContext, department?: 'international' | 'esl') {
 	const backups = await teardown.ctx.db
 		.query('backups')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
+	let count = 0;
 	for (const backup of backups) {
+		// Legacy rows carry no department and belong to International.
+		if (department && resolveBackupDepartment(backup) !== department) continue;
 		const chunks = await teardown.ctx.db
 			.query('backup_chunks')
 			.withIndex('by_backupId', (q) => q.eq('backupId', backup._id))
 			.collect();
 		for (const chunk of chunks) await teardown.ctx.db.delete(chunk._id);
 		await teardown.ctx.db.delete(backup._id);
+		count++;
 	}
-	if (backups.length > 0) bump(teardown, 'backups', backups.length);
+	if (count > 0) bump(teardown, 'backups', count);
 }
 
 async function deleteUsersByTag(teardown: TeardownContext, department?: 'international' | 'esl') {
@@ -345,13 +349,14 @@ export const teardownByTag = mutation({
 		if (isAll || isInternational || scope === 'houseEvents') {
 			await deleteHouseEventsByTag(teardown);
 		}
-		// Backups carry no department column yet, so only the full sweep may
-		// touch them.
+		// Backups are department-scoped (legacy rows = international), so each
+		// department scope removes only its own tagged backups and chunks.
 		if (isAll || scope === 'backups') {
 			await deleteBackupsByTag(teardown);
 		}
 
 		if (scope === 'esl') {
+			await deleteBackupsByTag(teardown, 'esl');
 			await deleteAuditLogsByTag(teardown, ESL_TARGET_TABLES);
 			await deleteEslByTag(teardown);
 			await deleteUsersByTag(teardown, 'esl');
@@ -364,6 +369,7 @@ export const teardownByTag = mutation({
 			await deleteOrphanedClasses(teardown);
 		}
 		if (isInternational) {
+			await deleteBackupsByTag(teardown, 'international');
 			await deleteUsersByTag(teardown, 'international');
 		} else if (scope === 'students') {
 			await deleteOrphanedClasses(teardown);

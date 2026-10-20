@@ -66,7 +66,6 @@ describe('backup snapshot', () => {
 		const snapshot = await t.run(async (ctx) => buildSnapshot(ctx, 'international'));
 
 		expect(snapshot.version).toBe(SNAPSHOT_VERSION);
-		expect(snapshot.version).toBe('1.0');
 		expect(snapshot.exportedAt).toEqual(expect.any(String));
 		expect(snapshot.students).toHaveLength(1);
 		expect(snapshot.evaluations).toHaveLength(1);
@@ -90,7 +89,7 @@ describe('backup snapshot', () => {
 		expect(snapshot.categories).toHaveLength(0);
 		expect(snapshot.classes).toHaveLength(0);
 		expect(snapshot.houseEvents).toHaveLength(0);
-		expect(snapshot.version).toBe('1.0');
+		expect(snapshot.version).toBe(SNAPSHOT_VERSION);
 	});
 
 	test('insertBackupRecord stores the snapshot with a backup filename and e2eTag', async () => {
@@ -105,7 +104,7 @@ describe('backup snapshot', () => {
 		expect(backup!.filename).toMatch(/^backup-\d+\.json$/);
 		expect(backup!.e2eTag).toBe('snapshot-e2e');
 		expect(backup!.data).toMatchObject({
-			version: '1.0',
+			version: SNAPSHOT_VERSION,
 			students: [],
 			evaluations: [],
 			users: [],
@@ -197,6 +196,12 @@ describe('department-scoped snapshots', () => {
 				authId: 'super-user',
 				name: 'Super User',
 				role: 'super',
+				status: 'active'
+			});
+			await ctx.db.insert('users', {
+				authId: 'student-user',
+				name: 'Student User',
+				role: 'student',
 				status: 'active'
 			});
 			await ctx.db.insert('evaluations', {
@@ -327,13 +332,18 @@ describe('department-scoped snapshots', () => {
 		expect(snapshot.teacherNotes).toHaveLength(0);
 	});
 
-	test('international snapshot keeps legacy staff and explicit international staff only', async () => {
+	test('international snapshot keeps legacy staff, students and supers', async () => {
 		const t = await convexTest(schema, modules);
 		await seedBothDepartments(t);
 
 		const snapshot = await t.run((ctx) => buildSnapshot(ctx, 'international'));
 
-		expect(snapshot.users.map((u) => u.authId).sort()).toEqual(['hybrid-admin', 'legacy-teacher']);
+		expect(snapshot.users.map((u) => u.authId).sort()).toEqual([
+			'hybrid-admin',
+			'legacy-teacher',
+			'student-user',
+			'super-user'
+		]);
 	});
 
 	test('ESL snapshot includes every ESL table, including prefix-less teacher_notes', async () => {
@@ -362,13 +372,17 @@ describe('department-scoped snapshots', () => {
 		expect(snapshot.leaderboardSnapshots).toHaveLength(0);
 	});
 
-	test('ESL snapshot keeps only users with an ESL department role', async () => {
+	test('ESL snapshot keeps ESL staff and supers, never students', async () => {
 		const t = await convexTest(schema, modules);
 		await seedBothDepartments(t);
 
 		const snapshot = await t.run((ctx) => buildSnapshot(ctx, 'esl'));
 
-		expect(snapshot.users.map((u) => u.authId).sort()).toEqual(['esl-teacher', 'hybrid-admin']);
+		expect(snapshot.users.map((u) => u.authId).sort()).toEqual([
+			'esl-teacher',
+			'hybrid-admin',
+			'super-user'
+		]);
 	});
 
 	test('snapshots never include archive, auth, settings or cache tables', async () => {

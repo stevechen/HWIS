@@ -15,7 +15,7 @@ import {
 	type EslRestorePayload,
 	type RestorePayload
 } from './shared/restore_plan';
-import { buildSnapshot, insertBackupRecord } from './shared/backup_snapshot';
+import { buildSnapshot, insertBackupRecord, SNAPSHOT_VERSION } from './shared/backup_snapshot';
 
 /** Serializes a live snapshot exactly as `insertBackupRecord` would. */
 function serialize<T>(value: T): T {
@@ -274,7 +274,7 @@ describe('applyEslRestore', () => {
 	test('skips a teacher note whose teacher is gone and reports it', async () => {
 		const t = await convexTest(schema, modules);
 		const payload: EslRestorePayload = {
-			version: '1.0',
+			version: SNAPSHOT_VERSION,
 			users: [],
 			eslCohorts: [
 				{
@@ -333,8 +333,9 @@ describe('applyEslRestore', () => {
 		).toHaveLength(0);
 	});
 
-	test('refuses an incompatible snapshot version', async () => {
+	test('refuses an incompatible snapshot version with no writes', async () => {
 		const t = await convexTest(schema, modules);
+		await seedEslGraph(t);
 		const payload: EslRestorePayload = {
 			version: '999.0',
 			users: [],
@@ -350,6 +351,66 @@ describe('applyEslRestore', () => {
 		await expect(t.run(async (ctx) => applyEslRestore(ctx, payload))).rejects.toThrow(
 			/Incompatible schema version/
 		);
+
+		expect(await t.run(async (ctx) => ctx.db.query('esl_cohorts').collect())).toHaveLength(1);
+		expect(await t.run(async (ctx) => ctx.db.query('esl_classes').collect())).toHaveLength(1);
+		expect(await t.run(async (ctx) => ctx.db.query('esl_students').collect())).toHaveLength(1);
+		expect(await t.run(async (ctx) => ctx.db.query('teacher_notes').collect())).toHaveLength(1);
+	});
+
+	test('refuses a legacy 1.0 payload for the ESL graph', async () => {
+		const t = await convexTest(schema, modules);
+		await seedEslGraph(t);
+		const payload: EslRestorePayload = {
+			version: '1.0',
+			users: [],
+			eslCohorts: [],
+			eslSemesters: [],
+			eslEvents: [],
+			eslClasses: [],
+			eslClassMeetings: [],
+			eslStudents: [],
+			teacherNotes: [],
+			eslTeacherAvailability: []
+		};
+
+		await expect(t.run(async (ctx) => applyEslRestore(ctx, payload))).rejects.toThrow(
+			/Incompatible schema version/
+		);
+		// Accepting a 1.0 payload would have cleared the graph as "empty".
+		expect(await t.run(async (ctx) => ctx.db.query('esl_cohorts').collect())).toHaveLength(1);
+	});
+
+	test('refuses a payload with a missing / dangling reference before clearing', async () => {
+		const t = await convexTest(schema, modules);
+		await seedEslGraph(t);
+		const payload: EslRestorePayload = {
+			version: SNAPSHOT_VERSION,
+			users: [],
+			eslCohorts: [],
+			eslSemesters: [],
+			eslEvents: [],
+			eslClasses: [
+				{
+					_id: 'class-1',
+					cohortId: 'missing-cohort',
+					type: 'CLIL',
+					name: 'Dangling',
+					status: 'active',
+					createdAt: 1
+				}
+			],
+			eslClassMeetings: [],
+			eslStudents: [],
+			teacherNotes: [],
+			eslTeacherAvailability: []
+		};
+
+		await expect(t.run(async (ctx) => applyEslRestore(ctx, payload))).rejects.toThrow(
+			/Cohort not found/
+		);
+		expect(await t.run(async (ctx) => ctx.db.query('esl_cohorts').collect())).toHaveLength(1);
+		expect(await t.run(async (ctx) => ctx.db.query('esl_classes').collect())).toHaveLength(1);
 	});
 });
 

@@ -1,5 +1,12 @@
 import { expect, test, describe, vi, afterEach } from 'vite-plus/test';
-import { convexTest, modules, createStudentWithClass, seedUser, mockAuthUser } from './test.setup';
+import {
+	convexTest,
+	modules,
+	createStudentWithClass,
+	seedUser,
+	mockAuthUser,
+	seedEslStaff
+} from './test.setup';
 import schema from './schema';
 import { api } from './_generated/api';
 import type { Id } from './_generated/dataModel';
@@ -1514,5 +1521,227 @@ describe('pruneExpiredBackups', () => {
 			(await ctx.db.query('backup_chunks').collect()).filter((c) => c.backupId === backupId)
 		);
 		expect(chunks).toHaveLength(0);
+	});
+});
+
+describe('department-scoped backup authorization', () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	/** Signs in an ESL-only admin: base role `teacher`, admin rank in `esl`. */
+	async function signInEslAdmin(t: Awaited<ReturnType<typeof convexTest>>) {
+		return await seedEslStaff(t, { authId: 'esl-dept-admin', eslRole: 'admin' });
+	}
+
+	async function signInInternationalAdmin(t: Awaited<ReturnType<typeof convexTest>>) {
+		const id = await seedUser(t, {
+			authId: 'intl-dept-admin',
+			name: 'International Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: id,
+			authId: 'intl-dept-admin',
+			name: 'International Admin',
+			role: 'admin',
+			status: 'active'
+		});
+		return id;
+	}
+
+	async function insertDepartmentBackup(
+		t: Awaited<ReturnType<typeof convexTest>>,
+		department: 'international' | 'esl' | undefined,
+		overrides: { name?: string; source?: 'manual' | 'system_cron' | 'system_migration' } = {}
+	) {
+		return await t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx, department ?? 'international');
+			return await insertBackupRecord(ctx, snapshot, {
+				name: overrides.name ?? `${department ?? 'legacy'} backup`,
+				source: overrides.source ?? 'manual',
+				...(department === undefined ? {} : { department })
+			});
+		});
+	}
+
+	test('an ESL admin stored with base role teacher can create and list ESL backups', async () => {
+		const t = await convexTest(schema, modules);
+		await signInEslAdmin(t);
+
+		const created = await t.mutation(api.backup.createBackup, {
+			department: 'esl',
+			name: 'ESL Department Backup'
+		});
+
+		const row = await t.run(async (ctx) => ctx.db.get(created.backupId));
+		expect(row?.department).toBe('esl');
+		// The legacy admin gate would have refused this account; the backup is
+		// attributed with the real base role.
+		expect(row?.creatorRole).toBe('teacher');
+
+		const list = await t.query(api.backup.listBackups, {});
+		expect(list.map((backup) => backup._id)).toEqual([created.backupId]);
+		expect(list[0].department).toBe('esl');
+
+		// The department admin who owns the row can manage it even though the
+		// legacy admin-area predicate would refuse their base `teacher` role.
+		await expect(
+			t.mutation(api.backup.renameBackup, {
+				backupId: created.backupId,
+				name: 'Renamed ESL Backup'
+			})
+		).resolves.toMatchObject({ name: 'Renamed ESL Backup' });
+		await expect(
+			t.query(api.backup.getBackupChunk, { backupId: created.backupId, chunkIndex: 0 })
+		).resolves.toBeNull();
+
+		// An explicit non-administered department is still refused.
+		await expect(t.query(api.backup.listBackups, { department: 'international' })).rejects.toThrow(
+			/Forbidden/
+		);
+
+		await expect(
+			t.mutation(api.backup.deleteBackup, { backupId: created.backupId })
+		).resolves.toMatchObject({ message: 'Backup deleted' });
+	});
+
+	test('an International admin cannot create or list ESL backups', async () => {
+		const t = await convexTest(schema, modules);
+		await signInInternationalAdmin(t);
+		const eslBackupId = await insertDepartmentBackup(t, 'esl', { name: 'ESL Only' });
+		await insertDepartmentBackup(t, 'international', { name: 'HWIS Only' });
+
+		await expect(
+			t.mutation(api.backup.createBackup, { department: 'esl', name: 'Nope' })
+		).rejects.toThrow(/Forbidden/);
+		await expect(t.query(api.backup.listBackups, { department: 'esl' })).rejects.toThrow(
+			/Forbidden/
+		);
+
+		const list = await t.query(api.backup.listBackups, {});
+		expect(list.map((backup) => backup.name)).toEqual(['HWIS Only']);
+
+		await expect(t.mutation(api.backup.deleteBackup, { backupId: eslBackupId })).rejects.toThrow(
+			/Forbidden/
+		);
+	});
+
+	test('ESL backup operations cannot touch an International backup', async () => {
+		const t = await convexTest(schema, modules);
+		await signInEslAdmin(t);
+		const internationalBackupId = await insertDepartmentBackup(t, 'international', {
+			name: 'HWIS Backup',
+			// A system backup would otherwise be downloadable by any admin.
+			source: 'system_migration'
+		});
+		const legacyBackupId = await insertDepartmentBackup(t, undefined, { name: 'Legacy Backup' });
+
+		for (const backupId of [internationalBackupId, legacyBackupId]) {
+			await expect(t.query(api.backup.getBackupChunk, { backupId, chunkIndex: 0 })).rejects.toThrow(
+				/Forbidden/
+			);
+			await expect(
+				t.mutation(api.backup.renameBackup, { backupId, name: 'Hijacked' })
+			).rejects.toThrow(/Forbidden/);
+			await expect(t.mutation(api.backup.deleteBackup, { backupId })).rejects.toThrow(/Forbidden/);
+		}
+
+		// The rows survive every attempt.
+		const backups = await t.run(async (ctx) => ctx.db.query('backups').collect());
+		expect(backups.map((backup) => backup.name).sort()).toEqual(['HWIS Backup', 'Legacy Backup']);
+	});
+
+	test('an International admin cannot touch an ESL backup', async () => {
+		const t = await convexTest(schema, modules);
+		await signInInternationalAdmin(t);
+		const eslBackupId = await insertDepartmentBackup(t, 'esl', {
+			name: 'ESL Backup',
+			source: 'system_migration'
+		});
+
+		await expect(
+			t.query(api.backup.getBackupChunk, { backupId: eslBackupId, chunkIndex: 0 })
+		).rejects.toThrow(/Forbidden/);
+		await expect(
+			t.mutation(api.backup.renameBackup, { backupId: eslBackupId, name: 'Hijacked' })
+		).rejects.toThrow(/Forbidden/);
+		await expect(t.mutation(api.backup.deleteBackup, { backupId: eslBackupId })).rejects.toThrow(
+			/Forbidden/
+		);
+	});
+
+	test('an ESL admin cannot clear all data or run the year-end migration', async () => {
+		const t = await convexTest(schema, modules);
+		await signInEslAdmin(t);
+
+		await expect(t.mutation(api.backup.clearAllData, {})).rejects.toThrow(/Forbidden/);
+		await expect(t.mutation(api.backup.advanceGradesAndClearEvaluations, {})).rejects.toThrow(
+			/Forbidden/
+		);
+	});
+
+	test('clearAllData deletes International backups and leaves ESL backups intact', async () => {
+		const t = await convexTest(schema, modules);
+		await signInInternationalAdmin(t);
+		const internationalBackupId = await insertDepartmentBackup(t, 'international', {
+			name: 'HWIS Backup'
+		});
+		const legacyBackupId = await insertDepartmentBackup(t, undefined, { name: 'Legacy Backup' });
+		const eslBackupId = await insertDepartmentBackup(t, 'esl', { name: 'ESL Backup' });
+		const eslChunkBackupId = await t.run(async (ctx) => {
+			const snapshot = await buildSnapshot(ctx, 'esl');
+			const backupId = await insertBackupRecord(ctx, snapshot, { department: 'esl' });
+			await ctx.db.insert('backup_chunks', { backupId, chunkIndex: 0, data: '{}' });
+			return backupId;
+		});
+
+		await t.mutation(api.backup.clearAllData, {});
+
+		const remaining = await t.run(async (ctx) => ctx.db.query('backups').collect());
+		expect(remaining.map((backup) => backup._id).sort()).toEqual(
+			[eslBackupId, eslChunkBackupId].sort()
+		);
+		expect(await t.run(async (ctx) => ctx.db.get(internationalBackupId))).toBeNull();
+		expect(await t.run(async (ctx) => ctx.db.get(legacyBackupId))).toBeNull();
+		// ESL chunks survive with their backup row.
+		const eslChunks = await t.run(async (ctx) =>
+			(await ctx.db.query('backup_chunks').collect()).filter(
+				(chunk) => chunk.backupId === eslChunkBackupId
+			)
+		);
+		expect(eslChunks).toHaveLength(1);
+	});
+
+	test('a super user can list and create backups for both departments', async () => {
+		const t = await convexTest(schema, modules);
+		const superId = await seedUser(t, {
+			authId: 'super-dept-admin',
+			name: 'Super User',
+			role: 'super',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: superId,
+			authId: 'super-dept-admin',
+			name: 'Super User',
+			role: 'super',
+			status: 'active'
+		});
+
+		const international = await t.mutation(api.backup.createBackup, {
+			department: 'international',
+			name: 'HWIS Backup'
+		});
+		const esl = await t.mutation(api.backup.createBackup, {
+			department: 'esl',
+			name: 'ESL Backup'
+		});
+
+		const list = await t.query(api.backup.listBackups, {});
+		expect(list.map((backup) => backup._id).sort()).toEqual(
+			[international.backupId, esl.backupId].sort()
+		);
 	});
 });
