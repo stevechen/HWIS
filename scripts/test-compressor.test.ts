@@ -237,6 +237,23 @@ describe('compressResults', () => {
 	});
 });
 
+describe('compressResults — tag filter context', () => {
+	it('preserves the tag filter in the pass summary', () => {
+		const result = compressResults(allPassFixture, { filter: '@hwis' });
+		expect(result).toBe('@hwis: All 2 tests passed.');
+	});
+
+	it('preserves the tag filter in the failure header', () => {
+		const result = compressResults(twoFailuresFixture, { filter: '@esl' });
+		expect(result).toContain('## Failures @esl (2/3)');
+	});
+
+	it('keeps the plain summary when no filter is given', () => {
+		expect(compressResults(allPassFixture)).toBe('All 2 tests passed.');
+		expect(compressResults(twoFailuresFixture)).toContain('## Failures (2/3)');
+	});
+});
+
 describe('compressResults — edge cases', () => {
 	it('handles empty suites array', () => {
 		const result = compressResults({

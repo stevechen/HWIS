@@ -8,7 +8,7 @@ import {
 } from '../convex-client';
 import { HouseEventsPage } from '../pages';
 
-test.describe('House Events Management - E2E @sequential', () => {
+test.describe('House Events Management - E2E @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let suffix: string;

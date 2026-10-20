@@ -8,7 +8,7 @@ import {
 } from './convex-client';
 import { NewEvaluationPage, TeacherEvaluationsPage } from './pages';
 
-test.describe('Evaluations - Select Student', () => {
+test.describe('Evaluations - Select Student @hwis', () => {
 	test.use({ role: 'teacher' });
 
 	let suffix: string;
@@ -64,7 +64,7 @@ test.describe('Evaluations - Select Student', () => {
 	});
 });
 
-test.describe('Evaluations - No Category Error', () => {
+test.describe('Evaluations - No Category Error @hwis', () => {
 	test.use({ role: 'teacher' });
 
 	let suffix: string;
@@ -123,7 +123,7 @@ test.describe('Evaluations - No Category Error', () => {
 	});
 });
 
-test.describe('Evaluations - Submit Success', () => {
+test.describe('Evaluations - Submit Success @hwis', () => {
 	test.use({ role: 'teacher' });
 
 	let suffix: string;
@@ -189,7 +189,7 @@ test.describe('Evaluations - Submit Success', () => {
 	});
 });
 
-test.describe('Evaluations - UI Controls @sequential', () => {
+test.describe('Evaluations - UI Controls @sequential @hwis', () => {
 	test.use({ role: 'teacher' });
 
 	let suffix: string;

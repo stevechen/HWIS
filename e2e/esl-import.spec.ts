@@ -81,7 +81,7 @@ async function applyGrade(page: Page, grade: number) {
 	});
 }
 
-test.describe('ESL roster import @esl-import @sequential', () => {
+test.describe('ESL roster import @esl-import @sequential @esl', () => {
 	test.use({ role: 'esladmin' });
 
 	// Removes whatever this run wrote: the tag reaches the import through the
