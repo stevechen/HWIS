@@ -15,6 +15,16 @@ type BetterAuthUser = {
 	email?: string;
 };
 
+/** Map a global role to an ESL department role. Super users map to admin. */
+function mapRoleToEsl(role: 'super' | 'admin' | 'teacher'): 'admin' | 'teacher' {
+	return role === 'teacher' ? 'teacher' : 'admin';
+}
+
+/** Map a global role to an International department role. Super users map to admin. */
+function mapRoleToInternational(role: 'super' | 'admin' | 'teacher'): 'admin' | 'teacher' {
+	return role === 'super' ? 'admin' : role;
+}
+
 export const ensureUserProfile = mutation({
 	args: {},
 	handler: async (ctx) => {
@@ -45,33 +55,41 @@ export const ensureUserProfile = mutation({
 			.withIndex('by_authId', (q) => q.eq('authId', authId))
 			.first();
 
+		const role = allowlistedRole ?? 'teacher';
+		const status = allowlistedRole ? 'active' : (existing?.status ?? 'pending');
+		const eslRole = mapRoleToEsl(role);
+		const internationalRole = mapRoleToInternational(role);
+
+		const departmentRoles = {
+			international: internationalRole,
+			esl: eslRole
+		};
+
 		if (existing) {
 			// Self-heal privileged owner users that may have been created as pending previously.
-			const role = allowlistedRole ?? existing.role ?? 'teacher';
-			const status = allowlistedRole ? 'active' : (existing.status ?? 'pending');
 			await ctx.db.patch(existing._id, {
 				name: normalizeStaffName(authUser.name),
 				role,
-				status
+				status,
+				departmentRoles
 			});
 			return {
 				created: false,
 				role,
-				status
+				status,
+				eslRole
 			};
 		}
-
-		const role = allowlistedRole ?? 'teacher';
-		const status = allowlistedRole ? 'active' : 'pending';
 
 		await ctx.db.insert('users', {
 			authId: authId,
 			name: normalizeStaffName(authUser.name),
 			role,
 			status,
+			departmentRoles,
 			createdAt: Date.now()
 		});
-		return { created: true, role, status };
+		return { created: true, role, status, eslRole };
 	}
 });
 
