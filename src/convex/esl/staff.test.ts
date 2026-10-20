@@ -102,7 +102,20 @@ describe('esl staff', () => {
 			expect(staff.some((s: { name: string }) => s.name === 'Test User')).toBe(true);
 		});
 
-		it('includes staff who have no ESL assignment', async () => {
+		it('includes ESL admins as well as ESL teachers', async () => {
+			const t = await asEslTeacher();
+			const adminId = await seedEslStaff(t, {
+				authId: 'esl-admin-row',
+				eslRole: 'admin',
+				signIn: false
+			});
+
+			const staff = await t.query(api.esl.staff.listAssignable, {});
+
+			expect(staff.some((s: { _id: string }) => s._id === adminId)).toBe(true);
+		});
+
+		it('excludes staff who have no ESL assignment', async () => {
 			const t = await asEslTeacher();
 			const intlId = await seedUser(t, {
 				authId: 'intl-only',
@@ -112,7 +125,7 @@ describe('esl staff', () => {
 
 			const staff = await t.query(api.esl.staff.listAssignable, {});
 
-			expect(staff.some((s: { _id: string }) => s._id === intlId)).toBe(true);
+			expect(staff.some((s: { _id: string }) => s._id === intlId)).toBe(false);
 		});
 
 		it('omits pending staff and students', async () => {

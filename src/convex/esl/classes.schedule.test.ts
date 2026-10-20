@@ -4,7 +4,6 @@ import {
 	modules,
 	mockAuthUser,
 	seedEslStaff,
-	seedUser,
 	type ConvexTestInstance
 } from '../test.setup';
 import { api } from '../_generated/api';
@@ -393,7 +392,7 @@ describe('esl class schedules', () => {
 		 */
 		it('reports a teacher in two different rooms at the same slot', async () => {
 			const t = await asEslAdmin();
-			const teacherId = await seedUser(t, { authId: 'teacher_two_rooms' });
+			const teacherId = await seedEslStaff(t, { authId: 'teacher_two_rooms', signIn: false });
 			const first = await createG7(t, '1');
 			const second = await createG7(t, '2');
 
@@ -681,7 +680,7 @@ describe('esl class schedules', () => {
 			// prove the year filter is right.
 			const t = await asEslAdmin();
 			const { classIds } = await createG7(t);
-			const teacher = await seedUser(t, { authId: 'ms-rao', name: 'Ms Rao' });
+			const teacher = await seedEslStaff(t, { authId: 'ms-rao', name: 'Ms Rao', signIn: false });
 
 			await t.run((ctx) =>
 				ctx.db.insert('esl_teacher_availability', {
@@ -706,7 +705,7 @@ describe('esl class schedules', () => {
 		it("refuses this year's own block, quoting the note", async () => {
 			const t = await asEslAdmin();
 			const { classIds } = await createG7(t);
-			const teacher = await seedUser(t, { authId: 'ms-rao', name: 'Ms Rao' });
+			const teacher = await seedEslStaff(t, { authId: 'ms-rao', name: 'Ms Rao', signIn: false });
 
 			await t.run((ctx) =>
 				ctx.db.insert('esl_teacher_availability', {
@@ -869,7 +868,7 @@ describe('esl class schedules', () => {
 		it('refuses when the two sections are given the same teacher', async () => {
 			const t = await asEslAdmin();
 			const { classA, classB } = await createG10Pair(t);
-			const teacher = await seedUser(t, { authId: 'ms-rao', name: 'Ms Rao' });
+			const teacher = await seedEslStaff(t, { authId: 'ms-rao', name: 'Ms Rao', signIn: false });
 
 			await t.mutation(api.esl.classes.assignTeacher, { id: classA, teacherId: teacher });
 			// Set directly: `assignTeacher` cannot tell the pair apart, and the point
@@ -997,7 +996,7 @@ describe('esl class schedules', () => {
 		it('refuses a teacher already teaching elsewhere at the same slot', async () => {
 			const t = await asEslAdmin();
 			const { first, second } = await twoScheduled(t);
-			const teacher = await seedUser(t, { authId: 'ms-rao', name: 'Ms Rao' });
+			const teacher = await seedEslStaff(t, { authId: 'ms-rao', name: 'Ms Rao', signIn: false });
 
 			await t.mutation(api.esl.classes.assignTeacher, { id: first, teacherId: teacher });
 
@@ -1009,7 +1008,7 @@ describe('esl class schedules', () => {
 		it("refuses a teacher blocked for one of the class's slots", async () => {
 			const t = await asEslAdmin();
 			const { first } = await twoScheduled(t);
-			const teacher = await seedUser(t, { authId: 'ms-rao', name: 'Ms Rao' });
+			const teacher = await seedEslStaff(t, { authId: 'ms-rao', name: 'Ms Rao', signIn: false });
 
 			await t.run((ctx) =>
 				ctx.db.insert('esl_teacher_availability', {
@@ -1032,7 +1031,7 @@ describe('esl class schedules', () => {
 			// year filter proved above.
 			const t = await asEslAdmin();
 			const { first } = await twoScheduled(t);
-			const teacher = await seedUser(t, { authId: 'ms-rao', name: 'Ms Rao' });
+			const teacher = await seedEslStaff(t, { authId: 'ms-rao', name: 'Ms Rao', signIn: false });
 
 			await t.run((ctx) =>
 				ctx.db.insert('esl_teacher_availability', {
@@ -1052,7 +1051,7 @@ describe('esl class schedules', () => {
 		it('refuses the one teacher both classes of a cohort are given', async () => {
 			const t = await asEslAdmin();
 			const { classIds } = await createG7(t);
-			const teacher = await seedUser(t, { authId: 'ms-rao', name: 'Ms Rao' });
+			const teacher = await seedEslStaff(t, { authId: 'ms-rao', name: 'Ms Rao', signIn: false });
 
 			await t.mutation(api.esl.classes.assignTeacher, { id: classIds[0], teacherId: teacher });
 
@@ -1064,7 +1063,7 @@ describe('esl class schedules', () => {
 		it('lets a teacher be cleared to fix a clash', async () => {
 			const t = await asEslAdmin();
 			const { first, second } = await twoScheduled(t);
-			const teacher = await seedUser(t, { authId: 'ms-rao', name: 'Ms Rao' });
+			const teacher = await seedEslStaff(t, { authId: 'ms-rao', name: 'Ms Rao', signIn: false });
 			await t.run((ctx) => {
 				void ctx.db.patch(first, { teacherId: teacher });
 				return ctx.db.patch(second, { teacherId: teacher });
@@ -1227,7 +1226,7 @@ describe('esl class schedules', () => {
 			// on the card, not only refuse the next save.
 			const t = await asEslAdmin();
 			const { classIds } = await createG7(t);
-			const teacher = await seedUser(t, { authId: 'ms-rao', name: 'Ms Rao' });
+			const teacher = await seedEslStaff(t, { authId: 'ms-rao', name: 'Ms Rao', signIn: false });
 
 			await t.run((ctx) =>
 				ctx.db.insert('esl_teacher_availability', {

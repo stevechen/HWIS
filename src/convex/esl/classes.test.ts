@@ -1,5 +1,13 @@
 import { describe, it, expect, afterEach, vi } from 'vite-plus/test';
-import { convexTest, modules, mockAuthUser, seedEslStaff, ESL_ALICE, ESL_BOB } from '../test.setup';
+import {
+	convexTest,
+	modules,
+	mockAuthUser,
+	seedEslStaff,
+	seedUser,
+	ESL_ALICE,
+	ESL_BOB
+} from '../test.setup';
 import { api } from '../_generated/api';
 import schema from '../schema';
 
@@ -103,6 +111,33 @@ describe('esl classes', () => {
 			await expect(
 				t.mutation(api.esl.classes.assignTeacher, { id: classIds[0], teacherId: ghostId })
 			).rejects.toThrow('Teacher not found');
+		});
+
+		it('rejects a teacher without an ESL role', async () => {
+			const t = await asEslAdmin();
+			const { classIds } = await createG7(t);
+			const intlId = await seedUser(t, {
+				authId: 'intl-teacher',
+				departmentRoles: { international: 'teacher' }
+			});
+
+			await expect(
+				t.mutation(api.esl.classes.assignTeacher, { id: classIds[0], teacherId: intlId })
+			).rejects.toThrow('Teacher does not have an ESL role');
+		});
+
+		it('rejects a pending ESL teacher', async () => {
+			const t = await asEslAdmin();
+			const { classIds } = await createG7(t);
+			const pendingId = await seedEslStaff(t, {
+				authId: 'pending-teacher',
+				status: 'pending',
+				signIn: false
+			});
+
+			await expect(
+				t.mutation(api.esl.classes.assignTeacher, { id: classIds[0], teacherId: pendingId })
+			).rejects.toThrow('Teacher does not have an ESL role');
 		});
 	});
 

@@ -2,6 +2,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from '../_generated/
 import { v } from 'convex/values';
 import type { Doc, Id } from '../_generated/dataModel';
 import { requireEslAdmin, requireEslStaff } from '../auth';
+import { canTeachEslClass } from '../shared/authorization';
 import { displayStaffName } from '../shared/staff_name';
 import {
 	cohortLabel,
@@ -236,6 +237,10 @@ export const assignTeacher = mutation({
 		if (args.teacherId) {
 			const teacher = await ctx.db.get(args.teacherId);
 			if (!teacher) throw new Error('Teacher not found');
+			// Eligibility is decided by the same predicate that fills the teacher
+			// dropdown (`listAssignable`), so a write can never accept a teacher
+			// the UI would refuse to offer.
+			if (!canTeachEslClass(teacher)) throw new Error('Teacher does not have an ESL role');
 		}
 
 		// The gate runs against the class's *saved* week, since a teacher is assigned
