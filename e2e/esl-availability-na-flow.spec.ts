@@ -177,7 +177,9 @@ test.describe('ESL availability NA flow @esl', () => {
 				break;
 			}
 		}
-		teacher ??= staff.find((s) => s.eslRole === 'teacher') ?? staff[0] ?? null;
+		// `assignTeacher` accepts only staff with an ESL assignment, so the
+		// fallback stays inside the eligible pool instead of taking any row.
+		teacher ??= staff.find((s) => s.eslRole !== null) ?? null;
 		if (!teacher) throw new Error('No ESL staff to block');
 		teacherName = teacher.name;
 		teacherId = teacher._id;

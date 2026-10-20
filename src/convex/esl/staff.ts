@@ -2,7 +2,11 @@ import { mutation, query } from '../_generated/server';
 import { v } from 'convex/values';
 import type { Doc, Id } from '../_generated/dataModel';
 import { authComponent, requireEslAdmin, requireEslStaff } from '../auth';
-import { resolveDepartmentRoles, type DepartmentRole } from '../shared/authorization';
+import {
+	resolveDepartmentRoles,
+	canTeachEslClass,
+	type DepartmentRole
+} from '../shared/authorization';
 import { displayStaffName, normalizeStaffName } from '../shared/staff_name';
 import { cohortLabel, type EslDay } from '../shared/esl';
 
@@ -181,8 +185,10 @@ export const getProfile = query({
 /**
  * The staff a class teacher may be drawn from.
  *
- * Any active staff member can teach an ESL class, whether or not they hold an
- * ESL assignment, so this deliberately does not filter on `departmentRoles`.
+ * Only staff eligible to hold an ESL class appear: `canTeachEslClass` carries
+ * the eligibility rule (active + ESL assignment, or Super), and this query and
+ * the `assignTeacher` mutation both decide against it, so the dropdown an
+ * admin is shown and the writes the backend accepts can never disagree.
  * Available to ESL staff (not just admins) because a teacher sees the same
  * dropdown on their own roster.
  *
@@ -196,7 +202,7 @@ export const listAssignable = query({
 		const users = await ctx.db.query('users').take(200);
 
 		return users
-			.filter((u) => staffRole(u.role) !== null && (u.status ?? 'active') === 'active')
+			.filter((u) => staffRole(u.role) !== null && canTeachEslClass(u))
 			.map((u) => ({ _id: u._id, name: displayStaffName(u.name) }))
 			.sort((a, b) => normalizeStaffName(a.name).localeCompare(normalizeStaffName(b.name)));
 	}

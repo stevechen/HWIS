@@ -174,6 +174,23 @@ export function isActiveEslStaff(subject: AccessSubject): boolean {
 	return isEslStaff(subject) && subject.status === 'active';
 }
 
+/**
+ * True when the subject is eligible to hold an ESL class: active ESL staff —
+ * an explicit `esl` department assignment, or Super who needs none — and no
+ * one else. A legacy International-only teacher resolves through
+ * `resolveDepartmentRoles` with no `esl` slot, so they are excluded.
+ *
+ * This is the *teaching* predicate and is deliberately narrower than
+ * `isEslStaff`, which only decides who may enter the department. Both sides of
+ * the assignment decision decide against it — the teacher dropdown reads it
+ * through `esl.staff.listAssignable`, and the write path enforces it in
+ * `esl.classes.assignTeacher` — so a teacher the UI never offered is one the
+ * backend refuses to record.
+ */
+export function canTeachEslClass(subject: AccessSubject): boolean {
+	return (subject.status ?? 'active') === 'active' && isEslStaff(subject);
+}
+
 /** True when the subject is a Student whose record is Enrolled. */
 export function isEnrolledStudent(subject: AccessSubject): boolean {
 	return isStudent(subject) && subject.enrollmentStatus === 'Enrolled';
