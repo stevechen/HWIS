@@ -1,6 +1,10 @@
 import { query, mutation, internalMutation } from './_generated/server';
 import { v } from 'convex/values';
-import { requireAdminForSensitiveOperation, requireSuperForSensitiveOperation } from './auth';
+import {
+	requireAdminForSensitiveOperation,
+	requireDepartmentRestoreAdmin,
+	requireSuperForSensitiveOperation
+} from './auth';
 import { canDownloadBackup, canRenameBackup, canDeleteBackup } from './shared/authorization';
 import {
 	buildSnapshot,
@@ -9,8 +13,13 @@ import {
 	pruneOldBackups,
 	resolveBackupDepartment
 } from './shared/backup_snapshot';
-import { departmentValidator } from './shared/departments';
-import { applyRestore, type RestorePayload } from './shared/restore_plan';
+import { departmentValidator, normalizeDepartment } from './shared/departments';
+import {
+	applyEslRestore,
+	applyRestore,
+	type EslRestorePayload,
+	type RestorePayload
+} from './shared/restore_plan';
 import { runYearEndMigration } from './shared/migration_plan';
 
 export const exportData = query({
@@ -67,16 +76,30 @@ export const restoreFromBackup = mutation({
 		backupId: v.id('backups')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx);
 		const backup = await ctx.db.get(args.backupId);
 		if (!backup) throw new Error('Backup not found');
+
+		// Legacy rows carry no `department`; they are International backups.
+		const department = resolveBackupDepartment(backup);
+		await requireDepartmentRestoreAdmin(ctx, department);
 
 		const chunks = await ctx.db
 			.query('backup_chunks')
 			.withIndex('by_backupId_chunkIndex', (q) => q.eq('backupId', args.backupId))
 			.collect();
-		const data = (backup.data ??
-			parseBackupSnapshot(chunks.sort((a, b) => a.chunkIndex - b.chunkIndex))) as RestorePayload;
+		const raw =
+			backup.data ?? parseBackupSnapshot(chunks.sort((a, b) => a.chunkIndex - b.chunkIndex));
+
+		if (department === 'esl') {
+			const data = raw as EslRestorePayload;
+			const { skippedReferences } = await applyEslRestore(ctx, data);
+			return {
+				message: `Restored ESL data: ${data.eslCohorts.length} cohorts, ${data.eslClasses.length} classes, ${data.eslStudents.length} students, ${data.teacherNotes.length - skippedReferences.length} notes (${skippedReferences.length} skipped)`,
+				skippedReferences: skippedReferences.length > 0 ? skippedReferences : undefined
+			};
+		}
+
+		const data = raw as RestorePayload;
 		const { skippedEvaluations } = await applyRestore(ctx, data);
 
 		return {
@@ -100,15 +123,32 @@ export const createDailyBackup = internalMutation({
 export const restoreFromBackupPayload = mutation({
 	args: {
 		backupData: v.any(),
+		department: v.optional(departmentValidator),
 		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx);
+		// Default to the payload's own department when the caller omits it, so a
+		// legacy International payload restores as International and an ESL
+		// snapshot cannot be applied through the International path by accident.
+		const department = normalizeDepartment(
+			args.department ??
+				(args.backupData as { department?: 'international' | 'esl' } | null)?.department
+		);
+		await requireDepartmentRestoreAdmin(ctx, department);
 		await createStoredBackup(ctx, {
 			source: 'system_safety',
 			e2eTag: args.e2eTag,
-			department: 'international'
+			department
 		});
+
+		if (department === 'esl') {
+			const data = args.backupData as EslRestorePayload;
+			const { skippedReferences } = await applyEslRestore(ctx, data);
+			return {
+				message: `Restored ESL data: ${data.eslCohorts.length} cohorts, ${data.eslClasses.length} classes, ${data.eslStudents.length} students, ${data.teacherNotes.length - skippedReferences.length} notes (${skippedReferences.length} skipped)`,
+				skippedReferences: skippedReferences.length > 0 ? skippedReferences : undefined
+			};
+		}
 
 		const data = args.backupData as RestorePayload;
 		const { skippedEvaluations } = await applyRestore(ctx, data);
