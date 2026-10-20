@@ -13,9 +13,7 @@ vi.mock('convex-svelte', () => ({
 	}))
 }));
 
-import { api } from '$convex/_generated/api';
 import SemestersPage from '$src/routes/esl/admin/semesters/+page.svelte';
-import { schoolYearForTerm, startPickerMondays } from '$lib/components/esl/wizard/wizard-dates';
 
 // The component uses a string key for today context
 const TODAY_KEY = 'esl-admin.today';
@@ -93,8 +91,12 @@ describe('ESL admin semesters page', () => {
 
 	it('shows the derived end, or finals TBD while exam-less', async () => {
 		renderWithToday('2000-10-15');
-		await expect.element(page.getByText(/Ends 2001-01-20/)).toBeInTheDocument();
-		await expect.element(page.getByText('Finals TBD')).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId('esl-admin-semesters.list'))
+			.toMatchTextContent(/Ends 2001-01-20/);
+		await expect
+			.element(page.getByTestId('esl-admin-semesters.list'))
+			.toMatchTextContent(/Finals TBD/);
 	});
 
 	it('links each semester to its detail screen', async () => {
@@ -104,29 +106,22 @@ describe('ESL admin semesters page', () => {
 		expect(link.element().getAttribute('href')).toBe('/esl/admin/semesters/2000-2001-S1');
 	});
 
-	it('creates a semester from the form — S2 any time, no gate', async () => {
+	it('offers the wizard as the primary setup method', async () => {
 		renderWithToday('2000-10-15');
-		await page.getByTestId('esl-admin-semesters.term-S2').click();
-		// The picker rows derive from the pinned today via the same helpers
-		// the component uses, so the first Monday is exact, not guessed.
-		const firstMonday = startPickerMondays('S2', schoolYearForTerm('S2', '2000-10-15'))[0] ?? '';
-		await page.getByTestId(`esl-admin-semesters.picker.date-${firstMonday}`).click();
-		await page.getByTestId('esl-admin-semesters.create-btn').click();
-		await expect.poll(() => mockMutation.mock.calls.length).toBe(1);
-		expect(mockMutation).toHaveBeenCalledWith(api.esl.semesters.create, {
-			year: '2000-2001',
-			term: 'S2',
-			startDate: firstMonday
-		});
+		const link = page.getByTestId('esl-admin-semesters.wizard-link');
+		await expect.element(link).toBeInTheDocument();
+		expect(link.element().getAttribute('href')).toBe('/esl/admin/semesters/new/wizard');
+		// It is the recommended entry, not a footnote after the form.
+		await expect
+			.element(page.getByRole('heading', { name: 'Use the setup wizard' }))
+			.toMatchTextContent(/Use the setup wizard/);
 	});
 
-	it('shows the refusal when the term already exists', async () => {
-		mockMutation.mockRejectedValueOnce(new Error('2000-2001 S1 already exists.'));
+	it('keeps Excel/CSV import visible but unbuilt', async () => {
 		renderWithToday('2000-10-15');
-		await page.getByTestId('esl-admin-semesters.term-S2').click();
-		const firstMonday = startPickerMondays('S2', schoolYearForTerm('S2', '2000-10-15'))[0] ?? '';
-		await page.getByTestId(`esl-admin-semesters.picker.date-${firstMonday}`).click();
-		await page.getByTestId('esl-admin-semesters.create-btn').click();
-		await expect.element(page.getByText('2000-2001 S1 already exists.')).toBeInTheDocument();
+		const link = page.getByTestId('esl-admin-semesters.import-link');
+		await expect.element(link).toBeInTheDocument();
+		// Placeholder route: the import path exists as a link only.
+		expect(link.element().getAttribute('href')).toBe('#');
 	});
 });
