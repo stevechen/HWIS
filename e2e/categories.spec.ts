@@ -8,7 +8,7 @@ import {
 } from './convex-client';
 import { AdminCategoriesPage, AdminEvaluationsPage } from './pages';
 
-test.describe('Categories Management @categories', () => {
+test.describe('Categories Management @categories @hwis', () => {
 	test('redirects non-admin users from /admin/categories', async ({ page }) => {
 		await page.goto('/admin/categories');
 		await page.waitForSelector('body.hydrated');
@@ -16,7 +16,7 @@ test.describe('Categories Management @categories', () => {
 	});
 });
 
-test.describe('Categories - Update Name', () => {
+test.describe('Categories - Update Name @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('editCat');
@@ -47,7 +47,7 @@ test.describe('Categories - Update Name', () => {
 	});
 });
 
-test.describe('Categories - Name Change Reflects in Evaluations @sequential', () => {
+test.describe('Categories - Name Change Reflects in Evaluations @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let suffix: string;
@@ -113,7 +113,7 @@ test.describe('Categories - Name Change Reflects in Evaluations @sequential', ()
 	});
 });
 
-test.describe('Categories - Delete Cascade Removes Evaluations @sequential', () => {
+test.describe('Categories - Delete Cascade Removes Evaluations @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let suffix: string;

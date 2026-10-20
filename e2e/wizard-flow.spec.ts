@@ -30,7 +30,7 @@ import { getTestSuffix } from './helpers';
  * Run targeted: `bun run test:ai -- e2e/wizard-flow.spec.ts`
  */
 
-test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @sequential', () => {
+test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @sequential @hwis @esl', () => {
 	test.use({ role: 'admin' });
 
 	let testE2eTag: string | null = null;

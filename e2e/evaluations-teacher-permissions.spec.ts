@@ -3,7 +3,7 @@ import { getTestSuffix } from './helpers';
 import { createStudentWithEvaluations, createCategory, cleanupByTag } from './convex-client';
 import { StudentTimelinePage } from './pages';
 
-test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permissions @sequential', () => {
+test.describe('Teacher Role-Based UI - Student Timeline Page @teacher-permissions @sequential @hwis', () => {
 	let suffix: string;
 	let e2eTag: string;
 	let studentId: string;

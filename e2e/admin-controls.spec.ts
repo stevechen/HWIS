@@ -3,7 +3,7 @@ import { createStudent, cleanupByTag } from './convex-client';
 import { getTestSuffix } from './helpers';
 import { AdminStudentsPage } from './pages';
 
-test.describe('Admin Controls Visibility @admin', () => {
+test.describe('Admin Controls Visibility @admin @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let testE2eTag: string;
@@ -51,7 +51,7 @@ test.describe('Admin Controls Visibility @admin', () => {
 	});
 });
 
-test.describe('Teacher User', () => {
+test.describe('Teacher User @hwis', () => {
 	test.use({ role: 'teacher' });
 
 	test.beforeEach(async ({ page }) => {

@@ -17,6 +17,19 @@ function sanitizeEnv() {
 	}
 }
 
+function findGrepFilter(args: string[]): string | undefined {
+	for (let i = 0; i < args.length; i += 1) {
+		const arg = args[i];
+		if (arg.startsWith('--grep=')) {
+			return arg.slice('--grep='.length) || undefined;
+		}
+		if ((arg === '--grep' || arg === '-g') && args[i + 1]) {
+			return args[i + 1];
+		}
+	}
+	return undefined;
+}
+
 async function main() {
 	sanitizeEnv();
 	const passthroughArgs = process.argv.slice(2);
@@ -62,7 +75,7 @@ async function main() {
 		process.exit(exitCode || 1);
 	}
 
-	const compressed = compressResults(report);
+	const compressed = compressResults(report, { filter: findGrepFilter(passthroughArgs) });
 	console.log(compressed);
 
 	const hasFailures = (report.stats?.unexpected ?? 0) > 0;

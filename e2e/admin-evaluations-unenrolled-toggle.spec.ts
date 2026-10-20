@@ -3,7 +3,7 @@ import { getTestSuffix } from './helpers';
 import { createStudentWithEvaluations, cleanupByTag } from './convex-client';
 import { AdminEvaluationsPage } from './pages';
 
-test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations @sequential', () => {
+test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	// CONSTANTS - Define at top of describe
@@ -122,7 +122,7 @@ test.describe('Admin Evaluations - Unenrolled Student Toggle @admin-evaluations 
 // TEACHER AUTHORIZATION TESTS
 // ============================================
 
-test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations @sequential', () => {
+test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations @sequential @hwis', () => {
 	test.use({ role: 'teacher' });
 
 	let suffix: string;
@@ -216,7 +216,7 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations 
 // EDGE CASE TESTS
 // ============================================
 
-test.describe('Unenrolled Toggle - Edge Cases @edge-cases @sequential', () => {
+test.describe('Unenrolled Toggle - Edge Cases @edge-cases @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let suffix: string;
@@ -297,7 +297,7 @@ test.describe('Unenrolled Toggle - Edge Cases @edge-cases @sequential', () => {
 // TEACHER NAME TOGGLE TESTS
 // ============================================
 
-test.describe('Admin Evaluations - Teacher Name Toggle @admin-evaluations @sequential', () => {
+test.describe('Admin Evaluations - Teacher Name Toggle @admin-evaluations @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let suffix: string;
@@ -392,7 +392,7 @@ test.describe('Admin Evaluations - Teacher Name Toggle @admin-evaluations @seque
 // ICON VISIBILITY TESTS
 // ============================================
 
-test.describe('Unenrolled Toggle - Icon Visibility @icons @sequential', () => {
+test.describe('Unenrolled Toggle - Icon Visibility @icons @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let suffix: string;
