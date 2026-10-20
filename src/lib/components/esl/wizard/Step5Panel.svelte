@@ -305,7 +305,6 @@
 				...editPayload(semesterId),
 				dryRun: true
 			});
-			editSummary = { ...editSummary, dryRun: true };
 			editStatus = 'review';
 		} catch (err) {
 			editStatus = 'error';

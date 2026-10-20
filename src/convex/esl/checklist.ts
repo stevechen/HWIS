@@ -15,6 +15,7 @@ import {
 	expectedG9MockStarts,
 	expectedPassportRecordingCounts,
 	expectedUnitQuizDrafts,
+	isUnitDraftTitle,
 	isValidEslDate,
 	offDayChecklist,
 	planUnitQuizRanges,
@@ -91,9 +92,7 @@ export const status = query({
 		// checklist entry) never match.
 		const unitsPresent = events.filter(
 			(event) =>
-				event.type === 'reminder' &&
-				event.reminderKind === 'task' &&
-				/^unit \d+$/i.test(event.title)
+				event.type === 'reminder' && event.reminderKind === 'task' && isUnitDraftTitle(event.title)
 		).length;
 		const dues = expectedPassportRecordingCounts({
 			term: semester.term,
@@ -308,7 +307,7 @@ export const createMissing = mutation({
 					});
 				});
 			} else if (args.group === 'units') {
-				const present = ofReminderKind('task').filter((event) => /^unit \d+$/i.test(event.title));
+				const present = ofReminderKind('task').filter((event) => isUnitDraftTitle(event.title));
 				const missingCount = Math.max(
 					0,
 					expectedUnitQuizDrafts(semester.term).units - present.length

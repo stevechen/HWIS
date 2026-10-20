@@ -3,6 +3,8 @@ import { convexTest, modules, seedEslStaff } from '../test.setup';
 import { api } from '../_generated/api';
 import type { Doc, Id } from '../_generated/dataModel';
 import schema from '../schema';
+import { loadWizardState } from '../../lib/components/esl/wizard/wizard-load';
+import { buildSavePayload, type SavePayload } from '../../lib/components/esl/wizard/wizard-save';
 
 const YEAR = '2026-2027';
 
@@ -416,5 +418,167 @@ describe('esl/wizards.updateSemester', () => {
 		await expect(
 			t.action(api.esl.wizards.updateSemester, { ...saveArgs(), semesterId })
 		).rejects.toThrow();
+	});
+});
+
+/**
+ * The loader is the only thing between a saved semester and the save payload
+ * the edit wizard sends back. Feeding it the real checklist-draft shapes and
+ * reconciling that payload is the end-to-end no-op guarantee (#253): nothing
+ * is added, changed or removed, and every draft row survives byte-for-byte.
+ */
+describe('esl/wizards.updateSemester — loader-driven no-op', () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	it('preserves checklist drafts through load → save (0/0/0, byte-for-byte)', async () => {
+		const t = await convexTest(schema, modules);
+		await seedEslStaff(t, { authId: 'esl-admin', eslRole: 'admin' });
+		// A wizard save without quiz/dues/mocks: the checklist supplies those.
+		const emptyRanges: SavePayload['ranges'] = {
+			q1: null,
+			q2: null,
+			q3: null,
+			q4: null,
+			q5: null,
+			q6: null,
+			pd1: null,
+			pd2: null,
+			pd3: null,
+			rd1: null,
+			rd2: null,
+			rd3: null,
+			pcheck: null,
+			wcheck: null
+		};
+		const base = {
+			...saveArgs(),
+			ranges: emptyRanges,
+			pairs: { mock1: null, mock2: null, mock3: null }
+		};
+		const { semesterId } = await t.action(api.esl.wizards.saveSemester, base);
+
+		await t.run(async (ctx) => {
+			// Checklist off-day drafts: translated captions plus a caption-less
+			// contiguous pair (createMissing omits the note without English).
+			await ctx.db.insert('esl_events', {
+				semesterId,
+				type: 'no_school',
+				title: 'Off',
+				target: 'all',
+				date: '2026-09-14',
+				note: 'Mid-Autumn Festival'
+			});
+			for (const date of ['2026-10-10', '2026-10-11']) {
+				await ctx.db.insert('esl_events', {
+					semesterId,
+					type: 'no_school',
+					title: 'Off',
+					target: 'all',
+					date,
+					note: 'National Day'
+				});
+			}
+			for (const date of ['2026-10-26', '2026-10-27']) {
+				await ctx.db.insert('esl_events', {
+					semesterId,
+					type: 'no_school',
+					title: 'Off',
+					target: 'all',
+					date
+				});
+			}
+			// Note-less `Unit N` task drafts.
+			await ctx.db.insert('esl_events', {
+				semesterId,
+				type: 'reminder',
+				reminderKind: 'task',
+				isBanner: true,
+				title: 'Unit 1',
+				target: 'all',
+				date: '2026-09-21',
+				endDate: '2026-09-25'
+			});
+			await ctx.db.insert('esl_events', {
+				semesterId,
+				type: 'reminder',
+				reminderKind: 'task',
+				isBanner: true,
+				title: 'Unit 2',
+				target: 'all',
+				date: '2026-10-19',
+				endDate: '2026-10-23'
+			});
+			// `Unit N Quiz Due` drafts — never wizard `Quiz N` rows.
+			await ctx.db.insert('esl_events', {
+				semesterId,
+				type: 'reminder',
+				reminderKind: 'quiz',
+				isBanner: true,
+				title: 'Unit 1 Quiz Due',
+				target: 'CLIL',
+				date: '2026-09-22',
+				endDate: '2026-09-24'
+			});
+			await ctx.db.insert('esl_events', {
+				semesterId,
+				type: 'reminder',
+				reminderKind: 'quiz',
+				isBanner: true,
+				title: 'Unit 2 Quiz Due',
+				target: 'CLIL',
+				date: '2026-11-16',
+				endDate: '2026-11-18'
+			});
+			// Passport + recording dues, one per slot.
+			for (const [index, date] of ['2026-09-28', '2026-11-05', '2026-12-14'].entries()) {
+				await ctx.db.insert('esl_events', {
+					semesterId,
+					type: 'reminder',
+					reminderKind: 'passport',
+					isBanner: true,
+					title: 'Passport due',
+					target: 'Comm',
+					date
+				});
+				await ctx.db.insert('esl_events', {
+					semesterId,
+					type: 'reminder',
+					reminderKind: 'recording',
+					isBanner: true,
+					title: 'Recording due',
+					target: 'Comm',
+					date: `2026-12-0${index + 1}`
+				});
+			}
+			// Two checklist G9 mock pairs (adjacent rows).
+			for (const date of ['2026-09-15', '2026-09-16', '2026-10-13', '2026-10-14']) {
+				await ctx.db.insert('esl_events', {
+					semesterId,
+					type: 'g9_mock',
+					title: 'G9 Mock Exam',
+					target: 'G9',
+					date
+				});
+			}
+		});
+
+		const rows = await t.query(api.esl.events.listBySemester, { semesterId });
+		const loaded = loadWizardState(
+			{ id: semesterId, year: YEAR, term: 'S1', startDate: '2026-08-31' },
+			rows
+		);
+		const payload = buildSavePayload(loaded.state);
+		const before = await snapshotRows(t, semesterId);
+
+		const dryRun = await t.action(api.esl.wizards.updateSemester, {
+			...payload,
+			semesterId,
+			dryRun: true
+		});
+		expect(dryRun).toMatchObject({ added: 0, changed: 0, removed: 0 });
+
+		const saved = await t.action(api.esl.wizards.updateSemester, { ...payload, semesterId });
+		expect(saved).toMatchObject({ added: 0, changed: 0, removed: 0 });
+		expect(await snapshotRows(t, semesterId)).toEqual(before);
 	});
 });

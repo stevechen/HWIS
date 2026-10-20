@@ -58,8 +58,7 @@
 	// Edit mode mounts from the loaded semester, deep-cloned so the caller's
 	// object stays untouched by draft updates. Failing to pass one (a route
 	// bug) falls back to session semantics rather than crashing the mount.
-	const initialStateClone =
-		initialState === undefined ? undefined : (structuredClone(initialState) as WizardState);
+	const initialStateClone = initialState === undefined ? undefined : structuredClone(initialState);
 	let wizardState = $state<WizardState>(
 		restored?.state ?? initialStateClone ?? readWizardState(storage, today).state
 	);
@@ -92,8 +91,14 @@
 	const next = $derived(nextWizardStep(step));
 
 	// ---- Unsaved-changes guards (edit mode): browser `beforeunload` plus an
-	// in-app navigation veto. Both arm only while the state differs from what
-	// the loader recovered; a clean visit navigates freely.
+	// in-app navigation veto. The `beforeNavigate` callback registers once at
+	// mount (SvelteKit has no unregister) and re-checks the live
+	// `hasUnsaved`/`edit` at navigation time, so dirty/clean cycles never
+	// accumulate handlers. `beforeunload` arms only while dirty.
+	beforeNavigate((navigation) => {
+		if (!edit || !hasUnsaved) return;
+		navigation.cancel();
+	});
 	$effect(() => {
 		if (!edit || !hasUnsaved) return;
 		const beforeUnload = (event: BeforeUnloadEvent): void => {
@@ -102,14 +107,6 @@
 			event.returnValue = '';
 		};
 		window.addEventListener('beforeunload', beforeUnload);
-		// SvelteKit has no unregister for `beforeNavigate` handlers, so the
-		// callback itself stays registered forever and re-checks
-		// `hasUnsaved` at navigation time — a stale registration on a clean
-		// state is a no-op.
-		beforeNavigate((navigation) => {
-			if (!hasUnsaved) return;
-			navigation.cancel();
-		});
 		return () => {
 			window.removeEventListener('beforeunload', beforeUnload);
 		};
@@ -119,8 +116,10 @@
 	function entrySteps(entry: WizardInferredEntry): readonly WizardStepNumber[] {
 		const stepMatch = /^step(\d):/.exec(entry.eventKey ?? '');
 		if (stepMatch !== null) {
-			const stage = Number(stepMatch[1]);
-			if (stage >= 1 && stage <= 5) return [stage as WizardStepNumber];
+			const stage = WIZARD_STEPS.find(
+				(definition) => definition.number === Number(stepMatch[1])
+			)?.number;
+			if (stage !== undefined) return [stage];
 		}
 		if ((entry.eventKey ?? '').startsWith('custom:')) return [5];
 		return [1, 2, 3, 4, 5];
@@ -154,7 +153,8 @@
 	}
 
 	function advance(): void {
-		if (next === null || !canAdvance) return;
+		// Edit mode opens every step, so Next never waits on completeness.
+		if (next === null || (!edit && !canAdvance)) return;
 		wizardState.currentStep = next;
 		persist();
 	}
@@ -177,7 +177,7 @@
 	function tabTitle(target: WizardStepNumber): string {
 		if (target === step) return 'Current step';
 		if (!stepUnlocked(target)) return `Complete step ${target} first`;
-		return `Jump to step ${target}`;
+		return edit ? `Jump to step ${target}` : `Back to step ${target}`;
 	}
 
 	// Backstop for a change that reached the state without going through
@@ -282,10 +282,10 @@
 			<div data-testid="wizard.step-5-footer-spacer" aria-hidden="true" />
 		{:else}
 			<Button
-				disabled={!canAdvance}
+				disabled={!edit && !canAdvance}
 				onclick={advance}
 				data-testid="wizard.next"
-				title={canAdvance ? undefined : `Step ${step} is not complete yet`}
+				title={edit || canAdvance ? undefined : `Step ${step} is not complete yet`}
 			>
 				Next
 			</Button>

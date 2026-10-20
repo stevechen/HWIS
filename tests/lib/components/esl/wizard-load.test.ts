@@ -584,7 +584,7 @@ describe('loadWizardState — inferred cases', () => {
 	it('leaves rows that match no wizard slot as unmatched', () => {
 		const rows = [
 			row({ type: 'start_school', title: 'Start at P3', date: '2026-08-31' }),
-			// A checklist-draft quiz beyond the six slots.
+			// Seven wizard-shaped quiz rows: the seventh has no slot.
 			...['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-12'].map(
 				(date, i) =>
 					row({
@@ -601,7 +601,7 @@ describe('loadWizardState — inferred cases', () => {
 				id: 'evt-x',
 				type: 'reminder',
 				reminderKind: 'quiz',
-				title: 'Unit 7 Quiz Due',
+				title: 'Quiz 7',
 				target: 'CLIL',
 				date: '2026-11-02',
 				endDate: '2026-11-06'
@@ -683,5 +683,167 @@ describe('loadWizardState — exact recovery edges', () => {
 			dates: ['2026-10-08', '2026-10-12']
 		});
 		expect(buildSavePayload(loaded.state)).toEqual(payload2);
+	});
+});
+
+/**
+ * Checklist drafts (#213 `createMissing`) are real `esl_events` rows the edit
+ * wizard must never claim. A no-op reload → save has to reproduce them
+ * byte-for-byte (the reconcile dry-run reports 0/0/0) instead of rewriting
+ * `Unit N Quiz Due` into `Quiz N` or duplicating note-less `Unit N` tasks.
+ */
+function checklistDraftRows(): WizardEventSource[] {
+	const drafts: WizardEventSource[] = [];
+	const off = (id: string, date: string, note?: string) =>
+		drafts.push({
+			id,
+			type: 'no_school',
+			title: ESL_EVENT_TITLES.no_school,
+			target: 'all',
+			date,
+			...(note === undefined ? {} : { note })
+		});
+	// Translated captions, plus a caption-less pair (createMissing omits the
+	// note when the holiday cache has no English caption).
+	off('draft-off-1', '2026-09-14', 'Mid-Autumn Festival');
+	off('draft-off-2', '2026-10-10', 'National Day');
+	off('draft-off-3', '2026-10-11', 'National Day');
+	off('draft-off-4', '2026-10-26');
+	off('draft-off-5', '2026-10-27');
+	// `Unit N` task drafts: ranged, banner, title only — no note.
+	for (const [unit, date, endDate] of [
+		[1, '2026-09-21', '2026-09-25'],
+		[2, '2026-10-19', '2026-10-23']
+	] as const) {
+		drafts.push({
+			id: `draft-unit-${unit}`,
+			type: 'reminder',
+			reminderKind: 'task',
+			title: `Unit ${unit}`,
+			target: 'all',
+			date,
+			endDate
+		});
+	}
+	// `Unit N Quiz Due` drafts: the shape the checklist writes, never `Quiz N`.
+	for (const [unit, date, endDate] of [
+		[1, '2026-09-22', '2026-09-24'],
+		[2, '2026-11-16', '2026-11-18']
+	] as const) {
+		drafts.push({
+			id: `draft-quiz-${unit}`,
+			type: 'reminder',
+			reminderKind: 'quiz',
+			title: `Unit ${unit} Quiz Due`,
+			target: 'CLIL',
+			date,
+			endDate
+		});
+	}
+	// Passport / recording dues and G9 mock pairs — shape-identical to the
+	// wizard's own rows, so they load into their slots and re-save unchanged.
+	for (const [index, date] of ['2026-09-28', '2026-11-05', '2026-12-14'].entries()) {
+		drafts.push({
+			id: `draft-passport-${index}`,
+			type: 'reminder',
+			reminderKind: 'passport',
+			title: ESL_REMINDER_TITLES.passport,
+			target: 'Comm',
+			date
+		});
+		drafts.push({
+			id: `draft-recording-${index}`,
+			type: 'reminder',
+			reminderKind: 'recording',
+			title: ESL_REMINDER_TITLES.recording,
+			target: 'Comm',
+			date: `2026-12-0${index + 1}`
+		});
+	}
+	for (const pair of [
+		['2026-09-15', '2026-09-16'],
+		['2026-10-13', '2026-10-14']
+	] as const) {
+		for (const date of pair) {
+			drafts.push({
+				id: `draft-mock-${date}`,
+				type: 'g9_mock',
+				title: ESL_EVENT_TITLES.g9_mock,
+				target: 'G9',
+				date
+			});
+		}
+	}
+	return drafts;
+}
+
+describe('loadWizardState — checklist drafts', () => {
+	it('consumes unit/quiz drafts silently and leaves the rest loadable', () => {
+		const state = s1State();
+		// Start from a wizard save with no quiz/dues/mocks: the checklist
+		// supplied those groups as drafts.
+		state.step4.pairs = { mock1: null, mock2: null, mock3: null };
+		for (const key of Object.keys(state.step4.ranges) as (keyof typeof state.step4.ranges)[]) {
+			state.step4.ranges[key] = null;
+		}
+		const rows = [...simulateSave(buildSavePayload(state)), ...checklistDraftRows()];
+		const loaded = loadWizardState(semesterSource(), rows);
+
+		// No unit draft becomes a Step 5 custom and no quiz draft takes a slot.
+		expect(loaded.state.step5.customEvents).toEqual(state.step5.customEvents);
+		expect(loaded.state.step4.ranges).toMatchObject({
+			q1: null,
+			q2: null,
+			q3: null,
+			q4: null,
+			q5: null,
+			q6: null,
+			pd1: ['2026-09-28'],
+			pd2: ['2026-11-05'],
+			pd3: ['2026-12-14'],
+			rd1: ['2026-12-01']
+		});
+		// The drafts are preserved rows, not inferred state.
+		const entries = loaded.inferred.entries;
+		expect(entries.every((entry) => entry.kind !== 'unmatched-event')).toBe(true);
+		expect(entries.every((entry) => !entry.detail.includes('Unit 1'))).toBe(true);
+
+		// Reload → save reproduces the checklist-owned groups unchanged.
+		const repayload = buildSavePayload(loaded.state);
+		expect(repayload.ranges).toMatchObject({
+			q1: null,
+			pd1: ['2026-09-28'],
+			rd1: ['2026-12-01']
+		});
+		expect(repayload.pairs.mock1).toEqual(['2026-09-15', '2026-09-16']);
+		expect(repayload.pairs.mock2).toEqual(['2026-10-13', '2026-10-14']);
+		expect(repayload.offDays).toEqual(
+			expect.arrayContaining([
+				{ date: '2026-09-14', name: 'Mid-Autumn Festival' },
+				{ date: '2026-10-26', name: '' },
+				{ date: '2026-10-27', name: '' }
+			])
+		);
+		expect(repayload.customs).toEqual(state.step5.customEvents);
+	});
+
+	it('keeps caption-less contiguous drafts as Step 2 off days, never named extras', () => {
+		const rows = [
+			row({ type: 'start_school', title: 'Start at P3', date: '2026-08-31' }),
+			...['2026-10-26', '2026-10-27', '2026-10-28'].map((date, index) =>
+				row({ id: `draft-off-${index}`, type: 'no_school', title: 'Off', date })
+			)
+		];
+		const loaded = loadWizardState(semesterSource(), rows);
+
+		expect(loaded.state.step4.extras).toEqual([]);
+		expect(loaded.state.step2.offDays).toEqual([
+			{ date: '2026-10-26', name: '' },
+			{ date: '2026-10-27', name: '' },
+			{ date: '2026-10-28', name: '' }
+		]);
+		expect(kind(loaded.inferred.entries, 'extra-grouping')).toEqual([]);
+		// The save no longer refuses a blank extra name.
+		expect(() => buildSavePayload(loaded.state)).not.toThrow();
 	});
 });

@@ -185,6 +185,17 @@ describe('wizard shell', () => {
 		await expect.element(page.getByTestId('wizard.resumed')).not.toBeInTheDocument();
 	});
 
+	it('labels reached step tabs as "Back to step N" in create mode', async () => {
+		await render(WizardShellHarness);
+
+		await expect
+			.element(page.getByTestId('wizard.step-2-tab'))
+			.toHaveAttribute('title', 'Back to step 2');
+		await expect
+			.element(page.getByTestId('wizard.step-3-tab'))
+			.toHaveAttribute('title', 'Complete step 3 first');
+	});
+
 	it('Cancels by dropping the stored state and leaving for the semester list', async () => {
 		await render(WizardShellHarness);
 		await page.getByRole('button', { name: 'Next' }).click();
@@ -305,8 +316,9 @@ describe('wizard shell (edit mode)', () => {
 		const props: EditOptions = { mode: 'edit', initialState: editState() };
 		await render(WizardShellHarness, props);
 
-		// Clean state: no guards.
-		expect(beforeNavigateMock).not.toHaveBeenCalled();
+		// Clean state: the veto is registered but never cancels; beforeunload
+		// stays unarmed.
+		expect(beforeNavigateMock).toHaveBeenCalledTimes(1);
 		let beforeUnload = new Event('beforeunload', { cancelable: true });
 		window.dispatchEvent(beforeUnload);
 		expect(beforeUnload.defaultPrevented).toBe(false);
@@ -315,7 +327,6 @@ describe('wizard shell (edit mode)', () => {
 		await page.getByTestId('harness.set-start').click();
 		await expect.element(page.getByTestId('harness.start-date')).toMatchTextContent('2026-09-07');
 
-		expect(beforeNavigateMock).toHaveBeenCalledTimes(1);
 		const navCallback = beforeNavigateMock.mock.calls[0]?.[0] as (navigation: {
 			cancel: () => void;
 		}) => void;
@@ -328,13 +339,34 @@ describe('wizard shell (edit mode)', () => {
 		expect(beforeUnload.defaultPrevented).toBe(true);
 	});
 
+	it('registers the in-app veto once and re-checks the live dirty flag', async () => {
+		const props: EditOptions = { mode: 'edit', initialState: editState() };
+		await render(WizardShellHarness, props);
+
+		// Registered at mount, before any edit; the callback is a clean no-op.
+		expect(beforeNavigateMock).toHaveBeenCalledTimes(1);
+		const navCallback = beforeNavigateMock.mock.calls[0]?.[0] as (navigation: {
+			cancel: () => void;
+		}) => void;
+		const cleanNavigation = { cancel: vi.fn() };
+		navCallback(cleanNavigation);
+		expect(cleanNavigation.cancel).not.toHaveBeenCalled();
+
+		// Dirty → clean → dirty cycles never accumulate registrations.
+		await page.getByTestId('harness.set-start').click();
+		await expect.element(page.getByTestId('harness.start-date')).toMatchTextContent('2026-09-07');
+		expect(beforeNavigateMock).toHaveBeenCalledTimes(1);
+		const dirtyNavigation = { cancel: vi.fn() };
+		navCallback(dirtyNavigation);
+		expect(dirtyNavigation.cancel).toHaveBeenCalledTimes(1);
+	});
+
 	it('disarms the unsaved guards once a save has landed, so the success redirect is not vetoed', async () => {
 		const props: EditOptions = { mode: 'edit', initialState: editState() };
 		await render(WizardShellHarness, props);
 
 		await page.getByTestId('harness.set-start').click();
 		await expect.element(page.getByTestId('harness.start-date')).toMatchTextContent('2026-09-07');
-		expect(beforeNavigateMock).toHaveBeenCalledTimes(1);
 		const navCallback = beforeNavigateMock.mock.calls[0]?.[0] as (navigation: {
 			cancel: () => void;
 		}) => void;
@@ -348,6 +380,24 @@ describe('wizard shell (edit mode)', () => {
 		const beforeUnload = new Event('beforeunload', { cancelable: true });
 		window.dispatchEvent(beforeUnload);
 		expect(beforeUnload.defaultPrevented).toBe(false);
+	});
+
+	it('advances with Next even when the current step is incomplete', async () => {
+		const props: EditOptions = { mode: 'edit', initialState: editState() };
+		await render(WizardShellHarness, props);
+
+		// Step 3 (exams) is incomplete, yet edit mode never gates Next.
+		await page.getByTestId('wizard.step-3-tab').click();
+		await expect.element(page.getByTestId('harness.step')).toMatchTextContent('3');
+		const next = page.getByRole('button', { name: 'Next' });
+		await expect.element(next).toBeEnabled();
+		await next.click();
+		await expect.element(page.getByTestId('harness.step')).toMatchTextContent('4');
+
+		// Reached edit-mode steps keep the "jump" wording, not create's "back".
+		await expect
+			.element(page.getByTestId('wizard.step-3-tab'))
+			.toHaveAttribute('title', 'Jump to step 3');
 	});
 
 	it('shows the inferred entries that surface on the current step, inline', async () => {
