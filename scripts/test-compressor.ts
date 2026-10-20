@@ -220,20 +220,27 @@ function formatErrorLines(details: ErrorDetails): string[] {
 	return lines;
 }
 
-export function compressResults(report: JsonReport): string {
+export type CompressOptions = {
+	/** Playwright `--grep` value for this run, echoed so tagged summaries stay labelled. */
+	filter?: string;
+};
+
+export function compressResults(report: JsonReport, options: CompressOptions = {}): string {
 	const suites = report.suites ?? [];
 	const s = report.stats;
 	const total = (s?.expected ?? 0) + (s?.unexpected ?? 0) + (s?.flaky ?? 0) + (s?.skipped ?? 0);
 	const failed = s?.unexpected ?? 0;
+	const filter = options.filter?.trim() || undefined;
+	const filterLabel = filter ? `${filter} ` : '';
 
 	if (failed === 0) {
-		return `All ${total} tests passed.`;
+		return `${filter ? `${filter}: ` : ''}All ${total} tests passed.`;
 	}
 
 	const failedSpecs = collectFailedSpecs(suites);
 
 	const lines: string[] = [];
-	lines.push(`## Failures (${failed}/${total})`);
+	lines.push(`## Failures ${filterLabel}(${failed}/${total})`);
 	lines.push('');
 
 	if (failedSpecs.length === 0) {

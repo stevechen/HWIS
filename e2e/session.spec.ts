@@ -14,7 +14,7 @@ import { getTestSuffix } from './helpers';
  * as it would require waiting for timeout. Server unit tests cover
  * the session invalidation logic.
  */
-test.describe('Session Management @session @auth-sequential', () => {
+test.describe('Session Management @session @auth-sequential @hwis', () => {
 	test.describe('Session Persistence', () => {
 		test.describe('Admin', () => {
 			test.use({ role: 'admin' });

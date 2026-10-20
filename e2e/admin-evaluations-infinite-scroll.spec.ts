@@ -25,7 +25,7 @@ async function waitForEvaluationsReady(page: import('@playwright/test').Page) {
 	await evalsPage.expectTimelineVisible();
 }
 
-test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential', () => {
+test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	// CONSTANTS - Define at top of describe
@@ -212,7 +212,7 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential'
 	});
 });
 
-test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small @sequential', () => {
+test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	// CONSTANTS - Define at top of describe
@@ -265,7 +265,7 @@ test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small @sequent
 	});
 });
 
-test.describe('Admin Evaluations - Filter Empty State @infinite-scroll-filter-empty @sequential', () => {
+test.describe('Admin Evaluations - Filter Empty State @infinite-scroll-filter-empty @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	// CONSTANTS - Define at top of describe

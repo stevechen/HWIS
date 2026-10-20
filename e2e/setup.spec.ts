@@ -9,7 +9,7 @@ import { buildStorageState, buildContextCookies } from './session';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-setup('seed test data and verify setup', async ({ page }) => {
+setup('seed test data and verify setup @infra @hwis @esl', async ({ page }) => {
 	// Clear all tagged test data and seed fresh baseline
 	await teardownAllTagged();
 	await seedBaseline();

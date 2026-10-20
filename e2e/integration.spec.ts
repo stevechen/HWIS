@@ -12,7 +12,7 @@ import { AdminStudentsPage, NewEvaluationPage, StudentTimelinePage } from './pag
 // CREATE STUDENT TESTS
 // ============================================================================
 
-test.describe('Student CRUD Cycle @integration', () => {
+test.describe('Student CRUD Cycle @integration @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('crud');
@@ -61,7 +61,7 @@ test.describe('Student CRUD Cycle @integration', () => {
 	});
 });
 
-test.describe('Evaluation Persistence @integration', () => {
+test.describe('Evaluation Persistence @integration @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('evalPersist');
@@ -111,7 +111,7 @@ test.describe('Evaluation Persistence @integration', () => {
 	});
 });
 
-test.describe('Student Timeline Navigation @integration @sequential', () => {
+test.describe('Student Timeline Navigation @integration @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('evalNav');
@@ -157,7 +157,7 @@ test.describe('Student Timeline Navigation @integration @sequential', () => {
 	});
 });
 
-test.describe('Category to Evaluation Integration @integration', () => {
+test.describe('Category to Evaluation Integration @integration @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('catEvalInt');

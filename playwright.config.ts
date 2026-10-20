@@ -6,6 +6,13 @@ const hasSuperAuth = fs.existsSync(path.join(process.cwd(), 'e2e/.auth/super.jso
 const runCrossBrowser = process.env.E2E_CROSS_BROWSER === '1';
 const isCI = !!process.env.CI;
 
+// Department-tag runs (`bun run test:e2e:hwis|esl`) set this. Playwright runs
+// dependency projects in full, ignoring --grep, so the default chain
+// (sequential → cleanup-after-parallel → chromium-parallel) would drag the
+// entire parallel suite into a tagged run. In tagged mode the filtered projects
+// depend on setup only; each spec still cleans up its own tagged data.
+const isTaggedRun = process.env.E2E_DEPARTMENT_TAGS === '1';
+
 const projects: PlaywrightTestConfig['projects'] = [];
 
 // Setup
@@ -54,7 +61,7 @@ projects.push({
 	use: { ...devices['Desktop Chrome'] },
 	testMatch: '**/*.spec.ts',
 	grep: /@sequential/,
-	dependencies: ['cleanup-after-parallel'],
+	dependencies: isTaggedRun ? ['setup'] : ['cleanup-after-parallel'],
 	workers: 1
 });
 
@@ -65,20 +72,26 @@ if (runCrossBrowser) {
 		use: { ...devices['Desktop Safari'] },
 		testMatch: '**/*.spec.ts',
 		grep: /@sequential/,
-		dependencies: ['chromium-sequential'],
+		dependencies: isTaggedRun ? ['setup'] : ['chromium-sequential'],
 		workers: 1
 	});
 }
 
-// Auth/session destructive tests (logout, session invalidation) should run last
+// Auth/session destructive tests (logout, session invalidation) should run last.
+// Department-tagged runs skip them: logging out the shared storageState users
+// would invalidate sessions other workers are still using, and Playwright runs
+// dependency projects unfiltered, so ordering via dependencies would drag the
+// whole suite into a tagged run. Run the full suite for these.
 projects.push({
 	name: 'auth-sequential',
 	use: { ...devices['Desktop Chrome'] },
 	testMatch: '**/*.spec.ts',
-	grep: /@auth-sequential/,
-	dependencies: runCrossBrowser
-		? ['chromium-sequential', 'webkit-sequential']
-		: ['chromium-sequential'],
+	grep: isTaggedRun ? /@auth-sequential-disabled-in-tagged-runs/ : /@auth-sequential/,
+	dependencies: isTaggedRun
+		? ['setup']
+		: runCrossBrowser
+			? ['chromium-sequential', 'webkit-sequential']
+			: ['chromium-sequential'],
 	workers: 1
 });
 
@@ -94,15 +107,17 @@ if (hasSuperAuth || process.env.CI) {
 			storageState: 'e2e/.auth/super.json'
 		},
 		testMatch: 'e2e/audit.spec.ts',
-		dependencies: runCrossBrowser
-			? [
-					'setup',
-					'chromium-parallel',
-					'webkit-parallel',
-					'chromium-sequential',
-					'webkit-sequential'
-				]
-			: ['setup', 'chromium-parallel', 'chromium-sequential'],
+		dependencies: isTaggedRun
+			? ['setup']
+			: runCrossBrowser
+				? [
+						'setup',
+						'chromium-parallel',
+						'webkit-parallel',
+						'chromium-sequential',
+						'webkit-sequential'
+					]
+				: ['setup', 'chromium-parallel', 'chromium-sequential'],
 		workers: 1
 	});
 
@@ -114,13 +129,15 @@ if (hasSuperAuth || process.env.CI) {
 				storageState: 'e2e/.auth/super.json'
 			},
 			testMatch: 'e2e/audit.spec.ts',
-			dependencies: [
-				'setup',
-				'chromium-parallel',
-				'webkit-parallel',
-				'chromium-sequential',
-				'webkit-sequential'
-			],
+			dependencies: isTaggedRun
+				? ['setup']
+				: [
+						'setup',
+						'chromium-parallel',
+						'webkit-parallel',
+						'chromium-sequential',
+						'webkit-sequential'
+					],
 			workers: 1
 		});
 	}

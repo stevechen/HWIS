@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import { cleanupByTag, seedAuditLogs } from './convex-client';
 import { AdminAuditPage } from './pages';
 
-test.describe('Audit Log Page (super admin) @audit', () => {
+test.describe('Audit Log Page (super admin) @audit @hwis', () => {
 	test.use({ role: 'super' });
 
 	let auditPage: AdminAuditPage;
@@ -23,7 +23,7 @@ test.describe('Audit Log Page (super admin) @audit', () => {
 	});
 });
 
-test.describe('Audit Log - Data-driven column toggle', () => {
+test.describe('Audit Log - Data-driven column toggle @hwis', () => {
 	test.use({ role: 'super' });
 
 	let testAuthId: string;
