@@ -41,10 +41,18 @@ type RestoreClass = Omit<
 type RestoreUser = SerializedDocument<BackupSnapshot['users'][number]>;
 type RestoreCategory = SerializedDocument<BackupSnapshot['categories'][number]>;
 type RestoreHouseEvent = Omit<BackupSnapshot['houseEvents'][number], '_id' | '_creationTime'>;
+type RestoreLeaderboardThumbnail = Omit<
+	BackupSnapshot['leaderboardThumbnails'][number],
+	'_id' | '_creationTime'
+>;
+type RestoreLeaderboardSnapshot = Omit<
+	BackupSnapshot['leaderboardSnapshots'][number],
+	'_id' | '_creationTime'
+>;
 
-// The HWIS restore path only consumes the original six collections. Newer
-// department-scoped arrays are carried by the snapshot but owned by the restore
-// workstream; omitting them here keeps this payload's contract unchanged.
+// The HWIS restore path consumes the original six collections plus the two
+// leaderboard tables. Snapshots written before version 2.0 do not carry the
+// leaderboard arrays at all, so they are optional here and read as empty.
 export type RestorePayload = Omit<
 	BackupSnapshot,
 	| 'exportedAt'
@@ -75,7 +83,14 @@ export type RestorePayload = Omit<
 	categories: RestoreCategory[];
 	classes: RestoreClass[];
 	houseEvents: RestoreHouseEvent[];
+	leaderboardThumbnails?: RestoreLeaderboardThumbnail[];
+	leaderboardSnapshots?: RestoreLeaderboardSnapshot[];
 };
+
+/** Versions this build can apply through the International (HWIS) restore. */
+export const HWIS_RESTORE_VERSIONS = [SNAPSHOT_VERSION, '1.0', undefined] as const;
+/** Versions this build can apply through the ESL restore. */
+export const ESL_RESTORE_VERSIONS = [SNAPSHOT_VERSION] as const;
 
 export type RestoreResult = {
 	skippedEvaluations: string[];
@@ -161,8 +176,180 @@ const CLEARED_TABLES = [
 	'students',
 	'house_events',
 	'classes',
-	'point_categories'
+	'point_categories',
+	'leaderboard_thumbnails',
+	'leaderboard_snapshots'
 ] as const;
+
+const HWIS_REQUIRED_ARRAYS = [
+	'students',
+	'evaluations',
+	'users',
+	'categories',
+	'classes',
+	'houseEvents'
+] as const;
+
+const HWIS_OPTIONAL_ARRAYS = ['leaderboardThumbnails', 'leaderboardSnapshots'] as const;
+
+const ESL_REQUIRED_ARRAYS = [
+	'users',
+	'eslCohorts',
+	'eslClasses',
+	'eslClassMeetings',
+	'eslTeacherAvailability',
+	'eslSemesters',
+	'eslEvents',
+	'eslStudents',
+	'teacherNotes'
+] as const;
+
+function restoreVersionOf(payload: unknown): unknown {
+	return (payload as { version?: unknown } | null | undefined)?.version;
+}
+
+function assertRestoreVersion(
+	payload: unknown,
+	accepted: readonly (string | undefined)[],
+	label: string
+): void {
+	const version = restoreVersionOf(payload);
+	if (accepted.includes(version as string | undefined)) return;
+	const shown = version === undefined ? 'none' : JSON.stringify(version);
+	throw new Error(
+		`Incompatible schema version: ${label} snapshot version ${shown} is not compatible with accepted version(s) ${accepted
+			.filter((v): v is string => v !== undefined)
+			.map((v) => JSON.stringify(v))
+			.join(', ')}. Restore cannot proceed.`
+	);
+}
+
+function requireArray(payload: unknown, key: string): readonly unknown[] {
+	const value = (payload as Record<string, unknown> | null | undefined)?.[key];
+	if (!Array.isArray(value)) {
+		throw new Error(`Invalid backup payload: missing or invalid '${key}' array.`);
+	}
+	return value;
+}
+
+function requireOptionalArray(payload: unknown, key: string): void {
+	const value = (payload as Record<string, unknown> | null | undefined)?.[key];
+	if (value !== undefined && !Array.isArray(value)) {
+		throw new Error(`Invalid backup payload: invalid '${key}' array.`);
+	}
+}
+
+function readId(value: unknown): string | undefined {
+	const id = (value as { _id?: unknown } | null | undefined)?._id;
+	return typeof id === 'string' ? id : undefined;
+}
+
+/**
+ * Validates an International (HWIS) payload *before* any table is cleared.
+ *
+ * Version 1.0 payloads predate the leaderboard arrays and are still accepted;
+ * the arrays read as empty. Unknown versions and structurally broken payloads
+ * are rejected up front so a failed restore never half-applies.
+ */
+export function assertHwisRestorePayload(payload: unknown): asserts payload is RestorePayload {
+	assertRestoreVersion(payload, HWIS_RESTORE_VERSIONS, 'International');
+	for (const key of HWIS_REQUIRED_ARRAYS) requireArray(payload, key);
+	for (const key of HWIS_OPTIONAL_ARRAYS) requireOptionalArray(payload, key);
+
+	const students = requireArray(payload, 'students') as Array<{
+		studentId?: unknown;
+		classId?: unknown;
+	}>;
+	const classIds = new Set(
+		(requireArray(payload, 'classes') as unknown[]).map(readId).filter((id) => id !== undefined)
+	);
+
+	const studentIds = new Set<string>();
+	const duplicateStudentIds = new Set<string>();
+	for (const student of students) {
+		const studentId = typeof student.studentId === 'string' ? student.studentId : undefined;
+		if (studentId) {
+			if (studentIds.has(studentId)) duplicateStudentIds.add(studentId);
+			studentIds.add(studentId);
+		}
+		const classId = typeof student.classId === 'string' ? student.classId : undefined;
+		if (!classId || !classIds.has(classId)) {
+			throw new Error(
+				`Class not found for student ${student.studentId ?? '(unknown)'}: ${classId ?? '(missing)'}`
+			);
+		}
+	}
+	if (duplicateStudentIds.size > 0) {
+		throw new Error(
+			`Restore contains duplicate student IDs: ${[...duplicateStudentIds].sort().join(', ')}`
+		);
+	}
+}
+
+/**
+ * Validates an ESL payload *before* any table is cleared.
+ *
+ * Only version 2.0 (the first version that carries the ESL arrays) is accepted:
+ * an older snapshot has no ESL rows to restore, and treating it as an empty
+ * ESL snapshot would silently wipe the department.
+ */
+export function assertEslRestorePayload(payload: unknown): asserts payload is EslRestorePayload {
+	assertRestoreVersion(payload, ESL_RESTORE_VERSIONS, 'ESL');
+	for (const key of ESL_REQUIRED_ARRAYS) requireArray(payload, key);
+
+	const cohortIds = new Set(
+		(requireArray(payload, 'eslCohorts') as unknown[]).map(readId).filter((id) => id !== undefined)
+	);
+	const semesterIds = new Set(
+		(requireArray(payload, 'eslSemesters') as unknown[])
+			.map(readId)
+			.filter((id) => id !== undefined)
+	);
+	const classIds = new Set(
+		(requireArray(payload, 'eslClasses') as unknown[]).map(readId).filter((id) => id !== undefined)
+	);
+
+	for (const cls of requireArray(payload, 'eslClasses') as Array<{
+		_id?: string;
+		cohortId?: string;
+	}>) {
+		if (!cls.cohortId || !cohortIds.has(cls.cohortId)) {
+			throw new Error(
+				`Cohort not found for class ${cls._id ?? '(unknown)'}: ${cls.cohortId ?? '(missing)'}`
+			);
+		}
+	}
+	for (const meeting of requireArray(payload, 'eslClassMeetings') as Array<{
+		_id?: string;
+		classId?: string;
+	}>) {
+		if (!meeting.classId || !classIds.has(meeting.classId)) {
+			throw new Error(
+				`Class not found for meeting ${meeting._id ?? '(unknown)'}: ${meeting.classId ?? '(missing)'}`
+			);
+		}
+	}
+	for (const student of requireArray(payload, 'eslStudents') as Array<{
+		schoolStudentId?: string;
+		cohortId?: string;
+	}>) {
+		if (!student.cohortId || !cohortIds.has(student.cohortId)) {
+			throw new Error(
+				`Cohort not found for student ${student.schoolStudentId ?? '(unknown)'}: ${student.cohortId ?? '(missing)'}`
+			);
+		}
+	}
+	for (const event of requireArray(payload, 'eslEvents') as Array<{
+		_id?: string;
+		semesterId?: string;
+	}>) {
+		if (!event.semesterId || !semesterIds.has(event.semesterId)) {
+			throw new Error(
+				`Semester not found for event ${event._id ?? '(unknown)'}: ${event.semesterId ?? '(missing)'}`
+			);
+		}
+	}
+}
 
 // Deletes every row in the entity tables a backup owns, then deletes the
 // audit logs that targeted those tables. Users and user audit logs are kept.
@@ -323,23 +510,8 @@ export async function applyRestore(
 	ctx: { db: GenericDatabaseWriter<DataModel> },
 	payload: RestorePayload
 ): Promise<RestoreResult> {
-	if (payload.version && payload.version !== SNAPSHOT_VERSION) {
-		throw new Error(
-			`Incompatible schema version: snapshot version "${payload.version}" is not compatible with current version "${SNAPSHOT_VERSION}". Restore cannot proceed.`
-		);
-	}
-
-	const studentIds = new Set<string>();
-	const duplicateStudentIds = new Set<string>();
-	for (const student of payload.students) {
-		if (studentIds.has(student.studentId)) duplicateStudentIds.add(student.studentId);
-		studentIds.add(student.studentId);
-	}
-	if (duplicateStudentIds.size > 0) {
-		throw new Error(
-			`Restore contains duplicate student IDs: ${[...duplicateStudentIds].sort().join(', ')}`
-		);
-	}
+	// Validate version, shape and class references before anything is cleared.
+	assertHwisRestorePayload(payload);
 
 	await clearRestorableData(ctx);
 
@@ -410,6 +582,25 @@ export async function applyRestore(
 			endDate: event.endDate,
 			housePoints: event.housePoints ?? undefined,
 			e2eTag: event.e2eTag
+		});
+	}
+
+	// Leaderboard rows carry no references, so they are reinserted verbatim.
+	// Version 1.0 payloads omit these arrays; they restore as empty.
+	for (const thumbnail of payload.leaderboardThumbnails ?? []) {
+		await ctx.db.insert('leaderboard_thumbnails', {
+			board: thumbnail.board,
+			theme: thumbnail.theme,
+			url: thumbnail.url,
+			updatedAt: thumbnail.updatedAt
+		});
+	}
+	for (const snapshot of payload.leaderboardSnapshots ?? []) {
+		await ctx.db.insert('leaderboard_snapshots', {
+			board: snapshot.board,
+			stats: snapshot.stats,
+			generatedAt: snapshot.generatedAt,
+			watermark: snapshot.watermark
 		});
 	}
 
@@ -489,15 +680,18 @@ async function remapEslUsers(
 // teachers → availability. Users are reused by authId and never modified. Returns
 // the references that were skipped because their user was gone. HWIS tables and
 // audit logs are untouched.
+//
+// Decision (#246): an ESL restore replaces the *whole* ESL graph in the payload,
+// including archived cohorts. There is no archived-only merge — the snapshot is
+// the department's source of truth, so a cohort archived after the snapshot is
+// gone once the snapshot is restored.
 export async function applyEslRestore(
 	ctx: { db: GenericDatabaseWriter<DataModel> },
 	payload: EslRestorePayload
 ): Promise<EslRestoreResult> {
-	if (payload.version && payload.version !== SNAPSHOT_VERSION) {
-		throw new Error(
-			`Incompatible schema version: snapshot version "${payload.version}" is not compatible with current version "${SNAPSHOT_VERSION}". Restore cannot proceed.`
-		);
-	}
+	// Version and reference validation happen before `clearEslData`, so an
+	// incompatible payload leaves the live graph untouched.
+	assertEslRestorePayload(payload);
 
 	await clearEslData(ctx);
 

@@ -19,7 +19,7 @@ import { normalizeDepartment } from './departments';
 
 const BACKUP_CHUNK_SIZE = 200_000;
 
-export const SNAPSHOT_VERSION = '1.0';
+export const SNAPSHOT_VERSION = '2.0';
 
 /**
  * Retention thresholds for backup pruning.
@@ -94,8 +94,22 @@ export type BackupSnapshot = {
 	teacherNotes: Doc<'teacher_notes'>[];
 };
 
+/**
+ * A department snapshot must be restorable on its own, so it carries every
+ * identity the department's rows can reference:
+ *
+ * - Super users administer both departments and are included in both.
+ * - Students (base role `student`) are International-only: they have no
+ *   department assignment and evaluators reference them by `students._id`.
+ * - Explicit/hybrid staff are included for each department they belong to;
+ *   legacy staff (base role only) read as International.
+ */
 function filterUsersByDepartment(users: Doc<'users'>[], department: Department): Doc<'users'>[] {
-	return users.filter((user) => resolveDepartmentRoles(user)[department] !== undefined);
+	return users.filter((user) => {
+		if (user.role === 'super') return true;
+		if (user.role === 'student') return department === 'international';
+		return resolveDepartmentRoles(user)[department] !== undefined;
+	});
 }
 
 // Collects a department snapshot. Reads each table in parallel so a backup

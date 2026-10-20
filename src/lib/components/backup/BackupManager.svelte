@@ -40,7 +40,7 @@
 	const session = useViewer();
 	let refreshTrigger = $state(0);
 	const backupsQuery = useQuery(api.backup.listBackups, () =>
-		auth.loaded && auth.isAdmin ? { _trigger: refreshTrigger } : 'skip'
+		auth.loaded && auth.isAdmin ? { _trigger: refreshTrigger, department } : 'skip'
 	);
 
 	const currentUserId = $derived(session.viewer?._id);
@@ -402,7 +402,8 @@
 	</Card.Root>
 
 	<!-- Restore from JSON File Card — International only. The ESL restore backend
-	     exists, but file upload restore is not wired up for ESL yet. -->
+	     accepts a 2.0 ESL payload, but the ESL page intentionally offers restore
+	     from its own stored history instead of an arbitrary upload. -->
 	{#if department === 'international'}
 		<Card.Root>
 			<Card.Header>
@@ -658,8 +659,9 @@
 		</Card.Content>
 	</Card.Root>
 
-	<!-- Danger Zone Card — International only; clear-all is not scoped to a department,
-	     so it stays off the ESL page even though the ESL restore path exists. -->
+	<!-- Danger Zone Card — International only. `clearAllData` clears HWIS
+	     entities and International backups; ESL data and ESL backups survive,
+	     so it is not offered on the ESL page. -->
 	{#if department === 'international'}
 		<Card.Root class="border-destructive">
 			<Card.Header>

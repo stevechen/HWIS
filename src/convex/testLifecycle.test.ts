@@ -484,6 +484,105 @@ describe('test data lifecycle', () => {
 		expect(backups.map((b) => b.filename)).toEqual(['real.json']);
 	});
 
+	it('scope international removes only International and legacy tagged backups with their chunks', async () => {
+		const t = rawConvexTest(schema, modules);
+		const { internationalId, legacyId, eslId } = await t.run(async (ctx) => {
+			const internationalId = await ctx.db.insert('backups', {
+				filename: 'hwis.json',
+				department: 'international',
+				createdAt: 1,
+				e2eTag: 'e2e-test_x'
+			});
+			const legacyId = await ctx.db.insert('backups', {
+				filename: 'legacy.json',
+				createdAt: 1,
+				e2eTag: 'e2e-test_x'
+			});
+			const eslId = await ctx.db.insert('backups', {
+				filename: 'esl.json',
+				department: 'esl',
+				createdAt: 1,
+				e2eTag: 'e2e-test_x'
+			});
+			for (const backupId of [internationalId, legacyId, eslId]) {
+				await ctx.db.insert('backup_chunks', { backupId, chunkIndex: 0, data: '{}' });
+			}
+			return { internationalId, legacyId, eslId };
+		});
+
+		const result = await t.mutation(api.testLifecycle.teardownByTag, {
+			scope: 'international',
+			e2eTag: 'e2e-test_x'
+		});
+		expect(result.deleted).toEqual({ backups: 2 });
+
+		expect(await t.run(async (ctx) => ctx.db.get(internationalId))).toBeNull();
+		expect(await t.run(async (ctx) => ctx.db.get(legacyId))).toBeNull();
+		expect(await t.run(async (ctx) => ctx.db.get(eslId))).not.toBeNull();
+
+		const chunks = await t.run(async (ctx) => ctx.db.query('backup_chunks').collect());
+		expect(chunks.map((chunk) => chunk.backupId)).toEqual([eslId]);
+	});
+
+	it('scope esl removes only ESL tagged backups with their chunks', async () => {
+		const t = rawConvexTest(schema, modules);
+		const { internationalId, eslId } = await t.run(async (ctx) => {
+			const internationalId = await ctx.db.insert('backups', {
+				filename: 'hwis.json',
+				department: 'international',
+				createdAt: 1,
+				e2eTag: 'e2e-test_x'
+			});
+			const eslId = await ctx.db.insert('backups', {
+				filename: 'esl.json',
+				department: 'esl',
+				createdAt: 1,
+				e2eTag: 'e2e-test_x'
+			});
+			for (const backupId of [internationalId, eslId]) {
+				await ctx.db.insert('backup_chunks', { backupId, chunkIndex: 0, data: '{}' });
+			}
+			return { internationalId, eslId };
+		});
+
+		const result = await t.mutation(api.testLifecycle.teardownByTag, {
+			scope: 'esl',
+			e2eTag: 'e2e-test_x'
+		});
+		expect(result.deleted).toEqual({ backups: 1 });
+
+		expect(await t.run(async (ctx) => ctx.db.get(eslId))).toBeNull();
+		expect(await t.run(async (ctx) => ctx.db.get(internationalId))).not.toBeNull();
+
+		const chunks = await t.run(async (ctx) => ctx.db.query('backup_chunks').collect());
+		expect(chunks.map((chunk) => chunk.backupId)).toEqual([internationalId]);
+	});
+
+	it('scope all removes tagged backups from both departments', async () => {
+		const t = rawConvexTest(schema, modules);
+		await t.run(async (ctx) => {
+			await ctx.db.insert('backups', {
+				filename: 'hwis.json',
+				department: 'international',
+				createdAt: 1,
+				e2eTag: 'e2e-test_x'
+			});
+			await ctx.db.insert('backups', {
+				filename: 'esl.json',
+				department: 'esl',
+				createdAt: 1,
+				e2eTag: 'e2e-test_x'
+			});
+		});
+
+		const result = await t.mutation(api.testLifecycle.teardownByTag, {
+			scope: 'all',
+			e2eTag: 'e2e-test_x'
+		});
+		expect(result.deleted.backups).toBe(2);
+		expect(await t.run(async (ctx) => ctx.db.query('backups').collect())).toHaveLength(0);
+	});
+
 	it('teardownByTag scope auditLogs removes tagged logs and the test performer user', async () => {
 		const t = rawConvexTest(schema, modules);
 		await t.run(async (ctx) => {

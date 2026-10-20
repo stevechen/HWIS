@@ -3,6 +3,7 @@ import { convexTest, modules, createStudentWithClass } from './test.setup';
 import schema from './schema';
 import { api } from './_generated/api';
 import { runYearEndMigration } from './shared/migration_plan';
+import { SNAPSHOT_VERSION } from './shared/backup_snapshot';
 
 describe('year-end migration plan', () => {
 	test('advances enrolled students carrying section names and creates target classes on demand', async () => {
@@ -165,7 +166,7 @@ describe('year-end migration plan', () => {
 			students: Array<{ studentId: string }>;
 			houseEvents: Array<{ title: string }>;
 		};
-		expect(data.version).toBe('1.0');
+		expect(data.version).toBe(SNAPSHOT_VERSION);
 		expect(data.students).toHaveLength(1);
 		expect(data.students[0].studentId).toBe('STU001');
 		expect(data.houseEvents).toHaveLength(1);

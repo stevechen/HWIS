@@ -3,13 +3,14 @@ import { getTestSuffix } from './helpers';
 import { cleanupByTag, cleanupTestBackupsByTimestamp } from './convex-client';
 
 /**
- * The ESL department's backup page: only ESL snapshots are listed, a backup
- * created here is tagged `esl`, and the same row is invisible to the
- * International backup page.
+ * The ESL department's backup page: a backup created here is tagged `esl` and
+ * appears in the ESL department's history.
  *
- * Runs as the ESL department admin fixture. That account also carries the base
- * Admin role the International shell requires, so the last step can sign in to
- * `/admin/backup` in the same browser session and prove the separation.
+ * Runs as the ESL department admin fixture, which is an ESL-only admin (base
+ * role `teacher`, `departmentRoles.esl === 'admin'`) — the real shape of an ESL
+ * admin. It therefore must not be sent to `/admin/backup`; the backend
+ * cross-department visibility rules are covered by the convex tests
+ * (`backup.test.ts`, `esl-restore.test.ts`).
  */
 test.describe('ESL backup management @esl', () => {
 	test.use({ role: 'esladmin' });
@@ -31,9 +32,7 @@ test.describe('ESL backup management @esl', () => {
 		await cleanupTestBackupsByTimestamp(testStartTime);
 	});
 
-	test('creates an ESL backup that appears in ESL history and not in International history', async ({
-		page
-	}) => {
+	test('creates an ESL backup that appears in ESL history', async ({ page }) => {
 		await expect(page.getByTestId('esl-admin-backup.title')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Force Backup Now' })).toBeVisible();
 
@@ -44,11 +43,5 @@ test.describe('ESL backup management @esl', () => {
 		await expect(page.getByText(/Created backup/)).toBeVisible();
 		await expect(page.getByText(backupName).first()).toBeVisible();
 		await expect(page.getByText('ESL', { exact: true }).first()).toBeVisible();
-
-		// The International page must not list the ESL row.
-		await page.goto('/admin/backup');
-		await page.waitForSelector('body.hydrated');
-		await expect(page.getByText('Backup History')).toBeVisible();
-		await expect(page.getByText(backupName)).not.toBeVisible();
 	});
 });

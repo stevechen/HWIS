@@ -73,7 +73,10 @@ const TEST_USER_SPECS: readonly TestUserSpec[] = [
 		key: 'eslAdmin',
 		email: 'esladmin@hwis.test',
 		name: 'Test ESL Admin',
-		role: 'admin',
+		// ESL-only admins are stored with base role `teacher` and the admin rank
+		// in `departmentRoles.esl` — exactly the shape `resolveDepartmentRoles`
+		// documents. A base `admin` role would wrongly grant International access.
+		role: 'teacher',
 		departments: ['esl'],
 		departmentRoles: { esl: 'admin' }
 	}
