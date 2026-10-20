@@ -351,3 +351,21 @@ export function canDeleteBackup(
 export function canRestoreBackup(subject: AccessSubject): boolean {
 	return canAccessAdminArea(subject);
 }
+
+/**
+ * True when the subject may restore a *department-scoped* backup: an Active
+ * admin of that department, or a Super user.
+ *
+ * A legacy admin (base role `admin`, no `departmentRoles`) reads as an
+ * International admin through `resolveDepartmentRoles`, so the original
+ * HWIS restore behaviour is preserved. An ESL-only admin (base role
+ * `teacher`, `departmentRoles.esl === 'admin'`) passes the ESL gate but is
+ * refused an International restore, closing the cross-department hole where a
+ * single global admin check let either side overwrite the other.
+ */
+export function canRestoreDepartment(subject: AccessSubject, department: Department): boolean {
+	if (subject.status !== 'active') return false;
+	if (isSuper(subject)) return true;
+	const roles = resolveDepartmentRoles(subject);
+	return department === 'esl' ? roles.esl === 'admin' : roles.international === 'admin';
+}

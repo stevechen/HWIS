@@ -81,6 +81,78 @@ export type RestoreResult = {
 	skippedEvaluations: string[];
 };
 
+// --- ESL payload -----------------------------------------------------------
+//
+// The ESL restore owns a different graph (cohorts → classes/students/events),
+// so it gets its own payload type rather than widening `RestorePayload` with
+// arrays the HWIS path would ignore. Every array is optional-safe: a snapshot
+// always carries all of them, but a hand-written or legacy payload that omits
+// an array would otherwise break the HWIS restore, which is why the two types
+// stay separate (see #238/#246). Foreign keys are strings, exactly like the
+// HWIS `RestoreStudent`/`RestoreClass` overrides, because a serialized
+// snapshot no longer carries live `Id` values.
+
+type RestoreEslCohort = SerializedDocument<BackupSnapshot['eslCohorts'][number]>;
+type RestoreEslClass = Omit<
+	SerializedDocument<BackupSnapshot['eslClasses'][number]>,
+	'cohortId' | 'teacherId'
+> & {
+	cohortId: string;
+	teacherId?: string;
+};
+type RestoreEslMeeting = Omit<
+	SerializedDocument<BackupSnapshot['eslClassMeetings'][number]>,
+	'classId'
+> & {
+	classId: string;
+};
+type RestoreEslAvailability = Omit<
+	SerializedDocument<BackupSnapshot['eslTeacherAvailability'][number]>,
+	'teacherId'
+> & {
+	teacherId: string;
+};
+type RestoreEslSemester = SerializedDocument<BackupSnapshot['eslSemesters'][number]>;
+type RestoreEslEvent = Omit<
+	SerializedDocument<BackupSnapshot['eslEvents'][number]>,
+	'semesterId'
+> & {
+	semesterId: string;
+};
+type RestoreEslStudent = Omit<
+	SerializedDocument<BackupSnapshot['eslStudents'][number]>,
+	'cohortId'
+> & {
+	cohortId: string;
+};
+type RestoreTeacherNote = Omit<
+	SerializedDocument<BackupSnapshot['teacherNotes'][number]>,
+	'classId' | 'teacherId' | 'updatedBy'
+> & {
+	classId: string;
+	teacherId: string;
+	updatedBy: string;
+};
+
+export type EslRestorePayload = {
+	exportedAt?: string;
+	version?: string;
+	users: RestoreUser[];
+	eslCohorts: RestoreEslCohort[];
+	eslClasses: RestoreEslClass[];
+	eslClassMeetings: RestoreEslMeeting[];
+	eslTeacherAvailability: RestoreEslAvailability[];
+	eslSemesters: RestoreEslSemester[];
+	eslEvents: RestoreEslEvent[];
+	eslStudents: RestoreEslStudent[];
+	teacherNotes: RestoreTeacherNote[];
+};
+
+export type EslRestoreResult = {
+	/** Rows dropped because a user they referenced could not be remapped. */
+	skippedReferences: string[];
+};
+
 // Tables wiped by a restore, together with the audit logs that refer to them.
 // User audit logs survive so account history is preserved; users themselves
 // are never cleared because restore reuses existing users by authId.
@@ -342,4 +414,247 @@ export async function applyRestore(
 	}
 
 	return { skippedEvaluations };
+}
+
+// --- ESL restore -----------------------------------------------------------
+
+// ESL entity tables wiped by an ESL restore, in dependency-safe delete order.
+// `esl_holiday_cache` is deliberately absent: it is a rebuildable cache owned by
+// neither department's restore (see #232/#235). `backups`, `backup_chunks`,
+// `backupHeartbeats`, the better-auth tables and every HWIS table are likewise
+// never touched — an ESL restore cannot clobber International data.
+const ESL_CLEARED_TABLES = [
+	'teacher_notes',
+	'esl_class_meetings',
+	'esl_classes',
+	'esl_events',
+	'esl_semesters',
+	'esl_students',
+	'esl_cohorts',
+	'esl_teacher_availability'
+] as const;
+
+// Clears the ESL entity tables. `audit_logs` is intentionally left untouched:
+// ESL writes no audit logs today (#232), so there is nothing of its own to
+// clear, and deleting by table name would risk removing International history.
+async function clearEslData(ctx: { db: GenericDatabaseWriter<DataModel> }) {
+	for (const table of ESL_CLEARED_TABLES) {
+		const rows = await ctx.db.query(table).collect();
+		for (const row of rows) {
+			await ctx.db.delete(row._id);
+		}
+	}
+}
+
+// Maps payload users onto live users without ever mutating one. Share with
+// HWIS: an existing user (matched by authId) keeps its base role/status/name and
+// its live `departmentRoles` verbatim, so a hybrid user survives an ESL restore
+// with their International grant intact. Users with an authId absent from the
+// live database are skipped — a deleted user stays deleted. Users without an
+// authId are inserted fresh with the payload's department roles.
+async function remapEslUsers(
+	ctx: { db: GenericDatabaseWriter<DataModel> },
+	users: EslRestorePayload['users']
+) {
+	const mapping = new Map<string, Id<'users'>>();
+	for (const user of users) {
+		const existingUser = user.authId
+			? await ctx.db
+					.query('users')
+					.withIndex('by_authId', (q) => q.eq('authId', user.authId))
+					.first()
+			: null;
+
+		if (existingUser) {
+			mapping.set(user._id, existingUser._id);
+		} else if (user.authId) {
+			continue;
+		} else {
+			const newUserId = await ctx.db.insert('users', {
+				authId: undefined,
+				name: user.role === 'student' ? (user.name ?? undefined) : normalizeStaffName(user.name),
+				role: user.role ?? 'teacher',
+				status: user.status ?? 'active',
+				departmentRoles: user.departmentRoles
+			});
+			mapping.set(user._id, newUserId);
+		}
+	}
+	return mapping;
+}
+
+// Applies a department-scoped ESL snapshot. Clears only the ESL entity tables,
+// then reinserts in dependency order: cohorts → semesters → events, and
+// cohorts → classes → meetings, cohorts → students, classes/teachers → notes,
+// teachers → availability. Users are reused by authId and never modified. Returns
+// the references that were skipped because their user was gone. HWIS tables and
+// audit logs are untouched.
+export async function applyEslRestore(
+	ctx: { db: GenericDatabaseWriter<DataModel> },
+	payload: EslRestorePayload
+): Promise<EslRestoreResult> {
+	if (payload.version && payload.version !== SNAPSHOT_VERSION) {
+		throw new Error(
+			`Incompatible schema version: snapshot version "${payload.version}" is not compatible with current version "${SNAPSHOT_VERSION}". Restore cannot proceed.`
+		);
+	}
+
+	await clearEslData(ctx);
+
+	const userIdMapping = await remapEslUsers(ctx, payload.users);
+	const skippedReferences: string[] = [];
+
+	// Cohorts first: classes and students both hang off them.
+	const cohortIdMapping = new Map<string, Id<'esl_cohorts'>>();
+	for (const cohort of payload.eslCohorts) {
+		const newCohortId = await ctx.db.insert('esl_cohorts', {
+			year: cohort.year,
+			grade: cohort.grade,
+			level: cohort.level,
+			classNumber: cohort.classNumber,
+			e2eTag: cohort.e2eTag,
+			status: cohort.status,
+			createdAt: cohort.createdAt
+		});
+		cohortIdMapping.set(cohort._id, newCohortId);
+	}
+
+	// Semesters, then their events.
+	const semesterIdMapping = new Map<string, Id<'esl_semesters'>>();
+	for (const semester of payload.eslSemesters) {
+		const newSemesterId = await ctx.db.insert('esl_semesters', {
+			year: semester.year,
+			term: semester.term,
+			startDate: semester.startDate,
+			e2eTag: semester.e2eTag
+		});
+		semesterIdMapping.set(semester._id, newSemesterId);
+	}
+
+	for (const event of payload.eslEvents) {
+		const newSemesterId = semesterIdMapping.get(event.semesterId);
+		if (!newSemesterId) {
+			throw new Error(`Semester not found for event ${event._id}: ${event.semesterId}`);
+		}
+		await ctx.db.insert('esl_events', {
+			semesterId: newSemesterId,
+			type: event.type,
+			reminderKind: event.reminderKind,
+			isBanner: event.isBanner,
+			title: event.title,
+			target: event.target,
+			date: event.date,
+			examGroup: event.examGroup,
+			endDate: event.endDate,
+			note: event.note,
+			startPeriod: event.startPeriod,
+			endPeriod: event.endPeriod,
+			provenance: event.provenance,
+			unverified: event.unverified,
+			e2eTag: event.e2eTag
+		});
+	}
+
+	// Classes reference their cohort and (optionally) a teacher.
+	const classIdMapping = new Map<string, Id<'esl_classes'>>();
+	for (const cls of payload.eslClasses) {
+		const newCohortId = cohortIdMapping.get(cls.cohortId);
+		if (!newCohortId) {
+			throw new Error(`Cohort not found for class ${cls._id}: ${cls.cohortId}`);
+		}
+		const newTeacherId = cls.teacherId ? userIdMapping.get(cls.teacherId) : undefined;
+		const newClassId = await ctx.db.insert('esl_classes', {
+			cohortId: newCohortId,
+			type: cls.type,
+			name: cls.name,
+			teacherId: newTeacherId,
+			room: cls.room,
+			status: cls.status,
+			createdAt: cls.createdAt
+		});
+		classIdMapping.set(cls._id, newClassId);
+	}
+
+	// Meetings reference their class.
+	for (const meeting of payload.eslClassMeetings) {
+		const newClassId = classIdMapping.get(meeting.classId);
+		if (!newClassId) {
+			throw new Error(`Class not found for meeting ${meeting._id}: ${meeting.classId}`);
+		}
+		await ctx.db.insert('esl_class_meetings', {
+			classId: newClassId,
+			year: meeting.year,
+			day: meeting.day,
+			period: meeting.period,
+			e2eTag: meeting.e2eTag
+		});
+	}
+
+	// Students reference their cohort.
+	for (const student of payload.eslStudents) {
+		const newCohortId = cohortIdMapping.get(student.cohortId);
+		if (!newCohortId) {
+			throw new Error(
+				`Cohort not found for student ${student.schoolStudentId}: ${student.cohortId}`
+			);
+		}
+		await ctx.db.insert('esl_students', {
+			cohortId: newCohortId,
+			englishName: student.englishName,
+			chineseName: student.chineseName,
+			schoolStudentId: student.schoolStudentId,
+			chineseClass: student.chineseClass,
+			status: student.status,
+			enrolledAt: student.enrolledAt,
+			disabledAt: student.disabledAt,
+			statusReason: student.statusReason,
+			e2eTag: student.e2eTag
+		});
+	}
+
+	// Notes reference a class and two users. A note whose teacher was deleted
+	// cannot be reattached, so it is skipped rather than failing the restore.
+	for (const note of payload.teacherNotes) {
+		const newClassId = classIdMapping.get(note.classId);
+		const newTeacherId = userIdMapping.get(note.teacherId);
+		const newUpdatedById = userIdMapping.get(note.updatedBy);
+		if (!newClassId) {
+			skippedReferences.push(`Teacher note ${note._id}: class not found (${note.classId})`);
+			continue;
+		}
+		if (!newTeacherId || !newUpdatedById) {
+			skippedReferences.push(`Teacher note ${note._id}: user not found`);
+			continue;
+		}
+		await ctx.db.insert('teacher_notes', {
+			classId: newClassId,
+			date: note.date,
+			teacherId: newTeacherId,
+			text: note.text,
+			updatedAt: note.updatedAt,
+			updatedBy: newUpdatedById,
+			e2eTag: note.e2eTag
+		});
+	}
+
+	// Availability is per teacher; skip blocks whose teacher is gone.
+	for (const availability of payload.eslTeacherAvailability) {
+		const newTeacherId = userIdMapping.get(availability.teacherId);
+		if (!newTeacherId) {
+			skippedReferences.push(
+				`Teacher availability ${availability._id}: teacher not found (${availability.teacherId})`
+			);
+			continue;
+		}
+		await ctx.db.insert('esl_teacher_availability', {
+			teacherId: newTeacherId,
+			year: availability.year,
+			day: availability.day,
+			period: availability.period,
+			note: availability.note,
+			e2eTag: availability.e2eTag
+		});
+	}
+
+	return { skippedReferences };
 }

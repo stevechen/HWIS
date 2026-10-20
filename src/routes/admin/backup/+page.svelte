@@ -87,7 +87,9 @@
 		return isSuperUser || (!isSystemBackup(backup) && isOwner(backup));
 	}
 
-	const autoBackups = $derived((backupsQuery.data ?? []).filter((b) => b.source === 'system_cron'));
+	const autoBackups = $derived(
+		(backupsQuery.data ?? []).filter((b) => b.source === 'system_cron' && b.department !== 'esl')
+	);
 
 	const listBackups = $derived(
 		(backupsQuery.data ?? []).filter(
@@ -493,6 +495,13 @@
 												<div class="min-w-0">
 													<div class="flex flex-wrap items-center gap-2">
 														<p class="truncate font-medium">{backup.name || backup.filename}</p>
+														<span
+															class={backup.department === 'esl'
+																? 'inline-flex items-center rounded-md bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-300'
+																: 'inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300'}
+														>
+															{backup.department === 'esl' ? 'ESL' : 'International'}
+														</span>
 														{#if backup.source === 'system_migration'}
 															<span
 																class="inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-950 dark:text-purple-300"
@@ -557,13 +566,15 @@
 															<Pencil class="mr-1 size-4" /> Rename
 														</Button>
 													{/if}
-													<Button
-														variant="outline"
-														size="sm"
-														onclick={() => handleRestoreClick(backup._id)}
-													>
-														<RotateCcw class="mr-1 size-4" /> Restore
-													</Button>
+													{#if backup.department !== 'esl'}
+														<Button
+															variant="outline"
+															size="sm"
+															onclick={() => handleRestoreClick(backup._id)}
+														>
+															<RotateCcw class="mr-1 size-4" /> Restore
+														</Button>
+													{/if}
 													{#if canDeleteBackup(backup)}
 														<Button
 															variant="ghost"
