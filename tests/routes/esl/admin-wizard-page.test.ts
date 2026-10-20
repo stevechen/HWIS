@@ -3,9 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const gotoMock = vi.fn();
+const beforeNavigateMock = vi.fn();
 
 vi.mock('$app/navigation', () => ({
-	goto: (...args: unknown[]) => gotoMock(...args)
+	goto: (...args: unknown[]) => gotoMock(...args),
+	beforeNavigate: (...args: unknown[]) => beforeNavigateMock(...args)
 }));
 
 vi.mock('convex-svelte', () => ({

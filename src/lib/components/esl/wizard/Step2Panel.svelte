@@ -1,8 +1,10 @@
 <script lang="ts">
 	import WeekPicker from './WeekPicker.svelte';
 	import CalendarPreview from './CalendarPreview.svelte';
+	import HolidayOffDayImport from '../HolidayOffDayImport.svelte';
 	import InlineHolidayImport from './InlineHolidayImport.svelte';
 	import RecalculateHint from './RecalculateHint.svelte';
+	import type { Id } from '$convex/_generated/dataModel';
 	import { endPickerMondays, defaultEndDate, buildPreviewWeeks } from './wizard-dates';
 	import type { WizardState, WizardStepApi } from './wizard-state';
 
@@ -11,13 +13,31 @@
 	 *
 	 * Layout: left column = WeekPicker + HolidayImport, right column = CalendarPreview (read-only)
 	 * Event list below calendar on right side.
+	 *
+	 * Edit mode (#256) swaps the create-flow stage-only import for the
+	 * saved-semester `HolidayOffDayImport`: it writes `no_school` rows right
+	 * away, then reports exactly what it wrote so the same days merge into
+	 * wizard state. Without that merge the Step 5 save would reconcile
+	 * against a state that never heard of the new rows.
 	 */
 
-	let { state, update }: WizardStepApi = $props();
+	let { state, update, mode = 'create' }: WizardStepApi = $props();
 
 	const term = $derived(state.step1.term);
 	const schoolYear = $derived(state.step1.schoolYear);
 	const startDate = $derived(state.step1.startDate);
+	const editSemesterId = $derived(mode === 'edit' ? loadedId(state.semesterId) : null);
+	const savedImport = $derived(
+		editSemesterId !== null && term !== null && startDate !== null
+			? { semesterId: editSemesterId, term, startDate }
+			: null
+	);
+
+	/** `WizardState.semesterId` survives sessionStorage as a plain string;
+	 * in edit mode it is the loader's echo of the real `_id`. */
+	function loadedId(id: string | null): Id<'esl_semesters'> | null {
+		return id === null ? null : (id as Id<'esl_semesters'>);
+	}
 	const endDate = $derived(state.step2.endDate);
 	const offDays = $derived(state.step2.offDays);
 	const endMondays = $derived(term && schoolYear ? endPickerMondays(term, schoolYear) : []);
@@ -64,6 +84,26 @@
 			draft.step2.holidaysImported = true;
 		});
 	}
+
+	/**
+	 * Edit mode (#256): merge exactly the rows the saved-semester import
+	 * wrote. Deduping by date keeps a re-import idempotent (the backend
+	 * skips taken dates and reports only new rows anyway) and the sort
+	 * matches how the loader presents off days.
+	 */
+	function mergeImportedOffDays(imported: { date: string; name: string }[]) {
+		if (imported.length === 0) return;
+		update((draft: WizardState) => {
+			const merged = [...draft.step2.offDays];
+			for (const day of imported) {
+				const index = merged.findIndex((existing) => existing.date === day.date);
+				if (index >= 0) merged[index] = day;
+				else merged.push(day);
+			}
+			draft.step2.offDays = merged.sort((a, b) => a.date.localeCompare(b.date));
+			draft.step2.holidaysImported = true;
+		});
+	}
 </script>
 
 <div data-testid="wizard.step-2-panel" class="space-y-4">
@@ -106,13 +146,24 @@
 				</div>
 			{/if}
 
-			<InlineHolidayImport
-				semesterId={state.semesterId ?? 'new'}
-				term={term ?? 'S1'}
-				startDate={startDate ?? ''}
-				{schoolYear}
-				onImported={handleHolidaysImported}
-			/>
+			{#if savedImport !== null}
+				{#key savedImport.semesterId}
+					<HolidayOffDayImport
+						semesterId={savedImport.semesterId}
+						term={savedImport.term}
+						startDate={savedImport.startDate}
+						onImported={mergeImportedOffDays}
+					/>
+				{/key}
+			{:else if mode === 'create'}
+				<InlineHolidayImport
+					semesterId={state.semesterId ?? 'new'}
+					term={term ?? 'S1'}
+					startDate={startDate ?? ''}
+					{schoolYear}
+					onImported={handleHolidaysImported}
+				/>
+			{/if}
 
 			<!-- Event list right below import -->
 			<div data-testid="wizard.step-2-event-list" class="space-y-2">

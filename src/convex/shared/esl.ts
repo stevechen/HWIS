@@ -1077,6 +1077,19 @@ export const ESL_REMINDER_TITLES: Record<EslReminderKind, string> = {
 	workbook_check: 'Workbook check'
 };
 
+/**
+ * The note strings the edit flow locks onto single-day rows. `wizard-save`
+ * writes them, `wizard-load` reads them back, and the reconcile treats them
+ * as wizard-owned — single-sourced so the three can never drift.
+ */
+export const ESL_LOCKED_NOTES = {
+	anniversary: 'Anniversary',
+	anniversaryMakeup: 'Anniversary makeup',
+	sportsDay: 'Sports Day',
+	graduation: 'Graduation',
+	bbq: 'BBQ from 12:00'
+} as const;
+
 /** The three locked exam titles — the exam dropdown options. */
 export const ESL_EXAM_TITLES = ['Exam 1', 'Exam 2', 'Final Exam'] as const;
 
@@ -3110,6 +3123,40 @@ export function unitTitle(unitNumber: number): string {
  */
 export function quizTitle(unitNumber: number): string {
 	return `Unit ${unitNumber} Quiz Due`;
+}
+
+/** The checklist's unit-task draft title shape (`Unit N`, free text). */
+const UNIT_DRAFT_TITLE = /^Unit \d+$/i;
+
+/** The checklist's quiz-draft title shape (`Unit N Quiz Due`, free text). */
+const UNIT_QUIZ_DRAFT_TITLE = /^Unit \d+ Quiz Due$/i;
+
+/** Whether a title names a checklist unit-task draft (`Unit N`). */
+export function isUnitDraftTitle(title: string): boolean {
+	return UNIT_DRAFT_TITLE.test(title.trim());
+}
+
+/** Whether a title names a checklist quiz draft (`Unit N Quiz Due`). */
+export function isUnitQuizDraftTitle(title: string): boolean {
+	return UNIT_QUIZ_DRAFT_TITLE.test(title.trim());
+}
+
+/**
+ * Whether a row is a `checklist.createMissing` draft the wizard does not
+ * own: a note-less unit-task reminder (`Unit N`) or a `Unit N Quiz Due`
+ * quiz reminder. They look like custom/wizard rows by type but are written
+ * with shapes a wizard save never produces, so both the loader and the
+ * reconcile must leave them untouched.
+ */
+export function isChecklistDraftEvent(input: {
+	type: EslEventType;
+	reminderKind?: EslReminderKind;
+	title: string;
+	note?: string;
+}): boolean {
+	if (input.type !== 'reminder') return false;
+	if (input.reminderKind === 'quiz') return isUnitQuizDraftTitle(input.title);
+	return input.reminderKind === 'task' && input.note === undefined && isUnitDraftTitle(input.title);
 }
 
 /** One unit draft: a free-title task-kind `reminder` over the unit's range. */

@@ -1,24 +1,85 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { useConvexClient } from 'convex-svelte';
+	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import { isNoteHiddenForEventType } from '$convex/shared/esl';
+	import type { ReconcileSummary } from '$convex/esl/wizards';
+	import type { Id } from '$convex/_generated/dataModel';
 	import { Button } from '$lib/components/ui/button';
+	import { humanConvexErrorMessage } from '$lib/convex-error';
 	import { e2eTagFromUrl } from '$lib/e2e-tag';
+	import ChecklistPanel from '../ChecklistPanel.svelte';
+	import type { ChecklistGroup } from '../ChecklistPanel.types';
 	import CalendarPreview from './CalendarPreview.svelte';
 	import { buildPreviewWeeks, type MockOffDay, type PreviewWeek } from './wizard-dates';
 	import { buildPreviewRows, buildSavePayload, type PreviewRow } from './wizard-save';
-	import { clearWizardState, type WizardEventEdit, type WizardState } from './wizard-state';
+	import {
+		clearWizardState,
+		type WizardEventEdit,
+		type WizardMode,
+		type WizardState
+	} from './wizard-state';
 
 	let {
 		state: wizardState,
-		update
+		update,
+		mode = 'create',
+		markSaved = () => {}
 	}: {
 		state: WizardState;
 		update: (mutate: (draft: WizardState) => void) => void;
+		/** Edit (#255): dry-run reconcile, change summary, removal confirm. */
+		mode?: WizardMode;
+		/** Edit (#255): disarm the shell's unsaved guard once the save lands. */
+		markSaved?: () => void;
 	} = $props();
 
 	const client = useConvexClient();
+
+	// ---- Advisory checklist (ticket #256, moved off the retired detail
+	// page): status of the four expected-default groups plus one-click
+	// draft creation. Edit mode only — a semester that does not exist yet
+	// has nothing to check. `semesterId` is the loader's real id.
+	const today = new Date().toISOString().slice(0, 10);
+	const checklistQuery = useQuery(api.esl.checklist.status, () => {
+		const semesterId = loadedSemesterId();
+		return semesterId === null ? 'skip' : { semesterId, today };
+	});
+	let checklistBusy = $state<ChecklistGroup | null>(null);
+	let checklistError = $state<string | null>(null);
+	let checklistNotice = $state('');
+
+	/**
+	 * One-click draft creation. The Convex status query is reactive, so the
+	 * panel refreshes itself once the rows land; the wizard state stays
+	 * untouched on purpose — these are drafts the reconcile save preserves
+	 * (#253), not events the admin configured in Steps 2–5.
+	 */
+	function createChecklistDrafts(group: ChecklistGroup) {
+		const semesterId = loadedSemesterId();
+		if (semesterId === null) {
+			checklistError = 'No loaded semester — reopen the semester from the list.';
+			return;
+		}
+		checklistBusy = group;
+		checklistError = null;
+		checklistNotice = '';
+		client
+			.mutation(api.esl.checklist.createMissing, { semesterId, today, group })
+			.then((result) => {
+				const skipped = result.skipped.length > 0 ? ` Skipped: ${result.skipped.join('; ')}` : '';
+				checklistNotice =
+					result.created.length > 0
+						? `Created ${result.created.length} draft row${result.created.length === 1 ? '' : 's'}.${skipped}`
+						: `Checklist already complete — nothing missing for that group.${skipped}`;
+			})
+			.catch((cause: unknown) => {
+				checklistError = humanConvexErrorMessage(cause);
+			})
+			.finally(() => {
+				checklistBusy = null;
+			});
+	}
 
 	// Derived data from previous steps
 	const startDate = $derived(wizardState.step1.startDate);
@@ -197,6 +258,95 @@
 		goto('/esl/admin/semesters');
 	}
 
+	// ---- Edit mode (ticket #255): "Save changes" = dry-run reconcile →
+	// change summary → confirm when rows are removed → real save. A save
+	// that would drop a protected row (exam/graduation) throws on the
+	// backend even in dry-run; that refusal surfaces in the error region.
+	let editStatus: 'idle' | 'checking' | 'review' | 'saving' | 'success' | 'error' = $state('idle');
+	let editSummary = $state<ReconcileSummary | null>(null);
+	let editError = $state<string | null>(null);
+
+	/** The summary's removal warning (the confirm) — always the backend's
+	 * own list, so nothing we cannot remove is ever offered here. */
+	const removing = $derived(editSummary === null ? null : editSummary.removed);
+
+	type EditActionPayload = ReturnType<typeof buildSavePayload> & {
+		semesterId: Id<'esl_semesters'>;
+	};
+
+	function editPayload(semesterId: Id<'esl_semesters'>): EditActionPayload {
+		// `buildSavePayload` carries the Step 1 year/term verbatim, so the
+		// immutable fields always match the loaded semester.
+		const payload = buildSavePayload(wizardState, e2eTagFromUrl());
+		return { ...payload, semesterId };
+	}
+
+	/**
+	 * `WizardState.semesterId` is a plain string (it survives sessionStorage),
+	 * but in edit mode it is always the loader's echo of the real `_id`, so
+	 * branding it here is sound — the null check above proves presence.
+	 */
+	function loadedSemesterId(): Id<'esl_semesters'> | null {
+		const id = wizardState.semesterId;
+		return id === null ? null : (id as Id<'esl_semesters'>);
+	}
+
+	async function startSave() {
+		const semesterId = loadedSemesterId();
+		if (semesterId === null) {
+			editStatus = 'error';
+			editError = 'No loaded semester to update — reopen the semester from the list.';
+			return;
+		}
+		editStatus = 'checking';
+		editError = null;
+		try {
+			editSummary = await client.action(api.esl.wizards.updateSemester, {
+				...editPayload(semesterId),
+				dryRun: true
+			});
+			editStatus = 'review';
+		} catch (err) {
+			editStatus = 'error';
+			editError = err instanceof Error ? err.message : 'Failed to check the save.';
+		}
+	}
+
+	async function applySave() {
+		const semesterId = loadedSemesterId();
+		if (semesterId === null) {
+			editStatus = 'error';
+			editError = 'No loaded semester to update — reopen the semester from the list.';
+			return;
+		}
+		editStatus = 'saving';
+		editError = null;
+		try {
+			await client.action(api.esl.wizards.updateSemester, {
+				...editPayload(semesterId),
+				dryRun: false
+			});
+			// Disarm the unsaved guard before redirecting — the state still
+			// differs from the loaded snapshot, so an armed guard would veto it.
+			markSaved();
+			// Success clears the session wizard state (create path semantics);
+			// the browser then walks back to the semesters list.
+			const storage = typeof window !== 'undefined' ? window.sessionStorage : null;
+			clearWizardState(storage);
+			editStatus = 'success';
+			await goto('/esl/admin/semesters');
+		} catch (err) {
+			editStatus = 'error';
+			editError = err instanceof Error ? err.message : 'Failed to save semester';
+		}
+	}
+
+	function keepEditing() {
+		editSummary = null;
+		editStatus = 'idle';
+		editError = null;
+	}
+
 	// Format date for display
 	function formatDate(date: string): string {
 		const d = new Date(`${date}T00:00:00Z`);
@@ -323,19 +473,30 @@
 			<Button variant="outline" onclick={cancelWizard} data-testid="wizard.step-5-cancel">
 				Cancel
 			</Button>
-			<Button
-				disabled={saveStatus === 'saving' || unifiedEvents.length === 0}
-				onclick={saveSemester}
-				data-testid="wizard.step-5-save"
-				aria-busy={saveStatus === 'saving'}
-			>
-				{saveStatus === 'saving' ? 'Saving…' : 'Save semester'}
-			</Button>
+			{#if mode === 'edit'}
+				<Button
+					disabled={editStatus === 'checking' || editStatus === 'saving' || editStatus === 'review'}
+					onclick={startSave}
+					data-testid="wizard.step-5-save"
+					aria-busy={editStatus === 'checking' || editStatus === 'saving'}
+				>
+					{editStatus === 'checking' || editStatus === 'saving' ? 'Saving…' : 'Save changes'}
+				</Button>
+			{:else}
+				<Button
+					disabled={saveStatus === 'saving' || unifiedEvents.length === 0}
+					onclick={saveSemester}
+					data-testid="wizard.step-5-save"
+					aria-busy={saveStatus === 'saving'}
+				>
+					{saveStatus === 'saving' ? 'Saving…' : 'Save semester'}
+				</Button>
+			{/if}
 		</div>
 	</div>
 
-	<!-- Save status messages -->
-	{#if saveStatus === 'success'}
+	<!-- Save status messages (create path; edit path has its own below) -->
+	{#if mode === 'create' && saveStatus === 'success'}
 		<div
 			data-testid="wizard.step-5-save-success"
 			class="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
@@ -352,13 +513,99 @@
 				</a>
 			{/if}
 		</div>
-	{:else if saveStatus === 'error'}
+	{/if}
+
+	<!-- Edit save flow: summary → (confirm if removals) → real save -->
+	{#if mode === 'edit' && editSummary !== null && (editStatus === 'review' || editStatus === 'saving')}
+		<div
+			data-testid="wizard.step-5-edit-summary"
+			aria-label="Save summary"
+			class="space-y-3 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"
+		>
+			<h3 class="font-semibold">Save summary</h3>
+			<p data-testid="wizard.step-5-summary-text">
+				This save would add
+				<span data-testid="wizard.step-5-summary-added">{editSummary.added}</span>
+				row{editSummary.added === 1 ? '' : 's'}, change
+				<span data-testid="wizard.step-5-summary-changed">{editSummary.changed}</span>
+				row{editSummary.changed === 1 ? '' : 's'}, and remove
+				<span data-testid="wizard.step-5-summary-removed">{editSummary.removed}</span>
+				row{editSummary.removed === 1 ? '' : 's'}.
+			</p>
+			{#if editSummary.startDateChanged}
+				<p>Start of school moves — classes shift with it.</p>
+			{/if}
+			{#if removing !== null && removing > 0}
+				<div
+					data-testid="wizard.step-5-confirm"
+					role="alert"
+					class="rounded border border-red-300 bg-red-50 px-3 py-2 text-red-900"
+				>
+					<p class="font-medium">
+						{removing} event row{removing === 1 ? '' : 's'} will be removed from the saved semester:
+					</p>
+					<ul class="list-disc pl-5">
+						{#each editSummary.removedEvents as row (row.eventId)}
+							<li>{row.title} on {row.date}</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+			<div class="flex items-center gap-2">
+				<Button
+					data-testid="wizard.step-5-apply"
+					onclick={applySave}
+					disabled={editStatus === 'saving'}
+				>
+					{removing !== null && removing > 0 ? 'Confirm & save' : 'Apply changes'}
+				</Button>
+				<Button variant="outline" onclick={keepEditing} disabled={editStatus === 'saving'}>
+					Keep editing
+				</Button>
+			</div>
+		</div>
+	{/if}
+
+	{#if mode === 'edit' && editStatus === 'success'}
+		<div
+			data-testid="wizard.step-5-save-success"
+			class="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+			role="alert"
+		>
+			Semester updated.
+		</div>
+	{/if}
+
+	{#if (mode === 'create' && saveStatus === 'error') || (mode === 'edit' && editStatus === 'error')}
 		<div
 			class="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900"
 			role="alert"
 		>
-			{saveError}
+			{mode === 'create' ? saveError : (editError ?? 'Failed to save semester')}
 		</div>
+	{/if}
+
+	{#if mode === 'edit' && wizardState.semesterId !== null}
+		{#key wizardState.semesterId}
+			<div data-testid="wizard.step-5-checklist" class="space-y-2">
+				<ChecklistPanel
+					status={checklistQuery.data ?? null}
+					loading={checklistQuery.isLoading}
+					busyGroup={checklistBusy}
+					error={checklistError}
+					oncreate={createChecklistDrafts}
+				/>
+				{#if checklistNotice}
+					<p
+						data-testid="wizard.step-5-checklist-notice"
+						class="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+						role="status"
+					>
+						{checklistNotice}
+					</p>
+				{/if}
+			</div>
+		{/key}
 	{/if}
 
 	<!-- Calendar preview + Event list side by side -->

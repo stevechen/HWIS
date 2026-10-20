@@ -381,7 +381,11 @@ describe('holidays.importOffDays', () => {
 			outOfRange: 0,
 			plainWeekends: 2,
 			weekendHolidays: 1,
-			needsReview: []
+			needsReview: [],
+			insertedDays: [
+				{ date: '2026-09-25', name: 'Moon Festival' },
+				{ date: '2026-09-28', name: "Teacher's Day" }
+			]
 		});
 		const events = await t.query(api.esl.events.listBySemester, { semesterId });
 		expect(events).toHaveLength(2);
