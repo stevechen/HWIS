@@ -106,8 +106,24 @@ describe('ESL admin semesters page', () => {
 		expect(link.element().getAttribute('href')).toBe('/esl/admin/semesters/2000-2001-S1');
 	});
 
+	it('keeps the new-semester card hidden until Create semester is clicked', async () => {
+		renderWithToday('2000-10-15');
+		await expect.element(page.getByTestId('esl-admin-semesters.create-toggle')).toBeInTheDocument();
+		await expect.element(page.getByTestId('esl-admin-semesters.create')).not.toBeInTheDocument();
+		await page.getByTestId('esl-admin-semesters.create-toggle').click();
+		await expect.element(page.getByTestId('esl-admin-semesters.create')).toBeInTheDocument();
+	});
+
+	it('closes the card from its close button', async () => {
+		renderWithToday('2000-10-15');
+		await page.getByTestId('esl-admin-semesters.create-toggle').click();
+		await page.getByTestId('esl-admin-semesters.create-close').click();
+		await expect.element(page.getByTestId('esl-admin-semesters.create')).not.toBeInTheDocument();
+	});
+
 	it('offers the wizard as the primary setup method', async () => {
 		renderWithToday('2000-10-15');
+		await page.getByTestId('esl-admin-semesters.create-toggle').click();
 		const link = page.getByTestId('esl-admin-semesters.wizard-link');
 		await expect.element(link).toBeInTheDocument();
 		expect(link.element().getAttribute('href')).toBe('/esl/admin/semesters/new/wizard');
@@ -119,6 +135,7 @@ describe('ESL admin semesters page', () => {
 
 	it('keeps Excel/CSV import visible but unbuilt', async () => {
 		renderWithToday('2000-10-15');
+		await page.getByTestId('esl-admin-semesters.create-toggle').click();
 		const link = page.getByTestId('esl-admin-semesters.import-link');
 		await expect.element(link).toBeInTheDocument();
 		// Placeholder route: the import path exists as a link only.
