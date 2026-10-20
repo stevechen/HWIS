@@ -312,6 +312,8 @@ export const advanceGradesAndClearEvaluations = mutation({
 	args: { e2eTag: v.optional(v.string()) },
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
+		// International-only: ESL advancement is a separate flow and is never
+		// triggered from this mutation.
 		const result = await runYearEndMigration(ctx, { e2eTag: args.e2eTag });
 
 		return {

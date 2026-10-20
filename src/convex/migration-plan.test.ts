@@ -334,4 +334,154 @@ describe('year-end migration plan', () => {
 		const backups = await t.run(async (ctx) => await ctx.db.query('backups').collect());
 		expect(backups).toHaveLength(1);
 	});
+
+	test('leaves every ESL row untouched and never reads or writes ESL tables', async () => {
+		const t = await convexTest(schema, modules);
+
+		// A complete ESL year. The migration only knows International tables, so
+		// every one of these rows must survive it byte for byte.
+		const seeded = await t.run(async (ctx) => {
+			const teacherId = await ctx.db.insert('users', {
+				authId: 'esl-teacher-auth',
+				name: 'ESL Teacher',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { esl: 'teacher' }
+			});
+
+			const cohortId = await ctx.db.insert('esl_cohorts', {
+				year: '2025-2026',
+				grade: 7,
+				level: 'A',
+				classNumber: '1',
+				status: 'active',
+				createdAt: Date.now()
+			});
+			const classId = await ctx.db.insert('esl_classes', {
+				cohortId,
+				type: 'CLIL',
+				name: 'G7 CLIL A1',
+				teacherId,
+				status: 'active',
+				createdAt: Date.now()
+			});
+			const meetingId = await ctx.db.insert('esl_class_meetings', {
+				classId,
+				year: '2025-2026',
+				day: 'Monday',
+				period: 3
+			});
+			const availabilityId = await ctx.db.insert('esl_teacher_availability', {
+				teacherId,
+				year: '2025-2026',
+				day: 'Friday',
+				period: 8
+			});
+			const semesterId = await ctx.db.insert('esl_semesters', {
+				year: '2025-2026',
+				term: 'S1',
+				startDate: '2025-08-25'
+			});
+			const eventId = await ctx.db.insert('esl_events', {
+				semesterId,
+				type: 'no_school',
+				title: 'Moon Festival',
+				target: 'all',
+				date: '2025-10-06'
+			});
+			const eslStudentId = await ctx.db.insert('esl_students', {
+				cohortId,
+				englishName: 'Alice Chan',
+				chineseName: '陳小美',
+				schoolStudentId: '7001001',
+				chineseClass: 'J101',
+				status: 'active',
+				enrolledAt: Date.now()
+			});
+			const noteId = await ctx.db.insert('teacher_notes', {
+				classId,
+				date: '2025-09-01',
+				teacherId,
+				text: 'First week done',
+				updatedAt: Date.now(),
+				updatedBy: teacherId
+			});
+
+			return {
+				cohortId,
+				classId,
+				meetingId,
+				availabilityId,
+				semesterId,
+				eventId,
+				eslStudentId,
+				noteId,
+				teacherId
+			};
+		});
+
+		await t.run(async (ctx) => runYearEndMigration(ctx, { department: 'international' }));
+
+		const after = await t.run(async (ctx) => ({
+			cohorts: await ctx.db.query('esl_cohorts').collect(),
+			classes: await ctx.db.query('esl_classes').collect(),
+			meetings: await ctx.db.query('esl_class_meetings').collect(),
+			availability: await ctx.db.query('esl_teacher_availability').collect(),
+			semesters: await ctx.db.query('esl_semesters').collect(),
+			events: await ctx.db.query('esl_events').collect(),
+			students: await ctx.db.query('esl_students').collect(),
+			notes: await ctx.db.query('teacher_notes').collect()
+		}));
+
+		expect(after.cohorts.map((row) => row._id)).toEqual([seeded.cohortId]);
+		expect(after.classes.map((row) => row._id)).toEqual([seeded.classId]);
+		expect(after.meetings.map((row) => row._id)).toEqual([seeded.meetingId]);
+		expect(after.availability.map((row) => row._id)).toEqual([seeded.availabilityId]);
+		expect(after.semesters.map((row) => row._id)).toEqual([seeded.semesterId]);
+		expect(after.events.map((row) => row._id)).toEqual([seeded.eventId]);
+		expect(after.students.map((row) => row._id)).toEqual([seeded.eslStudentId]);
+		expect(after.notes.map((row) => row._id)).toEqual([seeded.noteId]);
+
+		// The ESL teacher is shared, not deleted, and keeps the ESL role.
+		const teacher = await t.run(async (ctx) => await ctx.db.get(seeded.teacherId));
+		expect(teacher?.departmentRoles?.esl).toBe('teacher');
+
+		// The pre-migration backup is International-only: it records its
+		// department and carries no ESL rows.
+		const backups = await t.run(async (ctx) => await ctx.db.query('backups').collect());
+		expect(backups).toHaveLength(1);
+		expect(backups[0].department).toBe('international');
+		const data = backups[0].data as {
+			department?: string;
+			eslCohorts: unknown[];
+			eslClasses: unknown[];
+			eslClassMeetings: unknown[];
+			eslTeacherAvailability: unknown[];
+			eslSemesters: unknown[];
+			eslEvents: unknown[];
+			eslStudents: unknown[];
+			teacherNotes: unknown[];
+		};
+		expect(data.department).toBe('international');
+		expect(data.eslCohorts).toHaveLength(0);
+		expect(data.eslClasses).toHaveLength(0);
+		expect(data.eslClassMeetings).toHaveLength(0);
+		expect(data.eslTeacherAvailability).toHaveLength(0);
+		expect(data.eslSemesters).toHaveLength(0);
+		expect(data.eslEvents).toHaveLength(0);
+		expect(data.eslStudents).toHaveLength(0);
+		expect(data.teacherNotes).toHaveLength(0);
+	});
+
+	test('fails fast when asked to run an ESL year-end migration', async () => {
+		const t = await convexTest(schema, modules);
+
+		await expect(
+			t.run(async (ctx) => runYearEndMigration(ctx, { department: 'esl' }))
+		).rejects.toThrow(/International-only[\s\S]*ESL advancement/);
+
+		// The refusal happens before any backup or write.
+		const backups = await t.run(async (ctx) => await ctx.db.query('backups').collect());
+		expect(backups).toHaveLength(0);
+	});
 });
