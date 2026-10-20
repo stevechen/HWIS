@@ -207,10 +207,33 @@ describe('buildSavePayload', () => {
 		});
 	});
 
-	it('refuses a reminder window straddling an off day', () => {
+	it('lets a reminder window step over an off day', () => {
 		const state = s1State();
-		// Spans Tue Nov 10 (National Day off).
+		// Spans Tue Nov 10 (National Day off) to reach its third class.
 		state.step4.ranges.q1 = ['2026-11-09', '2026-11-10', '2026-11-11'];
+		const payload = buildSavePayload(state);
+		expect(payload.ranges.q1).toEqual(['2026-11-09', '2026-11-10', '2026-11-11']);
+	});
+
+	it('accepts a quiz window that steps over an observed holiday', () => {
+		const state = s1State();
+		state.step2.offDays = [{ date: '2026-10-09', name: 'National Day (observed)' }];
+		// Friday Oct 9 is off, so the window reaches Mon Oct 12 for its third class.
+		state.step4.ranges.q2 = ['2026-10-05', '2026-10-07', '2026-10-12'];
+		const payload = buildSavePayload(state);
+		expect(payload.ranges.q2).toEqual(['2026-10-05', '2026-10-07', '2026-10-12']);
+	});
+
+	it('refuses a reminder window straddling an exam', () => {
+		const state = s1State();
+		// Exam 1 runs Nov 2–3.
+		state.step4.ranges.q1 = ['2026-10-30', '2026-11-02', '2026-11-04'];
+		expect(() => buildSavePayload(state)).toThrow(/Quiz 1 window crosses 2026-11-02/);
+	});
+
+	it('refuses a reminder window starting on an off day', () => {
+		const state = s1State();
+		state.step4.ranges.q1 = ['2026-11-10', '2026-11-11', '2026-11-12'];
 		expect(() => buildSavePayload(state)).toThrow(/Quiz 1 window crosses 2026-11-10/);
 	});
 

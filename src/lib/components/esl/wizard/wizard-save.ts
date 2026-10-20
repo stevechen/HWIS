@@ -116,10 +116,11 @@ function dayDiffDays(from: string, to: string): number {
 }
 
 /**
- * Refuse a ranged-reminder window spanning an off/exam day: `events.create`
- * checks every occupied date, so saving it would fail naming the date.
- * Weekends are fine (non-school, non-events); mock pairs occupy single
- * dates and exams re-fan around skips, so only reminder windows qualify.
+ * Find an exam day inside a ranged-reminder window: `events.create` lets a
+ * reminder step over a no-school day (a quiz week that loses its Friday to a
+ * holiday reaches into the next week), but never over an exam. Weekends are
+ * fine; mock pairs occupy single dates and exams re-fan around skips, so only
+ * reminder windows qualify.
  */
 function straddlesBlocked(first: string, last: string, blocked: Set<string>): string | null {
 	let cursor = addDaysLocal(first, 1);
@@ -504,12 +505,12 @@ export function buildSavePayload(
 		...rangeRecord(['pcheck', 'wcheck'])
 	} as SavePayload['ranges'];
 
-	// Ranged reminders must not straddle an off/exam day (the save would
-	// refuse them naming the date) — fail here with the same clarity.
-	const blocked = new Set([
-		...state.step2.offDays.map((day) => day.date),
-		...state.step3.exams.flatMap((exam) => exam.dates)
-	]);
+	// Ranged reminders must not straddle an exam (the save would refuse it
+	// naming the date). Interior no-school days are fine: `events.create`
+	// lets a reminder step over a holiday, and a quiz window reaches past one
+	// for its third class. Endpoints must still land on a school day.
+	const examDays = new Set(state.step3.exams.flatMap((exam) => exam.dates));
+	const blockedEndpoints = new Set([...state.step2.offDays.map((day) => day.date), ...examDays]);
 	for (const [id, label] of [
 		...rangeIds.map((rangeId, i) => [rangeId, `Quiz ${i + 1}`] as const),
 		...(['pd1', 'pd2', 'pd3'] as const).map(
@@ -525,7 +526,11 @@ export function buildSavePayload(
 		if (dates !== null && dates.length > 1) {
 			const first = dates[0] as string;
 			const last = dates[dates.length - 1] as string;
-			const crossed = straddlesBlocked(first, last, blocked);
+			const crossed = blockedEndpoints.has(first)
+				? first
+				: blockedEndpoints.has(last)
+					? last
+					: straddlesBlocked(first, last, examDays);
 			if (crossed !== null) {
 				throw new Error(`${label} window crosses ${crossed} — move it in Step 4.`);
 			}

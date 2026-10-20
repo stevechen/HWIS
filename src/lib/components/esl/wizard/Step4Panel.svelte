@@ -378,22 +378,6 @@
 		return { dates: currentWeek, currentWeek };
 	}
 
-	// A fan-out spanning an off/exam day can never be saved
-	// (`events.create` refuses straddling windows with the date named), so
-	// Step 4 refuses it at pick time like every other gate. Weekends are
-	// fine — non-school days, not events. Mock pairs occupy single dates
-	// (never a span), so they cannot straddle.
-	function straddleViolation(id: string, first: string, last: string): string | null {
-		let cursor = addDays(first, 1);
-		while (cursor < last) {
-			if (offSet.has(cursor) || examSet.has(cursor)) {
-				return `${eventLabel(id)} crosses ${cursor} — pick a window clear of it`;
-			}
-			cursor = addDays(cursor, 1);
-		}
-		return null;
-	}
-
 	function setPair(id: PairId, date: string): string[] | null {
 		if (endDate === null) return null;
 		if (isWeekend(date) || offSet.has(date) || examSet.has(date)) return null;
@@ -678,9 +662,7 @@
 								const first = fanout[0] as string;
 								const last = fanout[fanout.length - 1] as string;
 								violation =
-									blockViolation(armed, first, last) ??
-									orderViolation(armed, first, last) ??
-									straddleViolation(armed, first, last);
+									blockViolation(armed, first, last) ?? orderViolation(armed, first, last);
 							}
 						}
 					}
