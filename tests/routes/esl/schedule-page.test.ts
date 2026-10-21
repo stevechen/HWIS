@@ -245,8 +245,23 @@ describe('ESL teacher schedule list page', () => {
 	it('collapses dues onto the latest eligible day with a window badge, exactly once', async () => {
 		await render(SchedulePage);
 
-		await expect.element(page.getByText('Workbook check')).toBeInTheDocument();
-		await expect.element(page.getByText('due window 2025-09-01–2025-09-03')).toBeInTheDocument();
+		// The "Workbook check" due is in the description span (testid: esl-schedule.row-teaching)
+		// and the window badge is in a separate badge span (testid: esl-schedule.badge)
+		// Both are inside the description cell for the 2025-09-03 row.
+		const descCells = page.getByTestId('esl-schedule.description-cell').all();
+		const targetCell = descCells.find(
+			(cell) => cell.element().textContent?.includes('2025-09-03') ?? false
+		);
+		expect(targetCell).toBeDefined();
+
+		// Find the description span and badge within the target cell
+		const descSpan = targetCell!.getByTestId('esl-schedule.row-teaching');
+		const badgeSpan = targetCell!.getByTestId('esl-schedule.badge');
+
+		await expect.element(descSpan).toMatchTextContent('Workbook check');
+		await expect.element(badgeSpan).toMatchTextContent('due window 2025-09-01–2025-09-03');
+
+		// Exactly one row should contain the due
 		const rows = page.getByTestId('esl-schedule.row').all();
 		const matching = rows.filter(
 			(row) => row.element().textContent?.includes('Workbook check') ?? false

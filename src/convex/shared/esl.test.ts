@@ -11,6 +11,7 @@ import {
 	grade10ClassName,
 	grade10SiblingLevel,
 	findScheduleProblems,
+	buildTeacherDayRows,
 	type EslGateSubject,
 	type EslScheduleProblemDetail,
 	isLevelledGrade,
@@ -679,5 +680,103 @@ describe('findScheduleProblems (the write gate)', () => {
 		]);
 		expect(kinds(problems)).toEqual(expect.arrayContaining(['room', 'teacher']));
 		expect(problems).toHaveLength(2);
+	});
+});
+
+describe('buildTeacherDayRows conversation-class count-up', () => {
+	// One meeting a week per class type, each anchored by its own exam, so the
+	// count-up rules can be checked per type in one calendar.
+	const meetings = [
+		{ classId: 'g9', type: 'G9' as const, cohortGrade: 9, day: 'Monday' as const, period: 1 },
+		{ classId: 'h10a', type: 'H10A' as const, cohortGrade: 10, day: 'Tuesday' as const, period: 1 },
+		{ classId: 'clil', type: 'CLIL' as const, cohortGrade: 7, day: 'Wednesday' as const, period: 1 }
+	];
+	const events = [
+		{ type: 'exam' as const, title: 'Exam 1', target: 'G9' as const, date: '2026-02-02' },
+		{ type: 'exam' as const, title: 'Exam 1', target: 'H1' as const, date: '2026-02-03' },
+		{ type: 'exam' as const, title: 'Exam 1', target: 'CLIL' as const, date: '2026-02-04' }
+	];
+	const rows = buildTeacherDayRows({
+		meetings,
+		events,
+		semesterStart: '2026-01-05',
+		semesterEnd: null,
+		term: 'S1',
+		fromDate: '2026-01-05',
+		toDate: '2026-02-06'
+	});
+	const rowOf = (date: string, classId: string) =>
+		rows.find((row) => row.date === date && row.classId === classId);
+
+	it('marks the last two G9 days before its exam as oral exam', () => {
+		// G9 meets Monday only; the last two active Mondays before the exam
+		// mark oral — the per-class rule, not one mark per weekly series.
+		expect(rowOf('2026-01-26', 'g9')?.status).toBe('oral_exam');
+		expect(rowOf('2026-01-19', 'g9')?.status).toBe('oral_exam');
+	});
+
+	it('counts G9 up to Oral with the oral days excluded from the total', () => {
+		// Active Mondays: 1/5, 1/12, 1/19, 1/26 — 1/19 and 1/26 are the oral
+		// days, so the total reads 2, not 4.
+		expect(rowOf('2026-01-12', 'g9')?.count).toEqual({ position: 2, total: 2, label: 'Oral' });
+		expect(rowOf('2026-01-05', 'g9')?.count).toEqual({ position: 1, total: 2, label: 'Oral' });
+	});
+
+	it('marks the last grade 10 days before its exam oral', () => {
+		// H10A meets Tuesday only; 1/20 and 1/27 are the last two active days
+		// before the exam. Grade 10 runs the same rule.
+		expect(rowOf('2026-01-27', 'h10a')?.status).toBe('oral_exam');
+		expect(rowOf('2026-01-20', 'h10a')?.status).toBe('oral_exam');
+	});
+
+	it('labels grade 10 count-ups Oral with the oral days excluded', () => {
+		// Active Tuesdays: 1/6, 1/13, 1/20, 1/27 — 1/20 and 1/27 are the oral
+		// days, so the total reads 2, not 4.
+		expect(rowOf('2026-01-13', 'h10a')?.count).toEqual({ position: 2, total: 2, label: 'Oral' });
+	});
+
+	it('hands an exam-week off day back to the class day before (H103B)', () => {
+		// H103B meets Mon P8 / Fri P7, Exam 1 lands Wed 10/14, and Fri 10/9 is
+		// Off. Per series, the Friday mark would stick on Fri 10/2 (no later
+		// active Friday); per class, the last two active days are Mon 10/12
+		// and Mon 10/5, so 10/2 teaches and both Mondays mark oral.
+		const monFriMeetings = [
+			{
+				classId: 'h10b',
+				type: 'H10B' as const,
+				cohortGrade: 10,
+				day: 'Monday' as const,
+				period: 8
+			},
+			{ classId: 'h10b', type: 'H10B' as const, cohortGrade: 10, day: 'Friday' as const, period: 7 }
+		];
+		const monFriRows = buildTeacherDayRows({
+			meetings: monFriMeetings,
+			events: [
+				{ type: 'exam' as const, title: 'Exam 1', target: 'all' as const, date: '2026-10-14' },
+				{ type: 'no_school' as const, title: 'Off', target: 'all' as const, date: '2026-10-09' }
+			],
+			semesterStart: '2026-08-31',
+			semesterEnd: null,
+			term: 'S1',
+			fromDate: '2026-10-01',
+			toDate: '2026-10-16'
+		});
+		const day = (date: string) => monFriRows.find((row) => row.date === date);
+		expect(day('2026-10-05')?.status).toBe('oral_exam');
+		expect(day('2026-10-12')?.status).toBe('oral_exam');
+		expect(day('2026-10-02')?.status).toBe('teaching');
+		// The orals are excluded from the count: eleven active days fall in
+		// the window up to 10/5 (ten excluding the oral that day), twelve up
+		// to the exam (ten excluding both oral days).
+		expect(day('2026-10-05')?.count).toEqual({ position: 10, total: 10, label: 'Oral' });
+	});
+
+	it('leaves the CLIL count-up on the exam title', () => {
+		expect(rowOf('2026-01-14', 'clil')?.count).toEqual({
+			position: 2,
+			total: 4,
+			label: 'Exam 1'
+		});
 	});
 });

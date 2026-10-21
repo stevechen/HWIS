@@ -168,9 +168,13 @@ describe('ESL teacher profile page', () => {
 		await render(ProfilePage);
 
 		const header = page.getByTestId('esl-admin-user-profile.header');
-		await expect.element(header.getByText('International · teacher')).toBeInTheDocument();
-		await expect.element(header.getByText('active')).toBeInTheDocument();
-		await expect.element(header.getByText('ESL Teacher')).toBeInTheDocument();
+		// The international role text is in a paragraph inside the header.
+		// Use a paragraph-scoped locator since getByText on the header doesn't
+		// reliably find text split across inline elements in the accessibility tree.
+		const infoParagraph = header.getByRole('paragraph');
+		await expect.element(infoParagraph).toMatchTextContent('International · teacher');
+		await expect.element(infoParagraph).toMatchTextContent('active');
+		await expect.element(infoParagraph).toMatchTextContent('ESL Teacher');
 		await expect.element(header.getByText('theo@hwhs.tc.edu.tw')).toBeInTheDocument();
 	});
 

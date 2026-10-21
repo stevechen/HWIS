@@ -143,7 +143,7 @@ export function buildCalendarFragments(args: {
 			status: row.status === 'oral_exam' ? 'oral' : row.status,
 			cause: row.cause,
 			countdown:
-				row.count && row.status !== 'exam'
+				row.count && row.status !== 'exam' && row.status !== 'oral_exam'
 					? `Class ${row.count.position}/${row.count.total} to ${row.count.label}`
 					: null,
 			badges: [...row.badges],

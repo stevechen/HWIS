@@ -169,13 +169,13 @@ describe('teacher calendar', () => {
 		expect(onSelectClass).toHaveBeenCalledWith('class_comm');
 	});
 
-	it('renders one card per meeting date with slash dates and weekdays', async () => {
+	it('renders one card per meeting date with slash dates (weekdays in header)', async () => {
 		renderCalendar();
 
 		await expect.element(page.getByTestId('teacher-calendar.card-2025-09-01')).toBeInTheDocument();
 		await expect.element(page.getByTestId('teacher-calendar.card-2025-09-10')).toBeInTheDocument();
-		await expect.element(page.getByText('9/01 Mon')).toBeInTheDocument();
-		await expect.element(page.getByText('9/10 Wed')).toBeInTheDocument();
+		await expect.element(page.getByText('09/01', { exact: true })).toBeInTheDocument();
+		await expect.element(page.getByText('09/10', { exact: true })).toBeInTheDocument();
 	});
 
 	it('greys cancelled meetings with their cause', async () => {
@@ -183,7 +183,8 @@ describe('teacher calendar', () => {
 
 		const card = page.getByTestId('teacher-calendar.card-2025-09-05');
 		await expect.element(card.getByText('🎉 Off')).toBeInTheDocument();
-		await expect.element(card.getByText('Moon Festival')).toBeInTheDocument();
+		// cause is hidden for off days since chip already indicates Off
+		await expect.element(card.getByText('Moon Festival')).not.toBeInTheDocument();
 	});
 
 	it('right-aligns Class k/n count-ups on teaching cards, none on exams', async () => {
@@ -191,11 +192,13 @@ describe('teacher calendar', () => {
 
 		await expect.element(page.getByText('Class 1/5 to Exam 1')).toBeInTheDocument();
 		const examCard = page.getByTestId('teacher-calendar.card-2025-09-10');
-		await expect.element(examCard.getByText('Exam', { exact: true })).toBeInTheDocument();
+		await expect.element(examCard.getByText('Exam 1', { exact: true })).toBeInTheDocument();
 		await expect.element(examCard.getByText('Class 1/1 to Exam 1')).not.toBeInTheDocument();
+		// cause is in the chip, not duplicated below
+		await expect.element(examCard.getByText('Exam 1', { exact: true })).toBeInTheDocument();
 	});
 
-	it('marks oral-exam meetings and keeps their count-up', async () => {
+	it('marks oral-exam meetings without count-up', async () => {
 		const oralRows = [
 			row({
 				date: '2025-09-08',
@@ -227,7 +230,7 @@ describe('teacher calendar', () => {
 
 		const card = page.getByTestId('teacher-calendar.card-2025-09-08');
 		await expect.element(card.getByText('Oral Exam', { exact: true })).toBeInTheDocument();
-		await expect.element(card.getByText('Class 3/5 to Exam 1')).toBeInTheDocument();
+		await expect.element(card.getByText('Class 3/5 to Exam 1')).not.toBeInTheDocument();
 	});
 
 	it('spans range banners across the week row with the window', async () => {

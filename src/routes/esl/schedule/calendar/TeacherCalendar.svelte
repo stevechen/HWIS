@@ -54,6 +54,15 @@
 		classes.find((option) => option.id === selectedClassId) ?? classes[0] ?? null
 	);
 
+	// All weekdays that appear across all fragments, sorted Mon-Fri
+	const allWeekdays = $derived(
+		Array.from(new Set(fragments.flatMap((f) => f.cards.map((c) => c.weekdayLabel)))).sort(
+			(a, b) =>
+				['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].indexOf(a) -
+				['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].indexOf(b)
+		)
+	);
+
 	let menuOpen = $state(false);
 	/** In-flight note edits, keyed by date; the saved map wins until typed over. */
 	let drafts = $state<Record<string, string>>({});
@@ -75,14 +84,14 @@
 		}
 	}
 
-	function label(status: CalendarCardStatus): string {
+	function label(status: CalendarCardStatus, cause?: string | null): string {
 		switch (status) {
 			case 'off':
 				return '🎉 Off';
 			case 'no_class':
 				return 'No-class';
 			case 'exam':
-				return 'Exam';
+				return cause ?? 'Exam';
 			case 'g9_mock':
 				return 'Mock';
 			case 'oral':
@@ -190,6 +199,31 @@
 		</div>
 	{/if}
 
+	<!-- Sticky header row: WK | Mon Tue Wed Thu Fri (only days that have classes) -->
+	{#if allWeekdays.length > 0}
+		<div
+			class="sticky top-[84px] z-10 -mx-4 border-b bg-white/95 px-4 backdrop-blur sm:-mx-8 sm:px-8"
+		>
+			<div
+				class="grid grid-cols-[auto_repeat(var(--day-count),minmax(0,1fr))] gap-px bg-stone-200 p-px"
+				style="--day-count: {allWeekdays.length}"
+			>
+				<div
+					class="flex w-10 shrink-0 items-center justify-center bg-emerald-800 py-3 text-xs font-bold text-white"
+				>
+					WK
+				</div>
+				{#each allWeekdays as day}
+					<div
+						class="bg-stone-50 px-3 py-2 text-center text-xs font-semibold tracking-wider text-stone-600 uppercase"
+					>
+						{day}
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
 	<div class="mt-3 overflow-hidden rounded-lg border bg-white shadow-sm">
 		{#each fragments as fragment, index (`w${fragment.weekIndex}`)}
 			{@const previousCards = index > 0 ? fragments[index - 1].cards : []}
@@ -205,107 +239,128 @@
 					{monthName(fragment.cards[0].date.slice(0, 7))}
 				</div>
 			{/if}
-			<section
-				id="week-{fragment.weekIndex}"
-				data-testid="teacher-calendar.week-{fragment.weekIndex}"
-				class="flex scroll-mt-32 items-stretch border-b last:border-b-0"
-			>
-				<div
-					class="flex w-10 shrink-0 items-center justify-center bg-emerald-800 py-3 text-sm font-bold text-white"
+			{@const cardsByWeekday = Object.groupBy(fragment.cards, (card) => card.weekdayLabel)}
+			{#if true}
+				<section
+					id="week-{fragment.weekIndex}"
+					data-testid="teacher-calendar.week-{fragment.weekIndex}"
+					class="scroll-mt-32 border-b last:border-b-0"
 				>
-					{fragment.weekIndex}
-				</div>
-				<div class="min-w-0 flex-1">
-					{#if fragment.banners.length > 0}
-						<div class="flex flex-wrap gap-1.5 border-b bg-indigo-50/60 px-3 py-1.5">
-							{#each fragment.banners as banner (`${banner.title}|${banner.windowStart}|${banner.windowEnd}`)}
-								<span
-									class="rounded-full bg-indigo-200 px-2.5 py-0.5 text-xs font-semibold text-indigo-900"
-								>
-									{banner.title} · {slash(banner.windowStart)}–{slash(banner.windowEnd)}
-								</span>
+					<div
+						class="grid grid-cols-[auto_repeat(var(--day-count),minmax(0,1fr))] grid-rows-[auto_1fr] gap-px bg-stone-200 p-px"
+						style="--day-count: {allWeekdays.length}"
+					>
+						<!-- Week number column (spans both rows) -->
+						<div
+							class="row-span-2 flex w-10 shrink-0 items-center justify-center bg-emerald-800 py-3 text-sm font-bold text-white"
+						>
+							{fragment.weekIndex}
+						</div>
+						<!-- Banner row spanning day columns (row 1) -->
+						{#if fragment.banners.length > 0}
+							<div
+								class="flex flex-wrap gap-1.5 border-b bg-indigo-50/60 bg-white px-3 py-1.5"
+								style="grid-column: 2 / -1"
+							>
+								{#each fragment.banners as banner (`${banner.title}|${banner.windowStart}|${banner.windowEnd}`)}
+									<span
+										class="rounded-full bg-indigo-200 px-2.5 py-0.5 text-xs font-semibold text-indigo-900"
+									>
+										{banner.title} · {slash(banner.windowStart)}–{slash(banner.windowEnd)}
+									</span>
+								{/each}
+							</div>
+						{:else}
+							<!-- Empty spacer when no banner -->
+							<div style="grid-column: 2 / -1"></div>
+						{/if}
+						<!-- Day cells container spanning day columns (row 2) -->
+						<div
+							class="grid grid-cols-[repeat(var(--day-count),minmax(0,1fr))] gap-px"
+							style="--day-count: {allWeekdays.length}; grid-column: 2 / -1"
+						>
+							{#each allWeekdays as day}
+								<div class="min-h-[120px] min-w-0 bg-white">
+									{#each cardsByWeekday[day] ?? [] as card, cardIndex (`${card.date}-p${card.period}`)}
+										{@const newMonth =
+											cardIndex > 0 &&
+											(cardsByWeekday[day] ?? [])[cardIndex - 1].date.slice(0, 7) !==
+												card.date.slice(0, 7)}
+										<article
+											data-testid="teacher-calendar.card-{card.date}"
+											class="relative p-3 {cellTone(card.status, card.past)}{newMonth
+												? ' month-divide'
+												: ''}"
+										>
+											{#if card.past}
+												<div
+													class="past-hatch"
+													data-testid="teacher-calendar.past-{card.date}"
+													aria-hidden="true"
+												></div>
+											{/if}
+											<header class="flex flex-wrap items-center gap-1.5">
+												<span class="font-semibold">{slash(card.date)}</span>
+												{#if card.status !== 'off' && card.status !== 'no_class' && card.status !== 'exam' && card.status !== 'g9_mock'}
+													<span class="text-xs text-stone-500">P{card.period}</span>
+												{/if}
+												{#if card.status !== 'teaching' && card.status !== 'partial'}
+													<span class="rounded px-1.5 py-0.5 text-xs font-bold {chip(card.status)}">
+														{label(card.status, card.cause)}
+													</span>
+												{/if}
+												{#if card.isToday}
+													<span
+														class="rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white"
+														>● Today</span
+													>
+												{:else if nextDate !== null && card.date === nextDate}
+													<span
+														class="rounded bg-sky-600 px-1.5 py-0.5 text-xs font-bold text-white"
+														>Next →</span
+													>
+												{/if}
+												{#if card.countdown}
+													<span class="ml-auto rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-800"
+														>{card.countdown}</span
+													>
+												{/if}
+											</header>
+											{#if card.cause && card.status !== 'off' && card.status !== 'exam' && card.status !== 'oral'}
+												<p class="mt-1 text-xs font-semibold text-stone-600">{card.cause}</p>
+											{/if}
+											{#each card.badges as badge (badge)}
+												{#if card.status !== 'oral'}
+													<p class="mt-1 text-xs text-indigo-700">{badge}</p>
+												{/if}
+											{/each}
+											{#each card.dues as due (`${due.title}|${due.windowStart}`)}
+												<p class="mt-1 text-xs font-semibold text-indigo-700">
+													{due.title}{due.windowStart !== due.windowEnd
+														? ` · ${slash(due.windowStart)}–${slash(due.windowEnd)}`
+														: ''}
+												</p>
+											{/each}
+											<textarea
+												aria-label="Note for {card.date}"
+												rows="2"
+												placeholder="Note…"
+												class="mt-2 w-full rounded border border-stone-300 p-1.5 text-sm"
+												value={drafts[card.date] ?? notes[card.date] ?? ''}
+												oninput={(event) => {
+													drafts[card.date] = event.currentTarget.value;
+												}}
+												onchange={(event) => {
+													onSaveNote(card.date, event.currentTarget.value);
+												}}></textarea>
+										</article>
+									{/each}
+								</div>
 							{/each}
 						</div>
-					{/if}
-					<div
-						class="grid gap-px bg-stone-200 p-px {fragment.cards.length >= 3
-							? 'sm:grid-cols-2 lg:grid-cols-3'
-							: fragment.cards.length === 2
-								? 'sm:grid-cols-2'
-								: ''}"
-					>
-						{#each fragment.cards as card, cardIndex (`${card.date}-p${card.period}`)}
-							{@const newMonth =
-								cardIndex > 0 &&
-								fragment.cards[cardIndex - 1].date.slice(0, 7) !== card.date.slice(0, 7)}
-							<article
-								data-testid="teacher-calendar.card-{card.date}"
-								class="relative p-3 {cellTone(card.status, card.past)}{newMonth
-									? ' month-divide'
-									: ''}"
-							>
-								{#if card.past}
-									<div
-										class="past-hatch"
-										data-testid="teacher-calendar.past-{card.date}"
-										aria-hidden="true"
-									></div>
-								{/if}
-								<header class="flex flex-wrap items-center gap-1.5">
-									<span class="font-semibold">{slash(card.date)} {card.weekdayLabel}</span>
-									{#if card.status !== 'off' && card.status !== 'no_class' && card.status !== 'exam' && card.status !== 'g9_mock'}
-										<span class="text-xs text-stone-500">P{card.period}</span>
-									{/if}
-									{#if card.status !== 'teaching' && card.status !== 'partial'}
-										<span class="rounded px-1.5 py-0.5 text-xs font-bold {chip(card.status)}">
-											{label(card.status)}
-										</span>
-									{/if}
-									{#if card.isToday}
-										<span class="rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white"
-											>● Today</span
-										>
-									{:else if nextDate !== null && card.date === nextDate}
-										<span class="rounded bg-sky-600 px-1.5 py-0.5 text-xs font-bold text-white"
-											>Next →</span
-										>
-									{/if}
-									{#if card.countdown}
-										<span class="ml-auto rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-800"
-											>{card.countdown}</span
-										>
-									{/if}
-								</header>
-								{#if card.cause}
-									<p class="mt-1 text-xs font-semibold text-stone-600">{card.cause}</p>
-								{/if}
-								{#each card.badges as badge (badge)}
-									<p class="mt-1 text-xs text-indigo-700">{badge}</p>
-								{/each}
-								{#each card.dues as due (`${due.title}|${due.windowStart}`)}
-									<p class="mt-1 text-xs font-semibold text-indigo-700">
-										{due.title}{due.windowStart !== due.windowEnd
-											? ` · ${slash(due.windowStart)}–${slash(due.windowEnd)}`
-											: ''}
-									</p>
-								{/each}
-								<textarea
-									aria-label="Note for {card.date}"
-									rows="2"
-									placeholder="Note…"
-									class="mt-2 w-full rounded border border-stone-300 p-1.5 text-sm"
-									value={drafts[card.date] ?? notes[card.date] ?? ''}
-									oninput={(event) => {
-										drafts[card.date] = event.currentTarget.value;
-									}}
-									onchange={(event) => {
-										onSaveNote(card.date, event.currentTarget.value);
-									}}></textarea>
-							</article>
-						{/each}
 					</div>
-				</div>
-			</section>
+				</section>
+			{/if}
 		{/each}
 	</div>
 </div>

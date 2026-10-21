@@ -369,14 +369,15 @@ describe('esl/schedule.teacherDays', () => {
 		const tuesday = days.find((day) => day.date === '2025-09-09' && day.classId === secondComm);
 		// Each meeting series gets its own oral: Tue P5 and Thu P6 are
 		// different series, and each is the latest of its series before the
-		// exam. Per-class count-up: four Tue/Thu meetings from the 8/31
-		// start make Thursday class 4 of 4 to Exam 1.
+		// exam. Per-class count-up: four Tue/Thu meetings from the 8/31 start,
+		// two of which are the oral days themselves — the count reads 2 of 2
+		// to Oral, oral days excluded.
 		expect(tuesday).toMatchObject({
 			status: 'oral_exam',
-			count: { position: 3, total: 4, label: 'Exam 1' }
+			count: { position: 2, total: 2, label: 'Oral' }
 		});
 		expect(thursday).toMatchObject({
-			count: { position: 4, total: 4, label: 'Exam 1' }
+			count: { position: 2, total: 2, label: 'Oral' }
 		});
 	});
 

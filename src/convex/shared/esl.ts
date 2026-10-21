@@ -1969,6 +1969,12 @@ export function nextEslDate(date: string): string {
 	return new Date(Date.UTC(year, month - 1, day + 1, 12)).toISOString().slice(0, 10);
 }
 
+/** Step a `YYYY-MM-DD` date back one calendar day. */
+export function previousEslDate(date: string): string {
+	const [year, month, day] = date.split('-').map(Number);
+	return new Date(Date.UTC(year, month - 1, day - 1, 12)).toISOString().slice(0, 10);
+}
+
 /** Whether an event reaches a class: `all` reaches everyone, `H1` the grade 10 classes. */
 export function eventReachesClass(
 	target: EslEventTarget,
@@ -2030,13 +2036,93 @@ function isEslActiveDay(args: {
 }
 
 /**
+ * Whether the class runs any teaching-status meeting on the date — any of its
+ * weekly series, not a specific one. The oral rule is per class, so a Friday
+ * series' off day does not disqualify the Monday series on the next date.
+ */
+function eslClassActiveOn(args: {
+	date: string;
+	meetings: readonly ScheduleMeetingInput[];
+	events: readonly ScheduleEventInput[];
+	classId: string;
+	type: EslClassType;
+	cohortGrade: number;
+}): boolean {
+	const weekday = weekdayOfDate(args.date);
+	if (weekday === null) return false;
+	return args.meetings.some(
+		(meeting) =>
+			meeting.classId === args.classId &&
+			meeting.day === weekday &&
+			isEslActiveDay({
+				date: args.date,
+				meetings: args.meetings,
+				events: args.events,
+				classId: args.classId,
+				period: meeting.period,
+				type: args.type,
+				cohortGrade: args.cohortGrade
+			})
+	);
+}
+
+/**
+ * The oral exam days of one class: ahead of each reached exam, the last two
+ * active class days — across the whole class's weekly series, not per
+ * series — carry the oral mark. An off day in the exam week hands the mark
+ * further back (H103B met Mon P8 / Fri P7 with Off Fri 10/9, so Exam 1 on
+ * Wed 10/14 makes Mon 10/12 and Mon 10/5 the two oral days, not Fri 10/2).
+ * Returns date → the reached exam title each date is oral for. `from` floors
+ * the walk-back so pre-semester days can never be marked.
+ */
+function eslOralExamDates(args: {
+	exams: readonly ScheduleEventInput[];
+	meetings: readonly ScheduleMeetingInput[];
+	events: readonly ScheduleEventInput[];
+	classId: string;
+	type: EslClassType;
+	cohortGrade: number;
+	from: string;
+}): ReadonlyMap<string, string> {
+	const marks = new Map<string, string>();
+	const reached = args.exams
+		.filter((exam) => eventReachesClass(exam.target, args.type, args.cohortGrade))
+		.sort((a, b) => a.date.localeCompare(b.date));
+	for (const exam of reached) {
+		const orals: string[] = [];
+		for (
+			let cursor = previousEslDate(exam.date);
+			orals.length < 2 && cursor >= args.from;
+			cursor = previousEslDate(cursor)
+		) {
+			if (
+				eslClassActiveOn({
+					date: cursor,
+					meetings: args.meetings,
+					events: args.events,
+					classId: args.classId,
+					type: args.type,
+					cohortGrade: args.cohortGrade
+				})
+			) {
+				orals.push(cursor);
+			}
+		}
+		for (const date of orals) {
+			if (!marks.has(date)) marks.set(date, exam.title);
+		}
+	}
+	return marks;
+}
+
+/**
  * Resolve one row's status from the events reaching it. Precedence:
  * exam > off > no_class > start-window > partial-window > oral > teaching.
  * Before P3 on the start day the school has not started yet, so those
  * meetings render No class (#212) while P3 and later run as usual. The oral
- * mark goes to the latest teaching-status meeting of each eligible class
- * before each reached exam, with the CLIL skip (CLIL classes never mark
- * orals) and G10 out of scope.
+ * mark goes to the last two active class days before each reached exam for
+ * every conversation class (Comm, G9, both grade 10 classes; CLIL classes
+ * never mark orals) — `oralDates` carries the precomputed per-class map.
  */
 function resolveEslDayStatus(args: {
 	date: string;
@@ -2044,6 +2130,7 @@ function resolveEslDayStatus(args: {
 	meetings: readonly ScheduleMeetingInput[];
 	events: readonly ScheduleEventInput[];
 	exams: readonly ScheduleEventInput[];
+	oralDates: ReadonlyMap<string, string>;
 }): { status: ScheduleDayStatus; cause: string | null; badges: string[]; outOfWindow: boolean } {
 	const dayEvents = args.events.filter(
 		(event) =>
@@ -2091,40 +2178,19 @@ function resolveEslDayStatus(args: {
 		};
 	}
 
-	// Oral-exam marking: eligible classes only (no CLIL, no G10), and only the
-	// latest active day before each reached exam.
-	if (args.meeting.type !== 'CLIL' && args.meeting.cohortGrade !== 10) {
-		for (const target of args.exams) {
-			if (target.date <= args.date) continue;
-			if (!eventReachesClass(target.target, args.meeting.type, args.meeting.cohortGrade)) continue;
-			let laterActive = false;
-			for (let later = nextEslDate(args.date); later < target.date; later = nextEslDate(later)) {
-				if (
-					isEslActiveDay({
-						date: later,
-						meetings: args.meetings,
-						events: args.events,
-						classId: args.meeting.classId,
-						period: args.meeting.period,
-						type: args.meeting.type,
-						cohortGrade: args.meeting.cohortGrade
-					})
-				) {
-					laterActive = true;
-					break;
-				}
-			}
-			if (!laterActive) {
-				const badges = [`oral ahead of ${target.title}`];
-				if (partial)
-					return { status: 'oral_exam', cause: partial.title, badges, outOfWindow: false };
-				return {
-					status: 'oral_exam',
-					cause: `Oral exam ahead of ${target.title}`,
-					badges,
-					outOfWindow: false
-				};
-			}
+	// Oral-exam marking: conversation classes only (no CLIL), on the dates the
+	// per-class last-two-active-days rule marks ahead of each reached exam.
+	if (args.meeting.type !== 'CLIL') {
+		const examTitle = args.oralDates.get(args.date);
+		if (examTitle !== undefined) {
+			const badges = [`oral ahead of ${examTitle}`];
+			if (partial) return { status: 'oral_exam', cause: partial.title, badges, outOfWindow: false };
+			return {
+				status: 'oral_exam',
+				cause: `Oral exam ahead of ${examTitle}`,
+				badges,
+				outOfWindow: false
+			};
 		}
 	}
 
@@ -2186,6 +2252,66 @@ function countEslActiveDays(args: {
 	}
 	return total;
 }
+
+/** Count active meetings excluding oral_exam days. */
+function countEslActiveDaysExcludingOral(args: {
+	meetings: readonly ScheduleMeetingInput[];
+	events: readonly ScheduleEventInput[];
+	classId: string;
+	type: EslClassType;
+	cohortGrade: number;
+	from: string;
+	to: string;
+}): number {
+	// One per-class oral map per meeting series; the marks are class-wide, so
+	// every series resolves status against the same dates.
+	let oralDates: ReadonlyMap<string, string> | null = null;
+	if (args.type !== 'CLIL') {
+		oralDates = eslOralExamDates({
+			exams: args.events.filter((event) => event.type === 'exam' && event.date >= args.from),
+			meetings: args.meetings,
+			events: args.events,
+			classId: args.classId,
+			type: args.type,
+			cohortGrade: args.cohortGrade,
+			from: args.from
+		});
+	}
+	let total = 0;
+	for (let cursor = args.from; cursor <= args.to; cursor = nextEslDate(cursor)) {
+		const weekday = weekdayOfDate(cursor);
+		if (weekday === null) continue;
+		for (const meeting of args.meetings.filter(
+			(m) => m.classId === args.classId && m.day === weekday
+		)) {
+			if (
+				isEslActiveDay({
+					date: cursor,
+					meetings: args.meetings,
+					events: args.events,
+					classId: meeting.classId,
+					period: meeting.period,
+					type: args.type,
+					cohortGrade: args.cohortGrade
+				})
+			) {
+				// Check if this day would be an oral_exam day
+				const { status } = resolveEslDayStatus({
+					date: cursor,
+					meeting,
+					meetings: args.meetings,
+					events: args.events,
+					exams: args.events.filter((e) => e.type === 'exam' && e.date >= args.from),
+					oralDates: oralDates ?? new Map()
+				});
+				if (status !== 'oral_exam') {
+					total += 1;
+				}
+			}
+		}
+	}
+	return total;
+}
 /**
  * Build the teacher's day rows for a date range.
  *
@@ -2215,6 +2341,28 @@ export function buildTeacherDayRows(args: {
 		.filter((event) => event.type === 'exam' && event.date >= args.semesterStart)
 		.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
 	const ceremony = args.term === 'S2' ? g9CeremonyOf(args.events) : null;
+
+	// Per-class oral exam dates (the last-two-active-days rule), computed once
+	// per class rather than per row — the marks are class-wide, so every
+	// series of a class resolves status against the same dates.
+	const oralDatesByClassId = new Map<string, ReadonlyMap<string, string>>();
+	const oralDatesOf = (meeting: ScheduleMeetingInput) => {
+		let oralDates = oralDatesByClassId.get(meeting.classId);
+		if (oralDates === undefined) {
+			oralDates = eslOralExamDates({
+				exams,
+				meetings: args.meetings,
+				events: args.events,
+				classId: meeting.classId,
+				type: meeting.type,
+				cohortGrade: meeting.cohortGrade,
+				from: args.semesterStart
+			});
+			oralDatesByClassId.set(meeting.classId, oralDates);
+		}
+		return oralDates;
+	};
+
 	const rows: ScheduleDayRow[] = [];
 	for (let date = start; date <= end; date = nextEslDate(date)) {
 		const weekday = weekdayOfDate(date);
@@ -2228,7 +2376,8 @@ export function buildTeacherDayRows(args: {
 				meeting,
 				meetings: args.meetings,
 				events: args.events,
-				exams
+				exams,
+				oralDates: oralDatesOf(meeting)
 			});
 
 			let count: ScheduleDayRow['count'] = null;
@@ -2297,6 +2446,35 @@ export function buildTeacherDayRows(args: {
 						to: upcoming.date
 					});
 					count = { position, total, label: upcoming.title };
+
+					// Adjust count for conversation classes (Comm, G9, H10A/H10B):
+					// label -> "Oral", position/total exclude the oral_exam day
+					// before each exam.
+					if (meeting.type !== 'CLIL' && count) {
+						const oralBefore = countEslActiveDaysExcludingOral({
+							meetings: args.meetings,
+							events: args.events,
+							classId: meeting.classId,
+							type: meeting.type,
+							cohortGrade: meeting.cohortGrade,
+							from,
+							to: date
+						});
+						const oralTotal = countEslActiveDaysExcludingOral({
+							meetings: args.meetings,
+							events: args.events,
+							classId: meeting.classId,
+							type: meeting.type,
+							cohortGrade: meeting.cohortGrade,
+							from: windowFrom,
+							to: upcoming.date
+						});
+						count = {
+							position: oralBefore,
+							total: Math.max(1, oralTotal),
+							label: 'Oral'
+						};
+					}
 				}
 			}
 
