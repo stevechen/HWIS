@@ -7,12 +7,17 @@ import { roomButton } from '../../../lib/esl-schedule';
 import { useQuery } from 'convex-svelte';
 
 const mockMutation = vi.fn().mockResolvedValue(undefined);
+/** The mirror preview's resolution; overwritten per test that needs mirrors. */
+const mockClientQuery = vi.fn().mockResolvedValue({ targets: [] });
 
 vi.mock('convex-svelte', () => ({
 	useQuery: vi.fn(() => ({ data: [], isLoading: false, error: null })),
 	useConvexClient: vi.fn(() => ({
 		mutation: mockMutation,
-		query: vi.fn().mockResolvedValue({})
+		// An empty mirror list: every save commits directly, exactly as before
+		// the preview step existed. Tests that exercise the confirm overwrite
+		// this resolution per case.
+		query: mockClientQuery
 	}))
 }));
 
@@ -203,6 +208,7 @@ describe('ESL admin cohorts page', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockMutation.mockResolvedValue(undefined);
+		mockClientQuery.mockResolvedValue({ targets: [] });
 	});
 
 	describe('cohort list', () => {
@@ -595,6 +601,129 @@ describe('ESL admin cohorts page', () => {
 			await expect
 				.element(page.getByTestId('esl-admin-classes.notice'))
 				.toMatchTextContent('Schedule saved for H101A + H101B');
+		});
+	});
+
+	describe('the mirror confirm', () => {
+		/**
+		 * A same-type class a save would also write, as the preview query returns
+		 * it. The ids are display only — the mutation always sends only the
+		 * source class, and the server resolves the group itself.
+		 */
+		const mirrorTarget = (overrides: Partial<Record<string, unknown>> = {}) => ({
+			classId: 'class_mirror_1',
+			name: 'G7 Elementary 1 CLIL',
+			cohortLabel: '2025-2026 G7 Elementary 1',
+			willOverwrite: false,
+			problems: [],
+			...overrides
+		});
+
+		it('lists the classes a save will also write, and sends nothing until confirmed', async () => {
+			withSchedule([{ ...SOUND_CLIL }]);
+			mockClientQuery.mockResolvedValueOnce({
+				targets: [
+					mirrorTarget(),
+					mirrorTarget({
+						classId: 'class_mirror_2',
+						name: 'G7 Elementary 2 CLIL',
+						willOverwrite: true
+					})
+				]
+			});
+			await render(ClassesPage);
+
+			await page.getByTestId('esl-admin-classes.schedule.toggle').first().click();
+			await page.getByTestId('esl-admin-classes.schedule.save').click();
+
+			// The confirm names every class, and flags the one that will lose its
+			// current week — a cross-class write of seven classes reads as the
+			// admin having edited more than the card they opened otherwise.
+			await expect
+				.element(page.getByTestId('esl-admin-classes.mirrorConfirm'))
+				.toMatchTextContent('G7 Elementary 1 CLIL');
+			await expect
+				.element(page.getByTestId('esl-admin-classes.mirrorConfirm'))
+				.toMatchTextContent('G7 Elementary 2 CLIL');
+			await expect
+				.element(page.getByTestId('esl-admin-classes.mirrorConfirm'))
+				.toMatchTextContent('replaces its current week');
+
+			expect(mockMutation).not.toHaveBeenCalled();
+
+			await page.getByTestId('esl-admin-classes.mirrorConfirm.yes').click();
+
+			// One mutation for the whole group, exactly as the grade 10 pair does.
+			await vi.waitFor(() =>
+				expect(mockMutation).toHaveBeenCalledWith(api.esl.classes.setSchedule, {
+					classId: 'class_clil',
+					year: '2025-2026',
+					meetings: [...SOUND_CLIL.meetings]
+				})
+			);
+			await expect
+				.element(page.getByTestId('esl-admin-classes.notice'))
+				.toMatchTextContent('+ 2 same-type classes');
+		});
+
+		it('cancelling the confirm writes nothing', async () => {
+			withSchedule([{ ...SOUND_CLIL }]);
+			mockClientQuery.mockResolvedValueOnce({ targets: [mirrorTarget()] });
+			await render(ClassesPage);
+
+			await page.getByTestId('esl-admin-classes.schedule.toggle').first().click();
+			await page.getByTestId('esl-admin-classes.schedule.save').click();
+			await page.getByTestId('esl-admin-classes.mirrorConfirm.no').click();
+
+			expect(mockMutation).not.toHaveBeenCalled();
+			expect(page.getByTestId('esl-admin-classes.mirrorConfirm').elements()).toHaveLength(0);
+		});
+
+		it('blocks the confirm while any mirror has predicted problems', async () => {
+			withSchedule([{ ...SOUND_CLIL }]);
+			mockClientQuery.mockResolvedValueOnce({
+				targets: [
+					mirrorTarget({
+						problems: [
+							{
+								kind: 'cohort-slot',
+								message:
+									'G7 Elementary 1 CLIL: G7 Elementary 1 Comm draws the same students and already meets then.',
+								day: 'Monday',
+								period: 1,
+								otherName: 'G7 Elementary 1 Comm'
+							}
+						]
+					})
+				]
+			});
+			await render(ClassesPage);
+
+			await page.getByTestId('esl-admin-classes.schedule.toggle').first().click();
+			await page.getByTestId('esl-admin-classes.schedule.save').click();
+
+			await expect
+				.element(page.getByTestId('esl-admin-classes.mirrorConfirm.problem'))
+				.toMatchTextContent('already meets then');
+			await expect
+				.element(page.getByTestId('esl-admin-classes.mirrorConfirm.blocked'))
+				.toBeInTheDocument();
+			await expect.element(page.getByTestId('esl-admin-classes.mirrorConfirm.yes')).toBeDisabled();
+			expect(mockMutation).not.toHaveBeenCalled();
+		});
+
+		it('reports a failed preview and sends nothing', async () => {
+			withSchedule([{ ...SOUND_CLIL }]);
+			mockClientQuery.mockRejectedValueOnce(new Error('Function not found'));
+			await render(ClassesPage);
+
+			await page.getByTestId('esl-admin-classes.schedule.toggle').first().click();
+			await page.getByTestId('esl-admin-classes.schedule.save').click();
+
+			await expect
+				.element(page.getByTestId('esl-admin-classes.error'))
+				.toMatchTextContent('Function not found');
+			expect(mockMutation).not.toHaveBeenCalled();
 		});
 	});
 

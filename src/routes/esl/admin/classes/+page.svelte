@@ -13,6 +13,7 @@
 		isLevelledGrade,
 		grade10SiblingLevel,
 		type EslMeetingInput,
+		type EslScheduleProblemDetail,
 		type EslUnavailableSlot
 	} from '$convex/shared/esl';
 	import { humanConvexErrorMessage } from '$lib/convex-error';
@@ -385,27 +386,121 @@
 	}
 
 	/**
-	 * Save a week to one class, or to a grade 10 `A`/`B` pair.
-	 *
-	 * A list because the picker edits both sections of a pair at once
-	 * (ADR-0023 rule 7) — but **one mutation**, not one per id. The server writes
-	 * a pair atomically, and calling it once per section would mean two
-	 * independent gated writes: the first could succeed and the second fail,
-	 * leaving the pair split in a state the gate then refuses to repair. So only
-	 * the first id is sent; the server resolves the partner from the cohorts.
-	 *
-	 * Every other class passes exactly one id, so there is one code path rather
-	 * than a paired variant.
-	 *
-	 * `room` rides along when the picker drafted one: one Save writes the week
-	 * and the room together or neither, so a schedule can never land in a room
-	 * the gate refused. Absent means the room was untouched.
+	 * One same-type class this save would also write, as the preview query
+	 * reports it.
 	 */
-	function saveSchedule(
+	type MirrorTarget = {
+		classId: Id<'esl_classes'>;
+		name: string;
+		cohortLabel: string | null;
+		/** True when the save replaces a week the class already has. */
+		willOverwrite: boolean;
+		/** Predicted gate failures for this class under the proposed week. */
+		problems: EslScheduleProblemDetail[];
+	};
+
+	/**
+	 * A schedule save waiting on the mirror confirmation, or null when nothing
+	 * is pending.
+	 */
+	let pendingSchedule = $state<{
+		classIds: Id<'esl_classes'>[];
+		year: string;
+		meetings: EslMeetingInput[];
+		room?: string;
+		mirrors: MirrorTarget[];
+	} | null>(null);
+
+	/** True while any mirror's predicted problems would refuse the write. */
+	const mirrorsBlocked = $derived(
+		(pendingSchedule?.mirrors ?? []).some((mirror) => mirror.problems.length > 0)
+	);
+
+	/**
+	 * Save a week — after the mirror preview has said what else it would write.
+	 *
+	 * A grade 7–9 class whose cohort shares its Chinese homeroom composition
+	 * with sibling cohorts mirrors its week onto every same-type class there
+	 * (ADR-0028). The server owns that decision, so the page asks it first:
+	 * `listScheduleMirrors` runs the same resolution and the same gate the
+	 * write will. No mirrors — grade 10, a lone band, a divergent roster — and
+	 * the save commits directly, exactly as before.
+	 *
+	 * With mirrors, the save waits behind an explicit confirm listing every
+	 * class the write will touch: a cross-class write of seven classes is only
+	 * safe when the admin has seen the list (the grade 10 pair announces the
+	 * same way). Predicted problems disable the confirm, because the mutation
+	 * would refuse them atomically anyway.
+	 *
+	 * A preview that *fails* is a save that cannot be confirmed honestly, so its
+	 * error takes the same path as a refused write and nothing is sent.
+	 */
+	async function saveSchedule(
 		classIds: Id<'esl_classes'>[],
 		year: string,
 		meetings: EslMeetingInput[],
 		room?: string
+	) {
+		const classId = classIds[0];
+		if (classId === undefined) return;
+
+		let mirrors: MirrorTarget[];
+		try {
+			const result: { targets: MirrorTarget[] } = await client.query(
+				api.esl.classes.listScheduleMirrors,
+				{
+					classId,
+					year,
+					meetings,
+					// Absent means "leave the room as it is", the same rule the
+					// mutation applies; unchanged-room saves send nothing.
+					...(room === undefined ? {} : { room })
+				}
+			);
+			mirrors = result.targets;
+		} catch (error) {
+			rowError = humanConvexErrorMessage(error);
+			return;
+		}
+
+		if (mirrors.length === 0) {
+			commitSchedule(classIds, year, meetings, room);
+			return;
+		}
+		pendingSchedule = {
+			classIds,
+			year,
+			meetings,
+			...(room === undefined ? {} : { room }),
+			mirrors
+		};
+	}
+
+	/** The pressed confirm: write the week to the whole mirror group. */
+	function confirmSchedule() {
+		const pending = pendingSchedule;
+		pendingSchedule = null;
+		if (pending === null) return;
+		commitSchedule(pending.classIds, pending.year, pending.meetings, pending.room, pending.mirrors);
+	}
+
+	/**
+	 * Commit a week to `setSchedule`, one mutation for the whole write.
+	 *
+	 * One mutation, not one per class — the server resolves the group and writes
+	 * it atomically, and a first-succeeds/second-fails pair of calls would leave
+	 * a split week the gate then refuses to repair. Only the first id is sent;
+	 * mirrors and grade 10 partners are facts about the cohorts.
+	 *
+	 * `room` rides along when the picker drafted one. Absent means the room was
+	 * untouched.
+	 */
+	function commitSchedule(
+		classIds: Id<'esl_classes'>[],
+		year: string,
+		meetings: EslMeetingInput[],
+		room?: string,
+		mirrors: MirrorTarget[] = []
 	) {
 		const classId = classIds[0];
 		if (classId === undefined) return;
@@ -416,11 +511,13 @@
 					room === undefined ? { classId, year, meetings } : { classId, year, meetings, room }
 				),
 			classId,
-			// Both sections named when a pair is written, so the notice does not
-			// claim one class was saved when two were.
-			classIds.length > 1
-				? `Schedule saved for ${classIds.map((id) => scheduleByClassId.get(id)?.name ?? 'a section').join(' + ')}`
-				: 'Schedule saved'
+			// The notice says what the write covered: both sections of a pair by
+			// name, a mirror group by count (the confirm just listed every name).
+			mirrors.length > 0
+				? `Schedule saved for ${scheduleByClassId.get(classId)?.name ?? 'the class'} + ${mirrors.length} same-type classes`
+				: classIds.length > 1
+					? `Schedule saved for ${classIds.map((id) => scheduleByClassId.get(id)?.name ?? 'a section').join(' + ')}`
+					: 'Schedule saved'
 		);
 	}
 
@@ -692,6 +789,72 @@
 						size="sm"
 						data-testid="esl-admin-classes.archiveConfirm.no"
 						onclick={() => (pendingYear = null)}
+					>
+						Cancel
+					</Button>
+				</div>
+			</div>
+		{/if}
+
+		<!--
+			The mirror confirm: what the save will touch besides this card.
+
+			Saving a grade 7–9 week writes the same slots to every same-type class
+			sharing the cohort's Chinese homerooms, so the write waits behind the
+			class list. Predicted problems disable the confirm — the mutation would
+			refuse them atomically anyway, and saying so before the press reads
+			better than an error after it.
+		-->
+		{#if pendingSchedule !== null}
+			<div
+				class="rounded border border-amber-300 bg-amber-50 p-4"
+				data-testid="esl-admin-classes.mirrorConfirm"
+			>
+				<p class="text-sm text-amber-900">
+					Saving this week also sets the same day and period for
+					{pendingSchedule.mirrors.length}
+					{pendingSchedule.mirrors.length === 1 ? 'same-type class' : 'same-type classes'}:
+				</p>
+				<ul class="mt-2 space-y-1">
+					{#each pendingSchedule.mirrors as mirror (mirror.classId)}
+						<li class="text-sm text-amber-900" data-testid="esl-admin-classes.mirrorConfirm.target">
+							<strong>{mirror.name}</strong>
+							{#if mirror.willOverwrite}
+								<span class="text-xs">— replaces its current week</span>
+							{/if}
+							{#each mirror.problems as problem, problemIndex (problemIndex)}
+								<span
+									class="block text-xs text-red-700"
+									data-testid="esl-admin-classes.mirrorConfirm.problem"
+								>
+									{problem.message}
+								</span>
+							{/each}
+						</li>
+					{/each}
+				</ul>
+				{#if mirrorsBlocked}
+					<p
+						class="mt-2 text-xs font-medium text-red-700"
+						data-testid="esl-admin-classes.mirrorConfirm.blocked"
+					>
+						These have to be fixed first — the write would be refused until every class passes.
+					</p>
+				{/if}
+				<div class="mt-3 flex gap-2">
+					<Button
+						size="sm"
+						data-testid="esl-admin-classes.mirrorConfirm.yes"
+						disabled={mirrorsBlocked}
+						onclick={confirmSchedule}
+					>
+						Save all
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						data-testid="esl-admin-classes.mirrorConfirm.no"
+						onclick={() => (pendingSchedule = null)}
 					>
 						Cancel
 					</Button>

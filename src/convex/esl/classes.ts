@@ -16,6 +16,7 @@ import {
 	describeScheduleProblem,
 	grade10SectionOf,
 	grade10SiblingLevel,
+	isLevelledGrade,
 	isSharedRosterGrade,
 	type EslDay,
 	type EslScheduleNeighbour,
@@ -631,6 +632,14 @@ async function writeGrade10Pair(
 		);
 	}
 
+	// The calling section's room *after* the save — the drafted one when the
+	// picker changed it, the saved one when it did not. The partner check used to
+	// fall back to the saved room unconditionally, which let a save that only
+	// changed the week's room onto a slot another class already holds slip
+	// through: the mate path took over before that rule was asked about, and the
+	// collision the proposal causes would be persisted (ADR-0028).
+	const nextRoom = room === undefined ? (classRecord.room ?? undefined) : room;
+
 	// The pair's own rules. Both sections run at the same slots by construction,
 	// and they live in two different cohorts (one per level, ADR-0023), so the
 	// cohort-slot and cohort-day rules cannot apply between them at all.
@@ -643,10 +652,10 @@ async function writeGrade10Pair(
 		room: partner.room,
 		meetings
 	};
-	if (room !== undefined && room === partner.room) {
+	if (nextRoom !== undefined && nextRoom === partner.room) {
 		problems.push({
 			kind: 'room',
-			message: `${classRecord.name} and ${partner.name} both meet in ${room}; the two sections need different rooms.`,
+			message: `${classRecord.name} and ${partner.name} both meet in ${nextRoom}; the two sections need different rooms.`,
 			otherName: partner.name,
 			other: asNeighbour
 		});
@@ -668,7 +677,7 @@ async function writeGrade10Pair(
 			{
 				type: section.type,
 				cohortId: section.cohortId,
-				room: section.room ?? undefined,
+				room: section._id === classRecord._id ? nextRoom : (section.room ?? undefined),
 				teacherId: section.teacherId ?? undefined,
 				meetings
 			},
@@ -694,6 +703,270 @@ async function writeGrade10Pair(
 	]);
 	await replaceYearMeetings(ctx, classRecord._id, year, meetings, sectionCohorts[0]?.e2eTag);
 	await replaceYearMeetings(ctx, partner._id, year, meetings, sectionCohorts[1]?.e2eTag);
+}
+
+/**
+ * The Chinese homerooms a cohort's active roster draws from, ascending.
+ *
+ * Derived on every read and never stored (ADR-0025): the roster is a cohort
+ * property, so this is the closest thing a class has to "which Chinese classes
+ * its students come from". Only active students count — a transferred-out row's
+ * homeroom is history — and a cohort with no roster, or one whose rows carry no
+ * parseable homeroom yet, yields an empty set.
+ *
+ * cost: 1 indexed take of the cohort's roster.
+ */
+async function cohortHomeroomSet(ctx: QueryCtx, cohort: Doc<'esl_cohorts'>): Promise<string[]> {
+	const students = await ctx.db
+		.query('esl_students')
+		.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
+		.take(500);
+
+	const homerooms = new Set<string>();
+	for (const student of students) {
+		if (student.status !== 'active') continue;
+		const homeroom = deriveHomeroom(cohort.grade, student.chineseClass ?? '');
+		if (homeroom !== null) homerooms.add(homeroom);
+	}
+	return [...homerooms].sort();
+}
+
+/** Exact set equality over the sorted, derived homeroom codes. */
+function homeroomSetsEqual(a: readonly string[], b: readonly string[]): boolean {
+	return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+/**
+ * Whether two weeks are the same meeting set, whatever the row order.
+ *
+ * The client drafts slots in pick order and the saved rows read back in
+ * insertion order, so a re-save of the week it already has can arrive shuffled;
+ * only the *set* decides. This is what separates "the week changed" — the thing
+ * a mirror save radiates — from "only the room changed", which touches one
+ * class (ADR-0028).
+ */
+function meetingSetsEqual(
+	a: readonly { day: EslDay; period: number }[],
+	b: readonly { day: EslDay; period: number }[]
+): boolean {
+	if (a.length !== b.length) return false;
+	const keys = new Set(a.map((meeting) => `${meeting.day} ${meeting.period}`));
+	return b.every((meeting) => keys.has(`${meeting.day} ${meeting.period}`));
+}
+
+/**
+ * One class as a mirror week is written to it.
+ */
+type MirrorMember = {
+	classId: Doc<'esl_classes'>['_id'];
+	name: string;
+	type: Doc<'esl_classes'>['type'];
+	cohortId: Doc<'esl_classes'>['cohortId'];
+	/** Absent when the class has no teacher, which is not itself a conflict. */
+	teacherId: Doc<'esl_classes'>['teacherId'];
+	room: string | undefined;
+};
+
+/**
+ * The classes a mirrored save also writes to, as one group.
+ *
+ * A grade 7–9 class whose cohort draws from a known set of Chinese homerooms
+ * sits in an ability band the school moves students around in freely, and the
+ * timetable only works if every same-type class in the band runs at the same
+ * slots — so the mirrors are **derived**, never stored (ADR-0028): same class
+ * type, same grade, same year, active, and a roster whose homeroom set is
+ * exactly the source's. The composition match is what keeps a cohort that
+ * genuinely draws from different homerooms out of the group.
+ *
+ * An archived class or cohort is history and takes no part. A cohort with no
+ * active roster — or one whose rows carry no parseable homeroom yet — has no
+ * composition to match on, so it neither joins a group nor blocks one: the
+ * write degrades to an ordinary single-class save.
+ *
+ * Grade 10 is excluded by the levelled-grade guard itself: its sections are
+ * *paired*, not mirrored, and their own path (`writeGrade10Pair`) already
+ * writes both sections of one Chinese class.
+ *
+ * cost: 1 roster take for the source cohort, 1 indexed take of the band's
+ * cohorts, then 1 roster take and 1 classes query per candidate cohort. Bounded
+ * by one grade of one year.
+ */
+async function findScheduleMirrorClasses(
+	ctx: QueryCtx,
+	classRecord: Doc<'esl_classes'>,
+	year: string
+): Promise<Doc<'esl_classes'>[]> {
+	const cohort = await ctx.db.get(classRecord.cohortId);
+	if (cohort === null || cohort.status !== 'active') return [];
+	if (!isLevelledGrade(cohort.grade)) return [];
+
+	const sourceHomerooms = await cohortHomeroomSet(ctx, cohort);
+	if (sourceHomerooms.length === 0) return [];
+
+	const candidates = (
+		await ctx.db
+			.query('esl_cohorts')
+			.withIndex('by_year_grade', (q) => q.eq('year', year).eq('grade', cohort.grade))
+			.collect()
+	).filter((candidate) => candidate._id !== cohort._id && candidate.status === 'active');
+
+	const mirrors: Doc<'esl_classes'>[] = [];
+	for (const candidate of candidates) {
+		if (!homeroomSetsEqual(sourceHomerooms, await cohortHomeroomSet(ctx, candidate))) continue;
+		const classes = await ctx.db
+			.query('esl_classes')
+			.withIndex('by_cohortId', (q) => q.eq('cohortId', candidate._id))
+			.collect();
+		for (const cls of classes) {
+			if (cls.status === 'active' && cls.type === classRecord.type) mirrors.push(cls);
+		}
+	}
+	return mirrors;
+}
+
+/**
+ * Judge a mirrored save for every class it would write, before anything is
+ * written.
+ *
+ * Shared by the preview query and the write, so the dialog and the mutation can
+ * never disagree about what a save would do — the same one-engine rule the
+ * picker and `setSchedule` already observe.
+ *
+ * Every member runs the full department gate against the rest of the year, with
+ * the whole group excluded from the neighbour set: the group meets at identical
+ * slots by construction, so its members are no more each other's neighbours
+ * than a grade 10 pair's are. What the general gate *cannot* see is a collision
+ * *inside* the group — two classes sharing a room or a teacher at identical
+ * slots — so those get the pair's own two explicit rules.
+ *
+ * Each member's gate problems carry its name as a prefix: N classes produce N
+ * lists an admin would otherwise have to attribute themselves.
+ */
+async function evaluateMirrorGroup(
+	ctx: QueryCtx,
+	year: string,
+	meetings: readonly { day: EslDay; period: number }[],
+	members: readonly MirrorMember[]
+): Promise<
+	{
+		classId: Doc<'esl_classes'>['_id'];
+		name: string;
+		problems: EslScheduleProblemDetail[];
+	}[]
+> {
+	const neighbours = await gateNeighbours(
+		ctx,
+		year,
+		members.map((member) => member.classId)
+	);
+
+	return Promise.all(
+		members.map(async (member) => {
+			const problems: EslScheduleProblemDetail[] = [];
+			for (const other of members) {
+				if (other.classId === member.classId) continue;
+				const otherAsNeighbour = {
+					classId: other.classId,
+					className: other.name,
+					cohortId: other.cohortId,
+					teacherId: other.teacherId,
+					room: other.room,
+					meetings
+				};
+				if (member.room !== undefined && member.room === other.room) {
+					problems.push({
+						kind: 'room',
+						message: `${member.name} and ${other.name} both meet in ${member.room}; the two classes need different rooms.`,
+						otherName: other.name,
+						other: otherAsNeighbour
+					});
+				}
+				if (member.teacherId !== undefined && member.teacherId === other.teacherId) {
+					problems.push({
+						kind: 'cohort-teacher',
+						message: `${member.name} and ${other.name} have the same teacher; the two classes need different ones.`,
+						otherName: other.name,
+						other: otherAsNeighbour
+					});
+				}
+			}
+			problems.push(
+				...findScheduleProblems(
+					{
+						type: member.type,
+						cohortId: member.cohortId,
+						room: member.room,
+						teacherId: member.teacherId,
+						meetings
+					},
+					neighbours,
+					await unavailableSlotsFor(ctx, member.teacherId, year)
+				).map((problem) => ({ ...problem, message: `${member.name}: ${problem.message}` }))
+			);
+			return { classId: member.classId, name: member.name, problems };
+		})
+	);
+}
+
+/**
+ * Write one mirror week to the source class and every mirror, atomically.
+ *
+ * Resolution stays server-side, as it is for the grade 10 pair: the group is a
+ * fact about the cohorts, so a client cannot name an arbitrary set of classes
+ * and have the server write to all of them.
+ *
+ * Atomic for the reason `writeGrade10Pair` is atomic: a partial write — the
+ * source on the new week, its mirrors still on their own — is a state the gate
+ * then refuses to repair, because any one of those repairs is itself a gated
+ * write. Convex mutations are atomic, so the group is never split.
+ */
+async function writeMirrorGroup(
+	ctx: MutationCtx,
+	classRecord: Doc<'esl_classes'>,
+	year: string,
+	meetings: readonly { day: EslDay; period: number }[],
+	gateRoom: string | undefined,
+	mirrors: readonly Doc<'esl_classes'>[]
+): Promise<void> {
+	const members: MirrorMember[] = [
+		{
+			classId: classRecord._id,
+			name: classRecord.name,
+			type: classRecord.type,
+			cohortId: classRecord.cohortId,
+			teacherId: classRecord.teacherId ?? undefined,
+			room: gateRoom
+		},
+		...mirrors.map((mirror) => ({
+			classId: mirror._id,
+			name: mirror.name,
+			type: mirror.type,
+			cohortId: mirror.cohortId,
+			teacherId: mirror.teacherId ?? undefined,
+			room: mirror.room ?? undefined
+		}))
+	];
+
+	const evaluated = await evaluateMirrorGroup(ctx, year, meetings, members);
+	// Deduplicated by sentence: two classes sharing a room each report the same
+	// fault from their own side, and the refusal should read it once.
+	const seen = new Set<string>();
+	const problems = evaluated
+		.flatMap((entry) => entry.problems)
+		.filter((problem) => {
+			const key = `${problem.kind} ${problem.day ?? ''} ${problem.period ?? ''} ${problem.otherName ?? ''} ${problem.message}`;
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
+	if (problems.length > 0) throw new Error(describeRefusal(problems));
+
+	// Each class's rows carry its own cohort's `e2eTag`, so an end-to-end run can
+	// still tear down every group it created.
+	const cohorts = await Promise.all(members.map((member) => ctx.db.get(member.cohortId)));
+	for (const [index, member] of members.entries()) {
+		await replaceYearMeetings(ctx, member.classId, year, meetings, cohorts[index]?.e2eTag);
+	}
 }
 
 export const setStatus = mutation({
@@ -802,6 +1075,49 @@ export const setSchedule = mutation({
 			args.room === undefined ? undefined : trimmedRoom === '' ? undefined : trimmedRoom;
 		const gateRoom = args.room === undefined ? (classRecord.room ?? undefined) : nextRoom;
 
+		if ((await findGrade10PartnerClass(ctx, classRecord)) !== null) {
+			await writeGrade10Pair(ctx, classRecord, args.year, args.meetings, gateRoom);
+			if (args.room !== undefined) await ctx.db.patch(args.classId, { room: nextRoom });
+			return { success: true, classId: args.classId, meetings: args.meetings };
+		}
+
+		/**
+		 * A grade 7–9 class whose cohort shares its Chinese-homeroom composition
+		 * with sibling cohorts mirrors its week onto every same-type class there —
+		 * resolved server-side and written in one transaction (`writeMirrorGroup`,
+		 * ADR-0028). Its gate covers every member of the group, so the single-class
+		 * gate below is skipped deliberately: the two runs differ in their neighbour
+		 * sets (here the group's own classes are excluded, below they are present),
+		 * and judging the source against the mirrors' *old* weeks would refuse a
+		 * save that is about to make them agree.
+		 *
+		 * The trigger is a *changed week*, not a save. A save whose meetings are
+		 * the ones the class already holds can only be about the room — the setup
+		 * flow sets rooms class by class through this same path, and it must not
+		 * resurrect the confirm for a week nobody touched. Meeting unchanged, the
+		 * write is a single-class save: the group's slots were set when the week
+		 * changed, and re-radiating them from a room edit would both surprise an
+		 * admin who only edited this card and demand healing a divergence they did
+		 * not cause. A diverged band member is still flagged by the read's
+		 * schedule badge, which is where it belongs.
+		 */
+		const mirrors = await findScheduleMirrorClasses(ctx, classRecord, args.year);
+		if (
+			mirrors.length > 0 &&
+			// One indexed read of the saved week, only now that a group exists.
+			!meetingSetsEqual(args.meetings, await meetingsOf(ctx, args.classId, args.year))
+		) {
+			await writeMirrorGroup(ctx, classRecord, args.year, args.meetings, gateRoom, mirrors);
+			if (args.room !== undefined) await ctx.db.patch(args.classId, { room: nextRoom });
+			return {
+				success: true,
+				classId: args.classId,
+				meetings: args.meetings,
+				/** How many same-type classes were written alongside the source. */
+				mirrors: mirrors.length
+			};
+		}
+
 		/**
 		 * Every department rule, on the *proposed* week, and the write is refused if
 		 * any of them fires.
@@ -838,9 +1154,10 @@ export const setSchedule = mutation({
 		if (problems.length > 0) {
 			throw new Error(describeRefusal(problems));
 		}
-		// Only THIS year's rows are replaced, and both sections of a grade 10 pair are
-		// written in one transaction. See `replaceYearMeetings` for the year scoping
-		// and `writeGrade10Pair` for why a pair cannot be two saves.
+		// Only THIS year's rows are replaced, and only this class's: with no partner
+		// and no mirror group there is nothing else to write. See
+		// `replaceYearMeetings` for the year scoping and `writeGrade10Pair` for why
+		// a grade 10 pair cannot be two saves.
 		//
 		// A section with no partner at all falls through to the single-class path: a
 		// school running `H101A` without `H101B` is unusual but not impossible, and it
@@ -849,12 +1166,6 @@ export const setSchedule = mutation({
 		// The room patch rides the same transaction as the meetings: the gate above
 		// judged the week against `gateRoom`, so splitting the writes would let a
 		// failure between them persist one without the other.
-		if ((await findGrade10PartnerClass(ctx, classRecord)) !== null) {
-			await writeGrade10Pair(ctx, classRecord, args.year, args.meetings, gateRoom);
-			if (args.room !== undefined) await ctx.db.patch(args.classId, { room: nextRoom });
-			return { success: true, classId: args.classId, meetings: args.meetings };
-		}
-
 		// The cohort carries the `e2eTag` an end-to-end run tears down by.
 		const cohort = await ctx.db.get(classRecord.cohortId);
 		await replaceYearMeetings(ctx, args.classId, args.year, args.meetings, cohort?.e2eTag);
@@ -952,5 +1263,105 @@ export const listRoomSuggestions = query({
 			/** The cohort's homerooms, ascending — empty when the roster is. */
 			homerooms: [...homerooms].sort()
 		};
+	}
+});
+
+/**
+ * What one proposed save would also set, as the confirm dialog reads it.
+ *
+ * Runs the same mirror resolution and the same group gate the mutation will
+ * run — evaluate on preview, refuse on write — so the dialog can never bless a
+ * save the mutation would refuse, and can never hide one it wouldn't. Each
+ * target reports its name, whether the save overwrites a week it already has,
+ * and every predicted problem; the dialog refuses to confirm while any problem
+ * stands, because the write would be refused atomically anyway.
+ *
+ * The `room` argument is the room the picker is *drafting* for the source class
+ * (absent means "leave it"), judged the way `setSchedule` judges `gateRoom` —
+ * the save's outcome, not the stale saved value.
+ *
+ * An empty `targets` list means the save touches one class and no dialog is
+ * needed; the class's grade not being levelled, an empty-roster cohort and a
+ * divergent homeroom composition all arrive here as that same empty list.
+ *
+ * cost: one mirror resolution plus one neighbour pass — the same order as the
+ * `setSchedule` write. Bounded by one grade of one year.
+ */
+export const listScheduleMirrors = query({
+	args: {
+		classId: v.id('esl_classes'),
+		year: v.string(),
+		meetings: v.array(meetingValidator),
+		room: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireEslAdmin(ctx);
+
+		const classRecord = await ctx.db.get(args.classId);
+		if (!classRecord) throw new Error('Class not found');
+
+		const mirrors = await findScheduleMirrorClasses(ctx, classRecord, args.year);
+		if (mirrors.length === 0) return { targets: [] };
+
+		// The same rule the write applies: a save that does not change the class's
+		// week can only be about the room, and it needs no confirm — the setup flow
+		// sets rooms class by class through this path (ADR-0028). Agreeing here as
+		// well as in the mutation is the one-engine rule: a dialog that appeared
+		// for a save the mutation would not treat as a mirror write would confirm
+		// a side effect that never happens.
+		if (meetingSetsEqual(args.meetings, await meetingsOf(ctx, classRecord._id, args.year))) {
+			return { targets: [] };
+		}
+
+		// The source's room as the save would leave it, matching `setSchedule`'s
+		// `gateRoom`: a drafted room judges the proposal, an untouched one keeps
+		// the saved value, and blank clears.
+		const nextRoom =
+			args.room === undefined
+				? (classRecord.room ?? undefined)
+				: args.room.trim() === ''
+					? undefined
+					: args.room.trim();
+
+		const members: MirrorMember[] = [
+			{
+				classId: classRecord._id,
+				name: classRecord.name,
+				type: classRecord.type,
+				cohortId: classRecord.cohortId,
+				teacherId: classRecord.teacherId ?? undefined,
+				room: nextRoom
+			},
+			...mirrors.map((mirror) => ({
+				classId: mirror._id,
+				name: mirror.name,
+				type: mirror.type,
+				cohortId: mirror.cohortId,
+				teacherId: mirror.teacherId ?? undefined,
+				room: mirror.room ?? undefined
+			}))
+		];
+
+		const evaluated = await evaluateMirrorGroup(ctx, args.year, args.meetings, members);
+		const problemsByClassId = new Map(evaluated.map((entry) => [entry.classId, entry.problems]));
+
+		const cohorts = await Promise.all(mirrors.map((mirror) => ctx.db.get(mirror.cohortId)));
+		const targets = await Promise.all(
+			mirrors.map(async (mirror, index) => {
+				const existing = await meetingsOf(ctx, mirror._id, args.year);
+				const cohort = cohorts[index];
+				return {
+					classId: mirror._id,
+					name: mirror.name,
+					cohortLabel: cohort === null ? null : cohortLabel(cohort),
+					/** True when the save replaces a week the class already has. */
+					willOverwrite: existing.length > 0,
+					/** Predicted gate failures for this class under the proposed week. */
+					problems: problemsByClassId.get(mirror._id) ?? []
+				};
+			})
+		);
+
+		return { targets: targets.sort((a, b) => a.name.localeCompare(b.name)) };
 	}
 });
