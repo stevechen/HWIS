@@ -137,6 +137,17 @@
 	/** The class's saved room, shown as a readout — authored in the picker. */
 	const room = $derived(schedule?.room ?? null);
 
+	/**
+	 * The ScheduleCell instance, for the readout's click.
+	 *
+	 * The room line sits below the schedule cell but is its second entry point:
+	 * `bind:this` reaches the cell's exported `openRooms()` directly, rather than
+	 * relaying an "open me, room-only" event up from the readout only to route it
+	 * back into the cell. Null while the schedule has not loaded — the readout
+	 * renders in every state of the card, but there is nothing to open yet.
+	 */
+	let scheduleCell = $state<ReturnType<typeof ScheduleCell> | null>(null);
+
 	/** True when the schedule is sound but the room is unset. */
 	const roomMissing = $derived(schedule?.scheduleProblem?.state === 'missing-room');
 
@@ -260,6 +271,7 @@
 	-->
 	{#if schedule}
 		<ScheduleCell
+			bind:this={scheduleCell}
 			classRecord={{
 				classId: classRow._id,
 				name: classRow.name,
@@ -296,9 +308,10 @@
 		card. A room holds a certain number of people, and the pairing is what lets an
 		admin see at a glance whether a class has outgrown its room.
 
-		Read-only: the room is authored in the schedule picker, where the draft
-		slots are visible and the busy marks react to them. Editing it here, beside
-		a week it cannot see, is how clashes were discovered only after saving.
+		The readout is a button, not just a read out: it is the room's direct entry
+		point, opening the picker to the room grid alone. Authoring still happens in
+		the picker — where busy marks are judged against the draft — but the room
+		need not be reached through the schedule strip first.
 	-->
 	<div class="flex items-center gap-2">
 		<span
@@ -309,12 +322,18 @@
 			<Users class="size-3.5" aria-hidden="true" />
 			{studentCount}
 		</span>
-		<span
+		<button
+			type="button"
 			class={[
-				'inline-flex min-w-0 flex-1 items-center gap-1 text-xs',
+				'inline-flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-left text-xs hover:opacity-75',
 				roomUnassigned ? 'text-muted-foreground' : 'text-emerald-800'
 			]}
-			title={room ?? 'No room'}
+			title="Choose the room"
+			aria-haspopup="dialog"
+			// Busy holds every trigger; no schedule means the cell (and its openRooms)
+			// has not rendered at all.
+			disabled={busy || schedule === null}
+			onclick={() => scheduleCell?.openRooms()}
 			data-testid="esl-admin-classes.room.readout"
 		>
 			<MapPin class="size-3.5 shrink-0" aria-hidden="true" />
@@ -323,7 +342,7 @@
 			{:else}
 				<span class="truncate">{room}</span>
 			{/if}
-		</span>
+		</button>
 	</div>
 
 	<!--

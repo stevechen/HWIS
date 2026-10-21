@@ -2,6 +2,11 @@ import { page, userEvent } from 'vite-plus/test/browser';
 import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { roomButton } from '../../../lib/esl-schedule';
+import {
+	landSuggestions,
+	putSuggestionsInFlight,
+	resetRoomSuggestions
+} from '../../../lib/room-suggestions.svelte';
 
 import ScheduleCell from '$src/routes/esl/admin/classes/ScheduleCell.svelte';
 import ClassCard from '$src/routes/esl/admin/classes/ClassCard.svelte';
@@ -11,25 +16,25 @@ import type { Id } from '$convex/_generated/dataModel';
 /**
  * The picker reads room suggestions through Convex, but only while open — and
  * these tests are about what it *does* with them, not about the query. Canned
- * department rooms plus two homerooms, routed by function like the page suite.
+ * department rooms plus two homerooms, routed by a reactive fixture rather than
+ * a canned object: a plain mock would be captured once per render, so the
+ * in-flight first open — the state the picker actually starts in — could not be
+ * reproduced at all.
  */
-vi.mock('convex-svelte', () => ({
-	useQuery: vi.fn(() => ({
-		data: {
-			department: ['ESL A', 'ESL B', 'ESL C', 'ESL D', 'ESL E', 'ESL F', 'ESL G'],
-			homerooms: ['J101', 'J103']
-		},
-		isLoading: false,
-		error: null
-	})),
-	useConvexClient: vi.fn(() => ({
-		mutation: vi.fn().mockResolvedValue(undefined),
-		query: vi.fn().mockResolvedValue({})
-	}))
-}));
+vi.mock('convex-svelte', async () => {
+	const { roomSuggestions } = await import('../../../lib/room-suggestions.svelte');
+	return {
+		useQuery: vi.fn(() => roomSuggestions),
+		useConvexClient: vi.fn(() => ({
+			mutation: vi.fn().mockResolvedValue(undefined),
+			query: vi.fn().mockResolvedValue({})
+		}))
+	};
+});
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	resetRoomSuggestions();
 });
 
 /**
@@ -808,6 +813,93 @@ describe('ScheduleCell room grid', () => {
 		expect(roomButton('ESL A').getAttribute('aria-pressed')).toBe('true');
 	});
 
+	it('lights only the saved homeroom once the list lands, and closes Other… with it', async () => {
+		// The reported bug: the picker opens before the suggestions query
+		// answers, so at open no list says "J102" is a homeroom. Deciding the
+		// Other state at open — and never revisiting it — lit J102 *and* Other…,
+		// with the field open under both.
+		putSuggestionsInFlight();
+		await render(ScheduleCell, {
+			props: scheduleProps({ classRecord: { ...CLASS_RECORD, room: 'J102' } })
+		});
+
+		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
+
+		// In flight: the picker makes no custom claim about a room it cannot
+		// place yet.
+		expect(
+			page
+				.getByTestId('esl-admin-classes.schedule.room.other')
+				.element()
+				.getAttribute('aria-pressed')
+		).toBe('false');
+		expect(page.getByTestId('esl-admin-classes.schedule.room.input').elements()).toHaveLength(0);
+
+		// The round trip lands, J102 among the cohort's homerooms.
+		landSuggestions({
+			department: ['ESL A', 'ESL B', 'ESL C', 'ESL D', 'ESL E', 'ESL F', 'ESL G'],
+			homerooms: ['J101', 'J102', 'J103']
+		});
+
+		// Self-correcting: the homeroom button lights on its own, once the
+		// grid catches up with the landed list.
+		await vi.waitFor(() => roomButton('J102'));
+		expect(roomButton('J102').getAttribute('aria-pressed')).toBe('true');
+		await vi.waitFor(() => {
+			expect(
+				page
+					.getByTestId('esl-admin-classes.schedule.room.other')
+					.element()
+					.getAttribute('aria-pressed')
+			).toBe('false');
+		});
+		expect(page.getByTestId('esl-admin-classes.schedule.room.input').elements()).toHaveLength(0);
+	});
+
+	it('opens the Other field for a room the lists genuinely lack', async () => {
+		// The other half of the derived state: a room the landed list still does
+		// not know is a custom room, and the field opens with its saved value —
+		// the picker must not swallow the distinction while chasing the race.
+		await render(ScheduleCell, {
+			props: scheduleProps({ classRecord: { ...CLASS_RECORD, room: 'Library' } })
+		});
+
+		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
+
+		await expect
+			.element(page.getByTestId('esl-admin-classes.schedule.room.input'))
+			.toBeInTheDocument();
+		expect(
+			page
+				.getByTestId('esl-admin-classes.schedule.room.other')
+				.element()
+				.getAttribute('aria-pressed')
+		).toBe('true');
+	});
+
+	it('reads the room straight in: room-only open saves the room, week unchanged', async () => {
+		// The card's room readout opens the picker through the exported
+		// `openRooms()`. The whole point of that entry point is not forcing the
+		// week grid on an admin whose job is one answer — so the slot cells and
+		// the slot solver stay out of the panel, while Save still writes the
+		// same shape the full picker would: seeded slots, unchanged, send
+		// nothing, and the room rides along.
+		const onsave = vi.fn();
+		const result = await render(ScheduleCell, { props: scheduleProps({ onsave }) });
+		result.component.openRooms();
+
+		await expect.element(page.getByTestId('esl-admin-classes.schedule.editor')).toBeInTheDocument();
+		expect(page.getByTestId('esl-admin-classes.schedule.slot').elements()).toHaveLength(0);
+		expect(page.getByTestId('esl-admin-classes.schedule.suggest').elements()).toHaveLength(0);
+		expect(roomButton('ESL A').getAttribute('aria-pressed')).toBe('true');
+
+		await userEvent.click(roomButton('J101'));
+		await userEvent.click(page.getByTestId('esl-admin-classes.schedule.save'));
+
+		expect(onsave.mock.calls[0][2]).toEqual(MEETINGS);
+		expect(onsave.mock.calls[0][3]).toBe('J101');
+	});
+
 	it('sends the picked room with the week, and nothing when unchanged', async () => {
 		const onsave = vi.fn();
 		await render(ScheduleCell, { props: scheduleProps({ onsave }) });
@@ -1025,6 +1117,19 @@ describe('ClassCard', () => {
 		await expect
 			.element(page.getByTestId('esl-admin-classes.room.readout'))
 			.toMatchTextContent('ESL A');
+	});
+
+	it('opens the room picker straight from the room readout', async () => {
+		// The readout is the room's own click target: one answer wanted, one grid
+		// shown. It reaches the schedule cell's exported `openRooms()` directly,
+		// and the panel opens without ever visiting the slot grid.
+		await render(ClassCard, { props: cardProps() });
+
+		await userEvent.click(page.getByTestId('esl-admin-classes.room.readout'));
+
+		await expect.element(page.getByTestId('esl-admin-classes.schedule.editor')).toBeInTheDocument();
+		expect(page.getByTestId('esl-admin-classes.schedule.slot').elements()).toHaveLength(0);
+		expect(roomButton('ESL A').getAttribute('aria-pressed')).toBe('true');
 	});
 
 	it('offers no room control on the card face', async () => {

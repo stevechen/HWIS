@@ -154,6 +154,15 @@
 	} = $props();
 
 	let expanded = $state(false);
+	/**
+	 * Whether this open is room-only: opened from the card's room readout rather
+	 * than the schedule strip. The slot grid stays hidden — the readout's job is
+	 * "set the room", and dropping the week grid in front of that task is the
+	 * forced detour this entry point exists to avoid. The draft is still seeded
+	 * with the saved week, so Save writes exactly what a full-picker room change
+	 * writes: the week, unchanged, sends nothing.
+	 */
+	let roomsOnly = $state(false);
 	let draft = $state<EslMeetingInput[]>([]);
 	/**
 	 * The room as drafted, `''` for no room.
@@ -166,7 +175,7 @@
 	let draftRoom = $state('');
 	/** The Other field's text, committed into the draft on blur or Enter. */
 	let customRoom = $state('');
-	/** True once Other is chosen, revealing the text field. */
+	/** True from an explicit click on Other, until a room button or commit ends it. */
 	let typingCustom = $state(false);
 	let error = $state('');
 	let triggerEl = $state<HTMLButtonElement | null>(null);
@@ -198,7 +207,7 @@
 	 * differ from data written before the atomic pair path (or outside it), and
 	 * the way back to one identical set has to start from seeing both.
 	 */
-	function open() {
+	function open(roomOnly = false) {
 		const partnerMeetings = partner?.meetings ?? [];
 		const union = classRecord.meetings.map((m) => ({ day: m.day, period: m.period }));
 		const keys = new SvelteSet(union.map((m) => `${m.day} ${m.period}`));
@@ -211,10 +220,31 @@
 		draft = union;
 		const savedRoom = classRecord.room ?? '';
 		draftRoom = savedRoom;
+		// The custom field's text is seeded for a genuinely custom saved room, but
+		// whether the field is *open* is `customActive`, derived — and deliberately
+		// not decided here. `open()` fires before the suggestions query answers
+		// (this is what enables it), so asking at open rated every homeroom room
+		// as custom and stuck that judgment in `typingCustom` for the picker's
+		// whole life. Clearing the gesture and leaving the derived state to breathe
+		// is what keeps J102 from lighting Other… as well.
 		customRoom = isListedRoom(savedRoom) ? '' : savedRoom;
-		typingCustom = savedRoom !== '' && !isListedRoom(savedRoom);
+		typingCustom = false;
 		error = '';
+		roomsOnly = roomOnly;
 		expanded = true;
+	}
+
+	/**
+	 * Open the picker to the room grid alone — the room readout's click target.
+	 *
+	 * Exported rather than a prop/event relay because the readout lives in the
+	 * parent card: relaying "open this, room-only" up through a prop only to drop
+	 * it back down here doubles the state and lets the two drift. The seeding and
+	 * saving are exactly `open()`'s, so a room set here lands the same way as one
+	 * set through the full picker — slots unchanged, nothing sent for the week.
+	 */
+	export function openRooms() {
+		open(true);
 	}
 
 	/**
@@ -516,14 +546,39 @@
 	 * Whether a room name is one of the button-grid answers.
 	 *
 	 * The department rooms are static, so they are known before the homeroom query
-	 * lands; the homerooms join once loaded. Anything else is an Other room, which
-	 * is what decides whether the text field opens on its own.
+	 * lands; the homerooms join once loaded. Anything else is an Other room — but
+	 * only once the list has landed: before that, unknown is not "custom".
 	 */
 	function isListedRoom(value: string): boolean {
 		if (value === '') return true;
 		if ((ESL_ROOM_SUGGESTIONS as readonly string[]).includes(value)) return true;
 		return homerooms.includes(value);
 	}
+
+	/**
+	 * Whether the Other… tile is lit and the custom field is open.
+	 *
+	 * Derived, never decided at open. The saved room is known the instant the
+	 * picker opens, but the homeroom list is not — `open()` itself *enables* the
+	 * suggestions query, so at open the list is still empty and every homeroom
+	 * reads as custom. A saved "J102" lit both its own button and Other… (and
+	 * opened the field), because the one-shot flag was never revisited when the
+	 * list landed. Deriving lets the state correct itself the moment the grid
+	 * knows what it lists: a listed saved room lights its own button and closes
+	 * the field; a genuinely custom one ("Library") opens the field with its
+	 * saved value. The gesture half keeps it open from an explicit Other… click
+	 * even while the room is still empty.
+	 */
+	const customActive = $derived(
+		typingCustom ||
+			(draftRoom !== '' &&
+				!isListedRoom(draftRoom) &&
+				// Until the suggestions query answers, the picker does not claim
+				// the saved room is custom — an unanswered list is not evidence.
+				// A failed query stays here too; clicking Other… still opens the
+				// field by gesture.
+				suggestionsQuery.data !== undefined)
+	);
 
 	/**
 	 * Choose a room button: single-select, saved with the week.
@@ -805,105 +860,114 @@
 				testId="esl-admin-classes.schedule.editor"
 				class="space-y-2"
 			>
-				<p class="text-muted-foreground text-xs">Meets {required} times/week.</p>
-
 				<!--
-				The pair notice, stated before the grid rather than after it. A grade 10
-				`A`/`B` pair is timetabled together, so saving here writes both sections —
-				and a cross-class write that is not announced reads as the admin having
-				edited more than the card they opened. Naming the other section makes the
-				side effect the visible part of the action.
+				Room-only opens hide the week: the readout's click target is "set the
+				room", and the slot grid — useful from the strip — is this view's
+				detour. Everything below still works off the *seeded* draft, so the
+				busy marks run against the saved week, and Save is the same Save.
 			-->
-				{#if partner !== null}
-					<p
-						class="bg-muted/60 rounded px-2 py-1.5 text-xs"
-						data-testid="esl-admin-classes.schedule.pair"
-					>
-						Also schedules <strong>{partner.name}</strong> — the pair shares every slot.
-					</p>
-				{/if}
+				{#if !roomsOnly}
+					<p class="text-muted-foreground text-xs">Meets {required} times/week.</p>
 
-				<div role="group" aria-label="Meeting slots">
-					<div class="grid grid-cols-[1.25rem_repeat(5,minmax(0,1fr))]">
-						<span></span>
-						{#each ESL_DAYS as day (day)}
-							<span class="text-muted-foreground text-center text-xs">
-								{ESL_DAY_LABELS[day]}
-							</span>
-						{/each}
-					</div>
-					{#each ESL_PERIODS as slot (slot.period)}
-						<div
-							class="grid grid-cols-[1.25rem_repeat(5,minmax(0,1fr))]"
-							class:mt-3={slot.period === AFTERNOON_FIRST_PERIOD}
+					<!--
+					The pair notice, stated before the grid rather than after it. A grade 10
+					`A`/`B` pair is timetabled together, so saving here writes both sections —
+					and a cross-class write that is not announced reads as the admin having
+					edited more than the card they opened. Naming the other section makes the
+					side effect the visible part of the action.
+				-->
+					{#if partner !== null}
+						<p
+							class="bg-muted/60 rounded px-2 py-1.5 text-xs"
+							data-testid="esl-admin-classes.schedule.pair"
 						>
-							<span class="text-muted-foreground flex items-center text-xs">P{slot.period}</span>
+							Also schedules <strong>{partner.name}</strong> — the pair shares every slot.
+						</p>
+					{/if}
+
+					<div role="group" aria-label="Meeting slots">
+						<div class="grid grid-cols-[1.25rem_repeat(5,minmax(0,1fr))]">
+							<span></span>
 							{#each ESL_DAYS as day (day)}
-								{@const selected = draft.some((m) => m.day === day && m.period === slot.period)}
-								{@const blocked = cellBlocked(day, slot.period)}
-								{@const reasons = cellReasons(day, slot.period)}
-								{@const naBlocked = availabilityBlocked(day, slot.period)}
-								<!-- The draft's own pick wins over NA (story 25): a blocked pick already reads as a red conflict, so NA would double-report it. -->
-								{@const showNa = naBlocked && !selected}
-								{@const divergent = divergentOwner(day, slot.period) !== null}
-								{@const conflict =
-									selected && draftProblems.some((p) => p.day === day && p.period === slot.period)}
-								<label
-									for="slot-{classRecord.classId}-{day}-{slot.period}"
-									// Blocked cells stay *visible*, never hidden: a cell that
-									// vanishes reads as a broken picker and sends the admin
-									// hunting for the slot they expected.
-									class={[
-										// Square and collapsed: shared 1px dividers with no gaps
-										// (the P4–P5 lunch break keeps its own spacing), so the
-										// grid reads as one table rather than loose tiles.
-										'border-input text-muted-foreground -mt-px -ml-px flex h-6 items-center justify-center border text-xs focus-within:ring-2 focus-within:ring-emerald-600',
-										// A pick that breaks a rule turns red at staging: red is
-										// a verdict about this cell, and gray stays the color
-										// of merely unavailable. Lifted above its neighbours
-										// so all four sides of its border show.
-										conflict
-											? 'relative z-10 border-red-400 bg-red-100 font-medium text-red-800'
-											: selected
-												? 'slot-checked relative z-10'
-												: // A blocked cell is not interactive, but it is still readable.
-													blocked
-													? 'border-gray-300 bg-gray-100 text-gray-400 opacity-50'
-													: 'cursor-pointer',
-										// A divergent pair slot is outlined amber: it is not blocked, but
-										// saving will move the other section onto it.
-										divergent && !conflict ? 'border-dashed border-amber-500' : ''
-									]}
-									title={[
-										...reasons,
-										divergent
-											? `Only on ${divergentOwner(day, slot.period)}; saving aligns the pair.`
-											: null
-									]
-										.filter((reason) => reason !== null)
-										.join(' ') || undefined}
-									data-testid="esl-admin-classes.schedule.cell"
-									data-blocked={blocked}
-									data-conflict={conflict}
-									data-divergent={divergent}
-								>
-									<input
-										type="checkbox"
-										id="slot-{classRecord.classId}-{day}-{slot.period}"
-										class="sr-only"
-										data-testid="esl-admin-classes.schedule.slot"
-										checked={selected}
-										onchange={() => toggle({ day, period: slot.period })}
-										onkeydown={(event) => onSlotKeyDown(event, day, slot.period)}
-									/>
-									{#if showNa}
-										<span class="max-w-full truncate text-[0.625rem] leading-none">NA</span>
-									{/if}
-								</label>
+								<span class="text-muted-foreground text-center text-xs">
+									{ESL_DAY_LABELS[day]}
+								</span>
 							{/each}
 						</div>
-					{/each}
-				</div>
+						{#each ESL_PERIODS as slot (slot.period)}
+							<div
+								class="grid grid-cols-[1.25rem_repeat(5,minmax(0,1fr))]"
+								class:mt-3={slot.period === AFTERNOON_FIRST_PERIOD}
+							>
+								<span class="text-muted-foreground flex items-center text-xs">P{slot.period}</span>
+								{#each ESL_DAYS as day (day)}
+									{@const selected = draft.some((m) => m.day === day && m.period === slot.period)}
+									{@const blocked = cellBlocked(day, slot.period)}
+									{@const reasons = cellReasons(day, slot.period)}
+									{@const naBlocked = availabilityBlocked(day, slot.period)}
+									<!-- The draft's own pick wins over NA (story 25): a blocked pick already reads as a red conflict, so NA would double-report it. -->
+									{@const showNa = naBlocked && !selected}
+									{@const divergent = divergentOwner(day, slot.period) !== null}
+									{@const conflict =
+										selected &&
+										draftProblems.some((p) => p.day === day && p.period === slot.period)}
+									<label
+										for="slot-{classRecord.classId}-{day}-{slot.period}"
+										// Blocked cells stay *visible*, never hidden: a cell that
+										// vanishes reads as a broken picker and sends the admin
+										// hunting for the slot they expected.
+										class={[
+											// Square and collapsed: shared 1px dividers with no gaps
+											// (the P4–P5 lunch break keeps its own spacing), so the
+											// grid reads as one table rather than loose tiles.
+											'border-input text-muted-foreground -mt-px -ml-px flex h-6 items-center justify-center border text-xs focus-within:ring-2 focus-within:ring-emerald-600',
+											// A pick that breaks a rule turns red at staging: red is
+											// a verdict about this cell, and gray stays the color
+											// of merely unavailable. Lifted above its neighbours
+											// so all four sides of its border show.
+											conflict
+												? 'relative z-10 border-red-400 bg-red-100 font-medium text-red-800'
+												: selected
+													? 'slot-checked relative z-10'
+													: // A blocked cell is not interactive, but it is still readable.
+														blocked
+														? 'border-gray-300 bg-gray-100 text-gray-400 opacity-50'
+														: 'cursor-pointer',
+											// A divergent pair slot is outlined amber: it is not blocked, but
+											// saving will move the other section onto it.
+											divergent && !conflict ? 'border-dashed border-amber-500' : ''
+										]}
+										title={[
+											...reasons,
+											divergent
+												? `Only on ${divergentOwner(day, slot.period)}; saving aligns the pair.`
+												: null
+										]
+											.filter((reason) => reason !== null)
+											.join(' ') || undefined}
+										data-testid="esl-admin-classes.schedule.cell"
+										data-blocked={blocked}
+										data-conflict={conflict}
+										data-divergent={divergent}
+									>
+										<input
+											type="checkbox"
+											id="slot-{classRecord.classId}-{day}-{slot.period}"
+											class="sr-only"
+											data-testid="esl-admin-classes.schedule.slot"
+											checked={selected}
+											onchange={() => toggle({ day, period: slot.period })}
+											onkeydown={(event) => onSlotKeyDown(event, day, slot.period)}
+										/>
+										{#if showNa}
+											<span class="max-w-full truncate text-[0.625rem] leading-none">NA</span>
+										{/if}
+									</label>
+								{/each}
+							</div>
+						{/each}
+					</div>
+				{/if}
 
 				<!--
 				The room grid: one scheduling gesture, not a separate form.
@@ -964,12 +1028,12 @@
 							id="room-{classRecord.classId}-{roomOptions.length}"
 							class={[
 								'-mt-px -ml-px flex min-h-7 flex-col items-center justify-center border px-1 py-0.5 text-xs leading-tight focus-visible:ring-2 focus-visible:ring-emerald-600',
-								typingCustom || (!isListedRoom(draftRoom) && draftRoom !== '')
+								customActive
 									? 'border-emerald-600 bg-emerald-100 font-medium text-emerald-900'
 									: 'border-input text-muted-foreground hover:border-emerald-400'
 							]}
 							title="Pick a room outside both lists."
-							aria-pressed={typingCustom}
+							aria-pressed={customActive}
 							data-testid="esl-admin-classes.schedule.room.other"
 							disabled={busy}
 							onclick={pickOther}
@@ -979,7 +1043,7 @@
 							<span>Other…</span>
 						</button>
 					</div>
-					{#if typingCustom || (draftRoom !== '' && !isListedRoom(draftRoom))}
+					{#if customActive}
 						<Input
 							class="h-7 text-xs"
 							data-testid="esl-admin-classes.schedule.room.input"
@@ -1027,20 +1091,22 @@
 				</div>
 
 				<div class="flex flex-wrap items-center gap-3">
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={() => {
-							// Offered whenever something is blocked, not only for an unscheduled
-							// class: the commonest way to get stuck is a half-built week that
-							// cannot be saved, and one click should clear it.
-							draft = solve();
-							error = '';
-						}}
-						data-testid="esl-admin-classes.schedule.suggest"
-					>
-						Find free slots
-					</Button>
+					{#if !roomsOnly}
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => {
+								// Offered whenever something is blocked, not only for an unscheduled
+								// class: the commonest way to get stuck is a half-built week that
+								// cannot be saved, and one click should clear it.
+								draft = solve();
+								error = '';
+							}}
+							data-testid="esl-admin-classes.schedule.suggest"
+						>
+							Find free slots
+						</Button>
+					{/if}
 					<Button
 						size="sm"
 						onclick={save}
