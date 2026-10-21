@@ -262,6 +262,24 @@ describe('esl-schedule-list week banners (#224)', () => {
 		expect(lines[4]).toBe('\t\tWeek 2 · Passport 2 due · 09/08–09/10\t');
 	});
 
+	it('banners an overflowing window in its anchor week, not the collapse week', () => {
+		// Quiz-style window anchored on week 2's Monday (09/08) that
+		// overruns to Mon 09/15 in week 3: the banner must ride week 2.
+		const rows = [
+			row({ date: '2025-09-08' }),
+			row({
+				date: '2025-09-15',
+				weekday: 'Monday',
+				dues: [due({ title: 'Quiz 2 due', windowStart: '2025-09-08', windowEnd: '2025-09-15' })]
+			})
+		];
+
+		const banners = buildWeekBanners(rows, '2025-09-01');
+
+		expect(banners.get(2)?.map((banner) => banner.title)).toEqual(['Quiz 2 due']);
+		expect(banners.get(3)).toBeUndefined();
+	});
+
 	it('emits no banner line when no banner due landed', () => {
 		const rows = [row({ date: '2025-09-01' }), row({ date: '2025-09-08' })];
 		const tsv = buildScheduleTsv(rows, CLASS_NAMES, {}, '2025-09-01');

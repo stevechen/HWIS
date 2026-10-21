@@ -159,7 +159,6 @@ export function buildCalendarFragments(args: {
 			past: row.date < args.today,
 			isToday: row.date === args.today
 		});
-		const seen = bannered.get(weekIndex);
 		for (const due of row.dues) {
 			// Reminders default to banners (#224); only an explicit opt-out
 			// keeps a due on its own day card.
@@ -172,10 +171,20 @@ export function buildCalendarFragments(args: {
 				});
 				continue;
 			}
+			// A banner rides the week the WINDOW starts, not the collapse
+			// day: quiz windows anchor on the school week's Monday and
+			// overflow into the next calendar week when a holiday eats a
+			// class day, yet the quiz still belongs to the week whose
+			// classes carry it. Degrades to the row's week when the anchor
+			// week has no fragment of its own.
+			const bannerWeek = weekIndexOf(due.windowStart, args.semesterStart);
+			const bannerFragment =
+				fragments.find((candidate) => candidate.weekIndex === bannerWeek) ?? fragment;
+			const seen = bannered.get(bannerFragment.weekIndex);
 			const key = `${due.title}|${due.windowStart}|${due.windowEnd}`;
 			if (seen?.has(key)) continue;
 			seen?.add(key);
-			fragment.banners.push({
+			bannerFragment.banners.push({
 				title: due.title,
 				reminderKind: due.reminderKind,
 				windowStart: due.windowStart,

@@ -162,6 +162,11 @@ export function bannerKey(banner: ScheduleWeekBanner): string {
  * once and the same reminder reaches more than one of them — so a week shows
  * each due once, ordered by its window. Chip dues (`isBanner` off) never
  * become banners; they stay on their own day row.
+ *
+ * A banner rides the week the WINDOW starts, not the collapse day: quiz
+ * windows anchor on the school week's Monday and overflow into the next
+ * calendar week when a holiday eats a class day, yet the quiz still belongs
+ * to the week whose classes carry it.
  */
 export function buildWeekBanners(
 	rows: readonly ScheduleDayRow[],
@@ -175,7 +180,7 @@ export function buildWeekBanners(
 			const key = bannerKey(due);
 			if (seen.has(key)) continue;
 			seen.add(key);
-			const week = weekIndexOf(row.date, semesterStart);
+			const week = weekIndexOf(due.windowStart, semesterStart);
 			const banners = byWeek.get(week) ?? [];
 			banners.push({
 				title: due.title,

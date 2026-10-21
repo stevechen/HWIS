@@ -134,6 +134,30 @@ describe('buildCalendarFragments (#224)', () => {
 		]);
 	});
 
+	it('banners an overflowing window in its anchor week, not the collapse week', () => {
+		// Quiz-style window: anchored on week 2's Monday (09/08) but the
+		// window overruns into week 3 when a holiday eats a class day, and
+		// the due collapses onto Mon 09/15. The banner must ride week 2 —
+		// the week whose classes carry the quiz.
+		const due = {
+			title: 'Quiz 2 due',
+			type: 'reminder' as const,
+			reminderKind: 'quiz' as const,
+			isBanner: true as const,
+			windowStart: '2025-09-08',
+			windowEnd: '2025-09-15'
+		};
+		const fragments = fragmentsOf([
+			row({ date: '2025-09-08' }),
+			row({ date: '2025-09-10', weekday: 'Wednesday' }),
+			row({ date: '2025-09-15', weekday: 'Monday', dues: [due] })
+		]);
+
+		// semesterStart 08/31: week 2 starts 09/07, week 3 starts 09/14.
+		expect(fragments[0].banners.map((banner) => banner.title)).toEqual(['Quiz 2 due']);
+		expect(fragments[1].banners).toEqual([]);
+	});
+
 	it('carries a g9 mock day as its own card status with no count-up', () => {
 		const fragments = fragmentsOf([
 			row({
