@@ -302,6 +302,28 @@ describe('esl/schedule.teacherDays', () => {
 		expect(days.find((day) => day.date === '2025-09-10')?.outOfWindow).toBeFalsy();
 	});
 
+	it('carries the partial note as the in-window cause (BBQ-style partials)', async () => {
+		const { t, teacherId, semesterId } = await setupTeacherWorld();
+		// Partial titles are locked to "No class"; the note is the human label.
+		await createEvent(t, semesterId, {
+			type: 'partial',
+			title: 'No class',
+			note: 'BBQ from 12:00',
+			date: '2025-09-10'
+		});
+		asTeacher();
+
+		const days = await readDays(t, teacherId, semesterId, {
+			fromDate: '2025-09-10',
+			toDate: '2025-09-10'
+		});
+
+		expect(days.find((day) => day.date === '2025-09-10')).toMatchObject({
+			status: 'partial',
+			cause: 'BBQ from 12:00'
+		});
+	});
+
 	it('renders pre-P3 meetings on the start day as No class', async () => {
 		const { t, teacherId, semesterId } = await setupTeacherWorld();
 		// Start at P3 on Monday 9/1: the P1 meeting falls outside the

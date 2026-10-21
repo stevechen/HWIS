@@ -2192,7 +2192,15 @@ function resolveEslDayStatus(args: {
 		}
 	}
 
-	if (partial) return { status: 'partial', cause: partial.title, badges: [], outOfWindow: false };
+	// Partial titles are locked to "No class"; the distinguishing label (e.g.
+	// "BBQ from 12:00") lives in the note, which partial events require.
+	if (partial)
+		return {
+			status: 'partial',
+			cause: (partial.note ?? '').trim() || partial.title,
+			badges: [],
+			outOfWindow: false
+		};
 	return { status: 'teaching', cause: null, badges: [], outOfWindow: false };
 }
 

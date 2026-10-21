@@ -114,8 +114,10 @@ export function calendarClassLabel(short: string, type: string): string {
 /**
  * Group one class's day rows into week-keyed fragments. Rows may arrive
  * unsorted; fragments and cards come out in date order. Exam rows carry no
- * count-up (their chip + cause say what they are); every other counted row
- * reads `Class k/n to <label>`, right-aligned in the card.
+ * count-up (their chip + cause say what they are), and off/no-class days
+ * carry none either — nothing meets, so nothing counts toward the anchor;
+ * every other counted row reads `Class k/n to <label>`, right-aligned in
+ * the card.
  */
 export function buildCalendarFragments(args: {
 	rows: readonly ScheduleDayRow[];
@@ -142,8 +144,14 @@ export function buildCalendarFragments(args: {
 			period: row.period,
 			status: row.status === 'oral_exam' ? 'oral' : row.status,
 			cause: row.cause,
+			// Off and no-class days carry no count-up (#203 parity with the
+			// list view): nothing meets, so nothing counts toward the anchor.
 			countdown:
-				row.count && row.status !== 'exam' && row.status !== 'oral_exam'
+				row.count &&
+				row.status !== 'exam' &&
+				row.status !== 'oral_exam' &&
+				row.status !== 'off' &&
+				row.status !== 'no_class'
 					? `Class ${row.count.position}/${row.count.total} to ${row.count.label}`
 					: null,
 			badges: [...row.badges],

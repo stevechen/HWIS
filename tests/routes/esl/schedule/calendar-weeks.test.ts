@@ -155,4 +155,36 @@ describe('buildCalendarFragments (#224)', () => {
 		expect(fragments[0].cards.every((card) => card.countdown === null)).toBe(true);
 		expect(fragments[0].cards.every((card) => card.cause === 'G9 Mock Exam')).toBe(true);
 	});
+
+	it('drops the count-up on off and no-class days even when the row carries a count', () => {
+		const fragments = fragmentsOf([
+			row({
+				date: '2025-09-09',
+				weekday: 'Tuesday',
+				status: 'off',
+				cause: 'Moon Festival',
+				// The backend still computes a count on non-teaching rows (it
+				// mirrors the previous class day); the calendar must hide it.
+				count: { position: 2, total: 5, label: 'Exam 1' }
+			}),
+			row({
+				date: '2025-09-10',
+				weekday: 'Wednesday',
+				status: 'no_class',
+				cause: 'Assembly',
+				count: { position: 2, total: 5, label: 'Exam 1' }
+			}),
+			row({
+				date: '2025-09-12',
+				weekday: 'Friday',
+				count: { position: 3, total: 5, label: 'Exam 1' }
+			})
+		]);
+
+		expect(fragments[0].cards.map((card) => card.countdown)).toEqual([
+			null,
+			null,
+			'Class 3/5 to Exam 1'
+		]);
+	});
 });

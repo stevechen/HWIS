@@ -70,7 +70,10 @@ const ROWS: ScheduleDayRow[] = [
 		weekday: 'Friday',
 		period: 4,
 		status: 'off',
-		cause: 'Moon Festival'
+		cause: 'Moon Festival',
+		// Off rows still carry the previous class day's count; the calendar
+		// must hide it since an off day doesn't count toward the exam.
+		count: { position: 2, total: 5, label: 'Exam 1' }
 	}),
 	row({
 		date: '2025-09-08',
@@ -185,6 +188,8 @@ describe('teacher calendar', () => {
 		await expect.element(card.getByText('🎉 Off')).toBeInTheDocument();
 		// cause is hidden for off days since chip already indicates Off
 		await expect.element(card.getByText('Moon Festival')).not.toBeInTheDocument();
+		// and the count-up is hidden too: an off day doesn't count toward the exam
+		await expect.element(card.getByText('Class 2/5 to Exam 1')).not.toBeInTheDocument();
 	});
 
 	it('right-aligns Class k/n count-ups on teaching cards, none on exams', async () => {
@@ -260,11 +265,77 @@ describe('teacher calendar', () => {
 		await expect.element(page.getByTestId('teacher-calendar.card-2025-10-01')).toBeInTheDocument();
 	});
 
-	it('keeps a note box on every card, filled or empty', async () => {
+	it('keeps note boxes on teaching cards only — off days have none', async () => {
 		renderCalendar();
 
 		await expect.element(page.getByLabelText(/Note for 2025-09-01/)).toHaveValue('Finished U1 L3.');
-		await expect.element(page.getByLabelText(/Note for 2025-09-05/)).toBeInTheDocument();
+		await expect.element(page.getByLabelText(/Note for 2025-09-05/)).not.toBeInTheDocument();
+	});
+
+	it('drops the note box on no-class days too', async () => {
+		const noClassRows = [
+			{
+				...row({ date: '2025-09-08', count: { position: 3, total: 5, label: 'Exam 1' } }),
+				status: 'no_class' as const,
+				cause: 'Assembly'
+			}
+		];
+		const { fragments, nextDate } = buildCalendarFragments({
+			rows: noClassRows,
+			semesterStart: '2025-08-31',
+			today: TODAY
+		});
+		await render(TeacherCalendar, {
+			props: {
+				classes: CLASSES,
+				selectedClassId: 'class_clil',
+				semesterLabel: 'S1 2025-2026',
+				today: TODAY,
+				fragments,
+				nextDate,
+				notes: {},
+				onSelectClass: vi.fn(),
+				onSaveNote: vi.fn()
+			}
+		});
+
+		await expect.element(page.getByLabelText(/Note for 2025-09-08/)).not.toBeInTheDocument();
+	});
+
+	it('shows partial days as a No class chip with the note as description', async () => {
+		const partialRows = [
+			row({
+				date: '2025-09-08',
+				weekday: 'Monday',
+				status: 'partial' as const,
+				cause: 'BBQ from 12:00',
+				count: { position: 3, total: 5, label: 'Exam 1' }
+			})
+		];
+		const { fragments, nextDate } = buildCalendarFragments({
+			rows: partialRows,
+			semesterStart: '2025-08-31',
+			today: TODAY
+		});
+		await render(TeacherCalendar, {
+			props: {
+				classes: CLASSES,
+				selectedClassId: 'class_clil',
+				semesterLabel: 'S1 2025-2026',
+				today: TODAY,
+				fragments,
+				nextDate,
+				notes: {},
+				onSelectClass: vi.fn(),
+				onSaveNote: vi.fn()
+			}
+		});
+
+		const card = page.getByTestId('teacher-calendar.card-2025-09-08');
+		await expect.element(card.getByText('No class', { exact: true })).toBeInTheDocument();
+		await expect.element(card.getByText('BBQ from 12:00')).toBeInTheDocument();
+		// Partial days still teach, so the note box stays.
+		await expect.element(page.getByLabelText(/Note for 2025-09-08/)).toBeInTheDocument();
 	});
 
 	it('labels every note box with the exact Note… placeholder (#205)', async () => {

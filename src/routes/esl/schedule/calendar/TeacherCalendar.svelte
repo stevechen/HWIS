@@ -11,12 +11,13 @@
 
 	/**
 	 * The teacher's per-class semester calendar (ticket #196): week-keyed
-	 * semester rows, roomy date cards with always-visible note boxes, sticky
-	 * toolbar with the ellipsis class menu. Presentational only — rows arrive
-	 * from the `teacherDays` join via `buildCalendarFragments`, notes arrive
-	 * as a `date → text` map that degrades to empty while the query loads,
-	 * and saves leave through `onSaveNote`. No Convex imports, so tests drive
-	 * it entirely through props.
+	 * semester rows, roomy date cards with note boxes, sticky toolbar with
+	 * the ellipsis class menu. Presentational only — rows arrive from the
+	 * `teacherDays` join via `buildCalendarFragments`, notes arrive as a
+	 * `date → text` map that degrades to empty while the query loads, and
+	 * saves leave through `onSaveNote`. No Convex imports, so tests drive
+	 * it entirely through props. Off and no-class day cards carry no note
+	 * box — there is nothing to annotate on a day without class.
 	 */
 
 	export interface CalendarClassOption {
@@ -72,6 +73,7 @@
 			case 'off':
 				return 'bg-stone-700 text-white';
 			case 'no_class':
+			case 'partial':
 				return 'bg-amber-200 text-amber-900';
 			case 'exam':
 				return 'bg-red-600 text-white';
@@ -90,6 +92,10 @@
 				return '🎉 Off';
 			case 'no_class':
 				return 'No-class';
+			case 'partial':
+				// Partial titles are locked to "No class" — say that on the chip
+				// and let the cause line (e.g. "BBQ from 12:00") explain why.
+				return 'No class';
 			case 'exam':
 				return cause ?? 'Exam';
 			case 'g9_mock':
@@ -215,7 +221,7 @@
 				</div>
 				{#each allWeekdays as day}
 					<div
-						class="bg-stone-50 px-3 py-2 text-center text-xs font-semibold tracking-wider text-stone-600 uppercase"
+						class="flex items-center justify-center bg-stone-50 px-3 py-2 text-xs font-semibold tracking-wider text-stone-600 uppercase"
 					>
 						{day}
 					</div>
@@ -280,7 +286,11 @@
 							style="--day-count: {allWeekdays.length}; grid-column: 2 / -1"
 						>
 							{#each allWeekdays as day}
-								<div class="min-h-[120px] min-w-0 bg-white">
+								<!-- Flex column so each card stretches to the week-row height:
+								the tone fill and past hatch then cover the whole cell even
+								when the card content (e.g. no note box on an off day) is
+								shorter than its neighbours. -->
+								<div class="flex min-h-[120px] min-w-0 flex-col bg-white">
 									{#each cardsByWeekday[day] ?? [] as card, cardIndex (`${card.date}-p${card.period}`)}
 										{@const newMonth =
 											cardIndex > 0 &&
@@ -288,7 +298,7 @@
 												card.date.slice(0, 7)}
 										<article
 											data-testid="teacher-calendar.card-{card.date}"
-											class="relative p-3 {cellTone(card.status, card.past)}{newMonth
+											class="relative flex-1 p-3 {cellTone(card.status, card.past)}{newMonth
 												? ' month-divide'
 												: ''}"
 										>
@@ -304,7 +314,7 @@
 												{#if card.status !== 'off' && card.status !== 'no_class' && card.status !== 'exam' && card.status !== 'g9_mock'}
 													<span class="text-xs text-stone-500">P{card.period}</span>
 												{/if}
-												{#if card.status !== 'teaching' && card.status !== 'partial'}
+												{#if card.status !== 'teaching'}
 													<span class="rounded px-1.5 py-0.5 text-xs font-bold {chip(card.status)}">
 														{label(card.status, card.cause)}
 													</span>
@@ -341,18 +351,20 @@
 														: ''}
 												</p>
 											{/each}
-											<textarea
-												aria-label="Note for {card.date}"
-												rows="2"
-												placeholder="Note…"
-												class="mt-2 w-full rounded border border-stone-300 p-1.5 text-sm"
-												value={drafts[card.date] ?? notes[card.date] ?? ''}
-												oninput={(event) => {
-													drafts[card.date] = event.currentTarget.value;
-												}}
-												onchange={(event) => {
-													onSaveNote(card.date, event.currentTarget.value);
-												}}></textarea>
+											{#if card.status !== 'off' && card.status !== 'no_class'}
+												<textarea
+													aria-label="Note for {card.date}"
+													rows="2"
+													placeholder="Note…"
+													class="mt-2 w-full rounded border border-stone-300 p-1.5 text-sm"
+													value={drafts[card.date] ?? notes[card.date] ?? ''}
+													oninput={(event) => {
+														drafts[card.date] = event.currentTarget.value;
+													}}
+													onchange={(event) => {
+														onSaveNote(card.date, event.currentTarget.value);
+													}}></textarea>
+											{/if}
 										</article>
 									{/each}
 								</div>
