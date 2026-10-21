@@ -20,7 +20,7 @@ import { cleanupByTag, useRole } from './convex-client';
 import { getTestSuffix } from './helpers';
 
 /** The real current school year, so the profile picker offers it. */
-const YEAR = '2026-2027';
+const YEAR = '2099-2100';
 
 const e2eTag = `e2e-availability-na-flow_${getTestSuffix('esl')}`;
 

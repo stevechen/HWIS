@@ -240,13 +240,11 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @se
 			for (let d = 1; d <= dueCount; d++) {
 				for (const prefix of ['pd', 'rd'] as const) {
 					const rowId = `wizard-step4.row-${prefix}${d}`;
-					const text = (await page.getByTestId(rowId).textContent()) ?? '';
-					if (text.includes('unset')) {
-						const late = prefix === 'rd' || d > 2;
-						expect(await placeRow(page, rowId, { row: rowId, button: 'Set window' }, late)).toBe(
-							true
-						);
-					}
+					// Use late placement for pd2+ and all rd to avoid windows crossing exams
+					const late = prefix === 'rd' || d >= 2;
+					expect(await placeRow(page, rowId, { row: rowId, button: 'Set window' }, late)).toBe(
+						true
+					);
 				}
 			}
 
@@ -419,9 +417,9 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @se
 		testE2eTag = tag;
 
 		const created = (await createEslSemester({
-			year: '2026-2027',
+			year: '2098-2099',
 			term: 'S1',
-			startDate: '2026-08-31',
+			startDate: '2098-08-31',
 			e2eTag: tag
 		})) as unknown as string;
 		await createEslEvent({
@@ -429,7 +427,7 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @se
 			type: 'no_school',
 			title: 'Off',
 			target: 'all',
-			date: '2026-10-05',
+			date: '2098-10-05',
 			note: 'Collision probe',
 			e2eTag: tag
 		});
@@ -443,7 +441,7 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @se
 				type: 'no_class',
 				title: 'No class',
 				target: 'all',
-				date: '2026-10-05',
+				date: '2098-10-05',
 				note: 'Collision probe',
 				e2eTag: tag
 			})
@@ -460,15 +458,15 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @se
 		testE2eTag = tag;
 
 		const created = (await createEslSemester({
-			year: '2026-2027',
+			year: '2099-2100',
 			term: 'S1',
-			startDate: '2026-08-31',
+			startDate: '2099-08-31',
 			e2eTag: tag
 		})) as unknown as string;
 		await createEslSemester({
-			year: '2026-2027',
+			year: '2099-2100',
 			term: 'S2',
-			startDate: '2027-02-11',
+			startDate: '2100-02-11',
 			e2eTag: tag
 		});
 		const finalIds = (await createEslEvent({
@@ -476,14 +474,25 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @se
 			type: 'exam',
 			title: 'Final Exam',
 			target: 'all',
-			date: '2027-01-18',
+			date: '2100-01-18',
 			e2eTag: tag
 		})) as unknown as string[];
 		const lastRow = finalIds[finalIds.length - 1] as string;
 
 		// The admin form warns (advisory) when an exam crosses into S2.
+		// Verify the semester is visible via test client before navigating.
+		const verified = (await getEslSemester(created)) as { _id: string };
+		expect(verified._id).toBe(created);
+
 		await page.goto(`/esl/admin/semesters/${created}`);
 		await page.waitForSelector('body.hydrated');
+		// Wait for the semester to be found (loading -> found).
+		await expect(page.getByTestId('esl-admin-semester-detail.loading')).not.toBeVisible({
+			timeout: 15000
+		});
+		await expect(page.getByTestId('esl-admin-semester-detail.missing')).not.toBeVisible({
+			timeout: 5000
+		});
 		await page
 			.getByTestId('esl-admin-semester-detail.events')
 			.getByText('Final Exam')
@@ -494,7 +503,7 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @se
 			.locator('li', { hasText: 'Final Exam' })
 			.first();
 		await finalRow.getByRole('button', { name: 'Edit Final Exam' }).click();
-		await finalRow.locator('#event-form-date').fill('2027-02-15');
+		await finalRow.locator('#event-form-date').fill('2100-02-15');
 		await expect(finalRow.getByTestId('event-form.warning')).toContainText(/stretch into S2/);
 
 		// Moving Exam 1 inside the window never moves the derived end.
@@ -503,20 +512,20 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @se
 			type: 'exam',
 			title: 'Exam 1',
 			target: 'all',
-			date: '2026-11-02',
+			date: '2099-11-02',
 			e2eTag: tag
 		})) as unknown as string[];
 		const exam1Last = exam1Ids[exam1Ids.length - 1] as string;
-		await updateEslEvent({ eventId: exam1Last, date: '2026-11-20' });
+		await updateEslEvent({ eventId: exam1Last, date: '2099-11-20' });
 		const mid = (await getEslSemester(created)) as unknown as { derivedEnd: string };
-		expect(mid.derivedEnd).toBe('2027-01-20');
-		await finalRow.locator('#event-form-date').fill('2026-11-20');
+		expect(mid.derivedEnd).toBe('2100-01-20');
+		await finalRow.locator('#event-form-date').fill('2099-11-20');
 		await expect(finalRow.getByTestId('event-form.warning')).not.toBeVisible();
 
 		// Moving the Final range end shifts the derived end with it.
-		await updateEslEvent({ eventId: lastRow, date: '2027-02-15' });
+		await updateEslEvent({ eventId: lastRow, date: '2100-02-15' });
 		const after = (await getEslSemester(created)) as unknown as { derivedEnd: string };
-		expect(after.derivedEnd).toBe('2027-02-15');
+		expect(after.derivedEnd).toBe('2100-02-15');
 	});
 
 	test('S2 setup shows 2 passport/recording dues with Graduation + Anniversary', async ({
@@ -529,9 +538,9 @@ test.describe('ESL Semester Setup Wizard - Admin to Teacher Flow @esl-wizard @se
 
 		// S2 comes after a real S1 (sibling context for windows + gates).
 		await createEslSemester({
-			year: '2026-2027',
+			year: '2097-2098',
 			term: 'S1',
-			startDate: '2026-08-31',
+			startDate: '2097-08-31',
 			e2eTag: tag
 		});
 

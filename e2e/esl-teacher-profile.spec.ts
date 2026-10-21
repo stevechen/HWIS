@@ -16,7 +16,7 @@ import { cleanupByTag, useRole } from './convex-client';
 import { getTestSuffix } from './helpers';
 
 /** The real current school year, so the live badge evaluates rather than hides. */
-const YEAR = '2026-2027';
+const YEAR = '2099-2100';
 
 const e2eTag = `e2e-teacher-profile_${getTestSuffix('esl')}`;
 
