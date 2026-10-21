@@ -202,7 +202,9 @@ describe('TeacherScheduleTable', () => {
 	it('renders description column with correct content', async () => {
 		renderTable(MOCK_ROWS);
 
-		await expect.element(page.getByText('Class')).toBeInTheDocument();
+		// First row (teaching, no cause/dues) should have empty description
+		const firstDescCell = page.getByTestId('esl-schedule.description-cell').first();
+		await expect.element(firstDescCell).toHaveTextContent('');
 		// Dues collapse onto the description as titles; the window rides a badge chip.
 		const dueDescCell = page
 			.getByTestId('esl-schedule.description-cell')
@@ -272,7 +274,7 @@ describe('TeacherScheduleTable', () => {
 		const tsv = payload.content.textContent ?? '';
 		expect(tsv).toContain('#\tDate\tDescription\tNote');
 		// Countdown column carries remaining counts, blank on off / no-class / exam rows
-		expect(tsv).toContain('3\t2025-09-01\tClass\t');
+		expect(tsv).toContain('3\t2025-09-01\t\t');
 		expect(tsv).toContain('\t2025-09-12\tFinal Exam\t');
 		expect(tsv).not.toContain('Class 1/4 to Midterm exam');
 		// TSV matches display: dues titles in the description, badges in brackets
@@ -360,7 +362,9 @@ describe('TeacherScheduleTable reminders (#224)', () => {
 		renderTable(BANNER_ROWS);
 
 		const monday = page.getByTestId('esl-schedule.row').filter({ hasText: '2025-09-08' });
-		await expect.element(monday).toMatchTextContent('Class');
+		// Description cell should be empty (no cause, no chip dues)
+		const descCell = monday.getByTestId('esl-schedule.description-cell');
+		await expect.element(descCell).toHaveTextContent('');
 		await expect.element(monday).not.toMatchTextContent('Passport 1 due');
 		await expect.element(monday.getByTestId('esl-schedule.badge')).not.toBeInTheDocument();
 	});
@@ -451,9 +455,16 @@ describe('TeacherScheduleTable reminders (#224)', () => {
 		expect(greyed).toHaveLength(1);
 		await expect.element(greyed[0]).toHaveClass(/text-gray-400/);
 		await expect.element(greyed[0]).toMatchTextContent('No class — Start at P3');
-		const teaching = rows.find((row) => row.element().textContent?.includes('Class'));
+		// Teaching row (period 3) should have empty description
+		const teaching = rows.find((row) => {
+			const descCell = row.element().querySelector('[data-testid="esl-schedule.description-cell"]');
+			return descCell && descCell.textContent?.trim() === '';
+		});
 		expect(teaching).toBeDefined();
-		await expect.element(teaching!).toMatchTextContent('Class');
+		const teachingDesc = teaching!
+			.element()
+			.querySelector('[data-testid="esl-schedule.description-cell"]');
+		expect(teachingDesc?.textContent?.trim()).toBe('');
 		await expect.element(teaching!).not.toMatchTextContent('Start at P3');
 	});
 });

@@ -80,8 +80,8 @@ describe('esl-schedule-list (#203 canonical columns)', () => {
 
 	it('keeps class context on teaching rows, with no Class x/y count-up text', () => {
 		const text = descriptionText(row({}), CLASS_NAMES);
-		// Description no longer includes class name and period
-		expect(text).toBe('Class');
+		// Description no longer includes class name and period; empty when no cause/dues
+		expect(text).toBe('');
 		expect(text).not.toContain(' to ');
 	});
 
@@ -93,7 +93,7 @@ describe('esl-schedule-list (#203 canonical columns)', () => {
 		const tsv = buildScheduleTsv(rows, CLASS_NAMES, {}, '2025-08-31');
 		const lines = tsv.split('\n');
 		expect(lines[0]).toBe('#\tDate\tDescription\tNote');
-		expect(lines[1]?.split('\t')).toEqual(['1', '2025-09-01', 'Class', '']);
+		expect(lines[1]?.split('\t')).toEqual(['1', '2025-09-01', '', '']);
 		expect(lines[2]?.split('\t')).toEqual(['', '2025-09-01', 'Exam 1', '']);
 	});
 
@@ -131,8 +131,8 @@ describe('esl-schedule-list (#203 canonical columns)', () => {
 			badges: ['out-of-window P1 (window from P2)'],
 			outOfWindow: true
 		});
-		// Out-of-window partial falls back to 'Class'
-		expect(descriptionText(outOfWindow, CLASS_NAMES)).toBe('Class');
+		// Out-of-window partial has no description (cause is filtered out)
+		expect(descriptionText(outOfWindow, CLASS_NAMES)).toBe('');
 		expect(descriptionText(outOfWindow, CLASS_NAMES)).not.toContain('No class');
 		expect(noteText(outOfWindow, notes)).toBe('Late start');
 	});
@@ -175,7 +175,7 @@ describe('esl-schedule-list week banners (#224)', () => {
 	it('keeps a banner due out of the day-row description, keeps a chip one in it', () => {
 		const banner = descriptionText(row({ dues: [due({ title: 'Passport 1 due' })] }), CLASS_NAMES);
 		// Banner dues are not shown in day-row description
-		expect(banner).toBe('Class');
+		expect(banner).toBe('');
 		const chip = descriptionText(
 			row({ dues: [due({ title: 'Passport 1 due', isBanner: false })] }),
 			CLASS_NAMES
@@ -258,7 +258,7 @@ describe('esl-schedule-list week banners (#224)', () => {
 
 		expect(lines[0]).toBe('#\tDate\tDescription\tNote');
 		expect(lines[1]).toBe('\t\tWeek 1 · Passport 1 due · 09/01–09/05\t');
-		expect(lines[2]).toBe('\t2025-09-01\tClass\t');
+		expect(lines[2]).toBe('\t2025-09-01\t\t');
 		expect(lines[4]).toBe('\t\tWeek 2 · Passport 2 due · 09/08–09/10\t');
 	});
 

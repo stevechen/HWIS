@@ -103,7 +103,7 @@ export function descriptionText(row: ScheduleDayRow, _classNames: Record<string,
 			// day chip; chip dues append their titles as before.
 			const dues = row.dues.filter((due) => !due.isBanner).map((due) => due.title);
 			parts.push(...dues);
-			return parts.join(' · ') || 'Class';
+			return parts.join(' · ');
 		}
 	}
 }
