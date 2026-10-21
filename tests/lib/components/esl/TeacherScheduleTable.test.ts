@@ -202,23 +202,17 @@ describe('TeacherScheduleTable', () => {
 	it('renders description column with correct content', async () => {
 		renderTable(MOCK_ROWS);
 
-		await expect.element(page.getByText('G7 Basic 1 CLIL P1')).toBeInTheDocument();
+		await expect.element(page.getByText('Class')).toBeInTheDocument();
 		// Dues collapse onto the description as titles; the window rides a badge chip.
 		const dueDescCell = page
 			.getByTestId('esl-schedule.description-cell')
-			.filter({ hasText: 'G7 Basic 1 CLIL P2 · Workbook check' });
-		await expect.element(dueDescCell).toMatchTextContent('G7 Basic 1 CLIL P2 · Workbook check');
+			.filter({ hasText: 'Workbook check' });
+		await expect.element(dueDescCell).toMatchTextContent('Workbook check');
 		await expect.element(page.getByText('due window 2025-09-01–2025-09-03')).toBeInTheDocument();
-		await expect
-			.element(page.getByText('G7 Basic 1 CLIL P3 · 🎉 Off — Moon Festival'))
-			.toBeInTheDocument();
-		await expect
-			.element(page.getByText("G7 Basic 1 Comm P5 · No-class — Sport's Day"))
-			.toBeInTheDocument();
-		await expect.element(page.getByText('G7 Basic 1 CLIL P2 · Late start')).toBeInTheDocument();
-		await expect
-			.element(page.getByText('G7 Basic 1 Comm P6 · Oral exam ahead of Midterm exam'))
-			.toBeInTheDocument();
+		await expect.element(page.getByText('🎉 Off — Moon Festival')).toBeInTheDocument();
+		await expect.element(page.getByText("No class — Sport's Day")).toBeInTheDocument();
+		await expect.element(page.getByText('Late start')).toBeInTheDocument();
+		await expect.element(page.getByText('Oral Exam')).toBeInTheDocument();
 		// Check exam row description in description cell specifically: canonical label
 		const examDescCell = page
 			.getByTestId('esl-schedule.description-cell')
@@ -278,11 +272,11 @@ describe('TeacherScheduleTable', () => {
 		const tsv = payload.content.textContent ?? '';
 		expect(tsv).toContain('#\tDate\tDescription\tNote');
 		// Countdown column carries remaining counts, blank on off / no-class / exam rows
-		expect(tsv).toContain('3\t2025-09-01\tG7 Basic 1 CLIL P1\t');
+		expect(tsv).toContain('3\t2025-09-01\tClass\t');
 		expect(tsv).toContain('\t2025-09-12\tFinal Exam\t');
 		expect(tsv).not.toContain('Class 1/4 to Midterm exam');
 		// TSV matches display: dues titles in the description, badges in brackets
-		expect(tsv).toContain('G7 Basic 1 CLIL P2 · Workbook check (due window 2025-09-01–2025-09-03)');
+		expect(tsv).toContain('Workbook check (due window 2025-09-01–2025-09-03)');
 		expect(tsv).toContain('BBQ logistics');
 		expect(tsv).toContain('Bring water');
 	});
@@ -366,7 +360,7 @@ describe('TeacherScheduleTable reminders (#224)', () => {
 		renderTable(BANNER_ROWS);
 
 		const monday = page.getByTestId('esl-schedule.row').filter({ hasText: '2025-09-08' });
-		await expect.element(monday).toMatchTextContent('G7 Basic 1 CLIL P1');
+		await expect.element(monday).toMatchTextContent('Class');
 		await expect.element(monday).not.toMatchTextContent('Passport 1 due');
 		await expect.element(monday.getByTestId('esl-schedule.badge')).not.toBeInTheDocument();
 	});
@@ -375,7 +369,7 @@ describe('TeacherScheduleTable reminders (#224)', () => {
 		renderTable(MOCK_ROWS);
 
 		const wednesday = page.getByTestId('esl-schedule.row').filter({ hasText: '2025-09-03' });
-		await expect.element(wednesday).toMatchTextContent('G7 Basic 1 CLIL P2 · Workbook check');
+		await expect.element(wednesday).toMatchTextContent('Workbook check');
 		await expect
 			.element(page.getByTestId('esl-schedule.badge').filter({ hasText: 'due window' }))
 			.toBeInTheDocument();
@@ -433,7 +427,7 @@ describe('TeacherScheduleTable reminders (#224)', () => {
 				period: 1,
 				status: 'no_class',
 				cause: 'Start at P3',
-				badges: ['out-of-window P1 (window from P3)'],
+				badges: [],
 				dues: [],
 				count: null
 			},
@@ -456,10 +450,10 @@ describe('TeacherScheduleTable reminders (#224)', () => {
 		const greyed = rows.filter((row) => row.element().textContent?.includes('Start at P3'));
 		expect(greyed).toHaveLength(1);
 		await expect.element(greyed[0]).toHaveClass(/text-gray-400/);
-		await expect.element(greyed[0]).toMatchTextContent('G7 Basic 1 CLIL P1');
-		const teaching = rows.find((row) => row.element().textContent?.includes('G7 Basic 1 CLIL P3'));
+		await expect.element(greyed[0]).toMatchTextContent('No class — Start at P3');
+		const teaching = rows.find((row) => row.element().textContent?.includes('Class'));
 		expect(teaching).toBeDefined();
-		await expect.element(teaching!).toMatchTextContent('G7 Basic 1 CLIL P3');
+		await expect.element(teaching!).toMatchTextContent('Class');
 		await expect.element(teaching!).not.toMatchTextContent('Start at P3');
 	});
 });

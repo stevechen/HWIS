@@ -193,11 +193,13 @@
 					<td class="w-full border border-gray-200 p-2" data-testid="esl-schedule.description-cell">
 						<span data-testid={rowTestId(row.status)}>{descriptionText(row, classNames)}</span>
 						{#each row.badges as badge (badge)}
-							<span
-								data-testid="esl-schedule.badge"
-								class="ml-1 inline-block rounded bg-slate-200 px-1.5 py-0.5 text-[11px] text-slate-700"
-								>{badge}</span
-							>
+							{#if row.status !== 'oral_exam'}
+								<span
+									data-testid="esl-schedule.badge"
+									class="ml-1 inline-block rounded bg-slate-200 px-1.5 py-0.5 text-[11px] text-slate-700"
+									>{badge}</span
+								>
+							{/if}
 						{/each}
 					</td>
 					<td

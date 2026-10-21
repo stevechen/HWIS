@@ -69,8 +69,7 @@ export function examDisplayLabel(cause: string | null): string {
 }
 
 /**
- * The description cell, ported from the scheduler's table: the meeting
- * context, the cause behind any non-teaching status, and collapsed dues.
+ * The description cell for the schedule list view.
  * #203 normalizes exam rows to their canonical labels (Exam 1 / Exam 2 /
  * Final Exam). Badges ride separately as chips; the TSV payload appends
  * them in brackets.
@@ -78,32 +77,33 @@ export function examDisplayLabel(cause: string | null): string {
  * #212: an out-of-window partial meeting reads as class as usual — the
  * context with no title — while the note column keeps the note. Every other
  * partial row shows title+note.
+ *
+ * The description no longer includes class name and period — those are
+ * implied by the selected class filter.
  */
-export function descriptionText(row: ScheduleDayRow, classNames: Record<string, string>): string {
-	const context = classContext(row, classNames);
+export function descriptionText(row: ScheduleDayRow, _classNames: Record<string, string>): string {
 	switch (row.status) {
 		case 'exam':
 			return examDisplayLabel(row.cause);
 		case 'off':
-			return `${context} · 🎉 Off — ${row.cause ?? 'Off'}`;
+			return row.cause && row.cause !== 'Off' ? `🎉 Off — ${row.cause}` : '🎉 Off';
 		case 'no_class':
-			return `${context} · No-class — ${row.cause ?? 'No class'}`;
-		case 'partial':
+			return row.cause && row.cause !== 'No class' ? `No class — ${row.cause}` : 'No class';
 		case 'oral_exam':
+			return 'Oral Exam';
 		case 'g9_mock':
+			return row.cause ?? 'G9 Mock';
+		case 'partial':
 		case 'teaching': {
-			const cause =
-				row.cause === null || (row.status === 'partial' && row.outOfWindow === true)
-					? ''
-					: ` · ${row.cause}`;
+			const parts: string[] = [];
+			if (row.cause !== null && row.outOfWindow !== true) {
+				parts.push(row.cause);
+			}
 			// Banner dues ride the week row (#224), so they stay out of the
 			// day chip; chip dues append their titles as before.
-			const dues = row.dues
-				.filter((due) => !due.isBanner)
-				.map((due) => due.title)
-				.join('; ');
-			const dueText = dues === '' ? '' : ` · ${dues}`;
-			return `${context}${cause}${dueText}`;
+			const dues = row.dues.filter((due) => !due.isBanner).map((due) => due.title);
+			parts.push(...dues);
+			return parts.join(' · ') || 'Class';
 		}
 	}
 }

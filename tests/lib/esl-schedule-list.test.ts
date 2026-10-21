@@ -80,7 +80,8 @@ describe('esl-schedule-list (#203 canonical columns)', () => {
 
 	it('keeps class context on teaching rows, with no Class x/y count-up text', () => {
 		const text = descriptionText(row({}), CLASS_NAMES);
-		expect(text).toBe('G7 Basic 1 CLIL P1');
+		// Description no longer includes class name and period
+		expect(text).toBe('Class');
 		expect(text).not.toContain(' to ');
 	});
 
@@ -92,7 +93,7 @@ describe('esl-schedule-list (#203 canonical columns)', () => {
 		const tsv = buildScheduleTsv(rows, CLASS_NAMES, {}, '2025-08-31');
 		const lines = tsv.split('\n');
 		expect(lines[0]).toBe('#\tDate\tDescription\tNote');
-		expect(lines[1]?.split('\t')).toEqual(['1', '2025-09-01', 'G7 Basic 1 CLIL P1', '']);
+		expect(lines[1]?.split('\t')).toEqual(['1', '2025-09-01', 'Class', '']);
 		expect(lines[2]?.split('\t')).toEqual(['', '2025-09-01', 'Exam 1', '']);
 	});
 
@@ -120,7 +121,8 @@ describe('esl-schedule-list (#203 canonical columns)', () => {
 			cause: 'No class',
 			badges: []
 		});
-		expect(descriptionText(inWindow, CLASS_NAMES)).toBe('G7 Basic 1 CLIL P1 · No class');
+		// Description no longer includes class name and period
+		expect(descriptionText(inWindow, CLASS_NAMES)).toBe('No class');
 		expect(noteText(inWindow, notes)).toBe('Late start');
 		const outOfWindow = row({
 			date: '2025-09-08',
@@ -129,7 +131,8 @@ describe('esl-schedule-list (#203 canonical columns)', () => {
 			badges: ['out-of-window P1 (window from P2)'],
 			outOfWindow: true
 		});
-		expect(descriptionText(outOfWindow, CLASS_NAMES)).toBe('G7 Basic 1 CLIL P1');
+		// Out-of-window partial falls back to 'Class'
+		expect(descriptionText(outOfWindow, CLASS_NAMES)).toBe('Class');
 		expect(descriptionText(outOfWindow, CLASS_NAMES)).not.toContain('No class');
 		expect(noteText(outOfWindow, notes)).toBe('Late start');
 	});
@@ -171,12 +174,14 @@ describe('esl-schedule-list week banners (#224)', () => {
 
 	it('keeps a banner due out of the day-row description, keeps a chip one in it', () => {
 		const banner = descriptionText(row({ dues: [due({ title: 'Passport 1 due' })] }), CLASS_NAMES);
-		expect(banner).toBe('G7 Basic 1 CLIL P1');
+		// Banner dues are not shown in day-row description
+		expect(banner).toBe('Class');
 		const chip = descriptionText(
 			row({ dues: [due({ title: 'Passport 1 due', isBanner: false })] }),
 			CLASS_NAMES
 		);
-		expect(chip).toBe('G7 Basic 1 CLIL P1 · Passport 1 due');
+		// Chip dues are shown in day-row description
+		expect(chip).toBe('Passport 1 due');
 	});
 
 	it('groups the banner dues of a week under its school-week number', () => {
@@ -253,7 +258,7 @@ describe('esl-schedule-list week banners (#224)', () => {
 
 		expect(lines[0]).toBe('#\tDate\tDescription\tNote');
 		expect(lines[1]).toBe('\t\tWeek 1 · Passport 1 due · 09/01–09/05\t');
-		expect(lines[2]).toBe('\t2025-09-01\tG7 Basic 1 CLIL P1\t');
+		expect(lines[2]).toBe('\t2025-09-01\tClass\t');
 		expect(lines[4]).toBe('\t\tWeek 2 · Passport 2 due · 09/08–09/10\t');
 	});
 

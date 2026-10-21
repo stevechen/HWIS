@@ -2154,9 +2154,7 @@ function resolveEslDayStatus(args: {
 		return {
 			status: 'no_class',
 			cause: start.title,
-			badges: [
-				`out-of-window P${args.meeting.period} (window from P${startSchoolFirstPeriod(start)})`
-			],
+			badges: [],
 			outOfWindow: false
 		};
 	}
@@ -2168,13 +2166,13 @@ function resolveEslDayStatus(args: {
 			(partial.endPeriod !== undefined && args.meeting.period > partial.endPeriod));
 
 	if (outOfWindow && partial) {
+		// Out-of-window periods on a partial day are treated as "No class"
+		// rather than showing a technical badge.
 		return {
-			status: 'partial',
+			status: 'no_class',
 			cause: partial.title,
-			badges: [
-				`out-of-window P${args.meeting.period} (window${partial.startPeriod !== undefined ? ` from P${partial.startPeriod}` : ''}${partial.endPeriod !== undefined ? ` to P${partial.endPeriod}` : ''})`
-			],
-			outOfWindow: true
+			badges: [],
+			outOfWindow: false
 		};
 	}
 

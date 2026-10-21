@@ -291,14 +291,15 @@ describe('esl/schedule.teacherDays', () => {
 		});
 
 		const monday = days.find((day) => day.date === '2025-09-08');
-		expect(monday).toMatchObject({ status: 'partial', cause: 'No class' });
-		expect(monday?.badges.some((badge) => badge.includes('out-of-window'))).toBe(true);
-		// The list renders note-only for out-of-window meetings (#212).
-		expect(monday?.outOfWindow).toBe(true);
+		// Out-of-window periods on a partial day are now treated as "No class"
+		// without the out-of-window badge.
+		expect(monday).toMatchObject({ status: 'no_class', cause: 'No class' });
+		expect(monday?.badges.length).toBe(0);
+		expect(monday?.outOfWindow).toBeFalsy();
 		expect(days.find((day) => day.date === '2025-09-10')).toMatchObject({
 			status: 'teaching'
 		});
-		expect(days.find((day) => day.date === '2025-09-10')?.outOfWindow).not.toBe(true);
+		expect(days.find((day) => day.date === '2025-09-10')?.outOfWindow).toBeFalsy();
 	});
 
 	it('renders pre-P3 meetings on the start day as No class', async () => {
@@ -322,7 +323,8 @@ describe('esl/schedule.teacherDays', () => {
 			status: 'no_class',
 			cause: 'Start at P3'
 		});
-		expect(monday?.badges.some((badge) => badge.includes('out-of-window'))).toBe(true);
+		// Pre-start periods no longer carry an out-of-window badge.
+		expect(monday?.badges.length).toBe(0);
 		expect(days.find((day) => day.date === '2025-09-03')).toMatchObject({
 			status: 'teaching',
 			cause: null
