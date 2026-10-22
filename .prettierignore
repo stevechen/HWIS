@@ -12,3 +12,4 @@ bun.lockb
 /convex/
 src/convex/_generated/
 .convex/
+worktrees/

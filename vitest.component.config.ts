@@ -1,5 +1,5 @@
-import { defineConfig } from 'vitest/config';
-import { playwright } from '@vitest/browser-playwright';
+import { defineConfig } from 'vite-plus';
+import { playwright } from 'vite-plus/test/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'path';
@@ -8,6 +8,14 @@ export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 
 	test: {
+		// Vitest v4 compatibility: preserve mock call history.
+		// Remove after tests no longer rely on calls from setup or earlier tests.
+		// https://viteplus.dev/guide/vitest-v5#remove-unneeded-compatibility-settings
+		// https://vitest.dev/guide/migration/#clearmocks-is-enabled-by-default
+		clearMocks: false,
+		api: {
+			host: '127.0.0.1'
+		},
 		// Component tests in tests/ folder - use browser mode
 		name: 'component',
 		include: ['tests/**/*.test.ts'],
@@ -43,17 +51,21 @@ export default defineConfig({
 		},
 
 		browser: {
-			enabled: true,
-			api: {
-				host: '127.0.0.1'
+			locators: {
+				// Vitest v4 compatibility: keep partial, case-insensitive locator matching.
+				// Remove after updating locators for full, case-sensitive matches.
+				// https://viteplus.dev/guide/vitest-v5#remove-unneeded-compatibility-settings
+				// https://vitest.dev/guide/migration/#locators-are-strict-by-default
+				exact: false
 			},
+			enabled: true,
+
 			provider: playwright(),
 			instances: [{ browser: 'chromium', headless: true }]
 		},
 
 		coverage: {
 			provider: 'istanbul',
-			all: true,
 			include: ['src/lib/**/*.{ts,svelte,js}'],
 			exclude: ['src/lib/components/ui/**', 'tests/**', 'node_modules/**', '.svelte-kit/**'],
 			reportsDirectory: 'coverage/component'

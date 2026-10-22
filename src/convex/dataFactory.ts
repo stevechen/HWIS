@@ -7,7 +7,7 @@ import { GRADES } from './shared/class_roster';
 // Helper to get or create a class for e2e tests
 // className: "default", "IB", "1", "2", etc.
 async function getOrCreateClass(
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 	ctx: any,
 	grade: number,
 	className: string,

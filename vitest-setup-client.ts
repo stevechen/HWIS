@@ -1,1 +1,1 @@
-/// <reference types="@vitest/browser/matchers" />
+/// <reference types="vite-plus/test/matchers" />

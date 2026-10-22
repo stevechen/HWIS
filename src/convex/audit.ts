@@ -293,7 +293,7 @@ export const list = query({
 
 			details = getAuditActionDetails(log) ?? details;
 
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+			// oxlint-disable-next-line @typescript-eslint/no-unused-vars
 			const { performerId: _performerId, ...logWithoutPerformer } = log;
 			results.push({
 				...logWithoutPerformer,
