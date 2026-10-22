@@ -1,5 +1,5 @@
 import type { QueryCtx } from '../_generated/server';
-import type { Doc } from '../_generated/dataModel';
+import type { Doc, Id } from '../_generated/dataModel';
 import { deriveHomeroom } from '../shared/esl';
 
 /**
@@ -67,7 +67,7 @@ export async function findBandCohorts(
 		.collect();
 
 	const active = candidates.filter((candidate) => candidate.status === 'active');
-	const homeroomsByCohort = new Map<string, string[]>();
+	const homeroomsByCohort = new Map<Id<'esl_cohorts'>, string[]>();
 	for (const candidate of active) {
 		homeroomsByCohort.set(candidate._id, await cohortHomeroomSet(ctx, candidate));
 	}
@@ -77,7 +77,7 @@ export async function findBandCohorts(
 
 	// Index homerooms to the cohorts that draw from them, then walk the
 	// connected component from the source.
-	const cohortsByHomeroom = new Map<string, string[]>();
+	const cohortsByHomeroom = new Map<string, Id<'esl_cohorts'>[]>();
 	for (const candidate of active) {
 		for (const homeroom of homeroomsByCohort.get(candidate._id) ?? []) {
 			const bucket = cohortsByHomeroom.get(homeroom);
@@ -86,8 +86,8 @@ export async function findBandCohorts(
 		}
 	}
 
-	const visited = new Set<string>([cohort._id]);
-	const queue = [cohort._id];
+	const visited = new Set<Id<'esl_cohorts'>>([cohort._id]);
+	const queue: Id<'esl_cohorts'>[] = [cohort._id];
 	while (queue.length > 0) {
 		const current = queue.shift();
 		if (current === undefined) break;

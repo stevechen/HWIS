@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { useConvexClient, useQuery } from 'convex-svelte';
+	import { untrack } from 'svelte';
+	import { page } from '$app/state';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { Button } from '$lib/components/ui/button';
@@ -10,6 +12,8 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { UserPlus, UserX, UserCheck, X } from '@lucide/svelte';
 	import { chineseClassCode } from '$convex/shared/esl';
+	import ImportRoster from '$lib/components/esl/roster/ImportRoster.svelte';
+	import { schoolYearOf } from '$lib/components/esl/roster/staging';
 
 	const client = useConvexClient();
 
@@ -17,6 +21,8 @@
 
 	let selectedCohortId = $state<Id<'esl_cohorts'> | ''>('');
 	let includeDisabled = $state(true);
+
+	const currentSchoolYear = schoolYearOf(new Date());
 
 	// The roster query is skipped until a cohort is chosen: its `cohortId` arg is
 	// required, so there is nothing sensible to send before then.
@@ -27,6 +33,97 @@
 	const cohorts = $derived(cohortsQuery.data ?? []);
 	const students = $derived(studentsQuery.data ?? []);
 	const activeStudents = $derived(students.filter((s) => s.status === 'active'));
+
+	/**
+	 * The year whose roster is on screen.
+	 *
+	 * The import, the readiness checklist and the roster all have to describe one
+	 * year; a page that silently mixed two would let an admin sign off last year's
+	 * roster while looking at this year's. The URL can name the year (the Classes
+	 * gate links here), and otherwise the newest year with data wins.
+	 */
+	const dataYears = $derived([...new Set(cohorts.map((cohort) => cohort.year))].sort().reverse());
+	const years = $derived(dataYears.length > 0 ? dataYears : [currentSchoolYear]);
+	let selectedYear = $state('');
+	$effect(() => {
+		const fromUrl = untrack(() => page.url.searchParams.get('year'));
+		const available = years;
+		untrack(() => {
+			if (selectedYear !== '' && available.includes(selectedYear)) return;
+			selectedYear =
+				fromUrl !== null && available.includes(fromUrl)
+					? fromUrl
+					: (available[0] ?? currentSchoolYear);
+		});
+	});
+
+	const yearCohorts = $derived(cohorts.filter((cohort) => cohort.year === selectedYear));
+
+	// A class belongs to one year, so a year change must drop a selection that is
+	// no longer on screen rather than leave the form aimed at another year's class.
+	$effect(() => {
+		const visible = yearCohorts;
+		untrack(() => {
+			if (selectedCohortId !== '' && !visible.some((cohort) => cohort._id === selectedCohortId)) {
+				selectedCohortId = '';
+			}
+		});
+	});
+
+	/**
+	 * Whether the page was arrived at from the roster link on Classes.
+	 *
+	 * Read once on mount, the same one-shot pattern the Classes page used when the
+	 * importer lived there; `?import=1` and `#import` both open it.
+	 */
+	let importRequested = $state(false);
+	$effect(() => {
+		const wanted = untrack(
+			() => page.url.hash === '#import' || page.url.searchParams.get('import') === '1'
+		);
+		importRequested = wanted;
+	});
+
+	/** The selected year's roster checklist and sign-off state. */
+	const readinessQuery = useQuery(api.esl.yearStatus.readiness, () =>
+		selectedYear ? { year: selectedYear } : 'skip'
+	);
+	const readiness = $derived(
+		readinessQuery.data && Array.isArray(readinessQuery.data.blockers) ? readinessQuery.data : null
+	);
+	let confirmingRoster = $state(false);
+	let readinessError = $state('');
+	let notice = $state('');
+
+	async function confirmRoster() {
+		if (!readiness) return;
+		confirmingRoster = true;
+		readinessError = '';
+		try {
+			await client.mutation(api.esl.yearStatus.confirm, { year: readiness.year });
+			notice = `Roster confirmed for ${readiness.year}`;
+		} catch (error) {
+			readinessError =
+				error instanceof Error ? error.message : 'Could not confirm the roster for this year';
+		} finally {
+			confirmingRoster = false;
+		}
+	}
+
+	async function unconfirmRoster() {
+		if (!readiness) return;
+		confirmingRoster = true;
+		readinessError = '';
+		try {
+			await client.mutation(api.esl.yearStatus.unconfirm, { year: readiness.year });
+			notice = `Roster sign-off withdrawn for ${readiness.year}`;
+		} catch (error) {
+			readinessError =
+				error instanceof Error ? error.message : 'Could not withdraw the roster sign-off';
+		} finally {
+			confirmingRoster = false;
+		}
+	}
 
 	// Manual enrolment
 	let englishName = $state('');
@@ -42,7 +139,6 @@
 	let chineseClass = $state('');
 	let enrolling = $state(false);
 	let formError = $state('');
-	let notice = $state('');
 
 	/** Filters the roster by homeroom; empty shows everyone. */
 	let chineseClassFilter = $state('');
@@ -105,7 +201,7 @@
 				schoolStudentId: schoolStudentId.trim(),
 				chineseClass: chineseClass.trim()
 			});
-			notice = `Enrolled ${englishName.trim()} into ${cohortLabelFor(selectedCohortId)}`;
+			notice = `Enrolled ${englishName.trim() || chineseName.trim()} into ${cohortLabelFor(selectedCohortId)}`;
 			englishName = '';
 			chineseName = '';
 			schoolStudentId = '';
@@ -193,6 +289,18 @@
 		</div>
 		<div class="flex items-end gap-3">
 			<div class="space-y-1">
+				<Label for="esl-students-year">Year</Label>
+				<NativeSelect.Root
+					id="esl-students-year"
+					data-testid="esl-admin-students.year"
+					bind:value={selectedYear}
+				>
+					{#each years as year (year)}
+						<NativeSelect.Option value={year}>{year}</NativeSelect.Option>
+					{/each}
+				</NativeSelect.Root>
+			</div>
+			<div class="space-y-1">
 				<Label for="esl-students-class">Class</Label>
 				<NativeSelect.Root
 					id="esl-students-class"
@@ -200,7 +308,7 @@
 					bind:value={selectedCohortId}
 				>
 					<NativeSelect.Option value="">Select a class…</NativeSelect.Option>
-					{#each cohorts as cohort (cohort._id)}
+					{#each yearCohorts as cohort (cohort._id)}
 						<NativeSelect.Option value={cohort._id}>{cohort.label}</NativeSelect.Option>
 					{/each}
 				</NativeSelect.Root>
@@ -224,6 +332,7 @@
 				/>
 			</div>
 		</div>
+		<ImportRoster expanded={importRequested} initialYear={selectedYear || currentSchoolYear} />
 	</header>
 
 	{#if notice}
@@ -248,7 +357,6 @@
 					id="esl-student-english"
 					data-testid="esl-admin-students.form.englishName"
 					bind:value={englishName}
-					required
 				/>
 			</div>
 			<div class="space-y-1">
@@ -303,25 +411,126 @@
 		</form>
 	</section>
 
+	<!--
+		The roster checklist. The sign-off lives here because the roster does: an
+		admin imports or corrects the year's students on this page, then confirms
+		the year is complete. Classes renders its own copy of the checklist behind
+		the gate, so the two pages cannot disagree about what is missing.
+	-->
 	<section
-		aria-labelledby="esl-admin-students-import-heading"
+		aria-labelledby="esl-admin-students-readiness-heading"
 		class="rounded-lg border bg-white p-6 shadow-sm"
-		data-testid="esl-admin-students.import"
+		data-testid="esl-admin-students.readiness"
 	>
-		<h2 id="esl-admin-students-import-heading" class="text-lg font-semibold">Import a roster</h2>
-		<p class="text-muted-foreground mt-1 text-sm">
-			Rosters come in as a workbook, one sheet per class, and
-			<a
-				class="font-medium underline"
-				href="/esl/admin/classes#import"
-				data-testid="esl-admin-students.import.link"
+		<div class="flex flex-wrap items-start justify-between gap-3">
+			<div>
+				<h2 id="esl-admin-students-readiness-heading" class="text-lg font-semibold">
+					Roster readiness — {selectedYear || 'no year'}
+				</h2>
+				<p class="text-muted-foreground mt-1 text-sm">
+					Classes stays locked until an admin confirms this year's roster is complete.
+				</p>
+			</div>
+			{#if readiness}
+				{#if readiness.confirmedReason === 'signoff'}
+					<div class="flex items-center gap-3">
+						<Badge data-testid="esl-admin-students.readiness.confirmed">Confirmed</Badge>
+						<span class="text-muted-foreground text-xs">
+							{readiness.confirmedBy ?? 'an admin'} · {readiness.confirmedAt
+								? new Date(readiness.confirmedAt).toLocaleString()
+								: ''}
+						</span>
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={confirmingRoster}
+							onclick={unconfirmRoster}
+							testId="esl-admin-students.readiness.unconfirm"
+						>
+							Withdraw
+						</Button>
+					</div>
+				{:else if readiness.confirmedReason === 'existing-meetings'}
+					<div class="flex items-center gap-3">
+						<Badge variant="secondary">Open because schedules exist</Badge>
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={confirmingRoster || !readiness.canConfirm}
+							onclick={confirmRoster}
+							testId="esl-admin-students.readiness.confirm"
+						>
+							Sign off anyway
+						</Button>
+					</div>
+				{:else}
+					<Button
+						size="sm"
+						disabled={confirmingRoster || !readiness.canConfirm}
+						onclick={confirmRoster}
+						testId="esl-admin-students.readiness.confirm"
+					>
+						{confirmingRoster ? 'Confirming…' : 'The roster is complete'}
+					</Button>
+				{/if}
+			{/if}
+		</div>
+
+		{#if readiness}
+			<div class="mt-4 grid gap-4 md:grid-cols-2">
+				<div>
+					<h3 class="text-sm font-medium text-red-800">Blockers</h3>
+					{#if readiness.blockers.length === 0}
+						<p
+							class="text-muted-foreground mt-1 text-sm"
+							data-testid="esl-admin-students.readiness.blockers"
+						>
+							None.
+						</p>
+					{:else}
+						<ul
+							class="mt-1 list-disc space-y-1 pl-5 text-sm text-red-800"
+							data-testid="esl-admin-students.readiness.blockers"
+						>
+							{#each readiness.blockers as blocker (blocker.kind)}
+								<li>{blocker.message}</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+				<div>
+					<h3 class="text-sm font-medium">Warnings</h3>
+					{#if readiness.warnings.length === 0}
+						<p class="text-muted-foreground mt-1 text-sm">None.</p>
+					{:else}
+						<ul class="text-muted-foreground mt-1 list-disc space-y-1 pl-5 text-sm">
+							{#each readiness.warnings as warning (warning.kind)}
+								<li>{warning.message}</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			</div>
+			<dl
+				class="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4"
+				data-testid="esl-admin-students.readiness.grades"
 			>
-				the importer on the Classes page
-			</a>
-			reads it. It takes the class each student belongs to from the sheet they are on, which a pasted
-			list of names cannot say — so a column of names pasted here leaves every student's class unassigned.
-			Use it to add one student to a class you have already chosen above.
-		</p>
+				{#each readiness.grades as grade (grade.grade)}
+					<div class="rounded border p-2">
+						<dt class="text-muted-foreground">G{grade.grade}</dt>
+						<dd>{grade.cohorts} cohorts · {grade.activeStudents} students</dd>
+					</div>
+				{/each}
+			</dl>
+		{:else if readinessQuery.isLoading}
+			<p class="text-muted-foreground mt-3 text-sm">Loading readiness…</p>
+		{/if}
+
+		{#if readinessError}
+			<p class="mt-3 text-sm text-red-700" data-testid="esl-admin-students.readiness.error">
+				{readinessError}
+			</p>
+		{/if}
 	</section>
 
 	<section aria-labelledby="esl-admin-students-roster-heading" class="space-y-4">

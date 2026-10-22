@@ -32,7 +32,7 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 }));
 
 import ProfilePage from '$src/routes/esl/admin/users/[userId]/+page.svelte';
-import { schoolYearOf } from '$src/routes/esl/admin/classes/staging';
+import { schoolYearOf } from '$src/lib/components/esl/roster/staging';
 
 const CLASSES = [
 	{

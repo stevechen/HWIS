@@ -183,10 +183,7 @@ describe('esl schedule mirrors (ADR-0028)', () => {
 				level: 'Elementary',
 				classNumber: '4'
 			});
-			await seedRoster(t, elementary.cohortId, [
-				{ chineseClass: '01' },
-				{ chineseClass: '06' }
-			]);
+			await seedRoster(t, elementary.cohortId, [{ chineseClass: '01' }, { chineseClass: '06' }]);
 
 			// The larger roster writes the smaller one.
 			let result = await t.mutation(api.esl.classes.setSchedule, {

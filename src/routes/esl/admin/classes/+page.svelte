@@ -2,7 +2,6 @@
 	import { untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { useConvexClient, useQuery } from 'convex-svelte';
-	import { page } from '$app/state';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { Button } from '$lib/components/ui/button';
@@ -18,7 +17,6 @@
 	} from '$convex/shared/esl';
 	import { humanConvexErrorMessage } from '$lib/convex-error';
 	import ClassCard from './ClassCard.svelte';
-	import ImportRoster from './ImportRoster.svelte';
 
 	const client = useConvexClient();
 
@@ -63,24 +61,6 @@
 
 	/** What the confirm dialog is about to do, so its wording is not ambiguous. */
 	const pendingIsArchive = $derived(pendingYear !== null && !showArchived);
-
-	/**
-	 * Whether the page was arrived at from the old import URL or the roster link.
-	 *
-	 * Read once on mount rather than derived from the router: this only ever needs
-	 * to open the import section on arrival, and tracking the reactive `page` object
-	 * would mean every navigation re-evaluates it for no benefit.
-	 */
-	let importRequested = $state(false);
-	$effect(() => {
-		// Untracked, because this effect also *writes* `importRequested`: an effect
-		// that depends on the state it writes re-runs on its own output and never
-		// settles — which pins the browser at 100% CPU and kills the tab.
-		const wanted = untrack(
-			() => page.url.hash === '#import' || page.url.searchParams.get('import') === '1'
-		);
-		importRequested = wanted;
-	});
 
 	let yearFilter = $state('');
 	let gradeFilter = $state('');
@@ -142,6 +122,50 @@
 	 * behind them can never disagree about which year they are describing.
 	 */
 	const scheduleYear = $derived(shownYear);
+
+	/**
+	 * The selected year's roster sign-off.
+	 *
+	 * Archived years bypass the gate: they are read-only history, and requiring a
+	 * fresh sign-off to look at them would be busywork. A year that already has
+	 * meetings is reported confirmed by the query, so introducing the gate does
+	 * not lock a running year out.
+	 */
+	const readinessQuery = useQuery(api.esl.yearStatus.readiness, () =>
+		scheduleYear && !showArchived ? { year: scheduleYear } : 'skip'
+	);
+	const readiness = $derived(
+		readinessQuery.data && Array.isArray(readinessQuery.data.blockers) ? readinessQuery.data : null
+	);
+	const rosterLocked = $derived(!showArchived && readiness !== null && !readiness.confirmed);
+	let gateBusy = $state(false);
+	let gateError = $state('');
+
+	async function confirmYearRoster() {
+		if (!scheduleYear) return;
+		gateBusy = true;
+		gateError = '';
+		try {
+			await client.mutation(api.esl.yearStatus.confirm, { year: scheduleYear });
+		} catch (error) {
+			gateError = error instanceof Error ? error.message : 'Could not confirm the roster';
+		} finally {
+			gateBusy = false;
+		}
+	}
+
+	async function unconfirmYearRoster() {
+		if (!scheduleYear) return;
+		gateBusy = true;
+		gateError = '';
+		try {
+			await client.mutation(api.esl.yearStatus.unconfirm, { year: scheduleYear });
+		} catch (error) {
+			gateError = error instanceof Error ? error.message : 'Could not withdraw the sign-off';
+		} finally {
+			gateBusy = false;
+		}
+	}
 
 	// `skip` until there is a year to ask about, rather than querying an empty one.
 	const scheduleQuery = useQuery(api.esl.classes.listScheduleByYear, () =>
@@ -599,15 +623,35 @@
 				({visibleClassCount})
 			</span>
 		</h1>
-		<ImportRoster expanded={importRequested} />
+		<a
+			href={`/esl/admin/students?import=1&year=${encodeURIComponent(shownYear)}`}
+			class="border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex h-8 items-center rounded-md border px-3 text-sm font-medium shadow-xs transition-colors"
+			data-testid="esl-admin-classes.import.link"
+		>
+			Import a roster
+		</a>
+		{#if readiness?.confirmedReason === 'signoff'}
+			<div class="text-muted-foreground ml-auto flex items-center gap-2 text-xs">
+				<span data-testid="esl-admin-classes.roster.confirmed">
+					Roster confirmed{readiness.confirmedBy ? ` by ${readiness.confirmedBy}` : ''}
+				</span>
+				<Button
+					variant="ghost"
+					size="sm"
+					disabled={gateBusy}
+					onclick={unconfirmYearRoster}
+					testId="esl-admin-classes.roster.unconfirm"
+				>
+					Withdraw
+				</Button>
+			</div>
+		{/if}
 	</header>
 
 	<!--
-		The import lives here rather than on its own page because it is how classes
-		actually come into being: a hand-built cohort is an empty roster until a
-		workbook fills it, so the two were always one task split across two pages.
-		Arriving with `#import` or `?import=1` — from the old URL or the Students
-		page's roster link — opens it rather than dropping the admin on a class list.
+		The importer lives on Students now: roster setup and the year's sign-off are
+		one task, and this page is the one that is gated by it. The link keeps the
+		old one-click path to a workbook from here.
 	-->
 
 	<!--
@@ -879,7 +923,79 @@
 			</p>
 		{/if}
 
-		{#if cohortsQuery.isLoading}
+		{#if rosterLocked && readiness}
+			<section
+				class="rounded-lg border border-amber-300 bg-amber-50 p-6"
+				data-testid="esl-admin-classes.rosterGate"
+			>
+				<h2 class="text-lg font-semibold text-amber-900">
+					Roster not confirmed for {scheduleYear}
+				</h2>
+				<p class="mt-1 text-sm text-amber-900">
+					Classes stays locked until an admin confirms the year's roster is complete. Import or
+					correct the roster on the Students page, then confirm here.
+				</p>
+
+				<div class="mt-4 grid gap-4 md:grid-cols-2">
+					<div>
+						<h3 class="text-sm font-medium text-red-800">Blockers</h3>
+						{#if readiness.blockers.length === 0}
+							<p
+								class="mt-1 text-sm text-amber-900"
+								data-testid="esl-admin-classes.rosterGate.blockers"
+							>
+								None.
+							</p>
+						{:else}
+							<ul
+								class="mt-1 list-disc space-y-1 pl-5 text-sm text-red-800"
+								data-testid="esl-admin-classes.rosterGate.blockers"
+							>
+								{#each readiness.blockers as blocker (blocker.kind)}
+									<li>{blocker.message}</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
+					<div>
+						<h3 class="text-sm font-medium text-amber-900">Warnings</h3>
+						{#if readiness.warnings.length === 0}
+							<p class="mt-1 text-sm text-amber-900">None.</p>
+						{:else}
+							<ul class="mt-1 list-disc space-y-1 pl-5 text-sm text-amber-900">
+								{#each readiness.warnings as warning (warning.kind)}
+									<li>{warning.message}</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
+				</div>
+
+				<div class="mt-4 flex flex-wrap items-center gap-3">
+					<Button
+						size="sm"
+						disabled={gateBusy || !readiness.canConfirm}
+						onclick={confirmYearRoster}
+						testId="esl-admin-classes.rosterGate.confirm"
+					>
+						{gateBusy ? 'Confirming…' : 'The roster is complete'}
+					</Button>
+					<a
+						href={`/esl/admin/students?import=1&year=${encodeURIComponent(scheduleYear)}`}
+						class="text-sm font-medium underline"
+						data-testid="esl-admin-classes.rosterGate.import"
+					>
+						Import the roster on Students
+					</a>
+				</div>
+
+				{#if gateError}
+					<p class="mt-3 text-sm text-red-700" data-testid="esl-admin-classes.rosterGate.error">
+						{gateError}
+					</p>
+				{/if}
+			</section>
+		{:else if cohortsQuery.isLoading}
 			<p class="text-muted-foreground py-8 text-center" data-testid="esl-admin-classes.loading">
 				Loading classes…
 			</p>
@@ -890,7 +1006,7 @@
 			>
 				{showArchived
 					? 'No archived classes.'
-					: 'No classes yet. Import a grade roster above to create its classes.'}
+					: 'No classes yet. Import a grade roster on the Students page to create its classes.'}
 			</p>
 		{:else}
 			<!--

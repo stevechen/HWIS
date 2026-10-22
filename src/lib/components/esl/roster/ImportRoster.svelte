@@ -24,7 +24,10 @@
 	} from './staging';
 	import StagedGradeCard from './StagedGradeCard.svelte';
 
-	const initialYear = schoolYearOf(new Date());
+	let {
+		expanded = false,
+		initialYear = schoolYearOf(new Date())
+	}: { expanded?: boolean; initialYear?: string } = $props();
 	let year = $state(initialYear);
 	/** The year whose draft `yearDraft` holds, so a change re-reads exactly once. */
 	let loadedYear = initialYear;
@@ -46,6 +49,17 @@
 	 * without anything being re-uploaded.
 	 */
 	let yearDraft = $state(readYearDraft(loadedYear));
+
+	// Follow the page's year when it changes, so the importer and the roster on
+	// screen are the same school year. The admin can still type a different year;
+	// this only reacts to a new value from the parent.
+	$effect(() => {
+		const next = initialYear.trim();
+		if (!/^\d{4}-\d{4}$/.test(next) || next === loadedYear) return;
+		year = next;
+		loadedYear = next;
+		yearDraft = readYearDraft(next);
+	});
 
 	$effect(() => {
 		// Re-read on the year, not on every keystroke of it: a half-typed year is
@@ -301,8 +315,6 @@
 	function stamp(at: number): string {
 		return new Date(at).toLocaleString();
 	}
-
-	let { expanded = false }: { expanded?: boolean } = $props();
 
 	/**
 	 * Whether the import UI is showing.

@@ -648,8 +648,8 @@ export default defineSchema({
 		 * A G7 intake arrives before the English names are filled in, and the
 		 * workbook's column is empty for a whole grade. Requiring one would mean
 		 * refusing the September import or inventing a name, so the column is
-		 * optional and the name is added afterwards. Manual entry through
-		 * `esl/students` still requires one, because there a human is typing it.
+		 * optional and the name is added afterwards. Manual entry accepts a
+		 * blank too: the roster is the school's, not the English department's.
 		 */
 		englishName: v.optional(v.string()),
 		chineseName: v.string(),
@@ -688,5 +688,45 @@ export default defineSchema({
 		.index('by_cohortId_schoolStudentId', ['cohortId', 'schoolStudentId'])
 		.index('by_schoolStudentId', ['schoolStudentId'])
 		.index('by_status', ['status'])
-		.index('by_e2eTag', ['e2eTag'])
+		.index('by_e2eTag', ['e2eTag']),
+
+	/**
+	 * An admin's confirmation that a school year's ESL roster is complete.
+	 *
+	 * The readiness checklist is computed from `esl_cohorts` and `esl_students`
+	 * on every read; this row only records the human decision. Absent means
+	 * unconfirmed, so the Classes page stays behind its gate. An unconfirmed
+	 * year that already has meeting rows is treated as confirmed for the gate,
+	 * so introducing the gate does not lock a running year out.
+	 */
+	esl_year_signoffs: defineTable({
+		/** School year in `YYYY-YYYY` form. */
+		year: v.string(),
+		confirmedAt: v.number(),
+		confirmedBy: v.id('users')
+	}).index('by_year', ['year']),
+
+	/**
+	 * A level or Chinese-homeroom move recorded after the student was enrolled.
+	 *
+	 * `esl_students.cohortId` and `chineseClass` hold the current state; this
+	 * table keeps the from → to history so a mid-year move stays readable. It
+	 * is separate from the `active`/`disabled` transfer-out flow, which is
+	 * history on the student row.
+	 */
+	esl_student_transfers: defineTable({
+		studentId: v.id('esl_students'),
+		year: v.string(),
+		kind: v.union(v.literal('level'), v.literal('homeroom')),
+		fromCohortId: v.optional(v.id('esl_cohorts')),
+		toCohortId: v.optional(v.id('esl_cohorts')),
+		fromChineseClass: v.optional(v.string()),
+		toChineseClass: v.optional(v.string()),
+		/** Why the move happened, when the admin supplied one. */
+		reason: v.optional(v.string()),
+		movedBy: v.id('users'),
+		movedAt: v.number()
+	})
+		.index('by_studentId', ['studentId'])
+		.index('by_year', ['year'])
 });

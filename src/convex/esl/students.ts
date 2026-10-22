@@ -33,7 +33,6 @@ function assertValidStudent(args: {
 	schoolStudentId: string;
 	chineseClass: string;
 }): void {
-	if (!args.englishName.trim()) throw new Error('English name is required');
 	if (!args.chineseName.trim()) throw new Error('Chinese name is required');
 	if (!isValidSchoolStudentId(args.schoolStudentId)) {
 		throw new Error('School student ID must be a 6- or 7-digit number');
@@ -151,7 +150,7 @@ export const create = mutation({
 
 		return await ctx.db.insert('esl_students', {
 			cohortId: args.cohortId,
-			englishName: args.englishName.trim(),
+			englishName: args.englishName.trim() || undefined,
 			chineseName: args.chineseName.trim(),
 			schoolStudentId: args.schoolStudentId,
 			chineseClass: storedChineseClass(args.chineseClass, cohort.grade),
@@ -198,7 +197,7 @@ export const bulkImport = mutation({
 
 		const rejected: Array<{ index: number; schoolStudentId: string; reason: string }> = [];
 		const accepted: Array<{
-			englishName: string;
+			englishName?: string;
 			chineseName: string;
 			schoolStudentId: string;
 			chineseClass: string;
@@ -226,7 +225,7 @@ export const bulkImport = mutation({
 			seen.add(student.schoolStudentId);
 			try {
 				accepted.push({
-					englishName: student.englishName.trim(),
+					englishName: student.englishName.trim() || undefined,
 					chineseName: student.chineseName.trim(),
 					schoolStudentId: student.schoolStudentId,
 					chineseClass: storedChineseClass(student.chineseClass, cohort.grade)
@@ -320,7 +319,7 @@ export const update = mutation({
 		if (!cohort) throw new Error("Student's cohort not found");
 
 		await ctx.db.patch(args.id, {
-			englishName: args.englishName.trim(),
+			englishName: args.englishName.trim() || undefined,
 			chineseName: args.chineseName.trim(),
 			schoolStudentId: args.schoolStudentId,
 			chineseClass: storedChineseClass(args.chineseClass, cohort.grade)

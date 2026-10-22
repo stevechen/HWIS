@@ -51,7 +51,7 @@ vi.mock('convex-svelte', () => ({
 	}))
 }));
 
-vi.mock('$src/routes/esl/admin/classes/workbook', () => ({
+vi.mock('$src/lib/components/esl/roster/workbook', () => ({
 	// The page reads the file once, places the grade from the IDs, then parses.
 	// Each step is mocked so a test can disagree with the others deliberately.
 	readRosterSheets: (...args: unknown[]) => readSheets(...(args as [])),
@@ -64,7 +64,7 @@ vi.mock('$src/routes/esl/admin/classes/workbook', () => ({
 	readRosterWorkbook: (...args: unknown[]) => readRosterWorkbook(...args)
 }));
 
-import ImportRoster from '$src/routes/esl/admin/classes/ImportRoster.svelte';
+import ImportRoster from '$src/lib/components/esl/roster/ImportRoster.svelte';
 
 const YEAR = '2026-2027';
 

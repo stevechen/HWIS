@@ -336,23 +336,26 @@ describe('ESL admin cohorts page', () => {
 		});
 	});
 
-	describe('the import section', () => {
-		it('is collapsed until it is asked for', async () => {
+	describe('the import link', () => {
+		it('sends the admin to the Students page with the year', async () => {
 			withCohorts();
 			await render(ClassesPage);
 
-			const toggle = page.getByTestId('esl-admin-classes.import.toggle');
-			await expect.element(toggle).toMatchTextContent('Import a roster');
-			await expect.element(page.getByTestId('esl-import.year')).not.toBeInTheDocument();
+			const link = page.getByTestId('esl-admin-classes.import.link');
+			await expect.element(link).toMatchTextContent('Import a roster');
+			await expect
+				.element(link)
+				.toHaveAttribute('href', '/esl/admin/students?import=1&year=2026-2027');
 		});
 
-		it('offers the workbook picker once opened', async () => {
+		it('does not host the workbook picker itself', async () => {
 			withCohorts();
 			await render(ClassesPage);
 
-			await page.getByTestId('esl-admin-classes.import.toggle').click();
-
-			await expect.element(page.getByTestId('esl-import.year')).toBeInTheDocument();
+			await expect
+				.element(page.getByTestId('esl-admin-classes.import.toggle'))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByTestId('esl-import.year')).not.toBeInTheDocument();
 		});
 	});
 

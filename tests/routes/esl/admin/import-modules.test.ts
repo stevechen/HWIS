@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vite-plus/test';
-import { splitSheet, readRosterWorkbook } from '$src/routes/esl/admin/classes/workbook';
+import { splitSheet, readRosterWorkbook } from '$src/lib/components/esl/roster/workbook';
 import { isGrade10Group, parseRosterGroup, parseRosterWorkbook } from '$convex/shared/esl_import';
 import { ESL_LEVELS } from '$convex/shared/esl';
 import {
@@ -9,7 +9,7 @@ import {
 	schoolYearOf,
 	writeEntry,
 	type StagedGrade
-} from '$src/routes/esl/admin/classes/staging';
+} from '$src/lib/components/esl/roster/staging';
 
 /**
  * A header row the importer can read, which since ADR-0025 includes the
