@@ -353,7 +353,7 @@ describe('ESL admin cohorts page', () => {
 			await render(ClassesPage);
 
 			await expect
-				.element(page.getByTestId('esl-admin-classes.import.toggle'))
+				.element(page.getByTestId('esl-admin-students.import.toggle'))
 				.not.toBeInTheDocument();
 			await expect.element(page.getByTestId('esl-import.year')).not.toBeInTheDocument();
 		});

@@ -349,7 +349,7 @@
 	size="sm"
 	onclick={() => (opened = !opened)}
 	aria-expanded={opened}
-	testId="esl-admin-classes.import.toggle"
+	testId="esl-admin-students.import.toggle"
 >
 	{opened ? 'Hide import' : 'Import a roster'}
 </Button>

@@ -125,6 +125,118 @@
 		}
 	}
 
+	/**
+	 * A student as the transfer search returns them.
+	 *
+	 * Declared from the query rather than duplicated so a change to the backend
+	 * shape surfaces here, at the call site, instead of as a silently stale type.
+	 */
+	type TransferHit = {
+		_id: Id<'esl_students'>;
+		englishName?: string;
+		chineseName: string;
+		schoolStudentId: string;
+		chineseClass?: string;
+		homeroom: string;
+		cohortId: Id<'esl_cohorts'>;
+		cohortLabel: string;
+		grade: number;
+	};
+
+	let transferSearch = $state('');
+	const transferSearchQuery = useQuery(api.esl.transfers.search, () =>
+		selectedYear && transferSearch.trim() !== ''
+			? { year: selectedYear, query: transferSearch.trim() }
+			: 'skip'
+	);
+	const transferHits = $derived((transferSearchQuery.data ?? []) as TransferHit[]);
+
+	/** The move being confirmed, if any. */
+	let pendingMove = $state<{ kind: 'level' | 'homeroom'; hit: TransferHit } | null>(null);
+	let moveReason = $state('');
+	let moveError = $state('');
+	let moveBusy = $state(false);
+	let targetCohortId = $state<Id<'esl_cohorts'> | ''>('');
+	let newHomeroom = $state('');
+
+	/** Same-year, same-grade active cohorts the student could move into. */
+	const moveTargetCohorts = $derived.by(() => {
+		const move = pendingMove;
+		if (move === null) return [];
+		return yearCohorts.filter(
+			(cohort) =>
+				cohort.status === 'active' &&
+				cohort.grade === move.hit.grade &&
+				cohort._id !== move.hit.cohortId
+		);
+	});
+
+	function openMove(kind: 'level' | 'homeroom', hit: TransferHit) {
+		pendingMove = { kind, hit };
+		moveReason = '';
+		moveError = '';
+		targetCohortId = '';
+		newHomeroom = hit.homeroom;
+	}
+
+	function closeMove() {
+		if (moveBusy) return;
+		pendingMove = null;
+		moveReason = '';
+		moveError = '';
+		targetCohortId = '';
+		newHomeroom = '';
+	}
+
+	async function confirmMove() {
+		if (pendingMove === null) return;
+		moveError = '';
+		if (pendingMove.kind === 'level' && targetCohortId === '') {
+			moveError = 'Choose the class to move the student into';
+			return;
+		}
+		if (pendingMove.kind === 'homeroom' && newHomeroom.trim() === '') {
+			moveError = 'Enter the Chinese homeroom';
+			return;
+		}
+
+		moveBusy = true;
+		try {
+			const result =
+				pendingMove.kind === 'level'
+					? await client.mutation(api.esl.transfers.transferLevel, {
+							studentId: pendingMove.hit._id,
+							toCohortId: targetCohortId as Id<'esl_cohorts'>,
+							...(moveReason.trim() === '' ? {} : { reason: moveReason.trim() })
+						})
+					: await client.mutation(api.esl.transfers.transferHomeroom, {
+							studentId: pendingMove.hit._id,
+							chineseClass: newHomeroom.trim(),
+							...(moveReason.trim() === '' ? {} : { reason: moveReason.trim() })
+						});
+
+			const name = pendingMove.hit.englishName ?? pendingMove.hit.chineseName;
+			notice =
+				pendingMove.kind === 'level'
+					? `${name} moved to ${cohortLabelFor(targetCohortId as Id<'esl_cohorts'>)}`
+					: `${name}'s Chinese homeroom changed to ${newHomeroom.trim().toUpperCase()}`;
+			if (result.bandChanged) {
+				notice += ' — band membership changed, so check the class week.';
+			}
+			pendingMove = null;
+		} catch (error) {
+			moveError = error instanceof Error ? error.message : 'Could not move the student';
+		} finally {
+			moveBusy = false;
+		}
+	}
+
+	/** The year's recorded moves, newest first. */
+	const historyQuery = useQuery(api.esl.transfers.history, () =>
+		selectedYear ? { year: selectedYear, limit: 20 } : 'skip'
+	);
+	const transferHistory = $derived(historyQuery.data ?? []);
+
 	// Manual enrolment
 	let englishName = $state('');
 	let chineseName = $state('');
@@ -533,6 +645,82 @@
 		{/if}
 	</section>
 
+	<section
+		aria-labelledby="esl-admin-students-move-heading"
+		class="rounded-lg border bg-white p-6 shadow-sm"
+		data-testid="esl-admin-students.move"
+	>
+		<h2 id="esl-admin-students-move-heading" class="text-lg font-semibold">Transfer a student</h2>
+		<p class="text-muted-foreground mt-1 text-sm">
+			Search the selected year by school ID, English or Chinese name, Chinese class or ESL class,
+			then move the student to another level or correct their Chinese homeroom.
+		</p>
+		<div class="mt-4 max-w-md space-y-1">
+			<Label for="esl-students-transfer-search">Find a student</Label>
+			<Input
+				id="esl-students-transfer-search"
+				data-testid="esl-admin-students.move.search"
+				bind:value={transferSearch}
+				placeholder="7001001, Alice, 陳小美, J101, G7 Basic 1…"
+			/>
+		</div>
+
+		{#if transferSearch.trim() !== ''}
+			{#if transferSearchQuery.isLoading}
+				<p class="text-muted-foreground mt-4 text-sm">Searching…</p>
+			{:else if transferHits.length === 0}
+				<p class="text-muted-foreground mt-4 text-sm" data-testid="esl-admin-students.move.empty">
+					No active student in {selectedYear} matches “{transferSearch.trim()}”.
+				</p>
+			{:else}
+				<Table.Root class="mt-4 rounded-lg border">
+					<Table.Header>
+						<Table.Row>
+							<Table.Head>Student</Table.Head>
+							<Table.Head>School ID</Table.Head>
+							<Table.Head>Chinese class</Table.Head>
+							<Table.Head>ESL class</Table.Head>
+							<Table.Head class="text-right">Move</Table.Head>
+						</Table.Row>
+					</Table.Header>
+					<Table.Body>
+						{#each transferHits as hit (hit._id)}
+							<Table.Row data-testid="esl-admin-students.move.result">
+								<Table.Cell class="font-medium">
+									{hit.englishName ?? hit.chineseName}
+									{#if hit.englishName}
+										<span class="text-muted-foreground block text-xs">{hit.chineseName}</span>
+									{/if}
+								</Table.Cell>
+								<Table.Cell>{hit.schoolStudentId}</Table.Cell>
+								<Table.Cell>{hit.homeroom || '—'}</Table.Cell>
+								<Table.Cell>{hit.cohortLabel}</Table.Cell>
+								<Table.Cell class="space-x-2 text-right">
+									<Button
+										variant="outline"
+										size="sm"
+										onclick={() => openMove('level', hit)}
+										testId="esl-admin-students.move.level"
+									>
+										Move level
+									</Button>
+									<Button
+										variant="outline"
+										size="sm"
+										onclick={() => openMove('homeroom', hit)}
+										testId="esl-admin-students.move.homeroom"
+									>
+										Change homeroom
+									</Button>
+								</Table.Cell>
+							</Table.Row>
+						{/each}
+					</Table.Body>
+				</Table.Root>
+			{/if}
+		{/if}
+	</section>
+
 	<section aria-labelledby="esl-admin-students-roster-heading" class="space-y-4">
 		<h2 id="esl-admin-students-roster-heading" class="text-lg font-semibold">
 			Roster
@@ -626,7 +814,145 @@
 			</Table.Root>
 		{/if}
 	</section>
+
+	<section
+		aria-labelledby="esl-admin-students-history-heading"
+		class="space-y-3"
+		data-testid="esl-admin-students.history"
+	>
+		<h2 id="esl-admin-students-history-heading" class="text-lg font-semibold">
+			Recent transfers
+			<span class="text-muted-foreground font-normal">({selectedYear || 'no year'})</span>
+		</h2>
+		{#if transferHistory.length === 0}
+			<p class="text-muted-foreground text-sm">No level or homeroom moves recorded this year.</p>
+		{:else}
+			<Table.Root class="rounded-lg border bg-white">
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>Student</Table.Head>
+						<Table.Head>Move</Table.Head>
+						<Table.Head>From</Table.Head>
+						<Table.Head>To</Table.Head>
+						<Table.Head>Reason</Table.Head>
+						<Table.Head>By</Table.Head>
+						<Table.Head>When</Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each transferHistory as row (row._id)}
+						<Table.Row data-testid="esl-admin-students.history.row">
+							<Table.Cell class="font-medium">
+								{row.studentName}
+								<span class="text-muted-foreground block text-xs">{row.schoolStudentId}</span>
+							</Table.Cell>
+							<Table.Cell>
+								<Badge variant="secondary">{row.kind}</Badge>
+							</Table.Cell>
+							<Table.Cell>{row.kind === 'level' ? row.fromCohort : row.fromChineseClass}</Table.Cell
+							>
+							<Table.Cell>{row.kind === 'level' ? row.toCohort : row.toChineseClass}</Table.Cell>
+							<Table.Cell class="text-muted-foreground">{row.reason ?? '—'}</Table.Cell>
+							<Table.Cell>{row.movedBy}</Table.Cell>
+							<Table.Cell class="text-muted-foreground">
+								{new Date(row.movedAt).toLocaleString()}
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
+		{/if}
+	</section>
 </div>
+
+{#if pendingMove}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="esl-admin-students-move-title"
+		data-testid="esl-admin-students.move-dialog"
+	>
+		<div class="bg-background w-full max-w-md rounded-lg p-6 shadow-lg">
+			<div class="flex items-start justify-between">
+				<h2 id="esl-admin-students-move-title" class="text-xl font-semibold">
+					{pendingMove.kind === 'level' ? 'Move to another level' : 'Change Chinese homeroom'}
+				</h2>
+				<Button
+					variant="ghost"
+					size="icon"
+					onclick={closeMove}
+					aria-label="Cancel move"
+					testId="esl-admin-students.move-dialog.cancel"
+				>
+					<X class="size-4" />
+				</Button>
+			</div>
+			<p class="text-muted-foreground mt-2 text-sm">
+				<span class="font-medium">
+					{pendingMove.hit.englishName ?? pendingMove.hit.chineseName}
+				</span>
+				· {pendingMove.hit.schoolStudentId} · currently {pendingMove.hit.cohortLabel}
+			</p>
+
+			{#if pendingMove.kind === 'level'}
+				<label class="mt-4 block text-sm font-medium" for="esl-move-target">Move to</label>
+				<NativeSelect.Root
+					id="esl-move-target"
+					data-testid="esl-admin-students.move-dialog.target"
+					bind:value={targetCohortId}
+				>
+					<NativeSelect.Option value="">Choose a class…</NativeSelect.Option>
+					{#each moveTargetCohorts as cohort (cohort._id)}
+						<NativeSelect.Option value={cohort._id}>{cohort.label}</NativeSelect.Option>
+					{/each}
+				</NativeSelect.Root>
+			{:else}
+				<label class="mt-4 block text-sm font-medium" for="esl-move-homeroom">
+					Chinese homeroom
+				</label>
+				<Input
+					id="esl-move-homeroom"
+					data-testid="esl-admin-students.move-dialog.homeroom"
+					bind:value={newHomeroom}
+					placeholder="J101"
+				/>
+			{/if}
+
+			<label class="mt-4 block text-sm font-medium" for="esl-move-reason">Reason (optional)</label>
+			<Input
+				id="esl-move-reason"
+				data-testid="esl-admin-students.move-dialog.reason"
+				bind:value={moveReason}
+				placeholder="Why the student moved"
+			/>
+
+			{#if moveError}
+				<p
+					data-testid="esl-admin-students.move-dialog.error"
+					class="mt-3 rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+				>
+					{moveError}
+				</p>
+			{/if}
+
+			<div class="mt-4 flex justify-end gap-2">
+				<Button
+					variant="outline"
+					onclick={closeMove}
+					testId="esl-admin-students.move-dialog.dismiss">Cancel</Button
+				>
+				<Button
+					onclick={confirmMove}
+					disabled={moveBusy}
+					testId="esl-admin-students.move-dialog.confirm"
+				>
+					{moveBusy ? 'Moving…' : pendingMove.kind === 'level' ? 'Move student' : 'Save homeroom'}
+				</Button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 {#if pendingTransfer}
 	<div

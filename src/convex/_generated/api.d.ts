@@ -37,6 +37,7 @@ import type * as esl_schedule from "../esl/schedule.js";
 import type * as esl_semesters from "../esl/semesters.js";
 import type * as esl_staff from "../esl/staff.js";
 import type * as esl_students from "../esl/students.js";
+import type * as esl_transfers from "../esl/transfers.js";
 import type * as esl_wizards from "../esl/wizards.js";
 import type * as esl_yearStatus from "../esl/yearStatus.js";
 import type * as evaluations from "../evaluations.js";
@@ -111,6 +112,7 @@ declare const fullApi: ApiFromModules<{
   "esl/semesters": typeof esl_semesters;
   "esl/staff": typeof esl_staff;
   "esl/students": typeof esl_students;
+  "esl/transfers": typeof esl_transfers;
   "esl/wizards": typeof esl_wizards;
   "esl/yearStatus": typeof esl_yearStatus;
   evaluations: typeof evaluations;
