@@ -138,6 +138,12 @@
 		readinessQuery.data && Array.isArray(readinessQuery.data.blockers) ? readinessQuery.data : null
 	);
 	const rosterLocked = $derived(!showArchived && readiness !== null && !readiness.confirmed);
+	/**
+	 * A non-archived year whose readiness has not arrived (or failed) must not
+	 * flash the grid: the gate is the page's whole promise, and rendering the
+	 * editor for a frame would let an admin click into an unconfirmed year.
+	 */
+	const readinessPending = $derived(!showArchived && scheduleYear !== '' && readiness === null);
 	let gateBusy = $state(false);
 	let gateError = $state('');
 
@@ -993,6 +999,19 @@
 					<p class="mt-3 text-sm text-red-700" data-testid="esl-admin-classes.rosterGate.error">
 						{gateError}
 					</p>
+				{/if}
+			</section>
+		{:else if readinessPending}
+			<section
+				class="rounded-lg border bg-white p-6"
+				data-testid="esl-admin-classes.rosterGate.pending"
+			>
+				{#if readinessQuery.error}
+					<p class="text-sm text-red-700">
+						Could not check the roster for {scheduleYear}. Reload the page or check the deployment.
+					</p>
+				{:else}
+					<p class="text-muted-foreground text-sm">Checking roster readiness…</p>
 				{/if}
 			</section>
 		{:else if cohortsQuery.isLoading}

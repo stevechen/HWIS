@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { useConvexClient, useQuery } from 'convex-svelte';
+	import type { FunctionReturnType } from 'convex/server';
 	import { untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { api } from '$convex/_generated/api';
@@ -128,20 +129,10 @@
 	/**
 	 * A student as the transfer search returns them.
 	 *
-	 * Declared from the query rather than duplicated so a change to the backend
-	 * shape surfaces here, at the call site, instead of as a silently stale type.
+	 * Taken from the query's own return type so a backend shape change surfaces
+	 * here rather than drifting behind a hand-copied type.
 	 */
-	type TransferHit = {
-		_id: Id<'esl_students'>;
-		englishName?: string;
-		chineseName: string;
-		schoolStudentId: string;
-		chineseClass?: string;
-		homeroom: string;
-		cohortId: Id<'esl_cohorts'>;
-		cohortLabel: string;
-		grade: number;
-	};
+	type TransferHit = FunctionReturnType<typeof api.esl.transfers.search>[number];
 
 	let transferSearch = $state('');
 	const transferSearchQuery = useQuery(api.esl.transfers.search, () =>
@@ -149,7 +140,7 @@
 			? { year: selectedYear, query: transferSearch.trim() }
 			: 'skip'
 	);
-	const transferHits = $derived((transferSearchQuery.data ?? []) as TransferHit[]);
+	const transferHits = $derived(transferSearchQuery.data ?? []);
 
 	/** The move being confirmed, if any. */
 	let pendingMove = $state<{ kind: 'level' | 'homeroom'; hit: TransferHit } | null>(null);
@@ -631,6 +622,12 @@
 					<div class="rounded border p-2">
 						<dt class="text-muted-foreground">G{grade.grade}</dt>
 						<dd>{grade.cohorts} cohorts · {grade.activeStudents} students</dd>
+						{#if grade.missingHomerooms > 0}
+							<dd class="text-red-700">{grade.missingHomerooms} missing homerooms</dd>
+						{/if}
+						{#if grade.duplicateIds > 0}
+							<dd class="text-red-700">{grade.duplicateIds} duplicate IDs</dd>
+						{/if}
 					</div>
 				{/each}
 			</dl>
@@ -893,6 +890,9 @@
 					{pendingMove.hit.englishName ?? pendingMove.hit.chineseName}
 				</span>
 				· {pendingMove.hit.schoolStudentId} · currently {pendingMove.hit.cohortLabel}
+				{#if pendingMove.kind === 'homeroom'}
+					· homeroom {pendingMove.hit.homeroom || 'not set'}
+				{/if}
 			</p>
 
 			{#if pendingMove.kind === 'level'}

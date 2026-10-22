@@ -127,11 +127,34 @@ const ASSIGNABLE = [
 	{ _id: 'user_t2', name: 'Bob Teacher' }
 ];
 
+/**
+ * The readiness response every test gets unless it overrides one.
+ *
+ * The Classes page now hides the grid until readiness resolves, so the default
+ * has to look like a confirmed year; gate tests override it with `readiness()`.
+ */
+function confirmedReadiness() {
+	return {
+		year: '2026-2027',
+		confirmed: true,
+		confirmedReason: 'signoff' as const,
+		confirmedAt: 1,
+		confirmedBy: 'Ada Admin',
+		canConfirm: true,
+		blockers: [],
+		warnings: [],
+		grades: [],
+		activeStudents: 0
+	};
+}
+
 /** Routes each `useQuery` call to canned data by its Convex function name. */
 function mockQueries(data: Record<string, unknown>) {
 	vi.mocked(useQuery).mockImplementation(((reference: unknown) => {
-		const value = data[getFunctionName(reference as never)];
-		return { data: Array.isArray(value) ? value : [], isLoading: false, error: null };
+		const name = getFunctionName(reference as never);
+		const value =
+			data[name] ?? (name === 'esl/yearStatus:readiness' ? confirmedReadiness() : undefined);
+		return { data: value === undefined ? [] : value, isLoading: false, error: null };
 	}) as never);
 }
 
@@ -356,6 +379,75 @@ describe('ESL admin cohorts page', () => {
 				.element(page.getByTestId('esl-admin-students.import.toggle'))
 				.not.toBeInTheDocument();
 			await expect.element(page.getByTestId('esl-import.year')).not.toBeInTheDocument();
+		});
+	});
+
+	describe('the roster gate', () => {
+		/** The shape the page reads for an unconfirmed year. */
+		function unconfirmed(overrides: Record<string, unknown> = {}) {
+			return {
+				...confirmedReadiness(),
+				confirmed: false,
+				confirmedReason: null,
+				confirmedAt: null,
+				confirmedBy: null,
+				...overrides
+			};
+		}
+
+		it('replaces the class grid while the year is unconfirmed', async () => {
+			mockQueries({
+				'esl/cohorts:list': [G9_COHORT],
+				'esl/staff:listAssignable': ASSIGNABLE,
+				'esl/yearStatus:readiness': unconfirmed({
+					canConfirm: false,
+					blockers: [
+						{
+							kind: 'missing-homeroom',
+							message: '1 active G7 student has no Chinese homeroom.'
+						}
+					],
+					warnings: [{ kind: 'no-cohorts', message: 'No active G8 cohorts.' }]
+				})
+			});
+			await render(ClassesPage);
+
+			await expect.element(page.getByTestId('esl-admin-classes.rosterGate')).toBeInTheDocument();
+			await expect
+				.element(page.getByTestId('esl-admin-classes.rosterGate.blockers'))
+				.toMatchTextContent('no Chinese homeroom');
+			await expect.element(page.getByTestId('esl-admin-classes.rosterGate.confirm')).toBeDisabled();
+			await expect.element(page.getByTestId('esl-admin-classes.grade.9')).not.toBeInTheDocument();
+		});
+
+		it('confirms the year from the gate when the checklist passes', async () => {
+			mockQueries({
+				'esl/cohorts:list': [G9_COHORT],
+				'esl/staff:listAssignable': ASSIGNABLE,
+				'esl/yearStatus:readiness': unconfirmed({ canConfirm: true, blockers: [] })
+			});
+			await render(ClassesPage);
+
+			await page.getByTestId('esl-admin-classes.rosterGate.confirm').click();
+
+			await vi.waitFor(() =>
+				expect(mockMutation).toHaveBeenCalledWith(api.esl.yearStatus.confirm, {
+					year: '2026-2027'
+				})
+			);
+		});
+
+		it('links to the Students importer for the same year', async () => {
+			mockQueries({
+				'esl/cohorts:list': [G9_COHORT],
+				'esl/staff:listAssignable': ASSIGNABLE,
+				'esl/yearStatus:readiness': unconfirmed()
+			});
+			await render(ClassesPage);
+
+			await expect
+				.element(page.getByTestId('esl-admin-classes.rosterGate.import'))
+				.toHaveAttribute('href', '/esl/admin/students?import=1&year=2026-2027');
 		});
 	});
 

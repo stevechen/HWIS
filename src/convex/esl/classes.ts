@@ -4,7 +4,7 @@ import type { Doc, Id } from '../_generated/dataModel';
 import { requireEslAdmin, requireEslStaff } from '../auth';
 import { canTeachEslClass } from '../shared/authorization';
 import { displayStaffName } from '../shared/staff_name';
-import { cohortHomeroomSet, findBandCohorts } from './bands';
+import { findBandCohorts } from './bands';
 import {
 	cohortLabel,
 	compareEslStudents,
@@ -772,9 +772,6 @@ async function findScheduleMirrorClasses(
 	if (cohort === null || cohort.status !== 'active') return [];
 	if (cohort.year !== year) return [];
 	if (!isLevelledGrade(cohort.grade)) return [];
-
-	const sourceHomerooms = await cohortHomeroomSet(ctx, cohort);
-	if (sourceHomerooms.length === 0) return [];
 
 	const band = await findBandCohorts(ctx, cohort);
 	const mirrors: Doc<'esl_classes'>[] = [];

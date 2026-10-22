@@ -224,7 +224,7 @@ describe('esl schedule mirrors (ADR-0028)', () => {
 			expect(await meetingsOf(t, c.classIds[0])).toEqual(THREE);
 		});
 
-		it('keeps disjoint `跑班` bands in the same grade separate', async () => {
+		it('keeps three disjoint `跑班` bands in the same grade separate', async () => {
 			const t = await asEslAdmin();
 			const bandOne = await createCohort(t, { grade: 7, level: 'Advanced', classNumber: '1' });
 			await seedRoster(t, bandOne.cohortId, [
@@ -239,6 +239,12 @@ describe('esl schedule mirrors (ADR-0028)', () => {
 				{ chineseClass: '07' },
 				{ chineseClass: '09' }
 			]);
+			const bandThree = await createCohort(t, { grade: 7, level: 'Basic', classNumber: '3' });
+			await seedRoster(t, bandThree.cohortId, [
+				{ chineseClass: '01' },
+				{ chineseClass: '06' },
+				{ chineseClass: '10' }
+			]);
 
 			const result = await t.mutation(api.esl.classes.setSchedule, {
 				classId: bandOne.classIds[0],
@@ -248,6 +254,7 @@ describe('esl schedule mirrors (ADR-0028)', () => {
 
 			expect(result.mirrors).toBeUndefined();
 			expect(await meetingsOf(t, bandTwo.classIds[0])).toEqual([]);
+			expect(await meetingsOf(t, bandThree.classIds[0])).toEqual([]);
 		});
 
 		it('ignores archived classes and archived cohorts', async () => {

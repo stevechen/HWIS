@@ -94,6 +94,27 @@ describe('esl year readiness and sign-off', () => {
 			(blocker: { kind: string }) => blocker.kind === 'duplicate-id'
 		);
 		expect(duplicate?.message).toContain('7001001');
+		expect(readiness.grades.find((grade: { grade: number }) => grade.grade === 7)).toMatchObject({
+			duplicateIds: 2
+		});
+	});
+
+	it('finds a duplicate ID in the archived cohort of an active student', async () => {
+		const t = await asEslAdmin();
+		const live = await createCohort(t);
+		await addStudent(t, live.cohortId, { schoolStudentId: '7001001', chineseClass: '01' });
+		const archived = await createCohort(t, { grade: 7, level: 'Basic', classNumber: '2' });
+		await addStudent(t, archived.cohortId, {
+			schoolStudentId: '7001001',
+			chineseClass: '02'
+		});
+		await t.run((ctx) => ctx.db.patch(archived.cohortId, { status: 'archived' as const }));
+
+		const readiness = await t.query(api.esl.yearStatus.readiness, { year: '2025-2026' });
+		expect(readiness.canConfirm).toBe(false);
+		expect(readiness.blockers.map((blocker: { kind: string }) => blocker.kind)).toContain(
+			'duplicate-id'
+		);
 	});
 
 	it('ignores a disabled student when checking homerooms and duplicates', async () => {

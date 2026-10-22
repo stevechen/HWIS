@@ -33,12 +33,6 @@ export async function cohortHomeroomSet(
 	return [...homerooms].sort();
 }
 
-/** Whether two sorted homeroom lists share at least one code. */
-export function homeroomSetsIntersect(a: readonly string[], b: readonly string[]): boolean {
-	const seen = new Set(a);
-	return b.some((value) => seen.has(value));
-}
-
 /**
  * The active cohorts in a cohort's sibling band, including the cohort itself.
  *

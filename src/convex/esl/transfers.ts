@@ -124,6 +124,25 @@ async function loadMove(
 	return { student, fromCohort, toCohort };
 }
 
+/** Whether two band components contain exactly the same cohorts. */
+function bandMembershipChanged(
+	before: readonly Doc<'esl_cohorts'>[],
+	after: readonly Doc<'esl_cohorts'>[]
+): boolean {
+	const beforeIds = new Set(before.map((cohort) => cohort._id));
+	const afterIds = new Set(after.map((cohort) => cohort._id));
+	return (
+		before.some((cohort) => !afterIds.has(cohort._id)) ||
+		after.some((cohort) => !beforeIds.has(cohort._id))
+	);
+}
+
+/** A trimmed reason, absent rather than blank so history does not store `''`. */
+function optionalReason(reason: string | undefined): { reason?: string } {
+	const trimmed = reason?.trim();
+	return trimmed === undefined || trimmed === '' ? {} : { reason: trimmed };
+}
+
 /**
  * Whether moving this student changes the source or target cohort's band.
  *
@@ -157,11 +176,7 @@ async function levelMoveChangesBand(
 	const sourceAfter = await findBandCohorts(ctx, fromCohort, {
 		excludeStudentId: student._id
 	});
-	const afterIds = new Set(sourceAfter.map((cohort) => cohort._id));
-	return (
-		sourceAfter.some((cohort) => !sourceIds.has(cohort._id)) ||
-		[...sourceIds].some((id) => !afterIds.has(id))
-	);
+	return bandMembershipChanged(sourceBand, sourceAfter);
 }
 
 /**
@@ -200,9 +215,13 @@ export const transferLevel = mutation({
 			kind: 'level',
 			fromCohortId: fromCohort._id,
 			toCohortId: toCohort._id,
-			...(args.reason === undefined || args.reason.trim() === ''
+			...(student.chineseClass === undefined
 				? {}
-				: { reason: args.reason.trim() }),
+				: {
+						fromChineseClass: student.chineseClass,
+						toChineseClass: student.chineseClass
+					}),
+			...optionalReason(args.reason),
 			movedBy: user._id,
 			movedAt: Date.now()
 		});
@@ -236,13 +255,11 @@ export const transferHomeroom = mutation({
 		}
 
 		const before = await findBandCohorts(ctx, fromCohort);
-		const beforeIds = new Set(before.map((cohort) => cohort._id));
 
 		await ctx.db.patch(student._id, { chineseClass: parsed.classNumber });
 
 		const after = await findBandCohorts(ctx, fromCohort);
-		const bandChanged =
-			after.length !== beforeIds.size || after.some((cohort) => !beforeIds.has(cohort._id));
+		const bandChanged = bandMembershipChanged(before, after);
 
 		await ctx.db.insert('esl_student_transfers', {
 			studentId: student._id,
@@ -252,9 +269,7 @@ export const transferHomeroom = mutation({
 			toCohortId: fromCohort._id,
 			...(student.chineseClass === undefined ? {} : { fromChineseClass: student.chineseClass }),
 			toChineseClass: parsed.classNumber,
-			...(args.reason === undefined || args.reason.trim() === ''
-				? {}
-				: { reason: args.reason.trim() }),
+			...optionalReason(args.reason),
 			movedBy: user._id,
 			movedAt: Date.now()
 		});

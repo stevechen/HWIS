@@ -15,6 +15,8 @@ type GradeSummary = {
 	cohorts: number;
 	activeStudents: number;
 	missingHomerooms: number;
+	/** Active student rows whose school ID also appears elsewhere in the year. */
+	duplicateIds: number;
 };
 
 /**
@@ -34,20 +36,21 @@ async function computeReadiness(ctx: QueryCtx, year: string) {
 		.withIndex('by_year', (q) => q.eq('year', year))
 		.take(100);
 
-	const activeCohorts = cohorts.filter((cohort) => cohort.status === 'active');
-
 	const gradeSummaries = new Map<number, GradeSummary>();
 	for (const grade of ESL_GRADES) {
 		gradeSummaries.set(grade, {
 			grade,
 			cohorts: 0,
 			activeStudents: 0,
-			missingHomerooms: 0
+			missingHomerooms: 0,
+			duplicateIds: 0
 		});
 	}
 
+	// Archived cohorts are scanned too: an active student sitting in an archived
+	// cohort is still one person, and two such rows must not pass as two people.
 	const studentsByCohort = await Promise.all(
-		activeCohorts.map((cohort) =>
+		cohorts.map((cohort) =>
 			ctx.db
 				.query('esl_students')
 				.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
@@ -60,12 +63,13 @@ async function computeReadiness(ctx: QueryCtx, year: string) {
 	const missingByGrade = new Map<number, number>();
 	const emptyCohorts: string[] = [];
 
-	for (const [index, cohort] of activeCohorts.entries()) {
-		const summary = gradeSummaries.get(cohort.grade);
+	for (const [index, cohort] of cohorts.entries()) {
+		const isActiveCohort = cohort.status === 'active';
+		const summary = isActiveCohort ? gradeSummaries.get(cohort.grade) : undefined;
 		if (summary) summary.cohorts += 1;
 
 		const roster = studentsByCohort[index].filter((student) => student.status === 'active');
-		if (roster.length === 0) emptyCohorts.push(cohortLabel(cohort));
+		if (isActiveCohort && roster.length === 0) emptyCohorts.push(cohortLabel(cohort));
 		if (summary) summary.activeStudents += roster.length;
 
 		for (const student of roster) {
@@ -85,6 +89,18 @@ async function computeReadiness(ctx: QueryCtx, year: string) {
 		.filter(([, ids]) => ids.length > 1)
 		.map(([schoolStudentId]) => schoolStudentId)
 		.sort();
+	const duplicated = new Set(duplicateIds);
+
+	// Per-grade duplicate counts, so the checklist points at the grade that needs
+	// fixing rather than only naming the bare ID.
+	for (const [index, cohort] of cohorts.entries()) {
+		if (cohort.status !== 'active') continue;
+		const summary = gradeSummaries.get(cohort.grade);
+		if (!summary) continue;
+		summary.duplicateIds += studentsByCohort[index].filter(
+			(student) => student.status === 'active' && duplicated.has(student.schoolStudentId)
+		).length;
+	}
 
 	const blockers: Blocker[] = [];
 	for (const grade of ESL_GRADES) {
@@ -179,10 +195,10 @@ export const confirm = mutation({
 	handler: async (ctx, args) => {
 		const user = await requireEslAdmin(ctx);
 
-		const readiness = await computeReadiness(ctx, args.year);
-		if (!readiness.canConfirm) {
+		const status = await computeReadiness(ctx, args.year);
+		if (!status.canConfirm) {
 			throw new Error(
-				`Roster is not ready: ${readiness.blockers.map((blocker) => blocker.message).join(' ')}`
+				`Roster is not ready: ${status.blockers.map((blocker) => blocker.message).join(' ')}`
 			);
 		}
 

@@ -61,8 +61,9 @@ never stored**: a sibling is another class that is
 Three edges were decided deliberately:
 
 - **Empty rosters match nothing.** A cohort with no active students (or no
-  parseable homerooms yet) has no composition to compare, so it neither joins a
-  group nor blocks one; the write degrades to an ordinary single-class save.
+  parseable homerooms yet) has no shared homeroom to match on, so it neither
+  joins a group nor blocks one; the write degrades to an ordinary single-class
+  save.
 - **Archived rows are history.** An archived class or cohort neither blocks the
   write nor is dragged back onto the week, the same rule the neighbour set uses.
 - **Grade 10 keeps its own path.** Its `A`/`B` sections are _paired_ (both of

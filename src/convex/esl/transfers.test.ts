@@ -161,6 +161,8 @@ describe('esl student transfers', () => {
 				schoolStudentId: '7001001',
 				fromCohort: expect.stringContaining('G7 Advanced 1'),
 				toCohort: expect.stringContaining('G7 Basic 2'),
+				fromChineseClass: 'J101',
+				toChineseClass: 'J101',
 				reason: 'Re-levelled after assessment',
 				movedBy: 'Ada Admin'
 			});
