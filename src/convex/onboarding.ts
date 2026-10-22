@@ -4,6 +4,7 @@ import {
 	getAuthenticatedUser,
 	requireUserProfile,
 	getAllowlistedRole,
+	isAuthorizedEmail,
 	authComponent,
 	requireAdminForSensitiveOperation
 } from './auth';
@@ -36,6 +37,11 @@ export const ensureUserProfile = mutation({
 		// Students never get a user profile — their identity is email-derived.
 		if (isStudentEmailAddress(userEmail)) {
 			return { created: false, role: 'student' as const, status: 'active' as const };
+		}
+
+		// Only HWIS staff domains and the exception allowlist may own a profile.
+		if (!isAuthorizedEmail(userEmail)) {
+			throw new Error('Forbidden: HWIS staff account required');
 		}
 
 		const allowlistedRole = getAllowlistedRole(userEmail);

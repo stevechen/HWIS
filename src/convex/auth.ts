@@ -4,7 +4,7 @@ import { components } from './_generated/api';
 import { type DataModel, type Doc, type Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { betterAuth } from 'better-auth/minimal';
-import { APIError, createAuthMiddleware } from 'better-auth/api';
+import { APIError } from 'better-auth/api';
 import authConfig from './auth.config';
 import { resolveEffectiveTestToken } from './testAuth';
 import { canAccessAdminArea, isActiveStaff, isSuper } from './shared/authorization';
@@ -37,7 +37,13 @@ export const isTestRuntime =
 	getEnvValue('VITEST') === 'true' ||
 	getEnvValue('PLAYWRIGHT_WORKER_ID') !== undefined;
 
-export const isProdDeployment = getEnvValue('CONVEX_DEPLOYMENT')?.startsWith('prod:') ?? false;
+// `CONVEX_DEPLOYMENT` is a CLI build-time variable, not a runtime env var on the
+// deployment (see shared/drive_backup_target.ts). `NODE_ENV=production` is the
+// reliable signal Convex sets on a production deployment, so it must win here —
+// otherwise prod is misclassified as non-prod and the test-token seam opens up.
+export const isProdDeployment =
+	getEnvValue('NODE_ENV') === 'production' ||
+	(getEnvValue('CONVEX_DEPLOYMENT')?.startsWith('prod:') ?? false);
 
 const siteUrl = isDev
 	? 'http://localhost:5173'
@@ -113,6 +119,8 @@ const trustedOrigins = [
 // Domain restriction configuration
 const ALLOWED_DOMAIN = 'hwhs.tc.edu.tw';
 const STUDENT_DOMAIN = 'std.hwhs.tc.edu.tw';
+/** Synthetic accounts used by the e2e suites; never valid on a production deployment. */
+const TEST_ACCOUNT_DOMAIN = 'hwis.test';
 const ALLOWLISTED_EMAIL_ROLE_MAP: Record<string, 'super' | 'admin' | 'teacher'> = {
 	'steve.stevechen@gmail.com': 'super',
 	'steve@hwhs.tc.edu.tw': 'admin',
@@ -123,7 +131,7 @@ const REJECTION_MESSAGE = 'For Hong Wen International School (HWIS) staffs only.
 
 // Student email validation helpers
 export function isStudentEmail(email: string): boolean {
-	return email.endsWith(`@${STUDENT_DOMAIN}`);
+	return email.toLowerCase().endsWith(`@${STUDENT_DOMAIN}`);
 }
 
 export function extractStudentIdFromEmail(email: string): string | null {
@@ -163,9 +171,11 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 		baseURL: siteUrl,
 		trustedOrigins,
 		database: authComponent.adapter(ctx),
+		// Google is the only sign-in method (ADR-0003). Leaving email/password on
+		// exposes /api/auth/sign-up/email, which lets anyone mint an account for an
+		// arbitrary address without ever touching the domain gate.
 		emailAndPassword: {
-			enabled: true,
-			requireEmailVerification: false
+			enabled: false
 		},
 		socialProviders: {
 			google: {
@@ -184,24 +194,19 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 				jwtExpirationSeconds: isDev ? 60 * 60 * 24 : undefined
 			})
 		],
-		hooks: {
-			after: createAuthMiddleware(async ({ path, context }) => {
-				if (!path?.startsWith('/sign-in/social')) return;
-
-				const email = (context.session?.user as { email?: string } | undefined)?.email;
-				if (!email) return;
-
-				const isException = EXCEPTION_EMAILS.includes(email);
-				const isAllowedDomain = email.endsWith(`@${ALLOWED_DOMAIN}`);
-				const isStudentDomain = isStudentEmail(email);
-
-				// Allow student domain emails - student record verification happens post-login
-				if (!isException && !isAllowedDomain && !isStudentDomain) {
-					throw new APIError('FORBIDDEN', {
-						message: REJECTION_MESSAGE
-					});
+		databaseHooks: {
+			user: {
+				create: {
+					// Runs for every account creation — Google OAuth callback and any
+					// future provider — before the row is written.
+					before: async (user) => {
+						const email = typeof user.email === 'string' ? user.email : undefined;
+						if (!isAuthorizedEmail(email)) {
+							throw new APIError('FORBIDDEN', { message: REJECTION_MESSAGE });
+						}
+					}
 				}
-			})
+			}
 		}
 	});
 };
@@ -219,7 +224,29 @@ export function getAllowlistedRole(email?: string | null): 'super' | 'admin' | '
 
 // Helper function to validate email domain
 export function isAllowedDomain(email: string): boolean {
-	return email.endsWith(`@${ALLOWED_DOMAIN}`);
+	return email.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`);
+}
+
+/**
+ * The single authorization predicate for "may this email hold an account?".
+ *
+ * This must be enforced where the account is *created*, not on the initial
+ * `/sign-in/social` request: that endpoint only returns the provider redirect
+ * URL, so no session (and no email) exists there yet. The OAuth callback
+ * (`/callback/:id`) is what creates the user, and `emailAndPassword` sign-up
+ * bypasses Google entirely. `databaseHooks.user.create.before` covers both.
+ */
+export function isAuthorizedEmail(email?: string | null): boolean {
+	if (!email) return false;
+	const normalized = email.trim().toLowerCase();
+	// `@hwis.test` fixtures exist only on local/dev deployments.
+	const isTestAccount = !isProdDeployment && normalized.endsWith(`@${TEST_ACCOUNT_DOMAIN}`);
+	return (
+		isTestAccount ||
+		isExceptionEmail(normalized) ||
+		isAllowedDomain(normalized) ||
+		isStudentEmail(normalized)
+	);
 }
 
 export const getAuthenticatedUser = async (
@@ -230,6 +257,13 @@ export const getAuthenticatedUser = async (
 	try {
 		const user = (await authComponent.getAuthUser(ctx)) as AuthenticatedUserLike | null;
 		if (user) {
+			// Defense in depth: an account created before the creation-time gate
+			// existed must not keep working just because a session is still valid.
+			const authEmail = user.email?.toLowerCase();
+			if (authEmail && !isAuthorizedEmail(authEmail)) {
+				return null;
+			}
+
 			const authId = resolveAuthId(user);
 			if (authId && ctx.db) {
 				const profile = await ctx.db
