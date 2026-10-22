@@ -140,13 +140,28 @@ async function levelMoveChangesBand(
 	toCohort: Doc<'esl_cohorts'>
 ): Promise<boolean> {
 	const sourceBand = await findBandCohorts(ctx, fromCohort);
-	const inSameBand = sourceBand.some((cohort) => cohort._id === toCohort._id);
-	if (!inSameBand) return true;
+	const sourceIds = new Set(sourceBand.map((cohort) => cohort._id));
+	if (!sourceIds.has(toCohort._id)) return true;
 
 	const homeroom = deriveHomeroom(fromCohort.grade, student.chineseClass ?? '');
 	if (homeroom === null) return false;
+
+	// The target must already draw from the student's homeroom. If it does not,
+	// the move adds a homeroom to that cohort and can merge two bands.
 	const targetHomerooms = await cohortHomeroomSet(ctx, toCohort);
-	return !targetHomerooms.includes(homeroom);
+	if (!targetHomerooms.includes(homeroom)) return true;
+
+	// And the source must still belong to the same band once this student is
+	// gone. Moving the last J101 in a cohort can split a band even when the
+	// target was a sibling.
+	const sourceAfter = await findBandCohorts(ctx, fromCohort, {
+		excludeStudentId: student._id
+	});
+	const afterIds = new Set(sourceAfter.map((cohort) => cohort._id));
+	return (
+		sourceAfter.some((cohort) => !sourceIds.has(cohort._id)) ||
+		[...sourceIds].some((id) => !afterIds.has(id))
+	);
 }
 
 /**

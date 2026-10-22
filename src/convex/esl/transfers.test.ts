@@ -136,7 +136,12 @@ describe('esl student transfers', () => {
 	describe('transferLevel', () => {
 		it('moves the student, records history and stays quiet inside a band', async () => {
 			const t = await asEslAdmin();
-			const { basic, alice } = await seedBandedPair(t);
+			const { advanced, basic, alice } = await seedBandedPair(t);
+			// A second J101 in the source keeps A and B connected after Alice moves.
+			await addStudent(t, advanced.cohortId, {
+				schoolStudentId: '7001008',
+				chineseClass: '01'
+			});
 
 			const result = await t.mutation(api.esl.transfers.transferLevel, {
 				studentId: alice,
@@ -159,6 +164,19 @@ describe('esl student transfers', () => {
 				reason: 'Re-levelled after assessment',
 				movedBy: 'Ada Admin'
 			});
+		});
+
+		it('warns when the move removes the source cohort’s last link to the band', async () => {
+			const t = await asEslAdmin();
+			const { basic, alice } = await seedBandedPair(t);
+
+			// Alice is Advanced's only J101, and J101 is the only homeroom it
+			// shares with Basic. Moving her to Basic splits the band.
+			const result = await t.mutation(api.esl.transfers.transferLevel, {
+				studentId: alice,
+				toCohortId: basic.cohortId
+			});
+			expect(result.bandChanged).toBe(true);
 		});
 
 		it('warns when the target cohort is in a different band', async () => {

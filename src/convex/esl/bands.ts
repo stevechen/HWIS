@@ -15,7 +15,8 @@ import { deriveHomeroom } from '../shared/esl';
  */
 export async function cohortHomeroomSet(
 	ctx: QueryCtx,
-	cohort: Doc<'esl_cohorts'>
+	cohort: Doc<'esl_cohorts'>,
+	excludeStudentId?: Id<'esl_students'>
 ): Promise<string[]> {
 	const students = await ctx.db
 		.query('esl_students')
@@ -25,6 +26,7 @@ export async function cohortHomeroomSet(
 	const homerooms = new Set<string>();
 	for (const student of students) {
 		if (student.status !== 'active') continue;
+		if (excludeStudentId !== undefined && student._id === excludeStudentId) continue;
 		const homeroom = deriveHomeroom(cohort.grade, student.chineseClass ?? '');
 		if (homeroom !== null) homerooms.add(homeroom);
 	}
@@ -59,7 +61,8 @@ export function homeroomSetsIntersect(a: readonly string[], b: readonly string[]
  */
 export async function findBandCohorts(
 	ctx: QueryCtx,
-	cohort: Doc<'esl_cohorts'>
+	cohort: Doc<'esl_cohorts'>,
+	options: { excludeStudentId?: Id<'esl_students'> } = {}
 ): Promise<Doc<'esl_cohorts'>[]> {
 	const candidates = await ctx.db
 		.query('esl_cohorts')
@@ -69,7 +72,10 @@ export async function findBandCohorts(
 	const active = candidates.filter((candidate) => candidate.status === 'active');
 	const homeroomsByCohort = new Map<Id<'esl_cohorts'>, string[]>();
 	for (const candidate of active) {
-		homeroomsByCohort.set(candidate._id, await cohortHomeroomSet(ctx, candidate));
+		homeroomsByCohort.set(
+			candidate._id,
+			await cohortHomeroomSet(ctx, candidate, options.excludeStudentId)
+		);
 	}
 
 	const sourceHomerooms = homeroomsByCohort.get(cohort._id) ?? [];
