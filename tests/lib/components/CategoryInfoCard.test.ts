@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import CategoryInfoCard from '$lib/components/CategoryInfoCard.svelte';
 
@@ -24,12 +24,12 @@ async function clickButton(name: string | RegExp) {
 describe('CategoryInfoCard', () => {
 	describe('Basic Rendering', () => {
 		it('renders the category name', async () => {
-			render(CategoryInfoCard, { category: defaultCategory });
+			await render(CategoryInfoCard, { category: defaultCategory });
 			await expect.element(page.getByText('Academic Excellence')).toBeInTheDocument();
 		});
 
 		it('renders merit criteria', async () => {
-			render(CategoryInfoCard, { category: defaultCategory });
+			await render(CategoryInfoCard, { category: defaultCategory });
 			await expect.element(page.getByText('Completed all assignments on time')).toBeInTheDocument();
 			await expect
 				.element(page.getByText('Active participation in class discussions'))
@@ -37,7 +37,7 @@ describe('CategoryInfoCard', () => {
 		});
 
 		it('renders demerit criteria', async () => {
-			render(CategoryInfoCard, { category: defaultCategory });
+			await render(CategoryInfoCard, { category: defaultCategory });
 			await expect
 				.element(page.getByText('Late submissions without valid reason'))
 				.toBeInTheDocument();
@@ -47,7 +47,7 @@ describe('CategoryInfoCard', () => {
 		});
 
 		it('renders merit and demerit section headings', async () => {
-			render(CategoryInfoCard, { category: defaultCategory });
+			await render(CategoryInfoCard, { category: defaultCategory });
 			await expect.element(page.getByText('Merit (+)')).toBeInTheDocument();
 			await expect.element(page.getByText('Demerit (-)')).toBeInTheDocument();
 		});
@@ -55,19 +55,19 @@ describe('CategoryInfoCard', () => {
 
 	describe('CAS Alignment', () => {
 		it('renders CAS alignment badges when provided', async () => {
-			render(CategoryInfoCard, { category: categoryWithCas });
+			await render(CategoryInfoCard, { category: categoryWithCas });
 			await expect.element(page.getByText('Creativity')).toBeInTheDocument();
 			await expect.element(page.getByText('Activity')).toBeInTheDocument();
 		});
 
 		it('does not render CAS badges when empty', async () => {
-			render(CategoryInfoCard, { category: defaultCategory });
+			await render(CategoryInfoCard, { category: defaultCategory });
 			await expect.element(page.getByText('Service')).not.toBeInTheDocument();
 		});
 
 		it('does not render CAS section when undefined', async () => {
 			const categoryWithoutCas = { ...defaultCategory, casAlignment: undefined };
-			render(CategoryInfoCard, { category: categoryWithoutCas });
+			await render(CategoryInfoCard, { category: categoryWithoutCas });
 			await expect.element(page.getByText('Creativity')).not.toBeInTheDocument();
 			await expect.element(page.getByText('Activity')).not.toBeInTheDocument();
 			await expect.element(page.getByText('Service')).not.toBeInTheDocument();
@@ -77,7 +77,7 @@ describe('CategoryInfoCard', () => {
 	describe('Clickable Criteria', () => {
 		it('calls oncriterionclick with criterion text on click', async () => {
 			const oncriterionclick = vi.fn();
-			render(CategoryInfoCard, { category: defaultCategory, oncriterionclick });
+			await render(CategoryInfoCard, { category: defaultCategory, oncriterionclick });
 
 			await clickButton('Completed all assignments on time');
 
@@ -86,7 +86,7 @@ describe('CategoryInfoCard', () => {
 
 		it('calls oncriterionclick with demerit criterion text on click', async () => {
 			const oncriterionclick = vi.fn();
-			render(CategoryInfoCard, { category: defaultCategory, oncriterionclick });
+			await render(CategoryInfoCard, { category: defaultCategory, oncriterionclick });
 
 			await clickButton('Late submissions without valid reason');
 
@@ -95,7 +95,7 @@ describe('CategoryInfoCard', () => {
 
 		it('triggers callback on Enter key press', async () => {
 			const oncriterionclick = vi.fn();
-			const { container } = render(CategoryInfoCard, {
+			const { container } = await render(CategoryInfoCard, {
 				category: defaultCategory,
 				oncriterionclick
 			});
@@ -111,7 +111,7 @@ describe('CategoryInfoCard', () => {
 
 		it('renders criteria as interactive when oncriterionclick is provided', async () => {
 			const oncriterionclick = vi.fn();
-			render(CategoryInfoCard, { category: defaultCategory, oncriterionclick });
+			await render(CategoryInfoCard, { category: defaultCategory, oncriterionclick });
 
 			const buttons = page.getByRole('button');
 			const buttonsList = await buttons.all();
@@ -121,7 +121,7 @@ describe('CategoryInfoCard', () => {
 
 	describe('Non-Interactive Mode', () => {
 		it('renders criteria as plain text without oncriterionclick', async () => {
-			render(CategoryInfoCard, { category: defaultCategory });
+			await render(CategoryInfoCard, { category: defaultCategory });
 
 			const buttons = page.getByRole('button');
 			const buttonsList = await buttons.all();
@@ -129,7 +129,7 @@ describe('CategoryInfoCard', () => {
 		});
 
 		it('still displays criteria text without oncriterionclick', async () => {
-			render(CategoryInfoCard, { category: defaultCategory });
+			await render(CategoryInfoCard, { category: defaultCategory });
 			await expect.element(page.getByText('Completed all assignments on time')).toBeInTheDocument();
 			await expect
 				.element(page.getByText('Late submissions without valid reason'))
@@ -140,21 +140,21 @@ describe('CategoryInfoCard', () => {
 	describe('Empty / Edge Cases', () => {
 		it('handles undefined merit criteria', async () => {
 			const categoryNoMerit = { ...defaultCategory, meritCriteria: undefined };
-			render(CategoryInfoCard, { category: categoryNoMerit });
+			await render(CategoryInfoCard, { category: categoryNoMerit });
 			await expect.element(page.getByText('Merit (+)')).not.toBeInTheDocument();
 			await expect.element(page.getByText('Demerit (-)')).toBeInTheDocument();
 		});
 
 		it('handles undefined demerit criteria', async () => {
 			const categoryNoDemerit = { ...defaultCategory, demeritCriteria: undefined };
-			render(CategoryInfoCard, { category: categoryNoDemerit });
+			await render(CategoryInfoCard, { category: categoryNoDemerit });
 			await expect.element(page.getByText('Demerit (-)')).not.toBeInTheDocument();
 			await expect.element(page.getByText('Merit (+)')).toBeInTheDocument();
 		});
 
 		it('handles empty criteria arrays', async () => {
 			const categoryEmpty = { ...defaultCategory, meritCriteria: [], demeritCriteria: [] };
-			render(CategoryInfoCard, { category: categoryEmpty });
+			await render(CategoryInfoCard, { category: categoryEmpty });
 			await expect.element(page.getByText('Merit (+)')).not.toBeInTheDocument();
 			await expect.element(page.getByText('Demerit (-)')).not.toBeInTheDocument();
 		});
@@ -162,13 +162,13 @@ describe('CategoryInfoCard', () => {
 
 	describe('Placeholder Mode', () => {
 		it('renders section headings when no category is provided', async () => {
-			render(CategoryInfoCard, { placeholder: true });
+			await render(CategoryInfoCard, { placeholder: true });
 			await expect.element(page.getByText('Merit (+)')).toBeInTheDocument();
 			await expect.element(page.getByText('Demerit (-)')).toBeInTheDocument();
 		});
 
 		it('renders section headings when category has no criteria', async () => {
-			render(CategoryInfoCard, {
+			await render(CategoryInfoCard, {
 				category: { ...defaultCategory, meritCriteria: [], demeritCriteria: [] },
 				placeholder: true
 			});
@@ -177,7 +177,7 @@ describe('CategoryInfoCard', () => {
 		});
 
 		it('renders real criteria for a column that has data', async () => {
-			render(CategoryInfoCard, {
+			await render(CategoryInfoCard, {
 				category: { ...defaultCategory, demeritCriteria: [] },
 				placeholder: true
 			});
@@ -186,7 +186,7 @@ describe('CategoryInfoCard', () => {
 		});
 
 		it('does not render placeholder blocks when placeholder is false', async () => {
-			render(CategoryInfoCard, {
+			await render(CategoryInfoCard, {
 				category: { ...defaultCategory, meritCriteria: [], demeritCriteria: [] }
 			});
 			await expect.element(page.getByText('Merit (+)')).not.toBeInTheDocument();

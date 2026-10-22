@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vite-plus/test';
 import { convexTest, modules, createStudentWithClass, mockAuthUser, seedUser } from './test.setup';
 import { setTestAuthRole } from './testAuth';
 import { api } from './_generated/api';

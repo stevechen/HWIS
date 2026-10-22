@@ -73,7 +73,8 @@ export const profile = query({
 				authId: 'super@hwis.test' as const,
 				role: 'super' as const,
 				status: 'active' as const,
-				profileExists: true
+				profileExists: true,
+				departmentRoles: { esl: 'admin', international: 'admin' } as const
 			};
 			const actor: AuthorizationActor = {
 				kind: 'staff',
@@ -127,7 +128,7 @@ export const profile = query({
 				actor.subject._id = authUser._id as Id<'users'>;
 			}
 			return {
-				user: { ...authUser, profileExists: true },
+				user: { ...authUser, profileExists: true, departmentRoles: authUser.departmentRoles },
 				actor,
 				capabilities: getEvaluationCapabilities(actor)
 			};
@@ -177,7 +178,10 @@ export const profile = query({
 			authId: dbUser.authId,
 			role: dbUser.role ?? 'teacher',
 			status: dbUser.status ?? 'pending',
-			profileExists: true
+			// Legacy rows have no departmentRoles; the view derives the
+			// `{ international: role }` fallback via `resolveDepartmentRoles`.
+			profileExists: true,
+			departmentRoles: dbUser.departmentRoles
 		};
 
 		const actor: AuthorizationActor = {
@@ -330,13 +334,19 @@ export const update = mutation({
 		const isTestUser = performerId === 'test-user-id' || performerId === 'test-super-user-id';
 		if (performerId && !isTestUser) {
 			if (args.role !== undefined && args.role !== targetUser.role) {
+				// The legacy role feeds the International fallback, so the audit
+				// trail carries the department slots too: a demote that silently
+				// revokes an unlisted fallback is otherwise invisible.
+				const departmentRolesTrail = targetUser.departmentRoles
+					? { departmentRoles: targetUser.departmentRoles }
+					: {};
 				await ctx.db.insert('audit_logs', {
 					action: 'update_user_role',
 					performerId,
 					targetTable: 'users',
 					targetId: id.toString(),
-					oldValue: { role: targetUser.role },
-					newValue: { role: args.role },
+					oldValue: { role: targetUser.role, ...departmentRolesTrail },
+					newValue: { role: args.role, ...departmentRolesTrail },
 					timestamp: Date.now()
 				});
 			}

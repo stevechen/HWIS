@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 // Mock convex-svelte with proper data structure for both queries
@@ -55,14 +55,14 @@ describe('Admin Evaluations Page', () => {
 		}
 
 		it('skips the non-paginated query when no filters are active', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 
 			const args = invokeQueryArgsFor(api.evaluations.listAllEvaluations);
 			expect(args).toBe('skip');
 		});
 
 		it('skips the paginated query when filters are active', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			const studentFilter = page.getByRole('textbox', { name: 'Filter by student name' });
 			await studentFilter.fill('Alice');
 
@@ -71,14 +71,14 @@ describe('Admin Evaluations Page', () => {
 		});
 
 		it('uses real args for the paginated query when no filters are active', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 
 			const args = invokeQueryArgsFor(api.evaluations.listAllEvaluationsPaginated);
 			expect(args).not.toBe('skip');
 		});
 
 		it('uses real args for the non-paginated query when filters are active', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			const teacherFilter = page.getByRole('textbox', { name: 'Filter by teacher' });
 			await teacherFilter.fill('Johnson');
 
@@ -89,47 +89,47 @@ describe('Admin Evaluations Page', () => {
 
 	describe('Static Structure', () => {
 		it('renders student filter input with correct aria-label', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			await expect
 				.element(page.getByRole('textbox', { name: 'Filter by student name' }))
 				.toBeInTheDocument();
 		});
 
 		it('renders teacher filter input with correct aria-label', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			await expect
 				.element(page.getByRole('textbox', { name: 'Filter by teacher' }))
 				.toBeInTheDocument();
 		});
 
 		it('renders sort toggle button', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			await expect.element(page.getByRole('button', { name: 'Newest First' })).toBeInTheDocument();
 		});
 
 		it('renders show unenrolled toggle', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			await expect
 				.element(page.getByRole('button', { name: 'Show unenrolled students' }))
 				.toBeInTheDocument();
 		});
 
 		it('renders show details toggle', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			await expect.element(page.getByRole('button', { name: 'Show Details' })).toBeInTheDocument();
 		});
 	});
 
 	describe('Filter Functionality', () => {
 		it('student filter input accepts text', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			const studentFilter = page.getByRole('textbox', { name: 'Filter by student name' });
 			await studentFilter.fill('Alice');
 			await expect.element(studentFilter).toHaveValue('Alice');
 		});
 
 		it('teacher filter input accepts text', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			const teacherFilter = page.getByRole('textbox', { name: 'Filter by teacher' });
 			await teacherFilter.fill('Johnson');
 			await expect.element(teacherFilter).toHaveValue('Johnson');
@@ -138,14 +138,14 @@ describe('Admin Evaluations Page', () => {
 
 	describe('Toggle Controls', () => {
 		it('sort toggle changes aria-label', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			const sortButton = page.getByRole('button', { name: 'Newest First' });
 			await sortButton.click();
 			await expect.element(page.getByRole('button', { name: 'Oldest First' })).toBeInTheDocument();
 		});
 
 		it('show unenrolled toggle changes aria-label', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			const toggleButton = page.getByRole('button', { name: 'Show unenrolled students' });
 			await toggleButton.click();
 			await expect
@@ -154,7 +154,7 @@ describe('Admin Evaluations Page', () => {
 		});
 
 		it('show details toggle changes aria-label', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			const detailsButton = page.getByRole('button', { name: 'Show Details' });
 			await detailsButton.click();
 			await expect.element(page.getByRole('button', { name: 'Hide Details' })).toBeInTheDocument();
@@ -163,7 +163,7 @@ describe('Admin Evaluations Page', () => {
 
 	describe('Empty State', () => {
 		it('shows empty state when no evaluations', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			// With empty data, should show empty state
 			await expect.element(page.getByText('No evaluations found')).toBeInTheDocument();
 		});
@@ -184,14 +184,14 @@ describe('Admin Evaluations Page', () => {
 					error: new Error('Failed to load')
 				} as unknown as ReturnType<typeof useQuery>);
 
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			await expect.element(page.getByText(/Error loading evaluations/)).toBeInTheDocument();
 		});
 	});
 
 	describe('Accessibility', () => {
 		it('all filter inputs have accessible labels', async () => {
-			render(AdminEvaluationsPage);
+			await render(AdminEvaluationsPage);
 			const studentFilter = page.getByRole('textbox', { name: 'Filter by student name' });
 			const teacherFilter = page.getByRole('textbox', { name: 'Filter by teacher' });
 			await expect.element(studentFilter).toBeInTheDocument();

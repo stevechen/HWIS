@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { buildViewerSession, type ViewerSessionConfig } from '../mocks/route-mocks';
 
@@ -52,7 +52,7 @@ describe('access control', () => {
 		const { useViewer } = await import('$lib/viewer.svelte');
 		vi.mocked(useViewer).mockReturnValue(viewerFor({ role: 'admin', status: 'active' }));
 
-		render(Layout);
+		await render(Layout);
 		// The Layout renders the header with title "Admin Dashboard" when on /admin
 		await expect.element(page.getByText('Admin Dashboard')).toBeInTheDocument();
 	});
@@ -62,7 +62,7 @@ describe('access control', () => {
 		const { useViewer } = await import('$lib/viewer.svelte');
 		vi.mocked(useViewer).mockReturnValue(viewerFor({ role: 'teacher', status: 'pending' }));
 
-		render(Layout);
+		await render(Layout);
 		await expect.element(page.getByText('Access Restricted')).toBeVisible();
 	});
 
@@ -71,7 +71,7 @@ describe('access control', () => {
 		const { useViewer } = await import('$lib/viewer.svelte');
 		vi.mocked(useViewer).mockReturnValue(viewerFor({ role: 'teacher', status: 'pending' }));
 
-		render(Layout);
+		await render(Layout);
 		await expect.element(page.getByText('Access Restricted')).toBeVisible();
 	});
 });

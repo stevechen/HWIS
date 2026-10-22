@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vite-plus/test';
 import { convexTest, modules, mockAuthUser, seedUser } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
@@ -25,14 +25,20 @@ describe('onboarding.ensureUserProfile', () => {
 
 		const result = await t.mutation(api.onboarding.ensureUserProfile, {});
 
-		expect(result).toEqual({ created: true, role: 'teacher', status: 'pending' });
+		expect(result).toEqual({
+			created: true,
+			role: 'teacher',
+			status: 'pending',
+			eslRole: 'teacher'
+		});
 
 		const users = await t.run((ctx) => ctx.db.query('users').collect());
 		expect(users).toHaveLength(1);
 		expect(users[0]).toMatchObject({
 			authId: 'teacher-email@example.com',
 			role: 'teacher',
-			status: 'pending'
+			status: 'pending',
+			departmentRoles: { international: 'teacher', esl: 'teacher' }
 		});
 		expect(typeof users[0].createdAt).toBe('number');
 	});
@@ -47,10 +53,14 @@ describe('onboarding.ensureUserProfile', () => {
 
 		const result = await t.mutation(api.onboarding.ensureUserProfile, {});
 
-		expect(result).toEqual({ created: true, role: 'super', status: 'active' });
+		expect(result).toEqual({ created: true, role: 'super', status: 'active', eslRole: 'admin' });
 
 		const users = await t.run((ctx) => ctx.db.query('users').collect());
-		expect(users[0]).toMatchObject({ role: 'super', status: 'active' });
+		expect(users[0]).toMatchObject({
+			role: 'super',
+			status: 'active',
+			departmentRoles: { international: 'admin', esl: 'admin' }
+		});
 	});
 
 	it('self-heals an existing user profile with the allowlisted role', async () => {
@@ -73,10 +83,14 @@ describe('onboarding.ensureUserProfile', () => {
 
 		const result = await t.mutation(api.onboarding.ensureUserProfile, {});
 
-		expect(result).toEqual({ created: false, role: 'admin', status: 'active' });
+		expect(result).toEqual({ created: false, role: 'admin', status: 'active', eslRole: 'admin' });
 
 		const users = await t.run((ctx) => ctx.db.query('users').collect());
-		expect(users[0]).toMatchObject({ role: 'admin', status: 'active' });
+		expect(users[0]).toMatchObject({
+			role: 'admin',
+			status: 'active',
+			departmentRoles: { international: 'admin', esl: 'admin' }
+		});
 	});
 
 	it('does not create a user profile for a student-domain email', async () => {

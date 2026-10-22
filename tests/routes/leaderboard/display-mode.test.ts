@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const mockPage = vi.hoisted(() => ({
@@ -21,7 +21,7 @@ describe('Leaderboard TV shell', () => {
 	});
 
 	it('shows the fullscreen toggle in normal mode', async () => {
-		render(LeaderboardLayout);
+		await render(LeaderboardLayout);
 		await expect
 			.element(page.getByRole('button', { name: 'Enter fullscreen' }))
 			.toBeInTheDocument();
@@ -29,7 +29,7 @@ describe('Leaderboard TV shell', () => {
 
 	it('hides all chrome in display mode', async () => {
 		mockPage.url = new URL('http://localhost/leaderboard/houses?display=1');
-		render(LeaderboardLayout);
+		await render(LeaderboardLayout);
 		await expect
 			.element(page.getByRole('button', { name: 'Enter fullscreen' }))
 			.not.toBeInTheDocument();

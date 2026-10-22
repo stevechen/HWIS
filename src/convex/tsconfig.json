@@ -12,8 +12,17 @@
 		"skipLibCheck": true,
 		"allowSyntheticDefaultImports": true,
 		"paths": {
-			"$lib/*": ["../lib/*"]
+			"$lib/*": ["../lib/*"],
+			/* Convex-side tests import the frontend wizard modules (the
+			 * reconcile round-trip), and those use the `$convex/*` alias
+			 * defined in the SvelteKit tsconfig. Mirror it here so
+			 * `convex dev`'s typecheck resolves the same modules. */
+			"$convex/*": ["./*"]
 		},
+		/* Convex functions run on Node, so `process.env` is available at
+		 * runtime. List it explicitly instead of relying on ambient
+		 * node_modules/@types auto-discovery. */
+		"types": ["node"],
 
 		/* These compiler options are required by Convex */
 		"target": "ESNext",

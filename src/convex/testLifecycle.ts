@@ -1,12 +1,40 @@
 import { mutation, query } from './_generated/server';
 import { v } from 'convex/values';
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { authComponent, requireAdminForSensitiveOperation } from './auth';
+import { resolveDepartmentRoles } from './shared/authorization';
+import { resolveBackupDepartment } from './shared/backup_snapshot';
 
 // Core infrastructure users that are shared across parallel tests and have
 // valid storageState; they must never be deleted by any teardown path.
-const PROTECTED_EMAILS = new Set(['teacher@hwis.test', 'admin@hwis.test', 'super@hwis.test']);
+const PROTECTED_EMAILS = new Set([
+	'teacher@hwis.test',
+	'admin@hwis.test',
+	'super@hwis.test',
+	'esladmin@hwis.test'
+]);
+
+/** Tables the International department owns. */
+const INTERNATIONAL_TARGET_TABLES = new Set([
+	'students',
+	'evaluations',
+	'point_categories',
+	'house_events',
+	'classes'
+]);
+
+/** Tables the ESL department owns, including the unprefixed notes table. */
+const ESL_TARGET_TABLES = new Set([
+	'esl_cohorts',
+	'esl_classes',
+	'esl_class_meetings',
+	'esl_teacher_availability',
+	'esl_semesters',
+	'esl_events',
+	'esl_students',
+	'teacher_notes'
+]);
 
 // AuthIds created by the test seeding mutations (dataFactory, testE2E, etc.).
 const TEST_AUTH_ID_PREFIXES = ['e2e_', 'e2e-', 'test_', 'eval_', 'e2e-test_'];
@@ -25,6 +53,14 @@ const SCOPE = v.union(
 	v.literal('houseEvents'),
 	v.literal('backups'),
 	v.literal('auditLogs'),
+	// The ESL department's own tables. A roster import writes cohorts, students
+	// and classes in one transaction and is invisible to every other scope, so
+	// without this a spec that imports a workbook leaves its year behind.
+	v.literal('esl'),
+	// The International department's tables, the mirror of `esl`. Backups are
+	// department-scoped now (`backups.department`, legacy = international), so
+	// each department scope also removes only its own tagged backups + chunks.
+	v.literal('international'),
 	v.literal('all')
 );
 
@@ -86,13 +122,18 @@ async function deleteEvaluationsByTag(teardown: TeardownContext) {
 	return [...ids];
 }
 
-async function deleteAuditLogsByTag(teardown: TeardownContext) {
+async function deleteAuditLogsByTag(teardown: TeardownContext, targets?: ReadonlySet<string>) {
 	const ids = new Set<Id<'audit_logs'>>();
 	const tagged = await teardown.ctx.db
 		.query('audit_logs')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
-	for (const log of tagged) ids.add(log._id);
+	for (const log of tagged) {
+		// An audit log is shared infrastructure: only remove the rows whose
+		// target belongs to the department being torn down.
+		if (targets && !targets.has(log.targetTable)) continue;
+		ids.add(log._id);
+	}
 	for (const evaluationId of teardown.evaluationIds) {
 		const logs = await teardown.ctx.db
 			.query('audit_logs')
@@ -137,29 +178,41 @@ async function deleteHouseEventsByTag(teardown: TeardownContext) {
 	if (events.length > 0) bump(teardown, 'house_events', events.length);
 }
 
-async function deleteBackupsByTag(teardown: TeardownContext) {
+async function deleteBackupsByTag(teardown: TeardownContext, department?: 'international' | 'esl') {
 	const backups = await teardown.ctx.db
 		.query('backups')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
+	let count = 0;
 	for (const backup of backups) {
+		// Legacy rows carry no department and belong to International.
+		if (department && resolveBackupDepartment(backup) !== department) continue;
 		const chunks = await teardown.ctx.db
 			.query('backup_chunks')
 			.withIndex('by_backupId', (q) => q.eq('backupId', backup._id))
 			.collect();
 		for (const chunk of chunks) await teardown.ctx.db.delete(chunk._id);
 		await teardown.ctx.db.delete(backup._id);
+		count++;
 	}
-	if (backups.length > 0) bump(teardown, 'backups', backups.length);
+	if (count > 0) bump(teardown, 'backups', count);
 }
 
-async function deleteUsersByTag(teardown: TeardownContext) {
+async function deleteUsersByTag(teardown: TeardownContext, department?: 'international' | 'esl') {
 	const users = await teardown.ctx.db
 		.query('users')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
 	let count = 0;
 	for (const user of users) {
+		const roles = resolveDepartmentRoles(user);
+		const isShared = roles.international !== undefined && roles.esl !== undefined;
+		// A user holding both departments is shared state, not this
+		// department's test data: removing them would strip the other
+		// department's access mid-run.
+		if (isShared) continue;
+		if (department === 'international' && roles.international === undefined) continue;
+		if (department === 'esl' && roles.esl === undefined) continue;
 		await teardown.ctx.db.delete(user._id);
 		count++;
 	}
@@ -227,9 +280,13 @@ async function deleteTestPerformerUser(teardown: TeardownContext) {
 /**
  * Remove every row matching `e2eTag` across the resource graph, cascading to
  * untagged dependents (evaluations and audit logs referencing tagged parents).
- * `scope` narrows teardown to a single data type. Cascade order is
- * deterministic: students → evaluations → audit_logs → point_categories →
- * house_events → backups → users → orphaned classes.
+ * `scope` narrows teardown to a single data type or department. `esl` touches
+ * only the ESL graph (and tagged ESL-only users); `international` touches only
+ * the HWIS graph (and tagged International-only users); `all` clears both.
+ * Cascade order is deterministic: students → evaluations → audit_logs →
+ * point_categories → house_events → backups → users → orphaned classes, with
+ * the ESL graph removed before users. A user holding roles in both departments
+ * is shared state and survives every scope.
  */
 export const teardownByTag = mutation({
 	args: {
@@ -251,13 +308,16 @@ export const teardownByTag = mutation({
 		};
 		const hasTag = args.e2eTag !== undefined;
 		const isAll = scope === 'all';
+		const isInternational = scope === 'international';
 
 		if (scope === 'auditLogs' && !hasTag) {
 			await deleteUntaggedAuditLogs(teardown);
 			return { deleted: teardown.deleted };
 		}
 
-		if (isAll || scope === 'students') {
+		// HWIS graph. `international` is the department-scoped name for exactly
+		// these tables; `esl` never reaches them.
+		if (isAll || isInternational || scope === 'students') {
 			const taggedStudents = await ctx.db
 				.query('students')
 				.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
@@ -265,27 +325,52 @@ export const teardownByTag = mutation({
 			teardown.studentClassIds = taggedStudents.map((student) => student.classId);
 			await deleteStudentsByTag(teardown);
 		}
-		if (isAll || scope === 'students' || scope === 'evaluations') {
+		if (isAll || isInternational || scope === 'students' || scope === 'evaluations') {
 			await deleteEvaluationsByTag(teardown);
 		}
-		if (isAll || scope === 'students' || scope === 'evaluations' || scope === 'auditLogs') {
-			await deleteAuditLogsByTag(teardown);
+		if (
+			isAll ||
+			isInternational ||
+			scope === 'students' ||
+			scope === 'evaluations' ||
+			scope === 'auditLogs'
+		) {
+			await deleteAuditLogsByTag(
+				teardown,
+				isInternational ? INTERNATIONAL_TARGET_TABLES : undefined
+			);
 		}
 		if (scope === 'auditLogs') {
 			await deleteTestPerformerUser(teardown);
 		}
-		if (isAll || scope === 'categories') {
+		if (isAll || isInternational || scope === 'categories') {
 			await deleteCategoriesByTag(teardown);
 		}
-		if (isAll || scope === 'houseEvents') {
+		if (isAll || isInternational || scope === 'houseEvents') {
 			await deleteHouseEventsByTag(teardown);
 		}
+		// Backups are department-scoped (legacy rows = international), so each
+		// department scope removes only its own tagged backups and chunks.
 		if (isAll || scope === 'backups') {
 			await deleteBackupsByTag(teardown);
 		}
+
+		if (scope === 'esl') {
+			await deleteBackupsByTag(teardown, 'esl');
+			await deleteAuditLogsByTag(teardown, ESL_TARGET_TABLES);
+			await deleteEslByTag(teardown);
+			await deleteUsersByTag(teardown, 'esl');
+		}
 		if (isAll) {
+			await deleteEslByTag(teardown);
 			await deleteUsersByTag(teardown);
+		}
+		if (isAll || isInternational) {
 			await deleteOrphanedClasses(teardown);
+		}
+		if (isInternational) {
+			await deleteBackupsByTag(teardown, 'international');
+			await deleteUsersByTag(teardown, 'international');
 		} else if (scope === 'students') {
 			await deleteOrphanedClasses(teardown);
 		}
@@ -295,8 +380,252 @@ export const teardownByTag = mutation({
 });
 
 /**
- * Sweep removing any row carrying any `e2eTag` (plus cascaded dependents and
- * orphaned classes). Backs the post-run cleanup job.
+ * ESL semester teardown: events → notes → meetings → classes → cohorts →
+ * availability → semesters. Children first — every child points at a tagged
+ * parent, but deleting the parent first would orphan them under another tag.
+ *
+ * Classes carry no tag, so a tagged cohort's classes are collected first and
+ * any notes/meetings on them deleted with them; sibling classes from another
+ * year in the same cohort are untouched (they belong to a different tag).
+ */
+async function deleteEslByTag(teardown: TeardownContext) {
+	const { ctx, e2eTag } = teardown;
+
+	const semesters = await ctx.db
+		.query('esl_semesters')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect();
+
+	const events = await ctx.db
+		.query('esl_events')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect();
+	for (const event of events) {
+		await ctx.db.delete(event._id);
+	}
+	if (events.length > 0) bump(teardown, 'esl_events', events.length);
+
+	const cohorts = await ctx.db
+		.query('esl_cohorts')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect();
+
+	const classes: Doc<'esl_classes'>[] = [];
+	for (const cohort of cohorts) {
+		const rows = await ctx.db
+			.query('esl_classes')
+			.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
+			.collect();
+		classes.push(...rows);
+	}
+
+	// Rows under a tagged cohort/class are test data whether or not they carry
+	// the tag themselves, so the cascade also reaches untagged dependents.
+	const noteIds = new Set<Id<'teacher_notes'>>();
+	for (const note of await ctx.db
+		.query('teacher_notes')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect()) {
+		noteIds.add(note._id);
+	}
+	const meetingIds = new Set<Id<'esl_class_meetings'>>();
+	for (const meeting of await ctx.db
+		.query('esl_class_meetings')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect()) {
+		meetingIds.add(meeting._id);
+	}
+	for (const cls of classes) {
+		for (const note of await ctx.db
+			.query('teacher_notes')
+			.withIndex('by_class_teacher_date', (q) => q.eq('classId', cls._id))
+			.collect()) {
+			noteIds.add(note._id);
+		}
+		for (const meeting of await ctx.db
+			.query('esl_class_meetings')
+			.withIndex('by_classId', (q) => q.eq('classId', cls._id))
+			.collect()) {
+			meetingIds.add(meeting._id);
+		}
+	}
+	for (const id of noteIds) {
+		await ctx.db.delete(id);
+	}
+	if (noteIds.size > 0) bump(teardown, 'teacher_notes', noteIds.size);
+	for (const id of meetingIds) {
+		await ctx.db.delete(id);
+	}
+	if (meetingIds.size > 0) bump(teardown, 'esl_class_meetings', meetingIds.size);
+
+	for (const cls of classes) {
+		await ctx.db.delete(cls._id);
+	}
+	if (classes.length > 0) bump(teardown, 'esl_classes', classes.length);
+
+	const studentIds = new Set<Id<'esl_students'>>();
+	for (const student of await ctx.db
+		.query('esl_students')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect()) {
+		studentIds.add(student._id);
+	}
+	for (const cohort of cohorts) {
+		for (const student of await ctx.db
+			.query('esl_students')
+			.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
+			.collect()) {
+			studentIds.add(student._id);
+		}
+	}
+	for (const id of studentIds) {
+		await ctx.db.delete(id);
+	}
+	if (studentIds.size > 0) bump(teardown, 'esl_students', studentIds.size);
+
+	const availability = await ctx.db
+		.query('esl_teacher_availability')
+		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', e2eTag))
+		.collect();
+	for (const row of availability) {
+		await ctx.db.delete(row._id);
+	}
+	if (availability.length > 0) bump(teardown, 'esl_teacher_availability', availability.length);
+
+	for (const cohort of cohorts) {
+		await ctx.db.delete(cohort._id);
+	}
+	if (cohorts.length > 0) bump(teardown, 'esl_cohorts', cohorts.length);
+
+	for (const semester of semesters) {
+		await ctx.db.delete(semester._id);
+	}
+	if (semesters.length > 0) bump(teardown, 'esl_semesters', semesters.length);
+}
+
+/**
+ * Delete every tagged row in the ESL semester graph, whatever tag it carries.
+ * The per-tag order above (children before parents, untagged cohort classes
+ * collected through their tagged cohort) applies unchanged — only the tag
+ * filter widens from one value to "any".
+ */
+async function deleteEslSweep(teardown: TeardownContext) {
+	const { ctx } = teardown;
+
+	const semesters = await ctx.db
+		.query('esl_semesters')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect();
+
+	const events = await ctx.db
+		.query('esl_events')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect();
+	for (const event of events) {
+		await ctx.db.delete(event._id);
+	}
+	if (events.length > 0) bump(teardown, 'esl_events', events.length);
+
+	const cohorts = await ctx.db
+		.query('esl_cohorts')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect();
+
+	const classes: Doc<'esl_classes'>[] = [];
+	for (const cohort of cohorts) {
+		const rows = await ctx.db
+			.query('esl_classes')
+			.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
+			.collect();
+		classes.push(...rows);
+	}
+
+	const noteIds = new Set<Id<'teacher_notes'>>();
+	for (const note of await ctx.db
+		.query('teacher_notes')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect()) {
+		noteIds.add(note._id);
+	}
+	const meetingIds = new Set<Id<'esl_class_meetings'>>();
+	for (const meeting of await ctx.db
+		.query('esl_class_meetings')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect()) {
+		meetingIds.add(meeting._id);
+	}
+	for (const cls of classes) {
+		for (const note of await ctx.db
+			.query('teacher_notes')
+			.withIndex('by_class_teacher_date', (q) => q.eq('classId', cls._id))
+			.collect()) {
+			noteIds.add(note._id);
+		}
+		for (const meeting of await ctx.db
+			.query('esl_class_meetings')
+			.withIndex('by_classId', (q) => q.eq('classId', cls._id))
+			.collect()) {
+			meetingIds.add(meeting._id);
+		}
+	}
+	for (const id of noteIds) {
+		await ctx.db.delete(id);
+	}
+	if (noteIds.size > 0) bump(teardown, 'teacher_notes', noteIds.size);
+	for (const id of meetingIds) {
+		await ctx.db.delete(id);
+	}
+	if (meetingIds.size > 0) bump(teardown, 'esl_class_meetings', meetingIds.size);
+
+	for (const cls of classes) {
+		await ctx.db.delete(cls._id);
+	}
+	if (classes.length > 0) bump(teardown, 'esl_classes', classes.length);
+
+	const studentIds = new Set<Id<'esl_students'>>();
+	for (const student of await ctx.db
+		.query('esl_students')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect()) {
+		studentIds.add(student._id);
+	}
+	for (const cohort of cohorts) {
+		for (const student of await ctx.db
+			.query('esl_students')
+			.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
+			.collect()) {
+			studentIds.add(student._id);
+		}
+	}
+	for (const id of studentIds) {
+		await ctx.db.delete(id);
+	}
+	if (studentIds.size > 0) bump(teardown, 'esl_students', studentIds.size);
+
+	const availability = await ctx.db
+		.query('esl_teacher_availability')
+		.filter((q) => q.neq(q.field('e2eTag'), undefined))
+		.collect();
+	for (const row of availability) {
+		await ctx.db.delete(row._id);
+	}
+	if (availability.length > 0) bump(teardown, 'esl_teacher_availability', availability.length);
+
+	for (const cohort of cohorts) {
+		await ctx.db.delete(cohort._id);
+	}
+	if (cohorts.length > 0) bump(teardown, 'esl_cohorts', cohorts.length);
+
+	for (const semester of semesters) {
+		await ctx.db.delete(semester._id);
+	}
+	if (semesters.length > 0) bump(teardown, 'esl_semesters', semesters.length);
+}
+
+/**
+ * Sweep removing any row carrying any `e2eTag` in the ESL semester graph,
+ * mirroring the per-tag order above. Backs the post-run cleanup job alongside
+ * the legacy tables.
  */
 export const teardownAllTagged = mutation({
 	args: {},
@@ -409,6 +738,7 @@ export const teardownAllTagged = mutation({
 		}
 		if (userCount > 0) bump(teardown, 'users', userCount);
 
+		await deleteEslSweep(teardown);
 		await deleteOrphanedClasses(teardown);
 
 		return { deleted: teardown.deleted };
@@ -470,7 +800,11 @@ export const teardownTestUsers = mutation({
 			);
 			const isKnownTestId = Boolean(authId && TEST_AUTH_IDS.has(authId));
 			const isOrphaned = !authId || !baByAuthId.has(authId);
-			if (matchesPrefix || isKnownTestId || isOrphaned || hasTestEmail) {
+			// A user holding both departments is shared across the two test
+			// suites; a sweep for one department's leftovers must not take it.
+			const roles = resolveDepartmentRoles(user);
+			const isShared = roles.international !== undefined && roles.esl !== undefined;
+			if (!isShared && (matchesPrefix || isKnownTestId || isOrphaned || hasTestEmail)) {
 				await ctx.db.delete(user._id);
 				deletedCount++;
 			}
@@ -561,7 +895,14 @@ export const verifyCleanTeardown = query({
 			'point_categories',
 			'house_events',
 			'backups',
-			'users'
+			'users',
+			'esl_semesters',
+			'esl_events',
+			'esl_cohorts',
+			'teacher_notes',
+			'esl_class_meetings',
+			'esl_students',
+			'esl_teacher_availability'
 		] as const;
 		for (const table of tables) {
 			const docs = await ctx.db.query(table).collect();
@@ -570,6 +911,21 @@ export const verifyCleanTeardown = query({
 			).length;
 			if (count > 0) remaining[table] = count;
 		}
+		// Classes carry no tag of their own: a surviving tagged cohort with
+		// classes still attached means the ESL teardown left work behind.
+		const taggedCohorts = await ctx.db
+			.query('esl_cohorts')
+			.withIndex('by_e2eTag', (q) => q.eq('e2eTag', args.e2eTag))
+			.collect();
+		let orphanedClasses = 0;
+		for (const cohort of taggedCohorts) {
+			const rows = await ctx.db
+				.query('esl_classes')
+				.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
+				.collect();
+			orphanedClasses += rows.length;
+		}
+		if (orphanedClasses > 0) remaining['esl_classes'] = orphanedClasses;
 		return { e2eTag: args.e2eTag, remaining };
 	}
 });

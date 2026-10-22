@@ -79,6 +79,87 @@ export interface CreateEvaluationForStudentData {
 	e2eTag?: string;
 }
 
+export type EslTerm = 'S1' | 'S2';
+
+export type EslEventType =
+	| 'start_school'
+	| 'reminder'
+	| 'no_school'
+	| 'no_class'
+	| 'partial'
+	| 'exam'
+	| 'g9_mock';
+
+export type EslReminderKind =
+	| 'quiz'
+	| 'passport'
+	| 'recording'
+	| 'task'
+	| 'passport_check'
+	| 'workbook_check';
+
+export type EslEventTarget = 'all' | 'CLIL' | 'Comm' | 'G7' | 'G8' | 'G9' | 'H1';
+
+export interface CreateEslSemesterOptions {
+	year: string;
+	term: EslTerm;
+	startDate: string;
+	e2eTag?: string;
+}
+
+export interface CreateEslCohortOptions {
+	year: string;
+	grade: number;
+	level?: string;
+	classNumber: string;
+	e2eTag?: string;
+}
+
+export type EslWeekday = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday';
+
+export interface SetEslClassScheduleOptions {
+	classId: string;
+	year: string;
+	meetings: { day: EslWeekday; period: number }[];
+}
+
+export interface AssignEslTeacherOptions {
+	classId: string;
+	teacherId: string;
+}
+
+export interface CreateEslEventOptions {
+	semesterId: string;
+	type: EslEventType;
+	reminderKind?: EslReminderKind;
+	isBanner?: boolean;
+	title: string;
+	target?: EslEventTarget;
+	date: string;
+	endDate?: string;
+	note?: string;
+	startPeriod?: number;
+	endPeriod?: number;
+	e2eTag?: string;
+}
+
+export interface UpdateEslEventOptions {
+	eventId: string;
+	type?: EslEventType;
+	reminderKind?: EslReminderKind;
+	clearReminderKind?: boolean;
+	isBanner?: boolean;
+	title?: string;
+	target?: EslEventTarget;
+	date?: string;
+	endDate?: string;
+	clearEndDate?: boolean;
+	note?: string;
+	startPeriod?: number;
+	endPeriod?: number;
+	clearPeriods?: boolean;
+}
+
 export interface SeedBaselineResult {
 	success: boolean;
 	timestamp: number;
@@ -87,6 +168,13 @@ export interface SeedBaselineResult {
 export interface SetupTestUsersResult {
 	teacherSessionToken?: string;
 	adminSessionToken?: string;
+	/**
+	 * The ESL department's admin. Separate from `adminSessionToken` because
+	 * `/esl/admin` reads `departmentRoles.esl`, which only an existing ESL admin
+	 * can grant — so it has to be provisioned rather than derived.
+	 */
+	eslAdminSessionToken?: string;
+
 	superSessionToken?: string;
 	expiresAt?: number;
 	error?: string;
@@ -100,6 +188,8 @@ export type CleanupScope =
 	| 'houseEvents'
 	| 'backups'
 	| 'auditLogs'
+	| 'esl'
+	| 'international'
 	| 'all';
 
 export interface E2EUtils {
@@ -115,7 +205,7 @@ export interface E2EUtils {
 	seedBaseline: () => Promise<SeedBaselineResult>;
 	cleanupTestUsers: () => Promise<unknown>;
 	cleanupAuditLogs: (authIdString?: string) => Promise<unknown>;
-	setupTestUsers: () => Promise<SetupTestUsersResult>;
+	setupTestUsers: (department?: 'all' | 'international' | 'esl') => Promise<SetupTestUsersResult>;
 	cleanupTestBackupsByTimestamp: (since: number) => Promise<unknown>;
 	/** How many `backups` rows currently carry `e2eTag`, for tag-hygiene assertions. */
 	countBackupsByTag: (e2eTag: string) => Promise<number>;
@@ -143,6 +233,28 @@ export interface E2EUtils {
 	setRoleByToken: (token: string, role: string) => Promise<unknown>;
 	createWeeklyReportTestData: (tag?: string) => Promise<unknown>;
 	cleanupWeeklyReportTestData: (tag?: string) => Promise<unknown>;
+	/**
+	 * Where an import actually put each ESL student, as
+	 * `schoolStudentId -> cohort label`, for one year and grade.
+	 *
+	 * The importer's contract is that a student lands in the cohort their
+	 * `ESL Group` column names, even when the sheet they were read from names a
+	 * different class. That is only visible in the applied rows — the staging plan
+	 * reports the disagreement but does not resolve it — so asserting it has to
+	 * read the data back.
+	 */
+	eslStudentCohorts: (year: string, grade: number) => Promise<Record<string, string>>;
+	setEslRoleByEmail: (email: string, eslRole: 'admin' | 'teacher' | null) => Promise<unknown>;
+	/** Super-only test helper: delete every ESL table row. */
+	clearEslData: () => Promise<unknown>;
+	createEslSemester: (opts: CreateEslSemesterOptions) => Promise<unknown>;
+	createEslCohort: (opts: CreateEslCohortOptions) => Promise<{ classIds: string[] }>;
+	setEslClassSchedule: (opts: SetEslClassScheduleOptions) => Promise<unknown>;
+	assignEslTeacher: (opts: AssignEslTeacherOptions) => Promise<unknown>;
+	createEslEvent: (opts: CreateEslEventOptions) => Promise<unknown>;
+	updateEslEvent: (opts: UpdateEslEventOptions) => Promise<unknown>;
+	removeEslEvent: (eventId: string) => Promise<unknown>;
+	getEslSemester: (semesterId: string) => Promise<unknown>;
 }
 
 export function getE2EUtils(): E2EUtils {
@@ -238,13 +350,15 @@ export function getE2EUtils(): E2EUtils {
 			// that performer's tagged logs and removes the performer user.
 			return await c.mutation(api.testLifecycle.teardownByTag, {
 				scope: 'auditLogs',
-				...((authIdString && { e2eTag: authIdString }) ?? {})
+				...(authIdString && { e2eTag: authIdString })
 			});
 		},
 
-		async setupTestUsers(): Promise<SetupTestUsersResult> {
+		async setupTestUsers(
+			department?: 'all' | 'international' | 'esl'
+		): Promise<SetupTestUsersResult> {
 			try {
-				const result = await c.mutation(api.testSetup.setupTestUsers, {});
+				const result = await c.mutation(api.testSetup.setupTestUsers, { department });
 				console.log('Setup test users result:', result);
 				return result as SetupTestUsersResult;
 			} catch (e) {
@@ -359,7 +473,7 @@ export function getE2EUtils(): E2EUtils {
 		async createCategory(opts?: CreateCategoryOptions) {
 			try {
 				return await c.mutation(api.dataFactory.createCategory, {
-					...(opts || {})
+					...opts
 				});
 			} catch {
 				console.log('Create category error');
@@ -454,6 +568,83 @@ export function getE2EUtils(): E2EUtils {
 			return await c.mutation(api.testLifecycle.teardownByTag, {
 				scope: 'all',
 				e2eTag: tag || 'weekly-reports-test'
+			});
+		},
+
+		async eslStudentCohorts(year: string, grade: number) {
+			const cohorts = await c.query(api.esl.cohorts.list, { year, grade });
+			const bySchoolStudentId: Record<string, string> = {};
+			// Sequential rather than `Promise.all`: one convex-client already runs its
+			// request queue serially, and a year holds ~20 cohorts of ~20 students.
+			for (const cohort of cohorts) {
+				const students = await c.query(api.esl.students.listByCohort, {
+					cohortId: cohort._id
+				});
+				for (const student of students) {
+					bySchoolStudentId[student.schoolStudentId] = cohort.label;
+				}
+			}
+			return bySchoolStudentId;
+		},
+
+		async setEslRoleByEmail(email: string, eslRole: 'admin' | 'teacher' | null) {
+			return await c.mutation(api.testSetup.setEslRoleByEmail, { email, eslRole });
+		},
+
+		async clearEslData() {
+			return await c.mutation(api.testSetup.clearEslData, {});
+		},
+
+		async createEslSemester(opts: CreateEslSemesterOptions) {
+			return await c.mutation(api.esl.semesters.create, { ...opts });
+		},
+
+		async createEslCohort(opts: CreateEslCohortOptions) {
+			return (await c.mutation(api.esl.cohorts.create, { ...opts })) as {
+				classIds: string[];
+			};
+		},
+
+		async setEslClassSchedule(opts: SetEslClassScheduleOptions) {
+			const { classId, ...rest } = opts;
+			return await c.mutation(api.esl.classes.setSchedule, {
+				classId: classId as Id<'esl_classes'>,
+				...rest
+			});
+		},
+
+		async assignEslTeacher(opts: AssignEslTeacherOptions) {
+			return await c.mutation(api.esl.classes.assignTeacher, {
+				id: opts.classId as Id<'esl_classes'>,
+				teacherId: opts.teacherId as Id<'users'>
+			});
+		},
+
+		async createEslEvent(opts: CreateEslEventOptions) {
+			const { semesterId, ...rest } = opts;
+			return await c.mutation(api.esl.events.create, {
+				semesterId: semesterId as Id<'esl_semesters'>,
+				...rest
+			});
+		},
+
+		async updateEslEvent(opts: UpdateEslEventOptions) {
+			const { eventId, ...rest } = opts;
+			return await c.mutation(api.esl.events.update, {
+				eventId: eventId as Id<'esl_events'>,
+				...rest
+			});
+		},
+
+		async removeEslEvent(eventId: string) {
+			return await c.mutation(api.esl.events.remove, {
+				eventId: eventId as Id<'esl_events'>
+			});
+		},
+
+		async getEslSemester(semesterId: string) {
+			return await c.query(api.esl.semesters.get, {
+				semesterId: semesterId as Id<'esl_semesters'>
 			});
 		}
 	};

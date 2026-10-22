@@ -179,8 +179,7 @@
 						placeholder="Enter specific details..."
 						class="bg-background border-input w-full rounded-md border p-3 text-sm"
 						rows="3"
-						aria-label="Evaluation details"
-					></textarea>
+						aria-label="Evaluation details"></textarea>
 				</div>
 			</div>
 		{/if}

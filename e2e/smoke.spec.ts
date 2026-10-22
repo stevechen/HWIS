@@ -3,7 +3,7 @@ import { getTestSuffix } from './helpers';
 import { createStudent, cleanupTestData } from './convex-client';
 import { NewEvaluationPage, AdminStudentsPage } from './pages';
 
-test.describe('Smoke Tests @smoke', () => {
+test.describe('Smoke Tests @smoke @hwis', () => {
 	test.use({ role: 'teacher' });
 
 	let testE2eTag: string | null = null;
@@ -61,7 +61,7 @@ test.describe('Smoke Tests @smoke', () => {
 	});
 });
 
-test.describe('Student Table UI Tests @students', () => {
+test.describe('Student Table UI Tests @students @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let testE2eTag: string | null = null;

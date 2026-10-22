@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vite-plus/test';
 import { convexTest, modules, mockAuthUser } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
@@ -127,6 +127,77 @@ describe('users.update self-demotion guard', () => {
 		});
 		expect(user?.role).toBe('admin');
 		expect(user?.status).toBe('active');
+	});
+});
+
+describe('users.update audit', () => {
+	afterEach(() => mockAuthUser(null));
+
+	it('logs departmentRoles alongside role changes', async () => {
+		const t = await convexTest(schema, modules);
+		await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'boss',
+				name: 'Boss Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+		const otherId = (await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'hybrid-teacher',
+				name: 'Hybrid Teacher',
+				role: 'teacher',
+				status: 'active',
+				departmentRoles: { international: 'admin' }
+			});
+		})) as Id<'users'>;
+		mockAuthUser({ authId: 'boss' });
+
+		await t.mutation(api.users.update, { id: otherId, role: 'admin' });
+
+		const entries = await t.run(async (ctx) => {
+			return await ctx.db.query('audit_logs').collect();
+		});
+		const roleEntry = entries.find((entry) => entry.action === 'update_user_role');
+		expect(roleEntry?.oldValue).toEqual({
+			role: 'teacher',
+			departmentRoles: { international: 'admin' }
+		});
+		expect(roleEntry?.newValue).toEqual({
+			role: 'admin',
+			departmentRoles: { international: 'admin' }
+		});
+	});
+
+	it('omits departmentRoles for slot-less rows', async () => {
+		const t = await convexTest(schema, modules);
+		await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'boss',
+				name: 'Boss Admin',
+				role: 'admin',
+				status: 'active'
+			});
+		});
+		const otherId = (await t.run(async (ctx) => {
+			return await ctx.db.insert('users', {
+				authId: 'plain-teacher',
+				name: 'Plain Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+		})) as Id<'users'>;
+		mockAuthUser({ authId: 'boss' });
+
+		await t.mutation(api.users.update, { id: otherId, role: 'admin' });
+
+		const entries = await t.run(async (ctx) => {
+			return await ctx.db.query('audit_logs').collect();
+		});
+		const roleEntry = entries.find((entry) => entry.action === 'update_user_role');
+		expect(roleEntry?.oldValue).toEqual({ role: 'teacher' });
+		expect(roleEntry?.newValue).toEqual({ role: 'admin' });
 	});
 });
 

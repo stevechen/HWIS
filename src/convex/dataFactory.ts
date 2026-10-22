@@ -7,7 +7,7 @@ import { GRADES } from './shared/class_roster';
 // Helper to get or create a class for e2e tests
 // className: "default", "IB", "1", "2", etc.
 async function getOrCreateClass(
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 	ctx: any,
 	grade: number,
 	className: string,
@@ -566,5 +566,375 @@ export const tagHouseEventsByTitle = mutation({
 			}
 		}
 		return { tagged };
+	}
+});
+
+/* ------------------------------------------------------------------------- *
+ * Department-aware factories (#242)
+ *
+ * Each factory writes only the tables its department owns: `createEsl*` never
+ * touches the `students`/`classes`/`evaluations` graph, and the HWIS factories
+ * above never touch an `esl_*` table. Shared users are the one place a
+ * department is explicit, because `users.departmentRoles` is what decides which
+ * department a staff member belongs to.
+ * ------------------------------------------------------------------------- */
+
+const departmentValidator = v.union(
+	v.literal('international'),
+	v.literal('esl'),
+	v.literal('both')
+);
+
+const departmentRoleValidator = v.union(v.literal('admin'), v.literal('teacher'));
+
+const eslTermValidator = v.union(v.literal('S1'), v.literal('S2'));
+
+const eslClassTypeValidator = v.union(
+	v.literal('CLIL'),
+	v.literal('Comm'),
+	v.literal('G9'),
+	v.literal('H10A'),
+	v.literal('H10B')
+);
+
+const eslEventTypeValidator = v.union(
+	v.literal('start_school'),
+	v.literal('reminder'),
+	v.literal('no_school'),
+	v.literal('no_class'),
+	v.literal('partial'),
+	v.literal('exam'),
+	v.literal('g9_mock')
+);
+
+const eslEventTargetValidator = v.union(
+	v.literal('all'),
+	v.literal('CLIL'),
+	v.literal('Comm'),
+	v.literal('G7'),
+	v.literal('G8'),
+	v.literal('G9'),
+	v.literal('H1')
+);
+
+const eslWeekdayValidator = v.union(
+	v.literal('Monday'),
+	v.literal('Tuesday'),
+	v.literal('Wednesday'),
+	v.literal('Thursday'),
+	v.literal('Friday')
+);
+
+function defaultEslClassTypes(grade: number) {
+	if (grade === 10) return ['H10A', 'H10B'] as const;
+	if (grade === 9) return ['G9'] as const;
+	return ['CLIL', 'Comm'] as const;
+}
+
+/**
+ * Create an International (`classes`) row. Explicit counterpart to
+ * {@link createEslClass}, so a spec states which department's class it needs.
+ */
+export const createHwisClass = mutation({
+	args: {
+		grade: v.number(),
+		class: v.optional(v.string()),
+		e2eTag: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const tag = args.e2eTag || getE2ETag();
+		return await getOrCreateClass(ctx, args.grade, args.class || 'default', tag);
+	}
+});
+
+/**
+ * Create an ESL semester. Writes `esl_semesters` only.
+ */
+export const createEslSemester = mutation({
+	args: {
+		year: v.optional(v.string()),
+		term: v.optional(eslTermValidator),
+		startDate: v.optional(v.string()),
+		e2eTag: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		return await ctx.db.insert('esl_semesters', {
+			year: args.year ?? '2025-2026',
+			term: args.term ?? 'S1',
+			startDate: args.startDate ?? '2025-08-25',
+			e2eTag: args.e2eTag || getE2ETag()
+		});
+	}
+});
+
+/**
+ * Create an ESL cohort and the classes that teach it. Writes `esl_cohorts` and
+ * `esl_classes` only; the cohort carries the tag because `esl_classes` has no
+ * tag column of its own.
+ */
+export const createEslCohort = mutation({
+	args: {
+		year: v.optional(v.string()),
+		grade: v.optional(v.number()),
+		level: v.optional(v.string()),
+		classNumber: v.optional(v.string()),
+		classTypes: v.optional(v.array(eslClassTypeValidator)),
+		e2eTag: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const tag = args.e2eTag || getE2ETag();
+		const year = args.year ?? '2025-2026';
+		const grade = args.grade ?? 7;
+		const level = args.level ?? 'A';
+		const classNumber = args.classNumber ?? '1';
+		const now = Date.now();
+
+		const cohortId = await ctx.db.insert('esl_cohorts', {
+			year,
+			grade,
+			level,
+			classNumber,
+			status: 'active',
+			createdAt: now,
+			e2eTag: tag
+		});
+
+		const types = args.classTypes ?? defaultEslClassTypes(grade);
+		const classIds: Id<'esl_classes'>[] = [];
+		for (const type of types) {
+			classIds.push(
+				await ctx.db.insert('esl_classes', {
+					cohortId,
+					type,
+					name: `G${grade}-${level}-${classNumber}-${type}`,
+					status: 'active',
+					createdAt: now
+				})
+			);
+		}
+
+		return { cohortId, classIds };
+	}
+});
+
+/**
+ * Add one class to an existing ESL cohort. Writes `esl_classes` only.
+ */
+export const createEslClass = mutation({
+	args: {
+		cohortId: v.id('esl_cohorts'),
+		type: v.optional(eslClassTypeValidator),
+		name: v.optional(v.string()),
+		teacherId: v.optional(v.id('users')),
+		room: v.optional(v.string()),
+		status: v.optional(v.union(v.literal('active'), v.literal('archived')))
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const cohort = await ctx.db.get(args.cohortId);
+		if (!cohort) throw new Error('Cohort not found');
+		const type = args.type ?? 'CLIL';
+		return await ctx.db.insert('esl_classes', {
+			cohortId: args.cohortId,
+			type,
+			name: args.name ?? `G${cohort.grade}-${type}`,
+			...(args.teacherId === undefined ? {} : { teacherId: args.teacherId }),
+			...(args.room === undefined ? {} : { room: args.room }),
+			status: args.status ?? 'active',
+			createdAt: Date.now()
+		});
+	}
+});
+
+/**
+ * Create an ESL student in a cohort. Writes `esl_students` only — an ESL
+ * student references `esl_cohorts`, never an International `classes` row.
+ */
+export const createEslStudent = mutation({
+	args: {
+		cohortId: v.id('esl_cohorts'),
+		englishName: v.optional(v.string()),
+		chineseName: v.optional(v.string()),
+		schoolStudentId: v.optional(v.string()),
+		chineseClass: v.optional(v.string()),
+		status: v.optional(v.union(v.literal('active'), v.literal('disabled'))),
+		e2eTag: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const cohort = await ctx.db.get(args.cohortId);
+		if (!cohort) throw new Error('Cohort not found');
+		return await ctx.db.insert('esl_students', {
+			cohortId: args.cohortId,
+			englishName: args.englishName ?? generateStudentName(),
+			chineseName: args.chineseName ?? generateChineseName(),
+			schoolStudentId: args.schoolStudentId ?? `ESL${Date.now().toString().slice(-7)}`,
+			chineseClass: args.chineseClass ?? 'J101',
+			status: args.status ?? 'active',
+			enrolledAt: Date.now(),
+			e2eTag: args.e2eTag || getE2ETag()
+		});
+	}
+});
+
+/**
+ * Create an ESL event in a semester. Writes `esl_events` only.
+ */
+export const createEslEvent = mutation({
+	args: {
+		semesterId: v.id('esl_semesters'),
+		type: v.optional(eslEventTypeValidator),
+		title: v.optional(v.string()),
+		target: v.optional(eslEventTargetValidator),
+		date: v.optional(v.string()),
+		endDate: v.optional(v.string()),
+		note: v.optional(v.string()),
+		e2eTag: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const semester = await ctx.db.get(args.semesterId);
+		if (!semester) throw new Error('Semester not found');
+		return await ctx.db.insert('esl_events', {
+			semesterId: args.semesterId,
+			type: args.type ?? 'no_school',
+			title: args.title ?? 'Test ESL Event',
+			target: args.target ?? 'all',
+			date: args.date ?? '2025-09-01',
+			...(args.endDate === undefined ? {} : { endDate: args.endDate }),
+			...(args.note === undefined ? {} : { note: args.note }),
+			e2eTag: args.e2eTag || getE2ETag()
+		});
+	}
+});
+
+/**
+ * Create one weekly meeting for an ESL class. Writes `esl_class_meetings` only.
+ */
+export const createEslMeeting = mutation({
+	args: {
+		classId: v.id('esl_classes'),
+		year: v.optional(v.string()),
+		day: v.optional(eslWeekdayValidator),
+		period: v.optional(v.number()),
+		e2eTag: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const cls = await ctx.db.get(args.classId);
+		if (!cls) throw new Error('ESL class not found');
+		return await ctx.db.insert('esl_class_meetings', {
+			classId: args.classId,
+			year: args.year ?? '2025-2026',
+			day: args.day ?? 'Monday',
+			period: args.period ?? 1,
+			e2eTag: args.e2eTag || getE2ETag()
+		});
+	}
+});
+
+/**
+ * Create a teacher's note for an ESL class date. Writes `teacher_notes` only.
+ */
+export const createEslNote = mutation({
+	args: {
+		classId: v.id('esl_classes'),
+		teacherId: v.id('users'),
+		date: v.optional(v.string()),
+		text: v.optional(v.string()),
+		e2eTag: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const cls = await ctx.db.get(args.classId);
+		if (!cls) throw new Error('ESL class not found');
+		return await ctx.db.insert('teacher_notes', {
+			classId: args.classId,
+			date: args.date ?? '2025-09-01',
+			teacherId: args.teacherId,
+			text: args.text ?? 'Test note',
+			updatedAt: Date.now(),
+			updatedBy: args.teacherId,
+			e2eTag: args.e2eTag || getE2ETag()
+		});
+	}
+});
+
+/**
+ * Create a teacher availability block. Writes `esl_teacher_availability` only.
+ */
+export const createEslAvailability = mutation({
+	args: {
+		teacherId: v.id('users'),
+		year: v.optional(v.string()),
+		day: v.optional(eslWeekdayValidator),
+		period: v.optional(v.number()),
+		note: v.optional(v.string()),
+		e2eTag: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		return await ctx.db.insert('esl_teacher_availability', {
+			teacherId: args.teacherId,
+			year: args.year ?? '2025-2026',
+			day: args.day ?? 'Monday',
+			period: args.period ?? 1,
+			...(args.note === undefined ? {} : { note: args.note }),
+			e2eTag: args.e2eTag || getE2ETag()
+		});
+	}
+});
+
+/**
+ * Create a test staff account with an explicit department assignment.
+ *
+ * `department: 'both'` is what a cross-department (hybrid) account needs;
+ * teardown preserves such a user in every scope because removing them would
+ * strip the other department's access.
+ */
+export const createTestUser = mutation({
+	args: {
+		authId: v.string(),
+		name: v.optional(v.string()),
+		role: v.optional(
+			v.union(v.literal('super'), v.literal('admin'), v.literal('teacher'), v.literal('student'))
+		),
+		status: v.optional(v.union(v.literal('pending'), v.literal('active'))),
+		department: v.optional(departmentValidator),
+		departmentRole: v.optional(departmentRoleValidator),
+		e2eTag: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		await requireAdminForSensitiveOperation(ctx);
+		const role = args.role ?? 'teacher';
+		if (role === 'student' && args.department !== undefined) {
+			throw new Error('Students cannot hold department roles');
+		}
+
+		let departmentRoles:
+			| { international?: 'admin' | 'teacher'; esl?: 'admin' | 'teacher' }
+			| undefined;
+		if (args.department) {
+			const rank = args.departmentRole ?? 'teacher';
+			if (args.department === 'both') {
+				departmentRoles = { international: rank, esl: rank };
+			} else if (args.department === 'international') {
+				departmentRoles = { international: rank };
+			} else {
+				departmentRoles = { esl: rank };
+			}
+		}
+
+		return await ctx.db.insert('users', {
+			authId: args.authId,
+			name: args.name ?? `Test ${role}`,
+			role,
+			status: args.status ?? 'active',
+			...(departmentRoles ? { departmentRoles } : {}),
+			...(args.e2eTag === undefined ? {} : { e2eTag: args.e2eTag })
+		});
 	}
 });

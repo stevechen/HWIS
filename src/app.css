@@ -21,6 +21,31 @@ dialog::backdrop {
 
 @custom-variant dark (&:is(.dark *));
 
+/**
+ * The emerald "this slot is selected" look, as one utility.
+ *
+ * Tailwind has no syntax for applying a variant to several utilities at once —
+ * `has-checked:` is part of each utility's *name*, so writing the three checked
+ * styles means writing the prefix three times. Svelte's class arrays cannot help:
+ * an array entry is just a class string, so
+ * `[hasChecked && 'has-checked:a has-checked:b has-checked:c']` still spells the
+ * prefix three times. Deduplicating it has to happen at the Tailwind layer, which
+ * is what this is.
+ *
+ * `&:has(:checked)` gives the rule two classes of specificity against the base
+ * `border-input` / `text-muted-foreground`, so it wins on specificity rather than
+ * on where Tailwind happens to sort it in the stylesheet — order-independent, which
+ * the stock `has-checked:` variant is not.
+ *
+ * Named for the shape, not the colour: a caller can restyle this once here rather
+ * than hunting three utilities per element.
+ */
+@utility slot-checked {
+	&:has(:checked) {
+		@apply border-emerald-600 bg-emerald-100 text-emerald-900;
+	}
+}
+
 @theme {
 	/* Ultra-high-resolution TV & Monitor Breakpoints (1rem = 16px) */
 	--breakpoint-fhd: 120rem; /* 1920px - HDTV / Full HD */

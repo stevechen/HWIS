@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import type { Id } from '$convex/_generated/dataModel';
 
@@ -68,26 +68,26 @@ describe('Evaluation Form', () => {
 	});
 
 	it('shows search input for filtering students', async () => {
-		render(EvaluationFormPage);
+		await render(EvaluationFormPage);
 		await expect
 			.element(page.getByPlaceholder('Filter by names (separated by commas) or ID...'))
 			.toBeInTheDocument();
 	});
 
 	it('renders submit button', async () => {
-		render(EvaluationFormPage);
+		await render(EvaluationFormPage);
 		await expect
 			.element(page.getByRole('button', { name: 'Submit Evaluation' }))
 			.toBeInTheDocument();
 	});
 
 	it('shows student count indicator', async () => {
-		render(EvaluationFormPage);
+		await render(EvaluationFormPage);
 		await expect.element(page.getByText('0 selected')).toBeInTheDocument();
 	});
 
 	it('shows lock notice at the top of the Evaluation Details card, before the Submit button', async () => {
-		render(EvaluationFormPage);
+		await render(EvaluationFormPage);
 		const lockNotice = page.getByText(/locks for edits on/i);
 		const submitButton = page.getByRole('button', { name: 'Submit evaluation' });
 		await expect.element(lockNotice).toBeInTheDocument();
@@ -102,7 +102,7 @@ describe('Evaluation Form', () => {
 
 	describe('Submit Behavior', () => {
 		it('calls goto on successful submit', async () => {
-			render(EvaluationFormPage);
+			await render(EvaluationFormPage);
 
 			// Select a student
 			const student = page.getByRole('button', { name: 'Select John Doe' });
@@ -119,7 +119,7 @@ describe('Evaluation Form', () => {
 		});
 
 		it('shows validation error when no student is selected', async () => {
-			render(EvaluationFormPage);
+			await render(EvaluationFormPage);
 
 			// Submit without selecting any student
 			await page.getByRole('button', { name: 'Submit evaluation' }).click();
@@ -131,7 +131,7 @@ describe('Evaluation Form', () => {
 		});
 
 		it('shows validation error when no category is selected', async () => {
-			render(EvaluationFormPage);
+			await render(EvaluationFormPage);
 
 			// Select a student but no category
 			await page.getByRole('button', { name: 'Select John Doe' }).click();

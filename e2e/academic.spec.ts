@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures';
 
-test.describe('Academic Page @academic @sequential', () => {
+test.describe('Academic Page @academic @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	test.beforeEach(async ({ page }) => {

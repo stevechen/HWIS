@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
@@ -117,7 +117,7 @@ describe('Student Evaluations Page — teacher cross-teacher scope', () => {
 	});
 
 	it('defaults to the "all teachers" scope and exposes the scope tab in the header', async () => {
-		render(StudentEvaluationsPage, { props: { data: {} } });
+		await render(StudentEvaluationsPage, { props: { data: {} } });
 
 		// Page wired the global header to show the scope tab for a teacher.
 		expect(get(headerTeacherScopeVisible)).toBe(true);
@@ -127,7 +127,7 @@ describe('Student Evaluations Page — teacher cross-teacher scope', () => {
 	});
 
 	it('shows all teachers’ data but masks other teachers’ names (keeps own)', async () => {
-		render(StudentEvaluationsPage, { props: { data: {} } });
+		await render(StudentEvaluationsPage, { props: { data: {} } });
 
 		// Other teachers' evaluations are present (categories visible)...
 		await expect.element(page.getByText('Behavior', { exact: true })).toBeInTheDocument();
@@ -140,7 +140,7 @@ describe('Student Evaluations Page — teacher cross-teacher scope', () => {
 	});
 
 	it('switches to "mine only" when the scope store is set to mine', async () => {
-		render(StudentEvaluationsPage, { props: { data: {} } });
+		await render(StudentEvaluationsPage, { props: { data: {} } });
 
 		// Let the page's mount effect settle (it resets scope to "all"), then switch.
 		await tick();

@@ -7,7 +7,19 @@ import { betterAuth } from 'better-auth/minimal';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import authConfig from './auth.config';
 import { resolveEffectiveTestToken } from './testAuth';
-import { canAccessAdminArea, isActiveStaff, isSuper } from './shared/authorization';
+import {
+	canAccessAdminArea,
+	canRestoreDepartment,
+	isActiveEslStaff,
+	isActiveInternationalStaff,
+	isActiveStaff,
+	isEslAdmin,
+	isInternationalAdmin,
+	isSuper,
+	type Department,
+	type DepartmentRoles
+} from './shared/authorization';
+import { normalizeDepartment } from './shared/departments';
 
 function normalizeEnvValue(value?: string | null): string | undefined {
 	if (!value) return undefined;
@@ -126,12 +138,18 @@ export function isStudentEmail(email: string): boolean {
 	return email.endsWith(`@${STUDENT_DOMAIN}`);
 }
 
+/**
+ * Extracts the student ID from a student-domain email local part.
+ *
+ * International student mailboxes use 6-digit IDs, ESL ones 7-digit IDs, so
+ * both widths are accepted.
+ */
 export function extractStudentIdFromEmail(email: string): string | null {
 	if (!isStudentEmail(email)) return null;
 
 	const localPart = email.split('@')[0];
-	// Match pattern: s followed by one or more digits
-	const match = localPart.match(/^s(\d+)$/);
+	// Match pattern: s followed by a 6- or 7-digit student ID
+	const match = localPart.match(/^s(\d{6,7})$/);
 	return match ? match[1] : null;
 }
 
@@ -147,6 +165,7 @@ export type AuthenticatedUserLike = {
 	name?: string;
 	role?: 'super' | 'admin' | 'teacher' | 'student';
 	status?: 'pending' | 'active';
+	departmentRoles?: DepartmentRoles;
 };
 
 function resolveAuthId(user: AuthenticatedUserLike): string | undefined {
@@ -344,6 +363,42 @@ export const requireSuperRole = async (ctx: AuthCtx, _testToken?: string) => {
 	return user;
 };
 
+// Department requirements — every gate delegates to the shared multi-department
+// policy so the backend and the frontend viewer cannot drift (ADR 0010). Super
+// users pass all of them; every other subject needs an Active department
+// assignment, with legacy rows falling back to `{ international: role }`.
+export const requireInternationalStaff = async (ctx: AuthCtx, _testToken?: string) => {
+	const user = await requireUserProfile(ctx, _testToken);
+	if (!isActiveInternationalStaff(user)) {
+		throw new Error('Forbidden: International staff access required');
+	}
+	return user;
+};
+
+export const requireInternationalAdmin = async (ctx: AuthCtx, _testToken?: string) => {
+	const user = await requireUserProfile(ctx, _testToken);
+	if (!isInternationalAdmin(user) || user.status !== 'active') {
+		throw new Error('Forbidden: International admin access required');
+	}
+	return user;
+};
+
+export const requireEslStaff = async (ctx: AuthCtx, _testToken?: string) => {
+	const user = await requireUserProfile(ctx, _testToken);
+	if (!isActiveEslStaff(user)) {
+		throw new Error('Forbidden: ESL staff access required');
+	}
+	return user;
+};
+
+export const requireEslAdmin = async (ctx: AuthCtx, _testToken?: string) => {
+	const user = await requireUserProfile(ctx, _testToken);
+	if (!isEslAdmin(user) || user.status !== 'active') {
+		throw new Error('Forbidden: ESL admin access required');
+	}
+	return user;
+};
+
 export const requireUserProfileForSensitiveOperation = async (ctx: AuthCtx, testToken?: string) => {
 	const effectiveTestToken = resolveEffectiveTestToken(testToken);
 	return await requireUserProfile(ctx, effectiveTestToken);
@@ -357,4 +412,26 @@ export const requireAdminForSensitiveOperation = async (ctx: AuthCtx, testToken?
 export const requireSuperForSensitiveOperation = async (ctx: AuthCtx, testToken?: string) => {
 	const effectiveTestToken = resolveEffectiveTestToken(testToken);
 	return await requireSuperRole(ctx, effectiveTestToken);
+};
+
+/**
+ * Department-scoped restore gate (backup separation, #238/#246).
+ *
+ * Restoring a backup may only be performed by an Active admin of the backup's
+ * own department, or a Super user. This mirrors the global admin check for
+ * legacy International admins but admits ESL-only admins (base role
+ * `teacher`, `departmentRoles.esl === 'admin'`) and refuses cross-department
+ * restores that the single global gate used to allow.
+ */
+export const requireDepartmentRestoreAdmin = async (
+	ctx: AuthCtx,
+	department: Department,
+	testToken?: string
+) => {
+	const effectiveTestToken = resolveEffectiveTestToken(testToken);
+	const user = await requireUserProfile(ctx, effectiveTestToken);
+	if (!canRestoreDepartment(user, normalizeDepartment(department))) {
+		throw new Error(`Forbidden: ${normalizeDepartment(department)} admin access required`);
+	}
+	return user;
 };

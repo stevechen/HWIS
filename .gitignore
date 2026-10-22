@@ -55,4 +55,9 @@ src/convex/_generated/ai/
 
 # Scratch / temporary files
 temp/
+handoff/
 
+# Agent worktree checkouts
+worktrees/
+
+.vitest/

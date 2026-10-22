@@ -21,6 +21,8 @@
 // Backup sources and restore permissions are owned by ADR-0009 / ADR-0012 and are
 // deliberately untouched by this module.
 
+import type { Department } from './authorization';
+
 export type DriveEnvironment = 'prod' | 'dev' | 'local' | 'unknown';
 
 /** Mirrors the classification in `auth.isProdDeployment`, per call. */
@@ -39,9 +41,18 @@ export function resolveDriveEnvironment(deployment: string | undefined): DriveEn
  * name is attacker-irrelevant here, and a free-form string in a filename is worse
  * than a useless one.
  */
-export function buildDriveBackupFilename(environment: DriveEnvironment, now: Date): string {
+export function buildDriveBackupFilename(
+	environment: DriveEnvironment,
+	now: Date,
+	department: Department = 'international'
+): string {
 	const day = now.toISOString().split('T')[0];
-	return `backup-${environment}-${day}.json`;
+	// HWIS keeps the original filename so existing archive tooling and the
+	// 5-year records trail stay addressable. ESL gets an explicit marker so the
+	// two nightly archives can never be mistaken for each other.
+	return department === 'esl'
+		? `backup-${environment}-esl-${day}.json`
+		: `backup-${environment}-${day}.json`;
 }
 
 /**

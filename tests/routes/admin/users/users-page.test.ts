@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { buildViewerSession } from '../../../mocks/route-mocks';
 
@@ -123,7 +123,7 @@ describe('Users Admin Page - card grid', () => {
 	it('pre-checks new signups and labels the hero "Approve checked (N)"', async () => {
 		renderPage();
 		const hero = page.getByTestId('admin-users.approve-checked');
-		await expect.element(hero).toHaveTextContent('Approve checked (2)');
+		await expect.element(hero).toMatchTextContent('Approve checked (2)');
 		await expect
 			.element(page.getByRole('checkbox', { name: 'Select New Teacher One' }))
 			.toBeChecked();
@@ -135,10 +135,10 @@ describe('Users Admin Page - card grid', () => {
 	it('updates the hero count as new signups are unchecked', async () => {
 		renderPage();
 		const hero = page.getByTestId('admin-users.approve-checked');
-		await expect.element(hero).toHaveTextContent('Approve checked (2)');
+		await expect.element(hero).toMatchTextContent('Approve checked (2)');
 
 		await page.getByRole('checkbox', { name: 'Select New Teacher One' }).click();
-		await expect.element(hero).toHaveTextContent('Approve checked (1)');
+		await expect.element(hero).toMatchTextContent('Approve checked (1)');
 	});
 
 	it('hides the batch button entirely when nothing is checked', async () => {
@@ -204,7 +204,7 @@ describe('Users Admin Page - card grid', () => {
 		renderPage();
 		await expect
 			.element(page.getByTestId('admin-users.card-user_a2'))
-			.toHaveTextContent('Active Teacher');
+			.toMatchTextContent('Active Teacher');
 		await expect.element(page.getByRole('tab', { name: /Pending/ })).not.toBeInTheDocument();
 		await expect.element(page.getByTestId('admin-users.hero')).not.toBeInTheDocument();
 		await expect.element(page.getByText('New teacher(s) pending')).not.toBeInTheDocument();
@@ -222,7 +222,7 @@ describe('Users Admin Page - card grid', () => {
 		renderPage();
 		await page.getByRole('tab', { name: /Active/ }).click();
 		const card = page.getByTestId('admin-users.card-user_a1');
-		await expect.element(card).toHaveTextContent('Admin');
+		await expect.element(card).toMatchTextContent('Admin');
 	});
 
 	it('moves approved teachers to the Active tab after batch approval', async () => {
@@ -240,10 +240,10 @@ describe('Users Admin Page - card grid', () => {
 		await expect.element(page.getByText('Active (4)')).toBeVisible();
 		await expect
 			.element(page.getByTestId('admin-users.card-user_p1'))
-			.toHaveTextContent('Approved this session');
+			.toMatchTextContent('Approved this session');
 		await expect
 			.element(page.getByTestId('admin-users.card-user_p2'))
-			.toHaveTextContent('Approved this session');
+			.toMatchTextContent('Approved this session');
 	});
 
 	it('displays the email below the user name instead of authId', async () => {
@@ -264,7 +264,7 @@ describe('Users Admin Page - card grid', () => {
 	it('falls back to initials circle when no avatar image is available', async () => {
 		renderPage();
 		await page.getByRole('tab', { name: /Active/ }).click();
-		await expect.element(page.getByTestId('admin-users.card-user_a1')).toHaveTextContent('CA');
+		await expect.element(page.getByTestId('admin-users.card-user_a1')).toMatchTextContent('CA');
 	});
 
 	it('strips CJK characters from names for display and sorting', async () => {
@@ -280,8 +280,8 @@ describe('Users Admin Page - card grid', () => {
 		currentUsers = [activeAdmin, cjkUser, activeTeacher];
 		renderPage();
 		await page.getByRole('tab', { name: /Active/ }).click();
-		await expect.element(page.getByTestId('admin-users.card-user_a3')).toHaveTextContent('Amy');
-		await expect.element(page.getByTestId('admin-users.card-user_a3')).not.toHaveTextContent('王');
+		await expect.element(page.getByTestId('admin-users.card-user_a3')).toMatchTextContent('Amy');
+		await expect.element(page.getByTestId('admin-users.card-user_a3')).not.toMatchTextContent('王');
 	});
 
 	it('keeps the remove-access action on Active cards but apart from the role dropdown', async () => {

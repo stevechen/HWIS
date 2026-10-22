@@ -1,11 +1,11 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import LeaderboardDisabled from '$lib/components/LeaderboardDisabled.svelte';
 
 describe('LeaderboardDisabled', () => {
 	it('announces the witty message through a live status region', async () => {
-		render(LeaderboardDisabled, { boardLabel: 'House Points', theme: 'default' });
+		await render(LeaderboardDisabled, { boardLabel: 'House Points', theme: 'default' });
 		const status = page.getByTestId('leaderboard-disabled');
 		await expect.element(status).toBeInTheDocument();
 		const live = page.getByRole('status');
@@ -16,7 +16,7 @@ describe('LeaderboardDisabled', () => {
 	});
 
 	it('shows the board label as not ready', async () => {
-		render(LeaderboardDisabled, { boardLabel: 'Class Leaderboard', theme: 'default' });
+		await render(LeaderboardDisabled, { boardLabel: 'Class Leaderboard', theme: 'default' });
 		await expect.element(page.getByText('Class Leaderboard · not ready yet')).toBeInTheDocument();
 	});
 
@@ -28,12 +28,12 @@ describe('LeaderboardDisabled', () => {
 		{ theme: 'cny', title: 'The lions are dancing past the scoreboard…' },
 		{ theme: 'halloween', title: 'The spider rewove the scoreboard…' }
 	] as const)('renders the $theme witty title', async ({ theme, title }) => {
-		render(LeaderboardDisabled, { boardLabel: 'House Points', theme });
+		await render(LeaderboardDisabled, { boardLabel: 'House Points', theme });
 		await expect.element(page.getByRole('heading', { name: title })).toBeInTheDocument();
 	});
 
 	it('renders ambient motion hidden from assistive tech', async () => {
-		render(LeaderboardDisabled, { boardLabel: 'House Points', theme: 'christmas' });
+		await render(LeaderboardDisabled, { boardLabel: 'House Points', theme: 'christmas' });
 		await expect.element(page.getByTestId('leaderboard-disabled-motes')).toBeInTheDocument();
 	});
 });

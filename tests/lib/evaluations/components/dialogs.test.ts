@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import type { EvaluationEntry } from '$lib/components/timeline/types';
 import { createMockEvaluation, mockCategories } from '../../../fixtures/evaluations';
@@ -40,55 +40,55 @@ describe('Evaluation Dialogs', () => {
 	describe('DeleteEvaluationDialog', () => {
 		describe('Visibility', () => {
 			it('is visible when open is true', async () => {
-				render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
+				await render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
 				await expect
 					.element(page.getByRole('dialog', { name: 'Delete Evaluation' }))
 					.toBeInTheDocument();
 			});
 
 			it('is hidden when open is false', async () => {
-				render(DeleteEvaluationDialog, { open: false, evaluation: mockEvaluation });
+				await render(DeleteEvaluationDialog, { open: false, evaluation: mockEvaluation });
 				await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
 			});
 		});
 
 		describe('Content', () => {
 			it('shows confirmation message', async () => {
-				render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
+				await render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
 				await expect.element(page.getByText(/Are you sure you want to delete/)).toBeInTheDocument();
 			});
 
 			it('shows warning that action cannot be undone', async () => {
-				render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
+				await render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
 				await expect.element(page.getByText(/cannot be undone/)).toBeInTheDocument();
 			});
 		});
 
 		describe('Actions', () => {
 			it('has cancel button', async () => {
-				render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
+				await render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
 				await expect.element(page.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
 			});
 
 			it('has delete button', async () => {
-				render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
+				await render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
 				await expect.element(page.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
 			});
 
 			it('cancel button closes dialog', async () => {
-				render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
+				await render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
 				await page.getByRole('button', { name: 'Cancel' }).click();
 				await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
 			});
 
 			it('delete button calls mutation', async () => {
-				render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
+				await render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
 				await page.getByRole('button', { name: 'Delete' }).click();
 				expect(mockMutation).toHaveBeenCalled();
 			});
 
 			it('delete button closes dialog after mutation', async () => {
-				render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
+				await render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
 				await page.getByRole('button', { name: 'Delete' }).click();
 				await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
 			});
@@ -96,14 +96,14 @@ describe('Evaluation Dialogs', () => {
 
 		describe('Accessibility', () => {
 			it('dialog has accessible name', async () => {
-				render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
+				await render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
 				await expect
 					.element(page.getByRole('dialog', { name: 'Delete Evaluation' }))
 					.toBeInTheDocument();
 			});
 
 			it('delete button has destructive variant styling', async () => {
-				render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
+				await render(DeleteEvaluationDialog, { open: true, evaluation: mockEvaluation });
 				const deleteButton = page.getByRole('button', { name: 'Delete' });
 				await expect.element(deleteButton).toBeInTheDocument();
 			});
@@ -112,7 +112,7 @@ describe('Evaluation Dialogs', () => {
 		describe('onDelete Callback', () => {
 			it('calls onDelete after successful delete', async () => {
 				const onDelete = vi.fn();
-				render(DeleteEvaluationDialog, {
+				await render(DeleteEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onDelete
@@ -124,7 +124,7 @@ describe('Evaluation Dialogs', () => {
 
 		describe('Null Evaluation Guard', () => {
 			it('does not call mutation when evaluation is null', async () => {
-				render(DeleteEvaluationDialog, {
+				await render(DeleteEvaluationDialog, {
 					open: true,
 					evaluation: null
 				});
@@ -137,7 +137,7 @@ describe('Evaluation Dialogs', () => {
 	describe('EditEvaluationDialog', () => {
 		describe('Visibility', () => {
 			it('is visible when open is true', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -149,7 +149,7 @@ describe('Evaluation Dialogs', () => {
 			});
 
 			it('is hidden when open is false', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: false,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -161,7 +161,7 @@ describe('Evaluation Dialogs', () => {
 
 		describe('Form Fields', () => {
 			it('shows category select', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -172,7 +172,7 @@ describe('Evaluation Dialogs', () => {
 			});
 
 			it('shows point buttons', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -184,7 +184,7 @@ describe('Evaluation Dialogs', () => {
 			});
 
 			it('shows details textarea', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -198,7 +198,7 @@ describe('Evaluation Dialogs', () => {
 
 		describe('Form Pre-population', () => {
 			it('pre-fills form with evaluation data', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -211,7 +211,7 @@ describe('Evaluation Dialogs', () => {
 
 		describe('Actions', () => {
 			it('has cancel button', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -221,7 +221,7 @@ describe('Evaluation Dialogs', () => {
 			});
 
 			it('has delete button', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -231,7 +231,7 @@ describe('Evaluation Dialogs', () => {
 			});
 
 			it('has save button', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -244,7 +244,7 @@ describe('Evaluation Dialogs', () => {
 
 			it('cancel button calls onClose', async () => {
 				const onClose = vi.fn();
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose,
@@ -256,7 +256,7 @@ describe('Evaluation Dialogs', () => {
 
 			it('delete button calls onDelete', async () => {
 				const onDelete = vi.fn();
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -267,7 +267,7 @@ describe('Evaluation Dialogs', () => {
 			});
 
 			it('save button closes dialog after mutation', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -280,7 +280,7 @@ describe('Evaluation Dialogs', () => {
 
 		describe('Accessibility', () => {
 			it('dialog has accessible name', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -292,7 +292,7 @@ describe('Evaluation Dialogs', () => {
 			});
 
 			it('point buttons have accessible labels', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -309,7 +309,7 @@ describe('Evaluation Dialogs', () => {
 
 		describe('Keyboard Shortcuts', () => {
 			it('supports point shortcuts while dialog is open', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -338,7 +338,7 @@ describe('Evaluation Dialogs', () => {
 			});
 
 			it('supports + key shortcut for +1', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -356,7 +356,7 @@ describe('Evaluation Dialogs', () => {
 			});
 
 			it('supports Shift+1 shortcut for -1', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -376,7 +376,7 @@ describe('Evaluation Dialogs', () => {
 			});
 
 			it('supports Shift+2 shortcut for -2', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -396,7 +396,7 @@ describe('Evaluation Dialogs', () => {
 			});
 
 			it('ignores shortcuts when textarea is focused', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -425,7 +425,7 @@ describe('Evaluation Dialogs', () => {
 					})
 				);
 
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -443,7 +443,7 @@ describe('Evaluation Dialogs', () => {
 
 		describe('Save Mutation Arguments', () => {
 			it('calls mutation with correct arguments', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: mockEvaluation,
 					onClose: vi.fn(),
@@ -466,7 +466,7 @@ describe('Evaluation Dialogs', () => {
 
 		describe('Null Evaluation Guard', () => {
 			it('does not call mutation when evaluation is null', async () => {
-				render(EditEvaluationDialog, {
+				await render(EditEvaluationDialog, {
 					open: true,
 					evaluation: null,
 					onClose: vi.fn(),

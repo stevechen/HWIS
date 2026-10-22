@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { buildViewerSession, type ViewerSessionConfig } from '../mocks/route-mocks';
 
@@ -71,7 +71,7 @@ describe('root layout auth gate', () => {
 		const { useViewer } = await import('$lib/viewer.svelte');
 		vi.mocked(useViewer).mockReturnValue(viewerFor({ auth: { isAuthenticated: false } }));
 
-		render(Layout);
+		await render(Layout);
 
 		await vi.waitFor(() => {
 			expect(gotoMock).toHaveBeenCalledWith('/login?callbackUrl=%2Fadmin');
@@ -82,7 +82,7 @@ describe('root layout auth gate', () => {
 		const { useViewer } = await import('$lib/viewer.svelte');
 		vi.mocked(useViewer).mockReturnValue(viewerFor({ auth: { isLoading: true } }));
 
-		render(Layout);
+		await render(Layout);
 
 		await vi.waitFor(() => {
 			expect(gotoMock).not.toHaveBeenCalled();
@@ -93,7 +93,7 @@ describe('root layout auth gate', () => {
 		const { useViewer } = await import('$lib/viewer.svelte');
 		vi.mocked(useViewer).mockReturnValue(viewerFor({ role: 'teacher', status: 'active' }));
 
-		render(Layout);
+		await render(Layout);
 
 		await vi.waitFor(() => {
 			expect(gotoMock).not.toHaveBeenCalled();
@@ -105,7 +105,7 @@ describe('root layout auth gate', () => {
 		const { useViewer } = await import('$lib/viewer.svelte');
 		vi.mocked(useViewer).mockReturnValue(viewerFor({ auth: { isAuthenticated: false } }));
 
-		render(Layout);
+		await render(Layout);
 
 		await vi.waitFor(() => {
 			expect(gotoMock).not.toHaveBeenCalled();
@@ -118,7 +118,7 @@ describe('root layout auth gate', () => {
 		const { useViewer } = await import('$lib/viewer.svelte');
 		vi.mocked(useViewer).mockReturnValue(viewerFor({ auth: { isAuthenticated: false } }));
 
-		render(Layout);
+		await render(Layout);
 
 		await vi.waitFor(() => {
 			expect(gotoMock).toHaveBeenCalledWith('/login?callbackUrl=%2Fevaluations%3Fstatus%3Dpending');

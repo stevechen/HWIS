@@ -214,7 +214,7 @@ async function listPaginatedIndexed(
 	}
 ) {
 	// Determine which index to use for initial scan
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 	let queryBuilder: any = ctx.db.query('students');
 	let indexUsed = false;
 	let isFullScan = false;
@@ -227,9 +227,9 @@ async function listPaginatedIndexed(
 			.withIndex('by_grade_class', (q) => q.eq('grade', args.grade || 0).eq('class', args.class!))
 			.first();
 		if (classRecord) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 			queryBuilder = queryBuilder.withIndex('by_status_classId', ((q: any) =>
-				q.eq('status', args.status!).eq('classId', classRecord._id)) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+				q.eq('status', args.status!).eq('classId', classRecord._id)) as any); // oxlint-disable-line @typescript-eslint/no-explicit-any
 			indexUsed = true;
 		}
 	} else if (
@@ -238,20 +238,20 @@ async function listPaginatedIndexed(
 		args.house !== '__unassigned'
 	) {
 		const houseValue = args.house as 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna';
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 		queryBuilder = queryBuilder.withIndex('by_status_house', ((q: any) =>
-			q.eq('status', args.status!).eq('house', houseValue)) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+			q.eq('status', args.status!).eq('house', houseValue)) as any); // oxlint-disable-line @typescript-eslint/no-explicit-any
 		indexUsed = true;
 	} else if (args.status !== undefined) {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 		queryBuilder = queryBuilder.withIndex('by_status', ((q: any) =>
-			q.eq('status', args.status!)) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+			q.eq('status', args.status!)) as any); // oxlint-disable-line @typescript-eslint/no-explicit-any
 		indexUsed = true;
 	} else if (args.house !== undefined && args.house !== '__unassigned') {
 		const houseValue = args.house as 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna';
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 		queryBuilder = queryBuilder.withIndex('by_house', ((q: any) =>
-			q.eq('house', houseValue)) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+			q.eq('house', houseValue)) as any); // oxlint-disable-line @typescript-eslint/no-explicit-any
 		indexUsed = true;
 	} else if (args.house === '__unassigned') {
 		// No index for unassigned - will need to filter in JS

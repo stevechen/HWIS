@@ -14,7 +14,7 @@ import { AdminStudentsPage } from '../pages';
 // CREATE STUDENT TESTS
 // ============================================================================
 
-test.describe('Add Student - UI Data Tests', () => {
+test.describe('Add Student - UI Data Tests @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('addStud');
@@ -51,7 +51,7 @@ test.describe('Add Student - UI Data Tests', () => {
 	});
 });
 
-test.describe('Student ID Validation - Duplicate Data Tests', () => {
+test.describe('Student ID Validation - Duplicate Data Tests @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('dupIdForm');
@@ -115,7 +115,7 @@ test.describe('Student ID Validation - Duplicate Data Tests', () => {
 // EDIT STUDENT TESTS
 // ============================================================================
 
-test.describe('Edit Student - Data Tests', () => {
+test.describe('Edit Student - Data Tests @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('editStatus');
@@ -164,7 +164,7 @@ test.describe('Edit Student - Data Tests', () => {
 // DELETE STUDENT TESTS
 // ============================================================================
 
-test.describe('Delete Student - Without Evaluations', () => {
+test.describe('Delete Student - Without Evaluations @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('delNoEval');
@@ -220,7 +220,7 @@ test.describe('Delete Student - Without Evaluations', () => {
 	});
 });
 
-test.describe('Delete Student - With Cascade @sequential', () => {
+test.describe('Delete Student - With Cascade @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	let suffix: string;
@@ -283,7 +283,7 @@ test.describe('Delete Student - With Cascade @sequential', () => {
 	});
 });
 
-test.describe('Delete - Set Not Enrolled @sequential', () => {
+test.describe('Delete - Set Not Enrolled @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('setNotEnrolled');
@@ -351,7 +351,7 @@ test.describe('Delete - Set Not Enrolled @sequential', () => {
 // FULL ROSTER REACTIVITY (regression for stale rows beyond the first page)
 // ============================================================================
 
-test.describe('Student List - Full Roster Updates @sequential', () => {
+test.describe('Student List - Full Roster Updates @sequential @hwis', () => {
 	test.use({ role: 'admin' });
 
 	const suffix = getTestSuffix('staleRow');

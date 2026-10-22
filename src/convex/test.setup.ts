@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { vi } from 'vitest';
+import { vi } from 'vite-plus/test';
 import {
 	convexTest as originalConvexTest,
 	type TestConvexForDataModelAndIdentity
@@ -8,6 +8,7 @@ import schema from './schema';
 import type { DataModelFromSchemaDefinition } from 'convex/server';
 import type { Id } from './_generated/dataModel';
 import { authComponent, type AuthenticatedUserLike } from './auth';
+import type { DepartmentRoles } from './shared/authorization';
 
 export const modules = import.meta.glob('./**/*.ts');
 type ConvexTestSchema = Parameters<typeof originalConvexTest>[0];
@@ -16,15 +17,15 @@ type ConvexTestModules = Parameters<typeof originalConvexTest>[1];
 /**
  * A test instance that keeps its schema generic.
  *
- * `ReturnType<typeof convexTest>` erases the generics — they fall back to their
+ * `Awaited<ReturnType<typeof convexTest>>` erases the generics — they fall back to their
  * constraints, so `ctx.db` inside a `t.run` callback knows only the *system*
  * tables, and every `query('some_table')` or `.withIndex(...)` fails to typecheck.
  * Test files live inside `src/convex/`, so that failure also fails the Convex
  * push and withholds the whole deployment.
  *
- * Built from the real `schema`, which is what every test passes to `convexTest`.
- * `DataModelFromSchemaDefinition` is what `TestConvex` computes internally, so
- * naming these two reproduces the real return type exactly.
+ * Built from the real `schema`, which is what every ESL test passes to
+ * `convexTest`. `DataModelFromSchemaDefinition` is what `TestConvex` computes
+ * internally, so naming these two reproduces the real return type exactly.
  */
 export type ConvexTestInstance = TestConvexForDataModelAndIdentity<
 	DataModelFromSchemaDefinition<typeof schema>
@@ -49,6 +50,7 @@ export async function seedUser(
 		name?: string;
 		role?: 'super' | 'admin' | 'teacher' | 'student';
 		status?: 'pending' | 'active';
+		departmentRoles?: DepartmentRoles;
 	}
 ): Promise<Id<'users'>> {
 	return t.run((ctx) =>
@@ -56,7 +58,8 @@ export async function seedUser(
 			authId: overrides.authId,
 			name: overrides.name ?? 'Test User',
 			role: overrides.role ?? 'teacher',
-			status: overrides.status ?? 'active'
+			status: overrides.status ?? 'active',
+			...(overrides.departmentRoles ? { departmentRoles: overrides.departmentRoles } : {})
 		})
 	);
 }
@@ -113,18 +116,66 @@ export async function createStudentWithClass(
 }
 
 /**
+ * Seeds an ESL-department staff profile and, by default, signs them in.
+ *
+ * ESL rows live in their own tables behind `requireEslStaff`/`requireEslAdmin`
+ * (#130). Tests that touch them need an identity carrying an `esl` department
+ * assignment — a plain teacher falls back to International and is refused.
+ *
+ * Pass `signIn: false` to seed a second profile (e.g. a class teacher) without
+ * displacing the identity the test is already acting as.
+ */
+export async function seedEslStaff(
+	t: Awaited<ReturnType<typeof convexTest>>,
+	overrides: {
+		authId: string;
+		name?: string;
+		eslRole?: 'admin' | 'teacher';
+		status?: 'pending' | 'active';
+		signIn?: boolean;
+	}
+): Promise<Id<'users'>> {
+	const authId = overrides.authId;
+	const id = await seedUser(t, {
+		authId,
+		name: overrides.name,
+		role: 'teacher',
+		status: overrides.status ?? 'active',
+		departmentRoles: { esl: overrides.eslRole ?? 'teacher' }
+	});
+	if (overrides.signIn !== false) {
+		mockAuthUser({ authId });
+	}
+	return id;
+}
+
+/** Two ESL students used across the roster/transfer tests. */
+export const ESL_ALICE = {
+	englishName: 'Alice Chan',
+	chineseName: '陳小美',
+	schoolStudentId: '7001001',
+	// The homeroom, as the school writes it — required by every write that knows
+	// one, and stored as the bare number (ADR-0025).
+	chineseClass: 'J101'
+};
+
+export const ESL_BOB = {
+	englishName: 'Bob Lee',
+	chineseName: '李大文',
+	schoolStudentId: '8123456',
+	chineseClass: 'J101'
+};
+
+/**
  * Deliberately not generic. `Awaited<ReturnType<typeof convexTest>>` instantiates
  * type parameters at their constraints, which would erase the real schema — so the
- * return type is pinned to {@link ConvexTestInstance} instead. `query`/`mutation`
- * are bound straight from the underlying instance so their generic signatures
- * survive; re-wrapping them in arrows was what erased every result to `any`.
+ * return type is pinned to {@link ConvexTestInstance} instead.
  */
 export async function convexTest(
 	schema: ConvexTestSchema,
 	modules: ConvexTestModules
 ): Promise<ConvexTestInstance> {
 	const t = originalConvexTest(schema, modules) as unknown as ConvexTestInstance;
-
 	return {
 		...t,
 		mutation: t.mutation.bind(t),

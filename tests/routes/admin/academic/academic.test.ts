@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 vi.mock('convex-svelte', () => ({
@@ -22,12 +22,12 @@ describe('Academic Page', () => {
 	});
 
 	it('renders page title', async () => {
-		render(AcademicPage);
+		await render(AcademicPage);
 		await expect.element(page.getByText('Advance Academic Year')).toBeInTheDocument();
 	});
 
 	it('renders promote students description', async () => {
-		render(AcademicPage);
+		await render(AcademicPage);
 		await expect.element(page.getByText('Promote all enrolled students')).toBeInTheDocument();
 	});
 });

@@ -1,8 +1,14 @@
 import {
 	getE2EUtils,
+	type AssignEslTeacherOptions,
 	type CleanupScope,
+	type CreateEslCohortOptions,
+	type CreateEslEventOptions,
+	type CreateEslSemesterOptions,
 	type CreateStudentOptions,
 	type CreateHouseEventOptions,
+	type SetEslClassScheduleOptions,
+	type UpdateEslEventOptions,
 	refreshClient
 } from '../src/lib/e2e-utils';
 import { CONVEX_JWT_COOKIE_NAME } from '../src/lib/e2e/session-keys';
@@ -32,7 +38,7 @@ export function isAuthInitialized(): boolean {
 	return authInitialized;
 }
 
-export function useRole(role: 'admin' | 'teacher' | 'super') {
+export function useRole(role: 'admin' | 'teacher' | 'super' | 'esladmin') {
 	const authPath = path.join(process.cwd(), 'e2e', '.auth', `${role}.json`);
 	if (fs.existsSync(authPath)) {
 		try {
@@ -101,6 +107,20 @@ export async function cleanupByTag(dataType: CleanupScope, e2eTag: string) {
 	return await withTeardownRetry(`cleanupByTag(${dataType}, ${e2eTag})`, () =>
 		utils.cleanupByTag(dataType, e2eTag)
 	);
+}
+
+/**
+ * Where an import put each ESL student, as `schoolStudentId -> cohort label`.
+ *
+ * A read rather than a teardown, so it takes no retry wrapper: the caller is a test
+ * that will report the mismatch itself, and retrying only slows the failure down.
+ */
+export async function eslStudentCohorts(
+	year: string,
+	grade: number
+): Promise<Record<string, string>> {
+	const utils = getUtils();
+	return (await utils.eslStudentCohorts(year, grade)) as Record<string, string>;
 }
 
 export async function setupTestUsers() {
@@ -298,6 +318,60 @@ export async function cleanupWeeklyReportTestData(tag?: string) {
 	return await withTeardownRetry('cleanupWeeklyReportTestData', () =>
 		utils.cleanupWeeklyReportTestData(tag)
 	);
+}
+
+export async function setEslRoleByEmail(email: string, eslRole: 'admin' | 'teacher' | null) {
+	const utils = getUtils();
+	return await utils.setEslRoleByEmail(email, eslRole);
+}
+
+/**
+ * Super-only test helper: delete every ESL table row (cohorts, students,
+ * classes, meetings, availability, semesters, events, notes, holiday cache).
+ */
+export async function clearEslData() {
+	const utils = getUtils();
+	return await utils.clearEslData();
+}
+
+export async function createEslSemester(opts: CreateEslSemesterOptions) {
+	const utils = getUtils();
+	return await utils.createEslSemester(opts);
+}
+
+export async function createEslCohort(opts: CreateEslCohortOptions) {
+	const utils = getUtils();
+	return await utils.createEslCohort(opts);
+}
+
+export async function setEslClassSchedule(opts: SetEslClassScheduleOptions) {
+	const utils = getUtils();
+	return await utils.setEslClassSchedule(opts);
+}
+
+export async function assignEslTeacher(opts: AssignEslTeacherOptions) {
+	const utils = getUtils();
+	return await utils.assignEslTeacher(opts);
+}
+
+export async function createEslEvent(opts: CreateEslEventOptions) {
+	const utils = getUtils();
+	return await utils.createEslEvent(opts);
+}
+
+export async function updateEslEvent(opts: UpdateEslEventOptions) {
+	const utils = getUtils();
+	return await utils.updateEslEvent(opts);
+}
+
+export async function removeEslEvent(eventId: string) {
+	const utils = getUtils();
+	return await utils.removeEslEvent(eventId);
+}
+
+export async function getEslSemester(semesterId: string) {
+	const utils = getUtils();
+	return await utils.getEslSemester(semesterId);
 }
 
 export function getE2EUtilsClient() {

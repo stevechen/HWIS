@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'vite-plus/test';
 import { convexTest, modules, createStudentWithClass } from './test.setup';
 import schema from './schema';
 import { api } from './_generated/api';

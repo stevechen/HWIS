@@ -4,6 +4,21 @@ export type Role = 'super' | 'admin' | 'teacher' | 'student';
 export type UserStatus = 'pending' | 'active';
 export type StudentStatus = 'Enrolled' | 'Not Enrolled';
 
+/** Departments a staff member can be assigned to. */
+export type Department = 'international' | 'esl';
+
+/** Department-scoped staff rank. */
+export type DepartmentRole = 'admin' | 'teacher';
+
+/**
+ * Per-department staff assignment, mirroring the `users.departmentRoles`
+ * column. A department is absent when the user has no access to it.
+ */
+export type DepartmentRoles = {
+	international?: DepartmentRole;
+	esl?: DepartmentRole;
+};
+
 export type EvaluationCapabilities = {
 	viewAnyEvaluation: boolean;
 	viewOwnEvaluation: boolean;
@@ -26,6 +41,7 @@ export type AccessSubject = {
 	role?: Role;
 	status?: UserStatus;
 	enrollmentStatus?: StudentStatus;
+	departmentRoles?: DepartmentRoles;
 };
 
 export const noEvaluationCapabilities: EvaluationCapabilities = {
@@ -92,6 +108,87 @@ export function isActiveStaff(subject: AccessSubject): boolean {
 /** True when the subject may enter the Admin area: Admin/Super role and Active status. */
 export function canAccessAdminArea(subject: AccessSubject): boolean {
 	return isAdmin(subject) && subject.status === 'active';
+}
+
+/**
+ * Normalizes the department assignment of a subject.
+ *
+ * Legacy rows (and the test-token profiles) only carry the global `role`, so a
+ * staff role is read as an International assignment. An explicit
+ * `departmentRoles` object always wins, which is what lets an ESL-only admin
+ * exist without inheriting International access.
+ *
+ * Note that this resolver does not widen access: the base `role` column keeps
+ * feeding the legacy `isAdmin`/`isActiveStaff` predicates, so ESL-only staff are
+ * stored with base role `teacher`. Super users are handled by the department
+ * predicates below rather than by fabricating roles here.
+ */
+export function resolveDepartmentRoles(subject: AccessSubject): DepartmentRoles {
+	const explicit = subject.departmentRoles;
+	if (explicit && (explicit.international || explicit.esl)) {
+		return {
+			international: explicit.international,
+			esl: explicit.esl
+		};
+	}
+	if (subject.role === 'admin' || subject.role === 'teacher') {
+		return { international: subject.role };
+	}
+	return {};
+}
+
+/** True when the subject works in the International department. Super has universal access. */
+export function isInternationalStaff(subject: AccessSubject): boolean {
+	return isSuper(subject) || resolveDepartmentRoles(subject).international !== undefined;
+}
+
+/** True when the subject administers the International department. Super has universal access. */
+export function isInternationalAdmin(subject: AccessSubject): boolean {
+	return isSuper(subject) || resolveDepartmentRoles(subject).international === 'admin';
+}
+
+/** True when the subject works in the ESL department. Super has universal access. */
+export function isEslStaff(subject: AccessSubject): boolean {
+	return isSuper(subject) || resolveDepartmentRoles(subject).esl !== undefined;
+}
+
+/** True when the subject administers the ESL department. Super has universal access. */
+export function isEslAdmin(subject: AccessSubject): boolean {
+	return isSuper(subject) || resolveDepartmentRoles(subject).esl === 'admin';
+}
+
+/** True when the subject spans both departments and therefore needs a department switcher. */
+export function isHybridStaff(subject: AccessSubject): boolean {
+	if (isSuper(subject)) return true;
+	const roles = resolveDepartmentRoles(subject);
+	return roles.international !== undefined && roles.esl !== undefined;
+}
+
+/** True when the subject is an Active member of the International department. */
+export function isActiveInternationalStaff(subject: AccessSubject): boolean {
+	return isInternationalStaff(subject) && subject.status === 'active';
+}
+
+/** True when the subject is an Active member of the ESL department. */
+export function isActiveEslStaff(subject: AccessSubject): boolean {
+	return isEslStaff(subject) && subject.status === 'active';
+}
+
+/**
+ * True when the subject is eligible to hold an ESL class: active ESL staff —
+ * an explicit `esl` department assignment, or Super who needs none — and no
+ * one else. A legacy International-only teacher resolves through
+ * `resolveDepartmentRoles` with no `esl` slot, so they are excluded.
+ *
+ * This is the *teaching* predicate and is deliberately narrower than
+ * `isEslStaff`, which only decides who may enter the department. Both sides of
+ * the assignment decision decide against it — the teacher dropdown reads it
+ * through `esl.staff.listAssignable`, and the write path enforces it in
+ * `esl.classes.assignTeacher` — so a teacher the UI never offered is one the
+ * backend refuses to record.
+ */
+export function canTeachEslClass(subject: AccessSubject): boolean {
+	return (subject.status ?? 'active') === 'active' && isEslStaff(subject);
 }
 
 /** True when the subject is a Student whose record is Enrolled. */
@@ -234,34 +331,51 @@ export function isSystemBackup(backup?: BackupSubject): boolean {
 	return Boolean(backup?.source && backup.source.startsWith('system_'));
 }
 
-/** True when active admin/super may download the backup: Super, backup owner, or any admin if it's a system backup. */
+/**
+ * Admin-area authority over a backup: either a global Admin/Super (the legacy
+ * gate) or, when the backup's department is known, an Active admin of that
+ * department. The latter is what lets an ESL-only admin (base role `teacher`)
+ * manage the department's backups without granting International access.
+ */
+function hasBackupAdminAuthority(
+	subject: AccessSubject & { _id?: Id<'users'> },
+	department?: Department
+): boolean {
+	if (canAccessAdminArea(subject)) return true;
+	return department !== undefined && canAdministerDepartment(subject, department);
+}
+
+/** True when the subject may download the backup: Super, backup owner, or any admin if it's a system backup. */
 export function canDownloadBackup(
 	subject: AccessSubject & { _id?: Id<'users'> },
-	backup: BackupSubject
+	backup: BackupSubject,
+	department?: Department
 ): boolean {
-	if (!canAccessAdminArea(subject)) return false;
+	if (!hasBackupAdminAuthority(subject, department)) return false;
 	if (isSuper(subject)) return true;
 	if (isSystemBackup(backup)) return true;
 	return Boolean(subject._id && backup.creatorId === subject._id);
 }
 
-/** True when active admin/super may rename the backup: Super can rename any backup, or owner if not a system backup. */
+/** True when the subject may rename the backup: Super can rename any backup, or owner if not a system backup. */
 export function canRenameBackup(
 	subject: AccessSubject & { _id?: Id<'users'> },
-	backup: BackupSubject
+	backup: BackupSubject,
+	department?: Department
 ): boolean {
-	if (!canAccessAdminArea(subject)) return false;
+	if (!hasBackupAdminAuthority(subject, department)) return false;
 	if (isSuper(subject)) return true;
 	if (isSystemBackup(backup)) return false;
 	return Boolean(subject._id && backup.creatorId === subject._id);
 }
 
-/** True when active admin/super may delete the backup: Super can delete any backup, or owner if not a system backup. */
+/** True when the subject may delete the backup: Super can delete any backup, or owner if not a system backup. */
 export function canDeleteBackup(
 	subject: AccessSubject & { _id?: Id<'users'> },
-	backup: BackupSubject
+	backup: BackupSubject,
+	department?: Department
 ): boolean {
-	if (!canAccessAdminArea(subject)) return false;
+	if (!hasBackupAdminAuthority(subject, department)) return false;
 	if (isSuper(subject)) return true;
 	if (isSystemBackup(backup)) return false;
 	return Boolean(subject._id && backup.creatorId === subject._id);
@@ -270,4 +384,34 @@ export function canDeleteBackup(
 /** True when active admin/super may restore from a backup: any active admin or super. */
 export function canRestoreBackup(subject: AccessSubject): boolean {
 	return canAccessAdminArea(subject);
+}
+
+/**
+ * True when the subject may administer *department-scoped* data (backups,
+ * restores, year-end migration): a Super user or an Active admin of that
+ * department.
+ *
+ * A legacy admin (base role `admin`, no `departmentRoles`) reads as an
+ * International admin through `resolveDepartmentRoles`, so the original
+ * HWIS behaviour is preserved. An ESL-only admin (base role `teacher`,
+ * `departmentRoles.esl === 'admin'`) passes the ESL gate but is refused an
+ * International one, closing the cross-department hole where a single global
+ * admin check let either side overwrite the other.
+ *
+ * Both the backend guards and the UI must decide against this predicate
+ * (ADR-0010); the per-department admin predicates it delegates to are the
+ * only place that knowledge lives.
+ */
+export function canAdministerDepartment(subject: AccessSubject, department: Department): boolean {
+	if (subject.status !== 'active') return false;
+	return department === 'esl' ? isEslAdmin(subject) : isInternationalAdmin(subject);
+}
+
+/**
+ * True when the subject may restore a *department-scoped* backup. Restoring is
+ * the same authority as administering the department's backups, named
+ * separately because restore is the destructive operation callers audit.
+ */
+export function canRestoreDepartment(subject: AccessSubject, department: Department): boolean {
+	return canAdministerDepartment(subject, department);
 }

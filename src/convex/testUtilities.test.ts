@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vite-plus/test';
 import { convexTest as rawConvexTest } from 'convex-test';
-import { modules } from './test.setup';
+import { modules, mockAuthUser, seedUser } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
 import { authComponent } from './auth';
@@ -117,10 +117,61 @@ describe('test utilities', () => {
 		const users = await t.run(async (ctx) => ctx.db.query('users').collect());
 		const authIds = users.map((u) => u.authId).sort();
 
-		expect(authIds).toEqual(['admin-id', 'u_2', 'u_3']);
+		// The three pre-existing infrastructure users survive, the junk user is
+		// deleted, and the four provisioned test users exist. The ESL admin is in
+		// that count because `/esl/admin` needs `departmentRoles.esl` and only an
+		// existing ESL admin can grant it.
+		expect(authIds).toEqual(['admin-id', 'u_2', 'u_3', 'u_4']);
 		expect(mock.state.users.some((u) => u.email === 'e2e-audit-user@hwis.test')).toBe(false);
 		expect(mock.state.users.some((u) => u.email === 'teacher@hwis.test')).toBe(true);
 		expect(mock.state.users.some((u) => u.email === 'super@hwis.test')).toBe(true);
+		expect(mock.state.users.some((u) => u.email === 'esladmin@hwis.test')).toBe(true);
+	});
+
+	it('gives the ESL test admin the department role the ESL admin pages require', async () => {
+		const mock = createMockAdapter([]);
+		vi.spyOn(authComponent, 'adapter').mockImplementation(() => {
+			return (() => Promise.resolve(mock.adapter)) as never;
+		});
+
+		const t = rawConvexTest(schema, modules);
+		await t.mutation(api.testSetup.setupTestUsers, {});
+
+		// Collected and filtered here rather than with `.filter(...)`, which the
+		// query builder does not type for an arbitrary predicate.
+		const eslAdmin = await t.run(async (ctx) => {
+			const users = await ctx.db.query('users').collect();
+			return users.find((user) => user.name === 'Test ESL Admin');
+		});
+
+		// Without this, `/esl/admin` refuses the only user the harness can sign in
+		// as, and no e2e test can reach the department's pages.
+		expect(eslAdmin?.departmentRoles).toEqual({ esl: 'admin' });
+		// The real ESL-only shape: base role `teacher`, admin rank in the
+		// department. A base `admin` role would leak International access.
+		expect(eslAdmin?.role).toBe('teacher');
+		expect(eslAdmin?.status).toBe('active');
+	});
+
+	it('setupTestUsers can provision a single department', async () => {
+		const mock = createMockAdapter([]);
+		vi.spyOn(authComponent, 'adapter').mockImplementation(() => {
+			return (() => Promise.resolve(mock.adapter)) as never;
+		});
+
+		const t = rawConvexTest(schema, modules);
+		const result = await t.mutation(api.testSetup.setupTestUsers, { department: 'esl' });
+
+		const users = await t.run(async (ctx) => ctx.db.query('users').collect());
+		const names = users.map((u) => u.name).sort();
+		expect(names).toEqual(['Test ESL Admin', 'Test Super Admin']);
+
+		const eslAdmin = users.find((u) => u.name === 'Test ESL Admin');
+		expect(eslAdmin?.departmentRoles).toEqual({ esl: 'admin' });
+		expect(result.eslAdminUserId).toBeTruthy();
+		// The ESL-only setup does not fabricate International staff.
+		expect(result.teacherUserId).toBeUndefined();
+		expect(result.adminUserId).toBeUndefined();
 	});
 
 	it('dedupeUsers keeps newest per authId and is idempotent', async () => {
@@ -231,5 +282,173 @@ describe('test utilities', () => {
 		expect(snapshot.students).toHaveLength(5);
 		expect(snapshot.evaluations).toHaveLength(0);
 		expect(snapshot.audits).toHaveLength(0);
+	});
+
+	it('testSetup.clearEslData clears all ESL tables', async () => {
+		const t = rawConvexTest(schema, modules);
+		const superId = await seedUser(t, {
+			authId: 'clear-esl-super',
+			name: 'Clear ESL Super',
+			role: 'super',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: superId,
+			authId: 'clear-esl-super',
+			name: 'Clear ESL Super',
+			role: 'super',
+			status: 'active'
+		});
+
+		// Seed ESL data across all ESL tables
+		await t.run(async (ctx) => {
+			// Create cohort
+			const cohortId = await ctx.db.insert('esl_cohorts', {
+				year: '2025-2026',
+				grade: 7,
+				level: 'CLIL',
+				classNumber: '01',
+				status: 'active',
+				createdAt: Date.now()
+			});
+
+			// Create class
+			const classId = await ctx.db.insert('esl_classes', {
+				cohortId,
+				type: 'CLIL',
+				name: 'G7 CLIL',
+				status: 'active',
+				createdAt: Date.now()
+			});
+
+			// Create student
+			await ctx.db.insert('esl_students', {
+				cohortId,
+				englishName: 'Test Student',
+				chineseName: '測試學生',
+				schoolStudentId: '123456',
+				status: 'active',
+				enrolledAt: Date.now()
+			});
+
+			// Create class meeting
+			await ctx.db.insert('esl_class_meetings', {
+				classId,
+				year: '2025-2026',
+				day: 'Monday',
+				period: 1
+			});
+
+			// Create teacher availability
+			await ctx.db.insert('esl_teacher_availability', {
+				teacherId: (await ctx.db.query('users').first())!._id,
+				year: '2025-2026',
+				day: 'Monday',
+				period: 2
+			});
+
+			// Create semester
+			const semesterId = await ctx.db.insert('esl_semesters', {
+				year: '2025-2026',
+				term: 'S1',
+				startDate: '2025-09-01'
+			});
+
+			// Create event
+			await ctx.db.insert('esl_events', {
+				semesterId,
+				type: 'start_school',
+				title: 'First Day',
+				target: 'all',
+				date: '2025-09-01'
+			});
+
+			// Create teacher note
+			await ctx.db.insert('teacher_notes', {
+				classId,
+				date: '2025-09-01',
+				teacherId: (await ctx.db.query('users').first())!._id,
+				text: 'Test note',
+				updatedAt: Date.now(),
+				updatedBy: (await ctx.db.query('users').first())!._id
+			});
+
+			// Create holiday cache
+			await ctx.db.insert('esl_holiday_cache', {
+				year: '2025',
+				date: '20250901',
+				isHoliday: false,
+				caption: '',
+				fetchedAt: Date.now()
+			});
+		});
+
+		// Verify data exists before clearing
+		const before = await t.run(async (ctx) => ({
+			cohorts: (await ctx.db.query('esl_cohorts').collect()).length,
+			classes: (await ctx.db.query('esl_classes').collect()).length,
+			students: (await ctx.db.query('esl_students').collect()).length,
+			meetings: (await ctx.db.query('esl_class_meetings').collect()).length,
+			availability: (await ctx.db.query('esl_teacher_availability').collect()).length,
+			semesters: (await ctx.db.query('esl_semesters').collect()).length,
+			events: (await ctx.db.query('esl_events').collect()).length,
+			notes: (await ctx.db.query('teacher_notes').collect()).length,
+			holidayCache: (await ctx.db.query('esl_holiday_cache').collect()).length
+		}));
+
+		expect(before.cohorts).toBe(1);
+		expect(before.classes).toBe(1);
+		expect(before.students).toBe(1);
+		expect(before.meetings).toBe(1);
+		expect(before.availability).toBe(1);
+		expect(before.semesters).toBe(1);
+		expect(before.events).toBe(1);
+		expect(before.notes).toBe(1);
+		expect(before.holidayCache).toBe(1);
+
+		// Call clearEslData
+		await t.mutation(api.testSetup.clearEslData, {});
+
+		// Verify all ESL data is cleared
+		const after = await t.run(async (ctx) => ({
+			cohorts: (await ctx.db.query('esl_cohorts').collect()).length,
+			classes: (await ctx.db.query('esl_classes').collect()).length,
+			students: (await ctx.db.query('esl_students').collect()).length,
+			meetings: (await ctx.db.query('esl_class_meetings').collect()).length,
+			availability: (await ctx.db.query('esl_teacher_availability').collect()).length,
+			semesters: (await ctx.db.query('esl_semesters').collect()).length,
+			events: (await ctx.db.query('esl_events').collect()).length,
+			notes: (await ctx.db.query('teacher_notes').collect()).length,
+			holidayCache: (await ctx.db.query('esl_holiday_cache').collect()).length
+		}));
+
+		expect(after.cohorts).toBe(0);
+		expect(after.classes).toBe(0);
+		expect(after.students).toBe(0);
+		expect(after.meetings).toBe(0);
+		expect(after.availability).toBe(0);
+		expect(after.semesters).toBe(0);
+		expect(after.events).toBe(0);
+		expect(after.notes).toBe(0);
+		expect(after.holidayCache).toBe(0);
+	});
+
+	it('testSetup.clearEslData refuses a non-super caller', async () => {
+		const t = rawConvexTest(schema, modules);
+		const teacherId = await seedUser(t, {
+			authId: 'clear-esl-teacher',
+			name: 'Not Super',
+			role: 'teacher',
+			status: 'active'
+		});
+		mockAuthUser({
+			_id: teacherId,
+			authId: 'clear-esl-teacher',
+			name: 'Not Super',
+			role: 'teacher',
+			status: 'active'
+		});
+
+		await expect(t.mutation(api.testSetup.clearEslData, {})).rejects.toThrow(/Forbidden/);
 	});
 });

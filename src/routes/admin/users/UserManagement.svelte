@@ -4,7 +4,9 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Select from '$lib/components/ui/select';
 	import type { Id, Doc } from '$convex/_generated/dataModel';
-	import { initials, isNewPending, timeAgo, formatDate, cleanName } from './batch-utils';
+	import { isNewPending, timeAgo, formatDate } from './batch-utils';
+	import { cleanName, initials } from '$lib/utils/names';
+	import UserCard from '$lib/components/users/user-card.svelte';
 
 	type AdminUser = Doc<'users'> & {
 		status: 'pending' | 'active';
@@ -167,74 +169,45 @@
 				{@const isPending = user.status === 'pending' && !isApproved}
 				{@const isActive = isApproved || user.status === 'active'}
 				{@const currentRole = (roleStates[user._id] ?? user.role) as Role}
-				<div
-					class="bg-card relative flex flex-col rounded-xl border p-4 shadow-sm transition-shadow hover:shadow-md {isPending &&
-					checked.includes(user._id)
+				{@const highlightClass =
+					isPending && checked.includes(user._id)
 						? 'border-primary/70 ring-primary/30 ring-2'
 						: isPending
 							? 'border-amber-400/60'
-							: 'border-border'}"
-					data-testid={`admin-users.card-${user._id}`}
+							: 'border-border'}
+				<UserCard
+					name={cleanName(user.name) || 'Unknown'}
+					subtitle={user.email || 'No email'}
+					active={isActive}
+					initials={initials(user.name)}
+					image={user.image}
+					imageAlt={cleanName(user.name) || 'Avatar'}
+					testId={`admin-users.card-${user._id}`}
+					cardClass={highlightClass}
 				>
-					<div class="flex items-start gap-3">
-						<div class="relative shrink-0">
-							{#if user.image}
-								<img
-									src={user.image}
-									alt={cleanName(user.name) || 'Avatar'}
-									class="size-12 rounded-xl object-cover"
-									loading="lazy"
-								/>
-							{:else}
-								<div
-									class="bg-primary/10 text-primary flex size-12 items-center justify-center rounded-xl text-base font-semibold"
-								>
-									{initials(user.name)}
-								</div>
-							{/if}
-							{#if isActive}
-								<span
-									class="border-card absolute -right-1 -bottom-1 size-3.5 rounded-full border-2 bg-emerald-500"
-									title="Active"
-								></span>
-							{:else}
-								<span
-									class="border-card absolute -right-1 -bottom-1 size-3.5 rounded-full border-2 bg-amber-500"
-									title="Pending approval"
-								></span>
-							{/if}
-						</div>
-						<div class="min-w-0 flex-1">
-							<p class="truncate text-sm font-semibold">
-								{cleanName(user.name) || 'Unknown'}
-							</p>
-							<p class="text-muted-foreground truncate text-xs">{user.email || 'No email'}</p>
-							<div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-								<Badge
-									variant="outline"
-									class="text-[10px] {user.role ? roleColor[user.role as Role] : ''}"
-								>
-									{roleLabel(user.role)}
-								</Badge>
-								{#if isApproved}
-									<Badge
-										variant="outline"
-										class="border-emerald-400/50 text-[10px] text-emerald-600"
-									>
-										<CheckCircle2 class="size-3" />
-										Approved this session
-									</Badge>
-								{:else if isPending && isNew}
-									<Badge variant="outline" class="border-amber-400/50 text-[10px] text-amber-600">
-										New · {timeAgo(user.createdAt ?? Date.now())}
-									</Badge>
-								{:else if isPending}
-									<Badge variant="outline" class="border-amber-400/50 text-[10px] text-amber-600">
-										Access removed {formatDate(user.deactivatedAt ?? Date.now())}
-									</Badge>
-								{/if}
-							</div>
-						</div>
+					{#snippet badges()}
+						<Badge
+							variant="outline"
+							class="text-[10px] {user.role ? roleColor[user.role as Role] : ''}"
+						>
+							{roleLabel(user.role)}
+						</Badge>
+						{#if isApproved}
+							<Badge variant="outline" class="border-emerald-400/50 text-[10px] text-emerald-600">
+								<CheckCircle2 class="size-3" />
+								Approved this session
+							</Badge>
+						{:else if isPending && isNew}
+							<Badge variant="outline" class="border-amber-400/50 text-[10px] text-amber-600">
+								New · {timeAgo(user.createdAt ?? Date.now())}
+							</Badge>
+						{:else if isPending}
+							<Badge variant="outline" class="border-amber-400/50 text-[10px] text-amber-600">
+								Access removed {formatDate(user.deactivatedAt ?? Date.now())}
+							</Badge>
+						{/if}
+					{/snippet}
+					{#snippet corner()}
 						{#if isPending && isNew}
 							<input
 								type="checkbox"
@@ -257,47 +230,48 @@
 								<XCircle class="size-4 text-red-600" />
 							</Button>
 						{/if}
-					</div>
-
-					<div class="mt-4 flex items-center gap-2 border-t pt-3">
-						{#if isActive}
-							<Select.Root
-								type="single"
-								value={currentRole}
-								onValueChange={(val) => updateRole(user._id, val as Role)}
-								disabled={updatingId === user._id ||
-									user._id === currentUserId ||
-									user.role === 'super'}
-							>
-								<Select.Trigger
-									class="h-8 min-w-0 flex-1 justify-between text-xs"
-									placeholder="Select role"
-									aria-label="Select role for {cleanName(user.name) || 'user'}"
-									testId={`admin-users.role-select-${user._id}`}
+					{/snippet}
+					{#snippet footer()}
+						<div class="flex items-center gap-2">
+							{#if isActive}
+								<Select.Root
+									type="single"
+									value={currentRole}
+									onValueChange={(val) => updateRole(user._id, val as Role)}
+									disabled={updatingId === user._id ||
+										user._id === currentUserId ||
+										user.role === 'super'}
 								>
-									{roleLabel(currentRole)}
-								</Select.Trigger>
-								<Select.Content>
-									{#each roles as role (role.value)}
-										{#if role.value !== 'super' || currentUserIsSuper}
-											<Select.Item value={role.value}>{role.label}</Select.Item>
-										{/if}
-									{/each}
-								</Select.Content>
-							</Select.Root>
-						{:else}
-							<Button
-								size="sm"
-								variant="secondary"
-								class="w-full"
-								onclick={() => approve([user._id])}
-								data-testid={`admin-users.approve-${user._id}`}
-							>
-								{isNew ? 'Approve' : 'Reactivate'}
-							</Button>
-						{/if}
-					</div>
-				</div>
+									<Select.Trigger
+										class="h-8 min-w-0 flex-1 justify-between text-xs"
+										placeholder="Select role"
+										aria-label="Select role for {cleanName(user.name) || 'user'}"
+										testId={`admin-users.role-select-${user._id}`}
+									>
+										{roleLabel(currentRole)}
+									</Select.Trigger>
+									<Select.Content>
+										{#each roles as role (role.value)}
+											{#if role.value !== 'super' || currentUserIsSuper}
+												<Select.Item value={role.value}>{role.label}</Select.Item>
+											{/if}
+										{/each}
+									</Select.Content>
+								</Select.Root>
+							{:else}
+								<Button
+									size="sm"
+									variant="secondary"
+									class="w-full"
+									onclick={() => approve([user._id])}
+									data-testid={`admin-users.approve-${user._id}`}
+								>
+									{isNew ? 'Approve' : 'Reactivate'}
+								</Button>
+							{/if}
+						</div>
+					{/snippet}
+				</UserCard>
 			{/each}
 		{/if}
 	</div>

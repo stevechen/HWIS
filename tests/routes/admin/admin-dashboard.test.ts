@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 vi.mock('convex-svelte', () => {
@@ -32,7 +32,7 @@ describe('Admin Dashboard', () => {
 	});
 
 	it('renders core navigation links', async () => {
-		render(AdminDashboard);
+		await render(AdminDashboard);
 		await expect
 			.element(page.getByRole('link', { name: 'Student Management' }))
 			.toBeInTheDocument();
@@ -43,7 +43,7 @@ describe('Admin Dashboard', () => {
 	});
 
 	it('shows settings links after expanding settings section', async () => {
-		render(AdminDashboard);
+		await render(AdminDashboard);
 		await page.getByRole('button', { name: 'Settings' }).click();
 		await expect.element(page.getByRole('link', { name: 'Backup' })).toBeInTheDocument();
 		await expect.element(page.getByRole('link', { name: 'Audit Log' })).toBeInTheDocument();
@@ -58,7 +58,7 @@ describe('Admin Dashboard', () => {
 			error: null
 		} as never);
 
-		render(AdminDashboard);
+		await render(AdminDashboard);
 		await expect
 			.element(page.getByTestId('admin-dashboard.pending-users-badge'))
 			.not.toBeInTheDocument();
@@ -72,9 +72,9 @@ describe('Admin Dashboard', () => {
 			error: null
 		} as never);
 
-		render(AdminDashboard);
+		await render(AdminDashboard);
 		const badge = page.getByTestId('admin-dashboard.pending-users-badge');
 		await expect.element(badge).toBeInTheDocument();
-		await expect.element(badge).toHaveTextContent('3 new');
+		await expect.element(badge).toMatchTextContent('3 new');
 	});
 });

@@ -21,6 +21,10 @@ export interface ViewerSessionConfig {
 	name?: string;
 	email?: string;
 	studentId?: string;
+	departmentRoles?: {
+		international?: 'admin' | 'teacher';
+		esl?: 'admin' | 'teacher';
+	};
 	auth?: Partial<AuthInput>;
 }
 
@@ -55,6 +59,7 @@ function buildUser(config: ViewerSessionConfig): Viewer {
 		role: config.role,
 		status: config.status,
 		enrollmentStatus: config.enrollmentStatus,
+		departmentRoles: config.departmentRoles,
 		profileExists: config.profileExists ?? true,
 		studentId: config.studentId
 	};

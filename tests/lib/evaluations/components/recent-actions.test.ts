@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import type { Id } from '$convex/_generated/dataModel';
 import type { RecentBatch } from '$convex/shared/recentActions';
@@ -83,14 +83,14 @@ describe('RecentActionsPanel', () => {
 
 	it('hides the chip when hasRecent is false', async () => {
 		queryData = [makeBatch()];
-		render(PanelWithProfile, { props: { hasRecent: false } });
+		await render(PanelWithProfile, { props: { hasRecent: false } });
 		await expect
 			.element(page.getByRole('button', { name: 'Expand recent actions' }))
 			.not.toBeInTheDocument();
 	});
 
 	it('shows an icon-only chip when hasRecent is true', async () => {
-		render(PanelWithProfile, { props: { hasRecent: true } });
+		await render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await expect
 			.element(page.getByRole('button', { name: 'Expand recent actions' }))
@@ -101,7 +101,7 @@ describe('RecentActionsPanel', () => {
 
 	it('expands into the Recent Actions card on click', async () => {
 		queryData = [makeBatch()];
-		render(PanelWithProfile, { props: { hasRecent: true } });
+		await render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
@@ -111,7 +111,7 @@ describe('RecentActionsPanel', () => {
 
 	it('shows the empty state when nothing is actionable', async () => {
 		queryData = [makeBatch({ batchId: 'batch-locked', createdAt: Date.now() - 3 * WEEK_MS })];
-		render(PanelWithProfile, { props: { hasRecent: true } });
+		await render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
@@ -122,7 +122,7 @@ describe('RecentActionsPanel', () => {
 		const batch = makeBatch();
 		batch.evaluations[1] = { ...batch.evaluations[1], value: 2 };
 		queryData = [batch];
-		render(PanelWithProfile, { props: { hasRecent: true } });
+		await render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
@@ -137,7 +137,7 @@ describe('RecentActionsPanel', () => {
 		});
 		const fresh = makeBatch({ batchId: 'batch-fresh' });
 		queryData = [locked, fresh];
-		render(PanelWithProfile, { props: { hasRecent: true } });
+		await render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
@@ -153,7 +153,7 @@ describe('RecentActionsPanel', () => {
 		});
 		const fresh = makeBatch({ batchId: 'batch-fresh' });
 		queryData = [locked, fresh];
-		render(PanelWithProfile, { props: { hasRecent: true } });
+		await render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 
@@ -162,7 +162,7 @@ describe('RecentActionsPanel', () => {
 
 	it('opens the batch edit dialog when a row is clicked', async () => {
 		queryData = [makeBatch()];
-		render(PanelWithProfile, { props: { hasRecent: true } });
+		await render(PanelWithProfile, { props: { hasRecent: true } });
 
 		await page.getByRole('button', { name: 'Expand recent actions' }).click();
 		await page.getByRole('button', { name: 'Edit batch' }).click();
@@ -172,7 +172,7 @@ describe('RecentActionsPanel', () => {
 
 	it('does not subscribe to the batches query while folded', async () => {
 		queryData = [makeBatch()];
-		render(PanelWithProfile, { props: { hasRecent: true } });
+		await render(PanelWithProfile, { props: { hasRecent: true } });
 
 		const batchesArgs = queryArgsAt();
 		expect(batchesArgs()).toBe('skip');
@@ -191,7 +191,7 @@ describe('BatchEditDialog', () => {
 	});
 
 	it('opens with every student checked', async () => {
-		render(BatchEditDialog, { open: true, batch, onClose: vi.fn() });
+		await render(BatchEditDialog, { open: true, batch, onClose: vi.fn() });
 
 		await expect.element(page.getByRole('dialog', { name: 'Edit Batch' })).toBeInTheDocument();
 		await expect.element(page.getByText('Alice Chen')).toBeInTheDocument();
@@ -200,7 +200,7 @@ describe('BatchEditDialog', () => {
 	});
 
 	it('is hidden when open is false', async () => {
-		render(BatchEditDialog, { open: false, batch, onClose: vi.fn() });
+		await render(BatchEditDialog, { open: false, batch, onClose: vi.fn() });
 		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
 
 		const categoriesArgs = queryArgsAt();
@@ -208,7 +208,7 @@ describe('BatchEditDialog', () => {
 	});
 
 	it('save calls updateMany with all checked ids', async () => {
-		render(BatchEditDialog, { open: true, batch, onClose: vi.fn() });
+		await render(BatchEditDialog, { open: true, batch, onClose: vi.fn() });
 
 		await page.getByRole('button', { name: 'Save Changes' }).click();
 
@@ -224,7 +224,7 @@ describe('BatchEditDialog', () => {
 	});
 
 	it('unchecking a student removes them from save and delete', async () => {
-		render(BatchEditDialog, { open: true, batch, onClose: vi.fn() });
+		await render(BatchEditDialog, { open: true, batch, onClose: vi.fn() });
 
 		await page.getByRole('checkbox', { name: /Alice Chen/ }).click();
 
@@ -241,7 +241,7 @@ describe('BatchEditDialog', () => {
 	});
 
 	it('delete selected calls removeMany with the checked ids', async () => {
-		render(BatchEditDialog, { open: true, batch, onClose: vi.fn() });
+		await render(BatchEditDialog, { open: true, batch, onClose: vi.fn() });
 
 		await page.getByRole('checkbox', { name: /Brian Wang/ }).click();
 		await page.getByRole('button', { name: 'Delete selected (1)' }).click();
@@ -253,7 +253,7 @@ describe('BatchEditDialog', () => {
 	});
 
 	it('disables save and delete when nothing is checked', async () => {
-		render(BatchEditDialog, { open: true, batch, onClose: vi.fn() });
+		await render(BatchEditDialog, { open: true, batch, onClose: vi.fn() });
 
 		await page.getByRole('checkbox', { name: /Alice Chen/ }).click();
 		await page.getByRole('checkbox', { name: /Brian Wang/ }).click();
@@ -266,7 +266,7 @@ describe('BatchEditDialog', () => {
 	it('shows the mixed-batch notice', async () => {
 		const mixedBatch = makeBatch();
 		mixedBatch.evaluations[1] = { ...mixedBatch.evaluations[1], value: 2 };
-		render(BatchEditDialog, { open: true, batch: mixedBatch, onClose: vi.fn() });
+		await render(BatchEditDialog, { open: true, batch: mixedBatch, onClose: vi.fn() });
 
 		await expect.element(page.getByText(/already partially edited/)).toBeInTheDocument();
 	});
@@ -280,12 +280,12 @@ describe('BatchDeleteDialog', () => {
 	});
 
 	it('shows the count in the confirmation', async () => {
-		render(BatchDeleteDialog, { open: true, batch });
+		await render(BatchDeleteDialog, { open: true, batch });
 		await expect.element(page.getByText('Delete 2 evaluations?')).toBeInTheDocument();
 	});
 
 	it('delete calls removeMany with every id in the batch', async () => {
-		render(BatchDeleteDialog, { open: true, batch });
+		await render(BatchDeleteDialog, { open: true, batch });
 
 		await page.getByRole('button', { name: 'Delete' }).click();
 

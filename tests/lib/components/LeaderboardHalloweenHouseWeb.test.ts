@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 // The card grid, the `fixed` spider overlay and every clamp() live in Tailwind
 // utilities from the root stylesheet, so pull it in before measuring geometry.
@@ -105,7 +105,7 @@ async function setup() {
 	// theme standalone lets `h-full` collapse to content height: the cards come
 	// out short, the chart letterboxes differently, and geometry measured that
 	// way does not describe the wall display this board is built for.
-	render(HalloweenShell, { houses: HOUSES, categories: CATEGORIES });
+	await render(HalloweenShell, { houses: HOUSES, categories: CATEGORIES });
 	await expect.element(page.getByText(ANY_CARD_POINTS).first()).toBeVisible();
 
 	const layer = document.querySelector<HTMLElement>('.spider-layer');

@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import BulkActionBar from '$lib/components/BulkActionBar.svelte';
 
@@ -11,7 +11,7 @@ async function clickButton(name: string | RegExp) {
 
 describe('BulkActionBar', () => {
 	it('does not render when selectedCount is 0', async () => {
-		render(BulkActionBar, {
+		await render(BulkActionBar, {
 			selectedCount: 0,
 			actions: [],
 			onDone: vi.fn()
@@ -20,7 +20,7 @@ describe('BulkActionBar', () => {
 	});
 
 	it('renders when selectedCount is greater than 0', async () => {
-		render(BulkActionBar, {
+		await render(BulkActionBar, {
 			selectedCount: 3,
 			actions: [],
 			onDone: vi.fn()
@@ -29,7 +29,7 @@ describe('BulkActionBar', () => {
 	});
 
 	it('shows the correct count with singular text', async () => {
-		render(BulkActionBar, {
+		await render(BulkActionBar, {
 			selectedCount: 1,
 			actions: [{ label: 'Test', action: vi.fn() }],
 			onDone: vi.fn()
@@ -38,7 +38,7 @@ describe('BulkActionBar', () => {
 	});
 
 	it('shows the correct count with plural text', async () => {
-		render(BulkActionBar, {
+		await render(BulkActionBar, {
 			selectedCount: 5,
 			actions: [{ label: 'Test', action: vi.fn() }],
 			onDone: vi.fn()
@@ -47,7 +47,7 @@ describe('BulkActionBar', () => {
 	});
 
 	it('renders action buttons', async () => {
-		render(BulkActionBar, {
+		await render(BulkActionBar, {
 			selectedCount: 2,
 			actions: [
 				{ label: 'Move to Heracles', action: vi.fn() },
@@ -63,7 +63,7 @@ describe('BulkActionBar', () => {
 
 	it('fires onDone when Done button is clicked', async () => {
 		const onDone = vi.fn();
-		render(BulkActionBar, {
+		await render(BulkActionBar, {
 			selectedCount: 2,
 			actions: [],
 			onDone
@@ -74,7 +74,7 @@ describe('BulkActionBar', () => {
 
 	it('fires action callback when action button is clicked', async () => {
 		const action = vi.fn();
-		render(BulkActionBar, {
+		await render(BulkActionBar, {
 			selectedCount: 2,
 			actions: [{ label: 'Archive', action }],
 			onDone: vi.fn()

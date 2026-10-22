@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 // The board's layout lives in Tailwind utility classes, which normally reach the
 // page through the root layout (`app.css`). Rendering the route in isolation would
@@ -89,12 +89,12 @@ describe('Leaderboard Houses Route', () => {
 	beforeEach(() => vi.clearAllMocks());
 
 	it('renders at /leaderboard/houses', async () => {
-		render(HousesPage);
+		await render(HousesPage);
 		await expect.element(page.getByText('Heracles').first()).toBeInTheDocument();
 	});
 
 	it('renders contributors in rank order, capped at the backend limit', async () => {
-		render(HousesPage);
+		await render(HousesPage);
 		await expect.element(page.getByText('Alice')).toBeVisible();
 
 		// Scoped to the contributors list so the activity feed outside the card
@@ -126,7 +126,7 @@ describe('Leaderboard Houses Route', () => {
 		const defaultViewport = { width: window.innerWidth, height: window.innerHeight };
 		await page.viewport(1920, 1080);
 
-		render(HousesPage);
+		await render(HousesPage);
 		await expect.element(page.getByText('Alice')).toBeVisible();
 
 		const heading = document.querySelector<HTMLElement>(
@@ -194,7 +194,7 @@ describe('Leaderboard Houses Route', () => {
 	});
 
 	it('keeps the star on the same line as the centred heading', async () => {
-		render(HousesPage);
+		await render(HousesPage);
 		await expect.element(page.getByText('Alice')).toBeVisible();
 
 		const heading = document.querySelector<HTMLElement>(

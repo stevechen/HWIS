@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import EvaluationsControls from '$lib/evaluations/components/EvaluationsControls.svelte';
 
@@ -12,21 +12,21 @@ async function clickButton(name: string | RegExp) {
 describe('EvaluationsControls', () => {
 	describe('Sort Button', () => {
 		it('renders the sort button', async () => {
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort: vi.fn()
 			});
 			await expect.element(page.getByRole('button', { name: 'Newest First' })).toBeInTheDocument();
 		});
 
 		it('shows Newest First aria-label by default', async () => {
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort: vi.fn()
 			});
 			await expect.element(page.getByRole('button', { name: 'Newest First' })).toBeInTheDocument();
 		});
 
 		it('shows Oldest First aria-label when sortAscending is true', async () => {
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				sortAscending: true,
 				onToggleSort: vi.fn()
 			});
@@ -35,7 +35,7 @@ describe('EvaluationsControls', () => {
 
 		it('fires onToggleSort when clicked', async () => {
 			const onToggleSort = vi.fn();
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort
 			});
 			await clickButton('Newest First');
@@ -45,7 +45,7 @@ describe('EvaluationsControls', () => {
 
 	describe('Unenrolled Toggle', () => {
 		it('does not render unenrolled toggle when onToggleShowUnenrolled is not provided', async () => {
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort: vi.fn()
 			});
 			await expect
@@ -54,7 +54,7 @@ describe('EvaluationsControls', () => {
 		});
 
 		it('renders unenrolled toggle when onToggleShowUnenrolled is provided', async () => {
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort: vi.fn(),
 				onToggleShowUnenrolled: vi.fn()
 			});
@@ -64,7 +64,7 @@ describe('EvaluationsControls', () => {
 		});
 
 		it('shows Show unenrolled students aria-label by default', async () => {
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort: vi.fn(),
 				onToggleShowUnenrolled: vi.fn()
 			});
@@ -74,7 +74,7 @@ describe('EvaluationsControls', () => {
 		});
 
 		it('shows Hide unenrolled students aria-label when showUnenrolled is true', async () => {
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort: vi.fn(),
 				onToggleShowUnenrolled: vi.fn(),
 				showUnenrolled: true
@@ -86,7 +86,7 @@ describe('EvaluationsControls', () => {
 
 		it('fires onToggleShowUnenrolled when clicked', async () => {
 			const onToggleShowUnenrolled = vi.fn();
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort: vi.fn(),
 				onToggleShowUnenrolled
 			});
@@ -97,7 +97,7 @@ describe('EvaluationsControls', () => {
 
 	describe('Details Toggle', () => {
 		it('does not render details toggle when onToggleShowDetails is not provided', async () => {
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort: vi.fn()
 			});
 			await expect
@@ -106,7 +106,7 @@ describe('EvaluationsControls', () => {
 		});
 
 		it('renders details toggle when onToggleShowDetails is provided', async () => {
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort: vi.fn(),
 				onToggleShowDetails: vi.fn()
 			});
@@ -114,7 +114,7 @@ describe('EvaluationsControls', () => {
 		});
 
 		it('shows Show Details aria-label by default', async () => {
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort: vi.fn(),
 				onToggleShowDetails: vi.fn()
 			});
@@ -122,7 +122,7 @@ describe('EvaluationsControls', () => {
 		});
 
 		it('shows Hide Details aria-label when showDetails is true', async () => {
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort: vi.fn(),
 				onToggleShowDetails: vi.fn(),
 				showDetails: true
@@ -132,7 +132,7 @@ describe('EvaluationsControls', () => {
 
 		it('fires onToggleShowDetails when clicked', async () => {
 			const onToggleShowDetails = vi.fn();
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort: vi.fn(),
 				onToggleShowDetails
 			});
@@ -143,14 +143,14 @@ describe('EvaluationsControls', () => {
 
 	describe('Title', () => {
 		it('does not render title when not provided', async () => {
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				onToggleSort: vi.fn()
 			});
 			await expect.element(page.getByRole('heading')).not.toBeInTheDocument();
 		});
 
 		it('renders title when provided', async () => {
-			render(EvaluationsControls, {
+			await render(EvaluationsControls, {
 				title: 'My Evaluations',
 				onToggleSort: vi.fn()
 			});

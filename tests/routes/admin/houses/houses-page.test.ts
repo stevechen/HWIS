@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { setupConvexMocks, setupAuthMocks, resetMockOptions } from '../../../mocks/convex-mocks';
 
@@ -18,7 +18,7 @@ describe('Houses Page', () => {
 
 	describe('Structure', () => {
 		it('renders four house regions', async () => {
-			render(HousesPage);
+			await render(HousesPage);
 
 			await expect
 				.element(page.getByRole('region', { name: 'Heracles House' }))
@@ -29,7 +29,7 @@ describe('Houses Page', () => {
 		});
 
 		it('renders house names in headers', async () => {
-			render(HousesPage);
+			await render(HousesPage);
 
 			await expect.element(page.getByText('Heracles')).toBeInTheDocument();
 			await expect.element(page.getByText('Wukong')).toBeInTheDocument();
@@ -38,7 +38,7 @@ describe('Houses Page', () => {
 		});
 
 		it('renders unassigned students section', async () => {
-			render(HousesPage);
+			await render(HousesPage);
 
 			await expect
 				.element(page.getByRole('region', { name: 'Unassigned Students' }))
@@ -70,7 +70,7 @@ describe('Houses Page', () => {
 				}
 			});
 
-			render(HousesPage);
+			await render(HousesPage);
 
 			const student = page.getByText('Alice');
 			await expect.element(student).toBeInTheDocument();
@@ -100,7 +100,7 @@ describe('Houses Page', () => {
 				}
 			});
 
-			render(HousesPage);
+			await render(HousesPage);
 
 			const student = page.getByText('Bob');
 			await expect.element(student).toBeInTheDocument();
@@ -138,7 +138,7 @@ describe('Houses Page', () => {
 				}
 			});
 
-			render(HousesPage);
+			await render(HousesPage);
 
 			await page.getByRole('button', { name: 'Move Alice to another house' }).click();
 
@@ -166,7 +166,7 @@ describe('Houses Page', () => {
 				}
 			});
 
-			render(HousesPage);
+			await render(HousesPage);
 
 			await page.getByRole('button', { name: /Move Bob/ }).click();
 
@@ -180,13 +180,13 @@ describe('Houses Page', () => {
 
 	describe('Multi-Select', () => {
 		it('renders Select button', async () => {
-			render(HousesPage);
+			await render(HousesPage);
 
 			await expect.element(page.getByRole('button', { name: 'Select' })).toBeInTheDocument();
 		});
 
 		it('enters selection mode when Select is clicked', async () => {
-			render(HousesPage);
+			await render(HousesPage);
 
 			await page.getByRole('button', { name: 'Select' }).click();
 			await expect.element(page.getByText('Cancel')).toBeInTheDocument();
@@ -215,7 +215,7 @@ describe('Houses Page', () => {
 				}
 			});
 
-			render(HousesPage);
+			await render(HousesPage);
 
 			await page.getByRole('button', { name: 'Select' }).click();
 			await page.getByRole('button', { name: /Select Alice/ }).click();
@@ -263,7 +263,7 @@ describe('Houses Page', () => {
 				}
 			});
 
-			render(HousesPage);
+			await render(HousesPage);
 
 			const selectButton = page.getByRole('button', { name: 'Select' });
 			await expect.element(selectButton).toBeVisible();
@@ -309,7 +309,7 @@ describe('Houses Page', () => {
 				}
 			});
 
-			render(HousesPage);
+			await render(HousesPage);
 
 			await page.getByRole('button', { name: 'Select' }).click();
 			await page.getByRole('button', { name: /Select Alice/ }).click();
@@ -371,7 +371,7 @@ describe('Houses Page', () => {
 				}
 			});
 
-			render(HousesPage);
+			await render(HousesPage);
 
 			await page.getByRole('button', { name: 'Select' }).click();
 			await page.getByRole('button', { name: /Select Alice/ }).click();
@@ -413,7 +413,7 @@ describe('Houses Page', () => {
 				}
 			});
 
-			render(HousesPage);
+			await render(HousesPage);
 
 			await page.getByRole('button', { name: 'Select' }).click();
 			await page.getByRole('button', { name: /Select Alice/ }).click();
@@ -444,7 +444,7 @@ describe('Houses Page', () => {
 		it('renders loading message when data is loading', async () => {
 			setupConvexMocks({ data: null, isLoading: true });
 
-			render(HousesPage);
+			await render(HousesPage);
 
 			await expect.element(page.getByText('Loading houses...')).toBeInTheDocument();
 		});
@@ -454,7 +454,7 @@ describe('Houses Page', () => {
 		it('renders error message when query fails', async () => {
 			setupConvexMocks({ data: null, error: new Error('Failed to load') });
 
-			render(HousesPage);
+			await render(HousesPage);
 
 			await expect.element(page.getByText('Error loading houses')).toBeInTheDocument();
 		});

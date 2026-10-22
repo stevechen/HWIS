@@ -177,8 +177,7 @@
 					class="bg-background border-input w-full rounded-md border p-3 text-sm"
 					rows="3"
 					aria-label="Evaluation details"
-					data-testid={detailsTestId}
-				></textarea>
+					data-testid={detailsTestId}></textarea>
 			</div>
 		</div>
 
