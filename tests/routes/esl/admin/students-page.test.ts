@@ -100,7 +100,8 @@ function withTransfers() {
 		'esl/cohorts:list': [COHORTS[0], COHORT_B],
 		'esl/students:listByCohort': ROSTER,
 		'esl/transfers:search': [TRANSFER_HIT],
-		'esl/transfers:history': []
+		'esl/transfers:history': [],
+		'esl/bands:bandCohorts': [COHORTS[0], COHORT_B]
 	});
 }
 
@@ -289,7 +290,7 @@ describe('ESL admin students page', () => {
 			await page.getByTestId('esl-admin-students.move.search').fill('Alice');
 			await page.getByTestId('esl-admin-students.move.homeroom').click();
 
-			await page.getByTestId('esl-admin-students.move-dialog.homeroom').fill('J102');
+			await selectOption(page.getByTestId('esl-admin-students.move-dialog.homeroom'), 'J102');
 			await page.getByTestId('esl-admin-students.move-dialog.confirm').click();
 
 			await vi.waitFor(() =>

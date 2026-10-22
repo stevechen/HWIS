@@ -129,10 +129,21 @@ async function computeReadiness(ctx: QueryCtx, year: string) {
 			});
 		}
 	}
-	if (emptyCohorts.length > 0) {
+	// Only warn about empty cohorts for grades that actually have students.
+	// A grade with zero students (e.g. G8 this year) naturally has empty cohorts;
+	// warning there is noise.
+	const gradesWithAnyStudent = new Set(
+		[...gradeSummaries.entries()].filter(([, s]) => s.activeStudents > 0).map(([grade]) => grade)
+	);
+	const filteredEmpty = emptyCohorts.filter((label) => {
+		// label format: "YYYY-YYYY G{grade} ..."
+		const match = label.match(/G(\d+)/);
+		return match ? gradesWithAnyStudent.has(Number(match[1])) : false;
+	});
+	if (filteredEmpty.length > 0) {
 		warnings.push({
 			kind: 'empty-cohort',
-			message: `Cohorts with no active students: ${emptyCohorts.join(', ')}.`
+			message: `Cohorts with no active students: ${filteredEmpty.join(', ')}.`
 		});
 	}
 

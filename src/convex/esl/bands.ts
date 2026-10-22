@@ -1,3 +1,5 @@
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 import type { QueryCtx } from '../_generated/server';
 import type { Doc, Id } from '../_generated/dataModel';
 import { deriveHomeroom } from '../shared/esl';
@@ -102,3 +104,13 @@ export async function findBandCohorts(
 
 	return active.filter((candidate) => visited.has(candidate._id));
 }
+
+/** The active cohorts in the same band as the given cohort. */
+export const bandCohorts = query({
+	args: { cohortId: v.id('esl_cohorts') },
+	handler: async (ctx, args): Promise<Doc<'esl_cohorts'>[]> => {
+		const cohort = await ctx.db.get(args.cohortId);
+		if (cohort === null) return [];
+		return findBandCohorts(ctx, cohort);
+	}
+});

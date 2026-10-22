@@ -27,6 +27,7 @@ type SearchHit = {
 	cohortId: Id<'esl_cohorts'>;
 	cohortLabel: string;
 	grade: number;
+	bandCohorts: Array<{ _id: Id<'esl_cohorts'>; label: string; status: string }>;
 };
 
 /**
@@ -55,6 +56,7 @@ export const search = query({
 		const limit = Math.min(Math.max(args.limit ?? 25, 1), 50);
 		const cohorts = await activeCohortsForYear(ctx, args.year);
 		const hits: SearchHit[] = [];
+		const bandCohortsById = new Map<Id<'esl_cohorts'>, SearchHit['bandCohorts']>();
 
 		for (const cohort of cohorts) {
 			const label = cohortLabel(cohort);
@@ -81,6 +83,16 @@ export const search = query({
 					.toLowerCase();
 				if (!haystack.includes(needle)) continue;
 
+				let bandCohorts = bandCohortsById.get(cohort._id);
+				if (bandCohorts === undefined) {
+					bandCohorts = (await findBandCohorts(ctx, cohort)).map((bandCohort) => ({
+						_id: bandCohort._id,
+						label: cohortLabel(bandCohort),
+						status: bandCohort.status
+					}));
+					bandCohortsById.set(cohort._id, bandCohorts);
+				}
+
 				hits.push({
 					_id: student._id,
 					englishName: student.englishName,
@@ -90,7 +102,8 @@ export const search = query({
 					homeroom,
 					cohortId: cohort._id,
 					cohortLabel: label,
-					grade: cohort.grade
+					grade: cohort.grade,
+					bandCohorts
 				});
 			}
 		}

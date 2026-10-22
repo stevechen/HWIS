@@ -67,7 +67,8 @@ function storedChineseClass(raw: string, grade: number): string {
 export const listByCohort = query({
 	args: {
 		cohortId: v.id('esl_cohorts'),
-		includeDisabled: v.optional(v.boolean())
+		includeDisabled: v.optional(v.boolean()),
+		search: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		await requireEslStaff(ctx);
@@ -78,9 +79,18 @@ export const listByCohort = query({
 			.take(500);
 
 		const includeDisabled = args.includeDisabled ?? false;
-		return (includeDisabled ? students : students.filter((s) => s.status === 'active')).sort(
-			compareEslStudents
-		);
+		const filtered = students.filter((s) => {
+			if (!includeDisabled && s.status !== 'active') return false;
+			if (args.search) {
+				const q = args.search.toLowerCase();
+				const english = s.englishName?.toLowerCase() ?? '';
+				const chinese = s.chineseName.toLowerCase();
+				const id = s.schoolStudentId.toLowerCase();
+				if (!english.includes(q) && !chinese.includes(q) && !id.includes(q)) return false;
+			}
+			return true;
+		});
+		return filtered.sort(compareEslStudents);
 	}
 });
 

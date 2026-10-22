@@ -4,7 +4,7 @@
 	import { untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { api } from '$convex/_generated/api';
-	import type { Id } from '$convex/_generated/dataModel';
+	import type { Id, Doc } from '$convex/_generated/dataModel';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -22,13 +22,20 @@
 
 	let selectedCohortId = $state<Id<'esl_cohorts'> | ''>('');
 	let includeDisabled = $state(true);
+	let studentSearch = $state('');
 
 	const currentSchoolYear = schoolYearOf(new Date());
 
 	// The roster query is skipped until a cohort is chosen: its `cohortId` arg is
 	// required, so there is nothing sensible to send before then.
 	const studentsQuery = useQuery(api.esl.students.listByCohort, () =>
-		selectedCohortId ? { cohortId: selectedCohortId, includeDisabled } : 'skip'
+		selectedCohortId
+			? {
+					cohortId: selectedCohortId,
+					includeDisabled,
+					search: studentSearch.trim() || undefined
+				}
+			: 'skip'
 	);
 
 	const cohorts = $derived(cohortsQuery.data ?? []);
@@ -150,15 +157,18 @@
 	let targetCohortId = $state<Id<'esl_cohorts'> | ''>('');
 	let newHomeroom = $state('');
 
-	/** Same-year, same-grade active cohorts the student could move into. */
+	/** Cohorts in the same band (siblings sharing a Chinese homeroom). */
+	const bandCohortsQuery = useQuery(api.esl.bands.bandCohorts, () =>
+		pendingMove ? { cohortId: pendingMove.hit.cohortId } : 'skip'
+	);
+
+	/** Cohorts from the same band that the student could move into. */
 	const moveTargetCohorts = $derived.by(() => {
+		const band = bandCohortsQuery.data ?? [];
+		if (!pendingMove) return [];
 		const move = pendingMove;
-		if (move === null) return [];
-		return yearCohorts.filter(
-			(cohort) =>
-				cohort.status === 'active' &&
-				cohort.grade === move.hit.grade &&
-				cohort._id !== move.hit.cohortId
+		return band.filter(
+			(cohort: Doc<'esl_cohorts'>) => cohort.status === 'active' && cohort._id !== move.hit.cohortId
 		);
 	});
 
@@ -424,6 +434,15 @@
 				/>
 				Show transfers out
 			</label>
+			<div class="space-y-1">
+				<Label for="esl-students-search">Find a student</Label>
+				<Input
+					id="esl-students-search"
+					data-testid="esl-admin-students.search"
+					bind:value={studentSearch}
+					placeholder="Search by name or ID..."
+				/>
+			</div>
 			<div class="space-y-1">
 				<Label for="esl-students-chinese-class-filter">Chinese class</Label>
 				<Input
@@ -904,19 +923,28 @@
 				>
 					<NativeSelect.Option value="">Choose a class…</NativeSelect.Option>
 					{#each moveTargetCohorts as cohort (cohort._id)}
-						<NativeSelect.Option value={cohort._id}>{cohort.label}</NativeSelect.Option>
+						<NativeSelect.Option value={cohort._id}
+							>{cohortLabelFor(cohort._id)}</NativeSelect.Option
+						>
 					{/each}
 				</NativeSelect.Root>
 			{:else}
 				<label class="mt-4 block text-sm font-medium" for="esl-move-homeroom">
 					Chinese homeroom
 				</label>
-				<Input
+				<NativeSelect.Root
 					id="esl-move-homeroom"
 					data-testid="esl-admin-students.move-dialog.homeroom"
 					bind:value={newHomeroom}
-					placeholder="J101"
-				/>
+				>
+					{#if pendingMove}
+						{#each Array.from({ length: 11 }, (_, i) => String(i + 1).padStart(2, '0')) as code}
+							<NativeSelect.Option value={chineseClassCode(pendingMove.hit.grade, code)}>
+								{chineseClassCode(pendingMove.hit.grade, code)}
+							</NativeSelect.Option>
+						{/each}
+					{/if}
+				</NativeSelect.Root>
 			{/if}
 
 			<label class="mt-4 block text-sm font-medium" for="esl-move-reason">Reason (optional)</label>
