@@ -4,6 +4,7 @@ import type { Doc, Id } from '../_generated/dataModel';
 import { requireEslAdmin, requireEslStaff } from '../auth';
 import { canTeachEslClass } from '../shared/authorization';
 import { displayStaffName } from '../shared/staff_name';
+import { cohortHomeroomSet, findBandCohorts } from './bands';
 import {
 	cohortLabel,
 	compareEslStudents,
@@ -706,37 +707,6 @@ async function writeGrade10Pair(
 }
 
 /**
- * The Chinese homerooms a cohort's active roster draws from, ascending.
- *
- * Derived on every read and never stored (ADR-0025): the roster is a cohort
- * property, so this is the closest thing a class has to "which Chinese classes
- * its students come from". Only active students count — a transferred-out row's
- * homeroom is history — and a cohort with no roster, or one whose rows carry no
- * parseable homeroom yet, yields an empty set.
- *
- * cost: 1 indexed take of the cohort's roster.
- */
-async function cohortHomeroomSet(ctx: QueryCtx, cohort: Doc<'esl_cohorts'>): Promise<string[]> {
-	const students = await ctx.db
-		.query('esl_students')
-		.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
-		.take(500);
-
-	const homerooms = new Set<string>();
-	for (const student of students) {
-		if (student.status !== 'active') continue;
-		const homeroom = deriveHomeroom(cohort.grade, student.chineseClass ?? '');
-		if (homeroom !== null) homerooms.add(homeroom);
-	}
-	return [...homerooms].sort();
-}
-
-/** Exact set equality over the sorted, derived homeroom codes. */
-function homeroomSetsEqual(a: readonly string[], b: readonly string[]): boolean {
-	return a.length === b.length && a.every((value, index) => value === b[index]);
-}
-
-/**
  * Whether two weeks are the same meeting set, whatever the row order.
  *
  * The client drafts slots in pick order and the saved rows read back in
@@ -774,9 +744,11 @@ type MirrorMember = {
  * sits in an ability band the school moves students around in freely, and the
  * timetable only works if every same-type class in the band runs at the same
  * slots — so the mirrors are **derived**, never stored (ADR-0028): same class
- * type, same grade, same year, active, and a roster whose homeroom set is
- * exactly the source's. The composition match is what keeps a cohort that
- * genuinely draws from different homerooms out of the group.
+ * type, same grade, same year, active, and a cohort in the source's sibling
+ * band. Cohorts are siblings when their active rosters share at least one
+ * Chinese homeroom, and the band is the transitive component of that relation;
+ * an overlapping subset therefore joins the larger band rather than being
+ * excluded by exact composition.
  *
  * An archived class or cohort is history and takes no part. A cohort with no
  * active roster — or one whose rows carry no parseable homeroom yet — has no
@@ -787,9 +759,9 @@ type MirrorMember = {
  * *paired*, not mirrored, and their own path (`writeGrade10Pair`) already
  * writes both sections of one Chinese class.
  *
- * cost: 1 roster take for the source cohort, 1 indexed take of the band's
- * cohorts, then 1 roster take and 1 classes query per candidate cohort. Bounded
- * by one grade of one year.
+ * cost: 1 indexed take of the year+grade cohorts, 1 roster take per active
+ * cohort, then 1 classes query per band cohort. Bounded by one grade of one
+ * year.
  */
 async function findScheduleMirrorClasses(
 	ctx: QueryCtx,
@@ -798,21 +770,16 @@ async function findScheduleMirrorClasses(
 ): Promise<Doc<'esl_classes'>[]> {
 	const cohort = await ctx.db.get(classRecord.cohortId);
 	if (cohort === null || cohort.status !== 'active') return [];
+	if (cohort.year !== year) return [];
 	if (!isLevelledGrade(cohort.grade)) return [];
 
 	const sourceHomerooms = await cohortHomeroomSet(ctx, cohort);
 	if (sourceHomerooms.length === 0) return [];
 
-	const candidates = (
-		await ctx.db
-			.query('esl_cohorts')
-			.withIndex('by_year_grade', (q) => q.eq('year', year).eq('grade', cohort.grade))
-			.collect()
-	).filter((candidate) => candidate._id !== cohort._id && candidate.status === 'active');
-
+	const band = await findBandCohorts(ctx, cohort);
 	const mirrors: Doc<'esl_classes'>[] = [];
-	for (const candidate of candidates) {
-		if (!homeroomSetsEqual(sourceHomerooms, await cohortHomeroomSet(ctx, candidate))) continue;
+	for (const candidate of band) {
+		if (candidate._id === cohort._id) continue;
 		const classes = await ctx.db
 			.query('esl_classes')
 			.withIndex('by_cohortId', (q) => q.eq('cohortId', candidate._id))

@@ -147,7 +147,7 @@ describe('esl schedule mirrors (ADR-0028)', () => {
 			}
 		});
 
-		it('ignores same-type classes whose roster draws from different homerooms', async () => {
+		it('ignores a cohort that shares no Chinese homeroom', async () => {
 			const t = await asEslAdmin();
 			const source = await createCohort(t, { grade: 7, level: 'Advanced' });
 			await seedRoster(t, source.cohortId, [{ chineseClass: '02' }, { chineseClass: '04' }]);
@@ -156,7 +156,7 @@ describe('esl schedule mirrors (ADR-0028)', () => {
 				level: 'Elementary',
 				classNumber: '2'
 			});
-			await seedRoster(t, stranger.cohortId, [{ chineseClass: '02' }]);
+			await seedRoster(t, stranger.cohortId, [{ chineseClass: '05' }]);
 
 			const result = await t.mutation(api.esl.classes.setSchedule, {
 				classId: source.classIds[0],
@@ -166,6 +166,91 @@ describe('esl schedule mirrors (ADR-0028)', () => {
 
 			expect(result.mirrors).toBeUndefined();
 			expect(await meetingsOf(t, stranger.classIds[0])).toEqual([]);
+		});
+
+		it('treats an overlapping subset as a sibling in both directions', async () => {
+			const t = await asEslAdmin();
+			// G7 Advanced 3 draws J101/J106/J110; G7 Elementary 4 draws
+			// J101/J106. They are one `跑班` band, not two.
+			const advanced = await createCohort(t, { grade: 7, level: 'Advanced', classNumber: '3' });
+			await seedRoster(t, advanced.cohortId, [
+				{ chineseClass: '01' },
+				{ chineseClass: '06' },
+				{ chineseClass: '10' }
+			]);
+			const elementary = await createCohort(t, {
+				grade: 7,
+				level: 'Elementary',
+				classNumber: '4'
+			});
+			await seedRoster(t, elementary.cohortId, [
+				{ chineseClass: '01' },
+				{ chineseClass: '06' }
+			]);
+
+			// The larger roster writes the smaller one.
+			let result = await t.mutation(api.esl.classes.setSchedule, {
+				classId: advanced.classIds[0],
+				year: '2025-2026',
+				meetings: THREE
+			});
+			expect(result.mirrors).toBe(1);
+			expect(await meetingsOf(t, elementary.classIds[0])).toEqual(THREE);
+
+			// And the smaller writes the larger: the relation is symmetric.
+			result = await t.mutation(api.esl.classes.setSchedule, {
+				classId: elementary.classIds[0],
+				year: '2025-2026',
+				meetings: THREE_LATER
+			});
+			expect(result.mirrors).toBe(1);
+			expect(await meetingsOf(t, advanced.classIds[0])).toEqual(THREE_LATER);
+		});
+
+		it('walks a transitive chain of overlapping rosters', async () => {
+			const t = await asEslAdmin();
+			const a = await createCohort(t, { grade: 7, level: 'Advanced', classNumber: '1' });
+			await seedRoster(t, a.cohortId, [{ chineseClass: '01' }, { chineseClass: '02' }]);
+			const b = await createCohort(t, { grade: 7, level: 'Intermediate', classNumber: '2' });
+			await seedRoster(t, b.cohortId, [{ chineseClass: '02' }, { chineseClass: '03' }]);
+			const c = await createCohort(t, { grade: 7, level: 'Elementary', classNumber: '3' });
+			await seedRoster(t, c.cohortId, [{ chineseClass: '03' }, { chineseClass: '04' }]);
+
+			const result = await t.mutation(api.esl.classes.setSchedule, {
+				classId: a.classIds[0],
+				year: '2025-2026',
+				meetings: THREE
+			});
+
+			expect(result.mirrors).toBe(2);
+			expect(await meetingsOf(t, b.classIds[0])).toEqual(THREE);
+			expect(await meetingsOf(t, c.classIds[0])).toEqual(THREE);
+		});
+
+		it('keeps disjoint `跑班` bands in the same grade separate', async () => {
+			const t = await asEslAdmin();
+			const bandOne = await createCohort(t, { grade: 7, level: 'Advanced', classNumber: '1' });
+			await seedRoster(t, bandOne.cohortId, [
+				{ chineseClass: '02' },
+				{ chineseClass: '04' },
+				{ chineseClass: '05' },
+				{ chineseClass: '08' }
+			]);
+			const bandTwo = await createCohort(t, { grade: 7, level: 'Elementary', classNumber: '2' });
+			await seedRoster(t, bandTwo.cohortId, [
+				{ chineseClass: '03' },
+				{ chineseClass: '07' },
+				{ chineseClass: '09' }
+			]);
+
+			const result = await t.mutation(api.esl.classes.setSchedule, {
+				classId: bandOne.classIds[0],
+				year: '2025-2026',
+				meetings: THREE
+			});
+
+			expect(result.mirrors).toBeUndefined();
+			expect(await meetingsOf(t, bandTwo.classIds[0])).toEqual([]);
 		});
 
 		it('ignores archived classes and archived cohorts', async () => {
