@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vite-plus/test';
 import {
 	isAllowedDomain,
+	isAuthorizedEmail,
 	isExceptionEmail,
 	getAllowlistedRole,
 	getAuthenticatedUser,
@@ -38,6 +39,23 @@ describe('auth helpers', () => {
 
 	it('isAllowedDomain returns false for non-school domain', () => {
 		expect(isAllowedDomain('teacher@example.com')).toBe(false);
+	});
+
+	it('isAllowedDomain is case-insensitive', () => {
+		expect(isAllowedDomain('Teacher@HWHS.TC.EDU.TW')).toBe(true);
+	});
+
+	it('isAuthorizedEmail admits staff, student, and exception addresses', () => {
+		expect(isAuthorizedEmail('teacher@hwhs.tc.edu.tw')).toBe(true);
+		expect(isAuthorizedEmail('s888001@std.hwhs.tc.edu.tw')).toBe(true);
+		expect(isAuthorizedEmail('steve.stevechen@gmail.com')).toBe(true);
+	});
+
+	it('isAuthorizedEmail rejects arbitrary addresses and lookalike domains', () => {
+		expect(isAuthorizedEmail('intruder@gmail.com')).toBe(false);
+		expect(isAuthorizedEmail('teacher@not-hwhs.tc.edu.tw')).toBe(false);
+		expect(isAuthorizedEmail('teacher@hwhs.tc.edu.tw.evil.com')).toBe(false);
+		expect(isAuthorizedEmail(undefined)).toBe(false);
 	});
 });
 
@@ -142,12 +160,12 @@ describe('resolveAuthId resolution via getAuthenticatedUser', () => {
 		});
 	});
 
-	it('returns the raw user object when no DB profile matches', async () => {
+	it('returns null for an unauthorized email even with a raw auth user', async () => {
 		mockAuthUser({ email: 'someone@example.com' });
 
 		const user = await t.run((ctx) => getAuthenticatedUser(ctx));
 
-		expect(user).toMatchObject({ email: 'someone@example.com' });
+		expect(user).toBeNull();
 	});
 
 	it('returns null when getAuthUser yields no user', async () => {

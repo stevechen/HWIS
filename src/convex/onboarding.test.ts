@@ -15,12 +15,12 @@ describe('onboarding.ensureUserProfile', () => {
 		);
 	});
 
-	it('creates a pending teacher profile for a non-allowlisted email', async () => {
+	it('creates a pending teacher profile for a non-allowlisted school email', async () => {
 		const t = await convexTest(schema, modules);
 		mockAuthUser({
-			authId: 'teacher-email@example.com',
+			authId: 'teacher-email@hwhs.tc.edu.tw',
 			name: 'New Teacher',
-			email: 'teacher-email@example.com'
+			email: 'teacher-email@hwhs.tc.edu.tw'
 		});
 
 		const result = await t.mutation(api.onboarding.ensureUserProfile, {});
@@ -35,12 +35,28 @@ describe('onboarding.ensureUserProfile', () => {
 		const users = await t.run((ctx) => ctx.db.query('users').collect());
 		expect(users).toHaveLength(1);
 		expect(users[0]).toMatchObject({
-			authId: 'teacher-email@example.com',
+			authId: 'teacher-email@hwhs.tc.edu.tw',
 			role: 'teacher',
 			status: 'pending',
 			departmentRoles: { international: 'teacher', esl: 'teacher' }
 		});
 		expect(typeof users[0].createdAt).toBe('number');
+	});
+
+	it('refuses to create a profile for a non-school email', async () => {
+		const t = await convexTest(schema, modules);
+		mockAuthUser({
+			authId: 'intruder',
+			name: 'Intruder',
+			email: 'intruder@gmail.com'
+		});
+
+		await expect(t.mutation(api.onboarding.ensureUserProfile, {})).rejects.toThrow(
+			'Not authenticated'
+		);
+
+		const users = await t.run((ctx) => ctx.db.query('users').collect());
+		expect(users).toHaveLength(0);
 	});
 
 	it('creates an active super profile for an allowlisted email', async () => {
@@ -220,7 +236,7 @@ describe('onboarding.setMyRole bootstrap', () => {
 		const t = await convexTest(schema, modules);
 
 		await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
-		mockAuthUser({ authId: 'teacher-1', name: 'Teacher', email: 'someone@example.com' });
+		mockAuthUser({ authId: 'teacher-1', name: 'Teacher', email: 'teacher@hwhs.tc.edu.tw' });
 
 		await expect(t.mutation(api.onboarding.setMyRole, { role: 'admin' })).rejects.toThrow(
 			'Bootstrap is restricted to allowlisted owner emails.'
@@ -312,7 +328,7 @@ describe('onboarding.setMyRole bootstrap', () => {
 		// Another admin already exists, so bootstrap is not allowed
 		await seedUser(t, { authId: 'existing-admin', role: 'admin' });
 		const userId = await seedUser(t, { authId: 'teacher-1', role: 'teacher' });
-		mockAuthUser({ authId: 'teacher-1', name: 'Teacher', email: 'someone@example.com' });
+		mockAuthUser({ authId: 'teacher-1', name: 'Teacher', email: 'teacher@hwhs.tc.edu.tw' });
 
 		const result = await t.mutation(api.onboarding.setMyRole, {
 			role: 'teacher',
