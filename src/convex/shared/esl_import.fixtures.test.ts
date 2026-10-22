@@ -18,7 +18,7 @@ import { describe, it, expect } from 'vite-plus/test';
 import XLSX from 'xlsx';
 // Relative rather than through the `$src` alias: this runs in the unit config,
 // which resolves paths from the file rather than from SvelteKit's aliases.
-import { splitSheet } from '../../routes/esl/admin/classes/workbook';
+import { splitSheet } from '../../lib/components/esl/roster/workbook';
 import { rosterWorkbookBuffer } from '../../lib/esl-roster-fixtures';
 import { parseRosterWorkbook, cohortOfGroup } from './esl_import';
 import type { ParsedRosterWorkbook } from './esl_import';

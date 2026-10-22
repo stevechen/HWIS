@@ -42,6 +42,23 @@ describe('esl students', () => {
 			expect(student?.disabledAt).toBeUndefined();
 		});
 
+		it('accepts a blank English name', async () => {
+			const t = await asEslAdmin();
+			const { cohortId } = await createG7(t);
+
+			const studentId = await t.mutation(api.esl.students.create, {
+				cohortId,
+				englishName: '',
+				chineseName: '無名',
+				schoolStudentId: '7001003',
+				chineseClass: 'J101'
+			});
+
+			const student = await t.query(api.esl.students.getById, { id: studentId });
+			expect(student?.englishName).toBeUndefined();
+			expect(student?.chineseName).toBe('無名');
+		});
+
 		it('accepts a 6-digit school ID', async () => {
 			const t = await asEslAdmin();
 			const { cohortId } = await createG7(t);
@@ -154,10 +171,10 @@ describe('esl students', () => {
 				]
 			});
 
-			expect(result.imported).toBe(1);
-			expect(result.rejected).toHaveLength(2);
+			expect(result.imported).toBe(2);
+			expect(result.rejected).toHaveLength(1);
 			expect(result.rejected[0].index).toBe(1);
-			expect(result.rejected[1].reason).toBe('English name is required');
+			expect(result.rejected[0].reason).toBe('School student ID must be a 6- or 7-digit number');
 		});
 
 		it('rejects a row that duplicates an existing enrolment', async () => {

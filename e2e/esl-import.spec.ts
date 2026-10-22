@@ -54,11 +54,11 @@ const e2eTag = `e2e-test_${getTestSuffix('esl')}`;
  * would be answering a question the page no longer asks — and the control only
  * exists once a file the arithmetic cannot place has been uploaded.
  *
- * `?import=1` is what the Classes page reads to open the section itself, so this
- * walks the same path the Students page's roster link and any old bookmark take.
+ * `?import=1` is what the Students page reads to open the section itself, so this
+ * walks the same path the Classes page's roster link and any old bookmark take.
  */
 async function openImportPage(page: Page) {
-	await page.goto(`/esl/admin/classes?import=1&e2eTag=${e2eTag}`);
+	await page.goto(`/esl/admin/students?import=1&e2eTag=${e2eTag}`);
 	await page.waitForSelector('body.hydrated');
 	await page.getByTestId('esl-import.year').fill(YEAR);
 }

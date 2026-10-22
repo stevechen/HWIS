@@ -10,7 +10,7 @@
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import { initials } from '$lib/utils/names';
 	import { ESL_DAY_LABELS, eslMeetingLabel, eslPeriodTimes, type EslDay } from '$convex/shared/esl';
-	import { schoolYearOf } from '../../classes/staging';
+	import { schoolYearOf } from '$lib/components/esl/roster/staging';
 	import SetAvailabilityDialog from './SetAvailabilityDialog.svelte';
 	import WeeklyScheduleDialog from './WeeklyScheduleDialog.svelte';
 	import {

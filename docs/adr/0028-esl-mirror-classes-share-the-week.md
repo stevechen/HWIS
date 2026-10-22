@@ -25,14 +25,24 @@ time. A band of seven `CLIL` classes meant the department's actual unit of
 scheduling — the week — was entered as seven separate writes, and there was
 nothing that kept them from disagreeing.
 
-### Why the composition match
+### Why the shared-homeroom match
 
 Not every cohort of a grade belongs to the band. The community of classes that
-must share a week is the one **composed of the same Chinese classes' students**:
-if a cohort's roster draws from different homerooms than the class being saved,
-its week is an independent decision and mirroring onto it would be wrong. The
-composition is fully derivable — the roster's `chineseClass` values (ADR-0025)
-— so the group is a fact about the data, not something an admin maintains.
+must share a week is the one **whose students come from the same Chinese
+classes**: if a cohort's roster draws from homerooms that no class in the band
+touches, its week is an independent decision and mirroring onto it would be
+wrong. The composition is fully derivable — the roster's `chineseClass` values
+(ADR-0025) — so the group is a fact about the data, not something an admin
+maintains.
+
+Exact composition is too strict. A real `跑班` band can contain cohorts drawn
+from overlapping but different subsets of the same homerooms: G7 Advanced 3
+draws J101/J106/J110 while G7 Elementary 4 draws only J101/J106, yet the school
+moves students between them and both must meet at the same slots. Equality
+would split that band and leave half of it behind. Two cohorts are therefore
+siblings when their rosters **share at least one** Chinese homeroom, and the
+band is the transitive connected component of that relation: overlapping
+subsets join the larger band, and a chain of overlaps links every cohort in it.
 
 ## Decision
 
@@ -44,14 +54,16 @@ never stored**: a sibling is another class that is
   `G9`) — the rule is symmetric across types;
 - in the **same grade and school year**;
 - **active**, as is its cohort;
-- and belongs to a cohort whose **roster homeroom set is exactly equal** to the
-  source's — active students only, homerooms derived per ADR-0025.
+- and belongs to a cohort in the source cohort's **sibling band** — the
+  transitive component of "active rosters share at least one Chinese homeroom",
+  homerooms derived per ADR-0025.
 
 Three edges were decided deliberately:
 
 - **Empty rosters match nothing.** A cohort with no active students (or no
-  parseable homerooms yet) has no composition to compare, so it neither joins a
-  group nor blocks one; the write degrades to an ordinary single-class save.
+  parseable homerooms yet) has no shared homeroom to match on, so it neither
+  joins a group nor blocks one; the write degrades to an ordinary single-class
+  save.
 - **Archived rows are history.** An archived class or cohort neither blocks the
   write nor is dragged back onto the week, the same rule the neighbour set uses.
 - **Grade 10 keeps its own path.** Its `A`/`B` sections are _paired_ (both of

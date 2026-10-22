@@ -71,6 +71,40 @@ function withRoster(students: unknown[] = ROSTER) {
 	mockQueries({ 'esl/cohorts:list': COHORTS, 'esl/students:listByCohort': students });
 }
 
+const COHORT_B = {
+	_id: 'cohort_g7_b',
+	year: '2025-2026',
+	grade: 7,
+	level: 'Advanced',
+	classNumber: '2',
+	status: 'active' as const,
+	createdAt: 0,
+	label: '2025-2026 G7 Advanced 2',
+	classes: []
+};
+
+const TRANSFER_HIT = {
+	_id: 'student_alice',
+	englishName: 'Alice Chan',
+	chineseName: '陳小美',
+	schoolStudentId: '7001001',
+	chineseClass: '01',
+	homeroom: 'J101',
+	cohortId: 'cohort_g7',
+	cohortLabel: '2025-2026 G7 Basic 1',
+	grade: 7
+};
+
+function withTransfers() {
+	mockQueries({
+		'esl/cohorts:list': [COHORTS[0], COHORT_B],
+		'esl/students:listByCohort': ROSTER,
+		'esl/transfers:search': [TRANSFER_HIT],
+		'esl/transfers:history': [],
+		'esl/bands:bandCohorts': [COHORTS[0], COHORT_B]
+	});
+}
+
 describe('ESL admin students page', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -192,8 +226,8 @@ describe('ESL admin students page', () => {
 
 	describe('roster import', () => {
 		// The CSV/TSV paste path is gone (#140). A pasted list of names has no class
-		// column, so it cannot say the one thing the workbook does, and the page now
-		// points at the importer instead of offering a worse version of it.
+		// column, so it cannot say the one thing the workbook does — and the
+		// workbook importer now lives here, beside the roster it fills.
 		beforeEach(async () => {
 			await render(StudentsPage);
 		});
@@ -204,15 +238,67 @@ describe('ESL admin students page', () => {
 				.not.toBeInTheDocument();
 		});
 
-		it('sends the admin to the workbook importer for rosters', async () => {
-			const link = page.getByTestId('esl-admin-students.import.link');
-			await expect.element(link).toHaveAttribute('href', '/esl/admin/classes#import');
+		it('hosts the workbook importer and opens its year picker', async () => {
+			const toggle = page.getByTestId('esl-admin-students.import.toggle');
+			await expect.element(toggle).toMatchTextContent('Import a roster');
+			await expect.element(page.getByTestId('esl-import.year')).not.toBeInTheDocument();
+
+			await toggle.click();
+
+			await expect.element(page.getByTestId('esl-import.year')).toBeInTheDocument();
 		});
 
-		it('explains why a pasted list of names cannot stand in', async () => {
+		it('shows the year readiness checklist beside the importer', async () => {
+			await expect.element(page.getByTestId('esl-admin-students.readiness')).toBeInTheDocument();
+		});
+	});
+
+	describe('transfer moves', () => {
+		beforeEach(async () => {
+			mockMutation.mockResolvedValue({ success: true, bandChanged: false });
+			withTransfers();
+			await render(StudentsPage);
+		});
+
+		it('searches this year and moves a student to another level', async () => {
+			await page.getByTestId('esl-admin-students.move.search').fill('Alice');
+
 			await expect
-				.element(page.getByTestId('esl-admin-students.import'))
-				.toMatchTextContent('from the sheet they are on');
+				.element(page.getByTestId('esl-admin-students.move.result').first())
+				.toMatchTextContent('Alice Chan');
+			await expect
+				.element(page.getByTestId('esl-admin-students.move.result').first())
+				.toMatchTextContent('2025-2026 G7 Basic 1');
+
+			await page.getByTestId('esl-admin-students.move.level').click();
+			await expect.element(page.getByTestId('esl-admin-students.move-dialog')).toBeInTheDocument();
+
+			await selectOption(page.getByTestId('esl-admin-students.move-dialog.target'), 'cohort_g7_b');
+			await page.getByTestId('esl-admin-students.move-dialog.reason').fill('Re-levelled');
+			await page.getByTestId('esl-admin-students.move-dialog.confirm').click();
+
+			await vi.waitFor(() =>
+				expect(mockMutation).toHaveBeenCalledWith(api.esl.transfers.transferLevel, {
+					studentId: 'student_alice',
+					toCohortId: 'cohort_g7_b',
+					reason: 'Re-levelled'
+				})
+			);
+		});
+
+		it('corrects a Chinese homeroom', async () => {
+			await page.getByTestId('esl-admin-students.move.search').fill('Alice');
+			await page.getByTestId('esl-admin-students.move.homeroom').click();
+
+			await selectOption(page.getByTestId('esl-admin-students.move-dialog.homeroom'), 'J102');
+			await page.getByTestId('esl-admin-students.move-dialog.confirm').click();
+
+			await vi.waitFor(() =>
+				expect(mockMutation).toHaveBeenCalledWith(api.esl.transfers.transferHomeroom, {
+					studentId: 'student_alice',
+					chineseClass: 'J102'
+				})
+			);
 		});
 	});
 
