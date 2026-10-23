@@ -789,6 +789,35 @@ describe('ScheduleCell room grid', () => {
 		];
 	}
 
+	it('marks the paired section room busy even without an overlapping meeting', async () => {
+		landSuggestions({
+			department: ['ESL A', 'ESL B', 'ESL C', 'ESL D', 'ESL E', 'ESL F', 'ESL G'],
+			homerooms: ['H111']
+		});
+		await render(ScheduleCell, {
+			props: scheduleProps({
+				classRecord: {
+					...PAIR_PROPS.classRecord,
+					name: 'H111B',
+					type: 'H10B',
+					room: undefined
+				},
+				partner: { ...PARTNER, name: 'H111A', room: 'H111' }
+			})
+		});
+
+		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
+
+		const button = page
+			.getByTestId('esl-admin-classes.schedule.room')
+			.elements()
+			.find((element) => element.getAttribute('data-room') === 'H111');
+		if (!button) throw new Error('no room button for H111');
+		expect(button.getAttribute('data-busy')).toBe('true');
+		await expect.element(button).toMatchTextContent('H111A');
+		await expect.element(button).toMatchTextContent('paired section');
+	});
+
 	it('offers department rooms then homerooms, single-select', async () => {
 		await render(ScheduleCell, { props: scheduleProps() });
 

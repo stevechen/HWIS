@@ -638,18 +638,17 @@
 	 * saving rather than after. The first holder wins — one room, one sentence —
 	 * matching how the chips name one reason per clash.
 	 */
-	function roomBusy(room: string): { holder: string; slot: string } | null {
+	function roomBusy(room: string): { holder: string; slot?: string } | null {
 		const clashes = problemsFor(draft, room === '' ? undefined : room).filter(
 			(problem) => problem.kind === 'room'
 		);
-		const first = clashes.find(
-			(problem) => problem.day !== undefined && problem.period !== undefined
-		);
-		if (first?.otherName === undefined || first.day === undefined || first.period === undefined) {
-			return null;
-		}
+		const first = clashes.find((problem) => problem.otherName !== undefined);
+		if (first?.otherName === undefined) return null;
 		// The draft's own room is judged too, so a clash the draft itself causes
 		// reads on its own button rather than only in the reasons panel.
+		if (first.day === undefined || first.period === undefined) {
+			return { holder: first.otherName };
+		}
 		return {
 			holder: first.otherName,
 			slot: eslMeetingLabel({ day: first.day, period: first.period })
@@ -1017,7 +1016,9 @@
 											: 'border-input text-muted-foreground hover:border-emerald-400'
 								]}
 								title={busyMark !== null
-									? `${option.value} is taken by ${busyMark.holder} at ${busyMark.slot}.`
+									? busyMark.slot === undefined
+										? `${option.value} is taken by ${busyMark.holder} in the paired section.`
+										: `${option.value} is taken by ${busyMark.holder} at ${busyMark.slot}.`
 									: selectedRoom
 										? `${option.value} selected — choose again to clear.`
 										: option.kind === 'homeroom'
@@ -1034,7 +1035,9 @@
 								<span>{option.value}</span>
 								{#if busyMark !== null}
 									<span class="text-[0.625rem] font-normal opacity-80">
-										{busyMark.holder} · {busyMark.slot}
+										{busyMark.holder}{busyMark.slot === undefined
+											? ' · paired section'
+											: ` · ${busyMark.slot}`}
 									</span>
 								{/if}
 							</button>
