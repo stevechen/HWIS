@@ -1,6 +1,6 @@
 import { action, internalMutation, internalQuery } from '../_generated/server';
 import { v } from 'convex/values';
-import { normalizeEslCustomRooms, isEslRoomLimit } from '../shared/esl-rooms';
+import { normalizeEslCustomRooms, isEslRoomLimit } from '../shared/esl_rooms';
 import { api, internal } from '../_generated/api';
 import type { Doc, Id } from '../_generated/dataModel';
 import { periodBoundsFor } from './events';

@@ -59,6 +59,7 @@ import type * as shared_enrichment from "../shared/enrichment.js";
 import type * as shared_esl from "../shared/esl.js";
 import type * as shared_esl_advancement from "../shared/esl_advancement.js";
 import type * as shared_esl_import from "../shared/esl_import.js";
+import type * as shared_esl_rooms from "../shared/esl_rooms.js";
 import type * as shared_evaluation_read_model from "../shared/evaluation_read_model.js";
 import type * as shared_evaluation_utils from "../shared/evaluation_utils.js";
 import type * as shared_evaluation_week from "../shared/evaluation_week.js";
@@ -135,6 +136,7 @@ declare const fullApi: ApiFromModules<{
   "shared/esl": typeof shared_esl;
   "shared/esl_advancement": typeof shared_esl_advancement;
   "shared/esl_import": typeof shared_esl_import;
+  "shared/esl_rooms": typeof shared_esl_rooms;
   "shared/evaluation_read_model": typeof shared_evaluation_read_model;
   "shared/evaluation_utils": typeof shared_evaluation_utils;
   "shared/evaluation_week": typeof shared_evaluation_week;

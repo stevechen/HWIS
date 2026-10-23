@@ -23,7 +23,7 @@ import {
 	type EslScheduleProblemDetail,
 	type EslUnavailableSlot
 } from '../shared/esl';
-import { roomsThrough } from '../shared/esl-rooms';
+import { roomsThrough } from '../shared/esl_rooms';
 
 async function configuredRooms(ctx: QueryCtx | MutationCtx, year: string) {
 	const semesterOne = await ctx.db

@@ -10,7 +10,7 @@ import {
 	suggestedS1EndDate,
 	suggestedS2EndDate
 } from '../shared/esl';
-import { normalizeEslCustomRooms } from '../shared/esl-rooms';
+import { normalizeEslCustomRooms } from '../shared/esl_rooms';
 
 const termValidator = v.union(v.literal('S1'), v.literal('S2'));
 const roomLimitValidator = v.union(v.literal('D'), v.literal('E'), v.literal('F'), v.literal('G'));
