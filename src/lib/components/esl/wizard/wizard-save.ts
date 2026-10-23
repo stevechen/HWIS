@@ -165,7 +165,7 @@ function singleDescriptors(state: WizardState): RowDescriptor[] {
 		rows.push({
 			key: `step2:offDays:${index}`,
 			type: 'no_school',
-			title: 'Off',
+			title: `🎉 ${day.name}`,
 			dates: [day.date],
 			note: day.name,
 			target: 'all',
@@ -251,7 +251,7 @@ function extraDescriptors(state: WizardState): RowDescriptor[] {
 		rows.push({
 			key: `step4:extra:${extra.id}`,
 			type: 'no_school',
-			title: 'Off',
+			title: `🎉 ${extra.name}`,
 			dates: extra.end ? [extra.start, extra.end] : [extra.start],
 			note: extra.name,
 			target: 'all',

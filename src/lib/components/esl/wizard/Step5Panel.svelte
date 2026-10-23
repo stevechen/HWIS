@@ -242,14 +242,26 @@
 		const rects = calendarRects();
 		const next: { key: string; d: string }[] = [];
 
+		// Top line starts on the corner under 'Fri': the bottom of the
+		// Friday column header (right edge of the calendar, first week top).
+		const firstCellTop = Object.values(rects).reduce(
+			(min, r) => (r.top < min ? r.top : min),
+			Number.POSITIVE_INFINITY
+		);
+		const topStartY =
+			firstCellTop === Number.POSITIVE_INFINITY
+				? Math.round(gridRect.top - panelRect.top)
+				: Math.round(firstCellTop - panelRect.top);
+
 		// 1. Calendar top → above the Block 1 header.
 		const firstSection = listEl.querySelector<HTMLElement>('[data-block-section]');
 		const listTop = Math.round(
 			(firstSection?.getBoundingClientRect().top ?? listRect.top) - panelRect.top
 		);
+		const midX1 = Math.round((x1 + x2) / 2);
 		next.push({
 			key: 'top',
-			d: `M ${x1} ${Math.round(gridRect.top - panelRect.top)} L ${x2} ${listTop}`
+			d: `M ${x1} ${topStartY} C ${midX1} ${topStartY}, ${midX1} ${listTop}, ${x2} ${listTop}`
 		});
 
 		// 2–4. One line per block: closing week bottom → last event row bottom.
@@ -263,11 +275,12 @@
 			const rows = sectionEl.querySelectorAll<HTMLElement>('[data-event-row]');
 			const lastRow: Element = rows.length > 0 ? rows[rows.length - 1]! : sectionEl;
 			const calBottom = section.key === 'block-3' ? gridRect.bottom : span.bottom;
+			const y1 = Math.round(calBottom - panelRect.top);
+			const y2 = Math.round(lastRow.getBoundingClientRect().bottom - panelRect.top);
+			const midX = Math.round((x1 + x2) / 2);
 			next.push({
 				key: section.key,
-				d: `M ${x1} ${Math.round(calBottom - panelRect.top)} L ${x2} ${Math.round(
-					lastRow.getBoundingClientRect().bottom - panelRect.top
-				)}`
+				d: `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`
 			});
 		}
 
@@ -366,7 +379,13 @@
 
 	function openEditPopover(event: PreviewRow, clientX: number, clientY: number) {
 		if (!event.editable) return;
-		editPopover = { event, x: clientX, y: clientY };
+		const popoverWidth = 300;
+		const popoverHeight = 280;
+		const vw = typeof window !== 'undefined' ? window.innerWidth : clientX + popoverWidth;
+		const vh = typeof window !== 'undefined' ? window.innerHeight : clientY + popoverHeight;
+		const x = Math.max(8, Math.min(clientX, vw - popoverWidth - 8));
+		const y = Math.max(8, Math.min(clientY, vh - popoverHeight - 8));
+		editPopover = { event, x, y };
 		editDate = event.date;
 		editEndDate = event.endDate ?? '';
 		editNote = event.note ?? '';
@@ -587,11 +606,7 @@
 		{#if event.examGroup && event.examGroup !== event.title}
 			<span class="rounded bg-white/70 px-1 py-0.5 text-[10px] font-medium">{event.examGroup}</span>
 		{/if}
-		{#if getTargetBadge(event)}
-			<span class="rounded bg-white/70 px-1 py-0.5 text-[10px] font-medium"
-				>{getTargetBadge(event)}</span
-			>
-		{/if}
+		<!-- target badges intentionally omitted (spec: keep the list compact) -->
 		{#if event.customId}
 			<span class="rounded bg-white/70 px-1 py-0.5 text-[10px] font-medium">Custom</span>
 		{/if}
@@ -789,7 +804,7 @@
 		<aside
 			bind:this={listEl}
 			data-testid="wizard.step-5-event-list"
-			class="min-w-0 space-y-3 lg:max-w-[520px]"
+			class="min-w-0 space-y-3 lg:max-w-[260px]"
 		>
 			<h3 class="text-sm font-semibold text-gray-800">All events ({unifiedEvents.length})</h3>
 
