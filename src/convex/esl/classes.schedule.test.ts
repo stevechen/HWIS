@@ -1484,6 +1484,20 @@ describe('esl class schedules', () => {
 			expect(suggestions.homerooms).toEqual(['J101', 'J103']);
 		});
 
+		it('offers homerooms across the full G7 band', async () => {
+			const t = await asEslAdmin();
+			const { cohortId } = await createG7(t, '1');
+			const { cohortId: middleCohortId } = await createG7(t, '2');
+			const { cohortId: linkedCohortId } = await createG7(t, '3');
+			await seedRoster(t, cohortId, [{ chineseClass: '01' }]);
+			await seedRoster(t, middleCohortId, [{ chineseClass: '01' }, { chineseClass: '02' }]);
+			await seedRoster(t, linkedCohortId, [{ chineseClass: '02' }, { chineseClass: '03' }]);
+
+			const suggestions = await t.query(api.esl.classes.listRoomSuggestions, { cohortId });
+
+			expect(suggestions.homerooms).toEqual(['J101', 'J102', 'J103']);
+		});
+
 		it('offers no homerooms for an empty roster', async () => {
 			// A fresh import shows no fabricated hints: the department rooms are
 			// the whole vocabulary until students arrive.

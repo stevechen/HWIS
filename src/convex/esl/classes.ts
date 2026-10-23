@@ -4,14 +4,13 @@ import type { Doc, Id } from '../_generated/dataModel';
 import { requireEslAdmin, requireEslStaff } from '../auth';
 import { canTeachEslClass } from '../shared/authorization';
 import { displayStaffName } from '../shared/staff_name';
-import { findBandCohorts } from './bands';
+import { cohortHomeroomSet, findBandCohorts, findBandCohortsWithHomerooms } from './bands';
 import {
 	cohortLabel,
 	compareEslStudents,
 	assertValidMeetings,
 	describeMeetingShapeError,
 	classifySchedule,
-	deriveHomeroom,
 	ESL_ROOM_SUGGESTIONS,
 	findScheduleProblems,
 	describeScheduleProblem,
@@ -1199,7 +1198,8 @@ export const setRoom = mutation({
  * A suggestion list, never a whitelist: `setSchedule` and `setRoom` accept any
  * string, and the picker's Other field exists for the rest.
  *
- * cost: 1 point read of the cohort + 1 indexed take of its roster.
+ * cost: 1 point read of the cohort + 1 indexed cohort-range read and one
+ * indexed roster take per cohort for G7–G9, or one roster take otherwise.
  */
 export const listRoomSuggestions = query({
 	args: { cohortId: v.id('esl_cohorts') },
@@ -1209,22 +1209,16 @@ export const listRoomSuggestions = query({
 		const cohort = await ctx.db.get(args.cohortId);
 		if (!cohort) throw new Error('Cohort not found');
 
-		const students = await ctx.db
-			.query('esl_students')
-			.withIndex('by_cohortId', (q) => q.eq('cohortId', args.cohortId))
-			.collect();
-
-		const homerooms = new Set<string>();
-		for (const student of students) {
-			if (student.status !== 'active') continue;
-			const room = deriveHomeroom(cohort.grade, student.chineseClass ?? '');
-			if (room !== null) homerooms.add(room);
-		}
+		const homerooms = isLevelledGrade(cohort.grade)
+			? new Set(
+					(await findBandCohortsWithHomerooms(ctx, cohort)).flatMap((member) => member.homerooms)
+				)
+			: new Set(await cohortHomeroomSet(ctx, cohort));
 
 		return {
 			/** The department's own rooms, in corridor order. */
 			department: [...ESL_ROOM_SUGGESTIONS],
-			/** The cohort's homerooms, ascending — empty when the roster is. */
+			/** The cohort's G7–G9 band homerooms, ascending. */
 			homerooms: [...homerooms].sort()
 		};
 	}

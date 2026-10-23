@@ -36,7 +36,8 @@ export async function cohortHomeroomSet(
 }
 
 /**
- * The active cohorts in a cohort's sibling band, including the cohort itself.
+ * The active cohorts in a cohort's sibling band and their homerooms, including
+ * the source cohort and its homerooms.
  *
  * Two cohorts are siblings when they are in the same school year and grade and
  * their active rosters share at least one Chinese homeroom. The band is the
@@ -55,11 +56,11 @@ export async function cohortHomeroomSet(
  * cost: 1 indexed take of the year+grade cohorts, then 1 roster take per active
  * cohort in that grade. Bounded by one grade of one year.
  */
-export async function findBandCohorts(
+export async function findBandCohortsWithHomerooms(
 	ctx: QueryCtx,
 	cohort: Doc<'esl_cohorts'>,
 	options: { excludeStudentId?: Id<'esl_students'> } = {}
-): Promise<Doc<'esl_cohorts'>[]> {
+) {
 	const candidates = await ctx.db
 		.query('esl_cohorts')
 		.withIndex('by_year_grade', (q) => q.eq('year', cohort.year).eq('grade', cohort.grade))
@@ -75,7 +76,16 @@ export async function findBandCohorts(
 	}
 
 	const sourceHomerooms = homeroomsByCohort.get(cohort._id) ?? [];
-	if (sourceHomerooms.length === 0) return [cohort];
+	if (sourceHomerooms.length === 0) {
+		return [
+			{
+				cohort,
+				homerooms:
+					homeroomsByCohort.get(cohort._id) ??
+					(await cohortHomeroomSet(ctx, cohort, options.excludeStudentId))
+			}
+		];
+	}
 
 	// Index homerooms to the cohorts that draw from them, then walk the
 	// connected component from the source.
@@ -102,7 +112,21 @@ export async function findBandCohorts(
 		}
 	}
 
-	return active.filter((candidate) => visited.has(candidate._id));
+	return active
+		.filter((candidate) => visited.has(candidate._id))
+		.map((candidate) => ({
+			cohort: candidate,
+			homerooms: homeroomsByCohort.get(candidate._id) ?? []
+		}));
+}
+
+/** The active cohorts in a cohort's sibling band, including the cohort itself. */
+export async function findBandCohorts(
+	ctx: QueryCtx,
+	cohort: Doc<'esl_cohorts'>,
+	options: { excludeStudentId?: Id<'esl_students'> } = {}
+): Promise<Doc<'esl_cohorts'>[]> {
+	return (await findBandCohortsWithHomerooms(ctx, cohort, options)).map(({ cohort }) => cohort);
 }
 
 /** The active cohorts in the same band as the given cohort. */
