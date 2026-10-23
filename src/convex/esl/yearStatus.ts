@@ -195,6 +195,58 @@ export const readiness = query({
 });
 
 /**
+ * Lightweight yearly state for the Students page.
+ *
+ * This reads cohort metadata, the sign-off, and the first meeting row only. It
+ * intentionally avoids roster reads on every page load; the detailed readiness
+ * query runs only when an admin opens the confirmation review.
+ */
+export const overview = query({
+	args: { year: v.string() },
+	returns: v.object({
+		year: v.string(),
+		years: v.array(v.string()),
+		hasRoster: v.boolean(),
+		confirmed: v.boolean(),
+		confirmedReason: v.union(v.literal('signoff'), v.literal('existing-meetings'), v.null()),
+		confirmedAt: v.union(v.number(), v.null()),
+		confirmedBy: v.union(v.string(), v.null())
+	}),
+	handler: async (ctx, args) => {
+		await requireEslStaff(ctx);
+		const cohorts = await ctx.db.query('esl_cohorts').withIndex('by_year').order('desc').take(100);
+		const yearCohorts = await ctx.db
+			.query('esl_cohorts')
+			.withIndex('by_year', (q) => q.eq('year', args.year))
+			.take(100);
+		const signoff = await ctx.db
+			.query('esl_year_signoffs')
+			.withIndex('by_year', (q) => q.eq('year', args.year))
+			.first();
+		const hasMeetings = await ctx.db
+			.query('esl_class_meetings')
+			.withIndex('by_year_day_period', (q) => q.eq('year', args.year))
+			.first();
+		const confirmedBy = signoff ? await ctx.db.get(signoff.confirmedBy) : null;
+
+		return {
+			year: args.year,
+			years: [...new Set([...cohorts.map((cohort) => cohort.year), args.year])].sort().reverse(),
+			hasRoster: yearCohorts.some((cohort) => cohort.status === 'active'),
+			confirmed: signoff !== null || hasMeetings !== null,
+			confirmedReason:
+				signoff !== null
+					? ('signoff' as const)
+					: hasMeetings !== null
+						? ('existing-meetings' as const)
+						: null,
+			confirmedAt: signoff?.confirmedAt ?? null,
+			confirmedBy: confirmedBy ? displayStaffName(confirmedBy.name) : null
+		};
+	}
+});
+
+/**
  * Record an admin's sign-off that the year's roster is complete.
  *
  * Refused while a blocker remains — a sign-off over a blank homeroom would make

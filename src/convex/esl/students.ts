@@ -153,6 +153,18 @@ export const create = mutation({
 		const blocker = cohortEnrollmentBlocker(cohort.status);
 		if (blocker) throw new Error(blocker);
 
+		const signoff = await ctx.db
+			.query('esl_year_signoffs')
+			.withIndex('by_year', (q) => q.eq('year', cohort.year))
+			.first();
+		const hasMeetings = await ctx.db
+			.query('esl_class_meetings')
+			.withIndex('by_year_day_period', (q) => q.eq('year', cohort.year))
+			.first();
+		if (signoff === null && hasMeetings === null) {
+			throw new Error(`Confirm roster readiness for ${cohort.year} before enrolling students`);
+		}
+
 		const duplicate = await findEnrolled(ctx, args.cohortId, args.schoolStudentId);
 		if (duplicate) {
 			throw new Error(`Student ${args.schoolStudentId} is already enrolled in this class`);
@@ -286,7 +298,8 @@ export const updateStatus = mutation({
 	args: {
 		id: v.id('esl_students'),
 		status: v.union(v.literal('active'), v.literal('disabled')),
-		statusReason: v.optional(v.string())
+		statusReason: v.optional(v.string()),
+		effectiveAt: v.optional(v.number())
 	},
 	handler: async (ctx, args) => {
 		await requireEslAdmin(ctx);
@@ -300,7 +313,7 @@ export const updateStatus = mutation({
 		await ctx.db.patch(args.id, {
 			status: args.status,
 			...(args.status === 'disabled'
-				? { disabledAt: Date.now(), statusReason: args.statusReason?.trim() }
+				? { disabledAt: args.effectiveAt ?? Date.now(), statusReason: args.statusReason?.trim() }
 				: { disabledAt: undefined, statusReason: undefined })
 		});
 

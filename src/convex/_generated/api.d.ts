@@ -28,6 +28,7 @@ import type * as esl_bands from "../esl/bands.js";
 import type * as esl_checklist from "../esl/checklist.js";
 import type * as esl_classes from "../esl/classes.js";
 import type * as esl_cohorts from "../esl/cohorts.js";
+import type * as esl_enrollment from "../esl/enrollment.js";
 import type * as esl_events from "../esl/events.js";
 import type * as esl_holidayWrites from "../esl/holidayWrites.js";
 import type * as esl_holidays from "../esl/holidays.js";
@@ -103,6 +104,7 @@ declare const fullApi: ApiFromModules<{
   "esl/checklist": typeof esl_checklist;
   "esl/classes": typeof esl_classes;
   "esl/cohorts": typeof esl_cohorts;
+  "esl/enrollment": typeof esl_enrollment;
   "esl/events": typeof esl_events;
   "esl/holidayWrites": typeof esl_holidayWrites;
   "esl/holidays": typeof esl_holidays;
