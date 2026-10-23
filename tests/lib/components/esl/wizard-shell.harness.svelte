@@ -34,6 +34,14 @@
 		<span data-testid="harness.exams">{state.step3.exams.length}</span>
 		<button
 			type="button"
+			data-testid="harness.set-room-limit"
+			onclick={() =>
+				update((draft) => {
+					draft.step1.eslRoomLimit = 'E';
+				})}>Set room E</button
+		>
+		<button
+			type="button"
 			data-testid="harness.set-start"
 			onclick={() =>
 				update((draft) => {

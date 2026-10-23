@@ -79,6 +79,10 @@ export interface WizardStep1State {
 	term: Term | null;
 	schoolYear: string | null;
 	startDate: string | null;
+	/** Highest generated ESL room letter, required for S1. */
+	eslRoomLimit: 'D' | 'E' | 'F' | 'G' | null;
+	/** Custom rooms for the school year, edited from S1 setup. */
+	eslCustomRooms: string[];
 }
 
 /** Step 2 — term boundary plus the imported holiday off days. */
@@ -221,7 +225,9 @@ export function createInitialWizardState(today: string): WizardState {
 		step1: {
 			term: suggestion.term,
 			schoolYear,
-			startDate: defaultStartDate(suggestion.term, schoolYear)
+			startDate: defaultStartDate(suggestion.term, schoolYear),
+			eslRoomLimit: null,
+			eslCustomRooms: []
 		},
 		step2: {
 			endDate: defaultEndDate(suggestion.term, schoolYear),
@@ -274,7 +280,8 @@ export function isStepComplete(state: WizardState, step: WizardStepNumber): bool
 			return (
 				state.step1.term !== null &&
 				state.step1.schoolYear !== null &&
-				state.step1.startDate !== null
+				state.step1.startDate !== null &&
+				(state.step1.term !== 'S1' || state.step1.eslRoomLimit !== null)
 			);
 		case 2: {
 			const { endDate } = state.step2;
@@ -418,11 +425,21 @@ function parseStepNumber(value: unknown): WizardStepNumber | null {
 
 function parseStep1(raw: unknown, seeded: WizardStep1State): WizardStep1State {
 	if (!isRecord(raw)) return seeded;
+	const roomLimit = isEslRoomLimit(raw.eslRoomLimit) ? raw.eslRoomLimit : null;
+	const customRooms = Array.isArray(raw.eslCustomRooms)
+		? raw.eslCustomRooms.filter((room): room is string => typeof room === 'string')
+		: seeded.eslCustomRooms;
 	return {
 		term: raw.term === 'S1' || raw.term === 'S2' ? raw.term : seeded.term,
 		schoolYear: isSchoolYear(raw.schoolYear) ? raw.schoolYear : seeded.schoolYear,
-		startDate: parseDate(raw.startDate) ?? seeded.startDate
+		startDate: parseDate(raw.startDate) ?? seeded.startDate,
+		eslRoomLimit: roomLimit,
+		eslCustomRooms: customRooms
 	};
+}
+
+function isEslRoomLimit(value: unknown): value is 'D' | 'E' | 'F' | 'G' {
+	return value === 'D' || value === 'E' || value === 'F' || value === 'G';
 }
 
 function parseStep2(raw: unknown, seeded: WizardStep2State): WizardStep2State {

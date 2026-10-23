@@ -10,8 +10,10 @@ import {
 	suggestedS1EndDate,
 	suggestedS2EndDate
 } from '../shared/esl';
+import { normalizeEslCustomRooms } from '../shared/esl-rooms';
 
 const termValidator = v.union(v.literal('S1'), v.literal('S2'));
+const roomLimitValidator = v.union(v.literal('D'), v.literal('E'), v.literal('F'), v.literal('G'));
 
 /** A semester row enriched with its derived end. */
 export type SemesterWithEnd = Doc<'esl_semesters'> & { derivedEnd: string | null };
@@ -51,6 +53,8 @@ export const create = mutation({
 		year: v.string(),
 		term: termValidator,
 		startDate: v.string(),
+		eslRoomLimit: v.optional(roomLimitValidator),
+		eslCustomRooms: v.optional(v.array(v.string())),
 		e2eTag: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -62,6 +66,11 @@ export const create = mutation({
 		if (!isValidEslDate(args.startDate)) {
 			throw new Error(`${args.startDate} is not a valid date. Use YYYY-MM-DD.`);
 		}
+		if (args.term === 'S1' && args.eslRoomLimit === undefined) {
+			throw new Error('Semester 1 requires an ESL room limit.');
+		}
+		const customRooms =
+			args.term === 'S1' ? normalizeEslCustomRooms(args.eslCustomRooms ?? []) : [];
 
 		const existing = await ctx.db
 			.query('esl_semesters')
@@ -75,6 +84,9 @@ export const create = mutation({
 			year: args.year,
 			term: args.term,
 			startDate: args.startDate,
+			...(args.term === 'S1' && args.eslRoomLimit !== undefined
+				? { eslRoomLimit: args.eslRoomLimit, eslCustomRooms: customRooms }
+				: {}),
 			...(args.e2eTag === undefined ? {} : { e2eTag: args.e2eTag })
 		});
 	}

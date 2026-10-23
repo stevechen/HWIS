@@ -8,6 +8,7 @@ import {
 	ESL_GRADE10_MAX_CLASS_NUMBER,
 	ESL_LEVELS,
 	classTypesForCohort,
+	chineseClassCode,
 	cohortCode,
 	compareEslCohorts,
 	cohortLabel,
@@ -78,7 +79,7 @@ function assertValidCohortKey(key: {
  * years consuming the row limit below.
  *
  * cost: 1 indexed take of N cohorts + 1 batched read of their classes + 1 indexed
- * read per cohort for its roster size. Free-Quota Impact: N is the cohort count
+ * read per cohort for its active roster. Free-Quota Impact: N is the cohort count
  * (tens); both per-cohort reads go through `by_cohortId`, never a full scan.
  */
 export const list = query({
@@ -118,7 +119,7 @@ export const list = query({
 		);
 
 		/**
-		 * Active students per cohort, for the card's headcount.
+		 * Active students per cohort, for the card's headcount and composition.
 		 *
 		 * Read here rather than in the browser because the count is a property of the
 		 * cohort: grades 7 and 8 are taught by a `CLIL` and a `Comm` class drawing one
@@ -133,13 +134,34 @@ export const list = query({
 		 * Read in the same pass as the classes so it costs one more indexed read per
 		 * cohort rather than a second query from the browser.
 		 */
-		const studentCountByCohort = await Promise.all(
+		const rosterSummaryByCohort = await Promise.all(
 			visible.map(async (cohort) => {
 				const students = await ctx.db
 					.query('esl_students')
 					.withIndex('by_cohortId', (q) => q.eq('cohortId', cohort._id))
 					.take(500);
-				return students.filter((student) => student.status === 'active').length;
+				const activeStudents = students.filter((student) => student.status === 'active');
+				const classNumbers = [
+					...new Set(
+						activeStudents.flatMap((student) => {
+							const classNumber = student.chineseClass?.trim();
+							if (!classNumber || !/^\d{2}$/.test(classNumber) || Number(classNumber) < 1) {
+								return [];
+							}
+							return [Number(classNumber)];
+						})
+					)
+				].sort((left, right) => left - right);
+
+				return {
+					studentCount: activeStudents.length,
+					chineseClassComposition:
+						cohort.grade === 10
+							? []
+							: classNumbers.map((classNumber) =>
+									chineseClassCode(cohort.grade, String(classNumber)).replace(/^J/, '')
+								)
+				};
 			})
 		);
 
@@ -151,7 +173,8 @@ export const list = query({
 				code: cohortCode(cohort),
 				label: cohortLabel(cohort),
 				classes: classesByCohort[index],
-				studentCount: studentCountByCohort[index]
+				studentCount: rosterSummaryByCohort[index].studentCount,
+				chineseClassComposition: rosterSummaryByCohort[index].chineseClassComposition
 			}))
 			.sort(compareEslCohorts);
 	}

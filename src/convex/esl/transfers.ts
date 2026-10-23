@@ -19,6 +19,9 @@ async function activeCohortsForYear(ctx: QueryCtx, year: string) {
 /** A student as the transfer panel shows them. */
 type SearchHit = {
 	_id: Id<'esl_students'>;
+	status: 'active' | 'disabled';
+	statusReason?: string;
+	cohortStatus: 'active' | 'archived';
 	englishName?: string;
 	chineseName: string;
 	schoolStudentId: string;
@@ -45,7 +48,8 @@ export const search = query({
 	args: {
 		year: v.string(),
 		query: v.string(),
-		limit: v.optional(v.number())
+		limit: v.optional(v.number()),
+		includeDisabled: v.optional(v.boolean())
 	},
 	handler: async (ctx, args): Promise<SearchHit[]> => {
 		await requireEslStaff(ctx);
@@ -54,7 +58,12 @@ export const search = query({
 		if (needle === '') return [];
 
 		const limit = Math.min(Math.max(args.limit ?? 25, 1), 50);
-		const cohorts = await activeCohortsForYear(ctx, args.year);
+		const cohorts = args.includeDisabled
+			? await ctx.db
+					.query('esl_cohorts')
+					.withIndex('by_year', (q) => q.eq('year', args.year))
+					.take(100)
+			: await activeCohortsForYear(ctx, args.year);
 		const hits: SearchHit[] = [];
 		const bandCohortsById = new Map<Id<'esl_cohorts'>, SearchHit['bandCohorts']>();
 
@@ -66,7 +75,8 @@ export const search = query({
 				.take(500);
 
 			for (const student of roster) {
-				if (student.status !== 'active') continue;
+				if ((student.status !== 'active' || cohort.status !== 'active') && !args.includeDisabled)
+					continue;
 				const homeroom =
 					student.chineseClass === undefined
 						? ''
@@ -95,6 +105,9 @@ export const search = query({
 
 				hits.push({
 					_id: student._id,
+					status: student.status,
+					cohortStatus: cohort.status,
+					...(student.statusReason === undefined ? {} : { statusReason: student.statusReason }),
 					englishName: student.englishName,
 					chineseName: student.chineseName,
 					schoolStudentId: student.schoolStudentId,

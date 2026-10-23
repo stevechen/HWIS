@@ -842,11 +842,9 @@ describe('ScheduleCell room grid', () => {
 		expect(roomButton('ESL A').getAttribute('aria-pressed')).toBe('true');
 	});
 
-	it('lights only the saved homeroom once the list lands, and closes Other… with it', async () => {
+	it('lights only the saved homeroom once the list lands', async () => {
 		// The reported bug: the picker opens before the suggestions query
-		// answers, so at open no list says "J102" is a homeroom. Deciding the
-		// Other state at open — and never revisiting it — lit J102 *and* Other…,
-		// with the field open under both.
+		// answers, so at open no list says "J102" is a homeroom.
 		putSuggestionsInFlight();
 		await render(ScheduleCell, {
 			props: scheduleProps({ classRecord: { ...CLASS_RECORD, room: 'J102' } })
@@ -854,15 +852,8 @@ describe('ScheduleCell room grid', () => {
 
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 
-		// In flight: the picker makes no custom claim about a room it cannot
-		// place yet.
-		expect(
-			page
-				.getByTestId('esl-admin-classes.schedule.room.other')
-				.element()
-				.getAttribute('aria-pressed')
-		).toBe('false');
-		expect(page.getByTestId('esl-admin-classes.schedule.room.input').elements()).toHaveLength(0);
+		// In flight: the picker makes no claim about a room it cannot place yet.
+		expect(page.getByTestId('esl-admin-classes.schedule.room.unavailable').elements()).toHaveLength(1);
 
 		// The round trip lands, J102 among the cohort's homerooms.
 		landSuggestions({
@@ -871,24 +862,15 @@ describe('ScheduleCell room grid', () => {
 		});
 
 		// Self-correcting: the homeroom button lights on its own, once the
-		// grid catches up with the landed list.
+		// grid catches up with the landed list; the unavailable tile closes.
 		await vi.waitFor(() => roomButton('J102'));
 		expect(roomButton('J102').getAttribute('aria-pressed')).toBe('true');
 		await vi.waitFor(() => {
-			expect(
-				page
-					.getByTestId('esl-admin-classes.schedule.room.other')
-					.element()
-					.getAttribute('aria-pressed')
-			).toBe('false');
+			expect(page.getByTestId('esl-admin-classes.schedule.room.unavailable').elements()).toHaveLength(0);
 		});
-		expect(page.getByTestId('esl-admin-classes.schedule.room.input').elements()).toHaveLength(0);
 	});
 
-	it('opens the Other field for a room the lists genuinely lack', async () => {
-		// The other half of the derived state: a room the landed list still does
-		// not know is a custom room, and the field opens with its saved value —
-		// the picker must not swallow the distinction while chasing the race.
+	it('shows the unavailable tile for a room the lists genuinely lack', async () => {
 		await render(ScheduleCell, {
 			props: scheduleProps({ classRecord: { ...CLASS_RECORD, room: 'Library' } })
 		});
@@ -896,14 +878,8 @@ describe('ScheduleCell room grid', () => {
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 
 		await expect
-			.element(page.getByTestId('esl-admin-classes.schedule.room.input'))
+			.element(page.getByTestId('esl-admin-classes.schedule.room.unavailable'))
 			.toBeInTheDocument();
-		expect(
-			page
-				.getByTestId('esl-admin-classes.schedule.room.other')
-				.element()
-				.getAttribute('aria-pressed')
-		).toBe('true');
 	});
 
 	it('reads the room straight in: room-only open saves the room, week unchanged', async () => {
@@ -1017,17 +993,22 @@ describe('ScheduleCell room grid', () => {
 		await expect.element(impact).not.toMatchTextContent('is taken by');
 	});
 
-	it('reveals the Other field and saves the typed room', async () => {
+	it('saves a custom room that the year offers', async () => {
 		const onsave = vi.fn();
+		landSuggestions({
+			department: ['ESL A', 'ESL B', 'ESL C', 'ESL D', 'ESL E', 'ESL F', 'ESL G'],
+			homerooms: [],
+			custom: ['Library']
+		});
 		await render(ScheduleCell, { props: scheduleProps({ onsave }) });
 
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
-		await userEvent.click(page.getByTestId('esl-admin-classes.schedule.room.other'));
-
-		const input = page.getByTestId('esl-admin-classes.schedule.room.input');
-		await expect.element(input).toBeInTheDocument();
-		await userEvent.fill(input.element(), 'Library');
-		await userEvent.keyboard('{Enter}');
+		const btn = page
+			.getByTestId('esl-admin-classes.schedule.room')
+			.elements()
+			.find((el) => el.getAttribute('data-room') === 'Library');
+		if (!btn) throw new Error('no room button for Library');
+		await userEvent.click(btn);
 		await userEvent.click(page.getByTestId('esl-admin-classes.schedule.save'));
 
 		expect(onsave).toHaveBeenCalledOnce();

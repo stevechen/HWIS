@@ -38,6 +38,8 @@ const G7_COHORT = {
 	status: 'active' as const,
 	createdAt: 0,
 	label: '2025-2026 G7 Basic 1',
+	studentCount: 17,
+	chineseClassComposition: ['103', '107', '109'],
 	classes: [
 		{
 			_id: 'class_clil',
@@ -58,6 +60,24 @@ const G7_COHORT = {
 	]
 };
 
+const G7_ELEMENTARY_COHORT = {
+	...G7_COHORT,
+	_id: 'cohort_g7_elementary',
+	level: 'Elementary',
+	code: 'G7-Elementary-1',
+	label: '2025-2026 G7 Elementary 1',
+	studentCount: 13,
+	chineseClassComposition: ['103', '107'],
+	classes: [
+		{
+			...G7_COHORT.classes[0],
+			_id: 'class_g7_elementary',
+			cohortId: 'cohort_g7_elementary',
+			name: 'G7 Elementary 1 CLIL'
+		}
+	]
+};
+
 const G9_COHORT = {
 	_id: 'cohort_g9',
 	year: '2026-2027',
@@ -68,6 +88,8 @@ const G9_COHORT = {
 	status: 'archived' as const,
 	createdAt: 0,
 	label: '2026-2027 G9 Intermediate 1',
+	studentCount: 12,
+	chineseClassComposition: ['303', '307'],
 	classes: [
 		{
 			_id: 'class_g9',
@@ -92,6 +114,8 @@ const G10_COHORT_A = {
 	status: 'active' as const,
 	createdAt: 0,
 	label: '2025-2026 G10 H101A',
+	studentCount: 11,
+	chineseClassComposition: [],
 	classes: [
 		{
 			_id: 'class_h10a',
@@ -199,14 +223,21 @@ type ScheduleRow = {
  * cohorts in would point the editor at a year with no rows and the 2025-2026 rows
  * would never render — the class under test would show "Set the year filter…".
  */
-function withSchedule(rows: ScheduleRow[], year = '2025-2026') {
-	const cohorts = [G7_COHORT, G9_COHORT, G10_COHORT_A, G10_COHORT_B].filter(
-		(cohort) => cohort.year === year
-	);
+function withSchedule(
+	rows: ScheduleRow[],
+	year = '2025-2026',
+	cohortData = [G7_COHORT, G9_COHORT, G10_COHORT_A, G10_COHORT_B]
+) {
+	const cohorts = cohortData.filter((cohort) => cohort.year === year);
 	mockQueries({
 		'esl/cohorts:list': cohorts,
 		'esl/staff:listAssignable': ASSIGNABLE,
-		'esl/classes:listScheduleByYear': rows
+		'esl/classes:listScheduleByYear': rows,
+		'esl/classes:listRoomSuggestions': {
+			department: ['ESL A', 'ESL B', 'ESL C', 'ESL D', 'ESL E', 'ESL F', 'ESL G'],
+			custom: [],
+			homerooms: []
+		}
 	});
 }
 
@@ -290,6 +321,91 @@ describe('ESL admin cohorts page', () => {
 			await expect
 				.element(page.getByTestId('esl-admin-classes.card.class_h10b'))
 				.toMatchTextContent('H101B');
+		});
+
+		it('abbreviates Elementary and keeps the room beside the title', async () => {
+			withSchedule(
+				[
+					{
+						...SOUND_CLIL,
+						classId: 'class_g7_elementary',
+						name: 'G7 Elementary 1 CLIL',
+						cohortId: 'cohort_g7_elementary'
+					}
+				],
+				'2025-2026',
+				[G7_ELEMENTARY_COHORT]
+			);
+			await render(ClassesPage);
+
+			const card = page.getByTestId('esl-admin-classes.card.class_g7_elementary');
+			const header = card.getByTestId('esl-admin-classes.card.header');
+			await expect
+				.element(header.getByRole('heading', { name: 'G7 Ele 1 CLIL' }))
+				.toBeInTheDocument();
+			await expect
+				.element(header.getByTestId('esl-admin-classes.room.readout'))
+				.toMatchTextContent('ESL A');
+			await expect
+				.element(card.getByTestId('esl-admin-classes.chinese-class-composition'))
+				.toMatchTextContent('(103, 107)');
+		});
+
+		it('abbreviates Intermediate on a grade 9 card', async () => {
+			withSchedule(
+				[
+					{
+						classId: 'class_g9',
+						name: 'G9 Intermediate 1',
+						type: 'G9',
+						cohortId: 'cohort_g9',
+						teacherId: 'user_t1',
+						room: 'ESL B',
+						meetings: [],
+						scheduleProblem: null,
+						scheduleLabel: null
+					}
+				],
+				'2026-2027'
+			);
+			await render(ClassesPage);
+
+			const card = page.getByTestId('esl-admin-classes.card.class_g9');
+			const header = card.getByTestId('esl-admin-classes.card.header');
+			await expect.element(header.getByRole('heading', { name: 'G9 Int 1' })).toBeInTheDocument();
+			await expect
+				.element(header.getByTestId('esl-admin-classes.room.readout'))
+				.toMatchTextContent('ESL B');
+		});
+
+		it('keeps the grade 10 title, count and room on one header row', async () => {
+			withSchedule([
+				{
+					classId: 'class_h10a',
+					name: 'H101A',
+					type: 'H10A',
+					cohortId: 'cohort_g10a',
+					teacherId: null,
+					room: 'ESL D',
+					meetings: [],
+					scheduleProblem: null,
+					scheduleLabel: null
+				}
+			]);
+			await render(ClassesPage);
+
+			const card = page.getByTestId('esl-admin-classes.card.class_h10a');
+			const header = card.getByTestId('esl-admin-classes.card.header');
+			await expect.element(header.getByRole('heading', { name: 'H101A' })).toBeInTheDocument();
+			await expect
+				.element(header.getByTestId('esl-admin-classes.students'))
+				.toMatchTextContent('11');
+			await expect
+				.element(header.getByTestId('esl-admin-classes.room.readout'))
+				.toMatchTextContent('ESL D');
+			expect(
+				card.getByTestId('esl-admin-classes.chinese-class-composition').elements()
+			).toHaveLength(0);
 		});
 
 		it('labels a grade 10 cohort by its base class and level, not a level name', async () => {
@@ -594,14 +710,26 @@ describe('ESL admin cohorts page', () => {
 
 		// Chinese homerooms are the exception the department reaches for when it runs
 		// out of ESL rooms, so they must stay typeable through Other.
-		it('saves a typed room from the Other field with the week', async () => {
+		it('saves a custom room offered by the year with the week', async () => {
 			withSchedule([{ ...SOUND_CLIL, room: null }]);
+			// Override the room-suggestion mock to offer the custom room.
+			mockQueries({
+				'esl/cohorts:list': [G7_COHORT, G9_COHORT, G10_COHORT_A, G10_COHORT_B].filter(
+					(c) => c.year === '2025-2026'
+				),
+				'esl/staff:listAssignable': ASSIGNABLE,
+				'esl/classes:listScheduleByYear': [{ ...SOUND_CLIL, room: null }],
+				'esl/classes:listRoomSuggestions': {
+					department: ['ESL A', 'ESL B', 'ESL C', 'ESL D', 'ESL E', 'ESL F', 'ESL G'],
+					custom: ['J101'],
+					homerooms: []
+				}
+			});
+
 			await render(ClassesPage);
 
 			await openRoomGrid();
-			await page.getByTestId('esl-admin-classes.schedule.room.other').click();
-			await page.getByTestId('esl-admin-classes.schedule.room.input').fill('J101');
-			await userEvent.keyboard('{Enter}');
+			await roomButton('J101').click();
 			await page.getByTestId('esl-admin-classes.schedule.save').click();
 
 			await vi.waitFor(() =>

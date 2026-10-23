@@ -17,9 +17,9 @@
 	 * 8–11): the suggested term with its reason, the S1/S2 override, and
 	 * the start-date week rows.
 	 *
-	 * The shell seeds `state.step1` from the same helpers this panel
+	 * The shell seeds `wizardState.step1` from the same helpers this panel
 	 * displays, so the panel only reads what it was handed and writes
-	 * through `update()` — never assigning to `state` directly, which is
+	 * through `update()` — never assigning to `wizardState` directly, which is
 	 * what keeps the sessionStorage copy in step. `today` is a prop (not a
 	 * wall-clock read) so the suggestion banner is deterministic under
 	 * test; the route omits it and gets the real day.
@@ -31,21 +31,23 @@
 	 */
 
 	let {
-		state,
+		state: wizardState,
 		update,
 		today = new Date().toISOString().slice(0, 10)
 	}: {
-		state: WizardState;
+		wizardState: WizardState;
 		update: (mutate: (draft: WizardState) => void) => void;
 		today?: string;
 	} = $props();
+	let customRoomDraft = $state('');
+	let roomError = $state('');
 
 	const suggestion = suggestSemester(today);
 	const TERMS: readonly Term[] = ['S1', 'S2'];
 
-	const term = $derived(state.step1.term);
-	const schoolYear = $derived(state.step1.schoolYear);
-	const startDate = $derived(state.step1.startDate);
+	const term = $derived(wizardState.step1.term);
+	const schoolYear = $derived(wizardState.step1.schoolYear);
+	const startDate = $derived(wizardState.step1.startDate);
 	const mondays = $derived(
 		term === null || schoolYear === null ? [] : startPickerMondays(term, schoolYear)
 	);
@@ -89,9 +91,40 @@
 	}
 
 	function confirm(): void {
+		if (term === 'S1' && wizardState.step1.eslRoomLimit === null) {
+			roomError = 'Choose the highest ESL room letter before continuing.';
+			return;
+		}
 		update((draft) => {
 			draft.currentStep = 2;
 		});
+	}
+
+	function addCustomRoom(): void {
+		const room = customRoomDraft.trim();
+		if (!room) return;
+		const key = room.toLocaleLowerCase();
+		const existingNames = [
+			...wizardState.step1.eslCustomRooms,
+			...['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((letter) => `ESL ${letter}`)
+		];
+		if (existingNames.some((name) => name.trim().toLocaleLowerCase() === key)) {
+			roomError = 'That room is already listed.';
+			return;
+		}
+		roomError = '';
+		update((draft) => draft.step1.eslCustomRooms.push(room));
+		customRoomDraft = '';
+	}
+
+	function removeCustomRoom(room: string): void {
+		update((draft) => {
+			draft.step1.eslCustomRooms = draft.step1.eslCustomRooms.filter((name) => name !== room);
+		});
+	}
+
+	function isRoomLimit(value: string): value is 'D' | 'E' | 'F' | 'G' {
+		return value === 'D' || value === 'E' || value === 'F' || value === 'G';
 	}
 </script>
 
@@ -125,6 +158,80 @@
 			Start Date: <strong>{startDate ?? '—'}</strong>
 		</p>
 	</div>
+
+	{#if term === 'S1'}
+		<div class="space-y-3 rounded-md border p-3" data-testid="wizard.step-1-room-settings">
+			<div class="flex flex-wrap items-center gap-2">
+				<label for="wizard-esl-room-limit" class="text-sm font-medium text-gray-700"
+					>ESL room A to:</label
+				>
+				<select
+					id="wizard-esl-room-limit"
+					class="border-input bg-background h-9 rounded-md border px-3 text-sm"
+					value={wizardState.step1.eslRoomLimit ?? ''}
+					onchange={(event) => {
+						const value = event.currentTarget.value;
+						if (value !== '' && !isRoomLimit(value)) return;
+						update((draft) => {
+							draft.step1.eslRoomLimit = value === '' ? null : value;
+						});
+						roomError = '';
+					}}
+					data-testid="wizard.step-1-room-limit"
+				>
+					<option value="">Choose…</option>
+					{#each ['D', 'E', 'F', 'G'] as letter (letter)}
+						<option value={letter}>{letter}</option>
+					{/each}
+				</select>
+			</div>
+
+			<div class="flex flex-wrap items-end gap-2">
+				<div class="min-w-56 flex-1 space-y-1">
+					<label for="wizard-custom-room" class="text-sm font-medium text-gray-700"
+						>Custom rooms</label
+					>
+					<input
+						id="wizard-custom-room"
+						class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+						bind:value={customRoomDraft}
+						placeholder="e.g. Library"
+						onkeydown={(event) => {
+							if (event.key === 'Enter') {
+								event.preventDefault();
+								addCustomRoom();
+							}
+						}}
+						data-testid="wizard.step-1-custom-room-input"
+					/>
+				</div>
+				<Button type="button" variant="outline" onclick={addCustomRoom}>Add room</Button>
+			</div>
+
+			{#if wizardState.step1.eslCustomRooms.length > 0}
+				<ul class="flex flex-wrap gap-2" aria-label="Custom ESL rooms">
+					{#each wizardState.step1.eslCustomRooms as room (room)}
+						<li class="bg-muted flex items-center gap-2 rounded-full px-3 py-1 text-sm">
+							{room}
+							<button
+								type="button"
+								class="text-muted-foreground hover:text-foreground font-medium"
+								aria-label="Remove {room}"
+								onclick={() => removeCustomRoom(room)}>×</button
+							>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			<p class="text-muted-foreground text-xs">
+				Existing assignments stay if you remove a room; removed rooms will no longer be offered for
+				new assignments.
+			</p>
+			{#if roomError}
+				<p class="text-destructive text-sm" role="alert">{roomError}</p>
+			{/if}
+		</div>
+	{/if}
 
 	<WeekPicker
 		{mondays}

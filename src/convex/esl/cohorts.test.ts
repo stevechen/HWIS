@@ -380,6 +380,60 @@ describe('esl cohorts', () => {
 			expect(cohorts[0]._id).toBe(cohortId);
 			expect(cohorts[0].label).toBe('2025-2026 G7 Basic 1');
 			expect(cohorts[0].classes).toHaveLength(2);
+			expect(cohorts[0].studentCount).toBe(0);
+			expect(cohorts[0].chineseClassComposition).toEqual([]);
+		});
+
+		it('returns sorted distinct Chinese classes from active students only', async () => {
+			const t = await asEslAdmin();
+			const { cohortId } = await createG7(t);
+
+			await t.run(async (ctx) => {
+				for (const [index, [chineseClass, status]] of (
+					[
+						['07', 'active'],
+						['03', 'active'],
+						['03', 'active'],
+						[undefined, 'active'],
+						['invalid', 'active'],
+						['02', 'disabled']
+					] as const
+				).entries()) {
+					await ctx.db.insert('esl_students', {
+						cohortId,
+						chineseName: `Student ${index}`,
+						schoolStudentId: `700000${index}`,
+						...(chineseClass === undefined ? {} : { chineseClass }),
+						status,
+						enrolledAt: index
+					});
+				}
+			});
+
+			const [cohort] = await t.query(api.esl.cohorts.list, { year: '2025-2026' });
+
+			expect(cohort.studentCount).toBe(5);
+			expect(cohort.chineseClassComposition).toEqual(['103', '107']);
+		});
+
+		it('returns an empty composition when active students have no usable Chinese class', async () => {
+			const t = await asEslAdmin();
+			const { cohortId } = await createG7(t);
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('esl_students', {
+					cohortId,
+					chineseName: 'Missing class',
+					schoolStudentId: '7000001',
+					status: 'active',
+					enrolledAt: 0
+				});
+			});
+
+			const [cohort] = await t.query(api.esl.cohorts.list, { year: '2025-2026' });
+
+			expect(cohort.studentCount).toBe(1);
+			expect(cohort.chineseClassComposition).toEqual([]);
 		});
 
 		it('filters by grade', async () => {

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
@@ -10,7 +9,6 @@
 		ESL_DAYS,
 		ESL_DAY_LABELS,
 		ESL_PERIODS,
-		ESL_ROOM_SUGGESTIONS,
 		assertValidMeetings,
 		describeMeetingShapeError,
 		eslMeetingLabel,
@@ -175,18 +173,13 @@
 	 * a slots-only edit does not rewrite the room.
 	 */
 	let draftRoom = $state('');
-	/** The Other field's text, committed into the draft on blur or Enter. */
-	let customRoom = $state('');
-	/** True from an explicit click on Other, until a room button or commit ends it. */
-	let typingCustom = $state(false);
 	let error = $state('');
 	let triggerEl = $state<HTMLButtonElement | null>(null);
 
 	/**
 	 * Room suggestions for the cohort, read only while the picker is open.
 	 *
-	 * Department rooms come from the static list so they render instantly; the
-	 * derived homerooms arrive with the query and slot in underneath. Scoped to
+	 * Year rooms and derived homerooms arrive with the query. Scoped to
 	 * the open picker rather than per card, so a page of a hundred cards holds
 	 * no hundred subscriptions.
 	 */
@@ -194,6 +187,8 @@
 		expanded ? { cohortId: classRecord.cohortId as Id<'esl_cohorts'> } : 'skip'
 	);
 	const homerooms = $derived(suggestionsQuery.data?.homerooms ?? []);
+	const configuredDepartmentRooms = $derived(suggestionsQuery.data?.department ?? []);
+	const customRooms = $derived(suggestionsQuery.data?.custom ?? []);
 
 	/**
 	 * Seed the editor from what is saved.
@@ -222,15 +217,6 @@
 		draft = union;
 		const savedRoom = classRecord.room ?? '';
 		draftRoom = savedRoom;
-		// The custom field's text is seeded for a genuinely custom saved room, but
-		// whether the field is *open* is `customActive`, derived — and deliberately
-		// not decided here. `open()` fires before the suggestions query answers
-		// (this is what enables it), so asking at open rated every homeroom room
-		// as custom and stuck that judgment in `typingCustom` for the picker's
-		// whole life. Clearing the gesture and leaving the derived state to breathe
-		// is what keeps J102 from lighting Other… as well.
-		customRoom = isListedRoom(savedRoom) ? '' : savedRoom;
-		typingCustom = false;
 		error = '';
 		roomsOnly = roomOnly;
 		expanded = true;
@@ -545,44 +531,6 @@
 	}
 
 	/**
-	 * Whether a room name is one of the button-grid answers.
-	 *
-	 * The department rooms are static, so they are known before the homeroom query
-	 * lands; the homerooms join once loaded. Anything else is an Other room — but
-	 * only once the list has landed: before that, unknown is not "custom".
-	 */
-	function isListedRoom(value: string): boolean {
-		if (value === '') return true;
-		if ((ESL_ROOM_SUGGESTIONS as readonly string[]).includes(value)) return true;
-		return homerooms.includes(value);
-	}
-
-	/**
-	 * Whether the Other… tile is lit and the custom field is open.
-	 *
-	 * Derived, never decided at open. The saved room is known the instant the
-	 * picker opens, but the homeroom list is not — `open()` itself *enables* the
-	 * suggestions query, so at open the list is still empty and every homeroom
-	 * reads as custom. A saved "J102" lit both its own button and Other… (and
-	 * opened the field), because the one-shot flag was never revisited when the
-	 * list landed. Deriving lets the state correct itself the moment the grid
-	 * knows what it lists: a listed saved room lights its own button and closes
-	 * the field; a genuinely custom one ("Library") opens the field with its
-	 * saved value. The gesture half keeps it open from an explicit Other… click
-	 * even while the room is still empty.
-	 */
-	const customActive = $derived(
-		typingCustom ||
-			(draftRoom !== '' &&
-				!isListedRoom(draftRoom) &&
-				// Until the suggestions query answers, the picker does not claim
-				// the saved room is custom — an unanswered list is not evidence.
-				// A failed query stays here too; clicking Other… still opens the
-				// field by gesture.
-				suggestionsQuery.data !== undefined)
-	);
-
-	/**
 	 * Choose a room button: single-select, saved with the week.
 	 *
 	 * Choosing the picked room again clears it — the same toggle-off the slot
@@ -591,25 +539,11 @@
 	function pickRoom(value: string) {
 		error = '';
 		draftRoom = draftRoom === value ? '' : value;
-		typingCustom = false;
-	}
-
-	/** Reveal the Other field, seeded from the draft when it is itself custom. */
-	function pickOther() {
-		error = '';
-		customRoom = isListedRoom(draftRoom) ? '' : draftRoom;
-		typingCustom = true;
-	}
-
-	/** Commit the typed room into the draft. Empty means no room. */
-	function commitCustom() {
-		draftRoom = customRoom.trim();
-		typingCustom = false;
 	}
 
 	/**
-	 * The room buttons in grid order: department rooms, then homerooms, then the
-	 * Other escape hatch. Choosing the picked room again clears it.
+	 * The room buttons in grid order: configured department rooms, custom rooms,
+	 * then homerooms. Choosing the picked room again clears it.
 	 *
 	 * Homerooms sort ascending on the server, so they arrive ordered. Deduplicated
 	 * against the department list defensively — a department room that is also a
@@ -617,10 +551,15 @@
 	 */
 	const roomOptions = $derived.by(() => {
 		const seen = new SvelteSet<string>();
-		const options: { value: string; kind: 'department' | 'homeroom' }[] = [];
-		for (const name of ESL_ROOM_SUGGESTIONS) {
+		const options: { value: string; kind: 'department' | 'custom' | 'homeroom' }[] = [];
+		for (const name of configuredDepartmentRooms) {
 			seen.add(name);
 			options.push({ value: name, kind: 'department' });
+		}
+		for (const name of customRooms) {
+			if (seen.has(name)) continue;
+			seen.add(name);
+			options.push({ value: name, kind: 'custom' });
 		}
 		for (const name of homerooms) {
 			if (seen.has(name)) continue;
@@ -791,7 +730,7 @@
 	/**
 	 * Move focus across the room buttons; space and Enter press natively.
 	 *
-	 * The options read as one flat list — department rooms, homerooms, Other —
+	 * The options read as one flat list — configured rooms, then homerooms —
 	 * so every arrow steps to the neighbour in that order.
 	 */
 	function onRoomKeyDown(event: KeyboardEvent, index: number, total: number) {
@@ -987,9 +926,7 @@
 				<!--
 				The room grid: one scheduling gesture, not a separate form.
 
-				Department rooms first, then the cohort's derived homerooms, then the
-				Other escape hatch — the same order the query returns, so the
-				department's own space reads as the default. Busy marks are judged
+				Configured year rooms first, then the cohort's derived homerooms. Busy marks are judged
 				against the *live draft*: each candidate room runs the gate with the
 				slots as currently picked, and a held room names its holder and slot
 				on the button rather than only in a tooltip. Choosing the picked
@@ -1030,7 +967,7 @@
 								data-busy={busyMark !== null}
 								disabled={busy}
 								onclick={() => pickRoom(option.value)}
-								onkeydown={(event) => onRoomKeyDown(event, index, roomOptions.length + 1)}
+								onkeydown={(event) => onRoomKeyDown(event, index, roomOptions.length)}
 							>
 								<span>{option.value}</span>
 								{#if busyMark !== null}
@@ -1042,43 +979,18 @@
 								{/if}
 							</button>
 						{/each}
-						<button
-							type="button"
-							id="room-{classRecord.classId}-{roomOptions.length}"
-							class={[
-								'-mt-px -ml-px flex min-h-7 flex-col items-center justify-center border px-1 py-0.5 text-xs leading-tight focus-visible:ring-2 focus-visible:ring-emerald-600',
-								customActive
-									? 'border-emerald-600 bg-emerald-100 font-medium text-emerald-900'
-									: 'border-input text-muted-foreground hover:border-emerald-400'
-							]}
-							title="Pick a room outside both lists."
-							aria-pressed={customActive}
-							data-testid="esl-admin-classes.schedule.room.other"
-							disabled={busy}
-							onclick={pickOther}
-							onkeydown={(event) =>
-								onRoomKeyDown(event, roomOptions.length, roomOptions.length + 1)}
-						>
-							<span>Other…</span>
-						</button>
+						{#if draftRoom && !roomOptions.some((option) => option.value === draftRoom)}
+							<button
+								type="button"
+								class="col-span-3 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900"
+								data-testid="esl-admin-classes.schedule.room.unavailable"
+								disabled={busy}
+								onclick={() => pickRoom('')}
+							>
+								{draftRoom} is no longer available. Choose here to clear this assignment.
+							</button>
+						{/if}
 					</div>
-					{#if customActive}
-						<Input
-							class="h-7 text-xs"
-							data-testid="esl-admin-classes.schedule.room.input"
-							bind:value={customRoom}
-							placeholder="e.g. Library"
-							aria-label="Custom room for {classRecord.name}"
-							disabled={busy}
-							onblur={commitCustom}
-							onkeydown={(event) => {
-								if (event.key === 'Enter') {
-									event.preventDefault();
-									commitCustom();
-								}
-							}}
-						/>
-					{/if}
 				</fieldset>
 
 				<!--

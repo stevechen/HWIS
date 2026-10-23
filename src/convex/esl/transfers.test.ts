@@ -131,6 +131,62 @@ describe('esl student transfers', () => {
 				[]
 			);
 		});
+
+		it('includes inactive students only when explicitly requested', async () => {
+			const t = await asEslAdmin();
+			const cohort = await createCohort(t);
+			const studentId = await addStudent(t, cohort.cohortId, {
+				schoolStudentId: '7002001',
+				englishName: 'Queena Lee',
+				status: 'disabled'
+			});
+			await t.run((ctx) =>
+				ctx.db.patch(studentId, { statusReason: 'Not present in roster import' })
+			);
+
+			expect(
+				await t.query(api.esl.transfers.search, {
+					year: '2025-2026',
+					query: 'Queena'
+				})
+			).toEqual([]);
+
+			expect(
+				await t.query(api.esl.transfers.search, {
+					year: '2025-2026',
+					query: 'Queena',
+					includeDisabled: true
+				})
+			).toMatchObject([
+				{
+					schoolStudentId: '7002001',
+					status: 'disabled',
+					statusReason: 'Not present in roster import',
+					cohortStatus: 'active'
+				}
+			]);
+		});
+
+		it('shows archived cohort students only when explicitly requested', async () => {
+			const t = await asEslAdmin();
+			const cohort = await createCohort(t);
+			await addStudent(t, cohort.cohortId, {
+				schoolStudentId: '7002002',
+				englishName: 'Vic Li'
+			});
+			await t.mutation(api.esl.cohorts.archiveYear, { year: '2025-2026' });
+
+			expect(await t.query(api.esl.transfers.search, { year: '2025-2026', query: 'Vic' })).toEqual(
+				[]
+			);
+			expect(
+				await t.query(api.esl.transfers.search, {
+					year: '2025-2026',
+					query: 'Vic',
+					includeDisabled: true
+				})
+			).toMatchObject([{ schoolStudentId: '7002002', cohortStatus: 'archived' }]);
+		});
 	});
 
 	describe('transferLevel', () => {

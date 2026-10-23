@@ -23,6 +23,43 @@ import {
 	type EslScheduleProblemDetail,
 	type EslUnavailableSlot
 } from '../shared/esl';
+import { roomsThrough } from '../shared/esl-rooms';
+
+async function configuredRooms(ctx: QueryCtx | MutationCtx, year: string) {
+	const semesterOne = await ctx.db
+		.query('esl_semesters')
+		.withIndex('by_year_term', (q) => q.eq('year', year).eq('term', 'S1'))
+		.first();
+	const department = semesterOne?.eslRoomLimit
+		? roomsThrough(semesterOne.eslRoomLimit)
+		: [...ESL_ROOM_SUGGESTIONS];
+	return { department, custom: semesterOne?.eslCustomRooms ?? [] };
+}
+
+async function cohortRoomOptions(ctx: QueryCtx | MutationCtx, cohort: Doc<'esl_cohorts'>) {
+	const configured = await configuredRooms(ctx, cohort.year);
+	const homerooms = isLevelledGrade(cohort.grade)
+		? new Set(
+				(await findBandCohortsWithHomerooms(ctx, cohort)).flatMap((member) => member.homerooms)
+			)
+		: new Set(await cohortHomeroomSet(ctx, cohort));
+	return [...new Set([...configured.department, ...configured.custom, ...homerooms])];
+}
+
+async function assertRoomAvailable(
+	ctx: QueryCtx | MutationCtx,
+	cohort: Doc<'esl_cohorts'>,
+	room: string,
+	currentRoom?: string
+) {
+	if (room === currentRoom) return;
+	const options = await cohortRoomOptions(ctx, cohort);
+	if (!options.some((option) => option.toLocaleLowerCase() === room.toLocaleLowerCase())) {
+		throw new Error(
+			`${room} is not available for this school year. Choose a listed ESL room or cohort homeroom.`
+		);
+	}
+}
 
 /** The day validator shared by every meeting argument and return shape. */
 const dayValidator = v.union(
@@ -1037,6 +1074,11 @@ export const setSchedule = mutation({
 		const nextRoom =
 			args.room === undefined ? undefined : trimmedRoom === '' ? undefined : trimmedRoom;
 		const gateRoom = args.room === undefined ? (classRecord.room ?? undefined) : nextRoom;
+		if (args.room !== undefined && nextRoom !== undefined) {
+			const cohort = await ctx.db.get(classRecord.cohortId);
+			if (cohort !== null)
+				await assertRoomAvailable(ctx, cohort, nextRoom, classRecord.room ?? undefined);
+		}
 
 		if ((await findGrade10PartnerClass(ctx, classRecord)) !== null) {
 			await writeGrade10Pair(ctx, classRecord, args.year, args.meetings, gateRoom);
@@ -1172,6 +1214,8 @@ export const setRoom = mutation({
 		// which is the only year this class's saved week belongs to.
 		const cohort = await ctx.db.get(classRecord.cohortId);
 		if (cohort !== null) {
+			if (next !== undefined)
+				await assertRoomAvailable(ctx, cohort, next, classRecord.room ?? undefined);
 			await gateRoomChange(ctx, classRecord, next, cohort.year);
 		}
 
@@ -1209,6 +1253,7 @@ export const listRoomSuggestions = query({
 		const cohort = await ctx.db.get(args.cohortId);
 		if (!cohort) throw new Error('Cohort not found');
 
+		const configured = await configuredRooms(ctx, cohort.year);
 		const homerooms = isLevelledGrade(cohort.grade)
 			? new Set(
 					(await findBandCohortsWithHomerooms(ctx, cohort)).flatMap((member) => member.homerooms)
@@ -1216,8 +1261,10 @@ export const listRoomSuggestions = query({
 			: new Set(await cohortHomeroomSet(ctx, cohort));
 
 		return {
-			/** The department's own rooms, in corridor order. */
-			department: [...ESL_ROOM_SUGGESTIONS],
+			/** The year-configured department rooms, in corridor order. */
+			department: configured.department,
+			/** Additional rooms configured with the year's S1 semester. */
+			custom: configured.custom,
 			/** The cohort's G7–G9 band homerooms, ascending. */
 			homerooms: [...homerooms].sort()
 		};

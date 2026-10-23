@@ -23,6 +23,18 @@ function stored(): string | null {
 	return sessionStorage.getItem(STORAGE_KEY);
 }
 
+/** The S1 gate — pick the room letter when the panel offers it. */
+async function chooseRoomLimitIfPresent(): Promise<void> {
+	const select = page.getByTestId('wizard.step-1-room-limit');
+	try {
+		// S1 only: the room-settings block disappears on S2 setup.
+		await expect.element(select).toBeVisible({ timeout: 1000 });
+		await select.selectOptions('E');
+	} catch {
+		// S2 setup has no room-limit section.
+	}
+}
+
 describe('ESL semester wizard route', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -54,6 +66,7 @@ describe('ESL semester wizard route', () => {
 	it('advances to the step 2 slot and persists the step', async () => {
 		await render(WizardPage);
 
+		await chooseRoomLimitIfPresent();
 		await page.getByRole('button', { name: 'Next' }).click();
 
 		await expect.element(page.getByTestId('wizard.step-1-placeholder')).not.toBeInTheDocument();
@@ -95,6 +108,7 @@ describe('ESL semester wizard route', () => {
 
 	it('resumes the stored step after a refresh', async () => {
 		const first = await render(WizardPage);
+		await chooseRoomLimitIfPresent();
 		await page.getByRole('button', { name: 'Next' }).click();
 		await vi.waitFor(() => {
 			expect(stored()).toContain('"currentStep":2');
@@ -109,6 +123,7 @@ describe('ESL semester wizard route', () => {
 
 	it('cancels by discarding the stored state and leaving the wizard', async () => {
 		await render(WizardPage);
+		await chooseRoomLimitIfPresent();
 		await page.getByRole('button', { name: 'Next' }).click();
 		await vi.waitFor(() => {
 			expect(stored()).toContain('"currentStep":2');

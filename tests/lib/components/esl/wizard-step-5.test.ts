@@ -33,7 +33,9 @@ const mockState = {
 	step1: {
 		term: 'S1' as const,
 		schoolYear: '2026-2027',
-		startDate: '2026-08-31'
+		startDate: '2026-08-31',
+		eslRoomLimit: 'E' as const,
+		eslCustomRooms: []
 	},
 	step2: {
 		endDate: '2027-01-20',

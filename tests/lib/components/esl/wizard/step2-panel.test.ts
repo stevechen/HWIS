@@ -61,7 +61,13 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 	const mockState: WizardState = {
 		currentStep: 2,
 		semesterId: null,
-		step1: { term: 'S1' as const, schoolYear: '2026-2027', startDate: '2026-08-31' },
+		step1: {
+			term: 'S1' as const,
+			schoolYear: '2026-2027',
+			startDate: '2026-08-31',
+			eslRoomLimit: 'E' as const,
+			eslCustomRooms: []
+		},
 		step2: {
 			endDate: '2027-01-20',
 			offDays: [] as { date: string; name: string }[],
@@ -121,7 +127,13 @@ describe('Step2Panel — end date, holiday import, calendar preview, event list'
 		const update = vi.fn();
 		const state: WizardState = {
 			...mockState,
-			step1: { term: 'S2' as const, schoolYear: '2025-2026', startDate: '2026-02-11' },
+			step1: {
+				term: 'S2' as const,
+				schoolYear: '2025-2026',
+				startDate: '2026-02-11',
+				eslRoomLimit: null,
+				eslCustomRooms: []
+			},
 			step2: { endDate: '2026-06-30', offDays: [], holidaysImported: false }
 		};
 		await render(Step2Panel, { state, step: 2, update });

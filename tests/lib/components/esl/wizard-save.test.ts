@@ -11,7 +11,13 @@ function s1State(): WizardState {
 	return {
 		currentStep: 5,
 		semesterId: null,
-		step1: { term: 'S1', schoolYear: '2026-2027', startDate: '2026-08-31' },
+		step1: {
+			term: 'S1',
+			schoolYear: '2026-2027',
+			startDate: '2026-08-31',
+			eslRoomLimit: null,
+			eslCustomRooms: []
+		},
 		step2: {
 			endDate: '2027-01-20',
 			offDays: [{ date: '2026-11-10', name: 'National Day' }],

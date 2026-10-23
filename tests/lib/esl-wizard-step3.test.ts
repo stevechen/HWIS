@@ -11,7 +11,11 @@ vi.mock('convex-svelte', () => ({
 	useConvexClient: vi.fn(() => ({ mutation: vi.fn(), query: vi.fn() }))
 }));
 
-function makeState(overrides: Partial<WizardState> = {}): WizardState {
+type StateOverrides = Omit<Partial<WizardState>, 'step1'> & {
+	step1?: Partial<WizardState['step1']>;
+};
+
+function makeState(overrides: StateOverrides = {}): WizardState {
 	const base = createInitialWizardState('2026-08-15');
 	return {
 		...base,

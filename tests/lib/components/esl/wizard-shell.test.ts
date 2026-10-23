@@ -38,6 +38,8 @@ describe('wizard shell', () => {
 		await expect.element(page.getByTestId('wizard.steps')).toBeInTheDocument();
 		await expect.element(page.getByTestId('wizard.progress')).toMatchTextContent('Step 1 of 5');
 		await expect.element(page.getByTestId('wizard.step-1')).toBeInTheDocument();
+		// Step 1 is S1 this season — it is incomplete until the room limit is chosen.
+		await page.getByTestId('harness.set-room-limit').click();
 		await expect.element(page.getByRole('button', { name: 'Back' })).toBeDisabled();
 		await expect.element(page.getByRole('button', { name: 'Next' })).toBeEnabled();
 		await expect.element(page.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
@@ -55,6 +57,7 @@ describe('wizard shell', () => {
 				.not.toHaveAttribute('aria-current', 'step');
 		}
 
+		await page.getByTestId('harness.set-room-limit').click();
 		await page.getByRole('button', { name: 'Next' }).click();
 
 		await expect
@@ -84,6 +87,7 @@ describe('wizard shell', () => {
 
 		expect(stored()).toBeNull();
 
+		await page.getByTestId('harness.set-room-limit').click();
 		await page.getByRole('button', { name: 'Next' }).click();
 
 		await vi.waitFor(() => {
@@ -110,6 +114,7 @@ describe('wizard shell', () => {
 
 		await expect.element(page.getByTestId('harness.start-date')).toMatchTextContent('2026-09-07');
 
+		await page.getByTestId('harness.set-room-limit').click();
 		await page.getByRole('button', { name: 'Next' }).click();
 		await expect.element(page.getByTestId('harness.step')).toMatchTextContent('2');
 
@@ -133,6 +138,7 @@ describe('wizard shell', () => {
 	it('blocks Next while the current step is incomplete and lets a reached step stay clickable', async () => {
 		await render(WizardShellHarness);
 
+		await page.getByTestId('harness.set-room-limit').click();
 		await page.getByTestId('harness.clear-end').click();
 		await page.getByRole('button', { name: 'Next' }).click();
 
@@ -147,6 +153,7 @@ describe('wizard shell', () => {
 
 	it('resumes the stored step on a fresh mount and says so', async () => {
 		const first = await render(WizardShellHarness);
+		await page.getByTestId('harness.set-room-limit').click();
 		await page.getByRole('button', { name: 'Next' }).click();
 		await vi.waitFor(() => {
 			expect(stored()).toContain('"currentStep":2');
@@ -173,6 +180,7 @@ describe('wizard shell', () => {
 
 	it('dismisses the resume notice', async () => {
 		const first = await render(WizardShellHarness);
+		await page.getByTestId('harness.set-room-limit').click();
 		await page.getByRole('button', { name: 'Next' }).click();
 		await vi.waitFor(() => {
 			expect(stored()).toContain('"currentStep":2');
@@ -198,6 +206,7 @@ describe('wizard shell', () => {
 
 	it('Cancels by dropping the stored state and leaving for the semester list', async () => {
 		await render(WizardShellHarness);
+		await page.getByTestId('harness.set-room-limit').click();
 		await page.getByRole('button', { name: 'Next' }).click();
 		await vi.waitFor(() => {
 			expect(stored()).toContain('"currentStep":2');
@@ -230,7 +239,13 @@ describe('wizard shell (edit mode)', () => {
 		return {
 			currentStep: 5,
 			semesterId: 'sem_s1',
-			step1: { term: 'S1', schoolYear: '2026-2027', startDate: '2026-08-31' },
+			step1: {
+				term: 'S1',
+				schoolYear: '2026-2027',
+				startDate: '2026-08-31',
+				eslRoomLimit: 'E',
+				eslCustomRooms: []
+			},
 			step2: {
 				endDate: null,
 				offDays: [{ date: '2026-09-25', name: 'Mid-Autumn Festival' }],

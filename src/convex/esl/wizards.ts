@@ -1,5 +1,6 @@
 import { action, internalMutation, internalQuery } from '../_generated/server';
 import { v } from 'convex/values';
+import { normalizeEslCustomRooms, isEslRoomLimit } from '../shared/esl-rooms';
 import { api, internal } from '../_generated/api';
 import type { Doc, Id } from '../_generated/dataModel';
 import { periodBoundsFor } from './events';
@@ -89,6 +90,8 @@ const semesterPayloadArgs = {
 	year: v.string(),
 	term: v.union(v.literal('S1'), v.literal('S2')),
 	startDate: v.string(),
+	eslRoomLimit: v.optional(v.union(v.literal('D'), v.literal('E'), v.literal('F'), v.literal('G'))),
+	eslCustomRooms: v.optional(v.array(v.string())),
 	offDays: v.array(v.object({ date: v.string(), name: v.string() })),
 	exams: v.array(v.object({ label: examLabelValidator, dates: v.array(v.string()) })),
 	singles: v.object({
@@ -140,6 +143,8 @@ export type WizardSavePayload = {
 	year: string;
 	term: 'S1' | 'S2';
 	startDate: string;
+	eslRoomLimit?: 'D' | 'E' | 'F' | 'G';
+	eslCustomRooms?: string[];
 	offDays: { date: string; name: string }[];
 	exams: { label: 'Exam 1' | 'Exam 2' | 'Final'; dates: string[] }[];
 	singles: {
@@ -486,6 +491,12 @@ export const saveSemester = action({
 		if (duplicate !== null) {
 			throw new Error(`${args.year} ${args.term} already exists.`);
 		}
+		if (args.term === 'S1') {
+			if (!isEslRoomLimit(args.eslRoomLimit)) {
+				throw new Error('Choose the highest ESL room letter for Semester 1.');
+			}
+			normalizeEslCustomRooms(args.eslCustomRooms ?? []);
+		}
 
 		const writes: EventWrite[] = buildWizardWrites(args).map(eventOf);
 		assertWizardWritesValid(writes);
@@ -494,6 +505,9 @@ export const saveSemester = action({
 			year: args.year,
 			term: args.term,
 			startDate: args.startDate,
+			...(args.term === 'S1'
+				? { eslRoomLimit: args.eslRoomLimit, eslCustomRooms: args.eslCustomRooms ?? [] }
+				: {}),
 			...(args.e2eTag === undefined ? {} : { e2eTag: args.e2eTag })
 		});
 
@@ -1075,6 +1089,21 @@ export const reconcileSemester = internalMutation({
 		}
 		if (startDateChanged) {
 			await ctx.db.patch(args.semesterId, { startDate: args.startDate });
+		}
+		if (semester.term === 'S1') {
+			if (!isEslRoomLimit(args.eslRoomLimit)) {
+				throw new Error('Choose the highest ESL room letter for Semester 1.');
+			}
+			const customRooms = normalizeEslCustomRooms(args.eslCustomRooms ?? []);
+			if (
+				semester.eslRoomLimit !== args.eslRoomLimit ||
+				JSON.stringify(semester.eslCustomRooms ?? []) !== JSON.stringify(customRooms)
+			) {
+				await ctx.db.patch(args.semesterId, {
+					eslRoomLimit: args.eslRoomLimit,
+					eslCustomRooms: customRooms
+				});
+			}
 		}
 		return summarize(plan, startDateChanged, false);
 	}

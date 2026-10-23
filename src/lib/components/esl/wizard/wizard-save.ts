@@ -56,6 +56,8 @@ export interface SavePayload {
 	year: string;
 	term: 'S1' | 'S2';
 	startDate: string;
+	eslRoomLimit?: 'D' | 'E' | 'F' | 'G';
+	eslCustomRooms?: string[];
 	offDays: { date: string; name: string }[];
 	exams: SaveExamRange[];
 	singles: {
@@ -439,6 +441,8 @@ export function buildSavePayload(
 	year: string;
 	term: 'S1' | 'S2';
 	startDate: string;
+	eslRoomLimit?: 'D' | 'E' | 'F' | 'G';
+	eslCustomRooms?: string[];
 	offDays: { date: string; name: string }[];
 	exams: SaveExamRange[];
 	singles: SavePayload['singles'];
@@ -568,6 +572,12 @@ export function buildSavePayload(
 		year: state.step1.schoolYear ?? '',
 		term: state.step1.term ?? 'S1',
 		startDate: startEdit.date ?? state.step1.startDate ?? '',
+		...(state.step1.term === 'S1' && state.step1.eslRoomLimit !== null
+			? {
+					eslRoomLimit: state.step1.eslRoomLimit,
+					eslCustomRooms: state.step1.eslCustomRooms
+				}
+			: {}),
 		offDays,
 		exams,
 		singles: {

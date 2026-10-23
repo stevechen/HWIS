@@ -41,7 +41,13 @@ const OCTOBER_SEED = '2026-10-15';
 const OCTOBER_FRESH = {
 	currentStep: 1,
 	semesterId: null,
-	step1: { term: 'S1', schoolYear: '2026-2027', startDate: '2026-08-31' },
+	step1: {
+		term: 'S1',
+		schoolYear: '2026-2027',
+		startDate: '2026-08-31',
+		eslRoomLimit: null,
+		eslCustomRooms: []
+	},
 	step2: { endDate: '2027-01-20', offDays: [], holidaysImported: false },
 	step3: { exams: [] },
 	step4: {
@@ -77,7 +83,13 @@ describe('wizardState', () => {
 
 		it('seeds an S2 spring window when today falls in the spring half', () => {
 			const state = createInitialWizardState('2026-03-10');
-			expect(state.step1).toEqual({ term: 'S2', schoolYear: '2025-2026', startDate: '2026-02-11' });
+			expect(state.step1).toEqual({
+				term: 'S2',
+				schoolYear: '2025-2026',
+				startDate: '2026-02-11',
+				eslRoomLimit: null,
+				eslCustomRooms: []
+			});
 			expect(state.step2.endDate).toBe('2026-06-30');
 		});
 	});
@@ -85,6 +97,9 @@ describe('wizardState', () => {
 	describe('step gates', () => {
 		it('counts the seeded step 1 and step 2 as complete and later steps as not', () => {
 			const state = createInitialWizardState(OCTOBER_SEED);
+			// S1 setup now requires a room-limit choice; the seed leaves it unset.
+			expect(isStepComplete(state, 1)).toBe(false);
+			state.step1.eslRoomLimit = 'E';
 			expect(isStepComplete(state, 1)).toBe(true);
 			expect(isStepComplete(state, 2)).toBe(true);
 			expect(isStepComplete(state, 3)).toBe(false);

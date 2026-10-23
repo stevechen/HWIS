@@ -467,6 +467,12 @@ export default defineSchema({
 		term: v.union(v.literal('S1'), v.literal('S2')),
 		/** First day of the term, `YYYY-MM-DD`. */
 		startDate: v.string(),
+		/** S1 room range for the school year. S2 reads the S1 record. */
+		eslRoomLimit: v.optional(
+			v.union(v.literal('D'), v.literal('E'), v.literal('F'), v.literal('G'))
+		),
+		/** Additional named rooms shared by both semesters in this school year. */
+		eslCustomRooms: v.optional(v.array(v.string())),
 		/**
 		 * Set only by end-to-end runs, so a test's semesters can be removed
 		 * afterwards on the same tag pattern the other tables use. Absent in

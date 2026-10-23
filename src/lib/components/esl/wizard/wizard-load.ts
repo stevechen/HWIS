@@ -102,6 +102,9 @@ export interface WizardSemesterSource {
 	year: string;
 	term: Term;
 	startDate: string;
+	/** S1 owns the year-wide room setup. */
+	eslRoomLimit?: 'D' | 'E' | 'F' | 'G';
+	eslCustomRooms?: string[];
 	/** The real `_id`, echoed into `state.semesterId` when present. */
 	id?: string;
 }
@@ -617,7 +620,9 @@ export function loadWizardState(
 		step1: {
 			term: semester.term,
 			schoolYear: semester.year,
-			startDate: semester.startDate
+			startDate: semester.startDate,
+			eslRoomLimit: semester.eslRoomLimit ?? null,
+			eslCustomRooms: semester.eslCustomRooms ?? []
 		},
 		step2: { endDate: derivedEndDate, offDays, holidaysImported: false },
 		step3: { exams },

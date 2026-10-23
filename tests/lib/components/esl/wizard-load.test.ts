@@ -199,7 +199,13 @@ export function s1State(): WizardState {
 	return {
 		currentStep: 5,
 		semesterId: null,
-		step1: { term: 'S1', schoolYear: '2026-2027', startDate: '2026-08-31' },
+		step1: {
+			term: 'S1',
+			schoolYear: '2026-2027',
+			startDate: '2026-08-31',
+			eslRoomLimit: null,
+			eslCustomRooms: []
+		},
 		step2: {
 			endDate: '2027-01-20',
 			offDays: [{ date: '2026-10-09', name: 'Peace Memorial Day (observed)' }],
@@ -305,7 +311,9 @@ describe('loadWizardState — round trip', () => {
 		expect(loaded.state.step1).toEqual({
 			term: 'S1',
 			schoolYear: '2026-2027',
-			startDate: '2026-08-31'
+			startDate: '2026-08-31',
+			eslRoomLimit: null,
+			eslCustomRooms: []
 		});
 		// Exact: exams re-fanned from the examGroup anchor.
 		expect(loaded.state.step3.exams).toEqual(state.step3.exams);
@@ -374,7 +382,13 @@ describe('loadWizardState — round trip', () => {
 		const state: WizardState = {
 			currentStep: 5,
 			semesterId: null,
-			step1: { term: 'S2', schoolYear: '2026-2027', startDate: '2027-02-11' },
+			step1: {
+				term: 'S2',
+				schoolYear: '2026-2027',
+				startDate: '2027-02-11',
+				eslRoomLimit: null,
+				eslCustomRooms: []
+			},
 			step2: { endDate: '2027-06-30', offDays: [], holidaysImported: false },
 			step3: { exams: [] },
 			step4: {

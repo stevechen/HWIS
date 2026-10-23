@@ -26,7 +26,13 @@
 		selectedYear ? { year: selectedYear } : 'skip'
 	);
 	const overview = $derived(overviewQuery.data ?? null);
-	const years = $derived(overview?.years ?? [selectedYear]);
+	const previousYear = $derived.by(() => {
+		const start = Number(selectedYear.slice(0, 4));
+		return Number.isInteger(start) ? `${start - 1}-${start}` : selectedYear;
+	});
+	const years = $derived(
+		[...new Set([...(overview?.years ?? []), selectedYear, previousYear])].sort().reverse()
+	);
 	let importOpen = $state(
 		page.url.hash === '#import' || page.url.searchParams.get('import') === '1'
 	);
@@ -53,12 +59,31 @@
 		}
 	}
 
+	let withdrawingSignoff = $state(false);
+	let signoffError = $state('');
+	async function undoRosterConfirmation() {
+		withdrawingSignoff = true;
+		signoffError = '';
+		try {
+			await client.mutation(api.esl.yearStatus.unconfirm, { year: selectedYear });
+			notice = `Roster sign-off withdrawn for ${selectedYear}.`;
+		} catch (cause) {
+			signoffError =
+				cause instanceof Error ? cause.message : 'Could not withdraw roster confirmation';
+		} finally {
+			withdrawingSignoff = false;
+		}
+	}
+
 	type SearchHit = FunctionReturnType<typeof api.esl.transfers.search>[number];
 	let searchDraft = $state('');
 	let searchTerm = $state('');
+	let includeDisabled = $state(false);
+	let reactivatingStudentId = $state<Id<'esl_students'> | ''>('');
+	let reactivationError = $state('');
 	let selectedStudentId = $state<Id<'esl_students'> | ''>('');
 	const searchQuery = useQuery(api.esl.transfers.search, () =>
-		searchTerm ? { year: selectedYear, query: searchTerm, limit: 25 } : 'skip'
+		searchTerm ? { year: selectedYear, query: searchTerm, limit: 25, includeDisabled } : 'skip'
 	);
 	const searchHits = $derived(searchQuery.data ?? []);
 	const selectedStudent = $derived(searchHits.find((hit) => hit._id === selectedStudentId));
@@ -74,7 +99,38 @@
 		searchDraft = '';
 		searchTerm = '';
 		selectedStudentId = '';
+		includeDisabled = false;
 		notice = '';
+	}
+
+	async function reactivateStudent(hit: SearchHit) {
+		reactivatingStudentId = hit._id;
+		reactivationError = '';
+		try {
+			await client.mutation(api.esl.students.updateStatus, { id: hit._id, status: 'active' });
+			notice = `${hit.englishName ?? hit.chineseName} reactivated for ${selectedYear}`;
+		} catch (cause) {
+			reactivationError =
+				cause instanceof Error ? cause.message : 'Could not reactivate this student';
+		} finally {
+			reactivatingStudentId = '';
+		}
+	}
+
+	let restoringYear = $state(false);
+	async function restoreSelectedYear() {
+		if (!window.confirm(`Restore all archived ESL cohorts in ${selectedYear}?`)) return;
+		restoringYear = true;
+		reactivationError = '';
+		try {
+			await client.mutation(api.esl.cohorts.restoreYear, { year: selectedYear });
+			notice = `ESL cohorts restored for ${selectedYear}`;
+		} catch (cause) {
+			reactivationError =
+				cause instanceof Error ? cause.message : 'Could not restore this school year';
+		} finally {
+			restoringYear = false;
+		}
 	}
 
 	function localDateInputValue(date = new Date()) {
@@ -386,6 +442,20 @@
 			</div>
 		</section>
 	{/if}
+	{#if overview?.hasRoster || overview?.confirmed}
+		<section class="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+			<div>
+				<h2 class="font-semibold">Roster correction</h2>
+				<p class="text-muted-foreground text-sm">
+					Import or correct a grade roster for {selectedYear}. Review its changes before applying.
+				</p>
+			</div>
+			<Button variant="outline" onclick={() => (importOpen = !importOpen)}>
+				{importOpen ? 'Hide import' : 'Import roster correction'}
+				<ArrowRight class="size-4" />
+			</Button>
+		</section>
+	{/if}
 	{#if importOpen}
 		<ImportRoster expanded initialYear={selectedYear} />
 	{/if}
@@ -479,6 +549,13 @@
 			/>
 			<Button type="submit">Search</Button>
 		</form>
+		<label class="text-muted-foreground flex items-center gap-2 text-sm">
+			<input type="checkbox" bind:checked={includeDisabled} disabled={!searchTerm} />
+			Include inactive students and archived classes
+		</label>
+		{#if reactivationError}<p class="text-sm text-rose-800" role="alert">
+				{reactivationError}
+			</p>{/if}
 		{#if !searchTerm}
 			<p class="text-muted-foreground rounded-lg border border-dashed py-12 text-center text-sm">
 				Search to load matching students.
@@ -487,7 +564,7 @@
 			<p class="text-muted-foreground py-8 text-center text-sm">Searching…</p>
 		{:else if searchHits.length === 0}
 			<p class="text-muted-foreground rounded-lg border border-dashed py-12 text-center text-sm">
-				No active student in {selectedYear} matches “{searchTerm}”.
+				No student in {selectedYear} matches “{searchTerm}”.
 			</p>
 		{:else}
 			<Table.Root class="rounded-lg border bg-white">
@@ -511,14 +588,25 @@
 									name="transfer-student"
 									value={hit._id}
 									bind:group={selectedStudentId}
+									disabled={hit.status !== 'active' || hit.cohortStatus !== 'active'}
 									aria-label="Select {hit.englishName ?? hit.chineseName} for transfer"
 								/></Table.Cell
 							>
-							<Table.Cell class="font-medium"
-								>{hit.englishName ?? hit.chineseName}{#if hit.englishName}<span
-										class="text-muted-foreground block text-xs">{hit.chineseName}</span
-									>{/if}</Table.Cell
-							>
+							<Table.Cell class="font-medium">
+								{hit.englishName ?? hit.chineseName}
+								{#if hit.status === 'disabled'}<Badge variant="secondary" class="ml-2"
+										>Inactive</Badge
+									>{/if}
+								{#if hit.cohortStatus === 'archived'}<Badge variant="destructive" class="ml-2"
+										>Archived class</Badge
+									>{/if}
+								{#if hit.englishName}<span class="text-muted-foreground block text-xs"
+										>{hit.chineseName}</span
+									>{/if}
+								{#if hit.statusReason}<span class="text-muted-foreground block text-xs"
+										>{hit.statusReason}</span
+									>{/if}
+							</Table.Cell>
 							<Table.Cell>{hit.schoolStudentId}</Table.Cell><Table.Cell
 								>Grade {hit.grade}</Table.Cell
 							><Table.Cell>{hit.homeroom || '—'}</Table.Cell><Table.Cell
@@ -534,15 +622,35 @@
 									<div
 										class="bg-popover absolute right-0 z-20 mt-1 w-48 rounded-lg border p-1 text-left shadow-lg"
 									>
-										<button
-											type="button"
-											class="hover:bg-muted w-full rounded px-3 py-2 text-left text-sm"
-											onclick={() => openMove('level', hit)}>Move ESL class</button
-										><button
-											type="button"
-											class="hover:bg-muted w-full rounded px-3 py-2 text-left text-sm"
-											onclick={() => openMove('homeroom', hit)}>Move Chinese class</button
-										>
+										{#if hit.cohortStatus === 'archived'}
+											<button
+												type="button"
+												class="hover:bg-muted w-full rounded px-3 py-2 text-left text-sm"
+												onclick={restoreSelectedYear}
+											>
+												Restore {selectedYear} cohorts
+											</button>
+										{:else if hit.status === 'disabled'}
+											<button
+												type="button"
+												class="hover:bg-muted w-full rounded px-3 py-2 text-left text-sm disabled:opacity-50"
+												disabled={reactivatingStudentId === hit._id}
+												onclick={() => reactivateStudent(hit)}
+											>
+												{reactivatingStudentId === hit._id ? 'Reactivating…' : 'Reactivate student'}
+											</button>
+										{:else}
+											<button
+												type="button"
+												class="hover:bg-muted w-full rounded px-3 py-2 text-left text-sm"
+												onclick={() => openMove('level', hit)}>Move ESL class</button
+											>
+											<button
+												type="button"
+												class="hover:bg-muted w-full rounded px-3 py-2 text-left text-sm"
+												onclick={() => openMove('homeroom', hit)}>Move Chinese class</button
+											>
+										{/if}
 									</div>
 								</details></Table.Cell
 							>
@@ -582,26 +690,55 @@
 
 	{#if overview?.confirmed}
 		<details class="rounded-xl border p-4">
-			<summary class="cursor-pointer font-semibold"
-				>Roster history · {selectedYear} confirmed</summary
-			>
+			<summary class="cursor-pointer font-semibold">
+				{overview.confirmedReason === 'signoff'
+					? `Roster history · ${selectedYear} confirmed`
+					: `School year status · ${selectedYear}`}
+			</summary>
 			<p class="text-muted-foreground mt-2 text-sm">
 				{overview.confirmedReason === 'signoff'
 					? `Confirmed by ${overview.confirmedBy ?? 'an admin'}${overview.confirmedAt ? ` on ${new Date(overview.confirmedAt).toLocaleDateString()}` : ''}.`
 					: 'This year is open because its class schedules already exist.'}
 			</p>
+			{#if overview.confirmedReason === 'signoff'}
+				<div class="mt-3 space-y-2">
+					<Button variant="outline" onclick={undoRosterConfirmation} disabled={withdrawingSignoff}>
+						{withdrawingSignoff ? 'Withdrawing…' : 'Undo roster confirmation'}
+					</Button>
+					<p class="text-muted-foreground text-xs">
+						This withdraws the roster sign-off. Existing class schedules, if any, still keep the
+						school year open.
+					</p>
+					{#if signoffError}<p class="text-sm text-rose-800" role="alert">{signoffError}</p>{/if}
+				</div>
+			{:else if overview.confirmedReason === 'existing-meetings'}
+				<p class="text-muted-foreground mt-3 text-xs">
+					This year is open because class schedules exist; removing a roster sign-off cannot close
+					that schedule gate.
+				</p>
+			{/if}
 		</details>
 		<section
 			class="mt-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950"
-			aria-label="Roster task completed"
+			aria-label={overview.confirmedReason === 'signoff'
+				? 'Roster task completed'
+				: 'School year open'}
 			transition:fly={{ y: 24, duration: 320 }}
 		>
 			<div class="rounded-full bg-emerald-100 p-2"><Check class="size-5" /></div>
 			<div class="min-w-0 flex-1">
-				<p class="font-semibold">{selectedYear} roster confirmed</p>
-				<p class="text-sm text-emerald-900/75">Enrollment is available for this school year.</p>
+				<p class="font-semibold">
+					{overview.confirmedReason === 'signoff'
+						? `${selectedYear} roster confirmed`
+						: `${selectedYear} school year open`}
+				</p>
+				<p class="text-sm text-emerald-900/75">
+					{overview.confirmedReason === 'signoff'
+						? 'Enrollment is available for this school year.'
+						: 'Existing class schedules keep this school year open.'}
+				</p>
 			</div>
-			<Badge>Complete</Badge>
+			<Badge>{overview.confirmedReason === 'signoff' ? 'Complete' : 'Open'}</Badge>
 		</section>
 	{/if}
 </main>
