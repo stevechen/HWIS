@@ -65,7 +65,9 @@
 		withdrawingSignoff = true;
 		signoffError = '';
 		try {
-			await client.mutation(api.esl.yearStatus.unconfirm, { year: selectedYear });
+			await client.mutation(api.esl.yearStatus.unconfirm, {
+				year: selectedYear
+			});
 			notice = `Roster sign-off withdrawn for ${selectedYear}.`;
 		} catch (cause) {
 			signoffError =
@@ -107,7 +109,10 @@
 		reactivatingStudentId = hit._id;
 		reactivationError = '';
 		try {
-			await client.mutation(api.esl.students.updateStatus, { id: hit._id, status: 'active' });
+			await client.mutation(api.esl.students.updateStatus, {
+				id: hit._id,
+				status: 'active'
+			});
 			notice = `${hit.englishName ?? hit.chineseName} reactivated for ${selectedYear}`;
 		} catch (cause) {
 			reactivationError =
@@ -123,7 +128,9 @@
 		restoringYear = true;
 		reactivationError = '';
 		try {
-			await client.mutation(api.esl.cohorts.restoreYear, { year: selectedYear });
+			await client.mutation(api.esl.cohorts.restoreYear, {
+				year: selectedYear
+			});
 			notice = `ESL cohorts restored for ${selectedYear}`;
 		} catch (cause) {
 			reactivationError =
@@ -272,7 +279,10 @@
 		}
 	}
 
-	let pendingMove = $state<{ kind: 'level' | 'homeroom'; hit: SearchHit } | null>(null);
+	let pendingMove = $state<{
+		kind: 'level' | 'homeroom';
+		hit: SearchHit;
+	} | null>(null);
 	let moveReason = $state('');
 	let moveError = $state('');
 	let moveBusy = $state(false);
@@ -421,117 +431,6 @@
 		{/if}
 	</section>
 
-	{#if overview && !overview.confirmed && !overview.hasRoster}
-		<section
-			class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
-			aria-label="Roster task: import due"
-		>
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<div>
-					<p class="text-xs font-bold tracking-wider uppercase">
-						{selectedYear} · yearly roster setup
-					</p>
-					<h2 class="mt-1 font-semibold">Import this year’s roster</h2>
-					<p class="mt-1 text-sm">
-						Import the approved roster before reviewing and confirming readiness.
-					</p>
-				</div>
-				<Button variant="outline" onclick={() => (importOpen = !importOpen)}
-					>{importOpen ? 'Hide import' : 'Import roster'} <ArrowRight class="size-4" /></Button
-				>
-			</div>
-		</section>
-	{/if}
-	{#if overview?.hasRoster || overview?.confirmed}
-		<section class="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
-			<div>
-				<h2 class="font-semibold">Roster correction</h2>
-				<p class="text-muted-foreground text-sm">
-					Import or correct a grade roster for {selectedYear}. Review its changes before applying.
-				</p>
-			</div>
-			<Button variant="outline" onclick={() => (importOpen = !importOpen)}>
-				{importOpen ? 'Hide import' : 'Import roster correction'}
-				<ArrowRight class="size-4" />
-			</Button>
-		</section>
-	{/if}
-	{#if importOpen}
-		<ImportRoster expanded initialYear={selectedYear} />
-	{/if}
-
-	{#if overview?.hasRoster && !overview.confirmed}
-		<section
-			class="rounded-xl border border-sky-300 bg-sky-50 p-4 text-sky-950"
-			aria-label="Roster task: confirmation due"
-		>
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<div>
-					<p class="text-xs font-bold tracking-wider uppercase">{selectedYear} · final review</p>
-					<h2 class="mt-1 font-semibold">Confirm roster readiness</h2>
-					<p class="mt-1 text-sm">
-						Review student counts and exceptions, then confirm once for this academic year.
-					</p>
-				</div>
-				<Button onclick={() => (readinessOpen = !readinessOpen)}
-					>{readinessOpen ? 'Hide review' : 'Review counts & exceptions'}
-					<ArrowRight class="size-4" /></Button
-				>
-			</div>
-			{#if readinessOpen}
-				{#if readinessQuery.isLoading}
-					<p class="mt-4 text-sm">Loading roster review…</p>
-				{:else if readiness}
-					<div class="mt-4 space-y-4 border-t border-sky-200 pt-4">
-						<dl class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-							<div class="rounded-lg bg-white/70 p-3">
-								<dt class="text-xs">Active students</dt>
-								<dd class="mt-1 text-xl font-semibold">{readiness.activeStudents}</dd>
-							</div>
-							{#each readiness.grades as grade (grade.grade)}<div
-									class="rounded-lg bg-white/70 p-3"
-								>
-									<dt class="text-xs">Grade {grade.grade}</dt>
-									<dd class="mt-1 font-semibold">
-										{grade.activeStudents} students · {grade.cohorts} ESL classes
-									</dd>
-								</div>{/each}
-						</dl>
-						<div class="grid gap-4 md:grid-cols-2">
-							<div>
-								<h3 class="text-sm font-semibold">Exceptions</h3>
-								{#if readiness.blockers.length}<ul
-										class="mt-1 list-disc space-y-1 pl-5 text-sm text-rose-800"
-									>
-										{#each readiness.blockers as blocker (blocker.kind)}<li>
-												{blocker.message}
-											</li>{/each}
-									</ul>{:else}<p class="mt-1 text-sm">No exceptions.</p>{/if}
-							</div>
-							<div>
-								<h3 class="text-sm font-semibold">Notes</h3>
-								{#if readiness.warnings.length}<ul class="mt-1 list-disc space-y-1 pl-5 text-sm">
-										{#each readiness.warnings as warning (warning.kind)}<li>
-												{warning.message}
-											</li>{/each}
-									</ul>{:else}<p class="mt-1 text-sm">No additional notes.</p>{/if}
-							</div>
-						</div>
-						{#if readinessError}<p class="text-sm text-rose-800" role="alert">
-								{readinessError}
-							</p>{/if}
-						<Button
-							onclick={confirmRoster}
-							disabled={confirmingRoster || !readiness.canConfirm}
-							testId="esl-admin-students.readiness.confirm"
-							>{confirmingRoster ? 'Confirming…' : 'Confirm roster'}</Button
-						>
-					</div>
-				{/if}
-			{/if}
-		</section>
-	{/if}
-
 	<section class="space-y-4" aria-labelledby="esl-student-search-heading">
 		<div>
 			<h2 id="esl-student-search-heading" class="text-lg font-semibold">Find a student</h2>
@@ -661,6 +560,126 @@
 		{/if}
 	</section>
 
+	{#if overview && !overview.confirmed && !overview.hasRoster}
+		<section
+			class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
+			aria-label="Roster task: import due"
+		>
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<div>
+					<p class="text-xs font-bold tracking-wider uppercase">
+						{selectedYear} · yearly roster setup
+					</p>
+					<h2 class="mt-1 font-semibold">Import this year’s roster</h2>
+					<p class="mt-1 text-sm">
+						Import the approved roster before reviewing and confirming readiness.
+					</p>
+				</div>
+				<Button
+					variant="outline"
+					onclick={() => (importOpen = !importOpen)}
+					data-testid="esl-admin-students.import.toggle"
+				>
+					Import roster
+					<ArrowRight class="size-4" /></Button
+				>
+			</div>
+		</section>
+	{/if}
+	{#if overview?.hasRoster || overview?.confirmed}
+		<section class="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+			<div>
+				<h2 class="font-semibold">Roster correction</h2>
+				<p class="text-muted-foreground text-sm">
+					Import or correct a grade roster for {selectedYear}. Review its changes before applying.
+				</p>
+			</div>
+			<Button variant="outline" onclick={() => (importOpen = !importOpen)}>
+				Import roster correction
+				<ArrowRight class="size-4" />
+			</Button>
+		</section>
+	{/if}
+	{#if importOpen}
+		<ImportRoster expanded initialYear={selectedYear} />
+	{/if}
+
+	{#if overview?.hasRoster && !overview.confirmed}
+		<section
+			class="rounded-xl border border-sky-300 bg-sky-50 p-4 text-sky-950"
+			aria-label="Roster task: confirmation due"
+		>
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<div>
+					<p class="text-xs font-bold tracking-wider uppercase">
+						{selectedYear} · final review
+					</p>
+					<h2 class="mt-1 font-semibold">Confirm roster readiness</h2>
+					<p class="mt-1 text-sm">
+						Review student counts and exceptions, then confirm once for this academic year.
+					</p>
+				</div>
+				<Button onclick={() => (readinessOpen = !readinessOpen)}
+					>{readinessOpen ? 'Hide review' : 'Review counts & exceptions'}
+					<ArrowRight class="size-4" /></Button
+				>
+			</div>
+			{#if readinessOpen}
+				{#if readinessQuery.isLoading}
+					<p class="mt-4 text-sm">Loading roster review…</p>
+				{:else if readiness}
+					<div class="mt-4 space-y-4 border-t border-sky-200 pt-4">
+						<dl class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+							<div class="rounded-lg bg-white/70 p-3">
+								<dt class="text-xs">Active students</dt>
+								<dd class="mt-1 text-xl font-semibold">
+									{readiness.activeStudents}
+								</dd>
+							</div>
+							{#each readiness.grades as grade (grade.grade)}<div
+									class="rounded-lg bg-white/70 p-3"
+								>
+									<dt class="text-xs">Grade {grade.grade}</dt>
+									<dd class="mt-1 font-semibold">
+										{grade.activeStudents} students · {grade.cohorts} ESL classes
+									</dd>
+								</div>{/each}
+						</dl>
+						<div class="grid gap-4 md:grid-cols-2">
+							<div>
+								<h3 class="text-sm font-semibold">Exceptions</h3>
+								{#if readiness.blockers.length}<ul
+										class="mt-1 list-disc space-y-1 pl-5 text-sm text-rose-800"
+									>
+										{#each readiness.blockers as blocker (blocker.kind)}<li>
+												{blocker.message}
+											</li>{/each}
+									</ul>{:else}<p class="mt-1 text-sm">No exceptions.</p>{/if}
+							</div>
+							<div>
+								<h3 class="text-sm font-semibold">Notes</h3>
+								{#if readiness.warnings.length}<ul class="mt-1 list-disc space-y-1 pl-5 text-sm">
+										{#each readiness.warnings as warning (warning.kind)}<li>
+												{warning.message}
+											</li>{/each}
+									</ul>{:else}<p class="mt-1 text-sm">No additional notes.</p>{/if}
+							</div>
+						</div>
+						{#if readinessError}<p class="text-sm text-rose-800" role="alert">
+								{readinessError}
+							</p>{/if}
+						<Button
+							onclick={confirmRoster}
+							disabled={confirmingRoster || !readiness.canConfirm}
+							testId="esl-admin-students.readiness.confirm"
+							>{confirmingRoster ? 'Confirming…' : 'Confirm roster'}</Button
+						>
+					</div>
+				{/if}
+			{/if}
+		</section>
+	{/if}
+
 	{#if searchTerm && transferHistory.length > 0}
 		<details class="rounded-xl border p-4">
 			<summary class="cursor-pointer font-semibold">Recent class moves · {selectedYear}</summary
@@ -698,7 +717,7 @@
 			<p class="text-muted-foreground mt-2 text-sm">
 				{overview.confirmedReason === 'signoff'
 					? `Confirmed by ${overview.confirmedBy ?? 'an admin'}${overview.confirmedAt ? ` on ${new Date(overview.confirmedAt).toLocaleDateString()}` : ''}.`
-					: 'This year is open because its class schedules already exist.'}
+					: 'This year stays open because class schedules already exist.'}
 			</p>
 			{#if overview.confirmedReason === 'signoff'}
 				<div class="mt-3 space-y-2">
@@ -709,12 +728,13 @@
 						This withdraws the roster sign-off. Existing class schedules, if any, still keep the
 						school year open.
 					</p>
-					{#if signoffError}<p class="text-sm text-rose-800" role="alert">{signoffError}</p>{/if}
+					{#if signoffError}<p class="text-sm text-rose-800" role="alert">
+							{signoffError}
+						</p>{/if}
 				</div>
 			{:else if overview.confirmedReason === 'existing-meetings'}
 				<p class="text-muted-foreground mt-3 text-xs">
-					This year is open because class schedules exist; removing a roster sign-off cannot close
-					that schedule gate.
+					A roster sign-off can't close this year while class schedules exist.
 				</p>
 			{/if}
 		</details>
@@ -725,7 +745,9 @@
 				: 'School year open'}
 			transition:fly={{ y: 24, duration: 320 }}
 		>
-			<div class="rounded-full bg-emerald-100 p-2"><Check class="size-5" /></div>
+			<div class="rounded-full bg-emerald-100 p-2">
+				<Check class="size-5" />
+			</div>
 			<div class="min-w-0 flex-1">
 				<p class="font-semibold">
 					{overview.confirmedReason === 'signoff'
@@ -738,7 +760,9 @@
 						: 'Existing class schedules keep this school year open.'}
 				</p>
 			</div>
-			<Badge>{overview.confirmedReason === 'signoff' ? 'Complete' : 'Open'}</Badge>
+			<Badge variant="secondary"
+				>{overview.confirmedReason === 'signoff' ? 'Complete' : 'Open'}</Badge
+			>
 		</section>
 	{/if}
 </main>
@@ -803,8 +827,8 @@
 					<div class="space-y-1">
 						<span class="block text-sm font-medium">Grade</span>
 						<div class="bg-muted/40 flex h-10 items-center rounded-md border px-3 text-sm">
-							{#if enrollmentGrade !== null}Grade {enrollmentGrade}{:else if schoolStudentId.trim()}ID
-								does not determine a grade in {selectedYear}{:else}Enter student ID first{/if}
+							{#if enrollmentGrade !== null}Grade {enrollmentGrade}{:else if schoolStudentId.trim()}This
+								ID does belong in {selectedYear}{:else}Enter student ID first{/if}
 						</div>
 					</div>
 					<div class="space-y-1">

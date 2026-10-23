@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { Upload } from '@lucide/svelte';
 	import { Label } from '$lib/components/ui/label';
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
@@ -34,6 +35,11 @@
 
 	let parsing = $state(false);
 	let error = $state('');
+	/** Per-file errors from the most recent batch. */
+	let errors = $state<string[]>([]);
+	let fileInput = $state<HTMLInputElement | null>(null);
+	let dragCounter = $state(0);
+	const isDraggingOver = $derived(dragCounter > 0);
 	/** A file that parsed, but whose year disagrees with the page's. */
 	let yearPrompt = $state<{
 		fileName: string;
@@ -85,41 +91,75 @@
 		return year;
 	}
 
-	async function onFilePicked(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
-		// Cleared so choosing the same file again still fires a change event.
-		input.value = '';
-		if (!file) return;
+	function handleDragEnter(event: DragEvent) {
+		event.preventDefault();
+		dragCounter++;
+	}
+	function handleDragOver(event: DragEvent) {
+		event.preventDefault();
+	}
+	function handleDragLeave(event: DragEvent) {
+		event.preventDefault();
+		dragCounter--;
+	}
+	function handleDrop(event: DragEvent) {
+		event.preventDefault();
+		dragCounter = 0;
+		const dropped = Array.from(event.dataTransfer?.files ?? []).filter((f) =>
+			f.name.toLowerCase().endsWith('.xlsx')
+		);
+		if (dropped.length === 0) return;
+		// Synthesize a change event by feeding files into onFilePicked path.
+		void (async () => {
+			parsing = true;
+			error = '';
+			errors = [];
+			yearPrompt = null;
+			try {
+				for (const file of dropped) {
+					const raisedPrompt = await processOneFile(file);
+					if (raisedPrompt) break;
+				}
+			} finally {
+				parsing = false;
+			}
+		})();
+	}
+	function handleBrowseClick() {
+		fileInput?.click();
+	}
+	function handleKeyUp(event: KeyboardEvent) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			handleBrowseClick();
+		}
+	}
 
-		parsing = true;
-		error = '';
-		yearPrompt = null;
+	async function processOneFile(file: File): Promise<boolean> {
+		// Returns true if a year prompt was raised (caller should stop batching).
+		const chosenYear = year.trim();
 		try {
-			const chosenYear = year.trim();
 			const sheets = await readRosterSheets(file);
 			const ids = collectStudentIds(sheets);
 
-			// The grade comes from the year the admin has already confirmed and the
-			// file's own IDs, so no file needs a grade asked of them. The levelled
-			// grades come from their intake-year prefixes; grade 10 comes from its own
-			// ID space, which no other grade is numbered in.
 			const placement = deriveGradeForSchoolYear(chosenYear, ids);
 
-			// A file holding two school years is the merged-year fault, reported before
-			// anything is parsed. It is not a file that needs its grade stating.
 			if (placement.kind === 'twoYears') {
-				error =
+				errors = [
+					...errors,
 					placement.years.length > 0
-						? `This workbook holds more than one school year (${placement.years.join(' and ')}). Import it as two files, one per year.`
-						: 'This workbook holds grade 10 students and levelled-grade students. Import it as two files, one per grade.';
-				return;
+						? `${file.name}: holds more than one school year (${placement.years.join(' and ')}). Import as two files, one per year.`
+						: `${file.name}: holds grade 10 and levelled-grade students. Import as two files, one per grade.`
+				];
+				return false;
 			}
 
 			if (placement.kind === 'unknown') {
-				error =
-					"This workbook's student IDs are on no scheme this can read, so it cannot be placed. Check the file is a department roster.";
-				return;
+				errors = [
+					...errors,
+					`${file.name}: student IDs are on no scheme this can read. Check it is a department roster.`
+				];
+				return false;
 			}
 
 			const grade = placement.grade;
@@ -127,42 +167,53 @@
 			const derived = parsed.derivedYear;
 
 			if (derived.kind === 'conflict') {
-				error = `This workbook holds more than one school year (${derived.years.join(' and ')}). Import it as two files, one per year.`;
-				return;
+				errors = [
+					...errors,
+					`${file.name}: holds more than one school year (${derived.years.join(' and ')}). Import as two files, one per year.`
+				];
+				return false;
 			}
 			if (derived.kind === 'unsupported') {
-				error = derived.reason;
-				return;
+				errors = [...errors, `${file.name}: ${derived.reason}`];
+				return false;
 			}
 
-			// The grade above is settled by the IDs and nothing else — they are
-			// unique and their relationship to the ROC year is fixed, so there is no
-			// second opinion to take on it.
-			//
-			// What the IDs alone cannot say is whether the *year* on this page is the
-			// one the admin means: set it to 2027-2028 and a grade 7 file's `115xxxx`
-			// IDs resolve cleanly to grade 8, consistently and wrongly. So each grade
-			// says what year it belongs to in its own way, and both are checked here.
-			//
-			// Either way this is a signal about the year, not about the grade — it
-			// exists to offer the year advance before staging, not to second-guess the
-			// import.
 			const yearTheFileClaims = grade === 10 ? grade10YearFor(ids) : groupColumnYear(parsed);
 
-			// Grade 10's `ESL Group` column names the class, not the year, so there is
-			// nothing in it to disagree with. The year above stands as the admin's
-			// statement for that grade.
 			if (yearTheFileClaims !== null && yearTheFileClaims !== chosenYear) {
 				yearPrompt = { fileName: file.name, derivedYear: yearTheFileClaims, parsed };
-				return;
+				return true;
 			}
 
 			stage(file.name, parsed);
+			return false;
 		} catch (cause) {
-			error =
+			errors = [
+				...errors,
 				cause instanceof Error
 					? `Could not read ${file.name}: ${cause.message}`
-					: `Could not read ${file.name}`;
+					: `Could not read ${file.name}`
+			];
+			return false;
+		}
+	}
+
+	async function onFilePicked(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const files = Array.from(input.files ?? []);
+		// Cleared so choosing the same files again still fires a change event.
+		input.value = '';
+		if (files.length === 0) return;
+
+		parsing = true;
+		error = '';
+		errors = [];
+		yearPrompt = null;
+		try {
+			for (const file of files) {
+				const raisedPrompt = await processOneFile(file);
+				if (raisedPrompt) break;
+			}
 		} finally {
 			parsing = false;
 		}
@@ -325,7 +376,7 @@
 	 * open, so the request is read once rather than derived — which is also what
 	 * silences the "captures only the initial value" warning.
 	 */
-	let opened = $state(false);
+	let opened = $state(true);
 
 	$effect(() => {
 		if (expanded) opened = true;
@@ -344,19 +395,9 @@
 	row and still drop onto its own line: the button sits beside the title, and the
 	expanded panel wraps beneath both rather than squeezing into the header.
 -->
-<Button
-	variant="outline"
-	size="sm"
-	onclick={() => (opened = !opened)}
-	aria-expanded={opened}
-	testId="esl-admin-students.import.toggle"
->
-	{opened ? 'Hide import' : 'Import a roster'}
-</Button>
-
 {#if opened}
-	<div class="basis-full space-y-6 rounded-lg border border-emerald-200 bg-white p-4">
-		<div class="space-y-6">
+	<div class="basis-full space-y-4 rounded-lg border border-emerald-200 bg-white p-4">
+		<div class="space-y-4">
 			<section class="rounded-lg border border-emerald-200 bg-white p-4">
 				<div class="flex flex-wrap items-end gap-3">
 					<div class="space-y-1">
@@ -376,15 +417,56 @@
 				intake-year prefixes; grade 10 places from its own ID space.
 			-->
 					<div class="space-y-1">
-						<Label for="file">Workbook (.xlsx)</Label>
+						<Label>Workbook (.xlsx)</Label>
 						<input
+							bind:this={fileInput}
 							id="file"
 							type="file"
 							accept=".xlsx"
+							multiple
 							data-testid="esl-import.file"
 							onchange={onFilePicked}
-							class="text-sm"
+							class="hidden"
 						/>
+						<div
+							role="button"
+							tabindex="0"
+							aria-label="Drag and drop workbook files"
+							data-testid="esl-import.dropzone"
+							ondragenter={handleDragEnter}
+							ondragover={handleDragOver}
+							ondragleave={handleDragLeave}
+							ondrop={handleDrop}
+							onkeyup={handleKeyUp}
+							class={[
+								'cursor-pointer rounded-lg border-2 border-dashed text-center transition-colors',
+								isDraggingOver
+									? 'border-emerald-500 bg-emerald-50'
+									: 'border-emerald-300 bg-slate-50'
+							]}
+						>
+							{#if parsing}
+								<div class="flex flex-col items-center gap-2 px-3 py-3">
+									<span class="text-sm text-gray-700">Reading files…</span>
+								</div>
+							{:else}
+								<div class="flex flex-col items-center gap-2 px-3 py-3">
+									<Upload class="size-5 text-emerald-600" />
+									<p class="text-sm text-gray-700">
+										Drag and drop workbook(s) here
+										<span class="text-gray-500">— or —</span>
+									</p>
+									<Button
+										size="sm"
+										variant="outline"
+										onclick={handleBrowseClick}
+										data-testid="esl-import.browse"
+									>
+										Browse…
+									</Button>
+								</div>
+							{/if}
+						</div>
 					</div>
 					{#if parsing}
 						<span class="text-muted-foreground pb-2 text-sm">Reading the file…</span>
@@ -448,6 +530,16 @@
 					>
 						{error}
 					</p>
+				{/if}
+				{#if errors.length > 0}
+					<ul
+						class="mt-3 space-y-1 rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900"
+						data-testid="esl-import.errors"
+					>
+						{#each errors as e (e)}
+							<li data-testid="esl-import.error.item">{e}</li>
+						{/each}
+					</ul>
 				{/if}
 			</section>
 

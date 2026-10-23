@@ -154,9 +154,7 @@ describe('wizard step 1 — semester & start date', () => {
 		await page.getByTestId('wizard.step-1-picker.date-2026-09-10').click();
 		// S1 setup gates Confirm on the room-limit choice.
 		await page.getByTestId('wizard.step-1-room-limit').selectOptions('E');
-		await expect
-			.element(page.getByTestId('wizard.step-1-room-limit'))
-			.toHaveValue('E');
+		await expect.element(page.getByTestId('wizard.step-1-room-limit')).toHaveValue('E');
 		await page.getByTestId('wizard.step-1-confirm').click();
 
 		await expect.element(page.getByTestId('harness.step')).toMatchTextContent('2');

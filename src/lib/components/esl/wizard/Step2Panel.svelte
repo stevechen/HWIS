@@ -50,7 +50,10 @@
 			? buildPreviewWeeks(
 					startDate,
 					endDate,
-					offDays.map((d: { date: string; name: string }) => ({ date: d.date, name: d.name })),
+					offDays.map((d: { date: string; name: string }) => ({
+						date: d.date,
+						name: d.name
+					})),
 					[] // no exams in Step 2
 				)
 			: []
@@ -112,7 +115,7 @@
 			<div>
 				<h2 class="mb-2 text-sm font-semibold text-gray-800">
 					{term}
-					{schoolYear} · starts {startDate} — pick the end date
+					{schoolYear} · Pick semester end day
 				</h2>
 				<WeekPicker
 					mondays={endMondays}

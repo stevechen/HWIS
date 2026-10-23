@@ -313,6 +313,8 @@
 		window.addEventListener('resize', remeasure);
 		const observer = new ResizeObserver(remeasure);
 		if (calendarEl !== undefined) observer.observe(calendarEl);
+		if (listEl !== undefined) observer.observe(listEl);
+		if (panelEl !== undefined) observer.observe(panelEl);
 		return () => {
 			window.removeEventListener('resize', remeasure);
 			observer.disconnect();

@@ -853,7 +853,9 @@ describe('ScheduleCell room grid', () => {
 		await page.getByTestId('esl-admin-classes.schedule.toggle').click();
 
 		// In flight: the picker makes no claim about a room it cannot place yet.
-		expect(page.getByTestId('esl-admin-classes.schedule.room.unavailable').elements()).toHaveLength(1);
+		expect(page.getByTestId('esl-admin-classes.schedule.room.unavailable').elements()).toHaveLength(
+			1
+		);
 
 		// The round trip lands, J102 among the cohort's homerooms.
 		landSuggestions({
@@ -866,7 +868,9 @@ describe('ScheduleCell room grid', () => {
 		await vi.waitFor(() => roomButton('J102'));
 		expect(roomButton('J102').getAttribute('aria-pressed')).toBe('true');
 		await vi.waitFor(() => {
-			expect(page.getByTestId('esl-admin-classes.schedule.room.unavailable').elements()).toHaveLength(0);
+			expect(
+				page.getByTestId('esl-admin-classes.schedule.room.unavailable').elements()
+			).toHaveLength(0);
 		});
 	});
 

@@ -53,8 +53,7 @@
 			<span class="mr-1 min-w-16"></span>
 		{/if}
 		{#each WEEKDAY_HEADER as label (label)}
-			<span class="min-w-16 flex-1 text-center text-[11px] font-semibold text-gray-500"
-				>{label}</span
+			<span class="min-w-8 flex-1 text-center text-[11px] font-semibold text-gray-500">{label}</span
 			>
 		{/each}
 	</div>
@@ -86,7 +85,7 @@
 					onclick={() => pick(date)}
 					aria-pressed={cellSelected}
 					title={snapToMonday ? `Pick week of ${monday}` : `Pick ${date}`}
-					class="flex min-w-16 flex-1 flex-col items-center rounded-md border px-2 py-1 text-xs transition-colors {cellSelected
+					class="flex min-w-8 flex-1 flex-col items-center rounded-md border px-2 py-1 text-xs transition-colors {cellSelected
 						? 'border-emerald-600 bg-emerald-600 font-bold text-white'
 						: 'border-gray-200 bg-white text-gray-700 hover:border-emerald-400 hover:bg-emerald-50'}"
 				>
