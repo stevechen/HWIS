@@ -151,15 +151,15 @@
 			top: anchor(bottom);
 			left: anchor(left);
 			margin-top: 0.5rem;
-			position-try-fallbacks: --esl-panel-above, --esl-panel-to-left;
+			position-try-fallbacks: --esl-panel-above-left, --esl-panel-above, --esl-panel-to-left;
 		}
 	}
 
 	/*
-	 * Flip above the trigger when there is no room below, or align to the
-	 * trigger's right edge when there is no room to its right. Only reached
-	 * when the base position overflows the viewport; the option has to fit
-	 * outright, otherwise the base position stands and the panel scrolls.
+	 * Try flipping above and aligning to the trigger's right edge together
+	 * first, since rightmost cards can run out of room in both directions.
+	 * The individual flips then handle either edge on its own. A fallback has
+	 * to fit outright; otherwise the base position stands and the panel scrolls.
 	 */
 	@position-try --esl-panel-above {
 		top: auto;
@@ -168,6 +168,14 @@
 		margin-bottom: 0.5rem;
 	}
 	@position-try --esl-panel-to-left {
+		left: auto;
+		right: anchor(right);
+	}
+	@position-try --esl-panel-above-left {
+		top: auto;
+		bottom: anchor(top);
+		margin-top: 0;
+		margin-bottom: 0.5rem;
 		left: auto;
 		right: anchor(right);
 	}
