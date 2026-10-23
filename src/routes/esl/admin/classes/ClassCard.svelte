@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
+	import { Button } from '$lib/components/ui/button';
 	import { MapPin, Users } from '@lucide/svelte';
 	import type { Id } from '$convex/_generated/dataModel';
 	import type {
@@ -10,7 +11,21 @@
 		EslUnavailableSlot
 	} from '$convex/shared/esl';
 	import ScheduleCell from './ScheduleCell.svelte';
+	import AnchoredPanel from './AnchoredPanel.svelte';
 	import AvailabilityDialog from './AvailabilityDialog.svelte';
+
+	type MirrorConfirmation = {
+		mirrors: {
+			classId: Id<'esl_classes'>;
+			name: string;
+			cohortLabel: string | null;
+			willOverwrite: boolean;
+			problems: EslScheduleProblemDetail[];
+		}[];
+		blocked: boolean;
+		confirm: () => void;
+		cancel: () => void;
+	};
 
 	/**
 	 * A class as the cohorts query and the schedule query together describe it.
@@ -39,8 +54,10 @@
 		staff,
 		slug,
 		studentCount,
+		chineseClassComposition = [],
 		partner,
 		availabilityByTeacher = {},
+		mirrorConfirmation = null,
 		busy = false,
 		dimmed = false,
 		scheduleErrored = false,
@@ -99,6 +116,7 @@
 		 * default-free means no entry reads as free everywhere.
 		 */
 		availabilityByTeacher?: Record<string, EslUnavailableSlot[]>;
+		mirrorConfirmation?: MirrorConfirmation | null;
 		/** Staff who can be assigned as this class's teacher. */
 		staff: { _id: Id<'users'>; name: string }[];
 		busy?: boolean;
@@ -118,7 +136,8 @@
 			classIds: Id<'esl_classes'>[],
 			year: string,
 			meetings: EslMeetingInput[],
-			room?: string
+			room: string | undefined,
+			resumeEditor: () => Promise<void>
 		) => void;
 		onteacher: (classId: Id<'esl_classes'>, teacherId: string) => void;
 		/**
@@ -132,21 +151,31 @@
 		 * for reading only.
 		 */
 		slug: string;
+		/** Distinct enrolled Chinese classes for this cohort, with the leading J omitted. */
+		chineseClassComposition?: string[];
 	} = $props();
 
 	/** The class's saved room, shown as a readout — authored in the picker. */
 	const room = $derived(schedule?.room ?? null);
+	const scheduleAnchorName = $derived(`--esl-schedule-${classRow._id}`);
+	const isGrade10 = $derived(classRow.type === 'H10A' || classRow.type === 'H10B');
+	const displayName = $derived(
+		classRow.name.replace(/\bElementary\b/, 'Ele').replace(/\bIntermediate\b/, 'Int')
+	);
 
 	/**
 	 * The ScheduleCell instance, for the readout's click.
 	 *
-	 * The room line sits below the schedule cell but is its second entry point:
-	 * `bind:this` reaches the cell's exported `openRooms()` directly, rather than
-	 * relaying an "open me, room-only" event up from the readout only to route it
-	 * back into the cell. Null while the schedule has not loaded — the readout
+	 * `bind:this` lets the room button in the header reach the cell's exported
+	 * `openRooms()` directly. Null while the schedule has not loaded — the button
 	 * renders in every state of the card, but there is nothing to open yet.
 	 */
 	let scheduleCell = $state<ReturnType<typeof ScheduleCell> | null>(null);
+
+	function confirmMirrors() {
+		scheduleCell?.getTrigger()?.focus();
+		mirrorConfirmation?.confirm();
+	}
 
 	/** True when the schedule is sound but the room is unset. */
 	const roomMissing = $derived(schedule?.scheduleProblem?.state === 'missing-room');
@@ -215,6 +244,42 @@
 	});
 </script>
 
+{#snippet studentCountReadout()}
+	<span
+		class="text-muted-foreground inline-flex shrink-0 items-center gap-0.5 text-xs"
+		title="{studentCount} students"
+		data-testid="esl-admin-classes.students"
+	>
+		<Users class="size-3.5" aria-hidden="true" />
+		{studentCount}
+	</span>
+{/snippet}
+
+{#snippet roomReadout()}
+	<button
+		type="button"
+		class={[
+			'inline-flex min-w-0 shrink-0 cursor-pointer items-center gap-1 text-left text-xs hover:opacity-75',
+			isGrade10 ? 'max-w-20' : 'max-w-24',
+			roomUnassigned ? 'text-muted-foreground' : 'text-emerald-800'
+		]}
+		title="Choose the room"
+		aria-haspopup="dialog"
+		// Busy holds every trigger; no schedule means the cell (and its openRooms)
+		// has not rendered at all.
+		disabled={busy || schedule === null}
+		onclick={() => scheduleCell?.openRooms()}
+		data-testid="esl-admin-classes.room.readout"
+	>
+		<MapPin class="size-3.5 shrink-0" aria-hidden="true" />
+		{#if roomUnassigned}
+			<span class="border-b border-dashed border-current">No room</span>
+		{:else}
+			<span class="truncate">{room}</span>
+		{/if}
+	</button>
+{/snippet}
+
 <!--
 	One class, four lines, nothing else.
 
@@ -224,22 +289,28 @@
 	year is ever archived.
 -->
 <article
-	class="flex flex-col gap-1.5 rounded-md border bg-white p-2"
-	class:opacity-60={dimmed}
+	class={[
+		'relative flex flex-col gap-1.5 rounded-md border bg-white p-2',
+		{ 'opacity-60': dimmed }
+	]}
 	data-testid="esl-admin-classes.card.{classRow._id}"
 	data-class-slug={slug}
 >
 	<!--
-		The name wraps rather than truncates. `G7 Pre-Elementary 1 CLIL` is the longest
-		a name gets and `truncate` was cutting it to `G7 Pre-Elementary 1 Co…` — which
+		The name wraps rather than truncates. `G7 Pre-Ele 1 CLIL` is the longest
+		a name gets and `truncate` was cutting it to `G7 Pre-Ele 1 Co…` — which
 		removes exactly the part that distinguishes the class from its siblings. Two
 		lines is the cost, and a wrapped name is still shorter than the alternative of
 		not knowing which class is which.
 	-->
-	<div class="flex items-start justify-between gap-1">
-		<h4 class="text-sm font-semibold text-emerald-900">
-			{classRow.name}
+	<div class="flex min-w-0 items-start gap-1" data-testid="esl-admin-classes.card.header">
+		<h4 class="min-w-0 flex-1 text-sm font-semibold text-emerald-900">
+			{displayName}
 		</h4>
+		{#if isGrade10}
+			{@render studentCountReadout()}
+		{/if}
+		{@render roomReadout()}
 
 		<!--
 			The card marker. On the header rather than the schedule line because the
@@ -301,49 +372,28 @@
 	{/if}
 
 	<!--
-		Roster size, then the room readout.
+		Roster size followed by distinct Chinese classes. Grade 10 keeps its
+		student count in the header beside the title and room.
 
 		Both classes of a cohort show the same number, because they teach one roster
 		(ADR-0023) — so the headcount is a property of the cohort rather than of the
-		card. A room holds a certain number of people, and the pairing is what lets an
-		admin see at a glance whether a class has outgrown its room.
-
-		The readout is a button, not just a read out: it is the room's direct entry
-		point, opening the picker to the room grid alone. Authoring still happens in
-		the picker — where busy marks are judged against the draft — but the room
-		need not be reached through the schedule strip first.
+		card. The room button sits inline with the title for grades 7–9 and beside the
+		count for grade 10. It opens the picker to the room grid alone; authoring still
+		happens in the picker, where busy marks are judged against the draft.
 	-->
-	<div class="flex items-center gap-2">
-		<span
-			class="text-muted-foreground inline-flex shrink-0 items-center gap-0.5 text-xs"
-			title="{studentCount} students"
-			data-testid="esl-admin-classes.students"
-		>
-			<Users class="size-3.5" aria-hidden="true" />
-			{studentCount}
-		</span>
-		<button
-			type="button"
-			class={[
-				'inline-flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-left text-xs hover:opacity-75',
-				roomUnassigned ? 'text-muted-foreground' : 'text-emerald-800'
-			]}
-			title="Choose the room"
-			aria-haspopup="dialog"
-			// Busy holds every trigger; no schedule means the cell (and its openRooms)
-			// has not rendered at all.
-			disabled={busy || schedule === null}
-			onclick={() => scheduleCell?.openRooms()}
-			data-testid="esl-admin-classes.room.readout"
-		>
-			<MapPin class="size-3.5 shrink-0" aria-hidden="true" />
-			{#if roomUnassigned}
-				<span class="border-b border-dashed border-current">No room</span>
-			{:else}
-				<span class="truncate">{room}</span>
+	{#if !isGrade10}
+		<div class="flex items-center gap-2">
+			{@render studentCountReadout()}
+			{#if chineseClassComposition.length > 0}
+				<span
+					class="text-muted-foreground text-xs"
+					data-testid="esl-admin-classes.chinese-class-composition"
+				>
+					({chineseClassComposition.join(', ')})
+				</span>
 			{/if}
-		</button>
-	</div>
+		</div>
+	{/if}
 
 	<!--
 		The teacher select, squashed to match the room button above it and stretched
@@ -422,4 +472,65 @@
 			/>
 		{/if}
 	</div>
+	{#if mirrorConfirmation !== null}
+		<AnchoredPanel
+			open
+			anchorName={scheduleAnchorName}
+			trigger={scheduleCell?.getTrigger() ?? null}
+			label="Confirm schedule changes to sibling classes"
+			testId="esl-admin-classes.mirrorConfirm"
+			onDismiss={mirrorConfirmation.cancel}
+			class="warning space-y-2"
+		>
+			<p class="text-sm text-amber-900">
+				Saving this week also sets the same day and period for
+				{mirrorConfirmation.mirrors.length}
+				{mirrorConfirmation.mirrors.length === 1 ? 'same-type class' : 'same-type classes'}:
+			</p>
+			<ul class="space-y-1">
+				{#each mirrorConfirmation.mirrors as mirror (mirror.classId)}
+					<li class="text-sm text-amber-900" data-testid="esl-admin-classes.mirrorConfirm.target">
+						<strong>{mirror.name}</strong>
+						{#if mirror.willOverwrite}
+							<span class="text-xs">— replaces its current week</span>
+						{/if}
+						{#each mirror.problems as problem, problemIndex (problemIndex)}
+							<span
+								class="block text-xs text-red-700"
+								data-testid="esl-admin-classes.mirrorConfirm.problem"
+							>
+								{problem.message}
+							</span>
+						{/each}
+					</li>
+				{/each}
+			</ul>
+			{#if mirrorConfirmation.blocked}
+				<p
+					class="text-xs font-medium text-red-700"
+					data-testid="esl-admin-classes.mirrorConfirm.blocked"
+				>
+					These have to be fixed first — the write would be refused until every class passes.
+				</p>
+			{/if}
+			<div class="flex gap-2">
+				<Button
+					size="sm"
+					data-testid="esl-admin-classes.mirrorConfirm.yes"
+					disabled={mirrorConfirmation.blocked}
+					onclick={confirmMirrors}
+				>
+					Save all
+				</Button>
+				<Button
+					variant="outline"
+					size="sm"
+					data-testid="esl-admin-classes.mirrorConfirm.no"
+					onclick={mirrorConfirmation.cancel}
+				>
+					Cancel
+				</Button>
+			</div>
+		</AnchoredPanel>
+	{/if}
 </article>

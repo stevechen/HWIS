@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -149,7 +150,8 @@
 			classIds: Id<'esl_classes'>[],
 			year: string,
 			meetings: EslMeetingInput[],
-			room?: string
+			room: string | undefined,
+			resumeEditor: () => Promise<void>
 		) => void;
 	} = $props();
 
@@ -750,12 +752,19 @@
 		// re-triggers the room rule.
 		const savedRoom = classRecord.room ?? '';
 		const room = draftRoom === savedRoom ? undefined : draftRoom;
-		onsave(classIds, year, draft, room);
+		onsave(classIds, year, draft, room, resumeDraft);
 		expanded = false;
 		// Focus was on the Save button, which is about to leave the DOM. Move it
 		// before that happens — letting it fall to `<body>` strands keyboard users
 		// at the top of the document, and Save is the path that ends an edit
 		// deliberately, so it needs this as much as Escape does.
+		triggerEl?.focus();
+	}
+
+	/** Reopen the current draft after the mirror confirmation is cancelled. */
+	export async function resumeDraft() {
+		expanded = true;
+		await tick();
 		triggerEl?.focus();
 	}
 
@@ -800,6 +809,11 @@
 	const saveLabel = $derived(
 		partner === null ? 'Save schedule' : `Save ${classRecord.name} + ${partner.name}`
 	);
+
+	/** The schedule control is also the anchor and dismissal target for its card's confirmation. */
+	export function getTrigger() {
+		return triggerEl;
+	}
 </script>
 
 <!--
@@ -896,8 +910,10 @@
 						</div>
 						{#each ESL_PERIODS as slot (slot.period)}
 							<div
-								class="grid grid-cols-[1.25rem_repeat(5,minmax(0,1fr))]"
-								class:mt-3={slot.period === AFTERNOON_FIRST_PERIOD}
+								class={[
+									'grid grid-cols-[1.25rem_repeat(5,minmax(0,1fr))]',
+									{ 'mt-3': slot.period === AFTERNOON_FIRST_PERIOD }
+								]}
 							>
 								<span class="text-muted-foreground flex items-center text-xs">P{slot.period}</span>
 								{#each ESL_DAYS as day (day)}

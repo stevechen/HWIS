@@ -434,11 +434,13 @@
 	 * is pending.
 	 */
 	let pendingSchedule = $state<{
+		classId: Id<'esl_classes'>;
 		classIds: Id<'esl_classes'>[];
 		year: string;
 		meetings: EslMeetingInput[];
 		room?: string;
 		mirrors: MirrorTarget[];
+		resumeEditor: () => Promise<void>;
 	} | null>(null);
 
 	/** True while any mirror's predicted problems would refuse the write. */
@@ -469,7 +471,8 @@
 		classIds: Id<'esl_classes'>[],
 		year: string,
 		meetings: EslMeetingInput[],
-		room?: string
+		room: string | undefined,
+		resumeEditor: () => Promise<void>
 	) {
 		const classId = classIds[0];
 		if (classId === undefined) return;
@@ -498,11 +501,13 @@
 			return;
 		}
 		pendingSchedule = {
+			classId,
 			classIds,
 			year,
 			meetings,
 			...(room === undefined ? {} : { room }),
-			mirrors
+			mirrors,
+			resumeEditor
 		};
 	}
 
@@ -512,6 +517,24 @@
 		pendingSchedule = null;
 		if (pending === null) return;
 		commitSchedule(pending.classIds, pending.year, pending.meetings, pending.room, pending.mirrors);
+	}
+
+	/** Cancel the mirror write and return to the same unsaved schedule draft. */
+	function cancelScheduleConfirmation() {
+		const pending = pendingSchedule;
+		pendingSchedule = null;
+		if (pending !== null) void pending.resumeEditor();
+	}
+
+	/** The class card owns the floating confirmation so it can anchor to its schedule control. */
+	function confirmationFor(classId: Id<'esl_classes'>) {
+		if (pendingSchedule?.classId !== classId) return null;
+		return {
+			mirrors: pendingSchedule.mirrors,
+			blocked: mirrorsBlocked,
+			confirm: confirmSchedule,
+			cancel: cancelScheduleConfirmation
+		};
 	}
 
 	/**
@@ -846,72 +869,6 @@
 			</div>
 		{/if}
 
-		<!--
-			The mirror confirm: what the save will touch besides this card.
-
-			Saving a grade 7–9 week writes the same slots to every same-type class
-			sharing the cohort's Chinese homerooms, so the write waits behind the
-			class list. Predicted problems disable the confirm — the mutation would
-			refuse them atomically anyway, and saying so before the press reads
-			better than an error after it.
-		-->
-		{#if pendingSchedule !== null}
-			<div
-				class="rounded border border-amber-300 bg-amber-50 p-4"
-				data-testid="esl-admin-classes.mirrorConfirm"
-			>
-				<p class="text-sm text-amber-900">
-					Saving this week also sets the same day and period for
-					{pendingSchedule.mirrors.length}
-					{pendingSchedule.mirrors.length === 1 ? 'same-type class' : 'same-type classes'}:
-				</p>
-				<ul class="mt-2 space-y-1">
-					{#each pendingSchedule.mirrors as mirror (mirror.classId)}
-						<li class="text-sm text-amber-900" data-testid="esl-admin-classes.mirrorConfirm.target">
-							<strong>{mirror.name}</strong>
-							{#if mirror.willOverwrite}
-								<span class="text-xs">— replaces its current week</span>
-							{/if}
-							{#each mirror.problems as problem, problemIndex (problemIndex)}
-								<span
-									class="block text-xs text-red-700"
-									data-testid="esl-admin-classes.mirrorConfirm.problem"
-								>
-									{problem.message}
-								</span>
-							{/each}
-						</li>
-					{/each}
-				</ul>
-				{#if mirrorsBlocked}
-					<p
-						class="mt-2 text-xs font-medium text-red-700"
-						data-testid="esl-admin-classes.mirrorConfirm.blocked"
-					>
-						These have to be fixed first — the write would be refused until every class passes.
-					</p>
-				{/if}
-				<div class="mt-3 flex gap-2">
-					<Button
-						size="sm"
-						data-testid="esl-admin-classes.mirrorConfirm.yes"
-						disabled={mirrorsBlocked}
-						onclick={confirmSchedule}
-					>
-						Save all
-					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						data-testid="esl-admin-classes.mirrorConfirm.no"
-						onclick={() => (pendingSchedule = null)}
-					>
-						Cancel
-					</Button>
-				</div>
-			</div>
-		{/if}
-
 		{#if rowError}
 			<p
 				data-testid="esl-admin-classes.error"
@@ -1080,9 +1037,11 @@
 															{schedule}
 															neighbours={scheduleNeighbours}
 															studentCount={cohort.studentCount}
+															chineseClassComposition={cohort.chineseClassComposition}
 															staff={assignable}
 															busy={busyId === cls._id}
 															dimmed={cohort.status !== 'active'}
+															mirrorConfirmation={confirmationFor(cls._id)}
 															scheduleErrored={scheduleUnavailable}
 															onsave={saveSchedule}
 															partner={sectionPartners.get(cohort._id) ?? null}
@@ -1102,9 +1061,11 @@
 													{schedule}
 													neighbours={scheduleNeighbours}
 													studentCount={cohort.studentCount}
+													chineseClassComposition={cohort.chineseClassComposition}
 													staff={assignable}
 													busy={busyId === cls._id}
 													dimmed={cohort.status !== 'active'}
+													mirrorConfirmation={confirmationFor(cls._id)}
 													scheduleErrored={scheduleUnavailable}
 													onsave={saveSchedule}
 													partner={sectionPartners.get(cohort._id) ?? null}

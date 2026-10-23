@@ -7,6 +7,7 @@
 		trigger = null,
 		label,
 		testId,
+		onDismiss,
 		class: className = '',
 		children
 	}: {
@@ -26,11 +27,19 @@
 		/** What the panel is, for assistive tech. */
 		label: string;
 		testId?: string;
+		onDismiss?: () => void;
 		class?: string;
 		children?: Snippet;
 	} = $props();
 
-	let panelEl = $state<HTMLDivElement | null>(null);
+	let panelEl: HTMLDivElement | null = null;
+
+	function attachPanel(node: HTMLDivElement) {
+		panelEl = node;
+		return () => {
+			panelEl = null;
+		};
+	}
 
 	/**
 	 * Close the panel, returning focus to the trigger if the panel had it.
@@ -42,45 +51,28 @@
 	 */
 	function close() {
 		if (panelEl?.contains(document.activeElement)) trigger?.focus();
+		onDismiss?.();
 		open = false;
 	}
 
+	/** Whether the event happened inside the trigger or the panel. */
+	function inside(event: Event) {
+		const target = event.target;
+		if (!(target instanceof Node)) return false;
+		return panelEl?.contains(target) === true || trigger?.contains(target) === true;
+	}
+
 	/**
-	 * Close when a pointer press or key press lands outside the panel and trigger.
-	 *
-	 * The panel is out of flow, so nothing about "I clicked away" shows up in the
-	 * layout the way an inline expansion would. Listening on `pointerdown` rather
-	 * than `click` means the panel is already gone by the time the next element
-	 * handles its own click, so a press on another trigger does not land on a
-	 * panel that just closed.
-	 *
-	 * Scoped to `open`, so the listeners exist only while the panel is up.
+	 * Pointerdown closes before the next element handles its click, so a press on
+	 * another trigger does not land on a panel that has already closed.
 	 */
-	$effect(() => {
-		if (!open) return;
+	function onPointerDown(event: PointerEvent) {
+		if (open && !inside(event)) close();
+	}
 
-		/** Whether the event happened inside the trigger or the panel. */
-		function inside(event: Event): boolean {
-			const target = event.target;
-			if (!(target instanceof Node)) return false;
-			return panelEl?.contains(target) === true || trigger?.contains(target) === true;
-		}
-
-		function onPointerDown(event: PointerEvent) {
-			if (!inside(event)) close();
-		}
-
-		function onKeyDown(event: KeyboardEvent) {
-			if (event.key === 'Escape' && !inside(event)) close();
-		}
-
-		window.addEventListener('pointerdown', onPointerDown, true);
-		window.addEventListener('keydown', onKeyDown);
-		return () => {
-			window.removeEventListener('pointerdown', onPointerDown, true);
-			window.removeEventListener('keydown', onKeyDown);
-		};
-	});
+	function onKeyDown(event: KeyboardEvent) {
+		if (open && event.key === 'Escape') close();
+	}
 </script>
 
 <!--
@@ -100,7 +92,7 @@
 	`--color-*` vars), now that shadows paint again and it no longer has to shout.
 -->
 <div
-	bind:this={panelEl}
+	{@attach attachPanel}
 	class="anchored-panel bg-popover text-popover-foreground w-80 rounded-md p-2 [box-shadow:0_10px_15px_-3px_#0000001a,0_4px_6px_-4px_#0000001a] [border:1px_solid_var(--border)] {className}"
 	style="position-anchor: {anchorName};"
 	data-testid={testId}
@@ -109,6 +101,8 @@
 >
 	{@render children?.()}
 </div>
+
+<svelte:window onpointerdown={onPointerDown} onkeydown={onKeyDown} />
 
 <style>
 	/**
@@ -144,6 +138,11 @@
 		max-width: calc(100vw - 2rem);
 		max-height: calc(100dvh - 2rem);
 		overflow-y: auto;
+	}
+
+	.anchored-panel.warning {
+		background-color: var(--color-amber-50);
+		border-color: var(--color-amber-300);
 	}
 
 	@supports (anchor-name: --a) {
