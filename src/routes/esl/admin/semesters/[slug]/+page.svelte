@@ -39,6 +39,15 @@
 	);
 	const events = $derived(eventsQuery.data ?? []);
 
+	// S1 owns the room settings for the year; S2 falls back to S1 for the same school year.
+	const s1Semester = $derived(
+		selected?.term === 'S2'
+			? (semesters.find((s) => s.year === selected.year && s.term === 'S1') ?? null)
+			: null
+	);
+	const eslRoomLimit = $derived(selected?.eslRoomLimit ?? s1Semester?.eslRoomLimit);
+	const eslCustomRooms = $derived(selected?.eslCustomRooms ?? s1Semester?.eslCustomRooms);
+
 	// Lexical `YYYY-MM-DD` compare, the same rule the backend uses.
 	const today = new Date().toISOString().slice(0, 10);
 
@@ -52,7 +61,14 @@
 	const loaded = $derived.by(() => {
 		if (selected === null || eventsQuery.isLoading) return null;
 		return loadWizardState(
-			{ year: selected.year, term: selected.term, startDate: selected.startDate, id: selected._id },
+			{
+				year: selected.year,
+				term: selected.term,
+				startDate: selected.startDate,
+				id: selected._id,
+				eslRoomLimit,
+				eslCustomRooms
+			},
 			events
 		);
 	});

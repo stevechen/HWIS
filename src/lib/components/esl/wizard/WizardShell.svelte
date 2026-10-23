@@ -67,12 +67,19 @@
 	 * Unsaved marker for the edit-mode guards: the state differs from the
 	 * initially loaded one. Serialization is a deep read — the JSON walk
 	 * touches every leaf, so any nested edit re-runs the derivations below.
+	 * Navigating between wizard steps (`currentStep`) is UI view state and
+	 * does not count as modifying semester data.
 	 */
-	const initialSnapshot = serializeWizardState(wizardState);
+	function wizardDataSnapshot(state: WizardState): string {
+		const { currentStep: _, ...data } = state;
+		return JSON.stringify(data);
+	}
+
+	const initialSnapshot = wizardDataSnapshot(wizardState);
 	/** Set once the edit save lands, so the success redirect is not vetoed. */
 	let saved = $state(false);
 	const hasUnsaved = $derived(
-		edit && !saved && serializeWizardState(wizardState) !== initialSnapshot
+		edit && !saved && wizardDataSnapshot(wizardState) !== initialSnapshot
 	);
 
 	function markSaved(): void {
@@ -80,7 +87,7 @@
 	}
 
 	let resumeDismissed = $state(false);
-	let lastPersisted = initialSnapshot;
+	let lastPersisted = serializeWizardState(wizardState);
 
 	const step = $derived(wizardState.currentStep);
 	const stepDefinition = $derived(WIZARD_STEPS.find((definition) => definition.number === step));
@@ -171,6 +178,7 @@
 
 	function cancel(): void {
 		clearWizardState(storage);
+		saved = true;
 		void goto(CANCEL_HREF);
 	}
 

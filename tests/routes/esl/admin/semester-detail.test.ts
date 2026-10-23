@@ -33,6 +33,8 @@ const SEMESTER = {
 	year: '2026-2027',
 	term: 'S1',
 	startDate: '2026-08-31',
+	eslRoomLimit: 'E',
+	eslCustomRooms: ['Library'],
 	derivedEnd: '2027-01-20'
 };
 
@@ -179,6 +181,8 @@ describe('ESL admin semester edit wizard ([slug] route)', () => {
 
 		await page.getByTestId('wizard.step-1-tab').click();
 		await expect.element(page.getByTestId('wizard.step-1')).toBeInTheDocument();
+		await expect.element(page.getByTestId('wizard.step-1-room-limit')).toHaveValue('E');
+		await expect.element(page.getByTestId('wizard.step-1-room-settings')).toMatchTextContent('Library');
 		// Steps 2–5 stay reachable from there (free navigation in edit mode).
 		await expect.element(page.getByTestId('wizard.step-2-tab')).toBeEnabled();
 		await expect.element(page.getByTestId('wizard.step-5-tab')).toBeEnabled();

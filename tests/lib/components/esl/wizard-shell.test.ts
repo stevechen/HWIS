@@ -397,6 +397,25 @@ describe('wizard shell (edit mode)', () => {
 		expect(beforeUnload.defaultPrevented).toBe(false);
 	});
 
+	it('does not arm the unsaved guards when navigating between steps without editing', async () => {
+		const props: EditOptions = { mode: 'edit', initialState: editState() };
+		await render(WizardShellHarness, props);
+
+		await page.getByTestId('wizard.step-1-tab').click();
+		await expect.element(page.getByTestId('harness.step')).toMatchTextContent('1');
+
+		const navCallback = beforeNavigateMock.mock.calls[0]?.[0] as (navigation: {
+			cancel: () => void;
+		}) => void;
+		const cleanNavigation = { cancel: vi.fn() };
+		navCallback(cleanNavigation);
+		expect(cleanNavigation.cancel).not.toHaveBeenCalled();
+
+		const beforeUnload = new Event('beforeunload', { cancelable: true });
+		window.dispatchEvent(beforeUnload);
+		expect(beforeUnload.defaultPrevented).toBe(false);
+	});
+
 	it('advances with Next even when the current step is incomplete', async () => {
 		const props: EditOptions = { mode: 'edit', initialState: editState() };
 		await render(WizardShellHarness, props);
