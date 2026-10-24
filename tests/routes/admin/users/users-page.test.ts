@@ -91,8 +91,8 @@ describe('Users Admin Page - card grid', () => {
 		);
 	});
 
-	afterEach(() => {
-		for (const m of mounted) m.unmount();
+	afterEach(async () => {
+		for (const m of mounted) await m.unmount();
 	});
 
 	function renderPage() {

@@ -82,4 +82,4 @@ async function main() {
 	process.exit(hasFailures ? 1 : 0);
 }
 
-main();
+void main();

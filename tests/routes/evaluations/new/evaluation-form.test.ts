@@ -92,8 +92,8 @@ describe('Evaluation Form', () => {
 		const submitButton = page.getByRole('button', { name: 'Submit evaluation' });
 		await expect.element(lockNotice).toBeInTheDocument();
 
-		const lockEl = await lockNotice.element();
-		const submitEl = await submitButton.element();
+		const lockEl = lockNotice.element();
+		const submitEl = submitButton.element();
 		// Lock notice should precede the Submit button in DOM order
 		expect(
 			lockEl.compareDocumentPosition(submitEl) & Node.DOCUMENT_POSITION_FOLLOWING

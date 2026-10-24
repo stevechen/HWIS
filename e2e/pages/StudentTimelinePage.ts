@@ -22,14 +22,14 @@ export class StudentTimelinePage {
 	}
 
 	async longPressFirstCard() {
-		const card = await this.getFirstEvaluationCard();
+		const card = this.getFirstEvaluationCard();
 		await card.dispatchEvent('mousedown');
 		await this.page.waitForTimeout(600);
 		await card.dispatchEvent('mouseup');
 	}
 
 	async shortPressFirstCard() {
-		const card = await this.getFirstEvaluationCard();
+		const card = this.getFirstEvaluationCard();
 		await card.dispatchEvent('mousedown');
 		await this.page.waitForTimeout(200);
 		await card.dispatchEvent('mouseup');

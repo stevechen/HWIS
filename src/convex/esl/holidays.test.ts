@@ -361,7 +361,8 @@ async function semesterHarness() {
 	const semesterId = await t.mutation(api.esl.semesters.create, {
 		year: '2026-2027',
 		term: 'S1',
-		startDate: '2026-08-31'
+		startDate: '2026-08-31',
+		eslRoomLimit: 'D'
 	});
 	return { t, semesterId };
 }
@@ -699,7 +700,8 @@ describe('holidays.previewGovImport', () => {
 		const semesterId = await t.mutation(api.esl.semesters.create, {
 			year: '2026-2027',
 			term: 'S1',
-			startDate: '2026-08-31'
+			startDate: '2026-08-31',
+			eslRoomLimit: 'D'
 		});
 		await expect(
 			t.action(api.esl.holidays.previewGovImport, {

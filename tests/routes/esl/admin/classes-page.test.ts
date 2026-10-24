@@ -1,4 +1,4 @@
-import { page, userEvent } from 'vite-plus/test/browser';
+import { page } from 'vite-plus/test/browser';
 import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { getFunctionName } from 'convex/server';
@@ -687,7 +687,7 @@ describe('ESL admin cohorts page', () => {
 			await render(ClassesPage);
 
 			await openRoomGrid();
-			await roomButton('ESL C').click();
+			roomButton('ESL C').click();
 			await page.getByTestId('esl-admin-classes.schedule.save').click();
 
 			await vi.waitFor(() =>
@@ -729,7 +729,7 @@ describe('ESL admin cohorts page', () => {
 			await render(ClassesPage);
 
 			await openRoomGrid();
-			await roomButton('J101').click();
+			roomButton('J101').click();
 			await page.getByTestId('esl-admin-classes.schedule.save').click();
 
 			await vi.waitFor(() =>
@@ -751,7 +751,7 @@ describe('ESL admin cohorts page', () => {
 			await render(ClassesPage);
 
 			await openRoomGrid();
-			await roomButton('ESL A').click();
+			roomButton('ESL A').click();
 			await page.getByTestId('esl-admin-classes.schedule.save').click();
 
 			await vi.waitFor(() =>

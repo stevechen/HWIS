@@ -162,7 +162,7 @@ describe('wizard shell', () => {
 		await vi.waitFor(() => {
 			expect(stored()).toContain('2026-09-07');
 		});
-		first.unmount();
+		await first.unmount();
 
 		// A refresh is a fresh mount reading the same sessionStorage.
 		await render(WizardShellHarness);
@@ -185,7 +185,7 @@ describe('wizard shell', () => {
 		await vi.waitFor(() => {
 			expect(stored()).toContain('"currentStep":2');
 		});
-		first.unmount();
+		await first.unmount();
 
 		await render(WizardShellHarness);
 		await page.getByTestId('wizard.resumed-dismiss').click();
@@ -296,7 +296,7 @@ describe('wizard shell (edit mode)', () => {
 		// No resume notice, and the stored create draft stays untouched.
 		await expect.element(page.getByTestId('wizard.resumed')).not.toBeInTheDocument();
 		expect(sessionStorage.getItem(STORAGE_KEY)).toBe('{"v":2,"resumed":"create noise"}');
-		mounted.unmount();
+		await mounted.unmount();
 	});
 
 	it('leaves every step freely navigable even when earlier steps are incomplete', async () => {

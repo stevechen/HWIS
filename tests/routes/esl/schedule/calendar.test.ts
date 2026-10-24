@@ -139,16 +139,19 @@ function renderCalendar(overrides: Record<string, unknown> = {}) {
 }
 
 describe('teacher calendar', () => {
+	const scrollIntoViewMock = vi.fn();
+
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => {});
+		scrollIntoViewMock.mockReset();
+		vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(scrollIntoViewMock);
 	});
 
 	it('lands on the current week on mount', async () => {
 		renderCalendar();
 
 		await expect.element(page.getByTestId('teacher-calendar.week-1')).toBeInTheDocument();
-		expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
+		expect(scrollIntoViewMock).toHaveBeenCalled();
 	});
 
 	it('titles the class with headcount and room readouts', async () => {
@@ -371,9 +374,9 @@ describe('teacher calendar', () => {
 	it('returns to the current week from the Today button', async () => {
 		renderCalendar();
 
-		vi.mocked(HTMLElement.prototype.scrollIntoView).mockClear();
+		scrollIntoViewMock.mockClear();
 		await page.getByRole('button', { name: '● Today' }).click();
-		expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
+		expect(scrollIntoViewMock).toHaveBeenCalled();
 	});
 
 	it('degrades to empty boxes when no notes loaded yet', async () => {

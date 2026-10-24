@@ -1214,8 +1214,6 @@ export const setRoom = mutation({
 		// which is the only year this class's saved week belongs to.
 		const cohort = await ctx.db.get(classRecord.cohortId);
 		if (cohort !== null) {
-			if (next !== undefined)
-				await assertRoomAvailable(ctx, cohort, next, classRecord.room ?? undefined);
 			await gateRoomChange(ctx, classRecord, next, cohort.year);
 		}
 

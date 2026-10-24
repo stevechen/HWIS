@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vite-plus/test';
-import { convexTest, modules, seedEslStaff } from '../test.setup';
+import { convexTest, modules, seedEslStaff, seedRosterReady } from '../test.setup';
 import { api } from '../_generated/api';
 import schema from '../schema';
 import type { Id } from '../_generated/dataModel';
@@ -303,6 +303,7 @@ describe('advanceGrade', () => {
 async function asAdmin(authId = 'esl-admin') {
 	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId, eslRole: 'admin' });
+	await seedRosterReady(t, YEAR);
 	return t;
 }
 
@@ -323,11 +324,12 @@ function row(
 	};
 }
 
-function applyRoster(
+async function applyRoster(
 	t: Awaited<ReturnType<typeof convexTest>>,
 	rows: ReturnType<typeof row>[],
 	over: { year?: string; grade?: number; approvedNameChanges?: Id<'esl_students'>[] } = {}
 ) {
+	await seedRosterReady(t, over.year ?? YEAR);
 	return t.mutation(api.esl.import.applyRosterImport, {
 		year: over.year ?? YEAR,
 		grade: over.grade ?? GRADE,
@@ -429,6 +431,7 @@ describe('esl roster import', () => {
 
 		it('moves an existing student to the cohort the file names', async () => {
 			const t = await asAdmin();
+			await seedRosterReady(t, YEAR);
 			const advanced1 = await makeG9(t, YEAR, 'Advanced', '1');
 			const studentId = await enrol(t, advanced1, '1130001');
 			const advanced2 = await makeG9(t, YEAR, 'Advanced', '2');
@@ -563,6 +566,7 @@ describe('esl roster import', () => {
 			// A student's ID legitimately has one row per year, so this year's grade 8
 			// is not last year's grade 7. Reaching across would disable half a school.
 			const t = await asAdmin();
+			await seedRosterReady(t, OTHER_YEAR);
 			const lastYear = await makeG9(t, OTHER_YEAR, 'Basic', '1');
 			const lastYearId = await enrol(t, lastYear, '1130001');
 

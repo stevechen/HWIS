@@ -9,6 +9,7 @@ async function adminSemester(term: 'S1' | 'S2', startDate: string) {
 	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId: 'esl-admin', eslRole: 'admin' });
 	const semesterId = await t.mutation(api.esl.semesters.create, {
+		eslRoomLimit: 'D',
 		year: YEAR,
 		term,
 		startDate

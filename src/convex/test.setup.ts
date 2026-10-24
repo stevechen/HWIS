@@ -183,3 +183,25 @@ export async function convexTest(
 		run: t.run.bind(t)
 	};
 }
+
+/** Seeds a roster-readiness signoff used by enrollment tests. */
+export async function seedRosterReady(t: Awaited<ReturnType<typeof convexTest>>, year: string) {
+	const confirmedBy = await seedUser(t, {
+		authId: `test-admin-${year}`,
+		name: 'Test Admin',
+		role: 'admin'
+	});
+	await t.run(async (ctx) => {
+		const existing = await ctx.db
+			.query('esl_year_signoffs')
+			.withIndex('by_year', (q) => q.eq('year', year))
+			.first();
+		if (!existing) {
+			await ctx.db.insert('esl_year_signoffs', {
+				year,
+				confirmedAt: 1728000000000,
+				confirmedBy
+			});
+		}
+	});
+}

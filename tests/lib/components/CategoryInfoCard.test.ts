@@ -114,7 +114,7 @@ describe('CategoryInfoCard', () => {
 			await render(CategoryInfoCard, { category: defaultCategory, oncriterionclick });
 
 			const buttons = page.getByRole('button');
-			const buttonsList = await buttons.all();
+			const buttonsList = buttons.all();
 			expect(buttonsList.length).toBeGreaterThan(0);
 		});
 	});
@@ -124,7 +124,7 @@ describe('CategoryInfoCard', () => {
 			await render(CategoryInfoCard, { category: defaultCategory });
 
 			const buttons = page.getByRole('button');
-			const buttonsList = await buttons.all();
+			const buttonsList = buttons.all();
 			expect(buttonsList.length).toBe(0);
 		});
 

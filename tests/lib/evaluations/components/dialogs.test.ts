@@ -406,9 +406,7 @@ describe('Evaluation Dialogs', () => {
 				const textarea = page.getByPlaceholder('Enter specific details...');
 				await textarea.click();
 
-				await textarea
-					.element()
-					.dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true }));
+				textarea.element().dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true }));
 
 				await expect
 					.element(page.getByRole('button', { name: 'Award 2 points' }))

@@ -215,7 +215,7 @@ describe('Step 5 Panel', () => {
 			await expect.element(target).toBeInTheDocument();
 			// Native options are not in the accessibility tree until opened —
 			// read them off the DOM node (the ticket's target list, nothing more).
-			const select = (await target.element()) as HTMLSelectElement;
+			const select = target.element() as HTMLSelectElement;
 			expect(Array.from(select.options).map((option) => option.value)).toEqual([
 				'all',
 				'CLIL',

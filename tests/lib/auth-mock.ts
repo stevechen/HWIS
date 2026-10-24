@@ -8,7 +8,7 @@
 export async function waitForHydration(): Promise<void> {
 	// Wait for body to have 'hydrated' class
 	try {
-		await document.querySelector('body.hydrated');
+		document.querySelector('body.hydrated');
 	} catch {
 		// Ignore errors - function is a placeholder
 	}

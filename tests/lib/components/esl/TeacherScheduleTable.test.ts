@@ -292,7 +292,7 @@ describe('TeacherScheduleTable', () => {
 
 		// The component builds the download anchor on click; capture its filename.
 		const downloads: (string | null)[] = [];
-		const originalClick = HTMLAnchorElement.prototype.click;
+		const originalClick = HTMLAnchorElement.prototype.click.bind(HTMLAnchorElement.prototype);
 		HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
 			downloads.push(this.getAttribute('download'));
 		};

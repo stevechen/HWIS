@@ -37,7 +37,12 @@ export type SplitSheet = {
  */
 function cellText(value: unknown): string {
 	if (value === null || value === undefined) return '';
-	return typeof value === 'string' ? value : String(value);
+	if (typeof value === 'string') return value;
+	if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+		return String(value);
+	}
+	if (value instanceof Date) return value.toISOString();
+	return JSON.stringify(value) ?? '';
 }
 
 /**

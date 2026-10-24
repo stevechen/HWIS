@@ -4,6 +4,7 @@ import {
 	modules,
 	mockAuthUser,
 	seedEslStaff,
+	seedRosterReady,
 	type ConvexTestInstance
 } from '../test.setup';
 import { api } from '../_generated/api';
@@ -103,6 +104,7 @@ describe('esl cohort archival', () => {
 		// roster survives it.
 		it('leaves the students of the archived year enrolled', async () => {
 			const t = await asEslAdmin();
+			await seedRosterReady(t, '2024-2025');
 			const { last } = await seedTwoYears(t);
 			await t.mutation(api.esl.students.create, {
 				cohortId: last.cohortId,

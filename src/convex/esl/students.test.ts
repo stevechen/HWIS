@@ -1,11 +1,19 @@
 import { describe, it, expect, afterEach, vi } from 'vite-plus/test';
-import { convexTest, modules, seedEslStaff, ESL_ALICE, ESL_BOB } from '../test.setup';
+import {
+	convexTest,
+	modules,
+	seedEslStaff,
+	seedRosterReady,
+	ESL_ALICE,
+	ESL_BOB
+} from '../test.setup';
 import { api } from '../_generated/api';
 import schema from '../schema';
 
 async function asEslAdmin(authId = 'esl-admin') {
 	const t = await convexTest(schema, modules);
 	await seedEslStaff(t, { authId, eslRole: 'admin' });
+	await seedRosterReady(t, '2025-2026');
 	return t;
 }
 

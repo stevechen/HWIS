@@ -5,6 +5,7 @@ import {
 	mockAuthUser,
 	seedEslStaff,
 	seedUser,
+	seedRosterReady,
 	ESL_ALICE,
 	ESL_BOB
 } from '../test.setup';
@@ -79,6 +80,7 @@ describe('esl classes', () => {
 
 		it('rejects a read from an unauthenticated caller', async () => {
 			const t = await asEslAdmin();
+			await seedRosterReady(t, '2025-2026');
 			const teacherId = await seedEslStaff(t, { authId: 'esl-teacher', signIn: false });
 			mockAuthUser(null);
 
@@ -144,6 +146,7 @@ describe('esl classes', () => {
 	describe('getRoster', () => {
 		it('returns the same students for the CLIL and Comm classes of a G7 cohort', async () => {
 			const t = await asEslAdmin();
+			await seedRosterReady(t, '2025-2026');
 			const { cohortId, classIds } = await createG7(t);
 			await t.mutation(api.esl.students.bulkImport, {
 				cohortId,
@@ -163,6 +166,7 @@ describe('esl classes', () => {
 
 		it('marks a G9 class as not sharing a roster', async () => {
 			const t = await asEslAdmin();
+			await seedRosterReady(t, '2025-2026');
 			const { cohortId, classIds } = await t.mutation(api.esl.cohorts.create, {
 				year: '2025-2026',
 				grade: 9,
@@ -179,6 +183,7 @@ describe('esl classes', () => {
 
 		it('hides disabled students unless asked for them', async () => {
 			const t = await asEslAdmin();
+			await seedRosterReady(t, '2025-2026');
 			const { cohortId, classIds } = await createG7(t);
 			const bobId = await t.mutation(api.esl.students.create, { cohortId, ...ESL_BOB });
 			await t.mutation(api.esl.students.updateStatus, {
@@ -200,6 +205,7 @@ describe('esl classes', () => {
 
 		it('sorts the roster alphabetically by English name', async () => {
 			const t = await asEslAdmin();
+			await seedRosterReady(t, '2025-2026');
 			const { cohortId, classIds } = await createG7(t);
 			await t.mutation(api.esl.students.bulkImport, {
 				cohortId,
@@ -213,6 +219,7 @@ describe('esl classes', () => {
 
 		it('rejects a read from an unauthenticated caller', async () => {
 			const t = await asEslAdmin();
+			await seedRosterReady(t, '2025-2026');
 			const { classIds } = await createG7(t);
 			mockAuthUser(null);
 

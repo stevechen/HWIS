@@ -28,7 +28,7 @@ async function chooseRoomLimitIfPresent(): Promise<void> {
 	const select = page.getByTestId('wizard.step-1-room-limit');
 	try {
 		// S1 only: the room-settings block disappears on S2 setup.
-		await expect.element(select).toBeVisible({ timeout: 1000 });
+		await expect.element(select).toBeVisible();
 		await select.selectOptions('E');
 	} catch {
 		// S2 setup has no room-limit section.
@@ -113,7 +113,7 @@ describe('ESL semester wizard route', () => {
 		await vi.waitFor(() => {
 			expect(stored()).toContain('"currentStep":2');
 		});
-		first.unmount();
+		await first.unmount();
 
 		await render(WizardPage);
 

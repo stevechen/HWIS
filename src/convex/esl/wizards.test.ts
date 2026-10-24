@@ -37,6 +37,7 @@ async function saveArgs(e2eTag?: string) {
 		year: YEAR,
 		term: 'S1' as const,
 		startDate: '2026-08-31',
+		eslRoomLimit: 'D' as const,
 		offDays: OFF_DAYS,
 		exams: EXAMS,
 		singles: SINGLES,

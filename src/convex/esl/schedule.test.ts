@@ -29,7 +29,8 @@ async function setupTeacherWorld() {
 	const semesterId = await t.mutation(api.esl.semesters.create, {
 		year: YEAR,
 		term: 'S1',
-		startDate: '2025-08-31'
+		startDate: '2025-08-31',
+		eslRoomLimit: 'D'
 	});
 	const { classIds } = await t.mutation(api.esl.cohorts.create, {
 		year: YEAR,

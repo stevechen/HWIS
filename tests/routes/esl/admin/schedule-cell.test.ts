@@ -1000,9 +1000,8 @@ describe('ScheduleCell room grid', () => {
 	it('saves a custom room that the year offers', async () => {
 		const onsave = vi.fn();
 		landSuggestions({
-			department: ['ESL A', 'ESL B', 'ESL C', 'ESL D', 'ESL E', 'ESL F', 'ESL G'],
-			homerooms: [],
-			custom: ['Library']
+			department: ['ESL A', 'ESL B', 'ESL C', 'ESL D', 'ESL E', 'ESL F', 'ESL G', 'Library'],
+			homerooms: []
 		});
 		await render(ScheduleCell, { props: scheduleProps({ onsave }) });
 
@@ -1388,11 +1387,11 @@ describe('ClassCard availability dialog', () => {
 			.getByTestId('esl-admin-classes.availability.cell')
 			.elements()
 			.filter((cell) => cell.getAttribute('data-taught') !== null);
-		expect(taught.map((cell) => cell.getAttribute('data-taught')).sort()).toEqual([
-			'G7 Basic 1 Comm',
-			'G9 Advanced 1',
-			'G9 Advanced 1'
-		]);
+		expect(
+			taught
+				.map((cell) => cell.getAttribute('data-taught'))
+				.sort((a, b) => (a ?? '').localeCompare(b ?? ''))
+		).toEqual(['G7 Basic 1 Comm', 'G9 Advanced 1', 'G9 Advanced 1']);
 		const holder = taught.find((cell) => cell.getAttribute('data-taught') === 'G7 Basic 1 Comm');
 		if (!holder) throw new Error('no taught cell for G7 Basic 1 Comm');
 		expect(holder.getAttribute('title')).toContain('teaches G7 Basic 1 Comm');

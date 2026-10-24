@@ -20,7 +20,8 @@ describe('esl/semesters.create', () => {
 		const semesterId = await t.mutation(api.esl.semesters.create, {
 			year: YEAR,
 			term: 'S1',
-			startDate: '2025-08-31'
+			startDate: '2025-08-31',
+			eslRoomLimit: 'D'
 		});
 		expect(semesterId).toBeTruthy();
 		const semester = await t.query(api.esl.semesters.get, { semesterId });
@@ -32,13 +33,15 @@ describe('esl/semesters.create', () => {
 		await t.mutation(api.esl.semesters.create, {
 			year: YEAR,
 			term: 'S1',
-			startDate: '2025-08-31'
+			startDate: '2025-08-31',
+			eslRoomLimit: 'D'
 		});
 		await expect(
 			t.mutation(api.esl.semesters.create, {
 				year: YEAR,
 				term: 'S1',
-				startDate: '2025-09-01'
+				startDate: '2025-09-01',
+				eslRoomLimit: 'D'
 			})
 		).rejects.toThrow();
 	});
@@ -49,7 +52,8 @@ describe('esl/semesters.create', () => {
 			t.mutation(api.esl.semesters.create, {
 				year: YEAR,
 				term: 'S1',
-				startDate: 'not-a-date'
+				startDate: 'not-a-date',
+				eslRoomLimit: 'D'
 			})
 		).rejects.toThrow();
 	});
@@ -61,7 +65,8 @@ describe('esl/semesters.create', () => {
 			t.mutation(api.esl.semesters.create, {
 				year: YEAR,
 				term: 'S1',
-				startDate: '2025-08-31'
+				startDate: '2025-08-31',
+				eslRoomLimit: 'D'
 			})
 		).rejects.toThrow(/ESL admin/);
 	});
@@ -141,7 +146,8 @@ describe('esl/semesters derived end', () => {
 		const semesterId = await t.mutation(api.esl.semesters.create, {
 			year: YEAR,
 			term: 'S1',
-			startDate: '2025-08-31'
+			startDate: '2025-08-31',
+			eslRoomLimit: 'D'
 		});
 		const semester = await t.query(api.esl.semesters.get, { semesterId });
 		expect(semester?.derivedEnd).toBeNull();
@@ -152,7 +158,8 @@ describe('esl/semesters derived end', () => {
 		const semesterId = await t.mutation(api.esl.semesters.create, {
 			year: YEAR,
 			term: 'S1',
-			startDate: '2025-08-31'
+			startDate: '2025-08-31',
+			eslRoomLimit: 'D'
 		});
 		await t.mutation(api.esl.events.create, {
 			semesterId,

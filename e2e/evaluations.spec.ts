@@ -91,7 +91,7 @@ test.describe('Evaluations - No Category Error @hwis', () => {
 			e2eTag
 		});
 		if (createResult && typeof createResult === 'object' && 'error' in createResult) {
-			throw new Error(`Failed to create student: ${createResult.error}`);
+			throw new Error(`Failed to create student: ${String(createResult.error)}`);
 		}
 		testStudent = true;
 

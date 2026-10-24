@@ -117,7 +117,7 @@ describe('Student Picker', () => {
 		await render(EvaluationFormPage);
 		// The students.list query sorts by englishName ascending; the picker
 		// must preserve that order rather than clumping or re-sorting.
-		const [list] = await page.getByRole('list', { name: 'Students' }).elements();
+		const [list] = page.getByRole('list', { name: 'Students' }).elements();
 		const names = Array.from(list.querySelectorAll('[role="button"]'))
 			.map((el) => el.getAttribute('aria-label'))
 			.filter((label): label is string => label !== null);

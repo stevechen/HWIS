@@ -40,6 +40,7 @@ function saveArgs() {
 		year: YEAR,
 		term: 'S1' as const,
 		startDate: '2026-08-31',
+		eslRoomLimit: 'D' as const,
 		offDays: OFF_DAYS,
 		exams: EXAMS,
 		singles: SINGLES,
@@ -564,7 +565,13 @@ describe('esl/wizards.updateSemester — loader-driven no-op', () => {
 
 		const rows = await t.query(api.esl.events.listBySemester, { semesterId });
 		const loaded = loadWizardState(
-			{ id: semesterId, year: YEAR, term: 'S1', startDate: '2026-08-31' },
+			{
+				id: semesterId,
+				year: YEAR,
+				term: 'S1',
+				startDate: '2026-08-31',
+				eslRoomLimit: 'D'
+			},
 			rows
 		);
 		const payload = buildSavePayload(loaded.state);

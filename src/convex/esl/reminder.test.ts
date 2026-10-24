@@ -18,7 +18,8 @@ async function seededSemester() {
 	const semesterId = await t.mutation(api.esl.semesters.create, {
 		year: YEAR,
 		term: 'S1',
-		startDate: '2025-08-31'
+		startDate: '2025-08-31',
+		eslRoomLimit: 'D'
 	});
 	return { t, semesterId };
 }

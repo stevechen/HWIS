@@ -105,7 +105,7 @@ test.describe('Admin Evaluations - Infinite Scroll @infinite-scroll @sequential 
 			!(await evalsPage.page.getByTestId('admin-evaluations.no-more').isVisible()) &&
 			attempts < maxAttempts
 		) {
-			evalsPage.scrollToBottom();
+			await evalsPage.scrollToBottom();
 			await evalsPage.expectLoadingHidden();
 			attempts++;
 		}
@@ -258,7 +258,7 @@ test.describe('Admin Evaluations - Small Dataset @infinite-scroll-small @sequent
 		await evalsPage.expectErrorHidden();
 
 		// Scroll to bottom
-		evalsPage.scrollToBottom();
+		await evalsPage.scrollToBottom();
 
 		// Should show "No more evaluations" since we have less than a page of data
 		await evalsPage.expectNoMoreVisible();

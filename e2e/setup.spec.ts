@@ -42,8 +42,8 @@ setup('seed test data and verify setup @infra @hwis @esl', async ({ page }) => {
 		.context()
 		.addCookies(await buildContextCookies(setupResult.adminSessionToken as string));
 
-	await expect(adminStorage.cookies.length).toBeGreaterThan(0);
-	await expect(teacherStorage.cookies.length).toBeGreaterThan(0);
-	await expect(superStorage.cookies.length).toBeGreaterThan(0);
-	await expect(eslAdminStorage.cookies.length).toBeGreaterThan(0);
+	expect(adminStorage.cookies.length).toBeGreaterThan(0);
+	expect(teacherStorage.cookies.length).toBeGreaterThan(0);
+	expect(superStorage.cookies.length).toBeGreaterThan(0);
+	expect(eslAdminStorage.cookies.length).toBeGreaterThan(0);
 });
