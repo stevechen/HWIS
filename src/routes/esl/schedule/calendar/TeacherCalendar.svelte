@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { Ellipsis, MapPin, Users } from '@lucide/svelte';
+	import { Ellipsis, MapPin, Users, Plus } from '@lucide/svelte';
+	import { marked } from 'marked';
 	import {
 		calendarClassLabel,
 		monthName,
@@ -8,16 +9,17 @@
 		type CalendarCardStatus,
 		type CalendarWeekFragment
 	} from './calendar-weeks';
+	import LessonNoteDialog from '$lib/components/esl/LessonNoteDialog.svelte';
 
 	/**
 	 * The teacher's per-class semester calendar (ticket #196): week-keyed
-	 * semester rows, roomy date cards with note boxes, sticky toolbar with
+	 * semester rows, roomy date cards with note preview, sticky toolbar with
 	 * the ellipsis class menu. Presentational only — rows arrive from the
 	 * `teacherDays` join via `buildCalendarFragments`, notes arrive as a
 	 * `date → text` map that degrades to empty while the query loads, and
 	 * saves leave through `onSaveNote`. No Convex imports, so tests drive
 	 * it entirely through props. Off and no-class day cards carry no note
-	 * box — there is nothing to annotate on a day without class.
+	 * preview — there is nothing to annotate on a day without class.
 	 */
 
 	export interface CalendarClassOption {
@@ -65,8 +67,12 @@
 	);
 
 	let menuOpen = $state(false);
-	/** In-flight note edits, keyed by date; the saved map wins until typed over. */
-	let drafts = $state<Record<string, string>>({});
+
+	// Dialog state
+	let dialogOpen = $state(false);
+	let dialogDate = $state('');
+	let dialogWeekday = $state('');
+	let dialogInitialContent = $state('');
 
 	function chip(status: CalendarCardStatus): string {
 		switch (status) {
@@ -91,11 +97,8 @@
 			case 'off':
 				return '🎉 Off';
 			case 'no_class':
-				return 'No-class';
 			case 'partial':
-				// Partial titles are locked to "No class" — say that on the chip
-				// and let the cause line (e.g. "BBQ from 12:00") explain why.
-				return 'No class';
+				return 'No-class';
 			case 'exam':
 				return cause ?? 'Exam';
 			case 'g9_mock':
@@ -130,6 +133,50 @@
 
 	function onKey(event: KeyboardEvent) {
 		if (event.key === 'Escape') menuOpen = false;
+	}
+
+	function openNoteDialog(date: string, weekday: string) {
+		dialogDate = date;
+		dialogWeekday = weekday;
+		dialogInitialContent = notes[date] ?? '';
+		dialogOpen = true;
+	}
+
+	function handleSaveNote(content: string) {
+		onSaveNote?.(dialogDate, content);
+		dialogOpen = false;
+	}
+
+	function handleCloseDialog() {
+		dialogOpen = false;
+	}
+
+	function formatWeekday(dateStr: string): string {
+		const [year, month, day] = dateStr.split('-').map(Number);
+		const d = new Date(year, month - 1, day);
+		return d.toLocaleDateString('en-US', { weekday: 'long' });
+	}
+
+	// Render note preview as clamped Markdown
+	function renderNotePreview(text: string): string {
+		if (!text.trim()) return '';
+		const html = marked.parse(text, { async: false });
+		return html as string;
+	}
+
+	function getClampedPreview(text: string): string {
+		if (!text.trim()) return '';
+		// Strip markdown syntax for preview
+		const plain = text
+			.replace(/^#{1,3}\s+/gm, '') // headings
+			.replace(/\*\*(.+?)\*\*/g, '$1') // bold
+			.replace(/\*(.+?)\*/g, '$1') // italic
+			.replace(/`(.+?)`/g, '$1') // code
+			.replace(/^[\s]*[-*]\s+/gm, '• ') // bullet lists
+			.replace(/^[\s]*\d+\.\s+/gm, '') // numbered lists
+			.replace(/^>\s+/gm, '') // blockquotes
+			.trim();
+		return plain.length > 200 ? plain.slice(0, 200) + '…' : plain;
 	}
 
 	onMount(() => {
@@ -246,135 +293,157 @@
 				</div>
 			{/if}
 			{@const cardsByWeekday = Object.groupBy(fragment.cards, (card) => card.weekdayLabel)}
-			{#if true}
-				<section
-					id="week-{fragment.weekIndex}"
-					data-testid="teacher-calendar.week-{fragment.weekIndex}"
-					class="scroll-mt-32 border-b last:border-b-0"
+			<section
+				id="week-{fragment.weekIndex}"
+				data-testid="teacher-calendar.week-{fragment.weekIndex}"
+				class="scroll-mt-32 border-b last:border-b-0"
+			>
+				<div
+					class="grid grid-cols-[auto_repeat(var(--day-count),minmax(0,1fr))] grid-rows-[auto_1fr] gap-px bg-stone-200 p-px"
+					style="--day-count: {allWeekdays.length}"
 				>
+					<!-- Week number column (spans both rows) -->
 					<div
-						class="grid grid-cols-[auto_repeat(var(--day-count),minmax(0,1fr))] grid-rows-[auto_1fr] gap-px bg-stone-200 p-px"
-						style="--day-count: {allWeekdays.length}"
+						class="row-span-2 flex w-10 shrink-0 items-center justify-center bg-emerald-800 py-3 text-sm font-bold text-white"
 					>
-						<!-- Week number column (spans both rows) -->
+						{fragment.weekIndex}
+					</div>
+					<!-- Banner row spanning day columns (row 1) -->
+					{#if fragment.banners.length > 0}
 						<div
-							class="row-span-2 flex w-10 shrink-0 items-center justify-center bg-emerald-800 py-3 text-sm font-bold text-white"
+							class="flex flex-wrap gap-1.5 border-b bg-indigo-50/60 bg-white px-3 py-1.5"
+							style="grid-column: 2 / -1"
 						>
-							{fragment.weekIndex}
-						</div>
-						<!-- Banner row spanning day columns (row 1) -->
-						{#if fragment.banners.length > 0}
-							<div
-								class="flex flex-wrap gap-1.5 border-b bg-indigo-50/60 bg-white px-3 py-1.5"
-								style="grid-column: 2 / -1"
-							>
-								{#each fragment.banners as banner (`${banner.title}|${banner.windowStart}|${banner.windowEnd}`)}
-									<span
-										class="rounded-full bg-indigo-200 px-2.5 py-0.5 text-xs font-semibold text-indigo-900"
-									>
-										{banner.title} · {slash(banner.windowStart)}–{slash(banner.windowEnd)}
-									</span>
-								{/each}
-							</div>
-						{:else}
-							<!-- Empty spacer when no banner -->
-							<div style="grid-column: 2 / -1"></div>
-						{/if}
-						<!-- Day cells container spanning day columns (row 2) -->
-						<div
-							class="grid grid-cols-[repeat(var(--day-count),minmax(0,1fr))] gap-px"
-							style="--day-count: {allWeekdays.length}; grid-column: 2 / -1"
-						>
-							{#each allWeekdays as day}
-								<!-- Flex column so each card stretches to the week-row height:
-								the tone fill and past hatch then cover the whole cell even
-								when the card content (e.g. no note box on an off day) is
-								shorter than its neighbours. -->
-								<div class="flex min-h-[120px] min-w-0 flex-col bg-white">
-									{#each cardsByWeekday[day] ?? [] as card, cardIndex (`${card.date}-p${card.period}`)}
-										{@const newMonth =
-											cardIndex > 0 &&
-											(cardsByWeekday[day] ?? [])[cardIndex - 1].date.slice(0, 7) !==
-												card.date.slice(0, 7)}
-										<article
-											data-testid="teacher-calendar.card-{card.date}"
-											class="relative flex-1 p-3 {cellTone(card.status, card.past)}{newMonth
-												? ' month-divide'
-												: ''}"
-										>
-											{#if card.past}
-												<div
-													class="past-hatch"
-													data-testid="teacher-calendar.past-{card.date}"
-													aria-hidden="true"
-												></div>
-											{/if}
-											<header class="flex flex-wrap items-center gap-1.5">
-												<span class="font-semibold">{slash(card.date)}</span>
-												{#if card.status !== 'off' && card.status !== 'no_class' && card.status !== 'exam' && card.status !== 'g9_mock'}
-													<span class="text-xs text-stone-500">P{card.period}</span>
-												{/if}
-												{#if card.status !== 'teaching'}
-													<span class="rounded px-1.5 py-0.5 text-xs font-bold {chip(card.status)}">
-														{label(card.status, card.cause)}
-													</span>
-												{/if}
-												{#if card.isToday}
-													<span
-														class="rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white"
-														>● Today</span
-													>
-												{:else if nextDate !== null && card.date === nextDate}
-													<span
-														class="rounded bg-sky-600 px-1.5 py-0.5 text-xs font-bold text-white"
-														>Next →</span
-													>
-												{/if}
-												{#if card.countdown}
-													<span class="ml-auto rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-800"
-														>{card.countdown}</span
-													>
-												{/if}
-											</header>
-											{#if card.cause && card.status !== 'off' && card.status !== 'exam' && card.status !== 'oral'}
-												<p class="mt-1 text-xs font-semibold text-stone-600">{card.cause}</p>
-											{/if}
-											{#each card.badges as badge (badge)}
-												{#if card.status !== 'oral'}
-													<p class="mt-1 text-xs text-indigo-700">{badge}</p>
-												{/if}
-											{/each}
-											{#each card.dues as due (`${due.title}|${due.windowStart}`)}
-												<p class="mt-1 text-xs font-semibold text-indigo-700">
-													{due.title}{due.windowStart !== due.windowEnd
-														? ` · ${slash(due.windowStart)}–${slash(due.windowEnd)}`
-														: ''}
-												</p>
-											{/each}
-											{#if card.status !== 'off' && card.status !== 'no_class'}
-												<textarea
-													aria-label="Note for {card.date}"
-													rows="2"
-													placeholder="Note…"
-													class="mt-2 w-full rounded border border-stone-300 p-1.5 text-sm"
-													value={drafts[card.date] ?? notes[card.date] ?? ''}
-													oninput={(event) => {
-														drafts[card.date] = event.currentTarget.value;
-													}}
-													onchange={(event) => {
-														onSaveNote(card.date, event.currentTarget.value);
-													}}></textarea>
-											{/if}
-										</article>
-									{/each}
-								</div>
+							{#each fragment.banners as banner (`${banner.title}|${banner.windowStart}|${banner.windowEnd}`)}
+								<span
+									class="rounded-full bg-indigo-200 px-2.5 py-0.5 text-xs font-semibold text-indigo-900"
+								>
+									{banner.title} · {slash(banner.windowStart)}–{slash(banner.windowEnd)}
+								</span>
 							{/each}
 						</div>
+					{:else}
+						<!-- Empty spacer when no banner -->
+						<div style="grid-column: 2 / -1"></div>
+					{/if}
+					<!-- Day cells container spanning day columns (row 2) -->
+					<div
+						class="grid grid-cols-[repeat(var(--day-count),minmax(0,1fr))] gap-px"
+						style="--day-count: {allWeekdays.length}; grid-column: 2 / -1"
+					>
+						{#each allWeekdays as day}
+							<!-- Flex column so each card stretches to the week-row height:
+							the tone fill and past hatch then cover the whole cell even
+							when the card content (e.g. no note box on an off day) is
+							shorter than its neighbours. -->
+							<div class="flex min-h-[120px] min-w-0 flex-col bg-white">
+								{#each cardsByWeekday[day] ?? [] as card, cardIndex (`${card.date}-p${card.period}`)}
+									{@const newMonth =
+										cardIndex > 0 &&
+										(cardsByWeekday[day] ?? [])[cardIndex - 1].date.slice(0, 7) !==
+											card.date.slice(0, 7)}
+									<article
+										data-testid="teacher-calendar.card-{card.date}"
+										class="relative flex-1 p-3 {cellTone(card.status, card.past)}{newMonth
+											? ' month-divide'
+											: ''}"
+									>
+										{#if card.past}
+											<div
+												class="past-hatch"
+												data-testid="teacher-calendar.past-{card.date}"
+												aria-hidden="true"
+											></div>
+										{/if}
+										<header class="flex flex-wrap items-center gap-1.5">
+											<span class="font-semibold">{slash(card.date)}</span>
+											{#if card.status !== 'off' && card.status !== 'no_class' && card.status !== 'exam' && card.status !== 'g9_mock'}
+												<span class="text-xs text-stone-500">P{card.period}</span>
+											{/if}
+											{#if card.status !== 'teaching'}
+												<span class="rounded px-1.5 py-0.5 text-xs font-bold {chip(card.status)}">
+													{label(card.status, card.cause)}
+												</span>
+											{/if}
+											{#if card.isToday}
+												<span
+													class="rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white"
+													>● Today</span
+												>
+											{:else if nextDate !== null && card.date === nextDate}
+												<span class="rounded bg-sky-600 px-1.5 py-0.5 text-xs font-bold text-white"
+													>Next →</span
+												>
+											{/if}
+											{#if card.countdown}
+												<span class="ml-auto rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-800"
+													>{card.countdown}</span
+												>
+											{/if}
+										</header>
+										{#if card.cause && card.status !== 'off' && card.status !== 'exam' && card.status !== 'oral'}
+											<p class="mt-1 text-xs font-semibold text-stone-600">{card.cause}</p>
+										{/if}
+										{#each card.badges as badge (badge)}
+											{#if card.status !== 'oral'}
+												<p class="mt-1 text-xs text-indigo-700">{badge}</p>
+											{/if}
+										{/each}
+										{#each card.dues as due (`${due.title}|${due.windowStart}`)}
+											<p class="mt-1 text-xs font-semibold text-indigo-700">
+												{due.title}{due.windowStart !== due.windowEnd
+													? ` · ${slash(due.windowStart)}–${slash(due.windowEnd)}`
+													: ''}
+											</p>
+										{/each}
+										{#if card.status !== 'off' && card.status !== 'no_class'}
+											<div class="mt-2">
+												{#if notes[card.date]?.trim()}
+													<button
+														type="button"
+														class="w-full min-w-0 overflow-hidden rounded p-2 text-left transition-colors hover:bg-stone-100"
+														onclick={() => openNoteDialog(card.date, formatWeekday(card.date))}
+														aria-label="Edit note for {card.date}"
+													>
+														<div
+															class="prose line-clamp-3 max-h-12 max-w-none overflow-hidden text-xs leading-tight break-words prose-stone prose-p:my-0 prose-ol:my-1 prose-ul:my-1"
+														>
+															{@html renderNotePreview(notes[card.date])}
+														</div>
+													</button>
+												{:else}
+													<button
+														type="button"
+														class="flex w-full items-center justify-center gap-2 rounded border border-dashed border-stone-300 bg-white px-2 py-2 text-stone-500 transition-colors hover:border-stone-400 hover:bg-stone-50"
+														onclick={() => openNoteDialog(card.date, formatWeekday(card.date))}
+														aria-label="Add lesson note for {card.date}"
+													>
+														<Plus class="size-4" aria-hidden="true" />
+														<span class="text-sm">Add lesson note</span>
+													</button>
+												{/if}
+											</div>
+										{/if}
+									</article>
+								{/each}
+							</div>
+						{/each}
 					</div>
-				</section>
-			{/if}
+				</div>
+			</section>
 		{/each}
 	</div>
+
+	<!-- Lesson Note Dialog -->
+	<LessonNoteDialog
+		open={dialogOpen}
+		className={selected?.name ?? ''}
+		date={dialogDate}
+		weekday={dialogWeekday}
+		initialContent={dialogInitialContent}
+		onSave={handleSaveNote}
+		onClose={handleCloseDialog}
+	/>
 </div>
 
 <style>
@@ -389,8 +458,8 @@
 		outline-offset: -3px;
 	}
 	/* Month boundary inside a week row. Mobile stacks cards, so the divider
-	is horizontal; sm+ lays cards side by side, so it turns vertical.
-	Inset shadows divide without shifting layout either way. */
+		is horizontal; sm+ lays cards side by side, so it turns vertical.
+		Inset shadows divide without shifting layout either way. */
 	.month-divide {
 		box-shadow: inset 0 3px 0 rgb(5 150 105);
 	}

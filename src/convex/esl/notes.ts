@@ -18,7 +18,7 @@ import { isValidEslDate } from '../shared/esl';
  * `by_teacher`; writes are one indexed lookup + one insert/patch/delete.
  * Free-Quota Impact: one teacher's notes on one class, never the table.
  */
-const MAX_NOTE_LENGTH = 2000;
+const MAX_NOTE_LENGTH = 10000;
 
 type NotesCtx = QueryCtx | MutationCtx;
 

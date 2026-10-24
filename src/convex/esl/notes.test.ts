@@ -33,7 +33,8 @@ async function setupNotesWorld() {
 	const semesterId = await t.mutation(api.esl.semesters.create, {
 		year: YEAR,
 		term: 'S1',
-		startDate: '2025-08-31'
+		startDate: '2025-08-31',
+		eslRoomLimit: 'D'
 	});
 	const { classIds } = await t.mutation(api.esl.cohorts.create, {
 		year: YEAR,
@@ -190,9 +191,9 @@ describe('esl/notes teacher notes', () => {
 			t.mutation(api.esl.notes.upsert, {
 				classId: clilId,
 				date: '2025-09-01',
-				text: 'x'.repeat(2001)
+				text: 'x'.repeat(10001)
 			})
-		).rejects.toThrow(/2000/);
+		).rejects.toThrow(/10000/);
 	});
 
 	it('clears the note when the teacher saves empty text', async () => {

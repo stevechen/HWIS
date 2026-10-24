@@ -53,15 +53,19 @@
 		typeof window === 'undefined' ? null : window.sessionStorage;
 
 	const edit = $derived(mode === 'edit');
-	const restored = edit ? null : readWizardState(storage, today);
+	const restored = $derived.by(() => (edit ? null : readWizardState(storage, today)));
 
 	// Edit mode mounts from the loaded semester, deep-cloned so the caller's
 	// object stays untouched by draft updates. Failing to pass one (a route
 	// bug) falls back to session semantics rather than crashing the mount.
-	const initialStateClone = initialState === undefined ? undefined : structuredClone(initialState);
-	let wizardState = $state<WizardState>(
-		restored?.state ?? initialStateClone ?? readWizardState(storage, today).state
-	);
+	function createInitialWizardState(): WizardState {
+		const restoredState = edit ? null : readWizardState(storage, today);
+		const initialStateClone =
+			initialState === undefined ? undefined : structuredClone(initialState);
+		return restoredState?.state ?? initialStateClone ?? readWizardState(storage, today).state;
+	}
+
+	let wizardState = $state<WizardState>(createInitialWizardState());
 
 	/**
 	 * Unsaved marker for the edit-mode guards: the state differs from the
@@ -287,7 +291,7 @@
 		</Button>
 		{#if step === 5}
 			<!-- Save button is rendered by Step5Panel; shell only shows Back on the last step. -->
-			<div data-testid="wizard.step-5-footer-spacer" aria-hidden="true" />
+			<div data-testid="wizard.step-5-footer-spacer" aria-hidden="true"></div>
 		{:else}
 			<Button
 				disabled={!edit && !canAdvance}

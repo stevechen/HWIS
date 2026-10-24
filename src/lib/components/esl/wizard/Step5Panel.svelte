@@ -903,16 +903,22 @@
 				{#if customType === 'meeting'}
 					<div class="space-y-3">
 						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">Date</label>
+							<label for="custom-date" class="mb-1 block text-sm font-medium text-gray-700"
+								>Date</label
+							>
 							<input
+								id="custom-date"
 								type="date"
 								bind:value={customDate}
 								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 							/>
 						</div>
 						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">Target</label>
+							<label for="custom-target" class="mb-1 block text-sm font-medium text-gray-700"
+								>Target</label
+							>
 							<select
+								id="custom-target"
 								bind:value={customTarget}
 								data-testid="wizard.step-5-custom-target-meeting"
 								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
@@ -925,8 +931,11 @@
 							</select>
 						</div>
 						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">Type</label>
+							<label for="custom-type" class="mb-1 block text-sm font-medium text-gray-700"
+								>Type</label
+							>
 							<select
+								id="custom-type"
 								bind:value={customSubType}
 								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 							>
@@ -936,21 +945,26 @@
 							</select>
 						</div>
 						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">Note</label>
+							<label for="custom-note" class="mb-1 block text-sm font-medium text-gray-700"
+								>Note</label
+							>
 							<textarea
+								id="custom-note"
 								bind:value={customNote}
 								rows={3}
 								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
-								placeholder="Required detail text"
-							/>
+								placeholder="Required detail text"></textarea>
 						</div>
 					</div>
 				{:else}
 					<!-- Banner fields: text doubles as the note (spec #215 story 28) -->
 					<div class="space-y-3">
 						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">Target</label>
+							<label for="custom-banner-target" class="mb-1 block text-sm font-medium text-gray-700"
+								>Target</label
+							>
 							<select
+								id="custom-banner-target"
 								bind:value={customTarget}
 								data-testid="wizard.step-5-custom-target-banner"
 								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
@@ -963,24 +977,33 @@
 							</select>
 						</div>
 						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">Start date</label>
+							<label for="custom-banner-start" class="mb-1 block text-sm font-medium text-gray-700"
+								>Start date</label
+							>
 							<input
+								id="custom-banner-start"
 								type="date"
 								bind:value={customDate}
 								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 							/>
 						</div>
 						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">End date</label>
+							<label for="custom-banner-end" class="mb-1 block text-sm font-medium text-gray-700"
+								>End date</label
+							>
 							<input
+								id="custom-banner-end"
 								type="date"
 								bind:value={customEndDate}
 								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 							/>
 						</div>
 						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">Banner text</label>
+							<label for="custom-banner-text" class="mb-1 block text-sm font-medium text-gray-700"
+								>Banner text</label
+							>
 							<input
+								id="custom-banner-text"
 								type="text"
 								bind:value={customBannerText}
 								data-testid="wizard.step-5-custom-text"
@@ -1030,8 +1053,11 @@
 					</button>
 				</div>
 				<div>
-					<label class="mb-1 block text-xs font-medium text-gray-600">Date</label>
+					<label for="edit-event-date" class="mb-1 block text-xs font-medium text-gray-600"
+						>Date</label
+					>
 					<input
+						id="edit-event-date"
 						type="date"
 						bind:value={editDate}
 						class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
@@ -1039,10 +1065,11 @@
 				</div>
 				{#if editPopover.event.endDate || editPopover.event.type === 'reminder'}
 					<div>
-						<label class="mb-1 block text-xs font-medium text-gray-600"
+						<label for="edit-event-end-date" class="mb-1 block text-xs font-medium text-gray-600"
 							>End date (for ranged events)</label
 						>
 						<input
+							id="edit-event-end-date"
 							type="date"
 							bind:value={editEndDate}
 							class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
@@ -1051,13 +1078,15 @@
 				{/if}
 				{#if editPopover.event !== null && !isNoteHiddenForEventType(editPopover.event.type, editPopover.event.reminderKind)}
 					<div>
-						<label class="mb-1 block text-xs font-medium text-gray-600">Note</label>
+						<label for="edit-event-note" class="mb-1 block text-xs font-medium text-gray-600"
+							>Note</label
+						>
 						<textarea
+							id="edit-event-note"
 							bind:value={editNote}
 							rows={2}
 							class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
-							placeholder="Optional detail"
-						/>
+							placeholder="Optional detail"></textarea>
 					</div>
 				{/if}
 				<div class="flex justify-end gap-2 pt-1">

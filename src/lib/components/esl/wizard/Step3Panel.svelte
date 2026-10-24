@@ -45,12 +45,13 @@
 	const exams = $derived(wizardState.step3?.exams ?? []);
 
 	// Use mock off days for now; Step 2 (#220) will wire real gov import
-	const offDays: MockOffDay[] =
+	const offDays = $derived<MockOffDay[]>(
 		step2OffDays.length > 0
 			? step2OffDays
 			: term && schoolYear && startDate && endDate
 				? mockOffDays(term, schoolYear, startDate, endDate)
-				: [];
+				: []
+	);
 	const offDates = $derived(new Set(offDays.map((day) => day.date)));
 
 	// Active exam slot being configured

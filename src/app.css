@@ -2,6 +2,8 @@
 
 @import 'tw-animate-css';
 
+@plugin '@tailwindcss/typography';
+
 /* Local font bundle — bundled from @fontsource packages (WOFF2 files, no
  * cross-origin stylesheet requests). Enables offline screenshot capture on
  * Chromium without the SecurityError that cross-origin Google Fonts triggers.
