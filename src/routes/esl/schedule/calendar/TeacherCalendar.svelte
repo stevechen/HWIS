@@ -9,6 +9,10 @@
 		type CalendarCardStatus,
 		type CalendarWeekFragment
 	} from './calendar-weeks';
+	import {
+		computeCalendarLayout,
+		type CalendarLayoutResult
+	} from '$lib/components/esl/calendar-layout/adapter';
 	import LessonNoteDialog from '$lib/components/esl/LessonNoteDialog.svelte';
 
 	/**
@@ -53,18 +57,19 @@
 		onSaveNote?: (date: string, text: string) => void;
 	} = $props();
 
-	const selected = $derived(
-		classes.find((option) => option.id === selectedClassId) ?? classes[0] ?? null
+	const layout = $derived(
+		computeCalendarLayout({
+			classes,
+			selectedClassId,
+			fragments,
+			today,
+			nextDate
+		})
 	);
 
-	// All weekdays that appear across all fragments, sorted Mon-Fri
-	const allWeekdays = $derived(
-		Array.from(new Set(fragments.flatMap((f) => f.cards.map((c) => c.weekdayLabel)))).sort(
-			(a, b) =>
-				['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].indexOf(a) -
-				['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].indexOf(b)
-		)
-	);
+	const selected = $derived(layout.selected);
+
+	const allWeekdays = $derived(layout.allWeekdays);
 
 	let menuOpen = $state(false);
 
@@ -161,10 +166,8 @@
 		return past ? `${base} opacity-80 saturate-50` : base;
 	}
 
-	/** The week holding today, or the last week once the term is over. */
 	function currentWeek(): number {
-		const hit = fragments.find((fragment) => fragment.cards.some((card) => card.date >= today));
-		return (hit ?? fragments[fragments.length - 1])?.weekIndex ?? 0;
+		return layout.currentWeek;
 	}
 
 	async function scrollToWeek(week: number) {
@@ -245,7 +248,7 @@
 <div data-testid="teacher-calendar.root">
 	{#if selected}
 		<div
-			class="sticky top-[54px] z-50 -mx-4 border-b border-emerald-900/10 bg-white/95 px-4 py-1 shadow-sm backdrop-blur sm:-mx-8 sm:px-8"
+			class="sticky top-13.5 z-50 -mx-4 border-b border-emerald-900/10 bg-white/95 px-4 py-1 shadow-sm backdrop-blur sm:-mx-8 sm:px-8"
 		>
 			<div class="flex min-w-0 items-center gap-x-3">
 				<h1 class="flex min-w-0 items-center gap-x-2 truncate text-lg font-bold text-emerald-900">
@@ -318,7 +321,7 @@
 								.flatMap((fragment) => fragment.cards)
 								.find((card) => card.weekdayLabel === day)}
 							<div
-								class="flex items-center justify-center gap-1 bg-stone-50 px-3 py-2 text-sm font-semibold tracking-wider text-stone-600 uppercase"
+								class="flex items-center justify-center gap-1 bg-emerald-800 px-3 py-2 text-sm font-semibold tracking-wider text-white uppercase"
 							>
 								{day}
 								<span class="hidden font-normal text-stone-400 lg:inline"
@@ -347,19 +350,23 @@
 					<div
 						class="flex w-40 shrink-0 flex-col items-start justify-start gap-1 border-r border-stone-200 bg-emerald-800 p-2 text-emerald-100"
 					>
-						<span class="text-lg font-normal text-white">{fragment.weekIndex}</span>
+						<p class="w-full text-center text-sm font-light text-white">
+							{fragment.weekIndex}
+						</p>
 						{#each fragment.banners as banner (`${banner.title}|${banner.windowStart}|${banner.windowEnd}`)}
 							<span
-								class="mx-1 w-[calc(100%-0.5rem)] rounded bg-indigo-200 px-2 py-1 text-center text-[10px] leading-tight font-semibold break-words text-indigo-900"
+								class="wrap-break-words mx-1 w-[calc(100%-0.5rem)] rounded bg-indigo-200 px-2 py-1 text-center text-[10px] leading-tight font-semibold text-indigo-900"
 								title="{banner.title} · {slash(banner.windowStart)}–{slash(banner.windowEnd)}"
 							>
-								{banner.title} · {slash(banner.windowStart)}–{slash(banner.windowEnd)}
+								{banner.title}
+								<br />
+								{slash(banner.windowStart)}–{slash(banner.windowEnd)}
 							</span>
 						{/each}
 					</div>
 					<!-- Day cells container spanning day columns -->
 					<div
-						class="calendar-days-grid grid grid-cols-[repeat(var(--day-count),minmax(0,1fr))] gap-[1px]"
+						class="calendar-days-grid grid grid-cols-[repeat(var(--day-count),minmax(0,1fr))] gap-px"
 						style="--day-count: {allWeekdays.length}; grid-column: 2 / -1; background-color: rgb(231 229 228);"
 					>
 						{#each allWeekdays as day}
@@ -367,7 +374,7 @@
 							the tone fill and past hatch then cover the whole cell even
 							when the card content (e.g. no note box on an off day) is
 							shorter than its neighbours. -->
-							<div class="flex min-h-[120px] min-w-0 flex-col bg-white">
+							<div class="flex min-h-30 min-w-0 flex-col bg-white">
 								{#each cardsByWeekday[day] ?? [] as card, cardIndex (`${card.date}-p${card.period}`)}
 									{@const newMonth =
 										cardIndex > 0 &&
@@ -376,7 +383,7 @@
 									<article
 										data-testid="teacher-calendar.card-{card.date}"
 										data-date={card.date}
-										class="calendar-cell relative flex-1 p-3 {cellTone(
+										class="calendar-cell relative flex-1 p-1 {cellTone(
 											card.status,
 											card.past
 										)} {monthDividerClass(index, fragment, day, card)}"
@@ -388,9 +395,7 @@
 												aria-hidden="true"
 											></div>
 										{/if}
-										<header
-											class="relative flex min-h-[1.25rem] flex-wrap items-center gap-1.5 pr-1"
-										>
+										<header class="relative flex min-h-5 flex-wrap items-center gap-1.5 pr-1">
 											<div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
 												{#if card.countdown}
 													<span
@@ -459,7 +464,7 @@
 														aria-label="Edit note for {card.date}"
 													>
 														<div
-															class="prose line-clamp-3 max-h-12 max-w-none overflow-hidden text-xs leading-tight break-words prose-stone prose-p:my-0 prose-ol:my-1 prose-ul:my-1"
+															class="wrap-break-words prose line-clamp-3 max-h-100 max-w-none overflow-hidden text-xs leading-tight prose-stone prose-p:my-0 prose-ol:my-1 prose-ul:my-1"
 														>
 															{@html renderNotePreview(notes[card.date])}
 														</div>
@@ -467,7 +472,7 @@
 												{:else}
 													<button
 														type="button"
-														class="flex w-full items-center justify-center rounded border border-dashed border-stone-300 bg-white px-2 py-2 text-stone-500 transition-colors hover:border-stone-400 hover:bg-stone-50"
+														class="flex items-center rounded bg-white px-2 py-2 text-stone-400 transition-colors hover:border-stone-400 hover:bg-stone-50"
 														onclick={() => openNoteDialog(card.date, formatWeekday(card.date))}
 														aria-label="Add lesson note for {card.date}"
 													>
