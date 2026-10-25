@@ -180,8 +180,8 @@ describe('teacher calendar', () => {
 
 		await expect.element(page.getByTestId('teacher-calendar.card-2025-09-01')).toBeInTheDocument();
 		await expect.element(page.getByTestId('teacher-calendar.card-2025-09-10')).toBeInTheDocument();
-		await expect.element(page.getByText('09/01', { exact: true })).toBeInTheDocument();
-		await expect.element(page.getByText('09/10', { exact: true })).toBeInTheDocument();
+		await expect.element(page.getByText('Sep 1', { exact: true })).toBeInTheDocument();
+		await expect.element(page.getByText('10', { exact: true })).toBeInTheDocument();
 	});
 
 	it('greys cancelled meetings with their cause', async () => {
@@ -198,7 +198,7 @@ describe('teacher calendar', () => {
 	it('right-aligns Class k/n count-ups on teaching cards, none on exams', async () => {
 		renderCalendar();
 
-		await expect.element(page.getByText('Class 1/5 to Exam 1')).toBeInTheDocument();
+		await expect.element(page.getByText('1/5')).toBeInTheDocument();
 		const examCard = page.getByTestId('teacher-calendar.card-2025-09-10');
 		await expect.element(examCard.getByText('Exam 1', { exact: true })).toBeInTheDocument();
 		await expect.element(examCard.getByText('Class 1/1 to Exam 1')).not.toBeInTheDocument();
@@ -238,7 +238,7 @@ describe('teacher calendar', () => {
 
 		const card = page.getByTestId('teacher-calendar.card-2025-09-08');
 		await expect.element(card.getByText('Oral Exam', { exact: true })).toBeInTheDocument();
-		await expect.element(card.getByText('Class 3/5 to Exam 1')).not.toBeInTheDocument();
+		await expect.element(card.getByText('3/5')).not.toBeInTheDocument();
 	});
 
 	it('spans range banners across the week row with the window', async () => {
@@ -278,7 +278,10 @@ describe('teacher calendar', () => {
 	it('drops the note box on no-class days too', async () => {
 		const noClassRows = [
 			{
-				...row({ date: '2025-09-08', count: { position: 3, total: 5, label: 'Exam 1' } }),
+				...row({
+					date: '2025-09-08',
+					count: { position: 3, total: 5, label: 'Exam 1' }
+				}),
 				status: 'no_class' as const,
 				cause: 'Assembly'
 			}

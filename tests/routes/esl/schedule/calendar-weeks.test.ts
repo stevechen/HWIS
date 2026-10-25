@@ -205,10 +205,6 @@ describe('buildCalendarFragments (#224)', () => {
 			})
 		]);
 
-		expect(fragments[0].cards.map((card) => card.countdown)).toEqual([
-			null,
-			null,
-			'Class 3/5 to Exam 1'
-		]);
+		expect(fragments[0].cards.map((card) => card.countdown)).toEqual([null, null, '3/5']);
 	});
 });

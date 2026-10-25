@@ -92,7 +92,28 @@ export function weekIndexOf(date: string, semesterStart: string): number {
 	return Math.floor((toDay(date).getTime() - toDay(semesterStart).getTime()) / (7 * 86400000)) + 1;
 }
 
-/** `9/01` style short date for cards and banners. */
+/** Format a calendar card as `Nov. 2` or `2`, without leading zeroes. */
+export function formatDay(date: string, showMonth: boolean): string {
+	const month = Number(date.slice(5, 7));
+	const day = Number(date.slice(8, 10));
+	const monthAbbreviation = [
+		'',
+		'Jan',
+		'Feb',
+		'Mar',
+		'Apr',
+		'May',
+		'Jun',
+		'Jul',
+		'Aug',
+		'Sep',
+		'Oct',
+		'Nov',
+		'Dec'
+	][month];
+	return showMonth ? `${monthAbbreviation} ${day}` : `${day}`;
+}
+
 export function slash(date: string): string {
 	return date.slice(5).replace('-', '/');
 }
@@ -152,7 +173,7 @@ export function buildCalendarFragments(args: {
 				row.status !== 'oral_exam' &&
 				row.status !== 'off' &&
 				row.status !== 'no_class'
-					? `Class ${row.count.position}/${row.count.total} to ${row.count.label}`
+					? `${row.count.position}/${row.count.total}`
 					: null,
 			badges: [...row.badges],
 			dues: [],
