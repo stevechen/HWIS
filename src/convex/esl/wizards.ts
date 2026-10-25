@@ -805,9 +805,14 @@ function familyPatch(
 		case 'makeup':
 		case 'sports':
 		case 'grad':
-		case 'bbq':
 		case 'mock':
 			if (row.date !== desired.date) fields.date = desired.date;
+			return fields;
+		case 'bbq':
+			if (row.date !== desired.date) fields.date = desired.date;
+			// BBQ is a partial afternoon (periods 1-4 in window, 5-8 out).
+			// Ensure the endPeriod is always set to 4 on reconcile.
+			if (row.endPeriod !== 4) fields.endPeriod = 4;
 			return fields;
 	}
 }

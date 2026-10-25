@@ -2150,13 +2150,22 @@ function resolveEslDayStatus(args: {
 	if (g9Mock) return { status: 'g9_mock', cause: g9Mock.title, badges: [], outOfWindow: false };
 
 	const start = dayEvents.find((event) => event.type === 'start_school');
-	if (start && args.meeting.period < startSchoolFirstPeriod(start)) {
-		return {
-			status: 'no_class',
-			cause: start.title,
-			badges: [],
-			outOfWindow: false
-		};
+	if (start) {
+		const firstPeriod = startSchoolFirstPeriod(start);
+		const isOutOfWindow = args.meeting.period < firstPeriod;
+		// Start of school works like a partial day: before P3 = no class,
+		// P3 and later = teaching. The title ("Start at P3") shows in description.
+		const note = (start.note ?? '').trim() || start.title;
+		if (isOutOfWindow) {
+			return {
+				status: 'no_class',
+				cause: note,
+				badges: [],
+				outOfWindow: false
+			};
+		}
+		// In-window: teaching with the note in description.
+		return { status: 'teaching', cause: note, badges: [], outOfWindow: false };
 	}
 
 	const partial = dayEvents.find((event) => event.type === 'partial');
@@ -2166,11 +2175,12 @@ function resolveEslDayStatus(args: {
 			(partial.endPeriod !== undefined && args.meeting.period > partial.endPeriod));
 
 	if (outOfWindow && partial) {
-		// Out-of-window periods on a partial day are treated as "No class"
-		// rather than showing a technical badge.
+		// Out-of-window periods on a partial day show "No-class" chip
+		// but the description should show the partial's note (e.g., "BBQ from 12:00")
+		const note = (partial.note ?? '').trim();
 		return {
 			status: 'no_class',
-			cause: partial.title,
+			cause: note || partial.title,
 			badges: [],
 			outOfWindow: false
 		};
@@ -2192,15 +2202,13 @@ function resolveEslDayStatus(args: {
 		}
 	}
 
-	// Partial titles are locked to "No class"; the distinguishing label (e.g.
-	// "BBQ from 12:00") lives in the note, which partial events require.
-	if (partial)
-		return {
-			status: 'partial',
-			cause: (partial.note ?? '').trim() || partial.title,
-			badges: [],
-			outOfWindow: false
-		};
+	// In-window periods on a partial day are regular teaching days.
+	// The note (e.g., "BBQ from 12:00") shows in the description cell,
+	// but no "No-class" chip appears — only out-of-window periods get that.
+	if (partial) {
+		const note = (partial.note ?? '').trim();
+		return { status: 'teaching', cause: note || null, badges: [], outOfWindow: false };
+	}
 	return { status: 'teaching', cause: null, badges: [], outOfWindow: false };
 }
 
