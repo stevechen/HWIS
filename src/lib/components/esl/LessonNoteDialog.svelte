@@ -192,7 +192,10 @@
 {#if open}
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-		onclick={handleClose}
+		onclick={(e: MouseEvent) => {
+			if (e.target === e.currentTarget && window.getSelection()?.toString().length === 0)
+				handleClose();
+		}}
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="dialog-title"

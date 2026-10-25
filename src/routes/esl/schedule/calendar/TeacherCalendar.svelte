@@ -437,9 +437,7 @@
 													{formatDay(card.date, true)}
 												</span>
 											{:else}
-												<span
-													class="shrink-0 text-sm font-semibold text-stone-900"
-												>
+												<span class="shrink-0 text-sm font-semibold text-stone-900">
 													{formatDay(card.date, false)}
 												</span>
 											{/if}
