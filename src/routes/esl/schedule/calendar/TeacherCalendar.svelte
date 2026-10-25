@@ -494,10 +494,6 @@
 		border-top: 1px solid rgb(231 229 228);
 	}
 
-	.calendar-cell {
-		background-color: white;
-	}
-
 	.calendar-days-grid {
 		border-right: 1px solid rgb(231 229 228);
 		border-bottom: 1px solid rgb(231 229 228);
