@@ -1,37 +1,69 @@
-// Filter summary state with auto-hide timeout
+export type FilterSummaryState = {
+	showSummary: boolean;
+	filterActive: boolean;
+};
+
+export type FilterSummaryAction =
+	| { type: 'filterChanged'; active: boolean }
+	| { type: 'hideSummary' };
+
+export function filterSummaryReducer(
+	state: FilterSummaryState,
+	action: FilterSummaryAction
+): FilterSummaryState {
+	switch (action.type) {
+		case 'filterChanged':
+			return { showSummary: action.active, filterActive: action.active };
+		case 'hideSummary':
+			return { ...state, showSummary: false };
+		default:
+			return state;
+	}
+}
+
+// Filter summary state with auto-hide timeout (side effects outside reducer)
 export function createFilterSummaryState() {
-	let showSummary = $state(false);
-	// Use regular variable (not $state) for timeout handle to avoid reactive tracking
+	let state = $state<FilterSummaryState>({ showSummary: false, filterActive: false });
 	let summaryTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	function updateSummary(hasFilter: boolean): void {
-		if (hasFilter) {
-			showSummary = true;
-			if (summaryTimeout) clearTimeout(summaryTimeout);
-			summaryTimeout = setTimeout(() => {
-				showSummary = false;
-			}, 3000);
-		} else {
-			showSummary = false;
+	function dispatch(action: FilterSummaryAction): void {
+		state = filterSummaryReducer(state, action);
+
+		if (action.type === 'filterChanged') {
 			if (summaryTimeout) {
 				clearTimeout(summaryTimeout);
+			}
+			if (action.active) {
+				summaryTimeout = setTimeout(() => {
+					dispatch({ type: 'hideSummary' });
+				}, 3000);
+			} else {
 				summaryTimeout = null;
 			}
 		}
 	}
 
+	function updateSummary(hasFilter: boolean): void {
+		dispatch({ type: 'filterChanged', active: hasFilter });
+	}
+
 	function cleanup(): void {
 		if (summaryTimeout) {
 			clearTimeout(summaryTimeout);
+			summaryTimeout = null;
 		}
 	}
 
 	return {
 		get showSummary() {
-			return showSummary;
+			return state.showSummary;
+		},
+		get filterActive() {
+			return state.filterActive;
 		},
 		updateSummary,
-		cleanup
+		cleanup,
+		dispatch
 	};
 }
 

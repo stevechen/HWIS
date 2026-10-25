@@ -1,8 +1,42 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
 	createFilterSummaryState,
-	createEvaluationDisplayState
+	createEvaluationDisplayState,
+	filterSummaryReducer
 } from '$lib/evaluations/stores.svelte';
+
+describe('filterSummaryReducer (pure)', () => {
+	it('returns new state on filterChanged true', () => {
+		const s = filterSummaryReducer(
+				{ showSummary: false, filterActive: false },
+				{ type: 'filterChanged', active: true }
+			);
+		expect(s).toEqual({ showSummary: true, filterActive: true });
+	});
+
+	it('returns new state on filterChanged false', () => {
+		const s = filterSummaryReducer(
+				{ showSummary: true, filterActive: true },
+				{ type: 'filterChanged', active: false }
+			);
+		expect(s).toEqual({ showSummary: false, filterActive: false });
+	});
+
+	it('hides summary on hideSummary', () => {
+		const s = filterSummaryReducer(
+				{ showSummary: true, filterActive: true },
+				{ type: 'hideSummary' }
+			);
+		expect(s.showSummary).toBe(false);
+		expect(s.filterActive).toBe(true);
+	});
+
+	it('is pure (does not mutate input)', () => {
+		const before = { showSummary: false, filterActive: false };
+		filterSummaryReducer(before, { type: 'filterChanged', active: true });
+		expect(before).toEqual({ showSummary: false, filterActive: false });
+	});
+});
 
 describe('createFilterSummaryState', () => {
 	beforeEach(() => {
