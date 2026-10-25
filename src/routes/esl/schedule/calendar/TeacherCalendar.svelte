@@ -438,7 +438,7 @@
 												</span>
 											{:else}
 												<span
-													class="shrink-0 rounded-full bg-stone-100 px-1.5 py-0.5 text-sm font-semibold text-stone-900"
+													class="shrink-0 text-sm font-semibold text-stone-900"
 												>
 													{formatDay(card.date, false)}
 												</span>
