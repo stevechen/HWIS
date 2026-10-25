@@ -205,6 +205,6 @@ describe('buildCalendarFragments (#224)', () => {
 			})
 		]);
 
-		expect(fragments[0].cards.map((card) => card.countdown)).toEqual([null, null, '3/5']);
+		expect(fragments[0].cards.map((card) => card.countdown)).toEqual([null, null, '3 of 5']);
 	});
 });

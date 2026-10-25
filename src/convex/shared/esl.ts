@@ -1946,7 +1946,7 @@ export type ScheduleDayRow = {
 	/** Dues collapsed onto this day (latest-eligible rule). */
 	dues: ScheduleDue[];
 	/**
-	 * The per-term count-up (`Class k/n to <label>`) or null past the final
+	 * The per-term count-up (`Class k of n to <label>`) or null past the final
 	 * anchor. Exams carry their own label; teaching days count toward their
 	 * term's exam.
 	 */
@@ -2333,7 +2333,7 @@ function countEslActiveDaysExcludingOral(args: {
  * day inside its window; earlier occurrences are stripped (dues only attach
  * to the collapse target), and a window with no active day lands nowhere.
  * Count-ups run per term toward Exam 1 / Exam 2 / Final Exam as
- * `Class k/n to <label>`, with G9-in-S2 anchored on the graduation
+ * `Class k of n to <label>`, with G9-in-S2 anchored on the graduation
  * ceremony; rows past the final anchor carry no count (also the finals-TBD
  * state before any exam exists).
  */

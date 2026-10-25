@@ -191,16 +191,16 @@ describe('teacher calendar', () => {
 		// cause is hidden for off days since chip already indicates Off
 		await expect.element(card.getByText('Moon Festival')).not.toBeInTheDocument();
 		// and the count-up is hidden too: an off day doesn't count toward the exam
-		await expect.element(card.getByText('Class 2/5 to Exam 1')).not.toBeInTheDocument();
+		await expect.element(card.getByText('Class 2 of 5 to Exam 1')).not.toBeInTheDocument();
 	});
 
-	it('right-aligns Class k/n count-ups on teaching cards, none on exams', async () => {
+	it('right-aligns Class k of n count-ups on teaching cards, none on exams', async () => {
 		renderCalendar();
 
-		await expect.element(page.getByText('1/5')).toBeInTheDocument();
+		await expect.element(page.getByText('1 of 5')).toBeInTheDocument();
 		const examCard = page.getByTestId('teacher-calendar.card-2025-09-10');
 		await expect.element(examCard.getByText('Exam 1', { exact: true })).toBeInTheDocument();
-		await expect.element(examCard.getByText('Class 1/1 to Exam 1')).not.toBeInTheDocument();
+		await expect.element(examCard.getByText('Class 1 of 1 to Exam 1')).not.toBeInTheDocument();
 		// cause is in the chip, not duplicated below
 		await expect.element(examCard.getByText('Exam 1', { exact: true })).toBeInTheDocument();
 	});
@@ -236,7 +236,7 @@ describe('teacher calendar', () => {
 
 		const card = page.getByTestId('teacher-calendar.card-2025-09-08');
 		await expect.element(card.getByText('Oral Exam', { exact: true })).toBeInTheDocument();
-		await expect.element(card.getByText('3/5')).not.toBeInTheDocument();
+		await expect.element(card.getByText('3 of 5')).not.toBeInTheDocument();
 	});
 
 	it('spans range banners across the week row with the window', async () => {

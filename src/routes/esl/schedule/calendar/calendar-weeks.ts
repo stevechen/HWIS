@@ -137,7 +137,7 @@ export function calendarClassLabel(short: string, type: string): string {
  * unsorted; fragments and cards come out in date order. Exam rows carry no
  * count-up (their chip + cause say what they are), and off/no-class days
  * carry none either — nothing meets, so nothing counts toward the anchor;
- * every other counted row reads `Class k/n to <label>`, right-aligned in
+ * every other counted row reads `Class k of n to <label>`, right-aligned in
  * the card.
  */
 export function buildCalendarFragments(args: {
@@ -173,7 +173,7 @@ export function buildCalendarFragments(args: {
 				row.status !== 'oral_exam' &&
 				row.status !== 'off' &&
 				row.status !== 'no_class'
-					? `${row.count.position}/${row.count.total}`
+					? `${row.count.position} of ${row.count.total}`
 					: null,
 			badges: [...row.badges],
 			dues: [],
