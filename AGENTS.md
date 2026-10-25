@@ -10,6 +10,7 @@ Project guidelines:
 - use tailwindcss for styling whenever possible
 - run `bun run lint` to check for linting errors, `bun run format`, and `bun run heck` to check for errors after making changes.
 - use `bun run test:ai` instead of raw `bunx playwright test` to save tokens when analyzing e2e test results
+- viteplus (`vp`) commands are available: `vp lint .`, `vp fmt .`, `vp fmt --check .`, `vp test run`, `vp test run src/convex`, `vp test run --config vitest.component.config.ts`, `vp build`, `vp preview`, `vp dev`
 
 You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
 

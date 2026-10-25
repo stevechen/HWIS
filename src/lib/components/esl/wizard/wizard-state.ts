@@ -1,16 +1,13 @@
 /**
  * Wizard shell state and its sessionStorage round-trip (ticket #218, spec #215).
  *
- * The wizard is one page with client-side step navigation: everything the
- * admin picks lives in a single `WizardState` object that is mirrored into
- * `sessionStorage` on every change, so an accidental refresh resumes the
- * setup instead of losing it (spec story 30: Cancel still writes nothing).
+ * State shape lives here. Gate logic delegates to the `wizard-adapter`
+ * (candidate deepening). Storage adapter delegates to the same adapter.
  *
- * Pure module — no Convex, no components, no wall-clock reads (callers pass
- * `today`). The step UIs (#219–#223) own their step's *content*; this module
- * owns the shape, the forward gates and the storage seam. Only `WizardState`
- * itself is reactive; every write goes through the shell's `update()`, so
- * one place decides when the session copy is refreshed.
+ * Steps own their content; this module owns state, storage, and gates via
+ * seams. Only `WizardState` itself is reactive; every write goes through
+ * the shell's `update()`, so one place decides when the session copy is
+ * refreshed.
  */
 
 import {
@@ -22,6 +19,7 @@ import {
 	type ExamSlot,
 	type Term
 } from './wizard-dates';
+import { isStepComplete as _gateStep } from '../wizard-adapter/gate-adapter';
 
 export type WizardStepNumber = 1 | 2 | 3 | 4 | 5;
 
