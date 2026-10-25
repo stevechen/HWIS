@@ -223,6 +223,21 @@
 	onMount(() => {
 		scrollToWeek(currentWeek());
 	});
+
+	function closeMenuOnOutside(event: MouseEvent) {
+		const target = event.target as HTMLElement | null;
+		if (!target || !menuOpen) return;
+		const button = document.querySelector('.anchor-menu');
+		const menu = document.querySelector('.absolute.right-0.z-50');
+		if (button && menu && !button.contains(target) && !menu.contains(target)) {
+			menuOpen = false;
+		}
+	}
+
+	onMount(() => {
+		document.addEventListener('click', closeMenuOnOutside);
+		return () => document.removeEventListener('click', closeMenuOnOutside);
+	});
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -230,37 +245,41 @@
 <div data-testid="teacher-calendar.root">
 	{#if selected}
 		<div
-			class="sticky top-0 z-40 -mx-4 border-b border-emerald-900/10 bg-white/95 px-4 py-2 shadow-sm backdrop-blur sm:-mx-8 sm:px-8"
+			class="sticky top-[54px] z-50 -mx-4 border-b border-emerald-900/10 bg-white/95 px-4 py-1 shadow-sm backdrop-blur sm:-mx-8 sm:px-8"
 		>
-			<div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-				<h1
-					class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-xl font-bold text-emerald-900"
-				>
+			<div class="flex min-w-0 items-center gap-x-3">
+				<h1 class="flex min-w-0 items-center gap-x-2 truncate text-lg font-bold text-emerald-900">
 					<span class="truncate">{calendarClassLabel(selected.short, selected.type)}</span>
-					<span class="inline-flex items-center gap-1 font-normal">
+					<span class="inline-flex items-center gap-1 text-sm font-normal">
 						<Users class="size-4 shrink-0" aria-hidden="true" />
 						{selected.headcount}
 					</span>
-					<span class="inline-flex items-center gap-1 font-normal">
+					<span class="inline-flex items-center gap-1 text-sm font-normal">
 						<MapPin class="size-4 shrink-0" aria-hidden="true" />
 						{selected.room ?? 'No room'}
 					</span>
 				</h1>
-				<div class="relative shrink-0">
+				<div class="relative flex shrink-0 items-center gap-2">
 					<button
-						class="rounded-[12px] border border-stone-300 bg-white p-2 text-stone-600 hover:bg-stone-100"
+						class="anchor-menu rounded-[12px] border border-stone-300 bg-white px-2 py-1 text-stone-600 hover:bg-stone-100"
 						aria-label="Choose class"
+						style="anchor-name: --class-menu;"
 						aria-haspopup="menu"
 						aria-expanded={menuOpen}
 						onclick={() => (menuOpen = !menuOpen)}
 					>
 						<Ellipsis class="size-5" aria-hidden="true" />
 					</button>
+					<button
+						class="shrink-0 rounded-full border border-emerald-700 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-900 hover:bg-emerald-100"
+						onclick={() => scrollToWeek(currentWeek())}>● Today</button
+					>
 					{#if menuOpen}
 						<div
 							role="menu"
 							aria-label="Classes"
-							class="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl"
+							class="absolute right-0 z-50 w-56 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl"
+							style="position-anchor: --class-menu; top: anchor(bottom); left: anchor(left);"
 						>
 							{#each classes as option (option.id)}
 								<button
@@ -283,42 +302,33 @@
 					{/if}
 				</div>
 			</div>
-			<div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-				<span class="text-muted-foreground text-sm">{semesterLabel}</span>
-				<button
-					class="ml-auto rounded-full border border-emerald-700 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
-					onclick={() => scrollToWeek(currentWeek())}>● Today</button
-				>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Sticky header row: WK | Mon Tue Wed Thu Fri (only days that have classes) -->
-	{#if allWeekdays.length > 0}
-		<div class="sticky top-[84px] z-10 border-b border-stone-200 bg-white/95 backdrop-blur">
-			<div
-				class="calendar-grid grid grid-cols-[10rem_repeat(var(--day-count),minmax(0,1fr))] gap-0 bg-stone-200 p-0"
-				style="--day-count: {allWeekdays.length}"
-			>
-				<div
-					class="flex w-40 shrink-0 items-center justify-center bg-emerald-800 py-3 text-xs font-bold text-white"
-				>
-					Week
-				</div>
-				{#each allWeekdays as day}
-					{@const weekdayCard = fragments
-						.flatMap((fragment) => fragment.cards)
-						.find((card) => card.weekdayLabel === day)}
+			{#if allWeekdays.length > 0}
+				<div class="border-b border-stone-200 bg-stone-200">
 					<div
-						class="flex items-center justify-center gap-1 bg-stone-50 px-3 py-2 text-sm font-semibold tracking-wider text-stone-600 uppercase"
+						class="calendar-grid grid grid-cols-[10rem_repeat(var(--day-count),minmax(0,1fr))] gap-0 bg-stone-200 p-0"
+						style="--day-count: {allWeekdays.length}"
 					>
-						{day}
-						<span class="hidden font-normal text-stone-400 lg:inline"
-							>{weekdayCard ? ` P${weekdayCard.period}` : ''}</span
+						<div
+							class="flex w-40 shrink-0 items-center justify-center bg-emerald-800 py-3 text-xs font-bold text-white"
 						>
+							Week
+						</div>
+						{#each allWeekdays as day}
+							{@const weekdayCard = fragments
+								.flatMap((fragment) => fragment.cards)
+								.find((card) => card.weekdayLabel === day)}
+							<div
+								class="flex items-center justify-center gap-1 bg-stone-50 px-3 py-2 text-sm font-semibold tracking-wider text-stone-600 uppercase"
+							>
+								{day}
+								<span class="hidden font-normal text-stone-400 lg:inline"
+									>{weekdayCard ? ` P${weekdayCard.period}` : ''}</span
+								>
+							</div>
+						{/each}
 					</div>
-				{/each}
-			</div>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -397,7 +407,7 @@
 												{/if}
 												{#if card.isToday}
 													<span
-														class="rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white"
+														class="rounded-full bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white"
 														>● Today</span
 													>
 												{:else if nextDate !== null && card.date === nextDate}
@@ -417,12 +427,14 @@
 											{/if}
 											{#if showMonth(card.date)}
 												<span
-													class="shrink-0 rounded bg-stone-500 px-1.5 py-0.5 text-sm font-semibold text-white"
+													class="shrink-0 rounded-full bg-stone-500 px-1.5 py-0.5 text-sm font-semibold text-white"
 												>
 													{formatDay(card.date, true)}
 												</span>
 											{:else}
-												<span class="shrink-0 text-sm font-semibold text-stone-900">
+												<span
+													class="shrink-0 rounded-full bg-stone-100 px-1.5 py-0.5 text-sm font-semibold text-stone-900"
+												>
 													{formatDay(card.date, false)}
 												</span>
 											{/if}

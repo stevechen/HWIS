@@ -181,7 +181,6 @@
 		<TeacherCalendar
 			{classes}
 			{selectedClassId}
-			semesterLabel="{semester.term} {semester.year}"
 			{today}
 			fragments={calendar.fragments}
 			nextDate={calendar.nextDate}

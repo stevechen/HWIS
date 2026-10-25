@@ -125,7 +125,6 @@ function renderCalendar(overrides: Record<string, unknown> = {}) {
 		props: {
 			classes: CLASSES,
 			selectedClassId: 'class_clil',
-			semesterLabel: 'S1 2025-2026',
 			today: TODAY,
 			fragments,
 			nextDate,
@@ -226,7 +225,6 @@ describe('teacher calendar', () => {
 			props: {
 				classes: CLASSES,
 				selectedClassId: 'class_clil',
-				semesterLabel: 'S1 2025-2026',
 				today: TODAY,
 				fragments,
 				nextDate,
@@ -295,7 +293,6 @@ describe('teacher calendar', () => {
 			props: {
 				classes: CLASSES,
 				selectedClassId: 'class_clil',
-				semesterLabel: 'S1 2025-2026',
 				today: TODAY,
 				fragments,
 				nextDate,
@@ -327,7 +324,6 @@ describe('teacher calendar', () => {
 			props: {
 				classes: CLASSES,
 				selectedClassId: 'class_clil',
-				semesterLabel: 'S1 2025-2026',
 				today: TODAY,
 				fragments,
 				nextDate,
