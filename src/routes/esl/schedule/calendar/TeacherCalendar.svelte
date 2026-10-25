@@ -310,7 +310,7 @@
 						.flatMap((fragment) => fragment.cards)
 						.find((card) => card.weekdayLabel === day)}
 					<div
-						class="flex items-center justify-center gap-1 bg-stone-50 px-3 py-2 text-xs font-semibold tracking-wider text-stone-600 uppercase"
+						class="flex items-center justify-center gap-1 bg-stone-50 px-3 py-2 text-sm font-semibold tracking-wider text-stone-600 uppercase"
 					>
 						{day}
 						<span class="hidden font-normal text-stone-400 lg:inline"
@@ -378,8 +378,10 @@
 												aria-hidden="true"
 											></div>
 										{/if}
-										<header class="relative flex min-h-[1.5rem] flex-wrap items-start gap-1.5 pr-8">
-											<div class="flex flex-wrap items-start gap-1.5">
+										<header
+											class="relative flex min-h-[1.25rem] flex-wrap items-center gap-1.5 pr-1"
+										>
+											<div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
 												{#if card.countdown}
 													<span
 														class="inline-flex shrink-0 items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-800"
@@ -405,13 +407,26 @@
 													>
 												{/if}
 											</div>
-											<span class="absolute top-0 right-0 font-semibold text-stone-900">
-												{formatDay(card.date, showMonth(card.date))}
-											</span>
+											{#if card.cause && card.status !== 'off' && card.status !== 'exam' && card.status !== 'oral'}
+												<span
+													class="mx-2 min-w-0 shrink truncate text-center text-xs font-semibold text-stone-600"
+													title={card.cause}
+												>
+													{card.cause}
+												</span>
+											{/if}
+											{#if showMonth(card.date)}
+												<span
+													class="shrink-0 rounded bg-stone-500 px-1.5 py-0.5 text-sm font-semibold text-white"
+												>
+													{formatDay(card.date, true)}
+												</span>
+											{:else}
+												<span class="shrink-0 text-sm font-semibold text-stone-900">
+													{formatDay(card.date, false)}
+												</span>
+											{/if}
 										</header>
-										{#if card.cause && card.status !== 'off' && card.status !== 'exam' && card.status !== 'oral'}
-											<p class="mt-1 text-xs font-semibold text-stone-600">{card.cause}</p>
-										{/if}
 										{#each card.badges as badge (badge)}
 											{#if card.status !== 'oral'}
 												<p class="mt-1 text-xs text-indigo-700">{badge}</p>
