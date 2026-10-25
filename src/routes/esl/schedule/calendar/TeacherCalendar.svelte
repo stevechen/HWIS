@@ -169,7 +169,7 @@
 
 	async function scrollToWeek(week: number) {
 		await tick();
-		document.getElementById(`week-${week}`)?.scrollIntoView({ block: 'start' });
+		document.getElementById(`week-${week}`)?.scrollIntoView({ block: 'center' });
 	}
 
 	function onKey(event: KeyboardEvent) {
