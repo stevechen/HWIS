@@ -61,3 +61,6 @@ handoff/
 worktrees/
 
 .vitest/
+
+# per-branch convex DB caches
+.convex_branches/

@@ -1,0 +1,62 @@
+#!/bin/sh
+# Swap the local Convex deployment state (.convex/) with a per-branch copy so
+# each branch keeps its own database.
+#
+# Cache layout: .convex_branches/<branch_with_underscores>/ mirrors the CONTENTS
+# of .convex/ (local/, ...), so `.convex_branches/master/local/default/...` is
+# master's database. `.convex_branches/<branch>/.branch` records which branch a
+# cached database belongs to.
+#
+# Installed at .husky/post-checkout because `core.hooksPath = .husky/_`
+# (Git only runs hooks from there, never from .git/hooks/). Husky runs this as
+# `sh -e`, so every command must tolerate failure or the swap aborts halfway.
+#
+# The local Convex backend is stopped here: it holds the old database file open,
+# so without this the app keeps serving the previous branch's data. Restart your
+# dev server after switching.
+
+# Only run for branch checkouts (arg 3 = 1), not file checkouts.
+[ "${3:-0}" -ne 1 ] && exit 0
+
+PREV=$(git rev-parse --abbrev-ref @{-1} 2>/dev/null | sed 's|/|_|g' || true)
+NEW=$(git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's|/|_|g' || true)
+[ -z "$NEW" ] && exit 0
+[ "$NEW" = "HEAD" ] && exit 0
+[ "$PREV" = "$NEW" ] && exit 0
+
+# 0) Stop the running local backend (ports 3210/3211 by default).
+for port in 3210 3211; do
+    pids=$(lsof -ti "tcp:$port" 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        kill $pids 2>/dev/null || true
+        echo "Stopped local Convex backend on port $port."
+    fi
+done
+sleep 1
+
+mkdir -p .convex_branches || exit 0
+
+# 1) Stash the current .convex/ under the branch it actually belongs to, so a
+#    database can never be filed under the wrong branch.
+if [ -d .convex ] && [ -n "$PREV" ] && [ "$PREV" != "HEAD" ]; then
+    OWNER=$(cat .convex/.branch 2>/dev/null || true)
+    if [ -n "$OWNER" ] && [ "$OWNER" != "$PREV" ]; then
+        echo "Note: .convex belongs to '$OWNER', not '$PREV'; filing it under '$OWNER'."
+        PREV="$OWNER"
+    fi
+    rm -rf ".convex_branches/$PREV"
+    mv .convex ".convex_branches/$PREV" || true
+fi
+
+# 2) Restore the target branch's .convex/.
+if [ -d ".convex_branches/$NEW" ]; then
+    rm -rf .convex
+    if mv ".convex_branches/$NEW" .convex; then
+        printf '%s\n' "$NEW" > .convex/.branch 2>/dev/null || true
+        echo "Switched Convex state to: $NEW (restart your dev server)"
+    fi
+else
+    echo "New branch: $NEW (fresh .convex will be created by convex dev)"
+fi
+
+exit 0
