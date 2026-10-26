@@ -4,6 +4,7 @@ import type { Doc, Id } from '../_generated/dataModel';
 import { authComponent, requireEslAdmin, requireEslStaff } from '../auth';
 import {
 	resolveDepartmentRoles,
+	isSuper,
 	canTeachEslClass,
 	type DepartmentRole
 } from '../shared/authorization';
@@ -202,7 +203,12 @@ export const listAssignable = query({
 		const users = await ctx.db.query('users').take(200);
 
 		return users
-			.filter((u) => staffRole(u.role) !== null && canTeachEslClass(u))
+			.filter(
+				(u) =>
+					staffRole(u.role) !== null &&
+					resolveDepartmentRoles(u).esl !== undefined &&
+					canTeachEslClass(u)
+			)
 			.map((u) => ({ _id: u._id, name: displayStaffName(u.name) }))
 			.sort((a, b) => normalizeStaffName(a.name).localeCompare(normalizeStaffName(b.name)));
 	}
@@ -221,10 +227,13 @@ export const listAssignable = query({
 export const setEslRole = mutation({
 	args: {
 		userId: v.id('users'),
-		eslRole: v.union(v.literal('admin'), v.literal('teacher'), v.null())
+		eslRole: v.union(v.literal('admin'), v.literal('teacher'), v.literal('super'), v.null())
 	},
 	handler: async (ctx, args) => {
 		const actor = await requireEslAdmin(ctx);
+		if (args.eslRole === 'super' && !isSuper(actor)) {
+			throw new Error('Only a Super user can assign Super');
+		}
 
 		const user = await ctx.db.get(args.userId);
 		if (!user) throw new Error('User not found');
@@ -235,7 +244,7 @@ export const setEslRole = mutation({
 		// granting the mutation requires ESL admin, so any self-directed change
 		// away from the current assignment is a demotion or removal the actor
 		// could never undo. Only an exact no-op write is allowed on yourself.
-		if (args.userId === actor._id && args.eslRole !== (current.esl ?? null)) {
+		if (args.userId === actor._id && args.eslRole !== (current.esl ?? null) && !isSuper(actor)) {
 			throw new Error('You cannot change your own ESL role');
 		}
 

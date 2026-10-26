@@ -573,4 +573,22 @@ describe('restoreFromBackup department routing', () => {
 		expect(backups[0].department).toBe('esl');
 		expect(await t.run(async (ctx) => ctx.db.query('esl_cohorts').collect())).toHaveLength(1);
 	});
+
+	test('restoreFromBackupPayload uses department arg over missing payload field', async () => {
+		const t = await convexTest(schema, modules);
+		await seedEslStaff(t, { authId: 'esl-admin-auth', eslRole: 'admin' });
+		await seedEslGraph(t);
+
+		const payload = serialize(await t.run(async (ctx) => buildSnapshot(ctx, 'esl')));
+		// Deliberately drop embedded department to simulate old/downloaded file.
+		delete (payload as Record<string, unknown>).department;
+
+		await t.mutation(api.backup.restoreFromBackupPayload, {
+			backupData: payload,
+			department: 'esl'
+		});
+
+		expect(await t.run(async (ctx) => ctx.db.query('backups').collect())).toHaveLength(1);
+		expect(await t.run(async (ctx) => ctx.db.query('esl_cohorts').collect())).toHaveLength(1);
+	});
 });

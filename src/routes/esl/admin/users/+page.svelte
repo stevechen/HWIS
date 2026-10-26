@@ -34,7 +34,9 @@
 			})
 			.map((person) => ({
 				...person,
-				selected: overrides[person._id] ?? person.eslRole ?? 'none'
+				selected: (overrides[person._id] !== undefined
+					? overrides[person._id]
+					: (person.eslRole ?? 'none')) as 'admin' | 'teacher' | 'super' | 'none'
 			}))
 	);
 
@@ -44,6 +46,7 @@
 	function roleLabel(role: string): string {
 		if (role === 'admin') return 'ESL Admin';
 		if (role === 'teacher') return 'ESL Teacher';
+		if (role === 'super') return 'Super';
 		return 'No ESL role';
 	}
 
@@ -65,18 +68,19 @@
 	function eslBadgeClass(role: string): string {
 		if (role === 'admin') return 'border-emerald-300 bg-emerald-100 text-emerald-700';
 		if (role === 'teacher') return 'border-sky-300 bg-sky-100 text-sky-700';
+		if (role === 'super') return 'border-amber-300 bg-amber-100 text-amber-700';
 		return '';
 	}
 
 	function setRole(id: Id<'users'>, name: string, value: string) {
-		overrides[id] = value as 'admin' | 'teacher' | 'none';
+		overrides[id] = value as 'admin' | 'teacher' | 'super' | 'none';
 		busyId = id;
 		rowError = '';
 		notice = '';
 		client
 			.mutation(api.esl.staff.setEslRole, {
 				userId: id,
-				eslRole: value === 'none' ? null : (value as 'admin' | 'teacher')
+				eslRole: value === 'none' ? null : (value as 'admin' | 'teacher' | 'super')
 			})
 			.then(() => {
 				notice = `${name} is now ${roleLabel(value).toLowerCase()}`;
@@ -181,6 +185,14 @@
 							<Badge variant="outline" class="text-[10px] {eslBadgeClass(person.selected)}">
 								{roleLabel(person.selected)}
 							</Badge>
+							{#if person.role === 'super' && person.selected !== 'super'}
+								<Badge
+									variant="outline"
+									class="border-amber-300 bg-amber-100 text-[10px] text-amber-700"
+								>
+									Super
+								</Badge>
+							{/if}
 						{/snippet}
 						{#snippet footer()}
 							<div class="w-full [&>div]:w-full">
@@ -196,6 +208,7 @@
 									<NativeSelect.Option value="none">No ESL role</NativeSelect.Option>
 									<NativeSelect.Option value="teacher">ESL Teacher</NativeSelect.Option>
 									<NativeSelect.Option value="admin">ESL Admin</NativeSelect.Option>
+									<NativeSelect.Option value="super">Super</NativeSelect.Option>
 								</NativeSelect.Root>
 							</div>
 						{/snippet}

@@ -8,7 +8,7 @@ export type StudentStatus = 'Enrolled' | 'Not Enrolled';
 export type Department = 'international' | 'esl';
 
 /** Department-scoped staff rank. */
-export type DepartmentRole = 'admin' | 'teacher';
+export type DepartmentRole = 'admin' | 'teacher' | 'super';
 
 /**
  * Per-department staff assignment, mirroring the `users.departmentRoles`

@@ -81,9 +81,8 @@ describe('ESL admin backup page', () => {
 		await expect
 			.element(page.getByRole('button', { name: 'Force Backup Now' }))
 			.toBeInTheDocument();
-		// File restore is International-only. The clear-data Danger Zone is
-		// Super-only, so a plain ESL admin must not see it either.
-		await expect.element(page.getByText('Restore from File')).not.toBeInTheDocument();
+		// File restore is visible on ESL; the Danger Zone clear-data is Super-only.
+		await expect.element(page.getByText('Restore from File')).toBeInTheDocument();
 		await expect.element(page.getByText('Danger Zone')).not.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('button', { name: 'Clear ESL Data' }))
@@ -159,5 +158,13 @@ describe('ESL admin backup page', () => {
 				expect.objectContaining({ department: 'esl' })
 			)
 		);
+	});
+
+	it('shows Restore from File on ESL page', async () => {
+		await render(BackupHarness);
+		await expect.element(page.getByText('Restore from File')).toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Choose Backup File' }))
+			.toBeInTheDocument();
 	});
 });

@@ -297,6 +297,7 @@
 			const e2eTag = e2eTagFromUrl();
 			const res = await client.mutation(api.backup.restoreFromBackupPayload, {
 				backupData: parsedBackup,
+				department,
 				...(e2eTag === undefined ? {} : { e2eTag })
 			});
 			backupResult = res;
@@ -414,81 +415,77 @@
 		</Card.Content>
 	</Card.Root>
 
-	<!-- Restore from JSON File Card — International only. The ESL restore backend
-	     accepts a 2.0 ESL payload, but the ESL page intentionally offers restore
-	     from its own stored history instead of an arbitrary upload. -->
-	{#if department === 'international'}
-		<Card.Root>
-			<Card.Header>
-				<div class="mb-2 flex items-center gap-3">
-					<div
-						class="flex size-10 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900"
-					>
-						<Upload class="size-5 text-purple-600 dark:text-purple-400" />
-					</div>
-					<Card.Title>Restore from File</Card.Title>
-				</div>
-				<Card.Description>
-					Upload and restore database state from a downloaded JSON backup file.
-				</Card.Description>
-			</Card.Header>
-			<Card.Content>
+	<!-- Restore from JSON File Card -->
+	<Card.Root>
+		<Card.Header>
+			<div class="mb-2 flex items-center gap-3">
 				<div
-					role="region"
-					aria-label="Upload JSON backup file"
-					class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors {isDragging
-						? 'border-purple-500 bg-purple-50/50 dark:bg-purple-950/20'
-						: 'border-muted-foreground/25 hover:border-purple-400'}"
-					ondragover={(e) => {
-						e.preventDefault();
-						isDragging = true;
-					}}
-					ondragleave={() => {
-						isDragging = false;
-					}}
-					ondrop={(e) => {
-						e.preventDefault();
-						isDragging = false;
-						const file = e.dataTransfer?.files?.[0];
+					class="flex size-10 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900"
+				>
+					<Upload class="size-5 text-purple-600 dark:text-purple-400" />
+				</div>
+				<Card.Title>Restore from File</Card.Title>
+			</div>
+			<Card.Description>
+				Upload and restore database state from a downloaded JSON backup file.
+			</Card.Description>
+		</Card.Header>
+		<Card.Content>
+			<div
+				role="region"
+				aria-label="Upload JSON backup file"
+				class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors {isDragging
+					? 'border-purple-500 bg-purple-50/50 dark:bg-purple-950/20'
+					: 'border-muted-foreground/25 hover:border-purple-400'}"
+				ondragover={(e) => {
+					e.preventDefault();
+					isDragging = true;
+				}}
+				ondragleave={() => {
+					isDragging = false;
+				}}
+				ondrop={(e) => {
+					e.preventDefault();
+					isDragging = false;
+					const file = e.dataTransfer?.files?.[0];
+					if (file) processFile(file);
+				}}
+			>
+				<Upload class="text-muted-foreground mb-3 size-8" />
+				<p class="text-sm font-medium">Drag and drop your backup JSON file here, or browse</p>
+				<p class="text-muted-foreground mt-1 text-xs">Supports exported .json backup files</p>
+				<input
+					bind:this={fileInput}
+					type="file"
+					accept=".json,application/json"
+					class="hidden"
+					onchange={(e) => {
+						const target = e.target as HTMLInputElement;
+						const file = target.files?.[0];
 						if (file) processFile(file);
 					}}
+				/>
+				<Button
+					variant="outline"
+					size="sm"
+					class="mt-4"
+					onclick={() => fileInput?.click()}
+					disabled={isFileRestoring}
 				>
-					<Upload class="text-muted-foreground mb-3 size-8" />
-					<p class="text-sm font-medium">Drag and drop your backup JSON file here, or browse</p>
-					<p class="text-muted-foreground mt-1 text-xs">Supports exported .json backup files</p>
-					<input
-						bind:this={fileInput}
-						type="file"
-						accept=".json,application/json"
-						class="hidden"
-						onchange={(e) => {
-							const target = e.target as HTMLInputElement;
-							const file = target.files?.[0];
-							if (file) processFile(file);
-						}}
-					/>
-					<Button
-						variant="outline"
-						size="sm"
-						class="mt-4"
-						onclick={() => fileInput?.click()}
-						disabled={isFileRestoring}
-					>
-						Choose Backup File
-					</Button>
-				</div>
+					Choose Backup File
+				</Button>
+			</div>
 
-				{#if fileError}
-					<div
-						class="mt-4 flex items-center gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
-					>
-						<AlertTriangle class="size-4 shrink-0" />
-						<p>{fileError}</p>
-					</div>
-				{/if}
-			</Card.Content>
-		</Card.Root>
-	{/if}
+			{#if fileError}
+				<div
+					class="mt-4 flex items-center gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
+				>
+					<AlertTriangle class="size-4 shrink-0" />
+					<p>{fileError}</p>
+				</div>
+			{/if}
+		</Card.Content>
+	</Card.Root>
 
 	<!-- Backup History Card -->
 	<Card.Root>
@@ -879,30 +876,57 @@
 
 				<!-- Summary Grid -->
 				<div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-					<div class="bg-muted/50 rounded-lg border p-3 text-center">
-						<p class="text-2xl font-bold">{parsedBackup.students.length}</p>
-						<p class="text-muted-foreground text-xs">Students</p>
-					</div>
-					<div class="bg-muted/50 rounded-lg border p-3 text-center">
-						<p class="text-2xl font-bold">{parsedBackup.evaluations.length}</p>
-						<p class="text-muted-foreground text-xs">Evaluations</p>
-					</div>
-					<div class="bg-muted/50 rounded-lg border p-3 text-center">
-						<p class="text-2xl font-bold">{parsedBackup.classes.length}</p>
-						<p class="text-muted-foreground text-xs">Classes</p>
-					</div>
-					<div class="bg-muted/50 rounded-lg border p-3 text-center">
-						<p class="text-2xl font-bold">{parsedBackup.categories.length}</p>
-						<p class="text-muted-foreground text-xs">Categories</p>
-					</div>
-					<div class="bg-muted/50 rounded-lg border p-3 text-center">
-						<p class="text-2xl font-bold">{parsedBackup.users.length}</p>
-						<p class="text-muted-foreground text-xs">Users</p>
-					</div>
-					<div class="bg-muted/50 rounded-lg border p-3 text-center">
-						<p class="text-2xl font-bold">{parsedBackup.houseEvents.length}</p>
-						<p class="text-muted-foreground text-xs">House Events</p>
-					</div>
+					{#if department === 'esl'}
+						<div class="bg-muted/50 rounded-lg border p-3 text-center">
+							<p class="text-2xl font-bold">{parsedBackup.eslStudents?.length ?? 0}</p>
+							<p class="text-muted-foreground text-xs">ESL Students</p>
+						</div>
+						<div class="bg-muted/50 rounded-lg border p-3 text-center">
+							<p class="text-2xl font-bold">{parsedBackup.eslCohorts?.length ?? 0}</p>
+							<p class="text-muted-foreground text-xs">Cohorts</p>
+						</div>
+						<div class="bg-muted/50 rounded-lg border p-3 text-center">
+							<p class="text-2xl font-bold">{parsedBackup.eslClasses?.length ?? 0}</p>
+							<p class="text-muted-foreground text-xs">ESL Classes</p>
+						</div>
+						<div class="bg-muted/50 rounded-lg border p-3 text-center">
+							<p class="text-2xl font-bold">{parsedBackup.teacherNotes?.length ?? 0}</p>
+							<p class="text-muted-foreground text-xs">Teacher Notes</p>
+						</div>
+						<div class="bg-muted/50 rounded-lg border p-3 text-center">
+							<p class="text-2xl font-bold">{parsedBackup.users?.length ?? 0}</p>
+							<p class="text-muted-foreground text-xs">Users</p>
+						</div>
+						<div class="bg-muted/50 rounded-lg border p-3 text-center">
+							<p class="text-2xl font-bold">{parsedBackup.eslEvents?.length ?? 0}</p>
+							<p class="text-muted-foreground text-xs">ESL Events</p>
+						</div>
+					{:else}
+						<div class="bg-muted/50 rounded-lg border p-3 text-center">
+							<p class="text-2xl font-bold">{parsedBackup.students.length}</p>
+							<p class="text-muted-foreground text-xs">Students</p>
+						</div>
+						<div class="bg-muted/50 rounded-lg border p-3 text-center">
+							<p class="text-2xl font-bold">{parsedBackup.evaluations.length}</p>
+							<p class="text-muted-foreground text-xs">Evaluations</p>
+						</div>
+						<div class="bg-muted/50 rounded-lg border p-3 text-center">
+							<p class="text-2xl font-bold">{parsedBackup.classes.length}</p>
+							<p class="text-muted-foreground text-xs">Classes</p>
+						</div>
+						<div class="bg-muted/50 rounded-lg border p-3 text-center">
+							<p class="text-2xl font-bold">{parsedBackup.categories.length}</p>
+							<p class="text-muted-foreground text-xs">Categories</p>
+						</div>
+						<div class="bg-muted/50 rounded-lg border p-3 text-center">
+							<p class="text-2xl font-bold">{parsedBackup.users.length}</p>
+							<p class="text-muted-foreground text-xs">Users</p>
+						</div>
+						<div class="bg-muted/50 rounded-lg border p-3 text-center">
+							<p class="text-2xl font-bold">{parsedBackup.houseEvents.length}</p>
+							<p class="text-muted-foreground text-xs">House Events</p>
+						</div>
+					{/if}
 				</div>
 
 				<div
@@ -910,9 +934,15 @@
 				>
 					<p class="font-semibold">Safety Note:</p>
 					<p class="mt-1">
-						Restoring will replace existing students, evaluations, classes, categories, and house
-						events. A safety snapshot of your current database will be saved automatically before
-						restoring.
+						{#if department === 'esl'}
+							Restoring will replace existing ESL students, cohorts, classes, teacher notes, and
+							events. A safety snapshot of your current database will be saved automatically before
+							restoring.
+						{:else}
+							Restoring will replace existing students, evaluations, classes, categories, and house
+							events. A safety snapshot of your current database will be saved automatically before
+							restoring.
+						{/if}
 					</p>
 				</div>
 

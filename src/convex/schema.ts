@@ -17,8 +17,10 @@ export default defineSchema({
 		 */
 		departmentRoles: v.optional(
 			v.object({
-				international: v.optional(v.union(v.literal('admin'), v.literal('teacher'))),
-				esl: v.optional(v.union(v.literal('admin'), v.literal('teacher')))
+				international: v.optional(
+					v.union(v.literal('admin'), v.literal('teacher'), v.literal('super'))
+				),
+				esl: v.optional(v.union(v.literal('admin'), v.literal('teacher'), v.literal('super')))
 			})
 		),
 		/** Registration timestamp (ms) — set once when the profile is created. */
