@@ -29,8 +29,10 @@
 		expanded = false,
 		initialYear = schoolYearOf(new Date())
 	}: { expanded?: boolean; initialYear?: string } = $props();
+	// svelte-ignore state_referenced_locally
 	let year = $state(initialYear);
 	/** The year whose draft `yearDraft` holds, so a change re-reads exactly once. */
+	// svelte-ignore state_referenced_locally
 	let loadedYear = initialYear;
 
 	let parsing = $state(false);
@@ -61,7 +63,8 @@
 	// this only reacts to a new value from the parent.
 	$effect(() => {
 		const next = initialYear.trim();
-		if (!/^\d{4}-\d{4}$/.test(next) || next === loadedYear) return;
+		if (!/^\d{4}-\d{4}$/.test(next)) return;
+		if (next === loadedYear) return;
 		year = next;
 		loadedYear = next;
 		yearDraft = readYearDraft(next);

@@ -118,14 +118,15 @@
 						Have a workbook with all the date lists already? Upload it once and the semester is set
 						up for you.
 					</p>
-					<a
-						href="#"
+					<button
+						type="button"
+						disabled
 						data-testid="esl-admin-semesters.import-link"
 						title="Not built yet"
-						class="text-sm font-medium text-gray-500"
+						class="cursor-default text-sm font-medium text-gray-500"
 					>
 						Coming soon
-					</a>
+					</button>
 				</div>
 			</div>
 		</section>
