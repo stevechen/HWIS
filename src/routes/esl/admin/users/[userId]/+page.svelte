@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { useQuery } from 'convex-svelte';
+	import { goto } from '$app/navigation';
+	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
 	import type { Id } from '$convex/_generated/dataModel';
 	import { CalendarClock, CalendarDays } from '@lucide/svelte';
@@ -21,6 +22,7 @@
 		type TeacherMeeting
 	} from './teacher-now';
 
+	const client = useConvexClient();
 	const session = useViewer();
 	const userId = $derived(page.params.userId ?? '');
 
@@ -108,6 +110,21 @@
 	let availabilityOpen = $state(false);
 	let scheduleOpen = $state(false);
 	let notice = $state('');
+	let deleteConfirmOpen = $state(false);
+	let deletingProfile = $state(false);
+
+	async function deleteProfile() {
+		deletingProfile = true;
+		try {
+			await client.mutation(api.esl.staff.deleteUser, { userId: userId as Id<'users'> });
+			goto('/esl/admin/users');
+		} catch (e) {
+			notice = e instanceof Error ? e.message : 'Delete failed';
+		} finally {
+			deletingProfile = false;
+			deleteConfirmOpen = false;
+		}
+	}
 
 	/**
 	 * The availability dialog's success confirmation: it closes itself on a
@@ -136,6 +153,16 @@
 			{/if}
 		</h1>
 		<div class="flex flex-wrap items-end gap-3">
+			{#if session.viewer?.role === 'super'}
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={() => (deleteConfirmOpen = true)}
+					testId="esl-admin-user-profile.delete.trigger"
+				>
+					Delete user
+				</Button>
+			{/if}
 			{#if session.isEslAdmin}
 				<div class="flex gap-2 pb-0.5">
 					<Button
@@ -361,5 +388,35 @@
 			year={displayYear}
 			classes={profile.classes}
 		/>
+	{/if}
+
+	{#if deleteConfirmOpen}
+		<div
+			class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+			role="dialog"
+			aria-modal="true"
+			data-testid="esl-admin-user-profile.delete-dialog"
+		>
+			<div class="max-w-sm rounded-xl border bg-white p-6 shadow-2xl">
+				<h2 class="text-lg font-bold text-red-700">Delete {profile?.name ?? 'this user'}?</h2>
+				<p class="text-muted-foreground mt-2 text-sm">
+					This will permanently remove the user and their ESL links.
+				</p>
+				<div class="mt-4 flex justify-end gap-2">
+					<button
+						onclick={() => (deleteConfirmOpen = false)}
+						class="rounded-md border px-3 py-2 text-sm"
+						data-testid="esl-admin-user-profile.delete-dialog.cancel">Cancel</button
+					>
+					<button
+						onclick={deleteProfile}
+						disabled={deletingProfile}
+						class="rounded-md bg-red-600 px-3 py-2 text-sm text-white"
+						data-testid="esl-admin-user-profile.delete-dialog.delete"
+						>{deletingProfile ? 'Deleting…' : 'Delete'}</button
+					>
+				</div>
+			</div>
+		</div>
 	{/if}
 </div>

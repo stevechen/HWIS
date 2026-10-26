@@ -224,6 +224,45 @@ export const listAssignable = query({
  *
  * cost: 1 point read + 1 patch.
  */
+export const deleteUser = mutation({
+	args: {
+		userId: v.id('users')
+	},
+	handler: async (ctx, args) => {
+		const actor = await requireEslAdmin(ctx);
+		if (!isSuper(actor)) throw new Error('Only Super can delete users');
+		if (args.userId === actor._id) throw new Error('You cannot delete yourself');
+
+		const user = await ctx.db.get(args.userId);
+		if (!user) throw new Error('User not found');
+		if (staffRole(user.role) === null) throw new Error('Only staff users can be deleted here');
+
+		// Clean up ESL links (classes + meetings assigned to this teacher)
+		const assigned = await ctx.db
+			.query('esl_classes')
+			.withIndex('by_teacherId', (q) => q.eq('teacherId', args.userId))
+			.collect();
+		for (const cls of assigned) {
+			const meetings = await ctx.db
+				.query('esl_class_meetings')
+				.withIndex('by_classId', (q) => q.eq('classId', cls._id))
+				.collect();
+			for (const m of meetings) await ctx.db.delete(m._id);
+			await ctx.db.delete(cls._id);
+		}
+
+		// Also delete session links to avoid orphaned session rows
+		const sessions = await ctx.db
+			.query('sessions')
+			.filter((q) => q.eq(q.field('userId'), args.userId))
+			.collect();
+		for (const s of sessions) await ctx.db.delete(s._id);
+
+		await ctx.db.delete(args.userId);
+		return { success: true, userId: args.userId };
+	}
+});
+
 export const setEslRole = mutation({
 	args: {
 		userId: v.id('users'),

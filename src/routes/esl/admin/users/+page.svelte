@@ -50,6 +50,35 @@
 		return 'No ESL role';
 	}
 
+	let deleteTargetId = $state<Id<'users'> | null>(null);
+	let deleteTargetName = $state('');
+	let deleting = $state(false);
+
+	function confirmDelete(id: Id<'users'>, name: string) {
+		deleteTargetId = id;
+		deleteTargetName = name;
+	}
+
+	function cancelDelete() {
+		deleteTargetId = null;
+		deleteTargetName = '';
+	}
+
+	async function runDelete() {
+		if (!deleteTargetId) return;
+		deleting = true;
+		try {
+			await client.mutation(api.esl.staff.deleteUser, { userId: deleteTargetId });
+			notice = `${deleteTargetName} deleted`;
+		} catch (e) {
+			rowError = e instanceof Error ? e.message : 'Delete failed';
+		} finally {
+			deleting = false;
+			deleteTargetId = null;
+			deleteTargetName = '';
+		}
+	}
+
 	function isSelf(id: Id<'users'>): boolean {
 		return session.viewer?._id === id;
 	}
@@ -73,7 +102,7 @@
 	}
 
 	function setRole(id: Id<'users'>, name: string, value: string) {
-		overrides[id] = value as 'admin' | 'teacher' | 'super' | 'none';
+		overrides[id] = value as 'admin' | 'teacher' | 'none';
 		busyId = id;
 		rowError = '';
 		notice = '';
@@ -140,6 +169,36 @@
 		</p>
 	{/if}
 
+	{#if deleteTargetId}
+		<div
+			class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+			role="dialog"
+			aria-modal="true"
+			data-testid="esl-admin-users.delete-dialog"
+		>
+			<div class="max-w-sm rounded-xl border bg-white p-6 shadow-2xl">
+				<h2 class="text-lg font-bold text-red-700">Delete {deleteTargetName}?</h2>
+				<p class="text-muted-foreground mt-2 text-sm">
+					This will permanently remove the user and their ESL links.
+				</p>
+				<div class="mt-4 flex justify-end gap-2">
+					<button
+						onclick={cancelDelete}
+						class="rounded-md border px-3 py-2 text-sm"
+						data-testid="esl-admin-users.delete-dialog.cancel">Cancel</button
+					>
+					<button
+						onclick={runDelete}
+						disabled={deleting}
+						class="rounded-md bg-red-600 px-3 py-2 text-sm text-white"
+						data-testid="esl-admin-users.delete-dialog.delete"
+						>{deleting ? 'Deleting…' : 'Delete'}</button
+					>
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	{#if staffQuery.isLoading}
 		<p class="text-muted-foreground py-8 text-center" data-testid="esl-admin-users.loading">
 			Loading staff…
@@ -195,6 +254,20 @@
 							{/if}
 						{/snippet}
 						{#snippet footer()}
+							{#if session.viewer?.role === 'super'}
+								<button
+									type="button"
+									onclick={(e) => {
+										e.stopPropagation();
+										confirmDelete(person._id, person.name);
+									}}
+									class="text-xs text-red-600 underline hover:text-red-800"
+									data-testid="esl-admin-users.delete"
+									aria-label="Delete {person.name}"
+								>
+									Delete
+								</button>
+							{/if}
 							<div class="w-full [&>div]:w-full">
 								<NativeSelect.Root
 									aria-label="ESL role for {person.name}"
