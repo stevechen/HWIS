@@ -45,14 +45,14 @@ describe('esl/checklist.status', () => {
 			{ date: '20251007', isHoliday: false, caption: '' }
 		]);
 		const status = await t.query(api.esl.checklist.status, { semesterId, today: '2025-10-31' });
-		expect(status.window).toEqual({ start: '2025-08-31', end: '2025-10-31' });
-		expect(status.off.missing).toEqual(['2025-10-06']);
-		expect(status.off.ok).toBe(false);
-		expect(status.quiz).toMatchObject({ expected: 6, present: 0 });
-		expect(status.units).toMatchObject({ expected: 6, present: 0 });
-		expect(status.passport).toMatchObject({ expected: 3, present: 0 });
-		expect(status.recording).toMatchObject({ expected: 3, present: 0 });
-		expect(status.g9mock).toMatchObject({ expectedStarts: 2, presentRows: 0 });
+		expect(status!.window).toEqual({ start: '2025-08-31', end: '2025-10-31' });
+		expect(status!.off.missing).toEqual(['2025-10-06']);
+		expect(status!.off.ok).toBe(false);
+		expect(status!.quiz).toMatchObject({ expected: 6, present: 0 });
+		expect(status!.units).toMatchObject({ expected: 6, present: 0 });
+		expect(status!.passport).toMatchObject({ expected: 3, present: 0 });
+		expect(status!.recording).toMatchObject({ expected: 3, present: 0 });
+		expect(status!.g9mock).toMatchObject({ expectedStarts: 2, presentRows: 0 });
 	});
 
 	it('marks groups present once the rows exist', async () => {
@@ -76,14 +76,14 @@ describe('esl/checklist.status', () => {
 			});
 		}
 		const status = await t.query(api.esl.checklist.status, { semesterId, today: '2025-10-01' });
-		expect(status.off.ok).toBe(true);
-		expect(status.quiz).toMatchObject({ expected: 6, present: 6 });
+		expect(status!.off.ok).toBe(true);
+		expect(status!.quiz).toMatchObject({ expected: 6, present: 6 });
 	});
 
 	it('expects three G9 mock starts in S2', async () => {
 		const { t, semesterId } = await adminSemester('S2', '2026-02-09');
 		const status = await t.query(api.esl.checklist.status, { semesterId, today: '2025-10-01' });
-		expect(status.g9mock.expectedStarts).toBe(3);
+		expect(status!.g9mock.expectedStarts).toBe(3);
 	});
 
 	it('counts Unit N task-kind reminders toward units while manual ones never count', async () => {
@@ -103,15 +103,14 @@ describe('esl/checklist.status', () => {
 			date: '2025-09-11'
 		});
 		const status = await t.query(api.esl.checklist.status, { semesterId, today: '2025-10-01' });
-		expect(status.units).toMatchObject({ expected: 6, present: 1 });
+		expect(status!.units).toMatchObject({ expected: 6, present: 1 });
 	});
 
-	it('refuses unauthenticated callers', async () => {
+	it('returns null for unauthenticated callers', async () => {
 		const { t, semesterId } = await adminSemester('S1', '2025-08-31');
 		mockAuthUser(null);
-		await expect(
-			t.query(api.esl.checklist.status, { semesterId, today: '2025-10-01' })
-		).rejects.toThrow();
+		const status = await t.query(api.esl.checklist.status, { semesterId, today: '2025-10-01' });
+		expect(status).toBeNull();
 	});
 });
 
@@ -256,7 +255,7 @@ describe('esl/checklist.createMissing', () => {
 		}
 		// The checklist goes green on the drafts it just created.
 		const status = await t.query(api.esl.checklist.status, { semesterId, today: '2025-10-31' });
-		expect(status.units).toMatchObject({ expected: 6, present: 6 });
+		expect(status!.units).toMatchObject({ expected: 6, present: 6 });
 	});
 
 	it('wires unit drafts to real exam anchors and median weeks (#214 ranges)', async () => {

@@ -173,7 +173,13 @@ export const get = query({
 export const list = query({
 	args: {},
 	handler: async (ctx) => {
-		await requireEslStaff(ctx);
+		try {
+			await requireEslStaff(ctx);
+		} catch {
+			// No authenticated ESL staff (e.g. during logout). Return an empty list
+			// instead of throwing, so the query stays safe to call at any time.
+			return [];
+		}
 
 		const semesters = await ctx.db
 			.query('esl_semesters')

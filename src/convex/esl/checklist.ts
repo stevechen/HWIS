@@ -54,7 +54,11 @@ export const status = query({
 		g9S2: v.optional(v.boolean())
 	},
 	handler: async (ctx, args) => {
-		await requireEslStaff(ctx);
+		try {
+			await requireEslStaff(ctx);
+		} catch {
+			return null;
+		}
 
 		const semester = await ctx.db.get(args.semesterId);
 		if (!semester) throw new Error('Semester not found');

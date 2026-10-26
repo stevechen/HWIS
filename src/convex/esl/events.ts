@@ -605,7 +605,11 @@ export const remove = mutation({
 export const listBySemester = query({
 	args: { semesterId: v.id('esl_semesters') },
 	handler: async (ctx, args) => {
-		await requireEslStaff(ctx);
+		try {
+			await requireEslStaff(ctx);
+		} catch {
+			return [];
+		}
 
 		const events = await ctx.db
 			.query('esl_events')
