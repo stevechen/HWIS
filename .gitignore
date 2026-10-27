@@ -48,7 +48,10 @@ plans/
 
 # Convex local data
 /convex
+# The live state, and the per-branch copies the post-checkout hook swaps in
+# (see .husky/post-checkout). Both hold a full local database — never commit.
 .convex/
+.convex_branches/
 
 # Convex generated AI guidelines
 src/convex/_generated/ai/
