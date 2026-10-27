@@ -1,7 +1,12 @@
 import { expect, test, describe } from 'vite-plus/test';
 import { convexTest, modules, createStudentWithClass } from './test.setup';
 import schema from './schema';
-import { applyRestore, type RestorePayload } from './shared/restore_plan';
+import {
+	applyRestore,
+	applyEslRestore,
+	type RestorePayload,
+	type EslRestorePayload
+} from './shared/restore_plan';
 import { SNAPSHOT_VERSION, buildSnapshot } from './shared/backup_snapshot';
 
 function emptyPayload(): RestorePayload {
@@ -374,8 +379,9 @@ describe('restore plan', () => {
 		await t.run(async (ctx) => applyRestore(ctx, payload));
 
 		const users = await t.run(async (ctx) => await ctx.db.query('users').collect());
-		expect(users).toHaveLength(1);
-		expect(users[0].departmentRoles).toEqual({ esl: 'teacher' });
+		expect(users).toHaveLength(0);
+		// AuthId-less users are skipped to prevent duplication; department roles
+		// are only applied when a user is matched by authId.
 	});
 
 	test('payload without department roles leaves live roles intact', async () => {
@@ -747,6 +753,54 @@ describe('restore versioning & snapshot completeness', () => {
 		expect(
 			await t.run(async (ctx) => ctx.db.query('leaderboard_thumbnails').collect())
 		).toHaveLength(1);
+	});
+
+	test('esl restore skips authId-less users, never duplicating users', async () => {
+		const t = await convexTest(schema, modules);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert('users', {
+				authId: 'existing-auth',
+				name: 'Existing User',
+				role: 'teacher',
+				status: 'active'
+			});
+		});
+
+		const payload = {
+			version: SNAPSHOT_VERSION,
+			exportedAt: String(Date.now()),
+			eslCohorts: [],
+			eslClasses: [],
+			eslClassMeetings: [],
+			eslTeacherAvailability: [],
+			eslSemesters: [],
+			eslEvents: [],
+			eslStudents: [],
+			users: [
+				{
+					_id: 'existing_auth',
+					authId: 'existing-auth',
+					name: 'Existing User Updated',
+					role: 'teacher',
+					status: 'active'
+				},
+				{
+					_id: 'no_auth_1',
+					name: 'No Auth User',
+					role: 'teacher',
+					status: 'active'
+				}
+			],
+			teacherNotes: []
+		} as EslRestorePayload;
+
+		await t.run(async (ctx) => applyEslRestore(ctx, payload));
+
+		const users = await t.run(async (ctx) => await ctx.db.query('users').collect());
+		expect(users).toHaveLength(1);
+		expect(users[0]._id).not.toBe('no_auth_1');
+		expect(users[0].authId).toBe('existing-auth');
 	});
 
 	test('a structurally broken payload rejects before any write', async () => {

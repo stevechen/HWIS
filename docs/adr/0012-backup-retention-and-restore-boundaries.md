@@ -72,6 +72,7 @@ longer match are flagged and kept, not auto-migrated. See ADR-0013.
 - A destructive change (delete user, corrupt data) within ~1 month is recoverable in-app; older
   restoration requires the cold archive on Drive.
 - Deleted users stay deleted after restore (no resurrection of deliberately-removed accounts).
+- ESL restore skips payload users without `authId` rather than inserting them fresh, so an ESL restore never creates duplicate `users` rows from legacy records or re-adds deleted accounts missing `authId`. Matching users by `authId` are patched in place.
 - Convex storage stays bounded and comfortable instead of growing toward the 3 GB quota.
 - Requires `GOOGLE_REFRESH_TOKEN`, `GOOGLE_DRIVE_FOLDER_ID`, and `CRON_SECRET` to be configured
   as Convex deployment env vars for the Drive cold archive to function.

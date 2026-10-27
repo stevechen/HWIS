@@ -456,14 +456,9 @@ async function remapUsers(
 		} else if (user.authId) {
 			continue;
 		} else {
-			const newUserId = await ctx.db.insert('users', {
-				authId: undefined,
-				name: user.role === 'student' ? (user.name ?? undefined) : normalizeStaffName(user.name),
-				role: user.role ?? 'teacher',
-				status: user.status ?? 'active',
-				departmentRoles: user.departmentRoles
-			});
-			mapping.set(user._id, newUserId);
+			// No authId and no existing user by authId — skip to prevent duplicate inserts.
+			// Deleted users stay deleted; legacy records without authId are not recreated.
+			continue;
 		}
 	}
 	return mapping;
@@ -661,14 +656,9 @@ async function remapEslUsers(
 		} else if (user.authId) {
 			continue;
 		} else {
-			const newUserId = await ctx.db.insert('users', {
-				authId: undefined,
-				name: user.role === 'student' ? (user.name ?? undefined) : normalizeStaffName(user.name),
-				role: user.role ?? 'teacher',
-				status: user.status ?? 'active',
-				departmentRoles: user.departmentRoles
-			});
-			mapping.set(user._id, newUserId);
+			// No authId and no existing user by authId — skip to prevent duplicate inserts.
+			// Deleted users stay deleted; legacy records without authId are not recreated.
+			continue;
 		}
 	}
 	return mapping;
