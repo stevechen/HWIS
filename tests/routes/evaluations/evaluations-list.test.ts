@@ -34,7 +34,7 @@ describe('Evaluations List', () => {
 
 	it('shows empty state when no evaluations', async () => {
 		render(EvaluationsPage);
-		await expect.element(page.getByText('No evaluations found')).toBeInTheDocument();
+		await expect.element(page.getByText(/No evaluations found/)).toBeInTheDocument();
 	});
 
 	it('renders error state when the evaluations query fails', async () => {

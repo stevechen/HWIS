@@ -165,7 +165,7 @@ describe('Admin Evaluations Page', () => {
 		it('shows empty state when no evaluations', async () => {
 			render(AdminEvaluationsPage);
 			// With empty data, should show empty state
-			await expect.element(page.getByText('No evaluations found')).toBeInTheDocument();
+			await expect.element(page.getByText(/No evaluations found/)).toBeInTheDocument();
 		});
 	});
 

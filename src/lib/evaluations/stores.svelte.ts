@@ -1,3 +1,5 @@
+import { untrack } from 'svelte';
+
 export type FilterSummaryState = {
 	showSummary: boolean;
 	filterActive: boolean;
@@ -27,7 +29,10 @@ export function createFilterSummaryState() {
 	let summaryTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	function dispatch(action: FilterSummaryAction): void {
-		state = filterSummaryReducer(state, action);
+		// Untracked: `updateSummary` is called from `$effect`s that react to the
+		// filter inputs. Reading `state` there would also make the effect depend
+		// on the state it writes, looping forever (effect_update_depth_exceeded).
+		state = untrack(() => filterSummaryReducer(state, action));
 
 		if (action.type === 'filterChanged') {
 			if (summaryTimeout) {
