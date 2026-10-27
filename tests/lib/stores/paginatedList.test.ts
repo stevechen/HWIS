@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vite-plus/test';
 import { tick } from 'svelte';
 import { render } from 'vitest-browser-svelte';
 import { createPaginatedList, type PaginatedPage } from '$lib/stores/paginatedList.svelte';

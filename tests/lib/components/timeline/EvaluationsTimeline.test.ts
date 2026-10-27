@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import EvaluationsTimeline from '$lib/components/timeline/EvaluationsTimeline.svelte';
 import type { EvaluationEntry } from '$lib/components/timeline/types';

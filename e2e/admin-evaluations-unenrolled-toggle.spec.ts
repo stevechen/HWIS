@@ -153,7 +153,7 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations 
 			e2eTag
 		});
 		if (enrolledResult && typeof enrolledResult === 'object' && 'error' in enrolledResult) {
-			throw new Error(`Failed to create enrolled student: ${enrolledResult.error}`);
+			throw new Error(`Failed to create enrolled student: ${enrolledResult.error as string}`);
 		}
 		testEntity = true;
 
@@ -167,7 +167,7 @@ test.describe('Teacher User - Unenrolled Toggle Visibility @teacher-evaluations 
 			e2eTag
 		});
 		if (unenrolledResult && typeof unenrolledResult === 'object' && 'error' in unenrolledResult) {
-			throw new Error(`Failed to create unenrolled student: ${unenrolledResult.error}`);
+			throw new Error(`Failed to create unenrolled student: ${unenrolledResult.error as string}`);
 		}
 
 		// Navigate to teacher evaluations page

@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import type { Id } from '$convex/_generated/dataModel';
 import type { RecentBatch } from '$convex/shared/recentActions';

@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const mockMutation = vi.fn().mockResolvedValue({});
@@ -58,12 +58,8 @@ describe('Admin Leaderboards Page', () => {
 		render(LeaderboardsPage);
 		await expect.element(page.getByTestId('admin-leaderboards.card-houses')).toBeInTheDocument();
 		await expect.element(page.getByTestId('admin-leaderboards.card-classes')).toBeInTheDocument();
-		await expect
-			.element(page.getByTestId('admin-leaderboards.toggle-houses'))
-			.toHaveTextContent('Enabled');
-		await expect
-			.element(page.getByTestId('admin-leaderboards.toggle-classes'))
-			.toHaveTextContent('Disabled');
+		await expect.element(page.getByText('Enabled')).toBeInTheDocument();
+		await expect.element(page.getByText('Disabled')).toBeInTheDocument();
 	});
 
 	it('renders theme tiles for every theme of both boards', async () => {

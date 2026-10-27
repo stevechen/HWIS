@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 vi.mock('convex-svelte', () => ({
@@ -93,9 +93,9 @@ describe('Students Page', () => {
 			} as unknown as ReturnType<typeof useQuery>;
 		}) as typeof useQuery);
 		render(StudentsPage);
-		const select = (await page
+		const select = page
 			.getByRole('combobox', { name: /filter by class/i })
-			.element()) as HTMLSelectElement;
+			.element() as HTMLSelectElement;
 		select.value = 'IB';
 		select.dispatchEvent(new Event('change', { bubbles: true }));
 		await expect.element(page.getByText('No students match your filters')).toBeInTheDocument();

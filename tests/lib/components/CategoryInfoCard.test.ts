@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import CategoryInfoCard from '$lib/components/CategoryInfoCard.svelte';
 
@@ -114,7 +114,7 @@ describe('CategoryInfoCard', () => {
 			render(CategoryInfoCard, { category: defaultCategory, oncriterionclick });
 
 			const buttons = page.getByRole('button');
-			const buttonsList = await buttons.all();
+			const buttonsList = buttons.all();
 			expect(buttonsList.length).toBeGreaterThan(0);
 		});
 	});
@@ -124,7 +124,7 @@ describe('CategoryInfoCard', () => {
 			render(CategoryInfoCard, { category: defaultCategory });
 
 			const buttons = page.getByRole('button');
-			const buttonsList = await buttons.all();
+			const buttonsList = buttons.all();
 			expect(buttonsList.length).toBe(0);
 		});
 

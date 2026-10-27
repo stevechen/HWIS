@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 // The card grid, the `fixed` spider overlay and every clamp() live in Tailwind
 // utilities from the root stylesheet, so pull it in before measuring geometry.

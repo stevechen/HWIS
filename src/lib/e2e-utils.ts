@@ -238,7 +238,7 @@ export function getE2EUtils(): E2EUtils {
 			// that performer's tagged logs and removes the performer user.
 			return await c.mutation(api.testLifecycle.teardownByTag, {
 				scope: 'auditLogs',
-				...((authIdString && { e2eTag: authIdString }) ?? {})
+				...(authIdString && { e2eTag: authIdString })
 			});
 		},
 
@@ -359,7 +359,7 @@ export function getE2EUtils(): E2EUtils {
 		async createCategory(opts?: CreateCategoryOptions) {
 			try {
 				return await c.mutation(api.dataFactory.createCategory, {
-					...(opts || {})
+					...opts
 				});
 			} catch {
 				console.log('Create category error');

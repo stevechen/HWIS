@@ -27,7 +27,7 @@ test.describe('Admin Controls Visibility @admin', () => {
 		});
 
 		if (result && typeof result === 'object' && 'error' in result) {
-			throw new Error(`Failed to create student: ${result.error}`);
+			throw new Error(`Failed to create student: ${result.error as string}`);
 		}
 		testStudent = true;
 

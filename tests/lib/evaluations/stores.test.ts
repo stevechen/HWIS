@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vite-plus/test';
 import {
 	createFilterSummaryState,
 	createEvaluationDisplayState,
@@ -8,25 +8,25 @@ import {
 describe('filterSummaryReducer (pure)', () => {
 	it('returns new state on filterChanged true', () => {
 		const s = filterSummaryReducer(
-				{ showSummary: false, filterActive: false },
-				{ type: 'filterChanged', active: true }
-			);
+			{ showSummary: false, filterActive: false },
+			{ type: 'filterChanged', active: true }
+		);
 		expect(s).toEqual({ showSummary: true, filterActive: true });
 	});
 
 	it('returns new state on filterChanged false', () => {
 		const s = filterSummaryReducer(
-				{ showSummary: true, filterActive: true },
-				{ type: 'filterChanged', active: false }
-			);
+			{ showSummary: true, filterActive: true },
+			{ type: 'filterChanged', active: false }
+		);
 		expect(s).toEqual({ showSummary: false, filterActive: false });
 	});
 
 	it('hides summary on hideSummary', () => {
 		const s = filterSummaryReducer(
-				{ showSummary: true, filterActive: true },
-				{ type: 'hideSummary' }
-			);
+			{ showSummary: true, filterActive: true },
+			{ type: 'hideSummary' }
+		);
 		expect(s.showSummary).toBe(false);
 		expect(s.filterActive).toBe(true);
 	});

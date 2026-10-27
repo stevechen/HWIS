@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vite-plus/test';
 import { convexTest as rawConvexTest } from 'convex-test';
 import { modules } from './test.setup';
 import { api } from './_generated/api';

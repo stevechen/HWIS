@@ -1,4 +1,4 @@
-import { expect, test, describe } from 'vitest';
+import { expect, test, describe } from 'vite-plus/test';
 import { convexTest, modules } from './test.setup';
 import schema from './schema';
 import {

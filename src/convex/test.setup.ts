@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { vi } from 'vitest';
+import { vi } from 'vite-plus/test';
 import {
 	convexTest as originalConvexTest,
 	type TestConvexForDataModelAndIdentity

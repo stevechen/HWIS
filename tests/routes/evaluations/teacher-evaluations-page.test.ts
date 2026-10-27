@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { createMockEvaluationSet } from '../../fixtures/evaluations';
 import { buildViewerSession, type ViewerSessionConfig } from '../../mocks/route-mocks';

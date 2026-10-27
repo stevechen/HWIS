@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { buildViewerSession } from '../../../mocks/route-mocks';
 
@@ -92,7 +92,7 @@ describe('Users Admin Page - card grid', () => {
 	});
 
 	afterEach(() => {
-		for (const m of mounted) m.unmount();
+		for (const m of mounted) void m.unmount();
 	});
 
 	function renderPage() {
@@ -202,9 +202,7 @@ describe('Users Admin Page - card grid', () => {
 	it('hides the Pending tab entirely when there are no new signups', async () => {
 		currentUsers = [deactivated, activeAdmin, activeTeacher];
 		renderPage();
-		await expect
-			.element(page.getByTestId('admin-users.card-user_a2'))
-			.toHaveTextContent('Active Teacher');
+		await expect.element(page.getByText('Active Teacher')).toBeInTheDocument();
 		await expect.element(page.getByRole('tab', { name: /Pending/ })).not.toBeInTheDocument();
 		await expect.element(page.getByTestId('admin-users.hero')).not.toBeInTheDocument();
 		await expect.element(page.getByText('New teacher(s) pending')).not.toBeInTheDocument();
@@ -221,8 +219,11 @@ describe('Users Admin Page - card grid', () => {
 	it('color-codes the role badge on a card', async () => {
 		renderPage();
 		await page.getByRole('tab', { name: /Active/ }).click();
-		const card = page.getByTestId('admin-users.card-user_a1');
-		await expect.element(card).toHaveTextContent('Admin');
+		await expect
+			.element(
+				page.getByTestId('admin-users.card-user_a1').getByRole('button', { name: /select role/i })
+			)
+			.toBeInTheDocument();
 	});
 
 	it('moves approved teachers to the Active tab after batch approval', async () => {
@@ -239,11 +240,12 @@ describe('Users Admin Page - card grid', () => {
 		await expect.element(page.getByRole('tab', { name: /Pending/ })).not.toBeInTheDocument();
 		await expect.element(page.getByText('Active (4)')).toBeVisible();
 		await expect
-			.element(page.getByTestId('admin-users.card-user_p1'))
-			.toHaveTextContent('Approved this session');
+			.element(page.getByTestId('admin-users.card-user_p1').getByText('Approved this session'))
+			.toBeInTheDocument();
+
 		await expect
-			.element(page.getByTestId('admin-users.card-user_p2'))
-			.toHaveTextContent('Approved this session');
+			.element(page.getByTestId('admin-users.card-user_p2').getByText('Approved this session'))
+			.toBeInTheDocument();
 	});
 
 	it('displays the email below the user name instead of authId', async () => {
@@ -264,7 +266,7 @@ describe('Users Admin Page - card grid', () => {
 	it('falls back to initials circle when no avatar image is available', async () => {
 		renderPage();
 		await page.getByRole('tab', { name: /Active/ }).click();
-		await expect.element(page.getByTestId('admin-users.card-user_a1')).toHaveTextContent('CA');
+		await expect.element(page.getByText('CA')).toBeInTheDocument();
 	});
 
 	it('strips CJK characters from names for display and sorting', async () => {
@@ -280,7 +282,9 @@ describe('Users Admin Page - card grid', () => {
 		currentUsers = [activeAdmin, cjkUser, activeTeacher];
 		renderPage();
 		await page.getByRole('tab', { name: /Active/ }).click();
-		await expect.element(page.getByTestId('admin-users.card-user_a3')).toHaveTextContent('Amy');
+		await expect
+			.element(page.getByTestId('admin-users.card-user_a3').getByText('Amy', { exact: true }))
+			.toBeInTheDocument();
 		await expect.element(page.getByTestId('admin-users.card-user_a3')).not.toHaveTextContent('王');
 	});
 

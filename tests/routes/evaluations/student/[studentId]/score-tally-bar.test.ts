@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import ScoreTallyBar from '$lib/components/timeline/ScoreTallyBar.svelte';
 import type { EvaluationEntry } from '$lib/components/timeline/types.js';

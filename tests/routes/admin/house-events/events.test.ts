@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, it, expect, vi, afterEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
 const mockEventsData = [
