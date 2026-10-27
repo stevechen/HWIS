@@ -13,7 +13,9 @@
 	 */
 	let { today = '2026-10-15' }: { today?: string } = $props();
 
-	// Same pattern as WizardShell: $state object mutated directly
+	// Same pattern as WizardShell: `$state` object mutated directly. The prop
+	// seeds the initial state once by design, so later prop changes are ignored.
+	// svelte-ignore state_referenced_locally
 	let state = $state<WizardState>(createInitialWizardState(today));
 
 	function update(mutate: (draft: WizardState) => void): void {

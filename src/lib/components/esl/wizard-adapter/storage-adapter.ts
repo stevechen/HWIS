@@ -16,7 +16,7 @@ export function serializeWizardState(state: unknown): string {
 	return JSON.stringify({ version: WIZARD_STATE_VERSION, state });
 }
 
-export function parseWizardStorage(raw: string): unknown | null {
+export function parseWizardStorage(raw: string): unknown {
 	try {
 		const parsed = JSON.parse(raw);
 		if (parsed?.version === WIZARD_STATE_VERSION) return parsed.state;

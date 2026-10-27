@@ -4,6 +4,7 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { Id } from '$convex/_generated/dataModel';
 	import type { RestorePayload } from '$convex/shared/restore_plan';
+	import type { BackupSnapshot } from '$convex/shared/backup_snapshot';
 	import {
 		Cloud,
 		RotateCcw,
@@ -72,10 +73,24 @@
 	let selectedBackupId = $state<Id<'backups'> | null>(null);
 
 	// File restore states
+	/**
+	 * A parsed backup file as previewed before restoring. `RestorePayload` covers
+	 * the International arrays the HWIS restore consumes; a 2.0 snapshot also
+	 * carries the ESL arrays (empty for International), while pre-2.0 files omit
+	 * them entirely — hence optional. The backend re-validates whichever
+	 * department is passed to `restoreFromBackupPayload`.
+	 */
+	type ParsedBackupFile = RestorePayload &
+		Partial<
+			Pick<
+				BackupSnapshot,
+				'eslStudents' | 'eslCohorts' | 'eslClasses' | 'teacherNotes' | 'eslEvents'
+			>
+		>;
 	let fileInput = $state<HTMLInputElement | null>(null);
 	let selectedFile = $state<File | null>(null);
 	let fileError = $state<string | null>(null);
-	let parsedBackup = $state<RestorePayload | null>(null);
+	let parsedBackup = $state<ParsedBackupFile | null>(null);
 	let showFileRestoreDialog = $state(false);
 	let fileRestoreConfirmText = $state('');
 	let isFileRestoring = $state(false);
@@ -173,7 +188,7 @@
 	function validateBackupPayload(data: unknown): {
 		valid: boolean;
 		error?: string;
-		payload?: RestorePayload;
+		payload?: ParsedBackupFile;
 	} {
 		if (!data || typeof data !== 'object') {
 			return { valid: false, error: 'File content must be a JSON object.' };
@@ -192,7 +207,7 @@
 				return { valid: false, error: `Invalid backup format: missing or invalid '${key}' array.` };
 			}
 		}
-		return { valid: true, payload: data as RestorePayload };
+		return { valid: true, payload: data as ParsedBackupFile };
 	}
 
 	async function processFile(file: File) {
