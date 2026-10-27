@@ -1,11 +1,11 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { requireAdminForSensitiveOperation } from './auth';
+import { requireAdminForSensitiveOperation, requireActiveStaff } from './auth';
 
 export const list = query({
 	args: {},
 	handler: async (ctx) => {
-		await requireAdminForSensitiveOperation(ctx);
+		await requireActiveStaff(ctx);
 		return await ctx.db.query('point_categories').take(20);
 	}
 });

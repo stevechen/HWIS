@@ -1,8 +1,18 @@
-import { describe, it, expect } from 'vitest';
-import { convexTest, modules } from './test.setup';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { convexTest, modules, mockAuthUser } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
 import type { Id } from './_generated/dataModel';
+
+beforeEach(() => {
+	mockAuthUser({
+		_id: 'test-user-id' as import('./_generated/dataModel').Id<'users'>,
+		authId: 'test_admin',
+		name: 'Test Admin',
+		role: 'admin',
+		status: 'active'
+	});
+});
 
 describe('categories.create', () => {
 	it('creates a category', async () => {
