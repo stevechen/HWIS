@@ -317,6 +317,18 @@ export function classTypesForCohort(cohort: { grade: number; level?: string }): 
 }
 
 /**
+ * Whether a class type is a communication lesson.
+ *
+ * The two shapes a cohort reaches communication through: a G7/G8 cohort's
+ * `Comm` class, and a G9 cohort's single class — G9 runs communication only,
+ * with no CLIL (ADR-0023). The `Comm` event target names this set rather than
+ * one class type, so a passport due reaches a G9 class too (ADR-0030).
+ */
+export function isCommunicationLessonClassType(type: EslClassType): boolean {
+	return type === 'Comm' || type === 'G9';
+}
+
+/**
  * The lesson token a class name ends with, or `null` when it has none.
  *
  * Grade 7/8 classes are `CLIL` or `Comm`; grade 9's single class is already
@@ -1258,7 +1270,9 @@ export function migrateToReminderEslEvent(input: { type: string; title: string; 
  * Single-select, defaulting to `all`. `G7`/`G8` reach every class of that
  * grade (both its CLIL and its Comm class); `H1` reaches the grade 10
  * classes, which have no target of their own and otherwise see `all`
- * events only.
+ * events only. `CLIL`/`Comm` name the *lessons*: `Comm` reaches a G7/G8
+ * cohort's `Comm` class and a G9 cohort's single class, both being
+ * communication lessons (ADR-0030).
  */
 export const ESL_EVENT_TARGETS = ['all', 'CLIL', 'Comm', 'G7', 'G8', 'G9', 'H1'] as const;
 export type EslEventTarget = (typeof ESL_EVENT_TARGETS)[number];
@@ -1274,11 +1288,11 @@ export function isEslEventTarget(target: string): target is EslEventTarget {
  * kind=task).
  *
  * Reminder kinds lock per kind (see `ESL_LOCKED_REMINDER_TARGETS`): quizzes
- * are CLIL-only, passport/recording/checks Comm-only except workbook checks
- * (CLIL), tasks open; exams and no-school days reach everyone, so the form
- * locks them to All rather than offering a choice that would be refused.
- * No-class days stay open: Graduation is Grade 9 only (#229), while every
- * other no-class day defaults to All.
+ * are CLIL-only, passport/recording/passport checks target the communication
+ * lessons except workbook checks (CLIL), tasks open; exams and no-school days
+ * reach everyone, so the form locks them to All rather than offering a choice
+ * that would be refused. No-class days stay open: Graduation is Grade 9 only
+ * (#229), while every other no-class day defaults to All.
  */
 export const ESL_LOCKED_EVENT_TARGETS: Record<EslEventType, EslEventTarget | null> = {
 	start_school: null,
@@ -1290,7 +1304,14 @@ export const ESL_LOCKED_EVENT_TARGETS: Record<EslEventType, EslEventTarget | nul
 	g9_mock: 'G9'
 };
 
-/** The target each reminder kind is locked to (#216), or null when open. */
+/**
+ * The target each reminder kind is locked to (#216), or null when open.
+ *
+ * Passport, recording and passport checks share one target because they are
+ * one cycle aimed at the communication lessons (see
+ * `isCommunicationLessonClassType`) — `Comm` names them, and a G9 cohort's
+ * single class is one of them (ADR-0030).
+ */
 export const ESL_LOCKED_REMINDER_TARGETS: Record<EslReminderKind, EslEventTarget | null> = {
 	quiz: 'CLIL',
 	passport: 'Comm',
@@ -1975,7 +1996,17 @@ export function previousEslDate(date: string): string {
 	return new Date(Date.UTC(year, month - 1, day - 1, 12)).toISOString().slice(0, 10);
 }
 
-/** Whether an event reaches a class: `all` reaches everyone, `H1` the grade 10 classes. */
+/**
+ * Whether an event reaches a class: `all` reaches everyone, `H1` the grade 10
+ * classes.
+ *
+ * `Comm` names the communication lessons rather than a single class type,
+ * because a cohort reaches them through different shapes: a G7/G8 cohort's
+ * `Comm` class and a G9 cohort's single `G9` class are both communication
+ * lessons (`isCommunicationLessonClassType`, ADR-0023, ADR-0030). A
+ * `Comm`-targeted event therefore reaches both.
+ * Grade 10 sits outside the junior-high targets: only `all` and `H1` reach it.
+ */
 export function eventReachesClass(
 	target: EslEventTarget,
 	classType: EslClassType,
@@ -1985,7 +2016,7 @@ export function eventReachesClass(
 	if (target === 'H1') return cohortGrade === 10;
 	if (cohortGrade === 10) return false;
 	if (target === 'CLIL') return classType === 'CLIL';
-	if (target === 'Comm') return classType === 'Comm';
+	if (target === 'Comm') return isCommunicationLessonClassType(classType);
 	if (target === 'G7') return cohortGrade === 7;
 	if (target === 'G8') return cohortGrade === 8;
 	return classType === 'G9';

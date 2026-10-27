@@ -925,7 +925,7 @@
 							>
 								<option value="all">All grades</option>
 								<option value="CLIL">CLIL</option>
-								<option value="Comm">Communication</option>
+								<option value="Comm">Communication (G7–G9)</option>
 								<option value="G9">Grade 9</option>
 								<option value="H1">Grade 10</option>
 							</select>
@@ -971,7 +971,7 @@
 							>
 								<option value="all">All grades</option>
 								<option value="CLIL">CLIL</option>
-								<option value="Comm">Communication</option>
+								<option value="Comm">Communication (G7–G9)</option>
 								<option value="G9">Grade 9</option>
 								<option value="H1">Grade 10</option>
 							</select>

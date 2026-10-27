@@ -5,7 +5,11 @@ import type {
 	WizardStep4State
 } from './wizard-state';
 import { collectClassDays, EXAM_SLOT_CLASS_DAYS } from './wizard-dates';
-import type { EslEventTarget, EslReminderKind } from '$convex/shared/esl';
+import {
+	defaultTargetForEventType,
+	type EslEventTarget,
+	type EslReminderKind
+} from '$convex/shared/esl';
 
 /**
  * Step 5 save + preview mapping (ticket #223, spec #215 stories 27–30).
@@ -292,10 +296,22 @@ function reminderDescriptors(state: WizardState): RowDescriptor[] {
 	] as const;
 	for (const [d1, d2, d3, kind, label] of dueKinds) {
 		([d1, d2, d3] as const).forEach((id, i) => {
-			ranged(id, `${label} ${i + 1}`, kind, 'Comm', ranges[id]);
+			ranged(
+				id,
+				`${label} ${i + 1}`,
+				kind,
+				defaultTargetForEventType('reminder', kind),
+				ranges[id]
+			);
 		});
 	}
-	ranged('pcheck', 'Passport Check', 'passport_check', 'Comm', ranges.pcheck);
+	ranged(
+		'pcheck',
+		'Passport Check',
+		'passport_check',
+		defaultTargetForEventType('reminder', 'passport_check'),
+		ranges.pcheck
+	);
 	ranged('wcheck', 'Workbook Check', 'workbook_check', 'CLIL', ranges.wcheck);
 	return rows;
 }

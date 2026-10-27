@@ -528,7 +528,10 @@ export default defineSchema({
 		 * Which classes this event affects. `all` reaches every teacher;
 		 * `G7`/`G8` reach that grade's classes, `H1` the grade 10 classes
 		 * (which have no target of their own and otherwise see `all`
-		 * events only). Per-type gating (#212, #216) locks most types to one
+		 * events only). `CLIL` and `Comm` name the *lessons*, not a class
+		 * type: `Comm` reaches a G7/G8 cohort's `Comm` class and a G9
+		 * cohort's single `G9` class, both being communication lessons
+		 * (ADR-0030). Per-type gating (#212, #216) locks most types to one
 		 * target; only Start, Partial, and task-kind reminders take a picked value.
 		 */
 		target: v.union(
