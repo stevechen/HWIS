@@ -408,7 +408,7 @@ function buildWizardWrites(payload: WizardSavePayload): DesiredRow[] {
 		ranged(
 			'passport',
 			{ kind: 'rem', reminderKind: 'passport' },
-			'Comm',
+			defaultTargetForEventType('reminder', 'passport'),
 			ESL_REMINDER_TITLES.passport,
 			ranges[id]
 		);
@@ -418,7 +418,7 @@ function buildWizardWrites(payload: WizardSavePayload): DesiredRow[] {
 		ranged(
 			'recording',
 			{ kind: 'rem', reminderKind: 'recording' },
-			'Comm',
+			defaultTargetForEventType('reminder', 'recording'),
 			ESL_REMINDER_TITLES.recording,
 			ranges[id]
 		);
@@ -426,7 +426,7 @@ function buildWizardWrites(payload: WizardSavePayload): DesiredRow[] {
 	ranged(
 		'passport_check',
 		{ kind: 'rem', reminderKind: 'passport_check' },
-		'Comm',
+		defaultTargetForEventType('reminder', 'passport_check'),
 		ESL_REMINDER_TITLES.passport_check,
 		ranges.pcheck
 	);

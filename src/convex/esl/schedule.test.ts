@@ -679,6 +679,88 @@ describe('esl/schedule.teacherDays', () => {
 		}
 	});
 
+	it('draws the communication-cycle dues on a G9 class too (#278)', async () => {
+		const { t, teacherId, semesterId, clilId } = await setupTeacherWorld();
+		// A G9 cohort is taught by a single class of type `G9`, and that class is
+		// the cohort's communication lesson — so a `Comm`-targeted due reaches it
+		// (ADR-0030) even though its type is not `Comm`.
+		const { classIds } = await t.mutation(api.esl.cohorts.create, {
+			year: YEAR,
+			grade: 9,
+			level: 'Basic',
+			classNumber: '1'
+		});
+		const [g9Id] = classIds;
+		await t.mutation(api.esl.classes.setSchedule, {
+			classId: g9Id,
+			year: YEAR,
+			meetings: [
+				{ day: 'Monday', period: 2 },
+				{ day: 'Tuesday', period: 1 }
+			]
+		});
+		await t.mutation(api.esl.classes.assignTeacher, { id: g9Id, teacherId });
+		await createEvent(t, semesterId, {
+			type: 'reminder',
+			reminderKind: 'passport',
+			title: 'Passport due',
+			target: 'Comm',
+			date: '2025-09-08',
+			endDate: '2025-09-10'
+		});
+		// One rule, not a special case for dues: a task aimed at the
+		// communication lessons reaches the G9 class as well.
+		await createEvent(t, semesterId, {
+			type: 'reminder',
+			reminderKind: 'task',
+			title: 'Comm survey',
+			target: 'Comm',
+			date: '2025-09-09'
+		});
+		// ...and so does a non-reminder event, which is why the reach rule lives
+		// in the matcher rather than in the due plumbing.
+		await createEvent(t, semesterId, {
+			type: 'no_class',
+			title: 'No class',
+			target: 'Comm',
+			date: '2025-09-08'
+		});
+		asTeacher();
+
+		const days = await readDays(t, teacherId, semesterId, {
+			fromDate: '2025-09-08',
+			toDate: '2025-09-10'
+		});
+		const g9Days = days.filter((day) => day.classId === g9Id);
+		// Both windows collapse onto Tuesday, the latest active G9 class day
+		// inside the passport window.
+		const collapsed = g9Days.find((day) => day.date === '2025-09-09');
+		expect(collapsed?.dues.map((due) => due.title)).toEqual(['Passport due', 'Comm survey']);
+		expect(collapsed?.dues[0]).toMatchObject({
+			reminderKind: 'passport',
+			isBanner: true,
+			windowStart: '2025-09-08',
+			windowEnd: '2025-09-10'
+		});
+		expect(collapsed?.dues[1]).toMatchObject({ reminderKind: 'task', isBanner: true });
+		// A banner rides the week row, so neither due leaves a window badge on
+		// the collapsed day and the earlier day in the window stays clean.
+		expect(collapsed?.badges).toEqual([]);
+		// The custom no-class day still reaches G9, and lands as the day status.
+		expect(g9Days.find((day) => day.date === '2025-09-08')).toMatchObject({
+			status: 'no_class',
+			dues: []
+		});
+		// The CLIL class is not a communication lesson: it draws no dues and
+		// keeps teaching through the same Comm-targeted no-class day.
+		expect(days.find((day) => day.date === '2025-09-08' && day.classId === clilId)).toMatchObject({
+			status: 'teaching'
+		});
+		for (const day of days.filter((day) => day.classId === clilId)) {
+			expect(day.dues).toEqual([]);
+		}
+	});
+
 	it('renders g9 mocks as consecutive day chips, never a range (#224)', async () => {
 		const { t, teacherId, semesterId } = await setupTeacherWorld();
 		// A G9 cohort is taught by one class of type `G9`; two of them give the

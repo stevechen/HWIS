@@ -101,6 +101,41 @@ describe('buildCalendarFragments (#224)', () => {
 		expect(fragments).toHaveLength(1);
 	});
 
+	it('banners a G9 class’s passport due in its window’s week (#278)', () => {
+		// The fragment builder is class-agnostic: reach is decided upstream in
+		// `buildTeacherDayRows` (covered in esl/schedule.test.ts), so what this
+		// pins is that a G9 row arriving with a due banners like any other row.
+		const fragments = fragmentsOf([
+			row({
+				date: '2025-09-03',
+				weekday: 'Wednesday',
+				classId: 'class_g9',
+				type: 'G9',
+				cohortGrade: 9,
+				dues: [
+					{
+						title: 'Passport due',
+						type: 'reminder',
+						reminderKind: 'passport',
+						isBanner: true,
+						windowStart: '2025-09-01',
+						windowEnd: '2025-09-05'
+					}
+				]
+			})
+		]);
+
+		expect(fragments).toHaveLength(1);
+		expect(fragments[0].banners).toEqual([
+			{
+				title: 'Passport due',
+				reminderKind: 'passport',
+				windowStart: '2025-09-01',
+				windowEnd: '2025-09-05'
+			}
+		]);
+	});
+
 	it('stacks several of a week’s reminders in window order', () => {
 		const fragments = fragmentsOf([
 			row({ date: '2025-09-01' }),

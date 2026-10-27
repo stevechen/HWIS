@@ -8,6 +8,7 @@ import {
 	defaultTargetForEventType,
 	describeEslEventError,
 	eventReachesClass,
+	isCommunicationLessonClassType,
 	lockedTargetForEventType,
 	lockedTargetForReminderKind
 } from '../shared/esl';
@@ -284,6 +285,33 @@ describe('esl per-type target gating (#212)', () => {
 		// G10 still sees all-target events only otherwise.
 		expect(eventReachesClass('CLIL', 'H10A', 10)).toBe(false);
 		expect(eventReachesClass('all', 'H10A', 10)).toBe(true);
+	});
+
+	it('reaches G9 with the Comm target, because a G9 lesson is a communication lesson', () => {
+		// G7/G8 carry communication work in their `Comm` class; a G9 cohort is
+		// taught by one class whose type is `G9`, and that class is the
+		// communication lesson too (ADR-0030). Before this rule a G9 class
+		// matched neither branch and drew no passport/recording dues at all.
+		expect(eventReachesClass('Comm', 'Comm', 7)).toBe(true);
+		expect(eventReachesClass('Comm', 'Comm', 8)).toBe(true);
+		expect(eventReachesClass('Comm', 'G9', 9)).toBe(true);
+		expect(eventReachesClass('Comm', 'CLIL', 7)).toBe(false);
+		expect(eventReachesClass('Comm', 'CLIL', 8)).toBe(false);
+		expect(eventReachesClass('Comm', 'CLIL', 9)).toBe(false);
+		// Grade 10 sits outside the junior-high targets: only `all`/`H1` reach it.
+		expect(eventReachesClass('Comm', 'H10A', 10)).toBe(false);
+		expect(eventReachesClass('Comm', 'H10B', 10)).toBe(false);
+		// The G9 target keeps reaching G9 alone.
+		expect(eventReachesClass('G9', 'G9', 9)).toBe(true);
+		expect(eventReachesClass('G9', 'Comm', 7)).toBe(false);
+		expect(eventReachesClass('G9', 'CLIL', 8)).toBe(false);
+		// The predicate the matcher reads names the same set, so the rule has
+		// one home rather than a literal pair inside the cascade.
+		expect(isCommunicationLessonClassType('Comm')).toBe(true);
+		expect(isCommunicationLessonClassType('G9')).toBe(true);
+		for (const type of ['CLIL', 'H10A', 'H10B'] as const) {
+			expect(isCommunicationLessonClassType(type)).toBe(false);
+		}
 	});
 
 	it('refuses a quiz-kind reminder outside CLIL and an off outside all', async () => {
@@ -706,6 +734,17 @@ describe('esl/events wizard writes (#217)', () => {
 			);
 			const event = await t.query(api.esl.events.get, { eventId: created });
 			expect(event).toMatchObject({ type: 'reminder', reminderKind: kind, target });
+		}
+	});
+
+	it('targets the communication lessons with every passport-cycle kind', () => {
+		// The three dues are one cycle. The lock table holds their target and the
+		// authoring helper the wizard, the checklist and the client row
+		// descriptors all call resolves through it — one source, no drift
+		// (ADR-0030).
+		for (const kind of ['passport', 'recording', 'passport_check'] as const) {
+			expect(lockedTargetForReminderKind(kind)).toBe('Comm');
+			expect(defaultTargetForEventType('reminder', kind)).toBe('Comm');
 		}
 	});
 

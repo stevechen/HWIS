@@ -9,6 +9,7 @@ import {
 	assertValidEslTitle,
 	checklistCacheYears,
 	checklistWindow,
+	defaultTargetForEventType,
 	deriveSemesterEnd,
 	describeEslEventError,
 	examGroupStarts,
@@ -347,7 +348,7 @@ export const createMissing = mutation({
 						reminderKind: kind,
 						isBanner: true,
 						title: ESL_REMINDER_TITLES[kind],
-						target: 'Comm',
+						target: defaultTargetForEventType('reminder', kind),
 						date
 					});
 				}
