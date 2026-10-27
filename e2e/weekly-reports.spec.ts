@@ -192,6 +192,9 @@ test.describe('Weekly Reports - Create Report @weekly @sequential', () => {
 			e2eTag
 		});
 
+		// Seed completed weeks so the list has content to compare against.
+		await createWeeklyReportTestData(e2eTag);
+
 		testData = true;
 	});
 
@@ -199,7 +202,15 @@ test.describe('Weekly Reports - Create Report @weekly @sequential', () => {
 		if (testData) await cleanupWeeklyReportTestData(e2eTag);
 	});
 
-	test('should create weekly report', async ({ page }) => {
+	test('does not add an in-progress week to the report list', async ({ page }) => {
+		await reportsPage.goto();
+		await reportsPage.waitForReportsToLoad();
+
+		const weekIdsBefore = await page
+			.locator('[data-testid^="weekly-reports.row."]')
+			.evaluateAll((rows) => rows.map((row) => row.getAttribute('data-testid')));
+		expect(weekIdsBefore.length).toBeGreaterThanOrEqual(5);
+
 		// Navigate to evaluations page to create an evaluation
 		const evalPage = await reportsPage.gotoNewEvaluation();
 
@@ -221,16 +232,15 @@ test.describe('Weekly Reports - Create Report @weekly @sequential', () => {
 		await expect(page).toHaveURL('/evaluations');
 		await page.waitForSelector('body.hydrated');
 
-		// Now navigate to weekly reports and verify the report appears
+		// Now navigate to weekly reports: the current (in-progress) week must not
+		// appear, so every previously listed week is unchanged.
 		await reportsPage.goto();
 		await reportsPage.waitForReportsToLoad();
 
-		// Verify the weekly reports page shows data
-		await reportsPage.expectTableVisible();
-
-		// Check that there's at least one report row (not just header)
-		const rowCount = await reportsPage.getRowCount();
-		expect(rowCount).toBeGreaterThanOrEqual(1);
+		const weekIdsAfter = await page
+			.locator('[data-testid^="weekly-reports.row."]')
+			.evaluateAll((rows) => rows.map((row) => row.getAttribute('data-testid')));
+		expect(weekIdsAfter).toEqual(weekIdsBefore);
 	});
 });
 
@@ -266,6 +276,9 @@ test.describe('Weekly Reports - Update Report @weekly @sequential', () => {
 			e2eTag
 		});
 
+		// Seed completed weeks: the list only shows finished weeks now.
+		await createWeeklyReportTestData(e2eTag);
+
 		testData = true;
 
 		// Create first evaluation
@@ -290,7 +303,7 @@ test.describe('Weekly Reports - Update Report @weekly @sequential', () => {
 		if (testData) await cleanupWeeklyReportTestData(e2eTag);
 	});
 
-	test('should update existing weekly report', async ({ page }) => {
+	test('keeps completed reports stable while in-progress evaluations change', async ({ page }) => {
 		// Navigate to weekly reports and get initial report data
 		await reportsPage.goto();
 		await reportsPage.waitForReportsToLoad();
@@ -324,11 +337,15 @@ test.describe('Weekly Reports - Update Report @weekly @sequential', () => {
 		await reportsPage.goto();
 		await reportsPage.waitForReportsToLoad();
 
-		// Open the report again and verify it's still there with data
+		// Open the report again: it is unchanged, and the in-progress evaluations
+		// do not leak into a completed week.
 		await reportsPage.openFirstReport();
 		await reportsPage.expectDialogVisible();
 
 		// Verify dialog header contains "Name" column
 		await reportsPage.expectStudentNameColumnVisible();
+		await expect(
+			page.getByTestId('weekly-reports.dialog').getByText(`UpdateReport_${suffix}`)
+		).toHaveCount(0);
 	});
 });

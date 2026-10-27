@@ -236,6 +236,22 @@ export default defineSchema({
 		watermark: v.number() // max evaluations.timestamp seen at last refresh
 	}).index('by_board', ['board']),
 
+	/**
+	 * Materialized weekly report counts (ADR-0022). One row per evaluation week
+	 * so the admin list reads a handful of small documents instead of scanning
+	 * every evaluation in the window. `weekStart` is Monday 00:00 Asia/Taipei,
+	 * the same value the list has always exposed as `fridayDate`.
+	 *
+	 * A row exists for every week in the materialized span, including weeks with
+	 * zero evaluations, so "row missing" keeps meaning "not computed yet" and
+	 * the read path can fall back to a bounded live count.
+	 */
+	weekly_report_weeks: defineTable({
+		weekStart: v.number(),
+		studentCount: v.number(),
+		generatedAt: v.number()
+	}).index('by_weekStart', ['weekStart']),
+
 	house_events: defineTable({
 		title: v.string(),
 		startDate: v.number(),

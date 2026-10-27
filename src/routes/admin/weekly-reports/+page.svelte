@@ -25,12 +25,9 @@
 	let filterGrade = $state('');
 	let sortColumn = $state<WeeklyReportSortColumn>('name');
 	let sortDirection = $state<WeeklyReportSortDirection>('asc');
-	const weeklyLookbackMs = 52 * 7 * 24 * 60 * 60 * 1000;
-	const sinceTimestamp = Date.now() - weeklyLookbackMs;
-
-	let reportsQuery = useQuery(api.evaluations.getWeeklyReportsList, () => ({
-		sinceTimestamp
-	}));
+	// The server owns the rolling 52-week window and hides the in-progress week
+	// (ADR-0022); the page no longer computes a lookback.
+	let reportsQuery = useQuery(api.evaluations.getWeeklyReportsList, () => ({}));
 
 	const detailData = useQuery(api.evaluations.getWeeklyReportDetail, () =>
 		!selectedReport ? 'skip' : { fridayDate: selectedReport.fridayDate }

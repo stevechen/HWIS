@@ -53,6 +53,7 @@ import type * as testE2E from "../testE2E.js";
 import type * as testLifecycle from "../testLifecycle.js";
 import type * as testSetup from "../testSetup.js";
 import type * as users from "../users.js";
+import type * as weekly_report_snapshots from "../weekly_report_snapshots.js";
 
 import type {
   ApiFromModules,
@@ -106,6 +107,7 @@ declare const fullApi: ApiFromModules<{
   testLifecycle: typeof testLifecycle;
   testSetup: typeof testSetup;
   users: typeof users;
+  weekly_report_snapshots: typeof weekly_report_snapshots;
 }>;
 
 /**

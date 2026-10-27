@@ -11,8 +11,8 @@ import {
 	requireUserProfileForSensitiveOperation,
 	isTestRuntime
 } from './auth';
-import { getWeekNumber, formatDateRange } from './shared/evaluation_utils';
 import { weekStartOf, weekEndOf, isEditable } from './shared/evaluation_week';
+import { listWeeklyReports } from './weekly_report_snapshots';
 import { enrichEvaluations } from './shared/enrichment';
 import { projectWeeklyReport } from './shared/weekly_report_read_model';
 import type { RecentBatch, RecentBatchEvaluation } from './shared/recentActions';
@@ -29,14 +29,16 @@ import {
 	type AuthorizationActor
 } from './shared/authorization';
 
-// Boards read precomputed snapshots (ADR-0020); every evaluation write
-// schedules a debounced snapshot refresh so they update within ~45s. Skipped
-// under unit tests: convex-test's fake scheduler can't execute chained
+// Derived reads (leaderboard boards, ADR-0020; weekly report counts, ADR-0022)
+// are precomputed. Every evaluation write schedules a debounced refresh so both
+// update within ~45s, and their crons/rebuilds heal anything that slips past.
+// Skipped under unit tests: convex-test's fake scheduler can't execute chained
 // scheduled functions (refresh → schedule → refresh) and raises unhandled
 // errors. Real deployments (dev/prod/e2e) always schedule.
-function scheduleSnapshotRefresh(ctx: MutationCtx) {
+function scheduleDerivedRefresh(ctx: MutationCtx) {
 	if (isTestRuntime) return;
 	void ctx.scheduler.runAfter(0, internal.board_snapshots.scheduleRefresh, {});
+	void ctx.scheduler.runAfter(0, internal.weekly_report_snapshots.scheduleRefresh, {});
 }
 
 export const getUserByAuthId = query({
@@ -114,7 +116,7 @@ export const create = mutation({
 			});
 		}
 
-		scheduleSnapshotRefresh(ctx);
+		scheduleDerivedRefresh(ctx);
 		return evaluationIds;
 	}
 });
@@ -155,7 +157,7 @@ export const remove = mutation({
 			timestamp: Date.now(),
 			e2eTag: evaluation.e2eTag
 		});
-		scheduleSnapshotRefresh(ctx);
+		scheduleDerivedRefresh(ctx);
 	}
 });
 
@@ -266,49 +268,13 @@ export const listRecentBatches = query({
 
 export const getWeeklyReportsList = query({
 	args: {
+		// Optional lower bound for tests and tools; the server owns the default
+		// 52-week window (ADR-0022).
 		sinceTimestamp: v.optional(v.number())
 	},
 	handler: async (ctx, args) => {
 		await requireAdminForSensitiveOperation(ctx);
-
-		const defaultLookbackMs = 1000 * 60 * 60 * 24 * 365 * 2; // 2 years
-		const sinceTimestamp =
-			args.sinceTimestamp ?? (isTestRuntime ? undefined : Date.now() - defaultLookbackMs);
-
-		// Read every evaluation in the window. A hard `.take(1000)` here used to
-		// scan ascending and silently drop the newest weeks once a year passed
-		// 1000 rows (missing weeks + undercounted partial weeks). `collect()`
-		// reads the whole range: if the transaction read limit is ever exceeded
-		// it fails loudly instead of returning a truncated list. A `paginate()`
-		// loop is not an option because Convex allows only one paginated query
-		// per function execution.
-		const evaluations = await ctx.db
-			.query('evaluations')
-			.withIndex('by_timestamp', (q) =>
-				sinceTimestamp !== undefined ? q.gte('timestamp', sinceTimestamp) : q
-			)
-			.collect();
-
-		const fridayMap = new Map<number, Set<string>>();
-
-		for (const eval_ of evaluations) {
-			const weekStart = weekStartOf(eval_.timestamp);
-			if (!fridayMap.has(weekStart)) {
-				fridayMap.set(weekStart, new Set());
-			}
-			fridayMap.get(weekStart)!.add(eval_.studentId.toString());
-		}
-
-		const reports = Array.from(fridayMap.entries())
-			.map(([weekStart, studentIds]) => ({
-				weekNumber: getWeekNumber(weekStart),
-				fridayDate: weekStart,
-				formattedDate: formatDateRange(weekStart),
-				studentCount: studentIds.size
-			}))
-			.sort((a, b) => b.fridayDate - a.fridayDate);
-
-		return reports;
+		return await listWeeklyReports(ctx, { sinceTimestamp: args.sinceTimestamp });
 	}
 });
 
@@ -321,14 +287,18 @@ export const getWeeklyReportDetail = query({
 
 		// `fridayDate` is actually the Monday that starts the week (kept for the
 		// established query contract); the week spans Monday 00:00 through Sunday
-		// 23:59:59.999 of the same week.
+		// 23:59:59.999 of the same week, inclusive on both ends. The old bounds
+		// were strict (`gt`/`lt`) and capped at `.take(500)`, dropping an
+		// evaluation at exactly Monday 00:00 and silently truncating busy weeks.
+		// cost: 1 indexed week scan (~1.8k docs at the 10× target) + N per-student
+		// and per-category gets in `projectWeeklyReport` (admin-only path).
 		const startOfWeek = weekStartOf(args.fridayDate);
 		const endOfWeek = weekEndOf(args.fridayDate);
 
 		const evaluations = await ctx.db
 			.query('evaluations')
-			.withIndex('by_timestamp', (q) => q.gt('timestamp', startOfWeek).lt('timestamp', endOfWeek))
-			.take(500);
+			.withIndex('by_timestamp', (q) => q.gte('timestamp', startOfWeek).lte('timestamp', endOfWeek))
+			.collect();
 
 		return await projectWeeklyReport(evaluations, ctx);
 	}
@@ -587,7 +557,7 @@ export const update = mutation({
 			timestamp: Date.now()
 		});
 
-		scheduleSnapshotRefresh(ctx);
+		scheduleDerivedRefresh(ctx);
 		return { success: true };
 	}
 });
@@ -648,7 +618,7 @@ export const updateMany = mutation({
 			});
 		}
 
-		scheduleSnapshotRefresh(ctx);
+		scheduleDerivedRefresh(ctx);
 		return { success: true, count: args.ids.length };
 	}
 });
@@ -695,7 +665,7 @@ export const removeMany = mutation({
 			});
 		}
 
-		scheduleSnapshotRefresh(ctx);
+		scheduleDerivedRefresh(ctx);
 		return { success: true, count: args.ids.length };
 	}
 });

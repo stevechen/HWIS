@@ -4,6 +4,7 @@ import { modules } from './test.setup';
 import { api } from './_generated/api';
 import schema from './schema';
 import { authComponent } from './auth';
+import { weekStartOf } from './shared/evaluation_week';
 
 type BetterAuthUser = {
 	id: string;
@@ -203,6 +204,67 @@ describe('test data lifecycle', () => {
 		expect(snapshot.backups).toHaveLength(0);
 		// The tagged student's class became orphaned; the untagged class survives.
 		expect(snapshot.classes).toHaveLength(1);
+	});
+
+	it('teardownByTag removes weekly report snapshots for the weeks it deletes', async () => {
+		const t = rawConvexTest(schema, modules);
+		const evaluationTimestamp = Date.parse('2026-10-14T02:00:00Z');
+		const touchedWeekStart = weekStartOf(evaluationTimestamp);
+		const untouchedWeekStart = touchedWeekStart - 7 * 24 * 60 * 60 * 1000;
+
+		await t.run(async (ctx) => {
+			const cls = await ctx.db.insert('classes', {
+				grade: 7,
+				class: '1',
+				e2eTag: 'e2e-test_wr'
+			});
+			const teacher = await ctx.db.insert('users', {
+				authId: 'e2e_teacher1',
+				name: 'Teacher',
+				role: 'teacher',
+				status: 'active'
+			});
+			const student = await ctx.db.insert('students', {
+				englishName: 'Tagged Student',
+				chineseName: '標記',
+				studentId: 'WR1',
+				classId: cls,
+				status: 'Enrolled',
+				e2eTag: 'e2e-test_wr'
+			});
+			const category = await ctx.db.insert('point_categories', { name: 'Category' });
+			await ctx.db.insert('evaluations', {
+				studentId: student,
+				teacherId: teacher,
+				value: 1,
+				categoryId: category,
+				details: '',
+				timestamp: evaluationTimestamp,
+				semesterId: 'S1',
+				e2eTag: 'e2e-test_wr'
+			});
+			await ctx.db.insert('weekly_report_weeks', {
+				weekStart: touchedWeekStart,
+				studentCount: 1,
+				generatedAt: 1
+			});
+			await ctx.db.insert('weekly_report_weeks', {
+				weekStart: untouchedWeekStart,
+				studentCount: 5,
+				generatedAt: 1
+			});
+		});
+
+		const result = await t.mutation(api.testLifecycle.teardownByTag, {
+			scope: 'evaluations',
+			e2eTag: 'e2e-test_wr'
+		});
+
+		expect(result.deleted).toMatchObject({ evaluations: 1, weekly_report_weeks: 1 });
+		const weeks = await t.run(async (ctx) =>
+			(await ctx.db.query('weekly_report_weeks').collect()).map((row) => row.weekStart)
+		);
+		expect(weeks).toEqual([untouchedWeekStart]);
 	});
 
 	it('teardownByTag cascades to untagged evaluations and audit logs of tagged students', async () => {

@@ -47,4 +47,26 @@ crons.daily(
 	{ force: true }
 );
 
+// Weekly report counts (ADR-0022). The event-driven refresh skips itself when
+// the audit trail shows nothing newer than the stored rows, so this cron runs
+// unconditionally: it refreshes the recent three weeks (healing writes that
+// bypass the app inside that window, such as cascades or restores) and
+// bootstraps a full chunked backfill when any completed week is missing. Weeks
+// outside the recent window heal on the nightly rebuild below.
+crons.interval(
+	'weekly-report-snapshot-refresh',
+	{ minutes: 30 },
+	internal.weekly_report_snapshots.cronRefresh,
+	{}
+);
+
+// Nightly self-heal for the rolling 52-week window. Chained in bounded slices
+// so a single execution never approaches the document-read ceiling.
+crons.daily(
+	'weekly-report-snapshot-rebuild',
+	{ hourUTC: 21, minuteUTC: 45 },
+	internal.weekly_report_snapshots.startRebuild,
+	{}
+);
+
 export default crons;

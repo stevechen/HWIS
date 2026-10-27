@@ -1,6 +1,8 @@
 import { mutation } from '../_generated/server';
 import { v } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
+import { weekStartOf, TAIWAN_OFFSET_MS } from '../shared/evaluation_week';
+import { recomputeWeekSnapshot } from '../weekly_report_snapshots';
 
 // Weekly Reports Test Data Generator
 // Creates realistic 5 weeks of evaluation data for testing
@@ -23,29 +25,28 @@ export const createWeeklyReportTestData = mutation({
 
 		// Week definitions (5 consecutive recent weeks, relative to now)
 		const msPerDay = 24 * 60 * 60 * 1000;
-		const today = new Date();
-		const todayUtc = new Date(
-			Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
-		);
-		const dayOfWeek = todayUtc.getUTCDay(); // 0=Sun, 5=Fri
-		const daysSinceFriday = dayOfWeek >= 5 ? dayOfWeek - 5 : dayOfWeek + 2;
-		const lastFriday = new Date(todayUtc.getTime() - daysSinceFriday * msPerDay);
+		// The list only shows completed weeks (ADR-0022), so seed five weeks
+		// ending with the last completed one: Monday 00:00 Taipei of the current
+		// week minus one week.
+		const currentWeekStart = weekStartOf(Date.now());
+		const lastCompletedWeekStart = currentWeekStart - 7 * msPerDay;
 
 		const intensityPattern = ['light', 'moderate', 'heavy', 'moderate', 'light'] as const;
 		const evaluationCounts = [12, 18, 25, 20, 15];
 		const studentCounts = [3, 4, 5, 4, 3];
 
 		const weeks = Array.from({ length: 5 }, (_, index) => {
-			const fridayDate = new Date(lastFriday.getTime() - index * 7 * msPerDay);
-			const mondayDate = new Date(fridayDate.getTime() - 4 * msPerDay);
-			const start = mondayDate.toISOString().slice(0, 10);
-			const end = fridayDate.toISOString().slice(0, 10);
+			const weekStart = lastCompletedWeekStart - index * 7 * msPerDay;
+			const friday = weekStart + 4 * msPerDay;
+			const start = new Date(weekStart + TAIWAN_OFFSET_MS).toISOString().slice(0, 10);
+			const end = new Date(friday + TAIWAN_OFFSET_MS).toISOString().slice(0, 10);
 
 			return {
 				weekNumber: index + 1,
+				weekStart,
 				start,
 				end,
-				friday: fridayDate.getTime(),
+				friday,
 				intensity: intensityPattern[index],
 				evaluationCount: evaluationCounts[index],
 				studentCount: studentCounts[index]
@@ -232,10 +233,9 @@ export const createWeeklyReportTestData = mutation({
 					pointValue = Math.random() < 0.5 ? -1 : -2;
 				}
 
-				// Generate timestamp within the week (use local timezone to match weekStartOf)
-				const weekStart = new Date(week.start + 'T00:00:00').getTime();
-				const weekEnd = new Date(week.end + 'T23:59:59').getTime();
-				const timestamp = weekStart + Math.random() * (weekEnd - weekStart);
+				// Spread the evaluation across the working week (Monday 06:00 through
+				// Friday) in absolute Taipei-week terms, never host-local parsing.
+				const timestamp = week.weekStart + 6 * 60 * 60 * 1000 + Math.random() * (4 * msPerDay);
 
 				// Create evaluation
 				const evaluationId = await ctx.db.insert('evaluations', {
@@ -263,6 +263,12 @@ export const createWeeklyReportTestData = mutation({
 
 				evaluationIndex++;
 			}
+		}
+
+		// Direct inserts bypass the evaluation write seam, so materialize the
+		// weekly counts for the seeded weeks explicitly.
+		for (const week of weeks) {
+			await recomputeWeekSnapshot(ctx, week.weekStart);
 		}
 
 		return {

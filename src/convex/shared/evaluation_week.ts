@@ -16,7 +16,7 @@ export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Asia/Taipei is a fixed UTC+8 with no DST, so shifting by this constant and
 // reading the shifted instant's UTC calendar is exactly Taiwan wall-clock time.
-const TAIWAN_OFFSET_MS = 8 * 60 * 60 * 1000;
+export const TAIWAN_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 // Monday 00:00 (Taiwan time) of the week containing `timestamp`, shifted by
 // `dayOffset` days (0 = this week's Monday, 7 = next week's Monday, ...).

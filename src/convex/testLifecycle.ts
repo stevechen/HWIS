@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { authComponent, requireAdminForSensitiveOperation } from './auth';
+import { weekStartOf } from './shared/evaluation_week';
 
 // Core infrastructure users that are shared across parallel tests and have
 // valid storageState; they must never be deleted by any teardown path.
@@ -66,23 +67,50 @@ async function deleteStudentsByTag(teardown: TeardownContext) {
 
 async function deleteEvaluationsByTag(teardown: TeardownContext) {
 	const ids = new Set<Id<'evaluations'>>();
+	const timestamps: number[] = [];
 	const tagged = await teardown.ctx.db
 		.query('evaluations')
 		.withIndex('by_e2eTag', (q) => q.eq('e2eTag', teardown.e2eTag))
 		.collect();
-	for (const evaluation of tagged) ids.add(evaluation._id);
+	for (const evaluation of tagged) {
+		ids.add(evaluation._id);
+		timestamps.push(evaluation.timestamp);
+	}
 	for (const studentId of teardown.studentIds) {
 		const dependents = await teardown.ctx.db
 			.query('evaluations')
 			.withIndex('by_studentId', (q) => q.eq('studentId', studentId))
 			.collect();
-		for (const evaluation of dependents) ids.add(evaluation._id);
+		for (const evaluation of dependents) {
+			ids.add(evaluation._id);
+			timestamps.push(evaluation.timestamp);
+		}
 	}
 	for (const id of ids) {
 		await teardown.ctx.db.delete(id);
 	}
 	if (ids.size > 0) bump(teardown, 'evaluations', ids.size);
 	teardown.evaluationIds.push(...ids);
+
+	// Weekly report snapshots (ADR-0022) are derived from evaluations, so drop
+	// the rows for every week these deletions touched. Deleting the row (rather
+	// than adjusting its count) keeps "row missing = not computed yet" honest:
+	// the read path recounts the newest few weeks live and the nightly rebuild
+	// restores the rest.
+	const weekStarts = new Set(timestamps.map((timestamp) => weekStartOf(timestamp)));
+	let deletedSnapshots = 0;
+	for (const weekStart of weekStarts) {
+		const rows = await teardown.ctx.db
+			.query('weekly_report_weeks')
+			.withIndex('by_weekStart', (q) => q.eq('weekStart', weekStart))
+			.collect();
+		for (const row of rows) {
+			await teardown.ctx.db.delete(row._id);
+			deletedSnapshots++;
+		}
+	}
+	if (deletedSnapshots > 0) bump(teardown, 'weekly_report_weeks', deletedSnapshots);
+
 	return [...ids];
 }
 
