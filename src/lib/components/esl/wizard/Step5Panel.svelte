@@ -121,9 +121,11 @@
 	let customType = $state<'meeting' | 'banner'>('meeting');
 	let customDate = $state('');
 	let customEndDate = $state('');
-	let customTarget = $state<'all' | 'CLIL' | 'Comm' | 'G9' | 'H1'>('all');
+	let customTarget = $state<'all' | 'CLIL' | 'Comm' | 'G7' | 'G8' | 'G9' | 'H1'>('all');
 	let customSubType = $state<'partial' | 'no_class' | 'task'>('task');
 	let customNote = $state('');
+	let customStartPeriod = $state<number | undefined>(undefined);
+	let customEndPeriod = $state<number | undefined>(undefined);
 	let customBannerText = $state('');
 	let editPopover: { event: PreviewRow | null; x: number; y: number } = $state({
 		event: null,
@@ -133,6 +135,8 @@
 	let editDate = $state('');
 	let editEndDate = $state('');
 	let editNote = $state('');
+	let editStartPeriod = $state('');
+	let editEndPeriod = $state('');
 	let saveStatus: 'idle' | 'saving' | 'success' | 'error' = $state('idle');
 	let saveError = $state<string | null>(null);
 
@@ -322,7 +326,16 @@
 	});
 
 	// Custom event ID counter
-	let customIdCounter = $state(0);
+	let customIdCounter = $state(
+		wizardState.step5.customEvents.length > 0
+			? Math.max(
+					...wizardState.step5.customEvents.map((c) => {
+						const m = c.id.match(/custom-(\d+)/);
+						return m ? Number(m[1]) : 0;
+					})
+				) + 1
+			: 1
+	);
 
 	function openCustomModal(type: 'meeting' | 'banner' = 'meeting') {
 		customType = type;
@@ -331,6 +344,8 @@
 		customTarget = 'all';
 		customSubType = 'task';
 		customNote = '';
+		customStartPeriod = undefined;
+		customEndPeriod = undefined;
 		customBannerText = '';
 		showCustomModal = true;
 	}
@@ -342,7 +357,14 @@
 	function addCustomEvent() {
 		if (customType === 'meeting') {
 			if (!customDate || customNote.trim() === '') return;
-			const id = `custom-${++customIdCounter}`;
+			const maxId = Math.max(
+				0,
+				...wizardState.step5.customEvents.map((c) => {
+					const m = c.id.match(/custom-(\d+)/);
+					return m ? Number(m[1]) : 0;
+				})
+			);
+			const id = `custom-${maxId + 1}`;
 			update((draft) => {
 				draft.step5.customEvents.push({
 					id,
@@ -350,12 +372,26 @@
 					date: customDate,
 					target: customTarget,
 					subType: customSubType,
-					note: customNote || undefined
+					note: customNote || undefined,
+					...(customSubType === 'partial'
+						? {
+								startPeriod:
+									customStartPeriod === undefined ? undefined : Number(customStartPeriod),
+								endPeriod: customEndPeriod === undefined ? undefined : Number(customEndPeriod)
+							}
+						: {})
 				});
 			});
 		} else {
 			if (!customDate || !customEndDate || !customBannerText) return;
-			const id = `custom-${++customIdCounter}`;
+			const maxId = Math.max(
+				0,
+				...wizardState.step5.customEvents.map((c) => {
+					const m = c.id.match(/custom-(\d+)/);
+					return m ? Number(m[1]) : 0;
+				})
+			);
+			const id = `custom-${maxId + 1}`;
 			update((draft) => {
 				draft.step5.customEvents.push({
 					id,
@@ -382,7 +418,7 @@
 	function openEditPopover(event: PreviewRow, clientX: number, clientY: number) {
 		if (!event.editable) return;
 		const popoverWidth = 300;
-		const popoverHeight = 280;
+		const popoverHeight = 380;
 		const vw = typeof window !== 'undefined' ? window.innerWidth : clientX + popoverWidth;
 		const vh = typeof window !== 'undefined' ? window.innerHeight : clientY + popoverHeight;
 		const x = Math.max(8, Math.min(clientX, vw - popoverWidth - 8));
@@ -391,6 +427,8 @@
 		editDate = event.date;
 		editEndDate = event.endDate ?? '';
 		editNote = event.note ?? '';
+		editStartPeriod = event.startPeriod !== undefined ? String(event.startPeriod) : '';
+		editEndPeriod = event.endPeriod !== undefined ? String(event.endPeriod) : '';
 	}
 
 	function closeEditPopover() {
@@ -406,7 +444,9 @@
 				eventKey: key,
 				date: editDate || undefined,
 				endDate: editEndDate || undefined,
-				note: editNote || undefined
+				note: editNote || undefined,
+				startPeriod: editStartPeriod === '' ? undefined : Number(editStartPeriod),
+				endPeriod: editEndPeriod === '' ? undefined : Number(editEndPeriod)
 			};
 			if (existingIndex >= 0) {
 				draft.step5.eventEdits[existingIndex] = edit;
@@ -926,6 +966,8 @@
 								<option value="all">All grades</option>
 								<option value="CLIL">CLIL</option>
 								<option value="Comm">Communication (G7–G9)</option>
+								<option value="G7">Grade 7</option>
+								<option value="G8">Grade 8</option>
 								<option value="G9">Grade 9</option>
 								<option value="H1">Grade 10</option>
 							</select>
@@ -955,6 +997,38 @@
 								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 								placeholder="Required detail text"></textarea>
 						</div>
+						{#if customSubType === 'partial'}
+							<div class="grid grid-cols-2 gap-3">
+								<div>
+									<label
+										for="custom-start-period"
+										class="mb-1 block text-sm font-medium text-gray-700">Start period</label
+									>
+									<input
+										id="custom-start-period"
+										type="number"
+										min="1"
+										max="10"
+										bind:value={customStartPeriod}
+										class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+									/>
+								</div>
+								<div>
+									<label
+										for="custom-end-period"
+										class="mb-1 block text-sm font-medium text-gray-700">End period</label
+									>
+									<input
+										id="custom-end-period"
+										type="number"
+										min="1"
+										max="10"
+										bind:value={customEndPeriod}
+										class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+									/>
+								</div>
+							</div>
+						{/if}
 					</div>
 				{:else}
 					<!-- Banner fields: text doubles as the note (spec #215 story 28) -->
@@ -972,6 +1046,8 @@
 								<option value="all">All grades</option>
 								<option value="CLIL">CLIL</option>
 								<option value="Comm">Communication (G7–G9)</option>
+								<option value="G7">Grade 7</option>
+								<option value="G8">Grade 8</option>
 								<option value="G9">Grade 9</option>
 								<option value="H1">Grade 10</option>
 							</select>
@@ -1087,6 +1163,36 @@
 							rows={2}
 							class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 							placeholder="Optional detail"></textarea>
+					</div>
+				{/if}
+				{#if editPopover.event?.type === 'partial'}
+					<div class="grid grid-cols-2 gap-3">
+						<div>
+							<label for="edit-start-period" class="mb-1 block text-xs font-medium text-gray-600"
+								>Start period</label
+							>
+							<input
+								id="edit-start-period"
+								type="number"
+								min="1"
+								max="10"
+								bind:value={editStartPeriod}
+								class="w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-emerald-500"
+							/>
+						</div>
+						<div>
+							<label for="edit-end-period" class="mb-1 block text-xs font-medium text-gray-600"
+								>End period</label
+							>
+							<input
+								id="edit-end-period"
+								type="number"
+								min="1"
+								max="10"
+								bind:value={editEndPeriod}
+								class="w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-emerald-500"
+							/>
+						</div>
 					</div>
 				{/if}
 				<div class="flex justify-end gap-2 pt-1">

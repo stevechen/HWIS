@@ -49,6 +49,8 @@ export interface PreviewRow {
 	editable: boolean;
 	examGroup?: string;
 	customId?: string;
+	startPeriod?: number;
+	endPeriod?: number;
 }
 
 export interface SaveExamRange {
@@ -114,6 +116,8 @@ interface RowDescriptor {
 	editable: boolean;
 	examGroup?: string;
 	customId?: string;
+	startPeriod?: number;
+	endPeriod?: number;
 }
 
 function dayDiffDays(from: string, to: string): number {
@@ -358,7 +362,13 @@ function customDescriptors(customs: WizardCustomEvent[]): RowDescriptor[] {
 			target: custom.target ?? 'all',
 			source: 'step5' as const,
 			editable: true,
-			customId: custom.id
+			customId: custom.id,
+			...(custom.subType === 'partial'
+				? {
+						startPeriod: custom.startPeriod,
+						endPeriod: custom.endPeriod
+					}
+				: {})
 		};
 	});
 }
@@ -372,7 +382,13 @@ function applyEdits(
 	return rows.map((row) => {
 		const edit = byKey.get(row.key);
 		if (edit === undefined) return row;
-		if (edit.date === undefined && edit.endDate === undefined && edit.note === undefined) {
+		if (
+			edit.date === undefined &&
+			edit.endDate === undefined &&
+			edit.note === undefined &&
+			edit.startPeriod === undefined &&
+			edit.endPeriod === undefined
+		) {
 			return row;
 		}
 		let dates = row.dates;
@@ -397,7 +413,9 @@ function applyEdits(
 		return {
 			...row,
 			dates,
-			note: edit.note ?? row.note
+			note: edit.note ?? row.note,
+			...(edit.startPeriod !== undefined ? { startPeriod: edit.startPeriod } : {}),
+			...(edit.endPeriod !== undefined ? { endPeriod: edit.endPeriod } : {})
 		};
 	});
 }
@@ -445,7 +463,9 @@ export function buildPreviewRows(state: WizardState): PreviewRow[] {
 		source: row.source,
 		editable: row.editable,
 		...(row.examGroup === undefined ? {} : { examGroup: row.examGroup }),
-		...(row.customId === undefined ? {} : { customId: row.customId })
+		...(row.customId === undefined ? {} : { customId: row.customId }),
+		...(row.startPeriod === undefined ? {} : { startPeriod: row.startPeriod }),
+		...(row.endPeriod === undefined ? {} : { endPeriod: row.endPeriod })
 	}));
 }
 
@@ -471,14 +491,28 @@ export function buildSavePayload(
 } {
 	const edited = (
 		key: string,
-		fallback: { date?: string; endDate?: string; note?: string }
-	): { date?: string; endDate?: string; note?: string } => {
+		fallback: {
+			date?: string;
+			endDate?: string;
+			note?: string;
+			startPeriod?: number;
+			endPeriod?: number;
+		}
+	): {
+		date?: string;
+		endDate?: string;
+		note?: string;
+		startPeriod?: number;
+		endPeriod?: number;
+	} => {
 		const edit = state.step5.eventEdits.find((e) => e.eventKey === key);
 		if (edit === undefined) return fallback;
 		return {
 			date: edit.date ?? fallback.date,
 			endDate: edit.endDate ?? fallback.endDate,
-			note: edit.note ?? fallback.note
+			note: edit.note ?? fallback.note,
+			startPeriod: edit.startPeriod ?? fallback.startPeriod,
+			endPeriod: edit.endPeriod ?? fallback.endPeriod
 		};
 	};
 
@@ -562,7 +596,9 @@ export function buildSavePayload(
 		if (
 			override.date === undefined &&
 			override.endDate === undefined &&
-			override.note === undefined
+			override.note === undefined &&
+			override.startPeriod === undefined &&
+			override.endPeriod === undefined
 		) {
 			return { ...custom };
 		}
@@ -577,6 +613,8 @@ export function buildSavePayload(
 			if (custom.type === 'banner') next.bannerText = override.note;
 			else next.note = override.note;
 		}
+		if (override.startPeriod !== undefined) next.startPeriod = override.startPeriod;
+		if (override.endPeriod !== undefined) next.endPeriod = override.endPeriod;
 		return next;
 	});
 

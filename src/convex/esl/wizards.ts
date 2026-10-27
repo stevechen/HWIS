@@ -70,6 +70,8 @@ const customValidator = v.object({
 	note: v.optional(v.string()),
 	startDate: v.optional(v.string()),
 	endDate: v.optional(v.string()),
+	startPeriod: v.optional(v.number()),
+	endPeriod: v.optional(v.number()),
 	bannerText: v.optional(v.string())
 });
 
@@ -82,6 +84,8 @@ export type WizardSaveCustom = {
 	note?: string;
 	startDate?: string;
 	endDate?: string;
+	startPeriod?: number;
+	endPeriod?: number;
 	bannerText?: string;
 };
 
@@ -565,10 +569,12 @@ function customWrite(custom: WizardSaveCustom): EventWrite {
 	}
 	return {
 		type: custom.subType ?? 'no_class',
-		title: ESL_EVENT_TITLES.no_class,
+		title: custom.subType === 'partial' ? ESL_EVENT_TITLES.partial : ESL_EVENT_TITLES.no_class,
 		target: custom.target ?? 'all',
 		date: custom.date,
-		note: text
+		note: text,
+		...(custom.startPeriod !== undefined ? { startPeriod: custom.startPeriod } : {}),
+		...(custom.endPeriod !== undefined ? { endPeriod: custom.endPeriod } : {})
 	};
 }
 

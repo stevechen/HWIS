@@ -164,6 +164,9 @@ export interface WizardCustomEvent {
 	target?: 'all' | 'CLIL' | 'Comm' | 'G7' | 'G8' | 'G9' | 'H1';
 	subType?: 'partial' | 'no_class' | 'task';
 	note?: string;
+	// Period bounds for partial-day events
+	startPeriod?: number;
+	endPeriod?: number;
 	// Banner-specific fields
 	startDate?: string;
 	endDate?: string;
@@ -175,6 +178,8 @@ export interface WizardEventEdit {
 	date?: string;
 	note?: string;
 	endDate?: string; // for banner range
+	startPeriod?: number; // for partial events
+	endPeriod?: number;
 }
 
 export interface WizardStep5State {
@@ -502,7 +507,9 @@ function parseStep5(raw: unknown, seeded: WizardStep5State): WizardStep5State {
 								['partial', 'no_class', 'task'].includes(event.subType)
 									? (event.subType as 'partial' | 'no_class' | 'task')
 									: undefined,
-							note: typeof event.note === 'string' ? event.note : undefined
+							note: typeof event.note === 'string' ? event.note : undefined,
+							startPeriod: typeof event.startPeriod === 'number' ? event.startPeriod : undefined,
+							endPeriod: typeof event.endPeriod === 'number' ? event.endPeriod : undefined
 						}
 					];
 				} else {

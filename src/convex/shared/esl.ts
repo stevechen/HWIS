@@ -2060,8 +2060,11 @@ function isEslActiveDay(args: {
 	if (!meeting) return false;
 	const partial = sameDay.find((event) => event.type === 'partial');
 	if (partial) {
-		if (partial.startPeriod !== undefined && args.period < partial.startPeriod) return false;
-		if (partial.endPeriod !== undefined && args.period > partial.endPeriod) return false;
+		if (partial.startPeriod !== undefined && partial.endPeriod !== undefined) {
+			if (args.period >= partial.startPeriod && args.period <= partial.endPeriod) return false;
+		} else if (partial.startPeriod !== undefined && args.period >= partial.startPeriod)
+			return false;
+		else if (partial.endPeriod !== undefined && args.period <= partial.endPeriod) return false;
 	}
 	return true;
 }
@@ -2200,14 +2203,12 @@ function resolveEslDayStatus(args: {
 	}
 
 	const partial = dayEvents.find((event) => event.type === 'partial');
-	const outOfWindow =
+	const inOffWindow =
 		partial &&
-		((partial.startPeriod !== undefined && args.meeting.period < partial.startPeriod) ||
-			(partial.endPeriod !== undefined && args.meeting.period > partial.endPeriod));
+		(partial.startPeriod === undefined || args.meeting.period >= partial.startPeriod) &&
+		(partial.endPeriod === undefined || args.meeting.period <= partial.endPeriod);
 
-	if (outOfWindow && partial) {
-		// Out-of-window periods on a partial day show "No-class" chip
-		// but the description should show the partial's note (e.g., "BBQ from 12:00")
+	if (inOffWindow && partial) {
 		const note = (partial.note ?? '').trim();
 		return {
 			status: 'no_class',
