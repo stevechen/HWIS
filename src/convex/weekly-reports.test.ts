@@ -373,4 +373,65 @@ describe('Weekly Reports', () => {
 		const weekNum = getWeekNumber(jan15);
 		expect(weekNum).toBe(3);
 	});
+
+	// Regression: a 1000-row ascending cap dropped every week after the 1000th
+	// evaluation, so the newest weeks were missing from the list and the week
+	// straddling the cap was undercounted.
+	test('getWeeklyReportsList keeps the newest weeks when the window exceeds 1000 evaluations', async () => {
+		const t = await convexTest(schema, modules);
+
+		const { studentId } = await createStudentWithClass(t, {
+			englishName: 'John Doe',
+			chineseName: '張三',
+			studentId: 'STU001',
+			grade: 10,
+			classNum: '1',
+			status: 'Enrolled'
+		});
+
+		const teacherId = await t.run(async (ctx) =>
+			ctx.db.insert('users', {
+				authId: 'test-auth-id',
+				name: 'Test Teacher',
+				role: 'teacher',
+				status: 'active'
+			})
+		);
+
+		const categoryId = await t.mutation(api.categories.create, { name: 'Creativity' });
+
+		const oldWeek = weekStartOf(new Date('2026-09-02T10:00:00Z').getTime());
+		const newWeek = weekStartOf(new Date('2026-10-21T10:00:00Z').getTime());
+
+		await t.run(async (ctx) => {
+			for (let i = 0; i < 1000; i++) {
+				await ctx.db.insert('evaluations', {
+					studentId,
+					teacherId,
+					value: 1,
+					categoryId,
+					details: `old ${i}`,
+					timestamp: oldWeek + i * 1000,
+					semesterId: '2026-H2'
+				});
+			}
+			await ctx.db.insert('evaluations', {
+				studentId,
+				teacherId,
+				value: 1,
+				categoryId,
+				details: 'newest',
+				timestamp: newWeek + 1000,
+				semesterId: '2026-H2'
+			});
+		});
+
+		const reports = await t.run(async (ctx) =>
+			ctx.runQuery(api.evaluations.getWeeklyReportsList, {
+				sinceTimestamp: newWeek - 52 * 7 * 24 * 60 * 60 * 1000
+			})
+		);
+
+		expect(reports.map((r) => r.fridayDate)).toContain(newWeek);
+	});
 });

@@ -275,12 +275,19 @@ export const getWeeklyReportsList = query({
 		const sinceTimestamp =
 			args.sinceTimestamp ?? (isTestRuntime ? undefined : Date.now() - defaultLookbackMs);
 
+		// Read every evaluation in the window. A hard `.take(1000)` here used to
+		// scan ascending and silently drop the newest weeks once a year passed
+		// 1000 rows (missing weeks + undercounted partial weeks). `collect()`
+		// reads the whole range: if the transaction read limit is ever exceeded
+		// it fails loudly instead of returning a truncated list. A `paginate()`
+		// loop is not an option because Convex allows only one paginated query
+		// per function execution.
 		const evaluations = await ctx.db
 			.query('evaluations')
 			.withIndex('by_timestamp', (q) =>
 				sinceTimestamp !== undefined ? q.gte('timestamp', sinceTimestamp) : q
 			)
-			.take(1000);
+			.collect();
 
 		const fridayMap = new Map<number, Set<string>>();
 
