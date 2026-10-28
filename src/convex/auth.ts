@@ -388,6 +388,11 @@ export const requireAdminForSensitiveOperation = async (ctx: AuthCtx, testToken?
 	return await requireAdminRole(ctx, effectiveTestToken);
 };
 
+export const requireActiveStaffForSensitiveOperation = async (ctx: AuthCtx, testToken?: string) => {
+	const effectiveTestToken = resolveEffectiveTestToken(testToken);
+	return await requireActiveStaff(ctx, effectiveTestToken);
+};
+
 export const requireSuperForSensitiveOperation = async (ctx: AuthCtx, testToken?: string) => {
 	const effectiveTestToken = resolveEffectiveTestToken(testToken);
 	return await requireSuperRole(ctx, effectiveTestToken);

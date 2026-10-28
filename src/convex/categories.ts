@@ -1,11 +1,11 @@
 import { query, mutation } from './_generated/server';
 import { v } from 'convex/values';
-import { requireAdminForSensitiveOperation, requireActiveStaff } from './auth';
+import { requireAdminForSensitiveOperation, requireActiveStaffForSensitiveOperation } from './auth';
 
 export const list = query({
 	args: {},
 	handler: async (ctx) => {
-		await requireActiveStaff(ctx);
+		await requireActiveStaffForSensitiveOperation(ctx);
 		return await ctx.db.query('point_categories').take(20);
 	}
 });
@@ -15,7 +15,7 @@ export const getEvaluationCount = query({
 		categoryId: v.id('point_categories')
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx);
+		await requireActiveStaffForSensitiveOperation(ctx);
 		const matches = await ctx.db
 			.query('evaluations')
 			.withIndex('by_categoryId', (q) => q.eq('categoryId', args.categoryId))

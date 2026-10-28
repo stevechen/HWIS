@@ -9,7 +9,8 @@ import {
 	isStudentEmail,
 	isTestRuntime,
 	isProdDeployment,
-	getEnvValue
+	getEnvValue,
+	requireActiveStaffForSensitiveOperation
 } from './auth';
 import { hasApplicationAccess } from './shared/authorization';
 import { resolveStudentFromEmail } from './shared/student';
@@ -65,7 +66,7 @@ export const list = query({
 		_trigger: v.optional(v.number())
 	},
 	handler: async (ctx, args) => {
-		await requireAdminForSensitiveOperation(ctx);
+		await requireActiveStaffForSensitiveOperation(ctx);
 
 		let students;
 		let statusIndexUsed = false;
