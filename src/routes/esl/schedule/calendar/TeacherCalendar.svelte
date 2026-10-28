@@ -410,17 +410,6 @@
 														{label(card.status, card.cause)}
 													</span>
 												{/if}
-												{#if card.isToday}
-													<span
-														class="rounded-full bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white"
-														>● Today</span
-													>
-												{:else if nextDate !== null && card.date === nextDate}
-													<span
-														class="rounded bg-sky-600 px-1.5 py-0.5 text-xs font-bold text-white"
-														>Next →</span
-													>
-												{/if}
 											</div>
 											{#if card.cause && card.status !== 'off' && card.status !== 'exam' && card.status !== 'oral'}
 												<span
@@ -430,13 +419,24 @@
 													{card.cause}
 												</span>
 											{/if}
-											{#if showMonth(card.date)}
+											{#if card.isToday}
+												<span
+													class="shrink-0 rounded-full bg-gradient-to-r from-amber-400 via-rose-500 to-fuchsia-600 px-2 py-0.5 text-sm font-bold text-white"
+												>
+													{formatDay(card.date, true)}
+												</span>
+											{:else if nextDate !== null && card.date === nextDate}
+												<span class="rounded bg-sky-600 px-1.5 py-0.5 text-xs font-bold text-white"
+													>Next →</span
+												>
+											{/if}
+											{#if showMonth(card.date) && !card.isToday}
 												<span
 													class="shrink-0 rounded-full bg-stone-500 px-1.5 py-0.5 text-sm font-semibold text-white"
 												>
 													{formatDay(card.date, true)}
 												</span>
-											{:else}
+											{:else if !card.isToday}
 												<span class="shrink-0 text-sm font-semibold text-stone-900">
 													{formatDay(card.date, false)}
 												</span>
