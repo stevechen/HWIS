@@ -250,3 +250,43 @@ describe('buildSavePayload', () => {
 		expect(payload.ranges.q1).toEqual(['2026-11-04', '2026-11-05', '2026-11-06']);
 	});
 });
+
+describe('buildSavePayload #290 classPeriods', () => {
+	it('carries edit classPeriods into customs payload', () => {
+		const state = s1State();
+		state.step5.customEvents = [
+			{
+				id: 'c1',
+				type: 'meeting',
+				date: '2026-10-05',
+				target: 'all',
+				subType: 'partial',
+				note: 'N',
+				startPeriod: 2,
+				endPeriod: 4,
+				classPeriods: [2, 3, 4]
+			}
+		];
+		state.step5.eventEdits = [{ eventKey: 'custom:c1', classPeriods: [1, 2, 3] }];
+		const payload = buildSavePayload(state);
+		expect(payload.customs[0].classPeriods).toEqual([1, 2, 3]);
+	});
+
+	it('preserves original classPeriods when edit has none', () => {
+		const state = s1State();
+		state.step5.customEvents = [
+			{
+				id: 'c1',
+				type: 'meeting',
+				date: '2026-10-05',
+				target: 'all',
+				subType: 'partial',
+				note: 'N',
+				classPeriods: [3, 4]
+			}
+		];
+		state.step5.eventEdits = [];
+		const payload = buildSavePayload(state);
+		expect(payload.customs[0].classPeriods).toEqual([3, 4]);
+	});
+});

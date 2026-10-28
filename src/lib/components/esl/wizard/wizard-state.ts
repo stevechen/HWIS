@@ -512,9 +512,9 @@ function parseStep5(raw: unknown, seeded: WizardStep5State): WizardStep5State {
 							note: typeof event.note === 'string' ? event.note : undefined,
 							startPeriod: typeof event.startPeriod === 'number' ? event.startPeriod : undefined,
 							endPeriod: typeof event.endPeriod === 'number' ? event.endPeriod : undefined,
-						classPeriods: Array.isArray(event.classPeriods)
-							? event.classPeriods.filter((p): p is number => typeof p === 'number')
-							: undefined
+							classPeriods: Array.isArray(event.classPeriods)
+								? event.classPeriods.filter((p): p is number => typeof p === 'number')
+								: undefined
 						}
 					];
 				} else {

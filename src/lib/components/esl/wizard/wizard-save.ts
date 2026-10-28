@@ -497,6 +497,7 @@ export function buildSavePayload(
 			note?: string;
 			startPeriod?: number;
 			endPeriod?: number;
+			classPeriods?: number[];
 		}
 	): {
 		date?: string;
@@ -504,6 +505,7 @@ export function buildSavePayload(
 		note?: string;
 		startPeriod?: number;
 		endPeriod?: number;
+		classPeriods?: number[];
 	} => {
 		const edit = state.step5.eventEdits.find((e) => e.eventKey === key);
 		if (edit === undefined) return fallback;
@@ -512,7 +514,8 @@ export function buildSavePayload(
 			endDate: edit.endDate ?? fallback.endDate,
 			note: edit.note ?? fallback.note,
 			startPeriod: edit.startPeriod ?? fallback.startPeriod,
-			endPeriod: edit.endPeriod ?? fallback.endPeriod
+			endPeriod: edit.endPeriod ?? fallback.endPeriod,
+			classPeriods: edit.classPeriods ?? fallback.classPeriods
 		};
 	};
 
@@ -598,7 +601,8 @@ export function buildSavePayload(
 			override.endDate === undefined &&
 			override.note === undefined &&
 			override.startPeriod === undefined &&
-			override.endPeriod === undefined
+			override.endPeriod === undefined &&
+			override.classPeriods === undefined
 		) {
 			return { ...custom };
 		}
@@ -615,6 +619,15 @@ export function buildSavePayload(
 		}
 		if (override.startPeriod !== undefined) next.startPeriod = override.startPeriod;
 		if (override.endPeriod !== undefined) next.endPeriod = override.endPeriod;
+		// `classPeriods` is a meeting-kind flag (per-day periods), not part of
+		// banner text. Edits on a banner row carry it through only when the
+		// edit explicitly sets one — otherwise the overlay keeps the stored
+		// value and the wizard-state default so preview stays stable.
+		if (custom.type === 'banner') {
+			if (override.classPeriods !== undefined) next.classPeriods = undefined;
+		} else {
+			next.classPeriods = override.classPeriods ?? custom.classPeriods;
+		}
 		return next;
 	});
 

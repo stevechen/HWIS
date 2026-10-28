@@ -126,6 +126,7 @@
 	let customNote = $state('');
 	let customStartPeriod = $state<number | undefined>(undefined);
 	let customEndPeriod = $state<number | undefined>(undefined);
+	let customClassPeriods = $state<number[]>([]);
 	let customBannerText = $state('');
 	let editPopover: { event: PreviewRow | null; x: number; y: number } = $state({
 		event: null,
@@ -137,6 +138,7 @@
 	let editNote = $state('');
 	let editStartPeriod = $state('');
 	let editEndPeriod = $state('');
+	let editClassPeriods = $state<number[]>([]);
 	let saveStatus: 'idle' | 'saving' | 'success' | 'error' = $state('idle');
 	let saveError = $state<string | null>(null);
 
@@ -346,6 +348,7 @@
 		customNote = '';
 		customStartPeriod = undefined;
 		customEndPeriod = undefined;
+		customClassPeriods = [];
 		customBannerText = '';
 		showCustomModal = true;
 	}
@@ -379,7 +382,8 @@
 									customStartPeriod === undefined ? undefined : Number(customStartPeriod),
 								endPeriod: customEndPeriod === undefined ? undefined : Number(customEndPeriod)
 							}
-						: {})
+						: {}),
+					...(customClassPeriods.length > 0 ? { classPeriods: [...customClassPeriods] } : {})
 				});
 			});
 		} else {
@@ -429,6 +433,7 @@
 		editNote = event.note ?? '';
 		editStartPeriod = event.startPeriod !== undefined ? String(event.startPeriod) : '';
 		editEndPeriod = event.endPeriod !== undefined ? String(event.endPeriod) : '';
+		editClassPeriods = event.classPeriods ? [...event.classPeriods] : [];
 	}
 
 	function closeEditPopover() {
@@ -446,7 +451,8 @@
 				endDate: editEndDate || undefined,
 				note: editNote || undefined,
 				startPeriod: editStartPeriod === '' ? undefined : Number(editStartPeriod),
-				endPeriod: editEndPeriod === '' ? undefined : Number(editEndPeriod)
+				endPeriod: editEndPeriod === '' ? undefined : Number(editEndPeriod),
+				classPeriods: editClassPeriods.length > 0 ? [...editClassPeriods] : undefined
 			};
 			if (existingIndex >= 0) {
 				draft.step5.eventEdits[existingIndex] = edit;
@@ -1029,6 +1035,49 @@
 								</div>
 							</div>
 						{/if}
+						<!-- Period checkbox picker (ticket #290) -->
+						<div>
+							<label class="mb-2 block text-sm font-medium text-gray-700">Periods (P1–P8)</label>
+							<div class="grid grid-cols-4 gap-2">
+								{#each [1, 2, 3, 4, 5, 6, 7, 8] as p (p)}
+									<button
+										type="button"
+										onclick={() => {
+											const idx = customClassPeriods.indexOf(p);
+											if (idx >= 0) customClassPeriods = customClassPeriods.toSpliced(idx, 1);
+											else customClassPeriods = [...customClassPeriods, p].sort((a, b) => a - b);
+										}}
+										class="rounded border px-2 py-1 text-xs font-semibold {customClassPeriods.includes(
+											p
+										)
+											? 'border-emerald-700 bg-emerald-700 text-white'
+											: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+									>
+										P{p}
+									</button>
+								{/each}
+							</div>
+							<div class="mt-2 flex gap-2">
+								<button
+									type="button"
+									onclick={() => (customClassPeriods = [1, 2, 3, 4])}
+									class="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium hover:bg-emerald-50"
+									>Morning (1–4)</button
+								>
+								<button
+									type="button"
+									onclick={() => (customClassPeriods = [5, 6, 7, 8])}
+									class="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium hover:bg-emerald-50"
+									>Afternoon (5–8)</button
+								>
+								<button
+									type="button"
+									onclick={() => (customClassPeriods = [])}
+									class="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+									>Clear</button
+								>
+							</div>
+						</div>
 					</div>
 				{:else}
 					<!-- Banner fields: text doubles as the note (spec #215 story 28) -->
@@ -1195,6 +1244,49 @@
 						</div>
 					</div>
 				{/if}
+				<!-- Period checkbox picker (ticket #290) -->
+				<div>
+					<label class="mb-1 block text-xs font-medium text-gray-600">Periods</label>
+					<div class="grid grid-cols-4 gap-1">
+						{#each [1, 2, 3, 4, 5, 6, 7, 8] as p (p)}
+							<button
+								type="button"
+								onclick={() => {
+									const idx = editClassPeriods.indexOf(p);
+									if (idx >= 0) editClassPeriods = editClassPeriods.toSpliced(idx, 1);
+									else editClassPeriods = [...editClassPeriods, p].sort((a, b) => a - b);
+								}}
+								class="rounded border px-1 py-0.5 text-[10px] font-semibold {editClassPeriods.includes(
+									p
+								)
+									? 'border-emerald-700 bg-emerald-700 text-white'
+									: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+							>
+								P{p}
+							</button>
+						{/each}
+					</div>
+					<div class="mt-1 flex gap-1">
+						<button
+							type="button"
+							onclick={() => (editClassPeriods = [1, 2, 3, 4])}
+							class="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium hover:bg-emerald-50"
+							>Morning</button
+						>
+						<button
+							type="button"
+							onclick={() => (editClassPeriods = [5, 6, 7, 8])}
+							class="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium hover:bg-emerald-50"
+							>Afternoon</button
+						>
+						<button
+							type="button"
+							onclick={() => (editClassPeriods = [])}
+							class="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-red-600 hover:bg-red-50"
+							>Clear</button
+						>
+					</div>
+				</div>
 				<div class="flex justify-end gap-2 pt-1">
 					<Button variant="outline" size="sm" onclick={closeEditPopover}>Cancel</Button>
 					<Button size="sm" onclick={saveEdit}>Save changes</Button>
