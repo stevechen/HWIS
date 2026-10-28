@@ -315,6 +315,7 @@ export const create = mutation({
 		note: v.optional(v.string()),
 		startPeriod: v.optional(v.number()),
 		endPeriod: v.optional(v.number()),
+		classPeriods: v.optional(v.array(v.number())),
 		provenance: v.optional(v.union(v.literal('holiday_api'), v.literal('admin_typed'))),
 		unverified: v.optional(v.boolean()),
 		e2eTag: v.optional(v.string())
@@ -346,6 +347,7 @@ export const create = mutation({
 			endDate: args.endDate,
 			startPeriod: bounds.startPeriod,
 			endPeriod: bounds.endPeriod,
+			...(args.classPeriods === undefined ? {} : { classPeriods: args.classPeriods }),
 			...(args.reminderKind === undefined ? {} : { reminderKind: args.reminderKind }),
 			...(args.isBanner === undefined ? {} : { isBanner: args.isBanner })
 		});
@@ -409,6 +411,7 @@ export const create = mutation({
 			date: args.date,
 			...(args.endDate === undefined ? {} : { endDate: args.endDate }),
 			...(note === undefined || note === '' ? {} : { note }),
+			...(args.classPeriods === undefined ? {} : { classPeriods: args.classPeriods }),
 			...(bounds.startPeriod === undefined ? {} : { startPeriod: bounds.startPeriod }),
 			...(bounds.endPeriod === undefined ? {} : { endPeriod: bounds.endPeriod }),
 			...(args.provenance === undefined ? {} : { provenance: args.provenance }),
@@ -459,6 +462,7 @@ export const update = mutation({
 		note: v.optional(v.string()),
 		startPeriod: v.optional(v.number()),
 		endPeriod: v.optional(v.number()),
+		classPeriods: v.optional(v.array(v.number())),
 		clearPeriods: v.optional(v.boolean()),
 		provenance: v.optional(v.union(v.literal('holiday_api'), v.literal('admin_typed'))),
 		unverified: v.optional(v.boolean())
@@ -497,12 +501,14 @@ export const update = mutation({
 		const startPeriod = bounds.startPeriod;
 		const endPeriod = bounds.endPeriod;
 
+		const classPeriods = args.classPeriods === undefined ? event.classPeriods : args.classPeriods;
 		const fieldError = assertValidEslEvent({
 			type,
 			date,
 			endDate,
 			startPeriod,
 			endPeriod,
+			...(classPeriods === undefined ? {} : { classPeriods }),
 			...(reminderKind === undefined ? {} : { reminderKind }),
 			...(type === 'reminder' && isBanner !== undefined ? { isBanner } : {})
 		});
@@ -567,6 +573,7 @@ export const update = mutation({
 			...(note === undefined || note === '' ? { note: undefined } : { note }),
 			...(startPeriod === undefined ? { startPeriod: undefined } : { startPeriod }),
 			...(endPeriod === undefined ? { endPeriod: undefined } : { endPeriod }),
+			...(classPeriods === undefined ? {} : { classPeriods }),
 			...(args.provenance === undefined ? {} : { provenance: args.provenance }),
 			...(args.unverified === undefined ? {} : { unverified: args.unverified })
 		});

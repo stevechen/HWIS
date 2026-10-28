@@ -167,6 +167,7 @@ export interface WizardCustomEvent {
 	// Period bounds for partial-day events
 	startPeriod?: number;
 	endPeriod?: number;
+	classPeriods?: number[];
 	// Banner-specific fields
 	startDate?: string;
 	endDate?: string;
@@ -180,6 +181,7 @@ export interface WizardEventEdit {
 	endDate?: string; // for banner range
 	startPeriod?: number; // for partial events
 	endPeriod?: number;
+	classPeriods?: number[];
 }
 
 export interface WizardStep5State {
@@ -509,7 +511,10 @@ function parseStep5(raw: unknown, seeded: WizardStep5State): WizardStep5State {
 									: undefined,
 							note: typeof event.note === 'string' ? event.note : undefined,
 							startPeriod: typeof event.startPeriod === 'number' ? event.startPeriod : undefined,
-							endPeriod: typeof event.endPeriod === 'number' ? event.endPeriod : undefined
+							endPeriod: typeof event.endPeriod === 'number' ? event.endPeriod : undefined,
+						classPeriods: Array.isArray(event.classPeriods)
+							? event.classPeriods.filter((p): p is number => typeof p === 'number')
+							: undefined
 						}
 					];
 				} else {
@@ -536,7 +541,12 @@ function parseStep5(raw: unknown, seeded: WizardStep5State): WizardStep5State {
 						eventKey,
 						date: parseDate(edit.date) ?? undefined,
 						note: typeof edit.note === 'string' ? edit.note : undefined,
-						endDate: parseDate(edit.endDate) ?? undefined
+						endDate: parseDate(edit.endDate) ?? undefined,
+						startPeriod: typeof edit.startPeriod === 'number' ? edit.startPeriod : undefined,
+						endPeriod: typeof edit.endPeriod === 'number' ? edit.endPeriod : undefined,
+						classPeriods: Array.isArray(edit.classPeriods)
+							? edit.classPeriods.filter((p): p is number => typeof p === 'number')
+							: undefined
 					}
 				];
 			})

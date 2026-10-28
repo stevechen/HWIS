@@ -1479,6 +1479,7 @@ export function assertValidEslEvent(input: {
 	endDate?: string;
 	startPeriod?: number;
 	endPeriod?: number;
+	classPeriods?: number[];
 	reminderKind?: string;
 	isBanner?: boolean;
 }): EslEventValidationError | null {
@@ -1500,6 +1501,15 @@ export function assertValidEslEvent(input: {
 		if (!isValidEslDate(input.endDate)) return { kind: 'badEndDate', endDate: input.endDate };
 		if (input.endDate < input.date) {
 			return { kind: 'rangeOrder', date: input.date, endDate: input.endDate };
+		}
+	}
+
+	const bounds = input.classPeriods ?? [];
+	if (bounds.length > 0) {
+		for (const period of bounds) {
+			if (!isEslPeriod(period)) {
+				return { kind: 'badPeriod', period };
+			}
 		}
 	}
 
