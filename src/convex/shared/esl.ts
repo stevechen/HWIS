@@ -2038,6 +2038,57 @@ function compareDayRows(a: ScheduleDayRow, b: ScheduleDayRow): number {
 }
 
 /**
+ * The teaching periods for a class on a date: which of the class's weekly
+ * meeting periods on that weekday survive partial / start / event exclusions.
+ * Used by `isEslActiveDay` and `resolveEslDayStatus` for partial-day semantics.
+ */
+export function eslTeachingPeriods(args: {
+	date: string;
+	meetings: readonly ScheduleMeetingInput[];
+	events: readonly ScheduleEventInput[];
+	classId: string;
+	type: EslClassType;
+	cohortGrade: number;
+}): number[] {
+	const weekday = weekdayOfDate(args.date);
+	if (weekday === null) return [];
+	const sameDay = args.events.filter(
+		(event) =>
+			event.date === args.date && eventReachesClass(event.target, args.type, args.cohortGrade)
+	);
+	// Exclusive events kill the whole day — no teaching periods.
+	if (
+		sameDay.some(
+			(e) =>
+				e.type === 'no_school' || e.type === 'exam' || e.type === 'no_class' || e.type === 'g9_mock'
+		)
+	)
+		return [];
+	const start = sameDay.find((e) => e.type === 'start_school');
+	const partial = sameDay.find((e) => e.type === 'partial');
+	const meetingPeriods = args.meetings
+		.filter((m) => m.classId === args.classId && m.day === weekday)
+		.map((m) => m.period);
+	const teaching: number[] = [];
+	for (const p of meetingPeriods) {
+		// Start window excludes before first teaching period.
+		if (start) {
+			const first = startSchoolFirstPeriod(start);
+			if (p < first) continue;
+		}
+		// Partial window: in-window periods are off (no class); out-of-window = teaching.
+		if (partial) {
+			const inWindow =
+				(partial.startPeriod === undefined || p >= partial.startPeriod) &&
+				(partial.endPeriod === undefined || p <= partial.endPeriod);
+			if (inWindow) continue;
+		}
+		teaching.push(p);
+	}
+	return teaching;
+}
+
+/**
  * Whether a date is eligible to collect a due window or count toward an
  * exam: the class actually meets there — no off, no exam, no no-class, and
  * inside any partial window. Off wins over everything upstream (exclusivity
@@ -2052,31 +2103,17 @@ function isEslActiveDay(args: {
 	type: EslClassType;
 	cohortGrade: number;
 }): boolean {
-	const sameDay = args.events.filter(
-		(event) =>
-			event.date === args.date && eventReachesClass(event.target, args.type, args.cohortGrade)
-	);
-	if (sameDay.some((event) => event.type === 'no_school' || event.type === 'exam')) return false;
-	if (sameDay.some((event) => event.type === 'no_class')) return false;
-	// A mock day replaces the lesson, like an exam day (#224).
-	if (sameDay.some((event) => event.type === 'g9_mock')) return false;
-	// Before the first-day window ends the school has not started yet (#212).
-	const start = sameDay.find((event) => event.type === 'start_school');
-	if (start && args.period < startSchoolFirstPeriod(start)) return false;
-	const meeting = args.meetings.find(
-		(m) =>
-			m.classId === args.classId && weekdayOfDate(args.date) === m.day && m.period === args.period
-	);
-	if (!meeting) return false;
-	const partial = sameDay.find((event) => event.type === 'partial');
-	if (partial) {
-		if (partial.startPeriod !== undefined && partial.endPeriod !== undefined) {
-			if (args.period >= partial.startPeriod && args.period <= partial.endPeriod) return false;
-		} else if (partial.startPeriod !== undefined && args.period >= partial.startPeriod)
-			return false;
-		else if (partial.endPeriod !== undefined && args.period <= partial.endPeriod) return false;
-	}
-	return true;
+	const active = eslTeachingPeriods({
+		date: args.date,
+		meetings: args.meetings,
+		events: args.events,
+		classId: args.classId,
+		type: args.type,
+		cohortGrade: args.cohortGrade
+	});
+	// `eslTeachingPeriods` already encodes all partial / start / exclusive rules, so a
+	// period is active exactly when it is on the teaching list — no extra branching.
+	return active.includes(args.period);
 }
 
 /**
@@ -2193,40 +2230,15 @@ function resolveEslDayStatus(args: {
 	const g9Mock = dayEvents.find((event) => event.type === 'g9_mock');
 	if (g9Mock) return { status: 'g9_mock', cause: g9Mock.title, badges: [], outOfWindow: false };
 
-	const start = dayEvents.find((event) => event.type === 'start_school');
-	if (start) {
-		const firstPeriod = startSchoolFirstPeriod(start);
-		const isOutOfWindow = args.meeting.period < firstPeriod;
-		// Start of school works like a partial day: before P3 = no class,
-		// P3 and later = teaching. The title ("Start at P3") shows in description.
-		const note = (start.note ?? '').trim() || start.title;
-		if (isOutOfWindow) {
-			return {
-				status: 'no_class',
-				cause: note,
-				badges: [],
-				outOfWindow: false
-			};
-		}
-		// In-window: teaching with the note in description.
-		return { status: 'teaching', cause: note, badges: [], outOfWindow: false };
-	}
-
-	const partial = dayEvents.find((event) => event.type === 'partial');
-	const inOffWindow =
-		partial &&
-		(partial.startPeriod === undefined || args.meeting.period >= partial.startPeriod) &&
-		(partial.endPeriod === undefined || args.meeting.period <= partial.endPeriod);
-
-	if (inOffWindow && partial) {
-		const note = (partial.note ?? '').trim();
-		return {
-			status: 'no_class',
-			cause: note || partial.title,
-			badges: [],
-			outOfWindow: false
-		};
-	}
+	const teachingPeriods = eslTeachingPeriods({
+		date: args.date,
+		meetings: args.meetings,
+		events: args.events,
+		classId: args.meeting.classId,
+		type: args.meeting.type,
+		cohortGrade: args.meeting.cohortGrade
+	});
+	const inTeachingWindow = teachingPeriods.includes(args.meeting.period);
 
 	// Oral-exam marking: conversation classes only (no CLIL), on the dates the
 	// per-class last-two-active-days rule marks ahead of each reached exam.
@@ -2234,6 +2246,7 @@ function resolveEslDayStatus(args: {
 		const examTitle = args.oralDates.get(args.date);
 		if (examTitle !== undefined) {
 			const badges = [`oral ahead of ${examTitle}`];
+			const partial = dayEvents.find((event) => event.type === 'partial');
 			if (partial) return { status: 'oral_exam', cause: partial.title, badges, outOfWindow: false };
 			return {
 				status: 'oral_exam',
@@ -2244,14 +2257,20 @@ function resolveEslDayStatus(args: {
 		}
 	}
 
-	// In-window periods on a partial day are regular teaching days.
-	// The note (e.g., "BBQ from 12:00") shows in the description cell,
-	// but no "No-class" chip appears — only out-of-window periods get that.
-	if (partial) {
-		const note = (partial.note ?? '').trim();
+	// Partial / start-window partial semantics via teaching-period helper.
+	if (inTeachingWindow) {
+		const partial = dayEvents.find((event) => event.type === 'partial');
+		const note = partial ? (partial.note ?? '').trim() || partial.title : null;
 		return { status: 'teaching', cause: note || null, badges: [], outOfWindow: false };
 	}
-	return { status: 'teaching', cause: null, badges: [], outOfWindow: false };
+
+	// Outside the teaching window = no class (partial out-of-window or start
+	// before P3). The cause / note comes from the partial event or start event.
+	const partial = dayEvents.find((event) => event.type === 'partial');
+	const start = dayEvents.find((event) => event.type === 'start_school');
+	const offEvent = partial ?? start;
+	const note = offEvent ? (offEvent.note ?? '').trim() || offEvent.title : '';
+	return { status: 'no_class', cause: note || null, badges: [], outOfWindow: true };
 }
 
 /**
