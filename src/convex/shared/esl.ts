@@ -2076,12 +2076,17 @@ export function eslTeachingPeriods(args: {
 			const first = startSchoolFirstPeriod(start);
 			if (p < first) continue;
 		}
-		// Partial window: in-window periods are off (no class); out-of-window = teaching.
+		// Partial window: prefer classPeriods array; fall back to start/end.
 		if (partial) {
-			const inWindow =
-				(partial.startPeriod === undefined || p >= partial.startPeriod) &&
-				(partial.endPeriod === undefined || p <= partial.endPeriod);
-			if (inWindow) continue;
+			if (partial.classPeriods !== undefined && partial.classPeriods !== null) {
+				// When array present, in-window = p is in array (off periods).
+				if (partial.classPeriods.includes(p)) continue;
+			} else {
+				const inWindow =
+					(partial.startPeriod === undefined || p >= partial.startPeriod) &&
+					(partial.endPeriod === undefined || p <= partial.endPeriod);
+				if (inWindow) continue;
+			}
 		}
 		teaching.push(p);
 	}
