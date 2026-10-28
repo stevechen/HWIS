@@ -5,7 +5,14 @@ import { requireAdminForSensitiveOperation, requireActiveStaffForSensitiveOperat
 export const list = query({
 	args: {},
 	handler: async (ctx) => {
-		await requireActiveStaffForSensitiveOperation(ctx);
+		try {
+			await requireActiveStaffForSensitiveOperation(ctx);
+		} catch (e) {
+			if (e instanceof Error && e.message === 'Unauthorized') {
+				return [];
+			}
+			throw e;
+		}
 		return await ctx.db.query('point_categories').take(20);
 	}
 });
