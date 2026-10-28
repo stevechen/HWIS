@@ -69,7 +69,8 @@ export const list = query({
 		try {
 			await requireActiveStaffForSensitiveOperation(ctx);
 		} catch (e) {
-			if (e instanceof Error && e.message === 'Unauthorized') {
+			const msg = e instanceof Error ? e.message : String(e);
+			if (msg === 'Unauthorized') {
 				return [];
 			}
 			throw e;
@@ -221,12 +222,11 @@ async function listPaginatedIndexed(
 		sortDirection: 'asc' | 'desc';
 	}
 ) {
-	// Determine which index to use for initial scan
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-// oxlint-disable-next-line @typescript-eslint/no-explicit-any
-	let queryBuilder: any = ctx.db.query('students');
+	// Determine which index to use for the initial scan. Each branch collects
+	// directly, because a Convex `QueryInitializer` cannot be reassigned to the
+	// `Query` returned by `.withIndex()`.
+	let students: Doc<'students'>[] = [];
 	let indexUsed = false;
-	let isFullScan = false;
 
 	// Priority: status + classId > status + house > status > house > full scan
 	if (args.status !== undefined && args.class !== undefined) {
@@ -236,11 +236,12 @@ async function listPaginatedIndexed(
 			.withIndex('by_grade_class', (q) => q.eq('grade', args.grade || 0).eq('class', args.class!))
 			.first();
 		if (classRecord) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-// oxlint-disable-next-line @typescript-eslint/no-explicit-any
-			queryBuilder = queryBuilder.withIndex('by_status_classId', ((q: any) =>
-				q.eq('status', args.status!).eq('classId', classRecord._id)) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
-// oxlint-disable-line @typescript-eslint/no-explicit-any
+			students = await ctx.db
+				.query('students')
+				.withIndex('by_status_classId', (q) =>
+					q.eq('status', args.status!).eq('classId', classRecord._id)
+				)
+				.collect();
 			indexUsed = true;
 		}
 	} else if (
@@ -249,42 +250,31 @@ async function listPaginatedIndexed(
 		args.house !== '__unassigned'
 	) {
 		const houseValue = args.house as 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna';
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-// oxlint-disable-next-line @typescript-eslint/no-explicit-any
-		queryBuilder = queryBuilder.withIndex('by_status_house', ((q: any) =>
-			q.eq('status', args.status!).eq('house', houseValue)) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
-// oxlint-disable-line @typescript-eslint/no-explicit-any
+		students = await ctx.db
+			.query('students')
+			.withIndex('by_status_house', (q) => q.eq('status', args.status!).eq('house', houseValue))
+			.collect();
 		indexUsed = true;
 	} else if (args.status !== undefined) {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-// oxlint-disable-next-line @typescript-eslint/no-explicit-any
-		queryBuilder = queryBuilder.withIndex('by_status', ((q: any) =>
-			q.eq('status', args.status!)) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
-// oxlint-disable-line @typescript-eslint/no-explicit-any
+		students = await ctx.db
+			.query('students')
+			.withIndex('by_status', (q) => q.eq('status', args.status!))
+			.collect();
 		indexUsed = true;
 	} else if (args.house !== undefined && args.house !== '__unassigned') {
 		const houseValue = args.house as 'Heracles' | 'Wukong' | 'Ixbalam' | 'Setna';
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-// oxlint-disable-next-line @typescript-eslint/no-explicit-any
-		queryBuilder = queryBuilder.withIndex('by_house', ((q: any) =>
-			q.eq('house', houseValue)) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
-// oxlint-disable-line @typescript-eslint/no-explicit-any
+		students = await ctx.db
+			.query('students')
+			.withIndex('by_house', (q) => q.eq('house', houseValue))
+			.collect();
 		indexUsed = true;
-	} else if (args.house === '__unassigned') {
-		// No index for unassigned - will need to filter in JS
-		isFullScan = true;
-	} else {
-		isFullScan = true;
 	}
 
 	// Collect the full candidate set. The index (when used) already narrows the
 	// candidate set; post-filters (search, grade, house unassigned) and pagination
 	// must run over the entire candidate set, so we must NOT truncate here.
-	let students: Doc<'students'>[] = [];
-	if (isFullScan || !indexUsed) {
+	if (!indexUsed) {
 		students = await ctx.db.query('students').collect();
-	} else {
-		students = await queryBuilder.collect();
 	}
 
 	// Hydrate with class info

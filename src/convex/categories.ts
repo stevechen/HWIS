@@ -8,7 +8,8 @@ export const list = query({
 		try {
 			await requireActiveStaffForSensitiveOperation(ctx);
 		} catch (e) {
-			if (e instanceof Error && e.message === 'Unauthorized') {
+			const msg = e instanceof Error ? e.message : String(e);
+			if (msg === 'Unauthorized') {
 				return [];
 			}
 			throw e;
