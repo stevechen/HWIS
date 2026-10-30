@@ -5,7 +5,7 @@ import EventForm from '$lib/components/esl/EventForm.svelte';
 import { ESL_EVENT_TYPES } from '$convex/shared/esl';
 import { schoolYearForTerm, startPickerMondays } from '$lib/components/esl/wizard/wizard-dates';
 
-const HIDDEN_TYPES = ['start_school', 'reminder', 'exam', 'g9_mock'] as const;
+const HIDDEN_TYPES = ['reminder', 'exam', 'g9_mock'] as const;
 
 const REQUIRED_TYPES = ['no_school', 'no_class', 'partial'] as const;
 
@@ -118,9 +118,9 @@ describe('EventForm target gating (#212, #216)', () => {
 		await expect.element(target).toHaveValue('all');
 	});
 
-	it('leaves Start, Partial, and task-kind reminders on the full dropdown', async () => {
+	it('leaves Partial and task-kind reminders on the full dropdown', async () => {
 		renderForm();
-		for (const type of ['start_school', 'partial'] as const) {
+		for (const type of ['partial'] as const) {
 			await page.getByLabelText('Event type').selectOptions(type);
 			const target = page.getByLabelText('Target');
 			await expect.element(target).not.toBeDisabled();
@@ -135,11 +135,11 @@ describe('EventForm target gating (#212, #216)', () => {
 		await expect.element(target).toHaveValue('H1');
 	});
 
-	it('shows the Start title prefilled and read-only', async () => {
+	it('shows the Partial title prefilled and read-only', async () => {
 		renderForm();
-		await page.getByLabelText('Event type').selectOptions('start_school');
+		await page.getByLabelText('Event type').selectOptions('partial');
 		const title = page.getByLabelText('Title');
-		await expect.element(title).toHaveValue('Start at P3');
+		await expect.element(title).toHaveValue('No class');
 		await expect.element(title).toBeDisabled();
 	});
 

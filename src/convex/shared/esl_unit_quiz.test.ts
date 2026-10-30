@@ -98,16 +98,28 @@ describe('term class-day counting', () => {
 	});
 
 	it('excludes partial non-matching periods but keeps matching ones', () => {
-		// Tue P1 sits below the P3 start bound: no class that period.
+		// Tue P1 is not picked: no class that period.
 		expect(
 			datesOf([
-				{ type: 'partial', title: 'No class', target: 'all', date: '2025-09-02', startPeriod: 3 }
+				{
+					type: 'partial',
+					title: 'No class',
+					target: 'all',
+					date: '2025-09-02',
+					classPeriods: [3, 4, 5, 6, 7, 8]
+				}
 			])
 		).toEqual(['2025-09-04', '2025-09-09', '2025-09-11']);
-		// Thu P2 sits inside the ..P4 bound: class as usual.
+		// Thu P2 is picked: class as usual.
 		expect(
 			datesOf([
-				{ type: 'partial', title: 'No class', target: 'all', date: '2025-09-04', endPeriod: 4 }
+				{
+					type: 'partial',
+					title: 'No class',
+					target: 'all',
+					date: '2025-09-04',
+					classPeriods: [1, 2, 3, 4]
+				}
 			])
 		).toEqual(['2025-09-02', '2025-09-04', '2025-09-09', '2025-09-11']);
 	});
@@ -119,7 +131,15 @@ describe('term class-day counting', () => {
 		];
 		const rows = listTermClassMeetings({
 			meetings: mixed,
-			events: [{ type: 'start_school', title: 'Start at P3', target: 'all', date: '2025-09-02' }],
+			events: [
+				{
+					type: 'partial',
+					title: 'Start at P3',
+					target: 'all',
+					date: '2025-09-02',
+					classPeriods: [3, 4, 5, 6, 7, 8]
+				}
+			],
 			...window
 		});
 		const tuesday = rows.filter((row) => row.date === '2025-09-02');

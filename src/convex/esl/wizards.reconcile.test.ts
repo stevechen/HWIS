@@ -390,8 +390,8 @@ describe('esl/wizards.updateSemester', () => {
 		const semester = await t.query(api.esl.semesters.get, { semesterId });
 		expect(semester).toMatchObject({ startDate: '2026-09-01' });
 		const rows = await t.query(api.esl.events.listBySemester, { semesterId });
-		const start = rows.find((row) => row.type === 'start_school');
-		expect(start).toMatchObject({ date: '2026-09-01', startPeriod: 1, endPeriod: 2 });
+		const start = rows.find((row) => row.title === 'Start at P3');
+		expect(start).toMatchObject({ date: '2026-09-01', classPeriods: [3, 4, 5, 6, 7, 8] });
 	});
 
 	it('preserves leftover passport rows the payload no longer names (draft ambiguity)', async () => {

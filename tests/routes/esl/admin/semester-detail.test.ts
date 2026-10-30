@@ -44,11 +44,12 @@ const EVENTS = [
 	{
 		_id: 'evt_start',
 		semesterId: 'sem_s1',
-		type: 'start_school',
-		title: 'Start of school',
+		type: 'partial',
+		title: 'Start at P3',
 		target: 'all',
 		date: '2026-08-31',
 		note: '',
+		classPeriods: [3, 4, 5, 6, 7, 8],
 		unverified: false
 	},
 	{
@@ -151,7 +152,7 @@ describe('ESL admin semester edit wizard ([slug] route)', () => {
 		// title + short date now; the off-day name lives in the popover.
 		const list = page.getByTestId('wizard.step-5-event-list');
 		await expect.element(list).toMatchTextContent('Start of school');
-		await expect.element(list).toMatchTextContent('Off');
+		await expect.element(list).toMatchTextContent('🎉 Mid-Autumn Festival');
 		await expect.element(list).toMatchTextContent('9/25');
 	});
 

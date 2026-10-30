@@ -216,6 +216,18 @@ When using Tailwind CSS for sizing, prefer the `size-*` utility classes over sep
 
 This applies to icons, buttons, avatars, and any other elements where width equals height.
 
+### Anchored popovers
+
+Elements positioned with CSS anchor positioning that can flip via
+`position-try-fallbacks` must not paint their border or shadow with
+`border`/`border-*`, `shadow-*` or `ring-*` utilities. WebKit drops the
+`@property`-registered `--tw-*` variables while a `@position-try` rule is
+active, so the border and shadow vanish exactly in the flipped state (and look
+clipped). Use arbitrary **properties** instead — `[border:1px_solid_var(--border)]`
+and `[box-shadow:…]` — as `src/routes/esl/admin/classes/AnchoredPanel.svelte`
+does. Arbitrary _values_ (`border-[1px]`, `shadow-[…]`) do not help. See
+`docs/adr/0031-anchored-popovers-must-not-use-tw-vars.md`.
+
 ### Running All Tests
 
 ```bash

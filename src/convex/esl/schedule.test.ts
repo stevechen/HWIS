@@ -78,8 +78,7 @@ async function createEvent(
 		date: string;
 		endDate?: string;
 		note?: string;
-		startPeriod?: number;
-		endPeriod?: number;
+		classPeriods?: number[];
 	}
 ) {
 	return t.mutation(api.esl.events.create, { semesterId, ...event });
@@ -275,14 +274,13 @@ describe('esl/schedule.teacherDays', () => {
 
 	it('badges out-of-window meetings on a partial day', async () => {
 		const { t, teacherId, semesterId } = await setupTeacherWorld();
-		// Late start from P2: Monday P1 falls outside the window, Wednesday
-		// P2 stays inside it.
+		// Late start from P2: Monday P1 is not picked, Wednesday P2 is.
 		await createEvent(t, semesterId, {
 			type: 'partial',
 			title: 'No class',
 			note: 'Late start',
 			date: '2025-09-08',
-			startPeriod: 2
+			classPeriods: [2, 3, 4, 5, 6, 7, 8]
 		});
 		asTeacher();
 
@@ -296,7 +294,9 @@ describe('esl/schedule.teacherDays', () => {
 		// but the description shows the partial's note ("Late start").
 		expect(monday).toMatchObject({ status: 'no_class', cause: 'Late start' });
 		expect(monday?.badges.length).toBe(0);
-		expect(monday?.outOfWindow).toBeFalsy();
+		// Out-of-window partial rows carry the flag; the no-class status is
+		// what the view reads, the flag only suppresses a teaching row's cause.
+		expect(monday?.outOfWindow).toBe(true);
 		expect(days.find((day) => day.date === '2025-09-10')).toMatchObject({
 			status: 'teaching'
 		});
@@ -312,7 +312,7 @@ describe('esl/schedule.teacherDays', () => {
 			title: 'No class',
 			note: 'BBQ from 12:00',
 			date: '2025-09-10',
-			endPeriod: 4
+			classPeriods: [1, 2, 3, 4]
 		});
 		asTeacher();
 
@@ -321,7 +321,7 @@ describe('esl/schedule.teacherDays', () => {
 			toDate: '2025-09-10'
 		});
 
-		// Wed P2 is in window (period 2 <= 4), so it teaches as usual.
+		// Wed P2 is picked, so it teaches as usual.
 		// The note appears in the description cell, not as a chip.
 		expect(days.find((day) => day.date === '2025-09-10')).toMatchObject({
 			status: 'teaching',
@@ -349,13 +349,13 @@ describe('esl/schedule.teacherDays', () => {
 		});
 		await t.mutation(api.esl.classes.assignTeacher, { id: commId, teacherId });
 
-		// BBQ partial with endPeriod: 4
+		// BBQ partial: P1–P4 meet, P5–P8 do not.
 		await createEvent(t, semesterId, {
 			type: 'partial',
 			title: 'No class',
 			note: 'BBQ from 12:00',
 			date: '2025-09-10',
-			endPeriod: 4
+			classPeriods: [1, 2, 3, 4]
 		});
 		asTeacher();
 
@@ -364,7 +364,7 @@ describe('esl/schedule.teacherDays', () => {
 			toDate: '2025-09-10'
 		});
 
-		// Wed P5 is out of window (period 5 > 4), so it shows No class chip
+		// Wed P5 is not picked, so it shows the No class chip
 		// but description shows "BBQ from 12:00".
 		const wed = days.find((day) => day.date === '2025-09-10' && day.period === 5);
 		expect(wed).toMatchObject({
@@ -375,12 +375,14 @@ describe('esl/schedule.teacherDays', () => {
 
 	it('renders pre-P3 meetings on the start day as No class', async () => {
 		const { t, teacherId, semesterId } = await setupTeacherWorld();
-		// Start at P3 on Monday 9/1: the P1 meeting falls outside the
-		// window and renders No class; later days run as usual.
+		// Start at P3 on Monday 9/1: the first day is an ordinary partial
+		// picking P3–P8, so the P1 meeting renders No class; later days run
+		// as usual.
 		await createEvent(t, semesterId, {
-			type: 'start_school',
+			type: 'partial',
 			title: 'Start at P3',
-			date: '2025-09-01'
+			date: '2025-09-01',
+			classPeriods: [3, 4, 5, 6, 7, 8]
 		});
 		asTeacher();
 
@@ -880,9 +882,10 @@ describe('esl/schedule.teacherDays', () => {
 		});
 		await t.mutation(api.esl.classes.assignTeacher, { id: g9Ids[0], teacherId });
 		await createEvent(t, semesterId, {
-			type: 'start_school',
+			type: 'partial',
 			title: 'Start at P3',
-			date: '2025-09-02'
+			date: '2025-09-02',
+			classPeriods: [3, 4, 5, 6, 7, 8]
 		});
 		asTeacher();
 
@@ -895,8 +898,8 @@ describe('esl/schedule.teacherDays', () => {
 		const byPeriod = new Map(days.map((day) => [day.period, day]));
 		expect(byPeriod.get(1)).toMatchObject({ status: 'no_class', cause: 'Start at P3' });
 		expect(byPeriod.get(2)).toMatchObject({ status: 'no_class', cause: 'Start at P3' });
-		// In-window periods show teaching with the start title in description (like partial days).
-		expect(byPeriod.get(3)).toMatchObject({ status: 'teaching', cause: 'Start at P3' });
+		// In-window periods teach with no description on the start day.
+		expect(byPeriod.get(3)).toMatchObject({ status: 'teaching', cause: null });
 	});
 
 	it('filters dues by target (a CLIL quiz-kind reminder reaches CLIL only, a Comm task-kind Comm only)', async () => {

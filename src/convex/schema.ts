@@ -494,7 +494,6 @@ export default defineSchema({
 	esl_events: defineTable({
 		semesterId: v.id('esl_semesters'),
 		type: v.union(
-			v.literal('start_school'),
 			v.literal('reminder'),
 			v.literal('no_school'),
 			v.literal('no_class'),
@@ -532,7 +531,7 @@ export default defineSchema({
 		 * type: `Comm` reaches a G7/G8 cohort's `Comm` class and a G9
 		 * cohort's single `G9` class, both being communication lessons
 		 * (ADR-0030). Per-type gating (#212, #216) locks most types to one
-		 * target; only Start, Partial, and task-kind reminders take a picked value.
+		 * target; only Partial and task-kind reminders take a picked value.
 		 */
 		target: v.union(
 			v.literal('all'),
@@ -560,11 +559,12 @@ export default defineSchema({
 		/** Free-form note, e.g. BBQ logistics or collection reminders. */
 		note: v.optional(v.string()),
 		/**
-		 * Partial-day bounds: meetings before startPeriod / after endPeriod
-		 * are out-of-window. Partials only, each optional, validated 1–8.
+		 * Partial-day periods that still have class (#293): a first day
+		 * schooled from P3 carries `[3…8]`, a BBQ ending at P4 `[1…4]`.
+		 * Partials only; absent or empty means the day teaches its normal
+		 * meetings. Each number validated 1–8.
 		 */
-		startPeriod: v.optional(v.number()),
-		endPeriod: v.optional(v.number()),
+		classPeriods: v.optional(v.array(v.number())),
 		/**
 		 * Lunar provenance: how a seeded Moon Festival / Dragon Boat date was
 		 * resolved (`holiday_api` vs `admin_typed`), and whether the

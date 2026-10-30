@@ -8,7 +8,9 @@ import {
 	ESL_RANGED_EVENT_TYPES,
 	ESL_REMINDER_KINDS,
 	ESL_REMINDER_TITLES,
-	ESL_START_SCHOOL_PERIODS,
+	ESL_PARTIAL_TITLES,
+	ESL_START_SCHOOL_CLASS_PERIODS,
+	ESL_START_SCHOOL_TITLE,
 	assertValidEslEvent,
 	assertValidEslTarget,
 	assertValidEslTitle,
@@ -34,10 +36,11 @@ import {
  * locked reminder kind) has a locked title.
  */
 describe('esl event types v4 reminder (#216)', () => {
-	it('exposes exactly the seven types, with the old due-types gone', () => {
+	it('exposes exactly the six types, with the old due-types gone', () => {
 		expect([...ESL_EVENT_TYPES].sort()).toEqual(
-			['exam', 'g9_mock', 'no_class', 'no_school', 'partial', 'reminder', 'start_school'].sort()
+			['exam', 'g9_mock', 'no_class', 'no_school', 'partial', 'reminder'].sort()
 		);
+		expect(ESL_EVENT_TYPES).not.toContain('start_school');
 		expect(ESL_EVENT_TYPES).not.toContain('quiz');
 		expect(ESL_EVENT_TYPES).not.toContain('passport_due');
 		expect(ESL_EVENT_TYPES).not.toContain('recording_due');
@@ -73,7 +76,6 @@ describe('esl event types v4 reminder (#216)', () => {
 
 	it('locks the ticket-specified title per type', () => {
 		expect(ESL_EVENT_TITLES).toMatchObject({
-			start_school: 'Start at P3',
 			no_school: 'Off',
 			no_class: 'No class',
 			partial: 'No class',
@@ -84,7 +86,6 @@ describe('esl event types v4 reminder (#216)', () => {
 
 	it('labels every type for the form dropdown from one shared map', () => {
 		expect(ESL_EVENT_TYPE_LABELS).toMatchObject({
-			start_school: 'Start of school',
 			reminder: 'Reminder',
 			no_school: 'No school',
 			no_class: 'No class',
@@ -127,10 +128,8 @@ describe('esl event types v4 reminder (#216)', () => {
 
 	it('accepts only the locked title per fixed type and locked reminder kind', () => {
 		const cases: [EslEventType, string][] = [
-			['start_school', 'Start at P3'],
 			['no_school', 'Off'],
 			['no_class', 'No class'],
-			['partial', 'No class'],
 			['g9_mock', 'G9 Mock Exam']
 		];
 		for (const [type, title] of cases) {
@@ -144,6 +143,11 @@ describe('esl event types v4 reminder (#216)', () => {
 			kind: 'lockedTitle'
 		});
 		expect(assertValidEslTitle('reminder', 'Unit 1 Quiz Due', 'quiz')).toBeNull();
+		// A partial takes either ordinary title — the first day keeps its own.
+		expect(ESL_PARTIAL_TITLES).toEqual(['No class', ESL_START_SCHOOL_TITLE]);
+		expect(assertValidEslTitle('partial', 'No class')).toBeNull();
+		expect(assertValidEslTitle('partial', ESL_START_SCHOOL_TITLE)).toBeNull();
+		expect(assertValidEslTitle('partial', 'Late start')).toMatchObject({ kind: 'lockedTitle' });
 		const locked = assertValidEslTitle('no_school', 'Typhoon day');
 		expect(locked && describeEslEventError(locked)).toMatch(/Off/);
 	});
@@ -283,33 +287,41 @@ describe('esl reminder consolidation (#216)', () => {
  * that may never straddle an exam day.
  */
 describe('esl wizard write rules (#217)', () => {
-	it('carries the first day of school as a P1–P2 window', () => {
-		expect(ESL_START_SCHOOL_PERIODS).toEqual({ startPeriod: 1, endPeriod: 2 });
-	});
-
-	it('lets the first day of school take period bounds and refuses them on every other type', () => {
+	it('carries the first day of school as a partial that starts at P3', () => {
+		expect(ESL_START_SCHOOL_TITLE).toBe('Start at P3');
+		expect([...ESL_START_SCHOOL_CLASS_PERIODS]).toEqual([3, 4, 5, 6, 7, 8]);
 		expect(
 			assertValidEslEvent({
-				type: 'start_school',
+				type: 'partial',
 				date: '2025-09-01',
-				startPeriod: ESL_START_SCHOOL_PERIODS.startPeriod,
-				endPeriod: ESL_START_SCHOOL_PERIODS.endPeriod
+				classPeriods: [...ESL_START_SCHOOL_CLASS_PERIODS]
 			})
 		).toBeNull();
+	});
+
+	it('validates picked periods but refuses a period outside P1–P8', () => {
 		expect(
-			assertValidEslEvent({ type: 'no_class', date: '2025-09-01', startPeriod: 3 })
-		).toMatchObject({ kind: 'boundsNotAllowed', type: 'no_class' });
-		expect(describeEslEventError({ kind: 'boundsNotAllowed', type: 'no_class' })).toMatch(
-			/partial/i
-		);
+			assertValidEslEvent({ type: 'partial', date: '2025-09-01', classPeriods: [1, 2] })
+		).toBeNull();
+		expect(
+			assertValidEslEvent({ type: 'partial', date: '2025-09-01', classPeriods: [3, 9] })
+		).toMatchObject({ kind: 'badPeriod', period: 9 });
+	});
+
+	it('refuses a partial with 0 or 8 periods', () => {
+		expect(
+			assertValidEslEvent({ type: 'partial', date: '2025-09-01', classPeriods: [] })
+		).toMatchObject({ kind: 'badPeriodCount', count: 0 });
 		expect(
 			assertValidEslEvent({
-				type: 'start_school',
+				type: 'partial',
 				date: '2025-09-01',
-				startPeriod: 3,
-				endPeriod: 1
+				classPeriods: [1, 2, 3, 4, 5, 6, 7, 8]
 			})
-		).toMatchObject({ kind: 'boundsOrder', startPeriod: 3, endPeriod: 1 });
+		).toMatchObject({ kind: 'badPeriodCount', count: 8 });
+		expect(
+			assertValidEslEvent({ type: 'partial', date: '2025-09-01', classPeriods: [1, 2, 3, 4, 5, 6, 7] })
+		).toBeNull();
 	});
 
 	it('spreads a G9 mock over two consecutive single dates', () => {

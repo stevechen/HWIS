@@ -26,7 +26,13 @@ function row(
 }
 
 const ROWS: PreviewRow[] = [
-	row({ key: 'start', title: 'Start of school', date: '2026-08-31', type: 'start_school' }),
+	row({
+		key: 'start',
+		title: 'Start of school',
+		date: '2026-08-31',
+		type: 'partial',
+		classPeriods: [3, 4, 5, 6, 7, 8]
+	}),
 	row({ key: 'holiday', title: 'National Day', date: '2026-10-01', type: 'no_school' }),
 	row({ key: 'exam1', title: 'Exam 1', date: '2026-10-05', endDate: '2026-10-06', type: 'exam' }),
 	row({ key: 'sports', title: 'Sports Day', date: '2026-10-07' }),

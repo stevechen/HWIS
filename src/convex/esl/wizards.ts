@@ -3,11 +3,12 @@ import { v } from 'convex/values';
 import { normalizeEslCustomRooms, isEslRoomLimit } from '../shared/esl_rooms';
 import { api, internal } from '../_generated/api';
 import type { Doc, Id } from '../_generated/dataModel';
-import { periodBoundsFor } from './events';
 import {
 	ESL_EVENT_TITLES,
 	ESL_LOCKED_NOTES,
 	ESL_REMINDER_TITLES,
+	ESL_START_SCHOOL_CLASS_PERIODS,
+	ESL_START_SCHOOL_TITLE,
 	EXAM_SEED_WEEKDAYS,
 	assertValidEslEvent,
 	assertValidEslTarget,
@@ -70,8 +71,7 @@ const customValidator = v.object({
 	note: v.optional(v.string()),
 	startDate: v.optional(v.string()),
 	endDate: v.optional(v.string()),
-	startPeriod: v.optional(v.number()),
-	endPeriod: v.optional(v.number()),
+	classPeriods: v.optional(v.array(v.number())),
 	bannerText: v.optional(v.string())
 });
 
@@ -84,8 +84,7 @@ export type WizardSaveCustom = {
 	note?: string;
 	startDate?: string;
 	endDate?: string;
-	startPeriod?: number;
-	endPeriod?: number;
+	classPeriods?: number[];
 	bannerText?: string;
 };
 
@@ -193,15 +192,14 @@ export const findByYearTerm = internalQuery({
 });
 
 type EventWrite = {
-	type: 'start_school' | 'reminder' | 'no_school' | 'no_class' | 'partial' | 'exam' | 'g9_mock';
+	type: 'reminder' | 'no_school' | 'no_class' | 'partial' | 'exam' | 'g9_mock';
 	title: string;
 	target?: EslEventTarget;
 	date: string;
 	endDate?: string;
 	reminderKind?: EslReminderKind;
 	note?: string;
-	startPeriod?: number;
-	endPeriod?: number;
+	classPeriods?: number[];
 };
 
 /**
@@ -242,14 +240,14 @@ const EXAM_TITLE: Record<'Exam 1' | 'Exam 2' | 'Final', string> = {
 function buildWizardWrites(payload: WizardSavePayload): DesiredRow[] {
 	const writes: DesiredRow[] = [];
 
-	// The first-day window: P1–P2 read as no_class on the start date.
+	// The first day of school is an ordinary partial: P1–P2 are out of the
+	// window, so P3–P8 are the periods that still meet (#293).
 	writes.push({
-		type: 'start_school',
-		title: ESL_EVENT_TITLES.start_school,
+		type: 'partial',
+		title: ESL_START_SCHOOL_TITLE,
 		target: 'all',
 		date: payload.startDate,
-		startPeriod: 1,
-		endPeriod: 2,
+		classPeriods: [...ESL_START_SCHOOL_CLASS_PERIODS],
 		family: { kind: 'start' }
 	});
 
@@ -323,15 +321,15 @@ function buildWizardWrites(payload: WizardSavePayload): DesiredRow[] {
 		});
 	}
 	// BBQ (S1-only starter, folded from the seed): a partial afternoon —
-	// endPeriod only, like the seed wrote it — with the occasion in the
-	// note, since partial titles are locked.
+	// class ends at P4, so P1–P4 still meet — with the occasion in the note,
+	// since partial titles are locked.
 	if (payload.singles.bbq !== null) {
 		writes.push({
 			type: 'partial',
 			title: ESL_EVENT_TITLES.partial,
 			target: 'all',
 			date: payload.singles.bbq,
-			endPeriod: 4,
+			classPeriods: [1, 2, 3, 4],
 			note: ESL_LOCKED_NOTES.bbq,
 			family: { kind: 'bbq' }
 		});
@@ -464,16 +462,11 @@ function assertWizardWritesValid(writes: EventWrite[]): void {
 		const target = event.target ?? defaultTargetForEventType(event.type, event.reminderKind);
 		const targetError = assertValidEslTarget(event.type, target, event.reminderKind);
 		if (targetError !== null) throw new Error(describeEslEventError(targetError));
-		const bounds = periodBoundsFor(event.type, {
-			startPeriod: event.startPeriod,
-			endPeriod: event.endPeriod
-		});
 		const fieldError = assertValidEslEvent({
 			type: event.type,
 			date: event.date,
 			...(event.endDate === undefined ? {} : { endDate: event.endDate }),
-			startPeriod: bounds.startPeriod,
-			endPeriod: bounds.endPeriod,
+			...(event.classPeriods === undefined ? {} : { classPeriods: event.classPeriods }),
 			...(event.reminderKind === undefined ? {} : { reminderKind: event.reminderKind })
 		});
 		if (fieldError !== null) throw new Error(describeEslEventError(fieldError));
@@ -573,8 +566,7 @@ function customWrite(custom: WizardSaveCustom): EventWrite {
 		target: custom.target ?? 'all',
 		date: custom.date,
 		note: text,
-		...(custom.startPeriod !== undefined ? { startPeriod: custom.startPeriod } : {}),
-		...(custom.endPeriod !== undefined ? { endPeriod: custom.endPeriod } : {})
+		...(custom.classPeriods !== undefined ? { classPeriods: custom.classPeriods } : {})
 	};
 }
 
@@ -588,8 +580,7 @@ function eventOf(row: DesiredRow): EventWrite {
 		date: row.date,
 		...(row.endDate === undefined ? {} : { endDate: row.endDate }),
 		...(row.note === undefined ? {} : { note: row.note }),
-		...(row.startPeriod === undefined ? {} : { startPeriod: row.startPeriod }),
-		...(row.endPeriod === undefined ? {} : { endPeriod: row.endPeriod })
+		...(row.classPeriods === undefined ? {} : { classPeriods: row.classPeriods })
 	};
 }
 
@@ -633,8 +624,7 @@ type EventPatchFields = {
 	date?: string;
 	endDate?: string;
 	note?: string;
-	startPeriod?: number;
-	endPeriod?: number;
+	classPeriods?: number[];
 };
 
 /** A full row shape ready for `db.insert`. */
@@ -647,8 +637,7 @@ type NewEventRow = {
 	date: string;
 	endDate?: string;
 	note?: string;
-	startPeriod?: number;
-	endPeriod?: number;
+	classPeriods?: number[];
 	examGroup?: string;
 	e2eTag?: string;
 };
@@ -681,6 +670,18 @@ function visibleNoteOf(row: {
 }
 
 /**
+ * Whether two period lists are the same pick. Compared order-insensitively:
+ * the picker's click order is not part of the meaning (#293).
+ */
+function samePeriods(a: readonly number[] | undefined, b: readonly number[] | undefined): boolean {
+	if (a === undefined || b === undefined) return a === b;
+	if (a.length !== b.length) return false;
+	const left = [...a].sort((x, y) => x - y);
+	const right = [...b].sort((x, y) => x - y);
+	return left.every((period, index) => period === right[index]);
+}
+
+/**
  * The canonical shape a row is compared on: every field the wizard writes,
  * normalized the way `events.create` stores it (defaults filled, hidden
  * notes dropped). Identical keys mean the row is already exactly what the
@@ -694,8 +695,7 @@ function rowKey(row: {
 	date: string;
 	endDate?: string;
 	note?: string;
-	startPeriod?: number;
-	endPeriod?: number;
+	classPeriods?: number[];
 	examGroup?: string;
 }): string {
 	return JSON.stringify({
@@ -706,8 +706,7 @@ function rowKey(row: {
 		date: row.date,
 		endDate: row.endDate ?? null,
 		note: visibleNoteOf(row) ?? null,
-		startPeriod: row.startPeriod ?? null,
-		endPeriod: row.endPeriod ?? null,
+		classPeriods: row.classPeriods ? [...row.classPeriods].sort((a, b) => a - b) : null,
 		examGroup: row.examGroup ?? null
 	});
 }
@@ -727,7 +726,7 @@ function isWizardLeftover(row: Doc<'esl_events'>): boolean {
 		return true;
 	}
 	if (row.type === 'no_school' && row.note === ESL_LOCKED_NOTES.anniversaryMakeup) return true;
-	if (row.type === 'partial' && row.note === ESL_LOCKED_NOTES.bbq) return true;
+	if (row.type === 'partial') return true;
 	if (row.type === 'reminder' && row.reminderKind === 'quiz' && /^Quiz \d+$/.test(row.title)) {
 		return true;
 	}
@@ -741,7 +740,7 @@ function isWizardLeftover(row: Doc<'esl_events'>): boolean {
 function matchesFamily(family: Family, desired: DesiredRow, row: Doc<'esl_events'>): boolean {
 	switch (family.kind) {
 		case 'start':
-			return row.type === 'start_school';
+			return row.type === 'partial' && row.title === ESL_START_SCHOOL_TITLE;
 		case 'off':
 			// Off days are one per date (exclusivity), so the date is the
 			// identity — never a nearest-date match that could steal a
@@ -794,8 +793,9 @@ function familyPatch(
 	switch (family.kind) {
 		case 'start':
 			if (row.date !== desired.date) fields.date = desired.date;
-			if (row.startPeriod !== desired.startPeriod) fields.startPeriod = desired.startPeriod;
-			if (row.endPeriod !== desired.endPeriod) fields.endPeriod = desired.endPeriod;
+			if (!samePeriods(row.classPeriods, desired.classPeriods)) {
+				fields.classPeriods = desired.classPeriods;
+			}
 			return fields;
 		case 'off':
 			if (row.note !== desired.note) fields.note = desired.note;
@@ -805,6 +805,9 @@ function familyPatch(
 		case 'custom':
 			if (row.date !== desired.date) fields.date = desired.date;
 			if (row.endDate !== desired.endDate) fields.endDate = desired.endDate;
+			if (!samePeriods(row.classPeriods, desired.classPeriods)) {
+				fields.classPeriods = desired.classPeriods;
+			}
 			return fields;
 		case 'exam':
 		case 'anniv':
@@ -816,9 +819,11 @@ function familyPatch(
 			return fields;
 		case 'bbq':
 			if (row.date !== desired.date) fields.date = desired.date;
-			// BBQ is a partial afternoon (periods 1-4 in window, 5-8 out).
-			// Ensure the endPeriod is always set to 4 on reconcile.
-			if (row.endPeriod !== 4) fields.endPeriod = 4;
+			// BBQ is a partial afternoon: P1–P4 still meet, P5–P8 are out of
+			// the window, so the row always carries that list on reconcile.
+			if (!samePeriods(row.classPeriods, desired.classPeriods)) {
+				fields.classPeriods = desired.classPeriods;
+			}
 			return fields;
 	}
 }
@@ -835,9 +840,8 @@ function desiredToNewRow(row: DesiredRow, e2eTag: string | undefined): NewEventR
 		date: row.date,
 		...(row.endDate === undefined ? {} : { endDate: row.endDate }),
 		...(note === undefined ? {} : { note }),
-		...(row.startPeriod === undefined ? {} : { startPeriod: row.startPeriod }),
-		...(row.endPeriod === undefined ? {} : { endPeriod: row.endPeriod }),
 		...(row.examGroup === undefined ? {} : { examGroup: row.examGroup }),
+		...(row.classPeriods === undefined ? {} : { classPeriods: row.classPeriods }),
 		...(e2eTag === undefined ? {} : { e2eTag })
 	};
 }

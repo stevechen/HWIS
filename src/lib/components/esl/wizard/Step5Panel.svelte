@@ -124,21 +124,35 @@
 	let customTarget = $state<'all' | 'CLIL' | 'Comm' | 'G7' | 'G8' | 'G9' | 'H1'>('all');
 	let customSubType = $state<'partial' | 'no_class' | 'task'>('task');
 	let customNote = $state('');
-	let customStartPeriod = $state<number | undefined>(undefined);
-	let customEndPeriod = $state<number | undefined>(undefined);
 	let customClassPeriods = $state<number[]>([]);
+	let customPeriodWarning = $state(false);
 	let customBannerText = $state('');
 	let editPopover: { event: PreviewRow | null; x: number; y: number } = $state({
 		event: null,
 		x: 0,
 		y: 0
 	});
+	/** The rendered popover element — measured after paint to clamp position. */
+	let editPopoverEl = $state<HTMLDivElement | null>(null);
+	/** Key of the row serving as the CSS anchor while the popover is open. */
+	let editAnchorKey = $state<string | null>(null);
+	/**
+	 * CSS anchor positioning (Baseline 2026 — Chrome 125+, Firefox 147+,
+	 * Safari 27+) places the popover from the stylesheet relative to the
+	 * clicked row; JS measurement below only runs on older browsers, and
+	 * inline `left`/`top` must not be emitted when it does, or the inline
+	 * insets would override the CSS placement.
+	 */
+	const cssAnchor =
+		typeof window !== 'undefined' &&
+		typeof CSS !== 'undefined' &&
+		CSS.supports('anchor-name: --esl-edit-probe');
 	let editDate = $state('');
 	let editEndDate = $state('');
 	let editNote = $state('');
-	let editStartPeriod = $state('');
-	let editEndPeriod = $state('');
+	let editTarget = $state<'all' | 'CLIL' | 'Comm' | 'G7' | 'G8' | 'G9' | 'H1'>('all');
 	let editClassPeriods = $state<number[]>([]);
+	let editPeriodWarning = $state(false);
 	let saveStatus: 'idle' | 'saving' | 'success' | 'error' = $state('idle');
 	let saveError = $state<string | null>(null);
 
@@ -327,18 +341,6 @@
 		};
 	});
 
-	// Custom event ID counter
-	let customIdCounter = $state(
-		wizardState.step5.customEvents.length > 0
-			? Math.max(
-					...wizardState.step5.customEvents.map((c) => {
-						const m = c.id.match(/custom-(\d+)/);
-						return m ? Number(m[1]) : 0;
-					})
-				) + 1
-			: 1
-	);
-
 	function openCustomModal(type: 'meeting' | 'banner' = 'meeting') {
 		customType = type;
 		customDate = '';
@@ -346,10 +348,8 @@
 		customTarget = 'all';
 		customSubType = 'task';
 		customNote = '';
-		customStartPeriod = undefined;
-		customEndPeriod = undefined;
 		customClassPeriods = [];
-		customBannerText = '';
+		customPeriodWarning = false;
 		showCustomModal = true;
 	}
 
@@ -376,14 +376,9 @@
 					target: customTarget,
 					subType: customSubType,
 					note: customNote || undefined,
-					...(customSubType === 'partial'
-						? {
-								startPeriod:
-									customStartPeriod === undefined ? undefined : Number(customStartPeriod),
-								endPeriod: customEndPeriod === undefined ? undefined : Number(customEndPeriod)
-							}
-						: {}),
-					...(customClassPeriods.length > 0 ? { classPeriods: [...customClassPeriods] } : {})
+					...(customSubType === 'partial' && customClassPeriods.length > 0
+						? { classPeriods: [...customClassPeriods] }
+						: {})
 				});
 			});
 		} else {
@@ -421,28 +416,63 @@
 
 	function openEditPopover(event: PreviewRow, clientX: number, clientY: number) {
 		if (!event.editable) return;
-		const popoverWidth = 300;
-		const popoverHeight = 380;
-		const vw = typeof window !== 'undefined' ? window.innerWidth : clientX + popoverWidth;
-		const vh = typeof window !== 'undefined' ? window.innerHeight : clientY + popoverHeight;
-		const x = Math.max(8, Math.min(clientX, vw - popoverWidth - 8));
-		const y = Math.max(8, Math.min(clientY, vh - popoverHeight - 8));
-		editPopover = { event, x, y };
+		editAnchorKey = event.key;
+		if (!cssAnchor) {
+			// Seed from a rough estimate so the first paint lands near the
+			// click; the measure-and-clamp effect below corrects it against
+			// the real rendered size. With CSS anchor positioning this is
+			// skipped — the stylesheet owns placement there.
+			const popoverWidth = 300;
+			const popoverHeight = 380;
+			const vw = typeof window !== 'undefined' ? window.innerWidth : clientX + popoverWidth;
+			const vh = typeof window !== 'undefined' ? window.innerHeight : clientY + popoverHeight;
+			const x = Math.max(8, Math.min(clientX, vw - popoverWidth - 8));
+			const y = Math.max(8, Math.min(clientY, vh - popoverHeight - 8));
+			editPopover = { event, x, y };
+		} else {
+			editPopover = { event, x: 0, y: 0 };
+		}
 		editDate = event.date;
 		editEndDate = event.endDate ?? '';
 		editNote = event.note ?? '';
-		editStartPeriod = event.startPeriod !== undefined ? String(event.startPeriod) : '';
-		editEndPeriod = event.endPeriod !== undefined ? String(event.endPeriod) : '';
+		editTarget = event.target;
 		editClassPeriods = event.classPeriods ? [...event.classPeriods] : [];
+		editPeriodWarning = false;
 	}
 
 	function closeEditPopover() {
 		editPopover = { event: null, x: 0, y: 0 };
+		editAnchorKey = null;
 	}
+
+	/**
+	 * Fallback for browsers without CSS anchor positioning: keep the open
+	 * popover inside the viewport by measuring the element after it
+	 * renders. Runs whenever the popover opens or moves; settling on
+	 * unchanged values ends the cycle, so it never loops.
+	 */
+	$effect(() => {
+		if (cssAnchor || editPopover.event === null || editPopoverEl === null) return;
+		const margin = 8;
+		const width = editPopoverEl.offsetWidth;
+		const height = editPopoverEl.offsetHeight;
+		if (width === 0 || height === 0) return;
+		const x = Math.max(margin, Math.min(editPopover.x, window.innerWidth - width - margin));
+		const y = Math.max(margin, Math.min(editPopover.y, window.innerHeight - height - margin));
+		if (x !== editPopover.x || y !== editPopover.y) {
+			editPopover = { ...editPopover, x, y };
+		}
+	});
 
 	function saveEdit() {
 		const key = editPopover.event?.key;
 		if (key === undefined) return;
+		// Target is only editable on custom events (Step 5 popover); fixed
+		// rows (grad = G9, exams = all) keep their programmed targets.
+		const targetOverride =
+			editPopover.event?.customId !== undefined && editTarget !== editPopover.event.target
+				? editTarget
+				: undefined;
 		update((draft) => {
 			const existingIndex = draft.step5.eventEdits.findIndex((e) => e.eventKey === key);
 			const edit: WizardEventEdit = {
@@ -450,9 +480,8 @@
 				date: editDate || undefined,
 				endDate: editEndDate || undefined,
 				note: editNote || undefined,
-				startPeriod: editStartPeriod === '' ? undefined : Number(editStartPeriod),
-				endPeriod: editEndPeriod === '' ? undefined : Number(editEndPeriod),
-				classPeriods: editClassPeriods.length > 0 ? [...editClassPeriods] : undefined
+				classPeriods: editClassPeriods.length > 0 ? [...editClassPeriods] : undefined,
+				...(targetOverride !== undefined ? { target: targetOverride } : {})
 			};
 			if (existingIndex >= 0) {
 				draft.step5.eventEdits[existingIndex] = edit;
@@ -600,13 +629,16 @@
 	// Event type colors for list
 	function getEventColor(event: PreviewRow): string {
 		switch (event.type) {
-			case 'start_school':
-				return 'bg-emerald-100 text-emerald-900 border-emerald-200';
 			case 'no_school':
 				return 'bg-stone-100 text-stone-900 border-stone-200';
 			case 'no_class':
 				return 'bg-amber-100 text-amber-900 border-amber-200';
 			case 'partial':
+				// The first day of school is a partial now (#293) but keeps the
+				// green it has always worn in the preview list.
+				if (event.key === 'step1:startDate') {
+					return 'bg-emerald-100 text-emerald-900 border-emerald-200';
+				}
 				return 'bg-sky-100 text-sky-900 border-sky-200';
 			case 'exam':
 				return 'bg-red-100 text-red-900 border-red-200';
@@ -634,6 +666,7 @@
 {#snippet eventListItem(event: PreviewRow)}
 	<div
 		data-event-row
+		class:esl-edit-anchor={editAnchorKey === event.key}
 		class="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 rounded border px-2 py-1 text-xs leading-snug transition-colors hover:bg-gray-50 {getEventColor(
 			event
 		)}"
@@ -650,7 +683,7 @@
 		aria-label={`Edit ${event.title} on ${formatShortDate(event.date)}`}
 		title={event.note ?? undefined}
 	>
-		<span class="min-w-0 font-medium break-words">{event.title}</span>
+		<span class="wrap-break-words min-w-0 font-medium">{event.title}</span>
 		{#if event.examGroup && event.examGroup !== event.title}
 			<span class="rounded bg-white/70 px-1 py-0.5 text-[10px] font-medium">{event.examGroup}</span>
 		{/if}
@@ -852,9 +885,11 @@
 		<aside
 			bind:this={listEl}
 			data-testid="wizard.step-5-event-list"
-			class="min-w-0 space-y-3 lg:max-w-[260px]"
+			class="min-w-0 space-y-3 lg:max-w-65"
 		>
-			<h3 class="text-sm font-semibold text-gray-800">All events ({unifiedEvents.length})</h3>
+			<h3 class="text-sm font-semibold text-gray-800">
+				All events ({unifiedEvents.length})
+			</h3>
 
 			{#if unifiedEvents.length === 0}
 				<p class="text-sm text-gray-500">No events configured yet.</p>
@@ -1004,80 +1039,120 @@
 								placeholder="Required detail text"></textarea>
 						</div>
 						{#if customSubType === 'partial'}
-							<div class="grid grid-cols-2 gap-3">
-								<div>
-									<label
-										for="custom-start-period"
-										class="mb-1 block text-sm font-medium text-gray-700">Start period</label
-									>
-									<input
-										id="custom-start-period"
-										type="number"
-										min="1"
-										max="10"
-										bind:value={customStartPeriod}
-										class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500"
-									/>
-								</div>
-								<div>
-									<label
-										for="custom-end-period"
-										class="mb-1 block text-sm font-medium text-gray-700">End period</label
-									>
-									<input
-										id="custom-end-period"
-										type="number"
-										min="1"
-										max="10"
-										bind:value={customEndPeriod}
-										class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500"
-									/>
-								</div>
-							</div>
-						{/if}
-						<!-- Period checkbox picker (ticket #290) -->
-						<div>
-							<label class="mb-2 block text-sm font-medium text-gray-700">Periods (P1–P8)</label>
-							<div class="grid grid-cols-4 gap-2">
-								{#each [1, 2, 3, 4, 5, 6, 7, 8] as p (p)}
+							<!-- Period checkbox picker -->
+							<div>
+								<span class="mb-1 block text-xs font-medium text-gray-600">Class Periods</span>
+								<div class="grid grid-cols-5 gap-2">
 									<button
 										type="button"
 										onclick={() => {
-											const idx = customClassPeriods.indexOf(p);
-											if (idx >= 0) customClassPeriods = customClassPeriods.toSpliced(idx, 1);
-											else customClassPeriods = [...customClassPeriods, p].sort((a, b) => a - b);
+											const morning = [1, 2, 3, 4];
+											const hasAll = morning.every((p) => customClassPeriods.includes(p));
+											if (hasAll)
+												customClassPeriods = customClassPeriods.filter((p) => !morning.includes(p));
+											else {
+												const next = [...new Set([...customClassPeriods, ...morning])].sort(
+													(a, b) => a - b
+												);
+												if (next.length <= 7) {
+													customClassPeriods = next;
+													customPeriodWarning = false;
+												} else {
+													customPeriodWarning = true;
+												}
+											}
 										}}
-										class="rounded border px-2 py-1 text-xs font-semibold {customClassPeriods.includes(
-											p
-										)
+										class="rounded border px-1.5 py-0.5 text-[10px] font-medium {customClassPeriods.length ===
+											4 && [1, 2, 3, 4].every((p) => customClassPeriods.includes(p))
 											? 'border-emerald-700 bg-emerald-700 text-white'
-											: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+											: 'border-gray-300 bg-white text-gray-700 hover:bg-emerald-50'}"
+										>Morning</button
 									>
-										P{p}
-									</button>
-								{/each}
+									{#each [1, 2, 3, 4] as p (p)}
+										<button
+											type="button"
+											onclick={() => {
+												const idx = customClassPeriods.indexOf(p);
+												if (idx >= 0) {
+													customClassPeriods = customClassPeriods.toSpliced(idx, 1);
+													customPeriodWarning = false;
+												} else if (customClassPeriods.length < 7) {
+													customClassPeriods = [...customClassPeriods, p].sort((a, b) => a - b);
+													customPeriodWarning = false;
+												} else {
+													customPeriodWarning = true;
+												}
+											}}
+											class="rounded border px-1 py-0.5 text-[10px] font-semibold {customClassPeriods.includes(
+												p
+											)
+												? 'border-emerald-700 bg-emerald-700 text-white'
+												: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+										>
+											P{p}
+										</button>
+									{/each}
+									<button
+										type="button"
+										onclick={() => {
+											const afternoon = [5, 6, 7, 8];
+											const hasAll = afternoon.every((p) => customClassPeriods.includes(p));
+											if (hasAll)
+												customClassPeriods = customClassPeriods.filter(
+													(p) => !afternoon.includes(p)
+												);
+											else {
+												const next = [...new Set([...customClassPeriods, ...afternoon])].sort(
+													(a, b) => a - b
+												);
+												if (next.length <= 7) {
+													customClassPeriods = next;
+													customPeriodWarning = false;
+												} else {
+													customPeriodWarning = true;
+												}
+											}
+										}}
+										class="rounded border px-1.5 py-0.5 text-[10px] font-medium {customClassPeriods.length ===
+											4 && [5, 6, 7, 8].every((p) => customClassPeriods.includes(p))
+											? 'border-emerald-700 bg-emerald-700 text-white'
+											: 'border-gray-300 bg-white text-gray-700 hover:bg-emerald-50'}"
+										>Afternoon</button
+									>
+									{#each [5, 6, 7, 8] as p (p)}
+										<button
+											type="button"
+											onclick={() => {
+												const idx = customClassPeriods.indexOf(p);
+												if (idx >= 0) {
+													customClassPeriods = customClassPeriods.toSpliced(idx, 1);
+													customPeriodWarning = false;
+												} else if (customClassPeriods.length < 7) {
+													customClassPeriods = [...customClassPeriods, p].sort((a, b) => a - b);
+													customPeriodWarning = false;
+												} else {
+													customPeriodWarning = true;
+												}
+											}}
+											class="rounded border px-1 py-0.5 text-[10px] font-semibold {customClassPeriods.includes(
+												p
+											)
+												? 'border-emerald-700 bg-emerald-700 text-white'
+												: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+										>
+											P{p}
+										</button>
+									{/each}
+								</div>
+								<div class="mt-1 flex gap-1">
+									{#if customPeriodWarning}
+										<span class="text-[10px] text-red-600"
+											>A partial day needs 1–7 periods (not 0 or 8).</span
+										>
+									{/if}
+								</div>
 							</div>
-							<div class="mt-2 flex gap-2">
-								<button
-									type="button"
-									onclick={() => (customClassPeriods = [1, 2, 3, 4])}
-									class="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium hover:bg-emerald-50"
-									>Morning (1–4)</button
-								>
-								<button
-									type="button"
-									onclick={() => (customClassPeriods = [5, 6, 7, 8])}
-									class="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium hover:bg-emerald-50"
-									>Afternoon (5–8)</button
-								>
-								<button
-									type="button"
-									onclick={() => (customClassPeriods = [])}
-									class="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-									>Clear</button
-								>
-							</div>
-						</div>
+						{/if}
 					</div>
 				{:else}
 					<!-- Banner fields: text doubles as the note (spec #215 story 28) -->
@@ -1144,7 +1219,9 @@
 					<Button variant="outline" onclick={closeCustomModal}>Cancel</Button>
 					<Button
 						disabled={customType === 'meeting'
-							? !customDate || customNote.trim() === ''
+							? !customDate ||
+								customNote.trim() === '' ||
+								(customSubType === 'partial' && customClassPeriods.length === 0)
 							: !customDate || !customEndDate || !customBannerText}
 						onclick={addCustomEvent}
 						data-testid="wizard.step-5-custom-add"
@@ -1160,12 +1237,13 @@
 	{#if editPopover.event}
 		<div
 			data-testid="wizard.step-5-edit-popover"
-			class="fixed z-50 rounded-lg border border-gray-200 bg-white p-3 shadow-xl"
-			style="left: {editPopover.x}px; top: {editPopover.y}px;"
+			class="edit-popover fixed z-50 rounded-lg bg-white p-3 [box-shadow:0_20px_25px_-5px_#0000001a,0_8px_10px_-6px_#0000001a] [border:1px_solid_var(--border)]"
+			bind:this={editPopoverEl}
+			style={cssAnchor ? undefined : `left: ${editPopover.x}px; top: ${editPopover.y}px;`}
 			role="dialog"
 			aria-label="Edit event"
 		>
-			<div class="min-w-[280px] space-y-3">
+			<div class="min-w-70 space-y-3">
 				<div class="flex items-center justify-between">
 					<h4 class="font-medium text-gray-900">{editPopover.event.title}</h4>
 					<button
@@ -1214,79 +1292,126 @@
 							placeholder="Optional detail"></textarea>
 					</div>
 				{/if}
-				{#if editPopover.event?.type === 'partial'}
-					<div class="grid grid-cols-2 gap-3">
-						<div>
-							<label for="edit-start-period" class="mb-1 block text-xs font-medium text-gray-600"
-								>Start period</label
-							>
-							<input
-								id="edit-start-period"
-								type="number"
-								min="1"
-								max="10"
-								bind:value={editStartPeriod}
-								class="w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-emerald-500"
-							/>
-						</div>
-						<div>
-							<label for="edit-end-period" class="mb-1 block text-xs font-medium text-gray-600"
-								>End period</label
-							>
-							<input
-								id="edit-end-period"
-								type="number"
-								min="1"
-								max="10"
-								bind:value={editEndPeriod}
-								class="w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-emerald-500"
-							/>
-						</div>
+				{#if editPopover.event?.customId !== undefined}
+					<div>
+						<label for="edit-event-target" class="mb-1 block text-xs font-medium text-gray-600"
+							>Target</label
+						>
+						<select
+							id="edit-event-target"
+							bind:value={editTarget}
+							class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+						>
+							<option value="all">All grades</option>
+							<option value="CLIL">CLIL</option>
+							<option value="Comm">Communication (G7–G9)</option>
+							<option value="G7">Grade 7</option>
+							<option value="G8">Grade 8</option>
+							<option value="G9">Grade 9</option>
+							<option value="H1">Grade 10</option>
+						</select>
 					</div>
 				{/if}
-				<!-- Period checkbox picker (ticket #290) -->
-				<div>
-					<label class="mb-1 block text-xs font-medium text-gray-600">Periods</label>
-					<div class="grid grid-cols-4 gap-1">
-						{#each [1, 2, 3, 4, 5, 6, 7, 8] as p (p)}
+				{#if editPopover.event?.type === 'partial' && editPopover.event.key !== 'step1:startDate' && editPopover.event.key !== 'step4:singles:bbq'}
+					<!-- Period checkbox picker (ticket #290). The first day's window
+					     is fixed at P3 (#293), so it carries no picker. -->
+					<div>
+						<span class="mb-1 block text-xs font-medium text-gray-600">Class Periods</span>
+						<div class="grid grid-cols-5 gap-1">
 							<button
 								type="button"
 								onclick={() => {
-									const idx = editClassPeriods.indexOf(p);
-									if (idx >= 0) editClassPeriods = editClassPeriods.toSpliced(idx, 1);
-									else editClassPeriods = [...editClassPeriods, p].sort((a, b) => a - b);
+									const morning = [1, 2, 3, 4];
+									const hasAll = morning.every((p) => editClassPeriods.includes(p));
+									if (hasAll)
+										editClassPeriods = editClassPeriods.filter((p) => !morning.includes(p));
+									else {
+										const next = [...new Set([...editClassPeriods, ...morning])].sort(
+											(a, b) => a - b
+										);
+										if (next.length <= 7) {
+											editClassPeriods = next;
+											editPeriodWarning = false;
+										} else {
+											editPeriodWarning = true;
+										}
+									}
 								}}
-								class="rounded border px-1 py-0.5 text-[10px] font-semibold {editClassPeriods.includes(
-									p
-								)
+								class="rounded border px-1.5 py-0.5 text-[10px] font-medium {editClassPeriods.length ===
+									4 && [1, 2, 3, 4].every((p) => editClassPeriods.includes(p))
 									? 'border-emerald-700 bg-emerald-700 text-white'
-									: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+									: 'border-gray-300 bg-white text-gray-700 hover:bg-emerald-50'}">Morning</button
 							>
-								P{p}
-							</button>
-						{/each}
+							{#each [1, 2, 3, 4] as p (p)}
+								<button
+									type="button"
+									onclick={() => {
+										const idx = editClassPeriods.indexOf(p);
+										if (idx >= 0) editClassPeriods = editClassPeriods.toSpliced(idx, 1);
+										else if (editClassPeriods.length < 7)
+											editClassPeriods = [...editClassPeriods, p].sort((a, b) => a - b);
+									}}
+									class="rounded border px-1 py-0.5 text-[10px] font-semibold {editClassPeriods.includes(
+										p
+									)
+										? 'border-emerald-700 bg-emerald-700 text-white'
+										: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+								>
+									P{p}
+								</button>
+							{/each}
+							<button
+								type="button"
+								onclick={() => {
+									const afternoon = [5, 6, 7, 8];
+									const hasAll = afternoon.every((p) => editClassPeriods.includes(p));
+									if (hasAll)
+										editClassPeriods = editClassPeriods.filter((p) => !afternoon.includes(p));
+									else {
+										const next = [...new Set([...editClassPeriods, ...afternoon])].sort(
+											(a, b) => a - b
+										);
+										if (next.length <= 7) {
+											editClassPeriods = next;
+											editPeriodWarning = false;
+										} else {
+											editPeriodWarning = true;
+										}
+									}
+								}}
+								class="rounded border px-1.5 py-0.5 text-[10px] font-medium {editClassPeriods.length ===
+									4 && [5, 6, 7, 8].every((p) => editClassPeriods.includes(p))
+									? 'border-emerald-700 bg-emerald-700 text-white'
+									: 'border-gray-300 bg-white text-gray-700 hover:bg-emerald-50'}">Afternoon</button
+							>
+							{#each [5, 6, 7, 8] as p (p)}
+								<button
+									type="button"
+									onclick={() => {
+										const idx = editClassPeriods.indexOf(p);
+										if (idx >= 0) editClassPeriods = editClassPeriods.toSpliced(idx, 1);
+										else if (editClassPeriods.length < 7)
+											editClassPeriods = [...editClassPeriods, p].sort((a, b) => a - b);
+									}}
+									class="rounded border px-1 py-0.5 text-[10px] font-semibold {editClassPeriods.includes(
+										p
+									)
+										? 'border-emerald-700 bg-emerald-700 text-white'
+										: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+								>
+									P{p}
+								</button>
+							{/each}
+						</div>
+						<div class="mt-1 flex gap-1">
+							{#if editPeriodWarning}
+								<span class="text-[10px] text-red-600"
+									>A partial day needs 1–7 periods (not 0 or 8).</span
+								>
+							{/if}
+						</div>
 					</div>
-					<div class="mt-1 flex gap-1">
-						<button
-							type="button"
-							onclick={() => (editClassPeriods = [1, 2, 3, 4])}
-							class="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium hover:bg-emerald-50"
-							>Morning</button
-						>
-						<button
-							type="button"
-							onclick={() => (editClassPeriods = [5, 6, 7, 8])}
-							class="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium hover:bg-emerald-50"
-							>Afternoon</button
-						>
-						<button
-							type="button"
-							onclick={() => (editClassPeriods = [])}
-							class="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-red-600 hover:bg-red-50"
-							>Clear</button
-						>
-					</div>
-				</div>
+				{/if}
 				<div class="flex justify-end gap-2 pt-1">
 					<Button variant="outline" size="sm" onclick={closeEditPopover}>Cancel</Button>
 					<Button size="sm" onclick={saveEdit}>Save changes</Button>
@@ -1295,3 +1420,54 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	/*
+	 * Edit-popover placement via CSS anchor positioning (Baseline 2026).
+	 * The clicked row takes `anchor-name`; the popover adopts it through
+	 * `position-anchor` and sits below the row, horizontally centered on
+	 * it. `position-try-fallbacks` flips the popover above or across when
+	 * `bottom` would overflow the viewport, so it can never be clipped.
+	 * (Physical + logical keyword mixes like `bottom span-inline-start`
+	 * are invalid and silently drop both declarations — single-axis
+	 * values plus flip keywords are the supported grammar.) A JS
+	 * measure-and-clamp fallback in the script covers browsers before
+	 * Firefox 147 / Safari 27.
+	 */
+	.esl-edit-anchor {
+		anchor-name: --esl-edit-anchor;
+	}
+
+	/*
+	 * The border and shadow are arbitrary PROPERTIES on the element, not
+	 * `border`/`shadow-xl` utilities, because WebKit drops
+	 * `@property`-registered Tailwind vars (`--tw-border-style`,
+	 * `--tw-shadow`, …) while a `@position-try` rule is active — which erased
+	 * the border and shadow exactly in the flipped state. See ADR-0031 and the
+	 * same rule documented in src/routes/esl/admin/classes/AnchoredPanel.
+	 */
+	.edit-popover {
+		position-anchor: --esl-edit-anchor;
+		position-area: bottom;
+		position-try-fallbacks:
+			--esl-popover-top,
+			flip-inline,
+			flip-block flip-inline;
+		/* Gap between the popover and its anchor row. */
+		margin: 6px;
+		max-height: calc(100vh - 16px);
+		overflow-y: auto;
+	}
+
+	/*
+	 * Flipped above the anchor. A wider bottom margin than the normal 6px gap
+	 * keeps the popover clear of the row it is editing, so the shadow does not
+	 * sit on top of the row's own border. (This margin was originally added to
+	 * "un-clip" the shadow; that diagnosis was wrong — the border and shadow
+	 * were being dropped, not clipped. See ADR-0031.)
+	 */
+	@position-try --esl-popover-top {
+		position-area: top;
+		margin-bottom: 20px;
+	}
+</style>

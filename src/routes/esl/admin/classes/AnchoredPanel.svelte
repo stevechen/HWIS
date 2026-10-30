@@ -90,6 +90,10 @@
 	shadow are single literal declarations here — the edge in the theme's own
 	border color (`--border`, the raw root var, since `@theme inline` emits no
 	`--color-*` vars), now that shadows paint again and it no longer has to shout.
+
+	The registration lapses in WebKit whenever a `@position-try` rule is active,
+	so this is not cosmetic: it is why a flipped panel lost its edge. Full
+	write-up, evidence and the dead ends to skip: ADR-0031.
 -->
 <div
 	{@attach attachPanel}

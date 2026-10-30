@@ -81,14 +81,7 @@ export interface CreateEvaluationForStudentData {
 
 export type EslTerm = 'S1' | 'S2';
 
-export type EslEventType =
-	| 'start_school'
-	| 'reminder'
-	| 'no_school'
-	| 'no_class'
-	| 'partial'
-	| 'exam'
-	| 'g9_mock';
+export type EslEventType = 'reminder' | 'no_school' | 'no_class' | 'partial' | 'exam' | 'g9_mock';
 
 export type EslReminderKind =
 	| 'quiz'
@@ -138,8 +131,7 @@ export interface CreateEslEventOptions {
 	date: string;
 	endDate?: string;
 	note?: string;
-	startPeriod?: number;
-	endPeriod?: number;
+	classPeriods?: number[];
 	e2eTag?: string;
 }
 
@@ -155,8 +147,7 @@ export interface UpdateEslEventOptions {
 	endDate?: string;
 	clearEndDate?: boolean;
 	note?: string;
-	startPeriod?: number;
-	endPeriod?: number;
+	classPeriods?: number[];
 	clearPeriods?: boolean;
 }
 

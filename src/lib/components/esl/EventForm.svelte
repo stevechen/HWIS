@@ -7,6 +7,7 @@
 		ESL_EVENT_TYPES,
 		ESL_EVENT_TYPE_LABELS,
 		ESL_EXAM_TITLES,
+		ESL_PARTIAL_TITLES,
 		ESL_PERIOD_NUMBERS,
 		ESL_REMINDER_KINDS,
 		ESL_REMINDER_TITLES,
@@ -40,8 +41,8 @@
 		date: string;
 		endDate?: string;
 		note?: string;
-		startPeriod?: number;
-		endPeriod?: number;
+		/** The periods that still have class, on a partial day (#293). */
+		classPeriods?: number[];
 	};
 
 	export type EventFormInitial = {
@@ -53,8 +54,7 @@
 		date: string;
 		endDate?: string;
 		note?: string;
-		startPeriod?: number;
-		endPeriod?: number;
+		classPeriods?: number[];
 	};
 
 	/**
@@ -89,8 +89,7 @@
 		date: string;
 		endDate: string;
 		note: string;
-		startPeriod: string;
-		endPeriod: string;
+		classPeriods: number[];
 	};
 
 	function blankDraft(init?: EventFormInitial): Draft {
@@ -112,8 +111,7 @@
 			date: init?.date ?? '',
 			endDate: init?.endDate ?? '',
 			note: init?.note ?? '',
-			startPeriod: init?.startPeriod === undefined ? '' : String(init.startPeriod),
-			endPeriod: init?.endPeriod === undefined ? '' : String(init.endPeriod)
+			classPeriods: init?.classPeriods === undefined ? [] : [...init.classPeriods]
 		};
 	}
 
@@ -144,6 +142,7 @@
 	 */
 	// svelte-ignore state_referenced_locally
 	let draft = $state(blankDraft(initial));
+	let periodWarning = $state(false);
 
 	const ranged = $derived(isRangedEventType(draft.type));
 	const partial = $derived(draft.type === 'partial');
@@ -160,6 +159,10 @@
 	const lockedTitle = $derived.by((): string | null => {
 		if (draft.type === 'reminder') return ESL_REMINDER_TITLES[draft.reminderKind];
 		if (draft.type === 'exam') return null;
+		// A partial keeps the title it was stored with: `Start at P3` is a
+		// valid partial title (#293), so editing the first day must not
+		// demote it to the ordinary `No class` chip.
+		if (draft.type === 'partial' && ESL_PARTIAL_TITLES.includes(draft.title)) return draft.title;
 		return ESL_EVENT_TITLES[draft.type];
 	});
 	/**
@@ -213,14 +216,11 @@
 
 	function onTypeChange(next: EslEventType) {
 		draft.type = next;
-		// Ranges live on reminders only, bounds on partials only — switching
-		// away drops the now-meaningless value so a stale end cannot ride
-		// along onto an exam the backend would refuse.
+		// Ranges live on reminders only, the period pick on partials only —
+		// switching away drops the now-meaningless value so a stale end
+		// cannot ride along onto an exam the backend would refuse.
 		if (!isRangedEventType(next)) draft.endDate = '';
-		if (next !== 'partial') {
-			draft.startPeriod = '';
-			draft.endPeriod = '';
-		}
+		if (next !== 'partial') draft.classPeriods = [];
 		if (next === 'reminder') {
 			draft.isBanner = true;
 			onReminderKindChange(draft.reminderKind);
@@ -279,9 +279,8 @@
 	class="space-y-3 rounded-lg border bg-white p-4"
 	onsubmit={(event) => {
 		event.preventDefault();
+		if (partial && draft.classPeriods.length === 0) return;
 		const trimmedNote = draft.note.trim();
-		const parsedStart = draft.startPeriod === '' ? undefined : Number(draft.startPeriod);
-		const parsedEnd = draft.endPeriod === '' ? undefined : Number(draft.endPeriod);
 		onsubmit({
 			type: draft.type,
 			...(isReminder ? { reminderKind: draft.reminderKind, isBanner: draft.isBanner } : {}),
@@ -290,8 +289,7 @@
 			date: draft.date,
 			endDate: ranged && draft.endDate !== '' ? draft.endDate : undefined,
 			...(noteHidden || trimmedNote === '' ? {} : { note: trimmedNote }),
-			startPeriod: partial ? parsedStart : undefined,
-			endPeriod: partial ? parsedEnd : undefined
+			...(partial && draft.classPeriods.length > 0 ? { classPeriods: [...draft.classPeriods] } : {})
 		});
 	}}
 >
@@ -480,32 +478,91 @@
 		{/if}
 		{#if partial}
 			<div class="flex flex-col gap-1">
-				<Label for="event-form-start-period">Starts from period</Label>
-				<select
-					id="event-form-start-period"
-					bind:value={draft.startPeriod}
-					disabled={busy}
-					class="rounded border px-2 py-1 text-sm"
-				>
-					<option value="">Full day</option>
+				<span class="text-sm font-medium">Periods with class</span>
+				<div class="grid grid-cols-8 gap-1" data-testid="event-form.class-periods">
 					{#each ESL_PERIOD_NUMBERS as period (period)}
-						<option value={String(period)}>P{period}</option>
+						<button
+							type="button"
+							disabled={busy}
+							aria-pressed={draft.classPeriods.includes(period)}
+							aria-label={`Period ${period}`}
+							onclick={() => {
+								const idx = draft.classPeriods.indexOf(period);
+								if (idx >= 0) {
+									draft.classPeriods = draft.classPeriods.toSpliced(idx, 1);
+									periodWarning = false;
+								} else if (draft.classPeriods.length < 7) {
+									draft.classPeriods = [...draft.classPeriods, period].sort((a, b) => a - b);
+									periodWarning = false;
+								} else {
+									periodWarning = true;
+								}
+							}}
+							class="rounded border px-1 py-1 text-xs font-semibold {draft.classPeriods.includes(
+								period
+							)
+								? 'border-emerald-700 bg-emerald-700 text-white'
+								: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+						>
+							P{period}
+						</button>
 					{/each}
-				</select>
-			</div>
-			<div class="flex flex-col gap-1">
-				<Label for="event-form-end-period">Ends at period</Label>
-				<select
-					id="event-form-end-period"
-					bind:value={draft.endPeriod}
-					disabled={busy}
-					class="rounded border px-2 py-1 text-sm"
-				>
-					<option value="">Full day</option>
-					{#each ESL_PERIOD_NUMBERS as period (period)}
-						<option value={String(period)}>P{period}</option>
-					{/each}
-				</select>
+				</div>
+				<div class="flex flex-wrap items-center gap-1">
+					<button
+						type="button"
+						disabled={busy}
+						onclick={() => {
+							const morning = [1, 2, 3, 4];
+							const all = draft.classPeriods;
+							const hasAll = morning.every((p) => all.includes(p));
+							if (hasAll) {
+								draft.classPeriods = all.filter((p) => !morning.includes(p));
+								periodWarning = false;
+							} else {
+								const next = [...new Set([...all, ...morning])].sort((a, b) => a - b);
+								if (next.length <= 7) {
+									draft.classPeriods = next;
+									periodWarning = false;
+								} else {
+									periodWarning = true;
+								}
+							}
+						}}
+						class="rounded border px-1.5 py-0.5 text-[11px] font-medium {draft.classPeriods
+							.length === 4 && [1, 2, 3, 4].every((p) => draft.classPeriods.includes(p))
+							? 'border-emerald-700 bg-emerald-700 text-white'
+							: 'border-gray-300 bg-white text-gray-700 hover:bg-emerald-50'}">Morning</button
+					>
+					<button
+						type="button"
+						disabled={busy}
+						onclick={() => {
+							const afternoon = [5, 6, 7, 8];
+							const all = draft.classPeriods;
+							const hasAll = afternoon.every((p) => all.includes(p));
+							if (hasAll) {
+								draft.classPeriods = all.filter((p) => !afternoon.includes(p));
+								periodWarning = false;
+							} else {
+								const next = [...new Set([...all, ...afternoon])].sort((a, b) => a - b);
+								if (next.length <= 7) {
+									draft.classPeriods = next;
+									periodWarning = false;
+								} else {
+									periodWarning = true;
+								}
+							}
+						}}
+						class="rounded border px-1.5 py-0.5 text-[11px] font-medium {draft.classPeriods
+							.length === 4 && [5, 6, 7, 8].every((p) => draft.classPeriods.includes(p))
+							? 'border-emerald-700 bg-emerald-700 text-white'
+							: 'border-gray-300 bg-white text-gray-700 hover:bg-emerald-50'}">Afternoon</button
+					>
+					{#if periodWarning}
+						<span class="text-xs text-red-600">A partial day needs 1–7 periods (not 0 or 8).</span>
+					{/if}
+				</div>
 			</div>
 		{/if}
 	</div>
@@ -542,7 +599,7 @@
 	{/if}
 
 	<div class="flex gap-2">
-		<Button type="submit" size="sm" disabled={busy}>
+		<Button type="submit" size="sm" disabled={busy || (partial && draft.classPeriods.length === 0)}>
 			{mode === 'create' ? 'Add event' : 'Save changes'}
 		</Button>
 		{#if mode === 'edit' && oncancel}

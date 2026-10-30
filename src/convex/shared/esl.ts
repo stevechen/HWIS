@@ -1012,20 +1012,23 @@ export function isEslSemesterTerm(term: string): term is EslSemesterTerm {
 }
 
 /**
- * The seven typed school events an admin can place on a semester (#216).
+ * The six typed school events an admin can place on a semester (#216).
  *
  * `no_school` means absent (school closed, the day is gone); `no_class`
  * means present but free (assembly, Sport's Day — meetings keep their rows,
- * greyed). `partial` is a late start / early end with optional period
- * bounds. `exam` anchors term boundaries and the derived semester end.
- * `reminder` is the only ranged type (reminder windows collapsing to the
- * latest eligible class day in the views), qualified by `reminderKind`.
- * `start_school` is the first-day marker and carries its P1–P2 window as
- * period bounds. `g9_mock` is a G9-only mock exam marker (two consecutive
- * single dates, like an exam but anchoring nothing).
+ * greyed). `partial` is a late start / early end — the periods that still
+ * meet are its `classPeriods`, everything else is out-of-window. `exam`
+ * anchors term boundaries and the derived semester end. `reminder` is the
+ * only ranged type (reminder windows collapsing to the latest eligible
+ * class day in the views), qualified by `reminderKind`. `g9_mock` is a
+ * G9-only mock exam marker (two consecutive single dates, like an exam but
+ * anchoring nothing).
+ *
+ * The first day of school is a `partial` rather than a type of its own: P1–P2
+ * are out-of-window and teaching starts at P3, which is exactly what
+ * `classPeriods: [3…8]` expresses (#293).
  */
 export const ESL_EVENT_TYPES = [
-	'start_school',
 	'reminder',
 	'no_school',
 	'no_class',
@@ -1066,14 +1069,33 @@ export function isEslReminderKind(kind: string): kind is EslReminderKind {
  * `task` kinds take a free-text title (required, always the banner — quiz
  * drafts default to `Unit N Quiz Due` via `quizTitle`); `exam` takes one of
  * `ESL_EXAM_TITLES`. Titles are explicit and never derived from notes.
+ *
+ * A `partial` row takes one of `ESL_PARTIAL_TITLES`: the ordinary `No class`
+ * chip, or the first-day marker `Start at P3` (#293).
  */
 export const ESL_EVENT_TITLES = {
-	start_school: 'Start at P3',
 	no_school: 'Off',
 	no_class: 'No class',
 	partial: 'No class',
 	g9_mock: 'G9 Mock Exam'
 } as const;
+
+/** The first day of school: teaching starts at P3, so P1–P2 are out-of-window. */
+export const ESL_START_SCHOOL_TITLE = 'Start at P3';
+
+/** The periods a first-day `partial` still teaches (#293). */
+export const ESL_START_SCHOOL_CLASS_PERIODS = [3, 4, 5, 6, 7, 8] as const;
+
+/**
+ * The titles a `partial` row may carry. Two, not one: the ordinary partial day
+ * shows `No class`, while the semester's first day keeps its locked
+ * `Start at P3` label so the views read the same before and after the two
+ * mechanisms were folded into one (#293).
+ */
+export const ESL_PARTIAL_TITLES: readonly string[] = [
+	ESL_EVENT_TITLES.partial,
+	ESL_START_SCHOOL_TITLE
+];
 
 /**
  * The banner title per reminder kind (#216). `quiz`/`task` entries are the
@@ -1111,7 +1133,6 @@ export const ESL_EXAM_TITLES = ['Exam 1', 'Exam 2', 'Final Exam'] as const;
  * canonical `ESL_EVENT_TYPES` union it iterates.
  */
 export const ESL_EVENT_TYPE_LABELS: Record<EslEventType, string> = {
-	start_school: 'Start of school',
 	reminder: 'Reminder',
 	no_school: 'No school',
 	no_class: 'No class',
@@ -1122,7 +1143,8 @@ export const ESL_EVENT_TYPE_LABELS: Record<EslEventType, string> = {
 
 /** Pre-v3 event types and where they land in the current union (#210, #216). */
 const V3_TYPE_MIGRATION: Record<string, EslEventType> = {
-	start_school: 'start_school',
+	// A pre-v3 first-day row is a partial with its P1–P2 window (#293).
+	start_school: 'partial',
 	quiz: 'reminder',
 	no_school: 'no_school',
 	off: 'no_school',
@@ -1295,7 +1317,6 @@ export function isEslEventTarget(target: string): target is EslEventTarget {
  * (#229), while every other no-class day defaults to All.
  */
 export const ESL_LOCKED_EVENT_TARGETS: Record<EslEventType, EslEventTarget | null> = {
-	start_school: null,
 	reminder: null,
 	no_school: 'all',
 	no_class: null,
@@ -1349,31 +1370,18 @@ export function defaultTargetForEventType(
 /** The ranged reminder type: the only type that may carry an inclusive endDate. */
 export const ESL_RANGED_EVENT_TYPES: readonly EslEventType[] = ['reminder'];
 
-/** The types that carry period bounds: partial days and the first day of school (#217). */
-export const ESL_PERIOD_BOUND_EVENT_TYPES: readonly EslEventType[] = ['partial', 'start_school'];
-
 /** Whether an event type takes an inclusive endDate range. */
 export function isRangedEventType(type: EslEventType): boolean {
 	return (ESL_RANGED_EVENT_TYPES as readonly EslEventType[]).includes(type);
 }
 
-/** Whether an event type takes start-from / end-at period bounds (#217). */
-export function takesPeriodBounds(type: EslEventType): boolean {
-	return (ESL_PERIOD_BOUND_EVENT_TYPES as readonly EslEventType[]).includes(type);
-}
-
 /**
- * Banner-only types hide the note field entirely (#211, #216): Start of
- * School, Exam, G9 Mock, and reminders except kind=task (which takes an
- * optional note). The backend ignores any note written for them, so the
- * form drops a stale note on type switch and omits it from submit.
+ * Banner-only types hide the note field entirely (#211, #216): Exam, G9 Mock,
+ * and reminders except kind=task (which takes an optional note). The backend
+ * ignores any note written for them, so the form drops a stale note on type
+ * switch and omits it from submit.
  */
-export const ESL_NOTE_HIDDEN_EVENT_TYPES: readonly EslEventType[] = [
-	'start_school',
-	'exam',
-	'g9_mock',
-	'reminder'
-];
+export const ESL_NOTE_HIDDEN_EVENT_TYPES: readonly EslEventType[] = ['exam', 'g9_mock', 'reminder'];
 
 /** Whether an event type hides the note field (task-kind reminders show it). */
 export function isNoteHiddenForEventType(
@@ -1424,8 +1432,8 @@ export type EslEventValidationError =
 	| { kind: 'rangeNotAllowed'; type: EslEventType }
 	| { kind: 'rangeOrder'; date: string; endDate: string }
 	| { kind: 'badPeriod'; period: number }
-	| { kind: 'boundsNotAllowed'; type: EslEventType }
-	| { kind: 'boundsOrder'; startPeriod: number; endPeriod: number }
+	| { kind: 'periodsNotAllowed'; type: EslEventType }
+	| { kind: 'badPeriodCount'; count: number }
 	| { kind: 'emptyTitle'; type: EslEventType; reminderKind?: EslReminderKind }
 	| { kind: 'lockedTitle'; type: EslEventType; expected: readonly string[] }
 	| {
@@ -1453,7 +1461,12 @@ export function assertValidEslTitle(
 		const expected: readonly string[] = [ESL_REMINDER_TITLES[reminderKind]];
 		return expected.includes(title) ? null : { kind: 'lockedTitle', type, expected };
 	}
-	const expected: readonly string[] = type === 'exam' ? ESL_EXAM_TITLES : [ESL_EVENT_TITLES[type]];
+	const expected: readonly string[] =
+		type === 'exam'
+			? ESL_EXAM_TITLES
+			: type === 'partial'
+				? ESL_PARTIAL_TITLES
+				: [ESL_EVENT_TITLES[type]];
 	return expected.includes(title) ? null : { kind: 'lockedTitle', type, expected };
 }
 /** Check an event's target against its type's (and reminder kind's) gate, or null when sound. */
@@ -1477,8 +1490,6 @@ export function assertValidEslEvent(input: {
 	type: EslEventType;
 	date: string;
 	endDate?: string;
-	startPeriod?: number;
-	endPeriod?: number;
 	classPeriods?: number[];
 	reminderKind?: string;
 	isBanner?: boolean;
@@ -1506,25 +1517,18 @@ export function assertValidEslEvent(input: {
 
 	const bounds = input.classPeriods ?? [];
 	if (bounds.length > 0) {
+		if (input.type !== 'partial') return { kind: 'periodsNotAllowed', type: input.type };
 		for (const period of bounds) {
 			if (!isEslPeriod(period)) {
 				return { kind: 'badPeriod', period };
 			}
 		}
 	}
-
-	const { startPeriod, endPeriod } = input;
-	if (startPeriod !== undefined || endPeriod !== undefined) {
-		if (!takesPeriodBounds(input.type)) {
-			return { kind: 'boundsNotAllowed', type: input.type };
-		}
-		for (const period of [startPeriod, endPeriod]) {
-			if (period !== undefined && !isEslPeriod(period)) {
-				return { kind: 'badPeriod', period };
-			}
-		}
-		if (startPeriod !== undefined && endPeriod !== undefined && startPeriod > endPeriod) {
-			return { kind: 'boundsOrder', startPeriod, endPeriod };
+	// A partial day covers between 1 and 7 periods: 0 is a no-class day and
+	// all 8 is a normal teaching day, neither of which is a partial.
+	if (input.type === 'partial' && input.classPeriods !== undefined) {
+		if (input.classPeriods.length < 1 || input.classPeriods.length > 7) {
+			return { kind: 'badPeriodCount', count: input.classPeriods.length };
 		}
 	}
 
@@ -1544,10 +1548,10 @@ export function describeEslEventError(error: EslEventValidationError): string {
 			return `The range end ${error.endDate} is before its start ${error.date}.`;
 		case 'badPeriod':
 			return `Period ${error.period} is not one of the school's periods (P1-P${ESL_PERIOD_NUMBERS.length}).`;
-		case 'boundsNotAllowed':
-			return `Only Start of School and partial days take start-from / end-at periods.`;
-		case 'boundsOrder':
-			return `The window starts at P${error.startPeriod} but ends at P${error.endPeriod}.`;
+		case 'badPeriodCount':
+			return `A partial day picks between 1 and 7 periods (got ${error.count}).`;
+		case 'periodsNotAllowed':
+			return `Only a partial day picks its periods — ${error.type} always covers the whole day.`;
 		case 'emptyTitle':
 			return error.reminderKind === 'quiz'
 				? 'A quiz needs its own title — the banner always shows it (e.g. Unit 1 Quiz Due).'
@@ -1893,8 +1897,11 @@ export type ScheduleEventInput = {
 	date: string;
 	endDate?: string;
 	note?: string;
-	startPeriod?: number;
-	endPeriod?: number;
+	/**
+	 * The periods a `partial` row still teaches (#293). Empty/absent means the
+	 * day teaches its normal meetings — a partial with nothing picked.
+	 */
+	classPeriods?: number[];
 	reminderKind?: EslReminderKind;
 	isBanner?: boolean;
 };
@@ -1926,33 +1933,12 @@ export type ScheduleDayStatus =
 	| 'g9_mock';
 
 /**
- * The first period with class on the first day of school (#212): Start of
- * School reads `Start at P3`, so meetings before P3 that day render No
- * class while P3 and later run as usual. The title and the window are one
- * rule — the title is locked, so the period is a constant beside it rather
- * than a field an admin could set out of sync. Rows that carry their own
- * bounds (#217) are read through `startSchoolFirstPeriod` instead.
+ * The first period with class on the first day of school (#212): the first-day
+ * `partial` reads `Start at P3`, so meetings before P3 that day render No
+ * class while P3 and later run as usual. The periods are the row's own
+ * `classPeriods` (`ESL_START_SCHOOL_CLASS_PERIODS`), so the title and the
+ * window are one fact rather than two that could drift (#293).
  */
-export const START_SCHOOL_FIRST_PERIOD = 3;
-
-/**
- * The period window a Start of School row stores (#215 story 25, #217):
- * P1–P2 have no class, so the day's teaching starts at
- * `START_SCHOOL_FIRST_PERIOD`. Written onto the row by `events.create`
- * (and kept across edits) so the first day's schedule is explicit data
- * rather than an unwritten convention — the views read `endPeriod` from
- * it, and rows predating the field fall back to the constant.
- */
-export const ESL_START_SCHOOL_PERIODS = { startPeriod: 1, endPeriod: 2 } as const;
-
-/**
- * The first teaching period of a first-day row: the period after its
- * stored window ends, or the constant for rows written before the window
- * existed (#217).
- */
-export function startSchoolFirstPeriod(event: { endPeriod?: number }): number {
-	return (event.endPeriod ?? START_SCHOOL_FIRST_PERIOD - 1) + 1;
-}
 
 /** One rendered day-view row. */
 export type ScheduleDayRow = {
@@ -2039,8 +2025,12 @@ function compareDayRows(a: ScheduleDayRow, b: ScheduleDayRow): number {
 
 /**
  * The teaching periods for a class on a date: which of the class's weekly
- * meeting periods on that weekday survive partial / start / event exclusions.
- * Used by `isEslActiveDay` and `resolveEslDayStatus` for partial-day semantics.
+ * meeting periods on that weekday survive a partial day's window.
+ *
+ * A `partial` row lists the periods that still meet, in `classPeriods`
+ * (#293): a first day schools from P3 carries `[3…8]`, a BBQ afternoon that
+ * ends at P4 carries `[1…4]`. Everything the class meets outside that list is
+ * out-of-window. A partial with no list picked teaches its normal meetings.
  */
 export function eslTeachingPeriods(args: {
 	date: string;
@@ -2064,33 +2054,12 @@ export function eslTeachingPeriods(args: {
 		)
 	)
 		return [];
-	const start = sameDay.find((e) => e.type === 'start_school');
 	const partial = sameDay.find((e) => e.type === 'partial');
-	const meetingPeriods = args.meetings
+	const inWindow = partial?.classPeriods ?? [];
+	return args.meetings
 		.filter((m) => m.classId === args.classId && m.day === weekday)
-		.map((m) => m.period);
-	const teaching: number[] = [];
-	for (const p of meetingPeriods) {
-		// Start window excludes before first teaching period.
-		if (start) {
-			const first = startSchoolFirstPeriod(start);
-			if (p < first) continue;
-		}
-		// Partial window: prefer classPeriods array; fall back to start/end.
-		if (partial) {
-			if (partial.classPeriods !== undefined && partial.classPeriods !== null) {
-				// When array present, in-window = p is in array (off periods).
-				if (partial.classPeriods.includes(p)) continue;
-			} else {
-				const inWindow =
-					(partial.startPeriod === undefined || p >= partial.startPeriod) &&
-					(partial.endPeriod === undefined || p <= partial.endPeriod);
-				if (inWindow) continue;
-			}
-		}
-		teaching.push(p);
-	}
-	return teaching;
+		.map((m) => m.period)
+		.filter((p) => inWindow.length === 0 || inWindow.includes(p));
 }
 
 /**
@@ -2262,19 +2231,21 @@ function resolveEslDayStatus(args: {
 		}
 	}
 
-	// Partial / start-window partial semantics via teaching-period helper.
+	// Partial-window semantics via the teaching-period helper. The first day of
+	// school keeps its `Start at P3` title, so its in-window rows carry no
+	// description — the same reading the separate type used to give them.
 	if (inTeachingWindow) {
 		const partial = dayEvents.find((event) => event.type === 'partial');
-		const note = partial ? (partial.note ?? '').trim() || partial.title : null;
+		const isStartDay = partial?.title === ESL_START_SCHOOL_TITLE;
+		const note = partial && !isStartDay ? (partial.note ?? '').trim() || partial.title : null;
 		return { status: 'teaching', cause: note || null, badges: [], outOfWindow: false };
 	}
 
-	// Outside the teaching window = no class (partial out-of-window or start
-	// before P3). The cause / note comes from the partial event or start event.
+	// Outside the teaching window = no class (partial out-of-window, which is
+	// how the first day's P1–P2 rows read). The cause / note comes from the
+	// partial event.
 	const partial = dayEvents.find((event) => event.type === 'partial');
-	const start = dayEvents.find((event) => event.type === 'start_school');
-	const offEvent = partial ?? start;
-	const note = offEvent ? (offEvent.note ?? '').trim() || offEvent.title : '';
+	const note = partial ? (partial.note ?? '').trim() || partial.title : '';
 	return { status: 'no_class', cause: note || null, badges: [], outOfWindow: true };
 }
 
@@ -3300,16 +3271,11 @@ export function listTermClassMeetings(args: {
 				continue;
 			}
 			if (dayEvents.some((event) => event.type === 'no_class')) continue;
-			const start = dayEvents.find((event) => event.type === 'start_school');
-			if (start && meeting.period < startSchoolFirstPeriod(start)) continue;
+			// A partial lists the periods that still meet (#293); an empty pick
+			// teaches the normal meetings.
 			const partial = dayEvents.find((event) => event.type === 'partial');
-			if (
-				partial &&
-				((partial.startPeriod !== undefined && meeting.period < partial.startPeriod) ||
-					(partial.endPeriod !== undefined && meeting.period > partial.endPeriod))
-			) {
-				continue;
-			}
+			const inWindow = partial?.classPeriods ?? [];
+			if (inWindow.length > 0 && !inWindow.includes(meeting.period)) continue;
 			hits.push({ date, weekday, classId: meeting.classId, period: meeting.period });
 		}
 	}

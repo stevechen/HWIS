@@ -598,7 +598,6 @@ const eslClassTypeValidator = v.union(
 );
 
 const eslEventTypeValidator = v.union(
-	v.literal('start_school'),
 	v.literal('reminder'),
 	v.literal('no_school'),
 	v.literal('no_class'),

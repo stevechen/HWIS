@@ -70,8 +70,9 @@ describe('esl/wizards.saveSemester', () => {
 			semesterId: result.semesterId
 		});
 		const byType = (type: string) => rows.filter((row) => row.type === type);
-		// 1 start + 1 off + 7 exam days (2+2+3) + sports + 4 mock days + 14 reminders
-		expect(byType('start_school')).toHaveLength(1);
+		// 1 start (an ordinary partial) + 1 off + 7 exam days (2+2+3) +
+		// sports + 4 mock days + 14 reminders
+		expect(byType('partial')).toHaveLength(1);
 		expect(byType('no_school')).toHaveLength(1);
 		expect(byType('exam')).toHaveLength(7);
 		expect(byType('no_class')).toHaveLength(1);
@@ -80,7 +81,7 @@ describe('esl/wizards.saveSemester', () => {
 		expect(result.eventIds).toHaveLength(rows.length);
 	});
 
-	it('stamps the first-day P1–P2 window and banners by default', async () => {
+	it('stamps the first day as a P3 partial and banners by default', async () => {
 		const t = await convexTest(schema, modules);
 		await seedEslStaff(t, { authId: 'esl-admin', eslRole: 'admin' });
 
@@ -89,8 +90,12 @@ describe('esl/wizards.saveSemester', () => {
 			semesterId: result.semesterId
 		});
 
-		const start = rows.find((row) => row.type === 'start_school');
-		expect(start).toMatchObject({ startPeriod: 1, endPeriod: 2, date: '2026-08-31' });
+		const start = rows.find((row) => row.type === 'partial');
+		expect(start).toMatchObject({
+			title: 'Start at P3',
+			classPeriods: [3, 4, 5, 6, 7, 8],
+			date: '2026-08-31'
+		});
 		const quiz = rows.find((row) => row.reminderKind === 'quiz');
 		expect(quiz).toMatchObject({ target: 'CLIL', isBanner: true });
 		const off = rows.find((row) => row.type === 'no_school');

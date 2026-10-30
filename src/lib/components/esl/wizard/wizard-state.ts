@@ -19,6 +19,7 @@ import {
 	type ExamSlot,
 	type Term
 } from './wizard-dates';
+import type { EslEventTarget } from '$convex/shared/esl';
 import { isStepComplete as _gateStep } from '../wizard-adapter/gate-adapter';
 
 export type WizardStepNumber = 1 | 2 | 3 | 4 | 5;
@@ -164,9 +165,7 @@ export interface WizardCustomEvent {
 	target?: 'all' | 'CLIL' | 'Comm' | 'G7' | 'G8' | 'G9' | 'H1';
 	subType?: 'partial' | 'no_class' | 'task';
 	note?: string;
-	// Period bounds for partial-day events
-	startPeriod?: number;
-	endPeriod?: number;
+	/** Periods that still meet, for partial-day events (#293). */
 	classPeriods?: number[];
 	// Banner-specific fields
 	startDate?: string;
@@ -179,10 +178,12 @@ export interface WizardEventEdit {
 	date?: string;
 	note?: string;
 	endDate?: string; // for banner range
-	startPeriod?: number; // for partial events
-	endPeriod?: number;
 	classPeriods?: number[];
+	target?: EslEventTarget; // custom events only — programmed rows keep their fixed targets
 }
+
+/** Every valid event target, for round-trip parsing of a persisted edit. */
+const EVENT_TARGETS: readonly EslEventTarget[] = ['all', 'CLIL', 'Comm', 'G7', 'G8', 'G9', 'H1'];
 
 export interface WizardStep5State {
 	customEvents: WizardCustomEvent[];
@@ -510,8 +511,6 @@ function parseStep5(raw: unknown, seeded: WizardStep5State): WizardStep5State {
 									? (event.subType as 'partial' | 'no_class' | 'task')
 									: undefined,
 							note: typeof event.note === 'string' ? event.note : undefined,
-							startPeriod: typeof event.startPeriod === 'number' ? event.startPeriod : undefined,
-							endPeriod: typeof event.endPeriod === 'number' ? event.endPeriod : undefined,
 							classPeriods: Array.isArray(event.classPeriods)
 								? event.classPeriods.filter((p): p is number => typeof p === 'number')
 								: undefined
@@ -542,10 +541,11 @@ function parseStep5(raw: unknown, seeded: WizardStep5State): WizardStep5State {
 						date: parseDate(edit.date) ?? undefined,
 						note: typeof edit.note === 'string' ? edit.note : undefined,
 						endDate: parseDate(edit.endDate) ?? undefined,
-						startPeriod: typeof edit.startPeriod === 'number' ? edit.startPeriod : undefined,
-						endPeriod: typeof edit.endPeriod === 'number' ? edit.endPeriod : undefined,
 						classPeriods: Array.isArray(edit.classPeriods)
 							? edit.classPeriods.filter((p): p is number => typeof p === 'number')
+							: undefined,
+						target: EVENT_TARGETS.includes(edit.target as EslEventTarget)
+							? (edit.target as EslEventTarget)
 							: undefined
 					}
 				];

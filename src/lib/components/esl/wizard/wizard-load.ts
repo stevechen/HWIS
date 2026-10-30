@@ -1,6 +1,7 @@
 import {
 	ESL_LOCKED_NOTES,
 	ESL_REMINDER_TITLES,
+	ESL_START_SCHOOL_TITLE,
 	EXAM_SEED_WEEKDAYS,
 	expandExamDays,
 	isChecklistDraftEvent,
@@ -123,6 +124,7 @@ export interface WizardEventSource {
 	note?: string;
 	reminderKind?: EslReminderKind;
 	examGroup?: string;
+	classPeriods?: number[];
 }
 
 export interface WizardLoadResult {
@@ -271,9 +273,12 @@ export function loadWizardState(
 	const reminderRows = rows.filter((row) => row.type === 'reminder' && !used.has(row));
 	const mockRows = rows.filter((row) => row.type === 'g9_mock');
 
-	// ---- Start window: the semester row is the truth; a start-of-school
-	// row on another date is what the change summary should flag.
-	for (const row of rows.filter((row) => row.type === 'start_school')) {
+	// ---- Start window: the semester row is the truth; the first-day partial
+	// (the one titled `Start at P3`) on another date is what the change
+	// summary should flag.
+	for (const row of rows.filter(
+		(row) => row.type === 'partial' && row.title === ESL_START_SCHOOL_TITLE
+	)) {
 		if (row.date !== semester.startDate) {
 			unmatched(
 				row,
@@ -591,6 +596,7 @@ export function loadWizardState(
 				date: row.date,
 				...(row.type === 'partial' ? { subType: 'partial' as const } : {}),
 				note: row.note ?? row.title,
+				...(row.classPeriods !== undefined ? { classPeriods: row.classPeriods } : {}),
 				...target
 			});
 		}

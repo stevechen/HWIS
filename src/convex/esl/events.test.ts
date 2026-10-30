@@ -161,7 +161,7 @@ describe('esl/events.create', () => {
 			title: 'No class',
 			note: 'BBQ',
 			date: '2025-09-12',
-			startPeriod: 3
+			classPeriods: [1, 2, 3, 4]
 		});
 		await expect(
 			t.mutation(api.esl.events.create, {
@@ -170,7 +170,7 @@ describe('esl/events.create', () => {
 				title: 'No class',
 				note: 'Late start',
 				date: '2025-09-12',
-				endPeriod: 2
+				classPeriods: [3, 4, 5, 6, 7, 8]
 			})
 		).rejects.toThrow(/partial/i);
 	});
@@ -184,12 +184,12 @@ describe('esl/events.create', () => {
 				title: 'No class',
 				note: 'Late start',
 				date: '2025-09-12',
-				startPeriod: 9
+				classPeriods: [9]
 			})
 		).rejects.toThrow(/period/i);
 	});
 
-	it('refuses partial bounds on a non-partial type', async () => {
+	it('refuses picked periods on a non-partial type', async () => {
 		const { t, semesterId } = await seededSemester();
 		await expect(
 			t.mutation(api.esl.events.create, {
@@ -198,13 +198,12 @@ describe('esl/events.create', () => {
 				title: 'No class',
 				note: 'Assembly',
 				date: '2025-09-12',
-				startPeriod: 3
+				classPeriods: [3]
 			})
 		).rejects.toThrow(/partial/i);
 	});
 
 	it.each([
-		['start_school', undefined, 'Start at P3', '2025-09-01', 'all'],
 		['reminder', 'quiz', 'Unit 1 Quiz Due', '2025-09-02', 'CLIL'],
 		['exam', undefined, 'Exam 1', '2025-10-16', 'all'],
 		['reminder', 'passport', 'Passport due', '2025-09-03', 'Comm'],
@@ -248,8 +247,7 @@ describe('esl per-type target gating (#212)', () => {
 		expect(lockedTargetForEventType('no_class')).toBeNull();
 	});
 
-	it('leaves Start, Partial, and task-kind reminders open to the target dropdown', () => {
-		expect(lockedTargetForEventType('start_school')).toBeNull();
+	it('leaves Partial and task-kind reminders open to the target dropdown', () => {
 		expect(lockedTargetForEventType('partial')).toBeNull();
 		expect(lockedTargetForReminderKind('task')).toBeNull();
 		expect(defaultTargetForEventType('reminder', 'task')).toBe('all');
@@ -634,7 +632,7 @@ describe('esl/events.update', () => {
 			title: 'No class',
 			note: 'BBQ',
 			date: '2025-09-12',
-			startPeriod: 3
+			classPeriods: [1, 2, 3, 4]
 		});
 		const otherId = singleId(
 			await t.mutation(api.esl.events.create, {
@@ -971,91 +969,51 @@ describe('esl/events wizard writes (#217)', () => {
 		).rejects.toThrow(/already holds an exam/);
 	});
 
-	it('defaults the first day of school to a P1–P2 window', async () => {
+	it('stores the picked periods on a partial and drops them when cleared', async () => {
 		const { t, semesterId } = await seededSemester();
 		const created = singleId(
 			await t.mutation(api.esl.events.create, {
 				semesterId,
-				type: 'start_school',
-				title: 'Start at P3',
-				date: '2025-09-01'
-			})
-		);
-		expect(await t.query(api.esl.events.get, { eventId: created })).toMatchObject({
-			startPeriod: 1,
-			endPeriod: 2
-		});
-	});
-
-	it('keeps an explicit first-day window and refuses a reversed one', async () => {
-		const { t, semesterId } = await seededSemester();
-		const created = singleId(
-			await t.mutation(api.esl.events.create, {
-				semesterId,
-				type: 'start_school',
+				type: 'partial',
 				title: 'Start at P3',
 				date: '2025-09-01',
-				startPeriod: 2,
-				endPeriod: 3
+				classPeriods: [3, 4, 5, 6, 7, 8]
 			})
 		);
 		expect(await t.query(api.esl.events.get, { eventId: created })).toMatchObject({
-			startPeriod: 2,
-			endPeriod: 3
+			classPeriods: [3, 4, 5, 6, 7, 8]
 		});
-		await expect(
-			t.mutation(api.esl.events.create, {
-				semesterId,
-				type: 'start_school',
-				title: 'Start at P3',
-				date: '2025-09-02',
-				startPeriod: 4,
-				endPeriod: 2
-			})
-		).rejects.toThrow(/starts at P4 but ends at P2/);
-		await expect(
-			t.mutation(api.esl.events.create, {
-				semesterId,
-				type: 'no_class',
-				title: 'No class',
-				note: 'Assembly',
-				date: '2025-09-03',
-				startPeriod: 3
-			})
-		).rejects.toThrow(/partial/i);
+		await t.mutation(api.esl.events.update, { eventId: created, clearPeriods: true });
+		expect((await t.query(api.esl.events.get, { eventId: created })).classPeriods).toBeUndefined();
 	});
 
-	it('keeps the first-day window across an edit and re-defaults it when cleared', async () => {
+	it('keeps the picked periods across a date edit', async () => {
 		const { t, semesterId } = await seededSemester();
 		const created = singleId(
 			await t.mutation(api.esl.events.create, {
 				semesterId,
-				type: 'start_school',
-				title: 'Start at P3',
-				date: '2025-09-01'
+				type: 'partial',
+				title: 'No class',
+				date: '2025-09-01',
+				classPeriods: [1, 2, 3, 4]
 			})
 		);
 		await t.mutation(api.esl.events.update, { eventId: created, date: '2025-09-02' });
 		expect(await t.query(api.esl.events.get, { eventId: created })).toMatchObject({
 			date: '2025-09-02',
-			startPeriod: 1,
-			endPeriod: 2
-		});
-		await t.mutation(api.esl.events.update, { eventId: created, clearPeriods: true });
-		expect(await t.query(api.esl.events.get, { eventId: created })).toMatchObject({
-			startPeriod: 1,
-			endPeriod: 2
+			classPeriods: [1, 2, 3, 4]
 		});
 	});
 
-	it('drops the first-day window when the row is retyped onto an unbounded type', async () => {
+	it('drops the picked periods when the row is retyped off partial', async () => {
 		const { t, semesterId } = await seededSemester();
 		const created = singleId(
 			await t.mutation(api.esl.events.create, {
 				semesterId,
-				type: 'start_school',
+				type: 'partial',
 				title: 'Start at P3',
-				date: '2025-09-01'
+				date: '2025-09-01',
+				classPeriods: [3, 4, 5, 6, 7, 8]
 			})
 		);
 		await t.mutation(api.esl.events.update, {
@@ -1066,8 +1024,7 @@ describe('esl/events wizard writes (#217)', () => {
 		});
 		const event = await t.query(api.esl.events.get, { eventId: created });
 		expect(event).toMatchObject({ type: 'no_class' });
-		expect(event.startPeriod).toBeUndefined();
-		expect(event.endPeriod).toBeUndefined();
+		expect(event.classPeriods).toBeUndefined();
 	});
 
 	it('refuses widening a due window onto an exam day via update', async () => {

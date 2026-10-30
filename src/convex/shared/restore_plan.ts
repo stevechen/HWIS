@@ -731,8 +731,7 @@ export async function applyEslRestore(
 			examGroup: event.examGroup,
 			endDate: event.endDate,
 			note: event.note,
-			startPeriod: event.startPeriod,
-			endPeriod: event.endPeriod,
+			classPeriods: event.classPeriods,
 			provenance: event.provenance,
 			unverified: event.unverified,
 			e2eTag: event.e2eTag

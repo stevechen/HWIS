@@ -39,8 +39,14 @@ function row(
 /** Mirror of the backend save: write order + row shapes from `wizards.ts`/`events.ts`. */
 export function simulateSave(payload: SavePayload): WizardEventSource[] {
 	const rows: WizardEventSource[] = [];
-	// First-day window P1–P2 (start_period fields are irrelevant to the loader).
-	rows.push({ type: 'start_school', title: 'Start at P3', target: 'all', date: payload.startDate });
+	// First day of school: an ordinary partial picking P3–P8 (#293).
+	rows.push({
+		type: 'partial',
+		title: 'Start at P3',
+		target: 'all',
+		date: payload.startDate,
+		classPeriods: [3, 4, 5, 6, 7, 8]
+	});
 	for (const day of payload.offDays) {
 		rows.push({
 			type: 'no_school',
@@ -513,7 +519,12 @@ describe('loadWizardState — inferred cases', () => {
 
 	it('pairs adjacent mock rows two at a time, back to back', () => {
 		const rows = [
-			row({ type: 'start_school', title: 'Start at P3', date: '2026-08-31' }),
+			row({
+				type: 'partial',
+				title: 'Start at P3',
+				date: '2026-08-31',
+				classPeriods: [3, 4, 5, 6, 7, 8]
+			}),
 			// Four consecutive days: two adjacent mock pairs, no grouping marker.
 			row({
 				id: 'evt-m0',
@@ -556,7 +567,12 @@ describe('loadWizardState — inferred cases', () => {
 
 	it('groups multi-day no_school runs by shared note and contiguity', () => {
 		const rows = [
-			row({ type: 'start_school', title: 'Start at P3', date: '2026-08-31' }),
+			row({
+				type: 'partial',
+				title: 'Start at P3',
+				date: '2026-08-31',
+				classPeriods: [3, 4, 5, 6, 7, 8]
+			}),
 			// Spring festival: Dec 21 Mon – Dec 27 Sun, one row per calendar day.
 			...[
 				'2026-12-21',
@@ -597,7 +613,12 @@ describe('loadWizardState — inferred cases', () => {
 
 	it('leaves rows that match no wizard slot as unmatched', () => {
 		const rows = [
-			row({ type: 'start_school', title: 'Start at P3', date: '2026-08-31' }),
+			row({
+				type: 'partial',
+				title: 'Start at P3',
+				date: '2026-08-31',
+				classPeriods: [3, 4, 5, 6, 7, 8]
+			}),
 			// Seven wizard-shaped quiz rows: the seventh has no slot.
 			...['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-12'].map(
 				(date, i) =>
@@ -653,7 +674,12 @@ describe('loadWizardState — inferred cases', () => {
 
 	it('pins down the sportsOn choice: true only with the locked Sports Day row', () => {
 		const withRow = loadWizardState(semesterSource(), [
-			row({ type: 'start_school', title: 'Start at P3', date: '2026-08-31' }),
+			row({
+				type: 'partial',
+				title: 'Start at P3',
+				date: '2026-08-31',
+				classPeriods: [3, 4, 5, 6, 7, 8]
+			}),
 			row({ type: 'no_class', title: 'No class', date: '2026-10-07', note: 'Sports Day' })
 		]);
 		expect(withRow.state.step4.sportsOn).toBe(true);
@@ -661,7 +687,12 @@ describe('loadWizardState — inferred cases', () => {
 
 		// No Sports Day row: sportsOn=false, and the slot stays empty.
 		const withoutRow = loadWizardState(semesterSource(), [
-			row({ type: 'start_school', title: 'Start at P3', date: '2026-08-31' })
+			row({
+				type: 'partial',
+				title: 'Start at P3',
+				date: '2026-08-31',
+				classPeriods: [3, 4, 5, 6, 7, 8]
+			})
 		]);
 		expect(withoutRow.state.step4.sportsOn).toBe(false);
 		expect(withoutRow.state.step4.singles.sports).toBeNull();
@@ -671,7 +702,12 @@ describe('loadWizardState — inferred cases', () => {
 describe('loadWizardState — exact recovery edges', () => {
 	it('recovers exams from examGroup, reading through the title when absent', () => {
 		const rows = [
-			row({ type: 'start_school', title: 'Start at P3', date: '2026-08-31' }),
+			row({
+				type: 'partial',
+				title: 'Start at P3',
+				date: '2026-08-31',
+				classPeriods: [3, 4, 5, 6, 7, 8]
+			}),
 			// Legacy exam rows without examGroup: the title carries the group.
 			row({ id: 'evt-e1', type: 'exam', title: 'Exam 1', date: '2026-11-02' }),
 			row({ id: 'evt-e1b', type: 'exam', title: 'Exam 1', date: '2026-11-03' }),
@@ -843,7 +879,12 @@ describe('loadWizardState — checklist drafts', () => {
 
 	it('keeps caption-less contiguous drafts as Step 2 off days, never named extras', () => {
 		const rows = [
-			row({ type: 'start_school', title: 'Start at P3', date: '2026-08-31' }),
+			row({
+				type: 'partial',
+				title: 'Start at P3',
+				date: '2026-08-31',
+				classPeriods: [3, 4, 5, 6, 7, 8]
+			}),
 			...['2026-10-26', '2026-10-27', '2026-10-28'].map((date, index) =>
 				row({ id: `draft-off-${index}`, type: 'no_school', title: 'Off', date })
 			)

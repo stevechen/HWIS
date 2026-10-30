@@ -357,10 +357,11 @@ describe('test utilities', () => {
 			// Create event
 			await ctx.db.insert('esl_events', {
 				semesterId,
-				type: 'start_school',
-				title: 'First Day',
+				type: 'partial',
+				title: 'Start at P3',
 				target: 'all',
-				date: '2025-09-01'
+				date: '2025-09-01',
+				classPeriods: [3, 4, 5, 6, 7, 8]
 			});
 
 			// Create teacher note

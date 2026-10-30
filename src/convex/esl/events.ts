@@ -3,7 +3,6 @@ import { v } from 'convex/values';
 import type { Doc, Id } from '../_generated/dataModel';
 import { requireEslAdmin, requireEslStaff } from '../auth';
 import {
-	ESL_START_SCHOOL_PERIODS,
 	EXAM_SEED_WEEKDAYS,
 	assertValidEslEvent,
 	assertValidEslTarget,
@@ -17,14 +16,12 @@ import {
 	isProtectedSeedEvent,
 	migrateLegacyEslEvent,
 	migrateToReminderEslEvent,
-	takesPeriodBounds,
 	type EslEventTarget,
 	type EslEventType,
 	type EslReminderKind
 } from '../shared/esl';
 
 const typeValidator = v.union(
-	v.literal('start_school'),
 	v.literal('reminder'),
 	v.literal('no_school'),
 	v.literal('no_class'),
@@ -179,24 +176,6 @@ function assertExamGroupAllowed(
 }
 
 /**
- * The period bounds a write carries (#217): a partial day keeps exactly
- * what the admin sent, while the first day of school always carries a
- * window — P1–P2 by default, so the day's teaching starts at P3 and the
- * first-day schedule is explicit data rather than an unwritten rule. An
- * admin may still widen the window; the reversed pair is refused.
- */
-export function periodBoundsFor(
-	type: EslEventType,
-	sent: { startPeriod?: number; endPeriod?: number }
-): { startPeriod?: number; endPeriod?: number } {
-	if (type !== 'start_school') return sent;
-	return {
-		startPeriod: sent.startPeriod ?? ESL_START_SCHOOL_PERIODS.startPeriod,
-		endPeriod: sent.endPeriod ?? ESL_START_SCHOOL_PERIODS.endPeriod
-	};
-}
-
-/**
  * Fan one exam start out to its teaching-day rows, each sharing the title
  * as its `examGroup`. Exams and their groups are locked together: the title
  * is the group key, so a duplicate title or a fourth group refuses before
@@ -313,8 +292,6 @@ export const create = mutation({
 		date: v.string(),
 		endDate: v.optional(v.string()),
 		note: v.optional(v.string()),
-		startPeriod: v.optional(v.number()),
-		endPeriod: v.optional(v.number()),
 		classPeriods: v.optional(v.array(v.number())),
 		provenance: v.optional(v.union(v.literal('holiday_api'), v.literal('admin_typed'))),
 		unverified: v.optional(v.boolean()),
@@ -336,17 +313,10 @@ export const create = mutation({
 		const targetError = assertValidEslTarget(args.type, target, args.reminderKind);
 		if (targetError) throw new Error(describeEslEventError(targetError));
 
-		const bounds = periodBoundsFor(args.type, {
-			startPeriod: args.startPeriod,
-			endPeriod: args.endPeriod
-		});
-
 		const fieldError = assertValidEslEvent({
 			type: args.type,
 			date: args.date,
 			endDate: args.endDate,
-			startPeriod: bounds.startPeriod,
-			endPeriod: bounds.endPeriod,
 			...(args.classPeriods === undefined ? {} : { classPeriods: args.classPeriods }),
 			...(args.reminderKind === undefined ? {} : { reminderKind: args.reminderKind }),
 			...(args.isBanner === undefined ? {} : { isBanner: args.isBanner })
@@ -412,8 +382,6 @@ export const create = mutation({
 			...(args.endDate === undefined ? {} : { endDate: args.endDate }),
 			...(note === undefined || note === '' ? {} : { note }),
 			...(args.classPeriods === undefined ? {} : { classPeriods: args.classPeriods }),
-			...(bounds.startPeriod === undefined ? {} : { startPeriod: bounds.startPeriod }),
-			...(bounds.endPeriod === undefined ? {} : { endPeriod: bounds.endPeriod }),
 			...(args.provenance === undefined ? {} : { provenance: args.provenance }),
 			...(args.unverified === undefined ? {} : { unverified: args.unverified }),
 			...(args.e2eTag === undefined ? {} : { e2eTag: args.e2eTag })
@@ -442,8 +410,8 @@ export const get = query({
  * row (the row's own dates never collide with itself).
  *
  * Clearing: an empty `note` clears it; `clearEndDate` drops the range end;
- * `clearPeriods` drops both partial bounds — and re-stamps the first day's
- * P1–P2 window, which a Start row always carries (#217).
+ * `clearPeriods` drops a partial's picked periods, so the day teaches its
+ * normal meetings again (#293).
  *
  * cost: 1 point read + exclusivity lookups over the new span + 1 patch.
  */
@@ -460,8 +428,6 @@ export const update = mutation({
 		endDate: v.optional(v.string()),
 		clearEndDate: v.optional(v.boolean()),
 		note: v.optional(v.string()),
-		startPeriod: v.optional(v.number()),
-		endPeriod: v.optional(v.number()),
 		classPeriods: v.optional(v.array(v.number())),
 		clearPeriods: v.optional(v.boolean()),
 		provenance: v.optional(v.union(v.literal('holiday_api'), v.literal('admin_typed'))),
@@ -489,25 +455,17 @@ export const update = mutation({
 
 		const date = args.date ?? event.date;
 		const endDate = args.clearEndDate === true ? undefined : (args.endDate ?? event.endDate);
-		const sentBounds = {
-			startPeriod: args.clearPeriods === true ? undefined : (args.startPeriod ?? event.startPeriod),
-			endPeriod: args.clearPeriods === true ? undefined : (args.endPeriod ?? event.endPeriod)
-		};
-		// A row retyped off a bounded type drops its stale bounds instead of
-		// being refused over fields the new type does not take at all.
-		const bounds = takesPeriodBounds(type)
-			? periodBoundsFor(type, sentBounds)
-			: { startPeriod: undefined, endPeriod: undefined };
-		const startPeriod = bounds.startPeriod;
-		const endPeriod = bounds.endPeriod;
+		// A row retyped off `partial` drops its stale period list instead of
+		// keeping periods the new type no longer reads.
+		const classPeriods =
+			type !== 'partial' || args.clearPeriods === true
+				? undefined
+				: (args.classPeriods ?? event.classPeriods);
 
-		const classPeriods = args.classPeriods === undefined ? event.classPeriods : args.classPeriods;
 		const fieldError = assertValidEslEvent({
 			type,
 			date,
 			endDate,
-			startPeriod,
-			endPeriod,
 			...(classPeriods === undefined ? {} : { classPeriods }),
 			...(reminderKind === undefined ? {} : { reminderKind }),
 			...(type === 'reminder' && isBanner !== undefined ? { isBanner } : {})
@@ -571,9 +529,7 @@ export const update = mutation({
 			...(examGroup === undefined ? { examGroup: undefined } : { examGroup }),
 			...(endDate === undefined ? { endDate: undefined } : { endDate }),
 			...(note === undefined || note === '' ? { note: undefined } : { note }),
-			...(startPeriod === undefined ? { startPeriod: undefined } : { startPeriod }),
-			...(endPeriod === undefined ? { endPeriod: undefined } : { endPeriod }),
-			...(classPeriods === undefined ? {} : { classPeriods }),
+			...(classPeriods === undefined ? { classPeriods: undefined } : { classPeriods }),
 			...(args.provenance === undefined ? {} : { provenance: args.provenance }),
 			...(args.unverified === undefined ? {} : { unverified: args.unverified })
 		});

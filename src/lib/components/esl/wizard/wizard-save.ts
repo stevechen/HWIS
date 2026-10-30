@@ -6,6 +6,7 @@ import type {
 } from './wizard-state';
 import { collectClassDays, EXAM_SLOT_CLASS_DAYS } from './wizard-dates';
 import {
+	ESL_START_SCHOOL_CLASS_PERIODS,
 	defaultTargetForEventType,
 	type EslEventTarget,
 	type EslReminderKind
@@ -37,7 +38,7 @@ export type SaveRowSource = 'step1' | 'step2' | 'step3' | 'step4' | 'step5';
 
 export interface PreviewRow {
 	key: string;
-	type: 'start_school' | 'reminder' | 'no_school' | 'no_class' | 'partial' | 'exam' | 'g9_mock';
+	type: 'reminder' | 'no_school' | 'no_class' | 'partial' | 'exam' | 'g9_mock';
 	reminderKind?: EslReminderKind;
 	isBanner?: boolean;
 	title: string;
@@ -49,8 +50,7 @@ export interface PreviewRow {
 	editable: boolean;
 	examGroup?: string;
 	customId?: string;
-	startPeriod?: number;
-	endPeriod?: number;
+	classPeriods?: number[];
 }
 
 export interface SaveExamRange {
@@ -116,8 +116,7 @@ interface RowDescriptor {
 	editable: boolean;
 	examGroup?: string;
 	customId?: string;
-	startPeriod?: number;
-	endPeriod?: number;
+	classPeriods?: number[];
 }
 
 function dayDiffDays(from: string, to: string): number {
@@ -158,15 +157,18 @@ function singleDescriptors(state: WizardState): RowDescriptor[] {
 	const rows: RowDescriptor[] = [];
 	const startDate = state.step1.startDate;
 	if (startDate !== null) {
+		// The first day of school is an ordinary partial (#293); the preview
+		// keeps its own wording and the fixed P3 window.
 		rows.push({
 			key: 'step1:startDate',
-			type: 'start_school',
+			type: 'partial',
 			title: 'Start of school',
 			dates: [startDate],
 			note: 'Periods 1–2 have no class',
 			target: 'all',
 			source: 'step1',
-			editable: true
+			editable: true,
+			classPeriods: [...ESL_START_SCHOOL_CLASS_PERIODS]
 		});
 	}
 	state.step2.offDays.forEach((day, index) => {
@@ -211,7 +213,8 @@ function schoolDescriptors(state: WizardState): RowDescriptor[] {
 		id: keyof WizardStep4State['singles'],
 		label: string,
 		type: 'no_class' | 'no_school' | 'partial',
-		target: EslEventTarget
+		target: EslEventTarget,
+		classPeriods?: number[]
 	) => {
 		const date = s4.singles[id];
 		if (date === null) return;
@@ -223,7 +226,8 @@ function schoolDescriptors(state: WizardState): RowDescriptor[] {
 			note: label,
 			target,
 			source: 'step4',
-			editable: true
+			editable: true,
+			...(classPeriods !== undefined ? { classPeriods: [...classPeriods] } : {})
 		});
 	};
 	single('anniv', 'Anniversary', 'no_class', 'all');
@@ -231,7 +235,7 @@ function schoolDescriptors(state: WizardState): RowDescriptor[] {
 	if (s4.sportsOn) single('sports', 'Sports Day', 'no_class', 'all');
 	// BBQ: partial afternoon (S1 starter, folded from the seed #229).
 	if (s4.singles.bbq !== null) {
-		single('bbq', 'BBQ', 'partial', 'all');
+		single('bbq', 'BBQ', 'partial', 'all', [1, 2, 3, 4]);
 	}
 	single('grad', 'Graduation', 'no_class', 'G9');
 	const pairIds: ReadonlyArray<keyof WizardStep4State['pairs']> = ['mock1', 'mock2', 'mock3'];
@@ -363,12 +367,7 @@ function customDescriptors(customs: WizardCustomEvent[]): RowDescriptor[] {
 			source: 'step5' as const,
 			editable: true,
 			customId: custom.id,
-			...(custom.subType === 'partial'
-				? {
-						startPeriod: custom.startPeriod,
-						endPeriod: custom.endPeriod
-					}
-				: {})
+			...(custom.subType === 'partial' ? { classPeriods: custom.classPeriods } : {})
 		};
 	});
 }
@@ -386,8 +385,8 @@ function applyEdits(
 			edit.date === undefined &&
 			edit.endDate === undefined &&
 			edit.note === undefined &&
-			edit.startPeriod === undefined &&
-			edit.endPeriod === undefined
+			edit.classPeriods === undefined &&
+			edit.target === undefined
 		) {
 			return row;
 		}
@@ -414,8 +413,8 @@ function applyEdits(
 			...row,
 			dates,
 			note: edit.note ?? row.note,
-			...(edit.startPeriod !== undefined ? { startPeriod: edit.startPeriod } : {}),
-			...(edit.endPeriod !== undefined ? { endPeriod: edit.endPeriod } : {})
+			...(edit.classPeriods !== undefined ? { classPeriods: edit.classPeriods } : {}),
+			...(edit.target !== undefined ? { target: edit.target } : {})
 		};
 	});
 }
@@ -464,8 +463,7 @@ export function buildPreviewRows(state: WizardState): PreviewRow[] {
 		editable: row.editable,
 		...(row.examGroup === undefined ? {} : { examGroup: row.examGroup }),
 		...(row.customId === undefined ? {} : { customId: row.customId }),
-		...(row.startPeriod === undefined ? {} : { startPeriod: row.startPeriod }),
-		...(row.endPeriod === undefined ? {} : { endPeriod: row.endPeriod })
+		...(row.classPeriods === undefined ? {} : { classPeriods: row.classPeriods })
 	}));
 }
 
@@ -495,17 +493,15 @@ export function buildSavePayload(
 			date?: string;
 			endDate?: string;
 			note?: string;
-			startPeriod?: number;
-			endPeriod?: number;
 			classPeriods?: number[];
+			target?: EslEventTarget;
 		}
 	): {
 		date?: string;
 		endDate?: string;
 		note?: string;
-		startPeriod?: number;
-		endPeriod?: number;
 		classPeriods?: number[];
+		target?: EslEventTarget;
 	} => {
 		const edit = state.step5.eventEdits.find((e) => e.eventKey === key);
 		if (edit === undefined) return fallback;
@@ -513,9 +509,8 @@ export function buildSavePayload(
 			date: edit.date ?? fallback.date,
 			endDate: edit.endDate ?? fallback.endDate,
 			note: edit.note ?? fallback.note,
-			startPeriod: edit.startPeriod ?? fallback.startPeriod,
-			endPeriod: edit.endPeriod ?? fallback.endPeriod,
-			classPeriods: edit.classPeriods ?? fallback.classPeriods
+			classPeriods: edit.classPeriods ?? fallback.classPeriods,
+			target: edit.target ?? fallback.target
 		};
 	};
 
@@ -600,9 +595,8 @@ export function buildSavePayload(
 			override.date === undefined &&
 			override.endDate === undefined &&
 			override.note === undefined &&
-			override.startPeriod === undefined &&
-			override.endPeriod === undefined &&
-			override.classPeriods === undefined
+			override.classPeriods === undefined &&
+			override.target === undefined
 		) {
 			return { ...custom };
 		}
@@ -617,8 +611,8 @@ export function buildSavePayload(
 			if (custom.type === 'banner') next.bannerText = override.note;
 			else next.note = override.note;
 		}
-		if (override.startPeriod !== undefined) next.startPeriod = override.startPeriod;
-		if (override.endPeriod !== undefined) next.endPeriod = override.endPeriod;
+		// Target is only editable on custom rows; banners keep 'all'.
+		if (override.target !== undefined && custom.type !== 'banner') next.target = override.target;
 		// `classPeriods` is a meeting-kind flag (per-day periods), not part of
 		// banner text. Edits on a banner row carry it through only when the
 		// edit explicitly sets one — otherwise the overlay keeps the stored

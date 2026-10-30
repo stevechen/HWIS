@@ -62,14 +62,15 @@ describe('buildPreviewRows', () => {
 		const byKey = new Map(rows.map((row) => [row.key, row]));
 
 		expect(byKey.get('step1:startDate')).toMatchObject({
-			type: 'start_school',
+			type: 'partial',
 			title: 'Start of school',
 			date: '2026-08-31',
-			target: 'all'
+			target: 'all',
+			classPeriods: [3, 4, 5, 6, 7, 8]
 		});
 		expect(byKey.get('step2:offDays:0')).toMatchObject({
 			type: 'no_school',
-			title: 'Off',
+			title: '🎉 National Day',
 			date: '2026-11-10',
 			note: 'National Day'
 		});
@@ -262,8 +263,6 @@ describe('buildSavePayload #290 classPeriods', () => {
 				target: 'all',
 				subType: 'partial',
 				note: 'N',
-				startPeriod: 2,
-				endPeriod: 4,
 				classPeriods: [2, 3, 4]
 			}
 		];
