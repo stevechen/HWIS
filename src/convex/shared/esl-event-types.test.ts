@@ -320,7 +320,11 @@ describe('esl wizard write rules (#217)', () => {
 			})
 		).toMatchObject({ kind: 'badPeriodCount', count: 8 });
 		expect(
-			assertValidEslEvent({ type: 'partial', date: '2025-09-01', classPeriods: [1, 2, 3, 4, 5, 6, 7] })
+			assertValidEslEvent({
+				type: 'partial',
+				date: '2025-09-01',
+				classPeriods: [1, 2, 3, 4, 5, 6, 7]
+			})
 		).toBeNull();
 	});
 

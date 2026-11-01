@@ -20,15 +20,19 @@
 	const client = useConvexClient();
 	const teacherId = $derived(session.viewer?._id ?? null);
 
-	// Ensure ESL department role is set for the user (fixes old profiles)
-	{
-		const isEslStaff = $derived(session.viewer !== null && session.isEslStaff);
-		$effect(() => {
-			if (session.status === 'active' && isEslStaff) {
-				client.mutation(api.onboarding.ensureEslDepartmentRole, {}).catch(() => {});
-			}
-		});
-	}
+	// Ensure ESL department role is set for the user (fixes old profiles).
+	// Run at most once per page load to avoid hammering Convex with repeat
+	// mutations on every reactive update.
+	let eslRoleEnsured = $state(false);
+	$effect(() => {
+		if (eslRoleEnsured) return;
+		if (session.status === 'active' && session.viewer !== null && session.isEslStaff) {
+			eslRoleEnsured = true;
+			client.mutation(api.onboarding.ensureEslDepartmentRole, {}).catch(() => {
+				eslRoleEnsured = false;
+			});
+		}
+	});
 
 	// Wall-clock today, reticked every minute so Today/Next markers and past
 	// hatching roll over without a reload (never sent to queries as a range
