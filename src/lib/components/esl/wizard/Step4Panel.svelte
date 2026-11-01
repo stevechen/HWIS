@@ -93,8 +93,8 @@
 	const mockIds: readonly string[] = $derived(
 		isS1 ? ['mock1', 'mock2'] : ['mock1', 'mock2', 'mock3']
 	);
-	const passportIds: readonly string[] = $derived(isS1 ? ['pd1', 'pd2', 'pd3'] : ['pd1', 'pd2']);
-	const recordingIds: readonly string[] = $derived(isS1 ? ['rd1', 'rd2', 'rd3'] : ['rd1', 'rd2']);
+	const passportIds: readonly string[] = ['pd1', 'pd2', 'pd3'];
+	const recordingIds: readonly string[] = ['rd1', 'rd2', 'rd3'];
 
 	let tab = $state<Tab>('school');
 	let armed = $state<string | null>(null);

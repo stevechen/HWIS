@@ -9,10 +9,18 @@ export function slash(date: string): string {
 	return date.slice(5).replace('-', '/');
 }
 
-/** 1-based school-week index of a date from the semester start. */
+/** 1-based school-week index of a date from the semester start (Mon-aligned so
+ *  each fragment matches the Mon–Fri calendar grid, #grid). */
 export function weekIndexOf(date: string, semesterStart: string): number {
+	const mondayOf = (value: string) => {
+		const d = new Date(`${value}T12:00:00`);
+		const day = d.getDay(); // 0=Sun … 6=Sat
+		const offset = day === 0 ? 6 : day - 1; // days back to Mon
+		d.setDate(d.getDate() - offset);
+		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+	};
 	const day = (value: string) => new Date(`${value}T12:00:00`).getTime();
-	return Math.floor((day(date) - day(semesterStart)) / (7 * 86400000)) + 1;
+	return Math.floor((day(mondayOf(date)) - day(mondayOf(semesterStart))) / (7 * 86400000)) + 1;
 }
 
 /** Lookup key joining an event's date to its title, shared by rows and dues. */

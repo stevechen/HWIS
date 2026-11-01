@@ -242,4 +242,24 @@ describe('buildCalendarFragments (#224)', () => {
 
 		expect(fragments[0].cards.map((card) => card.countdown)).toEqual([null, null, '3 of 5']);
 	});
+
+	it('keeps card dates ascending within each Mon–Fri week (#grid)', () => {
+		// semesterStart 2025-09-01 (Monday). Fri 09/05 is week 1's last
+		// column; Mon 09/08 opens week 2. With the old 7-day-from-start
+		// chunks Thu–Wed shared a fragment, letting Tue render left of Fri
+		// on the grid.
+		const { fragments } = buildCalendarFragments({
+			rows: [
+				row({ date: '2025-09-05', weekday: 'Friday' }),
+				row({ date: '2025-09-08', weekday: 'Monday' }),
+				row({ date: '2025-09-09', weekday: 'Tuesday' })
+			],
+			semesterStart: '2025-09-01',
+			today: TODAY
+		});
+
+		expect(fragments.map((fragment) => fragment.weekIndex)).toEqual([1, 2]);
+		expect(fragments[0].cards.map((card) => card.date)).toEqual(['2025-09-05']);
+		expect(fragments[1].cards.map((card) => card.date)).toEqual(['2025-09-08', '2025-09-09']);
+	});
 });

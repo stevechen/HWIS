@@ -182,6 +182,23 @@
 	{:else if options.length === 0 || !selectedOption}
 		<p data-testid="teacher-calendar.empty">No meetings scheduled this semester.</p>
 	{:else}
+		<!-- Temp control: force S1 vs S2 -->
+		<div class="mb-2 flex items-center gap-2">
+			<label for="semester-picker" class="text-sm font-medium">Semester (temp):</label>
+			<select
+				id="semester-picker"
+				data-testid="teacher-calendar.semester-picker"
+				class="rounded border border-stone-300 px-2 py-1 text-sm"
+				value={selectedSemesterId}
+				onchange={(e) =>
+					(selectedSemesterId = (e.currentTarget as HTMLSelectElement)
+						.value as Id<'esl_semesters'>)}
+			>
+				{#each semesters as s (s._id)}
+					<option value={s._id}>{s.year} {s.term}</option>
+				{/each}
+			</select>
+		</div>
 		<TeacherCalendar
 			{classes}
 			{selectedClassId}

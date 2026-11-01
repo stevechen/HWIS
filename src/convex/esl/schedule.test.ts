@@ -581,6 +581,73 @@ describe('esl/schedule.teacherDays', () => {
 		expect(g9Days.some((day) => day.date > '2026-06-05')).toBe(false);
 	});
 
+	it('restarts the G9 count after Exam 2 so block 3 counts to graduation', async () => {
+		const t = await convexTest(schema, modules);
+		await seedEslStaff(t, { authId: 'esl-admin', eslRole: 'admin' });
+		const teacherId = await seedEslStaff(t, {
+			authId: 'esl-teacher',
+			eslRole: 'teacher',
+			signIn: false
+		});
+		const semesterId = await t.mutation(api.esl.semesters.create, {
+			year: '2025-2026',
+			term: 'S2',
+			startDate: '2026-02-09'
+		});
+		const { classIds } = await t.mutation(api.esl.cohorts.create, {
+			year: '2025-2026',
+			grade: 9,
+			level: 'Basic',
+			classNumber: '1'
+		});
+		const [g9Id] = classIds;
+		await t.mutation(api.esl.classes.setSchedule, {
+			classId: g9Id,
+			year: '2025-2026',
+			meetings: [
+				{ day: 'Monday', period: 1 },
+				{ day: 'Friday', period: 2 }
+			]
+		});
+		await t.mutation(api.esl.classes.assignTeacher, { id: g9Id, teacherId });
+		// Exam 2 on Monday 5/18 closes block 2; block 3 then runs to the
+		// Friday 6/5 ceremony, with the final exam after it.
+		await createEvent(t, semesterId, { type: 'exam', title: 'Exam 2', date: '2026-05-18' });
+		await createEvent(t, semesterId, {
+			type: 'no_class',
+			title: 'No class',
+			note: 'Graduation ceremony',
+			target: 'all',
+			date: '2026-06-05'
+		});
+		await createEvent(t, semesterId, {
+			type: 'exam',
+			title: 'Final Exam',
+			date: '2026-06-19'
+		});
+		asTeacher();
+
+		const days = await readDays(t, teacherId, semesterId, {
+			fromDate: '2026-05-18',
+			toDate: '2026-06-05'
+		});
+		const g9Days = days.filter((day) => day.classId === g9Id);
+
+		// Block 3 has four active meetings (Fri 5/22, Mon 5/25, Fri 5/29,
+		// Mon 6/1): the count restarts at 1 after Exam 2 and ends at 4.
+		expect(g9Days.find((day) => day.date === '2026-05-22')).toMatchObject({
+			status: 'teaching',
+			count: { position: 1, total: 4, label: 'Graduation ceremony' }
+		});
+		expect(g9Days.find((day) => day.date === '2026-06-01')).toMatchObject({
+			count: { position: 4, total: 4, label: 'Graduation ceremony' }
+		});
+		expect(g9Days.find((day) => day.date === '2026-06-05')).toMatchObject({
+			status: 'no_class',
+			count: { position: 4, total: 4, label: 'Graduation ceremony' }
+		});
+	});
+
 	it('carries every reminder kind through the join, collapsed onto its own lesson', async () => {
 		const { t, teacherId, semesterId, clilId } = await setupTeacherWorld();
 		// A second cohort's Comm class joins the teacher's load (one teacher

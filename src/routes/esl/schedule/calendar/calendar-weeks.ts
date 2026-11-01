@@ -87,9 +87,21 @@ function toDay(date: string): Date {
 	return new Date(`${date}T12:00:00`);
 }
 
-/** 1-based school-week index of a date from the semester start. */
+/** 1-based school-week index of a date from the semester start (Mon-aligned so
+ *  each fragment matches the Mon–Fri calendar grid, #grid). */
 export function weekIndexOf(date: string, semesterStart: string): number {
-	return Math.floor((toDay(date).getTime() - toDay(semesterStart).getTime()) / (7 * 86400000)) + 1;
+	const mondayOf = (value: string) => {
+		const d = toDay(value);
+		const day = d.getDay(); // 0=Sun … 6=Sat
+		const offset = day === 0 ? 6 : day - 1; // days back to Mon
+		d.setDate(d.getDate() - offset);
+		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+	};
+	return (
+		Math.floor(
+			(toDay(mondayOf(date)).getTime() - toDay(mondayOf(semesterStart)).getTime()) / (7 * 86400000)
+		) + 1
+	);
 }
 
 /** Format a calendar card as `Nov. 2` or `2`, without leading zeroes. */

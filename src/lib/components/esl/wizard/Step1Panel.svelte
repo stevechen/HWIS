@@ -162,7 +162,7 @@
 	<WeekPicker
 		{mondays}
 		selectedDate={startDate}
-		snapToMonday
+		snapToMonday={false}
 		onPick={pickStart}
 		testId="wizard.step-1-picker"
 	/>

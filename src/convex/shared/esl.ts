@@ -2304,6 +2304,32 @@ function countEslActiveDays(args: {
 	return total;
 }
 
+/**
+ * The first day of the per-block count window ending at the next anchor: the
+ * day after the latest exam that reaches the class before `date`, or the
+ * semester start when none. Non-G9 counts restart after every exam (#203);
+ * G9-in-S2 uses the same window but its anchor is the graduation ceremony,
+ * so block 3 reads as classes-in-this-block to graduation rather than a
+ * semester-cumulative count that looks like a Final Exam count.
+ */
+function countWindowFrom(args: {
+	exams: readonly ScheduleEventInput[];
+	semesterStart: string;
+	date: string;
+	type: EslClassType;
+	cohortGrade: number;
+}): string {
+	const previous = args.exams
+		.filter(
+			(exam) => exam.date < args.date && eventReachesClass(exam.target, args.type, args.cohortGrade)
+		)
+		.sort((a, b) => a.date.localeCompare(b.date))
+		.pop();
+	const windowFromExclusive =
+		previous !== undefined && previous.date >= args.semesterStart ? previous.date : null;
+	return windowFromExclusive === null ? args.semesterStart : nextEslDate(windowFromExclusive);
+}
+
 /** Count active meetings excluding oral_exam days. */
 function countEslActiveDaysExcludingOral(args: {
 	meetings: readonly ScheduleMeetingInput[];
@@ -2440,13 +2466,24 @@ export function buildTeacherDayRows(args: {
 				ceremony &&
 				date <= ceremony.date
 			) {
+				// Restart after each exam like the non-G9 branch, but end at the
+				// graduation ceremony: block 3 counts only its own classes to
+				// graduation instead of a semester-cumulative total.
+				const windowFrom = countWindowFrom({
+					exams,
+					semesterStart: args.semesterStart,
+					date,
+					type: meeting.type,
+					cohortGrade: meeting.cohortGrade
+				});
+				const from = windowFrom <= date ? windowFrom : date;
 				const position = countEslActiveDays({
 					meetings: args.meetings,
 					events: args.events,
 					classId: meeting.classId,
 					type: meeting.type,
 					cohortGrade: meeting.cohortGrade,
-					from: args.semesterStart,
+					from,
 					to: date
 				});
 				const total = countEslActiveDays({
@@ -2455,7 +2492,7 @@ export function buildTeacherDayRows(args: {
 					classId: meeting.classId,
 					type: meeting.type,
 					cohortGrade: meeting.cohortGrade,
-					from: args.semesterStart,
+					from: windowFrom,
 					to: ceremony.date
 				});
 				count = { position, total, label: ceremony.note ?? ceremony.title };
