@@ -34,15 +34,26 @@
 	let content = $state('');
 	let hasUnsavedChanges = $state(false);
 	let loadedContent = $state('');
+	let wasOpen = $state(false);
 
-	// Load a note only when the dialog's external content changes. The editor's
-	// own updates change `content` on every keystroke and must not reset it.
+	// Load a note whenever the dialog opens (or when its external content
+	// changes while open). The editor's own updates change `content` on every
+	// keystroke and must not reset it. Resetting `loadedContent` on close
+	// ensures an empty note following a non-empty one (or vice versa) still
+	// reloads instead of being skipped as "unchanged".
 	$effect(() => {
-		if (!open || !editor || initialContent === loadedContent) return;
+		if (!open) {
+			wasOpen = false;
+			loadedContent = '';
+			return;
+		}
+		if (!editor) return;
+		if (wasOpen && initialContent === loadedContent) return;
 		editor.commands.setContent(initialContent, { emitUpdate: false });
 		content = initialContent;
 		loadedContent = initialContent;
 		hasUnsavedChanges = false;
+		wasOpen = true;
 	});
 
 	const editorExtensions = [
