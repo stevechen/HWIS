@@ -7,6 +7,7 @@
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import type { RecentBatch } from '$convex/shared/recentActions';
 	import { isMixedBatch, valueChipClass, formatBatchTime } from '$lib/evaluations/recentActions';
+	import { toDisplayPoints, fromDisplayPoints } from '$lib/utils';
 
 	interface Props {
 		open: boolean;
@@ -32,7 +33,7 @@
 	const categoriesQuery = useQuery(api.categories.list, () => (open ? {} : 'skip'));
 
 	let checked = $state<Record<string, boolean>>({});
-	let editValue = $state(1);
+	let editValue = $state(10);
 	let editCategoryId = $state('');
 	let editDetails = $state('');
 	let busy = $state(false);
@@ -40,7 +41,7 @@
 	$effect(() => {
 		if (batch) {
 			checked = Object.fromEntries(batch.evaluations.map((e) => [e.id, true]));
-			editValue = batch.evaluations[0]?.value ?? 1;
+			editValue = toDisplayPoints(batch.evaluations[0]?.value ?? 1);
 			editCategoryId = batch.evaluations[0]?.categoryId ?? '';
 			editDetails = batch.evaluations[0]?.details ?? '';
 		}
@@ -55,7 +56,7 @@
 		try {
 			await client.mutation(api.evaluations.updateMany, {
 				ids: checkedEvaluations.map((e) => e.id as Id<'evaluations'>),
-				value: editValue,
+				value: fromDisplayPoints(editValue),
 				categoryId: editCategoryId as Id<'point_categories'>,
 				details: editDetails
 			});
@@ -129,7 +130,7 @@
 								<span
 									class={`inline-flex h-5 min-w-6 items-center justify-center rounded px-1 text-xs font-medium ${valueChipClass(e.value)}`}
 								>
-									{e.value > 0 ? `+${e.value}` : e.value}
+									{e.value > 0 ? `+${toDisplayPoints(e.value)}` : toDisplayPoints(e.value)}
 								</span>
 							</label>
 						{/each}
@@ -140,23 +141,26 @@
 					<legend class="text-sm font-medium">Points</legend>
 					<div class="grid grid-cols-4 gap-2" role="group" aria-label="Point values">
 						{#each [-2, -1, 1, 2] as p (p)}
+							{@const display = toDisplayPoints(p)}
 							<Button
 								type="button"
 								variant="outline"
 								class={[
-									(editValue === p &&
+									(editValue === display &&
 										p > 0 &&
 										'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-600/90 dark:border-emerald-500 dark:bg-emerald-500') ||
-										(editValue === p &&
+										(editValue === display &&
 											'border-red-600 bg-red-600 text-white hover:bg-red-600/90 dark:border-red-500 dark:bg-red-500') ||
 										(p > 0 &&
 											'border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300') ||
 										'border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300'
 								]}
-								onclick={() => (editValue = p)}
-								aria-label={p > 0 ? `Award ${p} points` : `Deduct ${Math.abs(p)} points`}
+								onclick={() => (editValue = display)}
+								aria-label={p > 0
+									? `Award ${display} points`
+									: `Deduct ${Math.abs(display)} points`}
 							>
-								{p > 0 ? `+${p}` : p}
+								{display > 0 ? `+${display}` : display}
 							</Button>
 						{/each}
 					</div>

@@ -6,6 +6,7 @@
 	import { cnyGlyphs } from '$lib/components/cny-glyphs';
 	import type { House } from '$lib/constants/houses';
 	import { resolveLeaderboardTheme } from '$lib/leaderboard-themes';
+	import { toDisplayPoints } from '$lib/utils';
 
 	type Contributor = { studentId: string; englishName: string; totalPoints: number };
 	type HouseEntry = {
@@ -89,7 +90,7 @@
 								0.45}) 48%, rgba(127,29,29,0.95) 100%); box-shadow: 0 0 70px -12px rgba(251,191,36,{glow *
 							0.9});"
 						role="img"
-						aria-label="{h.house}: {h.totalPoints} points, rank {h.rank}"
+						aria-label="{h.house}: {toDisplayPoints(h.totalPoints)} points, rank {h.rank}"
 					>
 						<div
 							class="absolute inset-0 rounded-4xl opacity-50"
@@ -105,7 +106,7 @@
 						<p
 							class="relative mt-[0.6vh] text-[clamp(1.75rem,2.8vw,5.5rem)] leading-none font-black text-yellow-100 drop-shadow-[0_0_18px_rgba(253,224,71,0.9)]"
 						>
-							{h.totalPoints}
+							{toDisplayPoints(h.totalPoints)}
 						</p>
 						<p
 							class="relative text-[clamp(0.85rem,1.1vw,2.1rem)] tracking-[0.25em] text-yellow-200/80 uppercase"

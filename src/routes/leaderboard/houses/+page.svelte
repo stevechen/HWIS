@@ -17,6 +17,7 @@
 	import LeaderboardCnyLanternRow from '$lib/components/LeaderboardCnyLanternRow.svelte';
 	import LeaderboardHalloweenHouseWeb from '$lib/components/LeaderboardHalloweenHouseWeb.svelte';
 	import LeaderboardActivityFeed from '$lib/components/LeaderboardActivityFeed.svelte';
+	import { toDisplayPoints } from '$lib/utils';
 	let viewportWidth = $state(1920);
 
 	const loadingMessages = [
@@ -179,19 +180,19 @@
 		housesQuery.data?.houses
 			? Math.max(
 					...housesQuery.data.houses.flatMap((h) =>
-						Object.values(h.pointsByCategory).map((value) => Number(value))
+						Object.values(h.pointsByCategory).map((value) => toDisplayPoints(Number(value)))
 					)
 				)
-			: 100
+			: 1000
 	);
 	const globalMin = $derived(
 		housesQuery.data?.houses
 			? Math.min(
 					...housesQuery.data.houses.flatMap((h) =>
-						Object.values(h.pointsByCategory).map((value) => Number(value))
+						Object.values(h.pointsByCategory).map((value) => toDisplayPoints(Number(value)))
 					)
 				)
-			: 0
+			: -100
 	);
 	const radarMinValue = $derived(Math.min(globalMin, 0));
 	const radarMaxValue = $derived(Math.max(globalMax, 0));
@@ -218,7 +219,7 @@
 
 		const data: Record<string, number> = {};
 		for (const [key, value] of Object.entries(houseData.pointsByCategory)) {
-			data[key] = Number(value);
+			data[key] = toDisplayPoints(Number(value));
 		}
 
 		return [{ label: houseData.house || 'Unknown', ...data }];
@@ -409,7 +410,7 @@
 									class="text-[clamp(2.8rem,5vw,100rem)] leading-none font-black {theme.pointsGlow} pr-4"
 								>
 									{#key houseData.totalPoints}
-										<span class="animate-house-pop">{houseData.totalPoints}</span>
+										<span class="animate-house-pop">{toDisplayPoints(houseData.totalPoints)}</span>
 									{/key}
 								</p>
 							</div>
@@ -455,7 +456,9 @@
 										<li class="animate-list-item flex min-h-0 min-w-0 flex-1 items-center gap-3">
 											<span class="shrink-0 font-black {hc.accentText}">
 												{#key contributor.totalPoints}
-													<span class="animate-scale-in">+{contributor.totalPoints}</span>
+													<span class="animate-scale-in"
+														>+{toDisplayPoints(contributor.totalPoints)}</span
+													>
 												{/key}
 											</span>
 											<span class="min-w-0 truncate font-semibold">{contributor.englishName}</span>

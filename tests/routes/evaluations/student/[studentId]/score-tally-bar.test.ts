@@ -22,13 +22,13 @@ describe('ScoreTallyBar Component', () => {
 		it('renders positive score when evaluations have positive values', async () => {
 			const evaluations: EvaluationEntry[] = [{ _id: '1', value: 5, timestamp: Date.now() }];
 			render(ScoreTallyBar, { evaluations });
-			await expect.element(page.getByText('+5')).toBeInTheDocument();
+			await expect.element(page.getByText('+50')).toBeInTheDocument();
 		});
 
 		it('renders negative score when evaluations have negative values', async () => {
 			const evaluations: EvaluationEntry[] = [{ _id: '1', value: -3, timestamp: Date.now() }];
 			render(ScoreTallyBar, { evaluations });
-			await expect.element(page.getByText('-3')).toBeInTheDocument();
+			await expect.element(page.getByText('-30')).toBeInTheDocument();
 		});
 
 		it('renders both positive and negative scores', async () => {
@@ -37,8 +37,8 @@ describe('ScoreTallyBar Component', () => {
 				{ _id: '2', value: -3, timestamp: Date.now() }
 			];
 			render(ScoreTallyBar, { evaluations });
-			await expect.element(page.getByText('+5')).toBeInTheDocument();
-			await expect.element(page.getByText('-3')).toBeInTheDocument();
+			await expect.element(page.getByText('+50')).toBeInTheDocument();
+			await expect.element(page.getByText('-30')).toBeInTheDocument();
 		});
 
 		it('calculates total correctly for multiple evaluations', async () => {
@@ -49,9 +49,9 @@ describe('ScoreTallyBar Component', () => {
 				{ _id: '4', value: -2, timestamp: Date.now() }
 			];
 			render(ScoreTallyBar, { evaluations });
-			// Total: +15 positive, -5 negative
-			await expect.element(page.getByText('+15')).toBeInTheDocument();
-			await expect.element(page.getByText('-5')).toBeInTheDocument();
+			// Canonical totals: +15 positive, -5 negative. UI displays 10×.
+			await expect.element(page.getByText('+150')).toBeInTheDocument();
+			await expect.element(page.getByText('-50')).toBeInTheDocument();
 		});
 	});
 

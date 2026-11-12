@@ -6,6 +6,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
 	import type { EvaluationEntry } from '$lib/components/timeline/types';
+	import { fromDisplayPoints, toDisplayPoints } from '$lib/utils';
 
 	interface Props {
 		open: boolean;
@@ -38,16 +39,16 @@
 	const client = useConvexClient();
 	const categoriesQuery = useQuery(api.categories.list, () => ({}));
 
-	// Form state
+	// Form state uses display points (10×)
 	let editValue = $state(0);
 	let editCategoryId = $state('');
 	let editDetails = $state('');
 	let editLoading = $state(false);
 
-	// Sync form state when evaluation changes
+	// Sync form state when evaluation changes (convert canonical → display)
 	$effect(() => {
 		if (evaluation) {
-			editValue = evaluation.value;
+			editValue = toDisplayPoints(evaluation.value);
 			editCategoryId = evaluation.categoryId || '';
 			editDetails = evaluation.details || '';
 		}
@@ -60,7 +61,7 @@
 		try {
 			await client.mutation(api.evaluations.update, {
 				id: evaluation._id as Id<'evaluations'>,
-				value: editValue,
+				value: fromDisplayPoints(editValue),
 				categoryId: editCategoryId as Id<'point_categories'>,
 				details: editDetails
 			});
@@ -79,18 +80,19 @@
 
 		if (isInputFocused) return;
 
+		// Display values: 10×
 		if (e.key === '1' || e.key === '+') {
 			e.preventDefault();
-			editValue = 1;
+			editValue = 10;
 		} else if (e.key === '2') {
 			e.preventDefault();
-			editValue = 2;
+			editValue = 20;
 		} else if ((e.key === '!' && e.shiftKey) || e.key === '-') {
 			e.preventDefault();
-			editValue = -1;
+			editValue = -10;
 		} else if (e.key === '@' && e.shiftKey) {
 			e.preventDefault();
-			editValue = -2;
+			editValue = -20;
 		}
 	}
 </script>
@@ -137,22 +139,23 @@
 				<legend class="text-sm font-medium">Points</legend>
 				<div class="grid grid-cols-4 gap-2" role="group" aria-label="Point values">
 					{#each [-2, -1, 1, 2] as p (p)}
+						{@const display = toDisplayPoints(p)}
 						<Button
 							type="button"
 							variant="outline"
 							testId={pointButtonTestIdPrefix ? pointButtonTestIdPrefix + '-' + p : undefined}
 							class={[
-								(editValue === p &&
+								(editValue === display &&
 									p > 0 &&
 									'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-600/90 hover:text-white dark:border-emerald-500 dark:bg-emerald-500') ||
-									(editValue === p &&
+									(editValue === display &&
 										'border-red-600 bg-red-600 text-white hover:bg-red-600/90 hover:text-white dark:border-red-500 dark:bg-red-500') ||
 									(p > 0 &&
 										'border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/30') ||
 									'border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/30'
 							]}
-							onclick={() => (editValue = p)}
-							aria-label={p > 0 ? `Award ${p} points` : `Deduct ${Math.abs(p)} points`}
+							onclick={() => (editValue = display)}
+							aria-label={p > 0 ? `Award ${display} points` : `Deduct ${Math.abs(display)} points`}
 							aria-keyshortcuts={p === -2
 								? 'Shift+2'
 								: p === -1
@@ -161,7 +164,7 @@
 										? '1 +'
 										: '2'}
 						>
-							{(p > 0 && '+') || ''}{p}
+							{(display > 0 && '+') || ''}{display}
 						</Button>
 					{/each}
 				</div>

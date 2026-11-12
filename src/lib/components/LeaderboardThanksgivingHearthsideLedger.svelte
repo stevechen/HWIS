@@ -3,6 +3,7 @@
 	import type { House } from '$lib/constants/houses';
 	import { HOUSES } from '$lib/constants/houses';
 	import { resolveLeaderboardTheme } from '$lib/leaderboard-themes';
+	import { toDisplayPoints } from '$lib/utils';
 
 	type Contributor = { studentId: string; englishName: string; totalPoints: number };
 	type HouseEntry = {
@@ -98,7 +99,7 @@
 						</p>
 					</div>
 					<p class="shrink-0 text-[clamp(2rem,3.5vw,3.5rem)] leading-none font-bold">
-						{h.totalPoints}
+						{toDisplayPoints(h.totalPoints)}
 					</p>
 				</div>
 				<ul
@@ -107,7 +108,7 @@
 				>
 					{#each (h.topContributors ?? []).slice(0, 5) as c (c.studentId)}
 						<li class="flex items-center gap-1.5">
-							<span class="font-black text-gray-800">+{c.totalPoints}</span>
+							<span class="font-black text-gray-800">+{toDisplayPoints(c.totalPoints)}</span>
 							<span class="truncate">{c.englishName}</span>
 						</li>
 					{/each}

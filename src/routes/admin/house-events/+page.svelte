@@ -10,6 +10,7 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 
 	import { HOUSES, HOUSE_COLORS, type House } from '$lib/constants/houses';
+	import { toDisplayPoints, fromDisplayPoints } from '$lib/utils';
 
 	const eventsQuery = useQuery(api.houseEvents.list, () => ({}));
 	const client = useConvexClient();
@@ -67,10 +68,10 @@
 		endDate = tsToDateStr(event.endDate);
 		const hp = event.housePoints;
 		housePoints = {
-			Heracles: hp?.Heracles?.toString() ?? '',
-			Wukong: hp?.Wukong?.toString() ?? '',
-			Ixbalam: hp?.Ixbalam?.toString() ?? '',
-			Setna: hp?.Setna?.toString() ?? ''
+			Heracles: hp?.Heracles != null ? toDisplayPoints(hp.Heracles).toString() : '',
+			Wukong: hp?.Wukong != null ? toDisplayPoints(hp.Wukong).toString() : '',
+			Ixbalam: hp?.Ixbalam != null ? toDisplayPoints(hp.Ixbalam).toString() : '',
+			Setna: hp?.Setna != null ? toDisplayPoints(hp.Setna).toString() : ''
 		};
 		formError = '';
 		eventDialogOpen = true;
@@ -130,7 +131,7 @@
 						formError = `Invalid number for ${h} points`;
 						return undefined;
 					}
-					result[h] = num;
+					result[h] = fromDisplayPoints(num);
 				}
 			}
 			return Object.keys(result).length > 0 ? (result as Record<House, number>) : undefined;
@@ -277,7 +278,7 @@
 										class="flex items-center justify-between rounded-lg px-3 py-2 {colors.lightBg} {colors.border} border"
 									>
 										<span class="text-sm font-semibold {colors.text}">{h}</span>
-										<span class="text-sm font-bold {colors.text}">{pts ?? 0}</span>
+										<span class="text-sm font-bold {colors.text}">{toDisplayPoints(pts ?? 0)}</span>
 									</div>
 								{/each}
 							</div>
@@ -360,6 +361,7 @@
 							<Input
 								id={`points-${h}`}
 								type="number"
+								step="any"
 								bind:value={housePoints[h]}
 								placeholder="0"
 								testId={`house-events.event-dialog.points-${h}`}

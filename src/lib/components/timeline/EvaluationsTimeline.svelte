@@ -12,6 +12,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import type { EvaluationEntry } from './types.js';
+	import { toDisplayPoints } from '$lib/utils';
 
 	interface Props {
 		evaluations: EvaluationEntry[];
@@ -346,7 +347,7 @@
 				'absolute -top-4 -right-2 flex items-center gap-1 rounded-md px-2 py-1 text-sm font-bold shadow'
 			]}
 		>
-			<span>{(isPlus && '+') || null}{entry.value}</span>
+			<span>{(isPlus && '+') || null}{toDisplayPoints(entry.value)}</span>
 		</div>
 	</div>
 {/snippet}

@@ -4,6 +4,7 @@
 	import { houseLogos } from '$lib/assets/house-logos';
 	import type { House } from '$lib/constants/houses';
 	import { resolveLeaderboardTheme } from '$lib/leaderboard-themes';
+	import { toDisplayPoints } from '$lib/utils';
 
 	type Contributor = { studentId: string; englishName: string; totalPoints: number };
 	type HouseEntry = {
@@ -111,7 +112,7 @@
 							<p
 								class="mt-[0.4vh] text-[clamp(2.25rem,min(4vw,8vh),6.5rem)] leading-none font-black {theme.pointsGlow}"
 							>
-								{h.totalPoints}
+								{toDisplayPoints(h.totalPoints)}
 							</p>
 						</div>
 					</div>
@@ -127,7 +128,7 @@
 							<li>
 								<div class="flex justify-between leading-tight">
 									<span class="truncate text-red-100/70">{cat}</span>
-									<b class="text-red-50">{val}</b>
+									<b class="text-red-50">{toDisplayPoints(val)}</b>
 								</div>
 								<div
 									class="mt-[0.4vh] h-[0.7vh] min-h-1.5 overflow-hidden rounded-full bg-black/50"
@@ -152,7 +153,7 @@
 					{#each (h.topContributors ?? []).slice(0, 10) as c (c.studentId)}
 						<div class="flex justify-between gap-2 leading-tight">
 							<span class="truncate text-red-50/85">{c.englishName}</span>
-							<b class="text-yellow-200">+{c.totalPoints}</b>
+							<b class="text-yellow-200">+{toDisplayPoints(c.totalPoints)}</b>
 						</div>
 					{/each}
 				</div>

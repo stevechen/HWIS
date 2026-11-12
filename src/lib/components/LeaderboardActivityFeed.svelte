@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { toDisplayPoints } from '$lib/utils';
 
 	type Item = {
 		evaluationId: string;
@@ -66,9 +67,13 @@
 			>
 				{#if item.value >= 0}
 					<span class="text-lg leading-none text-emerald-400" aria-hidden="true">+</span>
-					<span class="text-base leading-none font-black text-emerald-300">{item.value}</span>
+					<span class="text-base leading-none font-black text-emerald-300"
+						>{toDisplayPoints(item.value)}</span
+					>
 				{:else}
-					<span class="text-base leading-none font-black text-red-400">{item.value}</span>
+					<span class="text-base leading-none font-black text-red-400"
+						>{toDisplayPoints(item.value)}</span
+					>
 				{/if}
 				<span class="min-w-0 truncate">{item.englishName}</span>
 				{#if item.chineseName}

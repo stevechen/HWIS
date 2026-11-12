@@ -28,6 +28,7 @@
 		DeleteEvaluationDialog
 	} from '$lib/evaluations/components';
 	import { Button } from '$lib/components/ui/button';
+	import { toDisplayPoints } from '$lib/utils';
 	import { Users, EyeClosed } from '@lucide/svelte';
 	import LogoHeracles from '$lib/components/LogoHeracles.svelte';
 	import LogoWukong from '$lib/components/LogoWukong.svelte';
@@ -283,9 +284,11 @@
 	const radarCategoryTotals = $derived.by(() => {
 		return radarCategories.map((category) => ({
 			category,
-			total: filteredEvaluations
-				.filter((evaluation) => evaluation.category === category)
-				.reduce((sum, evaluation) => sum + evaluation.value, 0)
+			total: toDisplayPoints(
+				filteredEvaluations
+					.filter((evaluation) => evaluation.category === category)
+					.reduce((sum, evaluation) => sum + evaluation.value, 0)
+			)
 		}));
 	});
 
@@ -311,13 +314,13 @@
 	});
 
 	const radarMaxValue = $derived.by(() => {
-		if (radarCategoryTotals.length === 0) return 10;
+		if (radarCategoryTotals.length === 0) return 100;
 		return Math.max(0, ...radarCategoryTotals.map(({ total }) => total));
 	});
 
 	const radarTicks = $derived.by(() => {
 		if (radarCategoryTotals.length === 0) {
-			return [0, 2, 4, 6, 8];
+			return [0, 20, 40, 60, 80];
 		}
 
 		if (radarMaxValue === radarMinValue) {

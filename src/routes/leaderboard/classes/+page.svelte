@@ -10,6 +10,7 @@
 	import LeaderboardActivityFeed from '$lib/components/LeaderboardActivityFeed.svelte';
 	import { resolveLeaderboardTheme, resolveLeaderboardThemeId } from '$lib/leaderboard-themes';
 	import { useViewer } from '$lib/viewer.svelte';
+	import { toDisplayPoints } from '$lib/utils';
 
 	let viewportWidth = $state(1920);
 
@@ -116,21 +117,21 @@
 		classesQuery.data?.classes
 			? Math.max(
 					...classesQuery.data.classes.flatMap((c) =>
-						Object.values(c.pointsByCategory).map((v) => Number(v))
+						Object.values(c.pointsByCategory).map((v) => toDisplayPoints(Number(v)))
 					),
 					0
 				)
-			: 100
+			: 1000
 	);
 	const globalMin = $derived(
 		classesQuery.data?.classes
 			? Math.min(
 					...classesQuery.data.classes.flatMap((c) =>
-						Object.values(c.pointsByCategory).map((v) => Number(v))
+						Object.values(c.pointsByCategory).map((v) => toDisplayPoints(Number(v)))
 					),
 					0
 				)
-			: 0
+			: -100
 	);
 	const radarMinValue = $derived(Math.min(globalMin, 0));
 	const radarMaxValue = $derived(Math.max(globalMax, 0));
@@ -153,7 +154,8 @@
 	function getRadarData(entry: { displayName: string; pointsByCategory: Record<string, number> }) {
 		if (!entry?.pointsByCategory) return [];
 		const data: Record<string, number> = {};
-		for (const [k, v] of Object.entries(entry.pointsByCategory)) data[k] = Number(v);
+		for (const [k, v] of Object.entries(entry.pointsByCategory))
+			data[k] = toDisplayPoints(Number(v));
 		return [{ label: entry.displayName, ...data }];
 	}
 </script>
@@ -333,7 +335,8 @@
 							<p
 								class="text-center text-[clamp(1.6rem,2.2vw,100rem)] leading-none font-black {theme.pointsGlow}"
 							>
-								{#key entry.totalPoints}<span class="animate-house-pop">{entry.totalPoints}</span
+								{#key entry.totalPoints}<span class="animate-house-pop"
+										>{toDisplayPoints(entry.totalPoints)}</span
 									>{/key}
 							</p>
 						</div>

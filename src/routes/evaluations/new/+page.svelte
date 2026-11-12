@@ -12,6 +12,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Select from '$lib/components/ui/select';
 	import CategoryInfoCard from '$lib/components/CategoryInfoCard.svelte';
+	import { fromDisplayPoints } from '$lib/utils';
 
 	function getCurrentSemesterId(): string {
 		const now = new Date();
@@ -32,7 +33,8 @@
 
 	let selectedStudentIds = $state<Id<'students'>[]>([]);
 	let categoryId = $state<string | undefined>(undefined);
-	let points = $state(1);
+	// UI stores display points (10×), converted to canonical on submit
+	let points = $state(10);
 	let details = $state('');
 	let loading = $state(false);
 	let submitted = $state(false);
@@ -71,7 +73,7 @@
 		try {
 			await client.mutation(api.evaluations.create, {
 				studentIds: selectedStudentIds,
-				value: points,
+				value: fromDisplayPoints(points),
 				categoryId: categoryId as unknown as Id<'point_categories'>,
 				details,
 				semesterId: getCurrentSemesterId()
@@ -104,21 +106,21 @@
 			return;
 		}
 
-		// Process point shortcuts
+		// Process point shortcuts (display values: 10×)
 		if (e.key === '1' || e.key === '+') {
 			e.preventDefault();
-			points = 1;
+			points = 10;
 		} else if (e.key === '2') {
 			e.preventDefault();
-			points = 2;
+			points = 20;
 		} else if ((e.key === '!' && e.shiftKey) || e.key === '-') {
-			// Shift+1 = '!' or '-' key for -1
+			// Shift+1 = '!' or '-' key for -10
 			e.preventDefault();
-			points = -1;
+			points = -10;
 		} else if (e.key === '@' && e.shiftKey) {
-			// Shift+2 = '@' for -2
+			// Shift+2 = '@' for -20
 			e.preventDefault();
-			points = -2;
+			points = -20;
 		}
 	}
 
@@ -210,60 +212,60 @@
 							variant="outline"
 							testId="evaluations-new.point--2"
 							class={[
-								(points === -2 && selectedNegativePointButtonClass) ||
+								(points === -20 && selectedNegativePointButtonClass) ||
 									unselectedNegativePointButtonClass
 							]}
-							onclick={() => (points = -2)}
-							aria-label="Deduct 2 points"
-							title="-2 points (press Shift+2)"
+							onclick={() => (points = -20)}
+							aria-label="Deduct 20 points"
+							title="-20 points (press Shift+2)"
 							aria-keyshortcuts="Shift+2"
 						>
-							-2
+							-20
 						</Button>
 						<Button
 							type="button"
 							variant="outline"
 							testId="evaluations-new.point--1"
 							class={[
-								(points === -1 && selectedNegativePointButtonClass) ||
+								(points === -10 && selectedNegativePointButtonClass) ||
 									unselectedNegativePointButtonClass
 							]}
-							onclick={() => (points = -1)}
-							aria-label="Deduct 1 point"
-							title="-1 point (press Shift+1 or -)"
+							onclick={() => (points = -10)}
+							aria-label="Deduct 10 points"
+							title="-10 points (press Shift+1 or -)"
 							aria-keyshortcuts="Shift+1 -"
 						>
-							-1
+							-10
 						</Button>
 						<Button
 							type="button"
 							variant="outline"
 							testId="evaluations-new.point-1"
 							class={[
-								(points === 1 && selectedPositivePointButtonClass) ||
+								(points === 10 && selectedPositivePointButtonClass) ||
 									unselectedPositivePointButtonClass
 							]}
-							onclick={() => (points = 1)}
-							aria-label="Award 1 point"
-							title="+1 point (press 1 or +)"
+							onclick={() => (points = 10)}
+							aria-label="Award 10 points"
+							title="+10 points (press 1 or +)"
 							aria-keyshortcuts="1 +"
 						>
-							+1
+							+10
 						</Button>
 						<Button
 							type="button"
 							variant="outline"
 							testId="evaluations-new.point-2"
 							class={[
-								(points === 2 && selectedPositivePointButtonClass) ||
+								(points === 20 && selectedPositivePointButtonClass) ||
 									unselectedPositivePointButtonClass
 							]}
-							onclick={() => (points = 2)}
-							aria-label="Award 2 points"
-							title="+2 points (press 2)"
+							onclick={() => (points = 20)}
+							aria-label="Award 20 points"
+							title="+20 points (press 2)"
 							aria-keyshortcuts="2"
 						>
-							+2
+							+20
 						</Button>
 					</div>
 				</fieldset>

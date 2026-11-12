@@ -105,19 +105,19 @@ describe('Leaderboard Houses Route', () => {
 		).map((el) => (el.textContent ?? '').replace(/\s+/g, ''));
 
 		expect(contributorLines).toEqual([
-			'+110Alice',
-			'+100Bob',
-			'+90Carol',
-			'+80Dave',
-			'+70Erin',
-			'+60Frank',
-			'+50Grace',
-			'+40Heidi',
-			'+30Ivan',
-			'+20Judy'
+			'+1100Alice',
+			'+1000Bob',
+			'+900Carol',
+			'+800Dave',
+			'+700Erin',
+			'+600Frank',
+			'+500Grace',
+			'+400Heidi',
+			'+300Ivan',
+			'+200Judy'
 		]);
 		// The 11th fixture row sits beyond the backend's cap.
-		expect(contributorLines).not.toContain('+10Karl');
+		expect(contributorLines).not.toContain('+100Karl');
 	});
 
 	it('fills the card and keeps its top and bottom insets equal', async () => {

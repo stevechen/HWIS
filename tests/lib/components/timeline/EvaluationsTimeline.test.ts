@@ -44,13 +44,13 @@ describe('EvaluationsTimeline Component', () => {
 		it('shows plus sign for positive values', async () => {
 			const positiveEval = createMockEvaluation({ value: 5 });
 			render(EvaluationsTimeline, { evaluations: [positiveEval] });
-			await expect.element(page.getByText('+5')).toBeInTheDocument();
+			await expect.element(page.getByText('+50')).toBeInTheDocument();
 		});
 
 		it('shows minus sign for negative values', async () => {
 			const negativeEval = createMockEvaluation({ value: -3 });
 			render(EvaluationsTimeline, { evaluations: [negativeEval] });
-			await expect.element(page.getByText('-3')).toBeInTheDocument();
+			await expect.element(page.getByText('-30')).toBeInTheDocument();
 		});
 
 		it('shows grade-class label and IB badge when available', async () => {

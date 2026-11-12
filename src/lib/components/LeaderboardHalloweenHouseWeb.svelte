@@ -12,6 +12,7 @@
 	import { HOUSES } from '$lib/constants/houses';
 	import type { House } from '$lib/constants/houses';
 	import { resolveLeaderboardTheme } from '$lib/leaderboard-themes';
+	import { toDisplayPoints } from '$lib/utils';
 
 	type Contributor = { studentId: string; englishName: string; totalPoints: number };
 	type HouseEntry = {
@@ -253,7 +254,7 @@
 			{@const a = ACCENT[h.house as House]}
 			<article
 				bind:this={cardEls[i]}
-				aria-label="{h.house}, rank {h.rank}, {h.totalPoints} points"
+				aria-label="{h.house}, rank {h.rank}, {toDisplayPoints(h.totalPoints)} points"
 				class="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border {theme.card} {h.rank ===
 				1
 					? 'ring-2 ring-orange-300/60'
@@ -295,7 +296,7 @@
 							</div>
 						</div>
 						<p class="text-[clamp(1.6rem,2.6vw,2.6rem)] leading-none font-black {theme.pointsGlow}">
-							{h.totalPoints}
+							{toDisplayPoints(h.totalPoints)}
 						</p>
 					</div>
 					<!-- No house-name line: the crest above names the house. -->
@@ -358,7 +359,7 @@
 					{#each (h.topContributors ?? []).slice(0, 4) as c (c.studentId)}
 						<div class="flex justify-between gap-2 leading-snug">
 							<span class="truncate text-indigo-50/80">{c.englishName}</span>
-							<b class="text-indigo-200">+{c.totalPoints}</b>
+							<b class="text-indigo-200">+{toDisplayPoints(c.totalPoints)}</b>
 						</div>
 					{/each}
 				</div>

@@ -194,7 +194,7 @@ test.describe('Score Tally Bar @score-tally @sequential', () => {
 			e2eTag
 		});
 
-		// Create 4 evaluations to get expected tally: +5, -3, +10, +15 = +27/-3
+		// Create 4 evaluations (canonical value=1 each → +4 stored, +40 displayed)
 		await createStudentWithEvaluations({
 			studentId,
 			englishName,
@@ -220,14 +220,15 @@ test.describe('Score Tally Bar @score-tally @sequential', () => {
 
 	test('displays score tally bar with correct totals', async () => {
 		// Wait for the score tally bar to be visible with evaluations count
-		// Note: Each evaluation has value=1, so 4 evaluations = +4 positive tally
-		// ScoreTallyBar only shows non-zero tallies, so we only check for +4
-		await timelinePage.expectScoreTally('+4');
+		// Note: Each evaluation has value=1 (canonical), UI displays 10×, so
+		// 4 evaluations = +40 positive tally
+		// ScoreTallyBar only shows non-zero tallies, so we only check for +40
+		await timelinePage.expectScoreTally('+40');
 	});
 
 	test('score tally updates when filter is applied', async () => {
-		// Initial totals should show +4 (4 evaluations with value=1 each)
-		await timelinePage.expectScoreTally('+4');
+		// Initial totals should show +40 (4 evaluations with value=1 each, displayed 10×)
+		await timelinePage.expectScoreTally('+40');
 
 		// Apply a filter that excludes all evaluations
 		await timelinePage.fillTeacherFilter('NonExistentTeacher');

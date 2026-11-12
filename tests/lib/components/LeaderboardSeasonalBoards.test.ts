@@ -30,8 +30,8 @@ describe('seasonal boards promoted from prototype', () => {
 		await expect
 			.element(page.getByRole('heading', { name: 'Santa’s Workshop Ledger' }))
 			.toBeInTheDocument();
-		await expect.element(page.getByText('2431')).toBeInTheDocument();
-		await expect.element(page.getByText('1730')).toBeInTheDocument();
+		await expect.element(page.getByText('24310')).toBeInTheDocument();
+		await expect.element(page.getByText('17300')).toBeInTheDocument();
 		await expect.element(page.getByText('Academics').first()).toBeInTheDocument();
 		await expect.element(page.getByText('Emily Chen')).toBeInTheDocument();
 		await expect.element(page.getByText('Needs a nudge')).not.toBeInTheDocument();
@@ -42,14 +42,14 @@ describe('seasonal boards promoted from prototype', () => {
 	it('CNY lantern row drops the glyph row and the visible house name', async () => {
 		render(LeaderboardCnyLanternRow, { houses: HOUSES });
 		await expect.element(page.getByRole('heading', { name: 'Lantern Row' })).toBeInTheDocument();
-		await expect.element(page.getByText('2431')).toBeInTheDocument();
-		await expect.element(page.getByText('1730')).toBeInTheDocument();
+		await expect.element(page.getByText('24310')).toBeInTheDocument();
+		await expect.element(page.getByText('17300')).toBeInTheDocument();
 		await expect.element(page.getByText('Emily')).toBeInTheDocument();
 		await expect.element(page.getByText(/🏮|🧨/u)).not.toBeInTheDocument();
 		await expect.element(page.getByText('Wukong')).not.toBeInTheDocument();
 		// The crescent is gone visually, but the house must stay announced.
 		await expect
-			.element(page.getByRole('img', { name: /Wukong: 2431 points, rank 1/ }))
+			.element(page.getByRole('img', { name: /Wukong: 24310 points, rank 1/ }))
 			.toBeInTheDocument();
 	});
 });

@@ -13,6 +13,7 @@
 		valueChipClass,
 		formatBatchTime
 	} from '$lib/evaluations/recentActions';
+	import { toDisplayPoints } from '$lib/utils';
 	import BatchEditDialog from './BatchEditDialog.svelte';
 	import BatchDeleteDialog from './BatchDeleteDialog.svelte';
 
@@ -109,7 +110,9 @@
 										<span
 											class={`inline-flex h-5 min-w-6 items-center justify-center rounded px-1.5 text-xs font-medium ${valueChipClass(display.value)}`}
 										>
-											{display.value > 0 ? `+${display.value}` : display.value}
+											{display.value > 0
+												? `+${toDisplayPoints(display.value)}`
+												: toDisplayPoints(display.value)}
 										</span>
 									{/if}
 									<span class="text-sm">{display.category}</span>

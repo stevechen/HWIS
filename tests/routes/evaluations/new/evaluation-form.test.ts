@@ -24,8 +24,9 @@ const mockStudents = [
 
 const mockCategories = [{ _id: 'cat-001' as const, name: 'Academic' }];
 
-const { mockGoto } = vi.hoisted(() => ({
-	mockGoto: vi.fn()
+const { mockGoto, mockMutation } = vi.hoisted(() => ({
+	mockGoto: vi.fn(),
+	mockMutation: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$app/navigation', () => ({
@@ -40,7 +41,7 @@ vi.mock('convex-svelte', () => ({
 		error: undefined
 	})),
 	useConvexClient: vi.fn(() => ({
-		mutation: vi.fn().mockResolvedValue(undefined),
+		mutation: mockMutation,
 		query: vi.fn().mockResolvedValue({})
 	}))
 }));
@@ -116,6 +117,29 @@ describe('Evaluation Form', () => {
 			await page.getByRole('button', { name: 'Submit evaluation' }).click();
 
 			expect(mockGoto).toHaveBeenCalledWith('/evaluations');
+			// The form defaults to +10 displayed, which must store as +1 canonical.
+			expect(mockMutation).toHaveBeenCalledWith(
+				expect.anything(),
+				expect.objectContaining({ value: 1 })
+			);
+		});
+
+		it('stores canonical points for a 10× point button', async () => {
+			render(EvaluationFormPage);
+
+			await page.getByRole('button', { name: 'Select John Doe' }).click();
+			await page.getByRole('button', { name: 'Select category' }).click();
+			await page.getByRole('option', { name: 'Academic' }).click();
+
+			// The button test ID stays canonical (`point-2`) but displays +20.
+			await page.getByTestId('evaluations-new.point-2').click();
+			await page.getByRole('button', { name: 'Submit evaluation' }).click();
+
+			expect(mockGoto).toHaveBeenCalledWith('/evaluations');
+			expect(mockMutation).toHaveBeenCalledWith(
+				expect.anything(),
+				expect.objectContaining({ value: 2 })
+			);
 		});
 
 		it('shows validation error when no student is selected', async () => {

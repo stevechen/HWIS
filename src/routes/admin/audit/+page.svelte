@@ -16,6 +16,7 @@
 	import * as Popover from '$lib/components/ui/popover';
 	import * as Select from '$lib/components/ui/select';
 	import { browser } from '$app/environment';
+	import { toDisplayPoints } from '$lib/utils';
 
 	type ColumnKey =
 		| 'timestamp'
@@ -553,7 +554,7 @@
 											{:else if column.key === 'category'}
 												{log.category || '-'}
 											{:else if column.key === 'points'}
-												{log.points !== null ? log.points : '-'}
+												{log.points !== null ? toDisplayPoints(log.points) : '-'}
 											{:else if column.key === 'details'}
 												<span class="line-clamp-1" title={log.details || ''}>
 													{log.details || '-'}

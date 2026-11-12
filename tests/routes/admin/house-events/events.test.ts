@@ -73,6 +73,15 @@ describe('House Events Page', () => {
 			await expect.element(page.getByText('Heracles')).toBeInTheDocument();
 		});
 
+		it('renders house points at 10× the canonical value', async () => {
+			render(EventsPage);
+			// Fixture stores Heracles: 10, Wukong: 5, Ixbalam: 8, Setna: 3 (1×).
+			await expect.element(page.getByText('100', { exact: true })).toBeInTheDocument();
+			await expect.element(page.getByText('50', { exact: true })).toBeInTheDocument();
+			await expect.element(page.getByText('80', { exact: true })).toBeInTheDocument();
+			await expect.element(page.getByText('30', { exact: true })).toBeInTheDocument();
+		});
+
 		it('renders Edit button on event card', async () => {
 			render(EventsPage);
 			await expect.element(page.getByRole('button', { name: 'Edit' })).toBeInTheDocument();

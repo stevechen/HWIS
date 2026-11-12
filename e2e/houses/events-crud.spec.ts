@@ -51,11 +51,17 @@ test.describe('House Events Management - E2E @sequential', () => {
 			title: eventTitle,
 			startDate: '2024-01-01',
 			endDate: '2024-01-15',
-			points: { Heracles: '10', Wukong: '5' }
+			// House-event inputs are 10× (stored canonically as 10 and 5 points).
+			points: { Heracles: '100', Wukong: '50' }
 		});
 		await eventsPage.submitEvent();
 
 		await eventsPage.expectEventVisible(eventTitle);
+
+		// The card renders canonical values at 10×, so it echoes what was typed.
+		const card = eventsPage.page.getByTestId(`house-events.event-card.${eventTitle}`);
+		await expect(card.getByText('100', { exact: true })).toBeVisible();
+		await expect(card.getByText('50', { exact: true })).toBeVisible();
 	});
 
 	test('can edit existing event', async () => {

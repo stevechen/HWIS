@@ -178,9 +178,9 @@ describe('Evaluation Dialogs', () => {
 					onClose: vi.fn(),
 					onDelete: vi.fn()
 				});
-				// Should have buttons for -2, -1, +1, +2
-				await expect.element(page.getByRole('button', { name: /Award 1/ })).toBeInTheDocument();
-				await expect.element(page.getByRole('button', { name: /Deduct 1/ })).toBeInTheDocument();
+				// Buttons display -20, -10, +10, +20 (10× canonical values)
+				await expect.element(page.getByRole('button', { name: /Award 10/ })).toBeInTheDocument();
+				await expect.element(page.getByRole('button', { name: /Deduct 10/ })).toBeInTheDocument();
 			});
 
 			it('shows details textarea', async () => {
@@ -299,10 +299,10 @@ describe('Evaluation Dialogs', () => {
 					onDelete: vi.fn()
 				});
 				await expect
-					.element(page.getByRole('button', { name: 'Award 2 points' }))
+					.element(page.getByRole('button', { name: 'Award 20 points' }))
 					.toBeInTheDocument();
 				await expect
-					.element(page.getByRole('button', { name: 'Deduct 2 points' }))
+					.element(page.getByRole('button', { name: 'Deduct 20 points' }))
 					.toBeInTheDocument();
 			});
 		});
@@ -325,7 +325,7 @@ describe('Evaluation Dialogs', () => {
 				}
 
 				await expect
-					.element(page.getByRole('button', { name: 'Award 2 points' }))
+					.element(page.getByRole('button', { name: 'Award 20 points' }))
 					.toHaveClass(/bg-emerald-600/);
 
 				if (dialogElement) {
@@ -333,7 +333,7 @@ describe('Evaluation Dialogs', () => {
 				}
 
 				await expect
-					.element(page.getByRole('button', { name: 'Deduct 1 points' }))
+					.element(page.getByRole('button', { name: 'Deduct 10 points' }))
 					.toHaveClass(/bg-red-600/);
 			});
 
@@ -351,7 +351,7 @@ describe('Evaluation Dialogs', () => {
 				}
 
 				await expect
-					.element(page.getByRole('button', { name: 'Award 1 points' }))
+					.element(page.getByRole('button', { name: 'Award 10 points' }))
 					.toHaveClass(/bg-emerald-600/);
 			});
 
@@ -371,7 +371,7 @@ describe('Evaluation Dialogs', () => {
 				}
 
 				await expect
-					.element(page.getByRole('button', { name: 'Deduct 1 points' }))
+					.element(page.getByRole('button', { name: 'Deduct 10 points' }))
 					.toHaveClass(/bg-red-600/);
 			});
 
@@ -391,7 +391,7 @@ describe('Evaluation Dialogs', () => {
 				}
 
 				await expect
-					.element(page.getByRole('button', { name: 'Deduct 2 points' }))
+					.element(page.getByRole('button', { name: 'Deduct 20 points' }))
 					.toHaveClass(/bg-red-600/);
 			});
 
@@ -409,7 +409,7 @@ describe('Evaluation Dialogs', () => {
 				textarea.element().dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true }));
 
 				await expect
-					.element(page.getByRole('button', { name: 'Award 2 points' }))
+					.element(page.getByRole('button', { name: 'Award 20 points' }))
 					.not.toHaveClass(/bg-emerald-600/);
 			});
 		});

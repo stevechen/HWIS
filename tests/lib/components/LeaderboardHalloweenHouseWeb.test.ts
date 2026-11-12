@@ -31,7 +31,8 @@ const HOUSES = [
 }));
 
 const LEADER_INDEX = HOUSES.findIndex((h) => h.rank === 1);
-const ANY_CARD_POINTS = String(HOUSES[0].totalPoints);
+// The board renders points 10× the canonical value, so wait for the multiplied figure.
+const ANY_CARD_POINTS = String(HOUSES[0].totalPoints * 10);
 
 function box(el: Element) {
 	return el.getBoundingClientRect();
