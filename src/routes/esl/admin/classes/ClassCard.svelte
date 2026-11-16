@@ -261,7 +261,7 @@
 		class={[
 			'inline-flex min-w-0 shrink-0 cursor-pointer items-center gap-1 text-left text-xs hover:opacity-75',
 			isGrade10 ? 'max-w-20' : 'max-w-24',
-			roomUnassigned ? 'text-muted-foreground' : 'text-emerald-800'
+			roomUnassigned ? 'text-muted-foreground' : 'text-emerald-800 dark:text-emerald-200'
 		]}
 		title="Choose the room"
 		aria-haspopup="dialog"
@@ -289,10 +289,7 @@
 	year is ever archived.
 -->
 <article
-	class={[
-		'relative flex flex-col gap-1.5 rounded-md border bg-white p-2',
-		{ 'opacity-60': dimmed }
-	]}
+	class={['bg-card relative flex flex-col gap-1.5 rounded-md border p-2', { 'opacity-60': dimmed }]}
 	data-testid="esl-admin-classes.card.{classRow._id}"
 	data-class-slug={slug}
 >
@@ -304,7 +301,7 @@
 		not knowing which class is which.
 	-->
 	<div class="flex min-w-0 items-start gap-1" data-testid="esl-admin-classes.card.header">
-		<h4 class="min-w-0 flex-1 text-sm font-semibold text-emerald-900">
+		<h4 class="min-w-0 flex-1 text-sm font-semibold text-emerald-900 dark:text-emerald-100">
 			{displayName}
 		</h4>
 		{#if isGrade10}
@@ -324,7 +321,7 @@
 		-->
 		{#if conflicted}
 			<span
-				class="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-red-100 text-[0.625rem] font-bold text-red-700"
+				class="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-red-100 text-[0.625rem] font-bold text-red-700 dark:bg-red-900/40 dark:text-red-300"
 				title="Has an unresolved conflict"
 				aria-label="Has an unresolved conflict"
 				role="img"
@@ -364,7 +361,10 @@
 			{onsave}
 		/>
 	{:else if scheduleErrored}
-		<p class="text-xs text-red-700" data-testid="esl-admin-classes.schedule.unavailable">
+		<p
+			class="text-xs text-red-700 dark:text-red-300"
+			data-testid="esl-admin-classes.schedule.unavailable"
+		>
 			Schedule unavailable — the backend rejected this query.
 		</p>
 	{:else}
@@ -448,7 +448,7 @@
 					// resize when a teacher is chosen.
 					teacherUnassigned
 						? 'text-muted-foreground border-dashed border-current'
-						: 'border-emerald-600 bg-emerald-50 text-emerald-800'
+						: 'border-emerald-600 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
 				].join(' ')}
 				data-testid="esl-admin-classes.teacher.{classRow._id}"
 				value={classRow.teacherId ?? ''}
@@ -482,21 +482,24 @@
 			onDismiss={mirrorConfirmation.cancel}
 			class="warning space-y-2"
 		>
-			<p class="text-sm text-amber-900">
+			<p class="text-sm text-amber-900 dark:text-amber-100">
 				Saving this week also sets the same day and period for
 				{mirrorConfirmation.mirrors.length}
 				{mirrorConfirmation.mirrors.length === 1 ? 'same-type class' : 'same-type classes'}:
 			</p>
 			<ul class="space-y-1">
 				{#each mirrorConfirmation.mirrors as mirror (mirror.classId)}
-					<li class="text-sm text-amber-900" data-testid="esl-admin-classes.mirrorConfirm.target">
+					<li
+						class="text-sm text-amber-900 dark:text-amber-100"
+						data-testid="esl-admin-classes.mirrorConfirm.target"
+					>
 						<strong>{mirror.name}</strong>
 						{#if mirror.willOverwrite}
 							<span class="text-xs">— replaces its current week</span>
 						{/if}
 						{#each mirror.problems as problem, problemIndex (problemIndex)}
 							<span
-								class="block text-xs text-red-700"
+								class="block text-xs text-red-700 dark:text-red-300"
 								data-testid="esl-admin-classes.mirrorConfirm.problem"
 							>
 								{problem.message}
@@ -507,7 +510,7 @@
 			</ul>
 			{#if mirrorConfirmation.blocked}
 				<p
-					class="text-xs font-medium text-red-700"
+					class="text-xs font-medium text-red-700 dark:text-red-300"
 					data-testid="esl-admin-classes.mirrorConfirm.blocked"
 				>
 					These have to be fixed first — the write would be refused until every class passes.

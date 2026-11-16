@@ -312,10 +312,13 @@
 
 <div data-testid="wizard-prototype.root" class="mx-auto w-full max-w-6xl space-y-6 p-8">
 	<div>
-		<h1 data-testid="wizard-prototype.title" class="text-2xl font-bold text-emerald-900">
+		<h1
+			data-testid="wizard-prototype.title"
+			class="text-2xl font-bold text-emerald-900 dark:text-emerald-100"
+		>
 			Semester setup — prototype (Steps 1–3)
 		</h1>
-		<p class="mt-2 text-sm text-gray-600">
+		<p class="text-muted-foreground mt-2 text-sm">
 			Throwaway UX prototype: local state only, mock holidays, nothing is saved. Step {step} of 3.
 		</p>
 	</div>
@@ -328,8 +331,8 @@
 				class="rounded-full px-3 py-1 font-medium {step === item.n
 					? 'bg-emerald-700 text-white'
 					: step > item.n
-						? 'bg-emerald-100 text-emerald-900'
-						: 'bg-gray-100 text-gray-500'}"
+						? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100'
+						: 'bg-muted text-muted-foreground'}"
 			>
 				{item.n}. {item.label}
 			</li>
@@ -337,16 +340,16 @@
 	</ol>
 
 	{#if step === 1}
-		<section data-testid="wizard-prototype.step-1" class="space-y-4 rounded-lg border bg-white p-4">
+		<section data-testid="wizard-prototype.step-1" class="bg-card space-y-4 rounded-lg border p-4">
 			<div
 				data-testid="wizard-prototype.suggestion"
-				class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"
+				class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 			>
 				Suggested: <strong>{suggestion.term} {suggestion.schoolYear}</strong> — {suggestion.reason}
 				(today is {today}).
 			</div>
 			<div class="flex items-center gap-2">
-				<span class="text-sm font-medium text-gray-700">Term:</span>
+				<span class="text-foreground text-sm font-medium">Term:</span>
 				{#each ['S1', 'S2'] as option (option)}
 					<Button
 						size="sm"
@@ -357,12 +360,12 @@
 						{option}
 					</Button>
 				{/each}
-				<span data-testid="wizard-prototype.school-year" class="text-sm text-gray-600">
+				<span data-testid="wizard-prototype.school-year" class="text-muted-foreground text-sm">
 					{schoolYear}
 				</span>
 			</div>
 			<div>
-				<h2 class="mb-2 text-sm font-semibold text-gray-800">
+				<h2 class="text-foreground mb-2 text-sm font-semibold">
 					Pick the start date — the exact day you click becomes the start
 				</h2>
 				<WeekPicker
@@ -373,7 +376,7 @@
 					testId="wizard-prototype.start-picker"
 				/>
 			</div>
-			<p data-testid="wizard-prototype.start-summary" class="text-sm text-gray-700">
+			<p data-testid="wizard-prototype.start-summary" class="text-foreground text-sm">
 				Start date: <strong>{startDate}</strong>
 			</p>
 			<div class="flex justify-end">
@@ -385,7 +388,7 @@
 	{/if}
 
 	{#if step === 2}
-		<section data-testid="wizard-prototype.step-2" class="space-y-4 rounded-lg border bg-white p-4">
+		<section data-testid="wizard-prototype.step-2" class="bg-card space-y-4 rounded-lg border p-4">
 			<!-- Feedback F32: the controls column is flexible (1fr, always
 				beyond the old 420px so WeekPicker rows rarely wrap at
 				1280px) and the calendar pane shrink-wraps its fixed-width
@@ -393,7 +396,7 @@
 			<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
 				<div class="space-y-4">
 					<div>
-						<h2 class="mb-2 text-sm font-semibold text-gray-800">
+						<h2 class="text-foreground mb-2 text-sm font-semibold">
 							{term}
 							{schoolYear} · starts {startDate} — pick the end date
 						</h2>
@@ -409,22 +412,22 @@
 					{#if endBeforeStart}
 						<p
 							data-testid="wizard-prototype.end-error"
-							class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+							class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 						>
 							The end date ({endDate}) is before the start ({startDate}) — pick a later date.
 						</p>
 					{:else}
-						<p data-testid="wizard-prototype.end-summary" class="text-sm text-gray-700">
+						<p data-testid="wizard-prototype.end-summary" class="text-foreground text-sm">
 							End date: <strong>{endDate}</strong>
 						</p>
 					{/if}
-					<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+					<div class="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
 						<Button
 							size="sm"
 							variant="ghost"
 							onclick={importMockHolidays}
 							data-testid="wizard-prototype.mock-import"
-							class="text-gray-600 underline decoration-dotted underline-offset-2"
+							class="text-muted-foreground underline decoration-dotted underline-offset-2"
 						>
 							{imported ? 'Re-import holidays' : 'Import holidays'}
 						</Button>
@@ -436,13 +439,13 @@
 					{#if imported}
 						<p
 							data-testid="wizard-prototype.mock-import-status"
-							class="text-xs font-medium text-gray-700"
+							class="text-foreground text-xs font-medium"
 						>
 							{offDays.length} off days imported from the government calendar
 						</p>
 						<ul
 							data-testid="wizard-prototype.mock-offdays"
-							class="space-y-0.5 text-xs text-gray-500"
+							class="text-muted-foreground space-y-0.5 text-xs"
 						>
 							{#each offDays as day (day.date)}
 								<li data-testid={`wizard-prototype.mock-offday-${day.date}`}>
@@ -453,7 +456,7 @@
 					{/if}
 				</div>
 				<div class="min-w-0">
-					<h2 class="mb-2 text-sm font-semibold text-gray-800">Semester preview (read-only)</h2>
+					<h2 class="text-foreground mb-2 text-sm font-semibold">Semester preview (read-only)</h2>
 					<CalendarPreview {weeks} testId="wizard-prototype.preview" />
 				</div>
 			</div>
@@ -477,9 +480,9 @@
 	{/if}
 
 	{#if step === 3}
-		<section data-testid="wizard-prototype.step-3" class="space-y-4 rounded-lg border bg-white p-4">
+		<section data-testid="wizard-prototype.step-3" class="bg-card space-y-4 rounded-lg border p-4">
 			<div class="flex flex-wrap items-center gap-2">
-				<span class="text-sm font-medium text-gray-700">Setting:</span>
+				<span class="text-foreground text-sm font-medium">Setting:</span>
 				{#each ALL_SLOTS as slot (slot)}
 					{@const done = exams.some((exam) => exam.label === slot)}
 					<Button
@@ -504,7 +507,7 @@
 			/>
 			<div class="grid gap-4 lg:grid-cols-[1fr_260px]">
 				<div>
-					<h2 class="mb-2 text-sm font-semibold text-gray-800">
+					<h2 class="text-foreground mb-2 text-sm font-semibold">
 						Click a class day to set the {activeExam} range ({rangeLength} class days) — reselect anytime
 						to move it
 					</h2>
@@ -520,9 +523,9 @@
 					/>
 				</div>
 				<aside class="space-y-2">
-					<h2 class="text-sm font-semibold text-gray-800">Exam dates</h2>
+					<h2 class="text-foreground text-sm font-semibold">Exam dates</h2>
 					{#if exams.length === 0}
-						<p data-testid="wizard-prototype.exams-empty" class="text-sm text-gray-500">
+						<p data-testid="wizard-prototype.exams-empty" class="text-muted-foreground text-sm">
 							No exams set yet.
 						</p>
 					{:else}
@@ -533,27 +536,27 @@
 									{#if confirmed !== undefined}
 										<div
 											data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}`}
-											class="rounded border border-red-200 bg-red-50 p-2 text-sm"
+											class="rounded border border-red-200 bg-red-50 p-2 text-sm dark:border-red-800 dark:bg-red-950/30"
 										>
 											<div class="flex items-center justify-between gap-2">
-												<strong class="text-red-900">{confirmed.label}</strong>
+												<strong class="text-red-900 dark:text-red-100">{confirmed.label}</strong>
 												<button
 													type="button"
 													onclick={() => removeExam(confirmed.label)}
 													data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}-remove`}
-													class="text-xs font-medium text-red-700 hover:underline"
+													class="text-xs font-medium text-red-700 hover:underline dark:text-red-300"
 												>
 													Remove
 												</button>
 											</div>
-											<div class="text-red-800">
+											<div class="text-red-800 dark:text-red-200">
 												{confirmed.dates.join(', ')}
 											</div>
 										</div>
 									{:else}
 										<div
 											data-testid={`wizard-prototype.exam-${slot.replace(' ', '-')}-empty`}
-											class="rounded border border-gray-200 bg-gray-50 p-2 text-sm text-gray-500"
+											class="border-border bg-muted text-muted-foreground rounded border p-2 text-sm"
 										>
 											<strong>{slot}</strong> — not set yet.
 										</div>
@@ -593,11 +596,11 @@
 			data-testid="wizard-prototype.summary-dialog"
 			class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
 		>
-			<div class="w-full max-w-md space-y-3 rounded-lg bg-white p-4 shadow-xl">
-				<h2 class="text-base font-semibold text-emerald-900">
+			<div class="bg-card w-full max-w-md space-y-3 rounded-lg p-4 shadow-xl">
+				<h2 class="text-base font-semibold text-emerald-900 dark:text-emerald-100">
 					Prototype setup — nothing was saved
 				</h2>
-				<ul class="space-y-1 text-sm text-gray-700">
+				<ul class="text-foreground space-y-1 text-sm">
 					<li><strong>{term} {schoolYear}</strong> · {startDate} → {endDate}</li>
 					<li>{offDays.length} mock off days</li>
 					{#each exams as exam (exam.label)}

@@ -131,14 +131,14 @@
 <div data-testid="wizard.step-1-panel" class="space-y-4">
 	<div
 		data-testid="wizard.step-1-suggestion"
-		class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"
+		class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 	>
 		Suggested: <strong>{suggestion.term} {suggestion.schoolYear}</strong> — {suggestion.reason}
 		(today is {today}).
 	</div>
 
 	<div class="flex flex-wrap items-center gap-2">
-		<span class="text-sm font-medium text-gray-700">Term:</span>
+		<span class="text-foreground text-sm font-medium">Term:</span>
 		{#each TERMS as option (option)}
 			<Button
 				size="sm"
@@ -149,12 +149,14 @@
 				{option}
 			</Button>
 		{/each}
-		<span data-testid="wizard.step-1-school-year" class="text-sm text-gray-600">{schoolYear}</span>
+		<span data-testid="wizard.step-1-school-year" class="text-muted-foreground text-sm"
+			>{schoolYear}</span
+		>
 	</div>
 
 	<div class="flex flex-wrap items-baseline justify-between gap-2">
-		<h2 class="text-sm font-semibold text-gray-800">Pick semester start date</h2>
-		<p data-testid="wizard.step-1-start-date" class="text-sm text-gray-700">
+		<h2 class="text-foreground text-sm font-semibold">Pick semester start date</h2>
+		<p data-testid="wizard.step-1-start-date" class="text-foreground text-sm">
 			Start Date: <strong>{startDate ?? '—'}</strong>
 		</p>
 	</div>
@@ -168,10 +170,10 @@
 	/>
 
 	{#if term === 'S1'}
-		<h2 class="text-sm font-semibold text-gray-800">Set up classrooms</h2>
+		<h2 class="text-foreground text-sm font-semibold">Set up classrooms</h2>
 		<div class="space-y-3 rounded-md border p-3" data-testid="wizard.step-1-room-settings">
 			<div class="flex flex-wrap items-center gap-2">
-				<label for="wizard-esl-room-limit" class="text-sm font-medium text-gray-700"
+				<label for="wizard-esl-room-limit" class="text-foreground text-sm font-medium"
 					>ESL room A to:</label
 				>
 				<select
@@ -199,7 +201,7 @@
 
 			<div class="flex flex-wrap items-end gap-2">
 				<div class="min-w-56 flex-1 space-y-1">
-					<label for="wizard-custom-room" class="text-sm font-medium text-gray-700"
+					<label for="wizard-custom-room" class="text-foreground text-sm font-medium"
 						>Custom rooms</label
 					>
 					<input

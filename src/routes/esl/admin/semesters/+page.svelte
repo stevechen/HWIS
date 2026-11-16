@@ -22,7 +22,10 @@
 
 <div class="mx-auto w-full max-w-6xl space-y-6 p-8">
 	<div>
-		<h1 data-testid="esl-admin-semesters.title" class="text-2xl font-bold text-emerald-900">
+		<h1
+			data-testid="esl-admin-semesters.title"
+			class="text-2xl font-bold text-emerald-900 dark:text-emerald-100"
+		>
 			Semesters
 		</h1>
 		<p class="text-muted-foreground mt-2">
@@ -38,24 +41,24 @@
 	{:else if semesters.length === 0}
 		<p
 			data-testid="esl-admin-semesters.empty"
-			class="text-muted-foreground rounded-lg border border-dashed bg-white py-12 text-center"
+			class="text-muted-foreground bg-card rounded-lg border border-dashed py-12 text-center"
 		>
 			No semesters yet — create one below.
 		</p>
 	{:else}
 		<ul data-testid="esl-admin-semesters.list" class="space-y-2">
 			{#each semesters as semester (semester._id)}
-				<li class="flex flex-wrap items-center gap-3 rounded-lg border bg-white p-4 shadow-sm">
+				<li class="bg-card flex flex-wrap items-center gap-3 rounded-lg border p-4 shadow-sm">
 					<a
 						href={`/esl/admin/semesters/${semesterSlug(semester)}`}
 						data-testid="esl-admin-semesters.row"
-						class="text-base font-semibold text-emerald-900 hover:underline"
+						class="text-base font-semibold text-emerald-900 hover:underline dark:text-emerald-100"
 					>
 						{semester.year}
 						{semester.term}
 					</a>
 					<SemesterStatusChip status={semesterStatus(semester, today)} />
-					<span class="text-sm text-gray-600">
+					<span class="text-muted-foreground text-sm">
 						Starts {semester.startDate} ·
 						{semester.derivedEnd === null ? 'Finals TBD' : `Ends ${semester.derivedEnd}`}
 					</span>
@@ -77,29 +80,33 @@
 		<!-- Two ways in (ticket #230): the wizard is the primary method. -->
 		<section
 			data-testid="esl-admin-semesters.create"
-			class="space-y-4 rounded-lg border bg-white p-6"
+			class="bg-card space-y-4 rounded-lg border p-6"
 		>
 			<div class="flex items-center justify-between">
-				<h2 class="text-lg font-semibold text-emerald-900">New semester</h2>
+				<h2 class="text-lg font-semibold text-emerald-900 dark:text-emerald-100">New semester</h2>
 				<button
 					type="button"
 					onclick={() => (createOpen = false)}
 					data-testid="esl-admin-semesters.create-close"
 					aria-label="Close"
-					class="text-gray-400 hover:text-gray-700"
+					class="text-muted-foreground hover:text-foreground"
 				>
 					×
 				</button>
 			</div>
 			<div class="grid gap-4 md:grid-cols-2">
-				<div class="flex flex-col gap-2 rounded-lg border-2 border-emerald-600 bg-emerald-50 p-6">
+				<div
+					class="flex flex-col gap-2 rounded-lg border-2 border-emerald-600 bg-emerald-50 p-6 dark:bg-emerald-950/30"
+				>
 					<div class="flex items-center justify-between">
-						<h3 class="text-base font-semibold text-emerald-900">Use the setup wizard</h3>
+						<h3 class="text-base font-semibold text-emerald-900 dark:text-emerald-100">
+							Use the setup wizard
+						</h3>
 						<span class="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
 							Recommended
 						</span>
 					</div>
-					<p class="text-sm text-gray-700">
+					<p class="text-foreground text-sm">
 						Set the semester start and days off, place exams, then schedule quizzes, dues and checks
 						block by block — a live calendar shows every choice.
 					</p>
@@ -112,9 +119,9 @@
 					</a>
 				</div>
 
-				<div class="flex flex-col gap-2 rounded-lg border bg-white p-6">
-					<h3 class="text-base font-semibold text-gray-900">Import from Excel/CSV</h3>
-					<p class="text-sm text-gray-700">
+				<div class="bg-card flex flex-col gap-2 rounded-lg border p-6">
+					<h3 class="text-foreground text-base font-semibold">Import from Excel/CSV</h3>
+					<p class="text-foreground text-sm">
 						Have a workbook with all the date lists already? Upload it once and the semester is set
 						up for you.
 					</p>
@@ -123,7 +130,7 @@
 						disabled
 						data-testid="esl-admin-semesters.import-link"
 						title="Not built yet"
-						class="cursor-default text-sm font-medium text-gray-500"
+						class="text-muted-foreground cursor-default text-sm font-medium"
 					>
 						Coming soon
 					</button>

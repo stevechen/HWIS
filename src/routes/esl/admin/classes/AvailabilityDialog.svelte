@@ -170,7 +170,7 @@
 									// Gray, not red: a marked slot is unavailable, and red
 									// is reserved for conflicts.
 									marked
-										? 'border-gray-300 bg-gray-100 font-medium text-gray-600'
+										? 'border-border bg-muted text-muted-foreground font-medium'
 										: 'border-input text-muted-foreground'
 								]}
 								role={marked ? 'img' : undefined}

@@ -80,8 +80,9 @@
 	 * verdict rather than a second stack of taught-vs-blocked conditions.
 	 */
 	const CELL_STATE_CLASSES: Record<'taught' | 'blocked' | 'free', string> = {
-		taught: 'border-emerald-200 bg-emerald-50 text-emerald-900',
-		blocked: 'border-gray-300 bg-gray-100 font-medium text-gray-600',
+		taught:
+			'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-100',
+		blocked: 'border-border bg-muted font-medium text-muted-foreground',
 		free: 'border-input text-muted-foreground'
 	};
 
@@ -189,7 +190,7 @@
 		{#if isEmptyWeek}
 			<p
 				data-testid="esl-admin-user-profile.schedule.empty"
-				class="text-muted-foreground rounded-lg border border-dashed bg-white px-4 py-6 text-center text-sm"
+				class="text-muted-foreground bg-card rounded-lg border border-dashed px-4 py-6 text-center text-sm"
 			>
 				No classes or NA blocks in {year}.
 			</p>

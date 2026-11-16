@@ -188,7 +188,7 @@
 			<select
 				id="semester-picker"
 				data-testid="teacher-calendar.semester-picker"
-				class="rounded border border-stone-300 px-2 py-1 text-sm"
+				class="border-border rounded border px-2 py-1 text-sm"
 				value={selectedSemesterId}
 				onchange={(e) =>
 					(selectedSemesterId = (e.currentTarget as HTMLSelectElement)
@@ -212,7 +212,11 @@
 			onSaveNote={saveNote}
 		/>
 		{#if saveError}
-			<p data-testid="teacher-calendar.save-error" role="alert" class="mt-2 text-sm text-red-700">
+			<p
+				data-testid="teacher-calendar.save-error"
+				role="alert"
+				class="mt-2 text-sm text-red-700 dark:text-red-300"
+			>
 				{saveError}
 			</p>
 		{/if}

@@ -867,24 +867,24 @@
 				<section data-testid="wizard-step4.school-tab" class="space-y-3">
 					<div
 						data-testid="wizard-step4.start-school"
-						class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900"
+						class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 					>
 						<strong>First day of school</strong> · {startDate} · Periods 1–2 have no class
 					</div>
 
-					<div class="rounded border bg-white">
+					<div class="bg-card rounded border">
 						<button
 							type="button"
 							onclick={() => toggle('offdays')}
 							data-testid="wizard-step4.group-offdays"
-							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
+							class="text-foreground w-full px-3 py-2 text-left text-sm font-semibold"
 						>
 							{(open['offdays'] ?? false) ? '▾' : '▸'} Imported days off · {offDays.length}
 						</button>
 						{#if open['offdays'] ?? false}
 							<ul
 								data-testid="wizard-step4.offdays-list"
-								class="space-y-0.5 px-3 pb-3 text-xs text-gray-500"
+								class="text-muted-foreground space-y-0.5 px-3 pb-3 text-xs"
 							>
 								{#each offDays as day (day.date)}
 									<li>{day.date} — 🎉 {day.name}</li>
@@ -893,18 +893,18 @@
 						{/if}
 					</div>
 
-					<div class="rounded border bg-white">
+					<div class="bg-card rounded border">
 						<button
 							type="button"
 							onclick={() => toggle('schoolFest')}
 							data-testid="wizard-step4.group-fest"
-							class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-800"
+							class="text-foreground flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold"
 						>
 							<span>{(open['schoolFest'] ?? false) ? '▾' : '▸'} No-class days · all grades</span>
 							<span
 								class="shrink-0 text-xs font-normal {schoolRemaining.noClass === 0
-									? 'text-emerald-700'
-									: 'text-gray-500'}"
+									? 'text-emerald-700 dark:text-emerald-300'
+									: 'text-muted-foreground'}"
 							>
 								{schoolRemaining.noClass === 0 ? 'All set' : `${schoolRemaining.noClass} left`}
 							</span>
@@ -915,8 +915,8 @@
 									<div
 										data-testid="wizard-step4.row-anniv-pair"
 										class="rounded border p-2 text-sm {armed === 'anniv' || armed === 'makeup'
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
+											? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+											: 'border-border'}"
 									>
 										<div
 											data-testid="wizard-step4.row-anniv"
@@ -958,13 +958,13 @@
 										</div>
 										<div
 											data-testid="wizard-step4.row-makeup"
-											class="mt-2 flex flex-wrap items-center justify-between gap-2 border-l-2 border-emerald-300 pl-3"
+											class="mt-2 flex flex-wrap items-center justify-between gap-2 border-l-2 border-emerald-300 pl-3 dark:border-emerald-700"
 										>
 											<span
 												><strong>Anniversary makeup</strong> · {fmt(
 													singles['makeup'] == null ? [] : [singles['makeup'] as string]
 												)}
-												<span class="ml-1 text-xs text-gray-500">
+												<span class="text-muted-foreground ml-1 text-xs">
 													{singles['anniv'] == null
 														? 'Set Anniversary first'
 														: 'follows Anniversary'}
@@ -993,8 +993,8 @@
 								<div
 									data-testid="wizard-step4.row-sports"
 									class="rounded border p-2 text-sm {armed === 'sports'
-										? 'border-emerald-500 bg-emerald-50'
-										: 'border-gray-200'} {sportsOn ? '' : 'opacity-60'}"
+										? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+										: 'border-border'} {sportsOn ? '' : 'opacity-60'}"
 								>
 									<div class="flex flex-wrap items-center justify-between gap-2">
 										<span
@@ -1003,7 +1003,7 @@
 												: 'not this term'}</span
 										>
 										<span class="flex items-center gap-2">
-											<label class="flex items-center gap-1 text-xs text-gray-600">
+											<label class="text-muted-foreground flex items-center gap-1 text-xs">
 												<input
 													type="checkbox"
 													checked={sportsOn}
@@ -1038,12 +1038,12 @@
 						{/if}
 					</div>
 
-					<div class="rounded border bg-white">
+					<div class="bg-card rounded border">
 						<button
 							type="button"
 							onclick={() => toggle('schoolTerm')}
 							data-testid="wizard-step4.group-term"
-							class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-800"
+							class="text-foreground flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold"
 						>
 							<span>
 								{(open['schoolTerm'] ?? false) ? '▾' : '▸'}
@@ -1051,8 +1051,8 @@
 							</span>
 							<span
 								class="shrink-0 text-xs font-normal {schoolRemaining.grade9 === 0
-									? 'text-emerald-700'
-									: 'text-gray-500'}"
+									? 'text-emerald-700 dark:text-emerald-300'
+									: 'text-muted-foreground'}"
 							>
 								{schoolRemaining.grade9 === 0 ? 'All set' : `${schoolRemaining.grade9} left`}
 							</span>
@@ -1063,8 +1063,8 @@
 									<div
 										data-testid={`wizard-step4.row-${id}`}
 										class="rounded border p-2 text-sm {armed === id
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
+											? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+											: 'border-border'}"
 									>
 										<div class="flex flex-wrap items-center justify-between gap-2">
 											<span
@@ -1089,14 +1089,15 @@
 									<div
 										data-testid="wizard-step4.row-grad"
 										class="rounded border p-2 text-sm {armed === 'grad'
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
+											? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+											: 'border-border'}"
 									>
 										<div class="flex flex-wrap items-center justify-between gap-2">
 											<span
 												><strong>Graduation</strong> · {fmt(
 													singles['grad'] == null ? [] : [singles['grad'] as string]
-												)} <span class="ml-1 text-xs text-gray-500">after Exam 2</span></span
+												)}
+												<span class="text-muted-foreground ml-1 text-xs">after Exam 2</span></span
 											>
 											{#if armed === 'grad'}
 												<span
@@ -1115,12 +1116,12 @@
 						{/if}
 					</div>
 
-					<div class="rounded border bg-white">
+					<div class="bg-card rounded border">
 						<button
 							type="button"
 							onclick={() => toggle('extras')}
 							data-testid="wizard-step4.group-extras"
-							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
+							class="text-foreground w-full px-3 py-2 text-left text-sm font-semibold"
 						>
 							{(open['extras'] ?? false) ? '▾' : '▸'} Extra days off · {extras.length}
 						</button>
@@ -1130,15 +1131,15 @@
 									<div
 										data-testid="wizard-step4.row-extra"
 										class="rounded border p-2 text-sm {armed === 'extra:' + extra.id
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
+											? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+											: 'border-border'}"
 									>
 										<div class="flex flex-wrap items-center justify-between gap-2">
 											<span
 												><strong>{extra.name || 'Untitled day off'}</strong> · {extra.end
 													? extra.start + ' → ' + extra.end
 													: extra.start}
-												<span class="ml-1 text-xs text-gray-500"
+												<span class="text-muted-foreground ml-1 text-xs"
 													>{extra.end ? 'calendar days' : 'single day'}</span
 												></span
 											>
@@ -1163,7 +1164,7 @@
 												onclick={() => removeExtra(extra.id)}
 												data-testid="wizard-step4.extra-remove"
 												aria-label={`Remove extra day off ${extra.name || '(unnamed)'}`}
-												class="text-red-700 hover:bg-red-50 hover:text-red-800"
+												class="text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-300 dark:hover:bg-red-950/30 dark:hover:text-red-200"
 											>
 												<Trash2 class="size-4" />
 											</Button>
@@ -1193,7 +1194,7 @@
 				</section>
 			{:else}
 				<section data-testid="wizard-step4.esl-tab" class="space-y-3">
-					<p class="text-xs text-gray-500">
+					<p class="text-muted-foreground text-xs">
 						Pick a row, then a date on the calendar. Rows stay inside their block and skip weekends,
 						days off and exam days.
 					</p>
@@ -1202,15 +1203,15 @@
 						<div
 							data-testid="wizard-step4.row-bbq"
 							class="rounded border p-2 text-sm {armed === 'bbq'
-								? 'border-emerald-500 bg-emerald-50'
-								: 'border-gray-200'}"
+								? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+								: 'border-border'}"
 						>
 							<div class="flex flex-wrap items-center justify-between gap-2">
 								<span
 									><strong>BBQ</strong> · {fmt(
 										singles['bbq'] == null ? [] : [singles['bbq'] as string]
 									)}
-									<span class="ml-1 text-xs text-gray-500"
+									<span class="text-muted-foreground ml-1 text-xs"
 										>· any time this term · periods 1–4, off from 12:00</span
 									></span
 								>
@@ -1235,23 +1236,23 @@
 					{/if}
 
 					{#each eslBlocks as block (block.n)}
-						<div class="rounded border bg-white">
+						<div class="bg-card rounded border">
 							<button
 								type="button"
 								onclick={() => toggle(`b${block.n}`)}
 								data-testid={`wizard-step4.block-${block.n}`}
-								class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-800"
+								class="text-foreground flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold"
 							>
 								<span class="min-w-0">
 									{(open[`b${block.n}`] ?? false) ? '▾' : '▸'} Block {block.n}
 									{#if block.range}
-										<span class="font-normal text-gray-500">· {block.range}</span>
+										<span class="text-muted-foreground font-normal">· {block.range}</span>
 									{/if}
 								</span>
 								<span
 									class="shrink-0 text-xs font-normal {remainingRows(block) === 0
-										? 'text-emerald-700'
-										: 'text-gray-500'}"
+										? 'text-emerald-700 dark:text-emerald-300'
+										: 'text-muted-foreground'}"
 								>
 									{remainingRows(block) === 0 ? 'All set' : `${remainingRows(block)} left`}
 								</span>
@@ -1262,8 +1263,8 @@
 										<div
 											data-testid={`wizard-step4.row-${row.id}`}
 											class="rounded border p-2 text-sm {armed === row.id
-												? 'border-emerald-500 bg-emerald-50'
-												: 'border-gray-200'}"
+												? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+												: 'border-border'}"
 										>
 											<div class="flex flex-wrap items-center justify-between gap-2">
 												<span>
@@ -1291,14 +1292,14 @@
 				</section>
 			{/if}
 
-			<section data-testid="wizard-step4.summary" class="rounded-lg border bg-white p-4">
-				<h2 class="mb-2 text-sm font-semibold text-gray-800">
-					Summary <span class="font-normal text-gray-500">· nothing saved yet</span>
+			<section data-testid="wizard-step4.summary" class="bg-card rounded-lg border p-4">
+				<h2 class="text-foreground mb-2 text-sm font-semibold">
+					Summary <span class="text-muted-foreground font-normal">· nothing saved yet</span>
 				</h2>
 				{#if summary.length === 0}
-					<p class="text-sm text-gray-500">Rows you set will appear here.</p>
+					<p class="text-muted-foreground text-sm">Rows you set will appear here.</p>
 				{:else}
-					<ul class="space-y-1 text-sm text-gray-700">
+					<ul class="text-foreground space-y-1 text-sm">
 						{#each summary as row, i (`${i}-${row.label}`)}
 							<li><strong>{row.label}:</strong> {row.value}</li>
 						{/each}
@@ -1311,7 +1312,7 @@
 			{#if confirmation !== null}
 				<div
 					data-testid="wizard-step4.confirm-toast"
-					class="mb-2 flex items-center justify-between gap-2 rounded border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-900"
+					class="mb-2 flex items-center justify-between gap-2 rounded border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-100"
 					role="status"
 				>
 					<span>{confirmation}</span>
@@ -1328,7 +1329,7 @@
 			{#if armed !== null}
 				<div
 					data-testid="wizard-step4.placing-banner"
-					class="mb-2 flex items-center justify-between gap-2 rounded border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-900"
+					class="mb-2 flex items-center justify-between gap-2 rounded border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-100"
 				>
 					<span>Placing {eventLabel(armed)} — click a date to set</span>
 					<Button

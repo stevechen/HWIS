@@ -154,16 +154,18 @@
 
 <section
 	data-testid="wizard.step-2-holiday"
-	class="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3"
+	class="dark:bg-emerald-950/30/50 space-y-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/20"
 >
-	<h3 class="text-sm font-semibold text-emerald-900">Import holidays from government calendar</h3>
-	<p class="text-sm text-gray-600">
+	<h3 class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+		Import holidays from government calendar
+	</h3>
+	<p class="text-muted-foreground text-sm">
 		Pick the calendar years — the app reads the official files straight from the government and
 		shows what would be added before anything is written.
 	</p>
 	<div class="flex flex-wrap items-center gap-4">
 		{#each govYears as option (option.rocYear)}
-			<label class="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
+			<label class="text-foreground flex cursor-pointer items-center gap-2 text-sm">
 				<input
 					type="checkbox"
 					checked={option.checked}
@@ -188,7 +190,7 @@
 	{#if govError}
 		<p
 			data-testid="wizard.step-2-holiday.gov-error"
-			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 		>
 			{govError}
 		</p>
@@ -196,38 +198,39 @@
 
 	{#if govPreview}
 		<div data-testid="wizard.step-2-holiday.gov-preview-result" class="space-y-2 text-sm">
-			<ul class="space-y-0.5 text-gray-700">
+			<ul class="text-foreground space-y-0.5">
 				{#each govPreview.years as year (year.rocYear)}
 					<li>
 						ROC {year.rocYear}:
 						{#if year.status === 'ok'}
 							{year.holidays} day{year.holidays === 1 ? '' : 's'} off in the file{#if year.fileName !== null}
-								<span class="text-gray-500">({year.fileName})</span>{/if}
+								<span class="text-muted-foreground">({year.fileName})</span>{/if}
 						{:else if year.status === 'missing'}
-							<span class="text-amber-800">not published yet — skipped</span>
+							<span class="text-amber-800 dark:text-amber-200">not published yet — skipped</span>
 						{:else}
-							<span class="text-amber-800">could not be read — skipped</span>
+							<span class="text-amber-800 dark:text-amber-200">could not be read — skipped</span>
 						{/if}
 					</li>
 				{/each}
 			</ul>
 			{#if govPreview.days.length > 0}
-				<p class="font-medium text-gray-800">
+				<p class="text-foreground font-medium">
 					{govPreview.days.length} would be added:
 				</p>
-				<ul class="max-h-40 space-y-0.5 overflow-y-auto pl-1 text-gray-700">
+				<ul class="text-foreground max-h-40 space-y-0.5 overflow-y-auto pl-1">
 					{#each govPreview.days as day (day.date)}
 						<li>
 							{day.date} — {day.name}{#if day.needsReview}
-								<span class="text-amber-800">(translation needs a check)</span>{/if}
+								<span class="text-amber-800 dark:text-amber-200">(translation needs a check)</span
+								>{/if}
 						</li>
 					{/each}
 				</ul>
 			{:else}
-				<p class="text-gray-600">Nothing new would be added.</p>
+				<p class="text-muted-foreground">Nothing new would be added.</p>
 			{/if}
 			{#if govPreview.skippedTaken > 0 || govPreview.outOfRange > 0 || govPreview.plainWeekends > 0 || govPreview.weekendHolidays > 0}
-				<p class="text-xs text-gray-500">
+				<p class="text-muted-foreground text-xs">
 					Skipped: {govPreview.skippedTaken} already have events, {govPreview.outOfRange}
 					outside this semester, {govPreview.plainWeekends} plain weekends,
 					{govPreview.weekendHolidays} named weekend days.
@@ -246,7 +249,9 @@
 
 	{#if stagedCount !== null}
 		<div data-testid="wizard.step-2-holiday.gov-staged" class="space-y-2 text-sm">
-			<p class="rounded border border-emerald-200 bg-emerald-50 p-2 text-emerald-900">
+			<p
+				class="rounded border border-emerald-200 bg-emerald-50 p-2 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
+			>
 				{stagedCount} off day{stagedCount === 1 ? '' : 's'} staged — written when you save the semester.
 			</p>
 		</div>
@@ -254,10 +259,12 @@
 
 	{#if govReport}
 		<div data-testid="wizard.step-2-holiday.gov-report" class="space-y-2 text-sm">
-			<p class="rounded border border-emerald-200 bg-emerald-50 p-2 text-emerald-900">
+			<p
+				class="rounded border border-emerald-200 bg-emerald-50 p-2 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
+			>
 				{govReport.events.inserted} off day{govReport.events.inserted === 1 ? '' : 's'} added.
 			</p>
-			<ul class="space-y-0.5 text-gray-700">
+			<ul class="text-foreground space-y-0.5">
 				{#each govReport.years as year (year.rocYear)}
 					<li>
 						ROC {year.rocYear}: holiday cache — {year.cache?.inserted ?? 0} inserted,
@@ -266,7 +273,9 @@
 				{/each}
 			</ul>
 			{#if govReport.events.needsReview.length > 0}
-				<p class="rounded border border-amber-300 bg-amber-50 p-2 text-amber-900">
+				<p
+					class="rounded border border-amber-300 bg-amber-50 p-2 text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"
+				>
 					Needs a human translation check: {govReport.events.needsReview.join('; ')}.
 				</p>
 			{/if}

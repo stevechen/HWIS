@@ -62,7 +62,8 @@
 			link: {
 				openOnClick: false,
 				HTMLAttributes: {
-					class: 'text-emerald-700 underline hover:text-emerald-900'
+					class:
+						'text-emerald-700 dark:text-emerald-300 underline hover:text-emerald-900 dark:hover:text-emerald-100'
 				}
 			}
 		}),
@@ -214,16 +215,16 @@
 		tabindex="-1"
 	>
 		<div
-			class="animate-slide-up flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-xl"
+			class="animate-slide-up bg-card flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl shadow-xl"
 			onclick={(e) => e.stopPropagation()}
 			role="presentation"
 		>
 			<!-- Header -->
-			<header class="flex items-center justify-between border-b border-stone-200 px-6 py-4">
+			<header class="border-border flex items-center justify-between border-b px-6 py-4">
 				<div>
-					<h2 id="dialog-title" class="text-lg font-semibold text-stone-900">Lesson Note</h2>
-					<div class="mt-1 flex items-center gap-3 text-sm text-stone-500">
-						<span class="font-medium text-stone-700">{className}</span>
+					<h2 id="dialog-title" class="text-foreground text-lg font-semibold">Lesson Note</h2>
+					<div class="text-muted-foreground mt-1 flex items-center gap-3 text-sm">
+						<span class="text-foreground font-medium">{className}</span>
 						<span aria-hidden="true">·</span>
 						<span>{formatDate(date)}</span>
 						<span aria-hidden="true">·</span>
@@ -231,7 +232,7 @@
 					</div>
 				</div>
 				<button
-					class="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600"
+					class="text-muted-foreground hover:bg-muted hover:text-muted-foreground rounded-lg p-1.5 transition-colors"
 					onclick={handleClose}
 					aria-label="Close dialog"
 				>
@@ -247,10 +248,10 @@
 			</header>
 
 			<!-- Toolbar -->
-			<div class="flex flex-wrap gap-1 border-b border-stone-100 bg-stone-50/50 px-4 py-2">
+			<div class="border-border bg-muted/50 flex flex-wrap gap-1 border-b px-4 py-2">
 				<button
 					type="button"
-					class="rounded border border-stone-200 p-1.5 text-stone-600 transition-colors hover:bg-white hover:text-stone-900 disabled:opacity-50"
+					class="border-border text-muted-foreground hover:bg-card hover:text-foreground rounded border p-1.5 transition-colors disabled:opacity-50"
 					onclick={undo}
 					aria-label="Undo (⌘Z)"
 					title="Undo (⌘Z)"
@@ -259,17 +260,17 @@
 				</button>
 				<button
 					type="button"
-					class="rounded border border-stone-200 p-1.5 text-stone-600 transition-colors hover:bg-white hover:text-stone-900 disabled:opacity-50"
+					class="border-border text-muted-foreground hover:bg-card hover:text-foreground rounded border p-1.5 transition-colors disabled:opacity-50"
 					onclick={redo}
 					aria-label="Redo (⌘⇧Z)"
 					title="Redo (⌘⇧Z)"
 				>
 					<Redo class="size-4" />
 				</button>
-				<div class="my-0.5 h-6 w-px bg-stone-200" aria-hidden="true"></div>
+				<div class="bg-muted my-0.5 h-6 w-px" aria-hidden="true"></div>
 				<button
 					type="button"
-					class="rounded border border-stone-200 p-1.5 text-stone-600 transition-colors hover:bg-white hover:text-stone-900"
+					class="border-border text-muted-foreground hover:bg-card hover:text-foreground rounded border p-1.5 transition-colors"
 					onclick={toggleBold}
 					aria-label="Bold (⌘B)"
 					title="Bold (⌘B)"
@@ -278,7 +279,7 @@
 				</button>
 				<button
 					type="button"
-					class="rounded border border-stone-200 p-1.5 text-stone-600 transition-colors hover:bg-white hover:text-stone-900"
+					class="border-border text-muted-foreground hover:bg-card hover:text-foreground rounded border p-1.5 transition-colors"
 					onclick={toggleItalic}
 					aria-label="Italic (⌘I)"
 					title="Italic (⌘I)"
@@ -287,7 +288,7 @@
 				</button>
 				<button
 					type="button"
-					class="rounded border border-stone-200 p-1.5 text-stone-600 transition-colors hover:bg-white hover:text-stone-900"
+					class="border-border text-muted-foreground hover:bg-card hover:text-foreground rounded border p-1.5 transition-colors"
 					onclick={toggleStrike}
 					title="Strikethrough"
 				>
@@ -295,15 +296,15 @@
 				</button>
 				<button
 					type="button"
-					class="rounded border border-stone-200 p-1.5 text-stone-600 transition-colors hover:bg-white hover:text-stone-900"
+					class="border-border text-muted-foreground hover:bg-card hover:text-foreground rounded border p-1.5 transition-colors"
 					onclick={toggleCode}
 					title="Inline code"
 				>
 					<Code class="size-4" />
 				</button>
-				<div class="my-0.5 h-6 w-px bg-stone-200" aria-hidden="true"></div>
+				<div class="bg-muted my-0.5 h-6 w-px" aria-hidden="true"></div>
 				<select
-					class="rounded border border-stone-200 bg-white px-2 py-1 text-sm text-stone-700 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+					class="border-border bg-card text-foreground rounded border px-2 py-1 text-sm focus:ring-1 focus:ring-emerald-500 focus:outline-none"
 					onchange={(e) => {
 						const level = Number(e.currentTarget.value);
 						if (level) toggleHeading(level as 1 | 2 | 3);
@@ -318,7 +319,7 @@
 				</select>
 				<button
 					type="button"
-					class="rounded border border-stone-200 p-1.5 text-stone-600 transition-colors hover:bg-white hover:text-stone-900"
+					class="border-border text-muted-foreground hover:bg-card hover:text-foreground rounded border p-1.5 transition-colors"
 					onclick={toggleBulletList}
 					title="Bullet list"
 				>
@@ -326,7 +327,7 @@
 				</button>
 				<button
 					type="button"
-					class="rounded border border-stone-200 p-1.5 text-stone-600 transition-colors hover:bg-white hover:text-stone-900"
+					class="border-border text-muted-foreground hover:bg-card hover:text-foreground rounded border p-1.5 transition-colors"
 					onclick={toggleOrderedList}
 					title="Numbered list"
 				>
@@ -334,7 +335,7 @@
 				</button>
 				<button
 					type="button"
-					class="rounded border border-stone-200 p-1.5 text-stone-600 transition-colors hover:bg-white hover:text-stone-900"
+					class="border-border text-muted-foreground hover:bg-card hover:text-foreground rounded border p-1.5 transition-colors"
 					onclick={toggleBlockquote}
 					title="Quote"
 				>
@@ -342,7 +343,7 @@
 				</button>
 				<button
 					type="button"
-					class="rounded border border-stone-200 p-1.5 text-stone-600 transition-colors hover:bg-white hover:text-stone-900"
+					class="border-border text-muted-foreground hover:bg-card hover:text-foreground rounded border p-1.5 transition-colors"
 					onclick={addLink}
 					title="Add link"
 				>
@@ -368,9 +369,9 @@
 			</div>
 
 			<!-- Footer -->
-			<footer class="flex justify-end gap-3 border-t border-stone-200 bg-stone-50/50 px-6 py-4">
+			<footer class="border-border bg-muted/50 flex justify-end gap-3 border-t px-6 py-4">
 				<button
-					class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50"
+					class="border-border bg-card text-foreground hover:bg-muted rounded-lg border px-4 py-2 text-sm font-medium transition-colors"
 					onclick={handleClose}
 				>
 					Cancel

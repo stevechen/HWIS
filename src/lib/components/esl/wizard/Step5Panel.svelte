@@ -316,7 +316,7 @@
 			case 'block-3':
 				return 'text-amber-500';
 			default:
-				return 'text-gray-400';
+				return 'text-muted-foreground';
 		}
 	}
 
@@ -630,29 +630,32 @@
 	function getEventColor(event: PreviewRow): string {
 		switch (event.type) {
 			case 'no_school':
-				return 'bg-stone-100 text-stone-900 border-stone-200';
+				return 'bg-muted text-foreground border-border';
 			case 'no_class':
-				return 'bg-amber-100 text-amber-900 border-amber-200';
+				return 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 border-amber-200 dark:border-amber-800';
 			case 'partial':
 				// The first day of school is a partial now (#293) but keeps the
 				// green it has always worn in the preview list.
 				if (event.key === 'step1:startDate') {
-					return 'bg-emerald-100 text-emerald-900 border-emerald-200';
+					return 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100 border-emerald-200 dark:border-emerald-800';
 				}
-				return 'bg-sky-100 text-sky-900 border-sky-200';
+				return 'bg-sky-100 dark:bg-sky-900/40 text-sky-900 dark:text-sky-100 border-sky-200 dark:border-sky-800';
 			case 'exam':
-				return 'bg-red-100 text-red-900 border-red-200';
+				return 'bg-red-100 dark:bg-red-900/40 text-red-900 dark:text-red-100 border-red-200 dark:border-red-800';
 			case 'reminder':
-				if (event.isBanner) return 'bg-purple-100 text-purple-900 border-purple-200';
-				if (event.reminderKind === 'quiz') return 'bg-indigo-100 text-indigo-900 border-indigo-200';
+				if (event.isBanner)
+					return 'bg-purple-100 text-purple-900 dark:text-purple-100 border-purple-200 dark:border-purple-800';
+				if (event.reminderKind === 'quiz')
+					return 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-900 dark:text-indigo-100 border-indigo-200 dark:border-indigo-800';
 				if (event.reminderKind === 'passport' || event.reminderKind === 'recording')
-					return 'bg-cyan-100 text-cyan-900 border-cyan-200';
-				if (event.reminderKind === 'task') return 'bg-violet-100 text-violet-900 border-violet-200';
-				return 'bg-blue-100 text-blue-900 border-blue-200';
+					return 'bg-cyan-100 text-cyan-900 dark:text-cyan-100 border-cyan-200 dark:border-cyan-800';
+				if (event.reminderKind === 'task')
+					return 'bg-violet-100 dark:bg-violet-900/40 text-violet-900 dark:text-violet-100 border-violet-200 dark:border-violet-800';
+				return 'bg-blue-100 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-800';
 			case 'g9_mock':
-				return 'bg-orange-100 text-orange-900 border-orange-200';
+				return 'bg-orange-100 text-orange-900 dark:text-orange-100 border-orange-200 dark:border-orange-800';
 			default:
-				return 'bg-gray-100 text-gray-900 border-gray-200';
+				return 'bg-muted text-foreground border-border';
 		}
 	}
 
@@ -667,7 +670,7 @@
 	<div
 		data-event-row
 		class:esl-edit-anchor={editAnchorKey === event.key}
-		class="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 rounded border px-2 py-1 text-xs leading-snug transition-colors hover:bg-gray-50 {getEventColor(
+		class="hover:bg-muted flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 rounded border px-2 py-1 text-xs leading-snug transition-colors {getEventColor(
 			event
 		)}"
 		onclick={(e) => openEditPopover(event, e.clientX, e.clientY)}
@@ -685,11 +688,11 @@
 	>
 		<span class="wrap-break-words min-w-0 font-medium">{event.title}</span>
 		{#if event.examGroup && event.examGroup !== event.title}
-			<span class="rounded bg-white/70 px-1 py-0.5 text-[10px] font-medium">{event.examGroup}</span>
+			<span class="bg-card/70 rounded px-1 py-0.5 text-[10px] font-medium">{event.examGroup}</span>
 		{/if}
 		<!-- target badges intentionally omitted (spec: keep the list compact) -->
 		{#if event.customId}
-			<span class="rounded bg-white/70 px-1 py-0.5 text-[10px] font-medium">Custom</span>
+			<span class="bg-card/70 rounded px-1 py-0.5 text-[10px] font-medium">Custom</span>
 		{/if}
 		<span class="ml-auto shrink-0 text-[11px] tabular-nums opacity-75">
 			{formatPreviewDateRange(event.date, event.endDate)}
@@ -714,8 +717,8 @@
 	<!-- Header with actions -->
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<div>
-			<h2 class="text-lg font-semibold text-gray-800">Preview & save</h2>
-			<p class="text-sm text-gray-500">
+			<h2 class="text-foreground text-lg font-semibold">Preview & save</h2>
+			<p class="text-muted-foreground text-sm">
 				Review all events, make inline edits, add custom events, then save.
 			</p>
 		</div>
@@ -756,7 +759,7 @@
 	{#if mode === 'create' && saveStatus === 'success'}
 		<div
 			data-testid="wizard.step-5-save-success"
-			class="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+			class="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-100"
 			role="alert"
 		>
 			Semester saved successfully.
@@ -777,7 +780,7 @@
 		<div
 			data-testid="wizard.step-5-edit-summary"
 			aria-label="Save summary"
-			class="space-y-3 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"
+			class="space-y-3 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 		>
 			<h3 class="font-semibold">Save summary</h3>
 			<p data-testid="wizard.step-5-summary-text">
@@ -796,7 +799,7 @@
 				<div
 					data-testid="wizard.step-5-confirm"
 					role="alert"
-					class="rounded border border-red-300 bg-red-50 px-3 py-2 text-red-900"
+					class="rounded border border-red-300 bg-red-50 px-3 py-2 text-red-900 dark:border-red-700 dark:bg-red-950/30 dark:text-red-100"
 				>
 					<p class="font-medium">
 						{removing} event row{removing === 1 ? '' : 's'} will be removed from the saved semester:
@@ -826,7 +829,7 @@
 	{#if mode === 'edit' && editStatus === 'success'}
 		<div
 			data-testid="wizard.step-5-save-success"
-			class="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+			class="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-100"
 			role="alert"
 		>
 			Semester updated.
@@ -835,7 +838,7 @@
 
 	{#if (mode === 'create' && saveStatus === 'error') || (mode === 'edit' && editStatus === 'error')}
 		<div
-			class="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900"
+			class="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-700 dark:bg-red-950/30 dark:text-red-100"
 			role="alert"
 		>
 			{mode === 'create' ? saveError : (editError ?? 'Failed to save semester')}
@@ -855,7 +858,7 @@
 				{#if checklistNotice}
 					<p
 						data-testid="wizard.step-5-checklist-notice"
-						class="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+						class="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 						role="status"
 					>
 						{checklistNotice}
@@ -871,7 +874,7 @@
 	<div class="grid gap-x-10 gap-y-6 lg:grid-cols-[auto_minmax(0,1fr)]">
 		<!-- Calendar Preview -->
 		<div class="min-w-0" bind:this={calendarEl}>
-			<h3 class="mb-2 text-sm font-semibold text-gray-800">Calendar preview</h3>
+			<h3 class="text-foreground mb-2 text-sm font-semibold">Calendar preview</h3>
 			<CalendarPreview
 				{weeks}
 				interactive
@@ -887,12 +890,12 @@
 			data-testid="wizard.step-5-event-list"
 			class="min-w-0 space-y-3 lg:max-w-65"
 		>
-			<h3 class="text-sm font-semibold text-gray-800">
+			<h3 class="text-foreground text-sm font-semibold">
 				All events ({unifiedEvents.length})
 			</h3>
 
 			{#if unifiedEvents.length === 0}
-				<p class="text-sm text-gray-500">No events configured yet.</p>
+				<p class="text-muted-foreground text-sm">No events configured yet.</p>
 			{:else}
 				<!-- Ordered by block, then date (wizard-blocks). No inner scroll:
 					the page grows so blocks stay on one unbroken vertical axis. -->
@@ -901,11 +904,11 @@
 						<section data-block-section={section.key} class="space-y-1">
 							{#if section.label}
 								<h4
-									class="flex flex-wrap items-baseline gap-x-1.5 text-xs font-medium tracking-wide text-gray-500 uppercase"
+									class="text-muted-foreground flex flex-wrap items-baseline gap-x-1.5 text-xs font-medium tracking-wide uppercase"
 								>
 									<span>{section.label}</span>
 									{#if section.start !== null}
-										<span class="font-normal tracking-normal text-gray-400 normal-case"
+										<span class="text-muted-foreground font-normal tracking-normal normal-case"
 											>· {formatSectionRange(section)} · {section.events.length}
 											{section.events.length === 1 ? 'event' : 'events'}</span
 										>
@@ -913,7 +916,7 @@
 								</h4>
 							{/if}
 							{#if section.events.length === 0}
-								<p class="px-1 text-xs text-gray-400">No events</p>
+								<p class="text-muted-foreground px-1 text-xs">No events</p>
 							{:else}
 								{#each section.events as event (event.key)}
 									{@render eventListItem(event)}
@@ -953,8 +956,10 @@
 			data-testid="wizard.step-5-custom-modal"
 			class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
 		>
-			<div class="w-full max-w-md space-y-4 rounded-lg bg-white p-6 shadow-xl">
-				<h3 class="text-lg font-semibold text-emerald-900">Add custom event</h3>
+			<div class="bg-card w-full max-w-md space-y-4 rounded-lg p-6 shadow-xl">
+				<h3 class="text-lg font-semibold text-emerald-900 dark:text-emerald-100">
+					Add custom event
+				</h3>
 
 				<!-- Type selector -->
 				<div class="flex gap-2">
@@ -963,7 +968,7 @@
 						class="flex-1 rounded border px-3 py-2 text-sm font-medium transition-colors {customType ===
 						'meeting'
 							? 'border-emerald-700 bg-emerald-700 text-white'
-							: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+							: 'border-border bg-card text-foreground hover:bg-muted'}"
 						onclick={() => (customType = 'meeting')}
 					>
 						Meeting-specific
@@ -973,7 +978,7 @@
 						class="flex-1 rounded border px-3 py-2 text-sm font-medium transition-colors {customType ===
 						'banner'
 							? 'border-emerald-700 bg-emerald-700 text-white'
-							: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+							: 'border-border bg-card text-foreground hover:bg-muted'}"
 						onclick={() => (customType = 'banner')}
 					>
 						Banner
@@ -984,25 +989,25 @@
 				{#if customType === 'meeting'}
 					<div class="space-y-3">
 						<div>
-							<label for="custom-date" class="mb-1 block text-sm font-medium text-gray-700"
+							<label for="custom-date" class="text-foreground mb-1 block text-sm font-medium"
 								>Date</label
 							>
 							<input
 								id="custom-date"
 								type="date"
 								bind:value={customDate}
-								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+								class="border-border w-full rounded border px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 							/>
 						</div>
 						<div>
-							<label for="custom-target" class="mb-1 block text-sm font-medium text-gray-700"
+							<label for="custom-target" class="text-foreground mb-1 block text-sm font-medium"
 								>Target</label
 							>
 							<select
 								id="custom-target"
 								bind:value={customTarget}
 								data-testid="wizard.step-5-custom-target-meeting"
-								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+								class="border-border w-full rounded border px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 							>
 								<option value="all">All grades</option>
 								<option value="CLIL">CLIL</option>
@@ -1014,13 +1019,13 @@
 							</select>
 						</div>
 						<div>
-							<label for="custom-type" class="mb-1 block text-sm font-medium text-gray-700"
+							<label for="custom-type" class="text-foreground mb-1 block text-sm font-medium"
 								>Type</label
 							>
 							<select
 								id="custom-type"
 								bind:value={customSubType}
-								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+								class="border-border w-full rounded border px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 							>
 								<option value="partial">Partial day (no class for some periods)</option>
 								<option value="no_class">No class (all day)</option>
@@ -1028,20 +1033,22 @@
 							</select>
 						</div>
 						<div>
-							<label for="custom-note" class="mb-1 block text-sm font-medium text-gray-700"
+							<label for="custom-note" class="text-foreground mb-1 block text-sm font-medium"
 								>Note</label
 							>
 							<textarea
 								id="custom-note"
 								bind:value={customNote}
 								rows={3}
-								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+								class="border-border w-full rounded border px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 								placeholder="Required detail text"></textarea>
 						</div>
 						{#if customSubType === 'partial'}
 							<!-- Period checkbox picker -->
 							<div>
-								<span class="mb-1 block text-xs font-medium text-gray-600">Class Periods</span>
+								<span class="text-muted-foreground mb-1 block text-xs font-medium"
+									>Class Periods</span
+								>
 								<div class="grid grid-cols-5 gap-2">
 									<button
 										type="button"
@@ -1065,7 +1072,7 @@
 										class="rounded border px-1.5 py-0.5 text-[10px] font-medium {customClassPeriods.length ===
 											4 && [1, 2, 3, 4].every((p) => customClassPeriods.includes(p))
 											? 'border-emerald-700 bg-emerald-700 text-white'
-											: 'border-gray-300 bg-white text-gray-700 hover:bg-emerald-50'}"
+											: 'border-border bg-card text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-950/30'}"
 										>Morning</button
 									>
 									{#each [1, 2, 3, 4] as p (p)}
@@ -1087,7 +1094,7 @@
 												p
 											)
 												? 'border-emerald-700 bg-emerald-700 text-white'
-												: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+												: 'border-border bg-card text-foreground hover:bg-muted'}"
 										>
 											P{p}
 										</button>
@@ -1116,7 +1123,7 @@
 										class="rounded border px-1.5 py-0.5 text-[10px] font-medium {customClassPeriods.length ===
 											4 && [5, 6, 7, 8].every((p) => customClassPeriods.includes(p))
 											? 'border-emerald-700 bg-emerald-700 text-white'
-											: 'border-gray-300 bg-white text-gray-700 hover:bg-emerald-50'}"
+											: 'border-border bg-card text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-950/30'}"
 										>Afternoon</button
 									>
 									{#each [5, 6, 7, 8] as p (p)}
@@ -1138,7 +1145,7 @@
 												p
 											)
 												? 'border-emerald-700 bg-emerald-700 text-white'
-												: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+												: 'border-border bg-card text-foreground hover:bg-muted'}"
 										>
 											P{p}
 										</button>
@@ -1158,14 +1165,15 @@
 					<!-- Banner fields: text doubles as the note (spec #215 story 28) -->
 					<div class="space-y-3">
 						<div>
-							<label for="custom-banner-target" class="mb-1 block text-sm font-medium text-gray-700"
-								>Target</label
+							<label
+								for="custom-banner-target"
+								class="text-foreground mb-1 block text-sm font-medium">Target</label
 							>
 							<select
 								id="custom-banner-target"
 								bind:value={customTarget}
 								data-testid="wizard.step-5-custom-target-banner"
-								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+								class="border-border w-full rounded border px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 							>
 								<option value="all">All grades</option>
 								<option value="CLIL">CLIL</option>
@@ -1177,29 +1185,30 @@
 							</select>
 						</div>
 						<div>
-							<label for="custom-banner-start" class="mb-1 block text-sm font-medium text-gray-700"
-								>Start date</label
+							<label
+								for="custom-banner-start"
+								class="text-foreground mb-1 block text-sm font-medium">Start date</label
 							>
 							<input
 								id="custom-banner-start"
 								type="date"
 								bind:value={customDate}
-								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+								class="border-border w-full rounded border px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 							/>
 						</div>
 						<div>
-							<label for="custom-banner-end" class="mb-1 block text-sm font-medium text-gray-700"
+							<label for="custom-banner-end" class="text-foreground mb-1 block text-sm font-medium"
 								>End date</label
 							>
 							<input
 								id="custom-banner-end"
 								type="date"
 								bind:value={customEndDate}
-								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+								class="border-border w-full rounded border px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 							/>
 						</div>
 						<div>
-							<label for="custom-banner-text" class="mb-1 block text-sm font-medium text-gray-700"
+							<label for="custom-banner-text" class="text-foreground mb-1 block text-sm font-medium"
 								>Banner text</label
 							>
 							<input
@@ -1207,7 +1216,7 @@
 								type="text"
 								bind:value={customBannerText}
 								data-testid="wizard.step-5-custom-text"
-								class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+								class="border-border w-full rounded border px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 								placeholder="Text to show on the week banner"
 							/>
 						</div>
@@ -1237,7 +1246,7 @@
 	{#if editPopover.event}
 		<div
 			data-testid="wizard.step-5-edit-popover"
-			class="edit-popover fixed z-50 rounded-lg bg-white p-3 [box-shadow:0_20px_25px_-5px_#0000001a,0_8px_10px_-6px_#0000001a] [border:1px_solid_var(--border)]"
+			class="edit-popover bg-card fixed z-50 rounded-lg p-3 [box-shadow:0_20px_25px_-5px_#0000001a,0_8px_10px_-6px_#0000001a] [border:1px_solid_var(--border)]"
 			bind:this={editPopoverEl}
 			style={cssAnchor ? undefined : `left: ${editPopover.x}px; top: ${editPopover.y}px;`}
 			role="dialog"
@@ -1245,10 +1254,10 @@
 		>
 			<div class="min-w-70 space-y-3">
 				<div class="flex items-center justify-between">
-					<h4 class="font-medium text-gray-900">{editPopover.event.title}</h4>
+					<h4 class="text-foreground font-medium">{editPopover.event.title}</h4>
 					<button
 						type="button"
-						class="text-gray-400 hover:text-gray-600"
+						class="text-muted-foreground hover:text-muted-foreground"
 						onclick={closeEditPopover}
 						aria-label="Close"
 					>
@@ -1256,51 +1265,55 @@
 					</button>
 				</div>
 				<div>
-					<label for="edit-event-date" class="mb-1 block text-xs font-medium text-gray-600"
+					<label for="edit-event-date" class="text-muted-foreground mb-1 block text-xs font-medium"
 						>Date</label
 					>
 					<input
 						id="edit-event-date"
 						type="date"
 						bind:value={editDate}
-						class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+						class="border-border w-full rounded border px-2 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 					/>
 				</div>
 				{#if editPopover.event.endDate || editPopover.event.type === 'reminder'}
 					<div>
-						<label for="edit-event-end-date" class="mb-1 block text-xs font-medium text-gray-600"
+						<label
+							for="edit-event-end-date"
+							class="text-muted-foreground mb-1 block text-xs font-medium"
 							>End date (for ranged events)</label
 						>
 						<input
 							id="edit-event-end-date"
 							type="date"
 							bind:value={editEndDate}
-							class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+							class="border-border w-full rounded border px-2 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 						/>
 					</div>
 				{/if}
 				{#if editPopover.event !== null && !isNoteHiddenForEventType(editPopover.event.type, editPopover.event.reminderKind)}
 					<div>
-						<label for="edit-event-note" class="mb-1 block text-xs font-medium text-gray-600"
-							>Note</label
+						<label
+							for="edit-event-note"
+							class="text-muted-foreground mb-1 block text-xs font-medium">Note</label
 						>
 						<textarea
 							id="edit-event-note"
 							bind:value={editNote}
 							rows={2}
-							class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+							class="border-border w-full rounded border px-2 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 							placeholder="Optional detail"></textarea>
 					</div>
 				{/if}
 				{#if editPopover.event?.customId !== undefined}
 					<div>
-						<label for="edit-event-target" class="mb-1 block text-xs font-medium text-gray-600"
-							>Target</label
+						<label
+							for="edit-event-target"
+							class="text-muted-foreground mb-1 block text-xs font-medium">Target</label
 						>
 						<select
 							id="edit-event-target"
 							bind:value={editTarget}
-							class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+							class="border-border w-full rounded border px-2 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
 						>
 							<option value="all">All grades</option>
 							<option value="CLIL">CLIL</option>
@@ -1316,7 +1329,7 @@
 					<!-- Period checkbox picker (ticket #290). The first day's window
 					     is fixed at P3 (#293), so it carries no picker. -->
 					<div>
-						<span class="mb-1 block text-xs font-medium text-gray-600">Class Periods</span>
+						<span class="text-muted-foreground mb-1 block text-xs font-medium">Class Periods</span>
 						<div class="grid grid-cols-5 gap-1">
 							<button
 								type="button"
@@ -1340,7 +1353,8 @@
 								class="rounded border px-1.5 py-0.5 text-[10px] font-medium {editClassPeriods.length ===
 									4 && [1, 2, 3, 4].every((p) => editClassPeriods.includes(p))
 									? 'border-emerald-700 bg-emerald-700 text-white'
-									: 'border-gray-300 bg-white text-gray-700 hover:bg-emerald-50'}">Morning</button
+									: 'border-border bg-card text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-950/30'}"
+								>Morning</button
 							>
 							{#each [1, 2, 3, 4] as p (p)}
 								<button
@@ -1355,7 +1369,7 @@
 										p
 									)
 										? 'border-emerald-700 bg-emerald-700 text-white'
-										: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+										: 'border-border bg-card text-foreground hover:bg-muted'}"
 								>
 									P{p}
 								</button>
@@ -1382,7 +1396,8 @@
 								class="rounded border px-1.5 py-0.5 text-[10px] font-medium {editClassPeriods.length ===
 									4 && [5, 6, 7, 8].every((p) => editClassPeriods.includes(p))
 									? 'border-emerald-700 bg-emerald-700 text-white'
-									: 'border-gray-300 bg-white text-gray-700 hover:bg-emerald-50'}">Afternoon</button
+									: 'border-border bg-card text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-950/30'}"
+								>Afternoon</button
 							>
 							{#each [5, 6, 7, 8] as p (p)}
 								<button
@@ -1397,7 +1412,7 @@
 										p
 									)
 										? 'border-emerald-700 bg-emerald-700 text-white'
-										: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+										: 'border-border bg-card text-foreground hover:bg-muted'}"
 								>
 									P{p}
 								</button>

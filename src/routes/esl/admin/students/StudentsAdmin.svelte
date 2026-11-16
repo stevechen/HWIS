@@ -368,7 +368,9 @@
 <main class="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-8">
 	<header class="flex flex-wrap items-end justify-between gap-4 border-b pb-5">
 		<div>
-			<p class="text-xs font-semibold tracking-[0.16em] text-emerald-800 uppercase">
+			<p
+				class="text-xs font-semibold tracking-[0.16em] text-emerald-800 uppercase dark:text-emerald-200"
+			>
 				ESL · Administration
 			</p>
 			<h1 class="mt-2 text-3xl font-semibold tracking-tight">Students</h1>
@@ -421,7 +423,7 @@
 		{/if}
 		{#if notice}
 			<p
-				class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+				class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 				role="status"
 				aria-live="polite"
 				data-testid="esl-admin-students.notice"
@@ -452,7 +454,7 @@
 			<input type="checkbox" bind:checked={includeDisabled} disabled={!searchTerm} />
 			Include inactive students and archived classes
 		</label>
-		{#if reactivationError}<p class="text-sm text-rose-800" role="alert">
+		{#if reactivationError}<p class="text-sm text-rose-800 dark:text-rose-200" role="alert">
 				{reactivationError}
 			</p>{/if}
 		{#if !searchTerm}
@@ -466,7 +468,7 @@
 				No student in {selectedYear} matches “{searchTerm}”.
 			</p>
 		{:else}
-			<Table.Root class="rounded-lg border bg-white">
+			<Table.Root class="bg-card rounded-lg border">
 				<Table.Header
 					><Table.Row
 						><Table.Head class="w-10"
@@ -562,7 +564,7 @@
 
 	{#if overview && !overview.confirmed && !overview.hasRoster}
 		<section
-			class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
+			class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-700 dark:bg-amber-950/30"
 			aria-label="Roster task: import due"
 		>
 			<div class="flex flex-wrap items-center justify-between gap-3">
@@ -606,7 +608,7 @@
 
 	{#if overview?.hasRoster && !overview.confirmed}
 		<section
-			class="rounded-xl border border-sky-300 bg-sky-50 p-4 text-sky-950"
+			class="rounded-xl border border-sky-300 bg-sky-50 p-4 text-sky-950 dark:border-sky-700 dark:bg-sky-950/30"
 			aria-label="Roster task: confirmation due"
 		>
 			<div class="flex flex-wrap items-center justify-between gap-3">
@@ -628,17 +630,15 @@
 				{#if readinessQuery.isLoading}
 					<p class="mt-4 text-sm">Loading roster review…</p>
 				{:else if readiness}
-					<div class="mt-4 space-y-4 border-t border-sky-200 pt-4">
+					<div class="mt-4 space-y-4 border-t border-sky-200 pt-4 dark:border-sky-800">
 						<dl class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-							<div class="rounded-lg bg-white/70 p-3">
+							<div class="bg-card/70 rounded-lg p-3">
 								<dt class="text-xs">Active students</dt>
 								<dd class="mt-1 text-xl font-semibold">
 									{readiness.activeStudents}
 								</dd>
 							</div>
-							{#each readiness.grades as grade (grade.grade)}<div
-									class="rounded-lg bg-white/70 p-3"
-								>
+							{#each readiness.grades as grade (grade.grade)}<div class="bg-card/70 rounded-lg p-3">
 									<dt class="text-xs">Grade {grade.grade}</dt>
 									<dd class="mt-1 font-semibold">
 										{grade.activeStudents} students · {grade.cohorts} ESL classes
@@ -649,7 +649,7 @@
 							<div>
 								<h3 class="text-sm font-semibold">Exceptions</h3>
 								{#if readiness.blockers.length}<ul
-										class="mt-1 list-disc space-y-1 pl-5 text-sm text-rose-800"
+										class="mt-1 list-disc space-y-1 pl-5 text-sm text-rose-800 dark:text-rose-200"
 									>
 										{#each readiness.blockers as blocker (blocker.kind)}<li>
 												{blocker.message}
@@ -665,7 +665,7 @@
 									</ul>{:else}<p class="mt-1 text-sm">No additional notes.</p>{/if}
 							</div>
 						</div>
-						{#if readinessError}<p class="text-sm text-rose-800" role="alert">
+						{#if readinessError}<p class="text-sm text-rose-800 dark:text-rose-200" role="alert">
 								{readinessError}
 							</p>{/if}
 						<Button
@@ -728,7 +728,7 @@
 						This withdraws the roster sign-off. Existing class schedules, if any, still keep the
 						school year open.
 					</p>
-					{#if signoffError}<p class="text-sm text-rose-800" role="alert">
+					{#if signoffError}<p class="text-sm text-rose-800 dark:text-rose-200" role="alert">
 							{signoffError}
 						</p>{/if}
 				</div>
@@ -739,13 +739,13 @@
 			{/if}
 		</details>
 		<section
-			class="mt-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950"
+			class="mt-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 			aria-label={overview.confirmedReason === 'signoff'
 				? 'Roster task completed'
 				: 'School year open'}
 			transition:fly={{ y: 24, duration: 320 }}
 		>
-			<div class="rounded-full bg-emerald-100 p-2">
+			<div class="rounded-full bg-emerald-100 p-2 dark:bg-emerald-900/40">
 				<Check class="size-5" />
 			</div>
 			<div class="min-w-0 flex-1">
@@ -754,7 +754,7 @@
 						? `${selectedYear} roster confirmed`
 						: `${selectedYear} school year open`}
 				</p>
-				<p class="text-sm text-emerald-900/75">
+				<p class="text-sm text-emerald-900 dark:text-emerald-100/75">
 					{overview.confirmedReason === 'signoff'
 						? 'Enrollment is available for this school year.'
 						: 'Existing class schedules keep this school year open.'}
@@ -864,7 +864,7 @@
 					</div>
 				</div>
 				{#if enrollmentError}<p
-						class="rounded-md border border-rose-200 bg-rose-50 p-2 text-sm text-rose-800"
+						class="rounded-md border border-rose-200 bg-rose-50 p-2 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200"
 						role="alert"
 					>
 						{enrollmentError}
@@ -925,7 +925,7 @@
 				</div>
 			</div>
 			{#if transferError}<p
-					class="mt-3 rounded-md border border-rose-200 bg-rose-50 p-2 text-sm text-rose-800"
+					class="mt-3 rounded-md border border-rose-200 bg-rose-50 p-2 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200"
 					role="alert"
 				>
 					{transferError}
@@ -992,7 +992,7 @@
 				><Input id="move-reason" bind:value={moveReason} placeholder="Why the student moved" />
 			</div>
 			{#if moveError}<p
-					class="mt-3 rounded-md border border-rose-200 bg-rose-50 p-2 text-sm text-rose-800"
+					class="mt-3 rounded-md border border-rose-200 bg-rose-50 p-2 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200"
 					role="alert"
 				>
 					{moveError}

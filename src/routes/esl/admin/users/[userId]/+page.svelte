@@ -88,8 +88,10 @@
 	}
 
 	function eslBadgeClass(role: string | null): string {
-		if (role === 'admin') return 'border-emerald-300 bg-emerald-100 text-emerald-700';
-		if (role === 'teacher') return 'border-sky-300 bg-sky-100 text-sky-700';
+		if (role === 'admin')
+			return 'border-emerald-300 dark:border-emerald-700 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300';
+		if (role === 'teacher')
+			return 'border-sky-300 dark:border-sky-700 bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300';
 		return '';
 	}
 
@@ -142,11 +144,15 @@
 	<a
 		href="/esl/admin/users"
 		data-testid="esl-admin-user-profile.back"
-		class="text-sm font-medium text-emerald-800 hover:underline">← Back to ESL users</a
+		class="text-sm font-medium text-emerald-800 hover:underline dark:text-emerald-200"
+		>← Back to ESL users</a
 	>
 
 	<header class="flex flex-wrap items-end justify-between gap-4">
-		<h1 data-testid="esl-admin-user-profile.title" class="text-2xl font-bold text-emerald-900">
+		<h1
+			data-testid="esl-admin-user-profile.title"
+			class="text-2xl font-bold text-emerald-900 dark:text-emerald-100"
+		>
 			{profile?.name ?? 'Teacher profile'}
 			{#if profile && isSelf()}
 				<span class="text-muted-foreground text-sm font-normal">(you)</span>
@@ -211,7 +217,7 @@
 	{#if notice}
 		<p
 			data-testid="esl-admin-user-profile.notice"
-			class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800"
+			class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
 		>
 			{notice}
 		</p>
@@ -225,18 +231,20 @@
 		<div class="space-y-4">
 			<p
 				data-testid="esl-admin-user-profile.not-found"
-				class="text-muted-foreground rounded-lg border border-dashed bg-white py-12 text-center"
+				class="text-muted-foreground bg-card rounded-lg border border-dashed py-12 text-center"
 			>
 				Staff member not found.
 			</p>
-			<a href="/esl/admin/users" class="text-sm font-medium text-emerald-800 hover:underline"
+			<a
+				href="/esl/admin/users"
+				class="text-sm font-medium text-emerald-800 hover:underline dark:text-emerald-200"
 				>← Back to ESL users</a
 			>
 		</div>
 	{:else if loadFailed || !profile}
 		<p
 			data-testid="esl-admin-user-profile.error"
-			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 		>
 			Could not load this profile.
 		</p>
@@ -244,7 +252,7 @@
 		<div class="flex flex-col gap-4 sm:flex-row">
 			<section
 				data-testid="esl-admin-user-profile.header"
-				class="flex flex-1 items-start gap-4 rounded-xl border bg-white p-3 shadow-sm"
+				class="bg-card flex flex-1 items-start gap-4 rounded-xl border p-3 shadow-sm"
 			>
 				<div class="shrink-0">
 					{#if profile.image}
@@ -280,7 +288,7 @@
 						<a
 							href="mailto:{profile.email}"
 							data-testid="esl-admin-user-profile.email"
-							class="mt-1 block truncate text-sm text-emerald-800 hover:underline"
+							class="mt-1 block truncate text-sm text-emerald-800 hover:underline dark:text-emerald-200"
 							>{profile.email}</a
 						>
 					{:else}
@@ -296,9 +304,9 @@
 
 			<section
 				data-testid="esl-admin-user-profile.periods"
-				class="rounded-xl border bg-white p-3 shadow-sm sm:w-52 sm:shrink-0"
+				class="bg-card rounded-xl border p-3 shadow-sm sm:w-52 sm:shrink-0"
 			>
-				<h2 class="text-sm font-semibold text-emerald-900">Teaching load</h2>
+				<h2 class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Teaching load</h2>
 				<p class="mt-1.5 text-lg font-bold">
 					{totalPeriods}
 					{totalPeriods === 1 ? 'period' : 'periods'}/week
@@ -324,7 +332,7 @@
 					{roomLabel(currentEntry.cls.room)}</span
 				>
 			{:else}
-				<span aria-hidden="true" class="size-2 shrink-0 rounded-full bg-gray-300"></span>
+				<span aria-hidden="true" class="bg-muted-foreground/30 size-2 shrink-0 rounded-full"></span>
 				<span><span class="font-medium">Not currently in class.</span></span>
 				{#if nextEntry}
 					<span class="text-muted-foreground">Next: {entryLabel(nextEntry)}</span>
@@ -337,11 +345,13 @@
 		</p>
 
 		<section data-testid="esl-admin-user-profile.classes" class="space-y-2">
-			<h2 class="text-sm font-semibold text-emerald-900">Classes teaching in {displayYear}</h2>
+			<h2 class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+				Classes teaching in {displayYear}
+			</h2>
 			{#if classes.length === 0}
 				<p
 					data-testid="esl-admin-user-profile.empty"
-					class="text-muted-foreground rounded-lg border border-dashed bg-white py-12 text-center"
+					class="text-muted-foreground bg-card rounded-lg border border-dashed py-12 text-center"
 				>
 					No classes assigned in {displayYear}.
 				</p>
@@ -350,7 +360,7 @@
 					{#each classes as cls (cls._id)}
 						<li
 							data-testid="esl-admin-user-profile.class-row"
-							class="min-w-0 flex-1 basis-full rounded-xl border bg-white p-3 shadow-sm sm:min-w-60 sm:basis-72"
+							class="bg-card min-w-0 flex-1 basis-full rounded-xl border p-3 shadow-sm sm:min-w-60 sm:basis-72"
 						>
 							<p class="truncate text-sm">
 								<span class="font-semibold">{cls.name}</span>
@@ -361,7 +371,7 @@
 							<div class="mt-1 flex flex-wrap gap-1">
 								{#each cls.meetings as meeting (meeting.day + meeting.period)}
 									<span
-										class="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-px text-[11px] text-emerald-900"
+										class="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-px text-[11px] text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 										>{eslMeetingLabel(meeting)}</span
 									>
 								{/each}
@@ -397,8 +407,10 @@
 			aria-modal="true"
 			data-testid="esl-admin-user-profile.delete-dialog"
 		>
-			<div class="max-w-sm rounded-xl border bg-white p-6 shadow-2xl">
-				<h2 class="text-lg font-bold text-red-700">Delete {profile?.name ?? 'this user'}?</h2>
+			<div class="bg-card max-w-sm rounded-xl border p-6 shadow-2xl">
+				<h2 class="text-lg font-bold text-red-700 dark:text-red-300">
+					Delete {profile?.name ?? 'this user'}?
+				</h2>
 				<p class="text-muted-foreground mt-2 text-sm">
 					This will permanently remove the user and their ESL links.
 				</p>

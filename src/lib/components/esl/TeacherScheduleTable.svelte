@@ -86,7 +86,7 @@
 			type="button"
 			title="Download as CSV"
 			aria-label="Download schedule as CSV"
-			class="rounded p-1 hover:bg-gray-200"
+			class="hover:bg-muted rounded p-1"
 			onclick={downloadCsv}
 		>
 			<svg
@@ -106,7 +106,7 @@
 			type="button"
 			title="Copy to clipboard (for spreadsheet programs)"
 			aria-label="Copy schedule to clipboard"
-			class="rounded p-1 hover:bg-gray-200"
+			class="hover:bg-muted rounded p-1"
 			onclick={copyToClipboard}
 		>
 			<svg
@@ -130,24 +130,36 @@
 	</div>
 </div>
 
-<div class="flex-1 overflow-auto border border-gray-400 font-mono text-xs">
-	<table class="w-full border-separate border-spacing-0 text-left text-slate-700">
+<div class="border-border flex-1 overflow-auto border font-mono text-xs">
+	<table class="text-foreground w-full border-separate border-spacing-0 text-left">
 		<thead>
 			<tr class="bg-blue-700 text-white">
-				<th class="border border-blue-600 p-2" scope="col" data-testid="esl-schedule.head-count">
+				<th
+					class="border border-blue-600 p-2 dark:border-blue-400"
+					scope="col"
+					data-testid="esl-schedule.head-count"
+				>
 					#
 				</th>
-				<th class="border border-blue-600 p-2" scope="col" data-testid="esl-schedule.head-date">
+				<th
+					class="border border-blue-600 p-2 dark:border-blue-400"
+					scope="col"
+					data-testid="esl-schedule.head-date"
+				>
 					Date
 				</th>
 				<th
-					class="border border-blue-600 p-2"
+					class="border border-blue-600 p-2 dark:border-blue-400"
 					scope="col"
 					data-testid="esl-schedule.head-description"
 				>
 					Description
 				</th>
-				<th class="border border-blue-600 p-2" scope="col" data-testid="esl-schedule.head-note">
+				<th
+					class="border border-blue-600 p-2 dark:border-blue-400"
+					scope="col"
+					data-testid="esl-schedule.head-note"
+				>
 					Note
 				</th>
 			</tr>
@@ -163,7 +175,7 @@
 				{#if newWeek && banners.length > 0}
 					<tr data-testid="esl-schedule.banner-row">
 						<td
-							class="border border-gray-200 bg-indigo-50 p-2 text-indigo-900"
+							class="border-border border bg-indigo-50 p-2 text-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100"
 							colspan={4}
 							data-testid="esl-schedule.banner-week"
 						>
@@ -171,7 +183,7 @@
 							{#each banners as banner (bannerKey(banner))}
 								<span
 									data-testid="esl-schedule.banner"
-									class="ml-2 inline-block rounded bg-indigo-200 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-900"
+									class="ml-2 inline-block rounded bg-indigo-200 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-900 dark:bg-indigo-800 dark:text-indigo-100"
 									>{bannerDueLabel(banner)}</span
 								>
 							{/each}
@@ -180,30 +192,34 @@
 				{/if}
 				<tr
 					data-testid="esl-schedule.row"
-					class={['border-b border-gray-600', greyed && 'text-gray-400', isExam && 'text-red-500']}
+					class={[
+						'border-b border-gray-600',
+						greyed && 'text-muted-foreground',
+						isExam && 'text-red-500'
+					]}
 				>
 					<td
-						class="border border-gray-200 p-2 whitespace-nowrap"
+						class="border-border border p-2 whitespace-nowrap"
 						data-testid="esl-schedule.countdown-cell">{countdownText(row)}</td
 					>
 					<td
-						class="border border-gray-200 p-2 whitespace-nowrap"
+						class="border-border border p-2 whitespace-nowrap"
 						data-testid="esl-schedule.date-cell">{row.date}</td
 					>
-					<td class="w-full border border-gray-200 p-2" data-testid="esl-schedule.description-cell">
+					<td class="border-border w-full border p-2" data-testid="esl-schedule.description-cell">
 						<span data-testid={rowTestId(row.status)}>{descriptionText(row, classNames)}</span>
 						{#each row.badges as badge (badge)}
 							{#if row.status !== 'oral_exam'}
 								<span
 									data-testid="esl-schedule.badge"
-									class="ml-1 inline-block rounded bg-slate-200 px-1.5 py-0.5 text-[11px] text-slate-700"
+									class="bg-muted text-foreground ml-1 inline-block rounded px-1.5 py-0.5 text-[11px]"
 									>{badge}</span
 								>
 							{/if}
 						{/each}
 					</td>
 					<td
-						class="w-full border border-gray-200 p-2 whitespace-nowrap"
+						class="border-border w-full border p-2 whitespace-nowrap"
 						data-testid="esl-schedule.note-cell"
 					>
 						{noteText(row, eventNotes)}

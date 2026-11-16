@@ -399,9 +399,11 @@
 	expanded panel wraps beneath both rather than squeezing into the header.
 -->
 {#if opened}
-	<div class="basis-full space-y-4 rounded-lg border border-emerald-200 bg-white p-4">
+	<div
+		class="bg-card basis-full space-y-4 rounded-lg border border-emerald-200 p-4 dark:border-emerald-800"
+	>
 		<div class="space-y-4">
-			<section class="rounded-lg border border-emerald-200 bg-white p-4">
+			<section class="bg-card rounded-lg border border-emerald-200 p-4 dark:border-emerald-800">
 				<div class="flex flex-wrap items-end gap-3">
 					<div class="space-y-1">
 						<Label for="year">School year</Label>
@@ -444,20 +446,20 @@
 							class={[
 								'cursor-pointer rounded-lg border-2 border-dashed text-center transition-colors',
 								isDraggingOver
-									? 'border-emerald-500 bg-emerald-50'
-									: 'border-emerald-300 bg-slate-50'
+									? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+									: 'bg-muted border-emerald-300 dark:border-emerald-700'
 							]}
 						>
 							{#if parsing}
 								<div class="flex flex-col items-center gap-2 px-3 py-3">
-									<span class="text-sm text-gray-700">Reading files…</span>
+									<span class="text-foreground text-sm">Reading files…</span>
 								</div>
 							{:else}
 								<div class="flex flex-col items-center gap-2 px-3 py-3">
 									<Upload class="size-5 text-emerald-600" />
-									<p class="text-sm text-gray-700">
+									<p class="text-foreground text-sm">
 										Drag and drop workbook(s) here
-										<span class="text-gray-500">— or —</span>
+										<span class="text-muted-foreground">— or —</span>
 									</p>
 									<Button
 										size="sm"
@@ -478,7 +480,7 @@
 
 				{#if yearPrompt}
 					<div
-						class="mt-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm"
+						class="mt-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700 dark:bg-amber-950/30"
 						data-testid="esl-import.yearPrompt"
 					>
 						<p>
@@ -528,7 +530,7 @@
 
 				{#if error}
 					<p
-						class="mt-3 rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900"
+						class="mt-3 rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900 dark:border-red-700 dark:bg-red-950/30 dark:text-red-100"
 						data-testid="esl-import.error"
 					>
 						{error}
@@ -536,7 +538,7 @@
 				{/if}
 				{#if errors.length > 0}
 					<ul
-						class="mt-3 space-y-1 rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900"
+						class="mt-3 space-y-1 rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900 dark:border-red-700 dark:bg-red-950/30 dark:text-red-100"
 						data-testid="esl-import.errors"
 					>
 						{#each errors as e (e)}

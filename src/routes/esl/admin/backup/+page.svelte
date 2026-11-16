@@ -19,7 +19,10 @@
 </script>
 
 <div class="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-	<h1 data-testid="esl-admin-backup.title" class="text-2xl font-bold text-emerald-900">
+	<h1
+		data-testid="esl-admin-backup.title"
+		class="text-2xl font-bold text-emerald-900 dark:text-emerald-100"
+	>
 		Backup &amp; Restore
 	</h1>
 	<p data-testid="esl-admin-backup.subtitle" class="text-muted-foreground mt-2">

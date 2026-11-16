@@ -30,18 +30,24 @@
 	} = $props();
 </script>
 
-<div data-testid={testId} class="space-y-2 rounded-lg border bg-white p-3">
+<div data-testid={testId} class="bg-card space-y-2 rounded-lg border p-3">
 	<div class="flex flex-wrap items-center gap-2">
-		<h3 data-testid={`${testId}.title`} class="text-sm font-semibold text-emerald-900">
+		<h3
+			data-testid={`${testId}.title`}
+			class="text-sm font-semibold text-emerald-900 dark:text-emerald-100"
+		>
 			{examLabel}
-			<span class="font-normal text-gray-500">({rangeLength} class days)</span>
+			<span class="text-muted-foreground font-normal">({rangeLength} class days)</span>
 		</h3>
 		{#if currentDates.length > 0}
-			<p data-testid={`${testId}.current`} class="text-xs font-medium text-red-800">
+			<p
+				data-testid={`${testId}.current`}
+				class="text-xs font-medium text-red-800 dark:text-red-200"
+			>
 				Set: {currentDates.join(', ')}
 			</p>
 		{:else}
-			<p class="text-xs text-gray-500">Not set yet — click a class day on the calendar.</p>
+			<p class="text-muted-foreground text-xs">Not set yet — click a class day on the calendar.</p>
 		{/if}
 		{#if currentDates.length > 0}
 			<div class="ml-auto flex gap-2">
@@ -51,7 +57,7 @@
 			</div>
 		{/if}
 	</div>
-	<p class="text-xs text-gray-500">
+	<p class="text-muted-foreground text-xs">
 		To change it, click another day — the range moves. Hover a day to preview its range first.
 	</p>
 </div>

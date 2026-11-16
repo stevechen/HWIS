@@ -85,13 +85,13 @@
 				return 'bg-stone-700 text-white';
 			case 'no_class':
 			case 'partial':
-				return 'bg-amber-200 text-amber-900';
+				return 'bg-amber-200 text-amber-900 dark:text-amber-100';
 			case 'exam':
 				return 'bg-red-600 text-white';
 			case 'g9_mock':
-				return 'bg-red-100 text-red-800';
+				return 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200';
 			case 'oral':
-				return 'bg-orange-100 text-orange-900';
+				return 'bg-orange-100 text-orange-900 dark:text-orange-100';
 			default:
 				return '';
 		}
@@ -159,10 +159,10 @@
 	function cellTone(status: CalendarCardStatus, past: boolean): string {
 		const base =
 			status === 'exam' || status === 'g9_mock'
-				? 'bg-red-50'
+				? 'bg-red-50 dark:bg-red-950/30'
 				: status === 'teaching' || status === 'partial' || status === 'oral'
-					? 'bg-white'
-					: 'bg-stone-100';
+					? 'bg-card'
+					: 'bg-muted';
 		return past ? `${base} opacity-80 saturate-50` : base;
 	}
 
@@ -248,10 +248,12 @@
 <div data-testid="teacher-calendar.root">
 	{#if selected}
 		<div
-			class="sticky top-13.5 z-50 -mx-4 border-b border-emerald-900/10 bg-white/95 px-4 py-1 shadow-sm backdrop-blur sm:-mx-8 sm:px-8"
+			class="bg-card/95 sticky top-13.5 z-50 -mx-4 border-b border-emerald-900/10 px-4 py-1 shadow-sm backdrop-blur sm:-mx-8 sm:px-8"
 		>
 			<div class="flex min-w-0 items-center gap-x-3">
-				<h1 class="flex min-w-0 items-center gap-x-2 truncate text-lg font-bold text-emerald-900">
+				<h1
+					class="flex min-w-0 items-center gap-x-2 truncate text-lg font-bold text-emerald-900 dark:text-emerald-100"
+				>
 					<span class="truncate">{calendarClassLabel(selected.short, selected.type)}</span>
 					<span class="inline-flex items-center gap-1 text-sm font-normal">
 						<Users class="size-4 shrink-0" aria-hidden="true" />
@@ -264,7 +266,7 @@
 				</h1>
 				<div class="relative flex shrink-0 items-center gap-2">
 					<button
-						class="anchor-menu rounded-[12px] border border-stone-300 bg-white px-2 py-1 text-stone-600 hover:bg-stone-100"
+						class="anchor-menu border-border bg-card text-muted-foreground hover:bg-muted rounded-[12px] border px-2 py-1"
 						aria-label="Choose class"
 						style="anchor-name: --class-menu;"
 						aria-haspopup="menu"
@@ -274,23 +276,23 @@
 						<Ellipsis class="size-5" aria-hidden="true" />
 					</button>
 					<button
-						class="shrink-0 rounded-full border border-emerald-700 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-900 hover:bg-emerald-100"
+						class="shrink-0 rounded-full border border-emerald-700 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-900 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-100 dark:hover:bg-emerald-900/40"
 						onclick={() => scrollToWeek(currentWeek())}>● Today</button
 					>
 					{#if menuOpen}
 						<div
 							role="menu"
 							aria-label="Classes"
-							class="absolute right-0 z-50 w-56 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl"
+							class="border-border bg-card absolute right-0 z-50 w-56 overflow-hidden rounded-xl border shadow-xl"
 							style="position-anchor: --class-menu; top: anchor(bottom); left: anchor(left);"
 						>
 							{#each classes as option (option.id)}
 								<button
 									role="menuitemradio"
 									aria-checked={option.id === selected.id}
-									class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-stone-100 {option.id ===
+									class="hover:bg-muted flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm {option.id ===
 									selected.id
-										? 'font-bold text-emerald-900'
+										? 'font-bold text-emerald-900 dark:text-emerald-100'
 										: ''}"
 									onclick={() => {
 										onSelectClass(option.id);
@@ -306,9 +308,9 @@
 				</div>
 			</div>
 			{#if allWeekdays.length > 0}
-				<div class="border-b border-stone-200 bg-stone-200">
+				<div class="border-border bg-muted border-b">
 					<div
-						class="calendar-grid grid grid-cols-[10rem_repeat(var(--day-count),minmax(0,1fr))] gap-0 bg-stone-200 p-0"
+						class="calendar-grid bg-muted grid grid-cols-[10rem_repeat(var(--day-count),minmax(0,1fr))] gap-0 p-0"
 						style="--day-count: {allWeekdays.length}"
 					>
 						<div
@@ -324,7 +326,7 @@
 								class="flex items-center justify-center gap-1 bg-emerald-800 px-3 py-2 text-sm font-semibold tracking-wider text-white uppercase"
 							>
 								{day}
-								<span class="hidden font-normal text-stone-400 lg:inline"
+								<span class="text-muted-foreground hidden font-normal lg:inline"
 									>{weekdayCard ? ` P${weekdayCard.period}` : ''}</span
 								>
 							</div>
@@ -335,7 +337,7 @@
 		</div>
 	{/if}
 
-	<div class="overflow-hidden border-x border-b border-stone-200 bg-white">
+	<div class="border-border bg-card overflow-hidden border-x border-b">
 		{#each fragments as fragment, index (`w${fragment.weekIndex}`)}
 			{@const cardsByWeekday = Object.groupBy(fragment.cards, (card) => card.weekdayLabel)}
 			<section
@@ -343,19 +345,19 @@
 				data-testid="teacher-calendar.week-{fragment.weekIndex}"
 			>
 				<div
-					class="calendar-grid grid grid-cols-[10rem_repeat(var(--day-count),minmax(0,1fr))] grid-rows-[1fr] gap-0 bg-stone-200 p-0"
+					class="calendar-grid bg-muted grid grid-cols-[10rem_repeat(var(--day-count),minmax(0,1fr))] grid-rows-[1fr] gap-0 p-0"
 					style="--day-count: {allWeekdays.length}"
 				>
 					<!-- Week number column with stacked announcement chips -->
 					<div
-						class="flex w-40 shrink-0 flex-col items-start justify-start gap-1 border-r border-stone-200 bg-emerald-800 p-2 text-emerald-100"
+						class="border-border flex w-40 shrink-0 flex-col items-start justify-start gap-1 border-r bg-emerald-800 p-2 text-emerald-100"
 					>
 						<p class="w-full text-center text-sm font-light text-white">
 							{fragment.weekIndex}
 						</p>
 						{#each fragment.banners as banner (`${banner.title}|${banner.windowStart}|${banner.windowEnd}`)}
 							<span
-								class="wrap-break-words mx-1 w-[calc(100%-0.5rem)] rounded bg-indigo-200 px-2 py-1 text-center text-[10px] leading-tight font-semibold text-indigo-900"
+								class="wrap-break-words mx-1 w-[calc(100%-0.5rem)] rounded bg-indigo-200 px-2 py-1 text-center text-[10px] leading-tight font-semibold text-indigo-900 dark:bg-indigo-800 dark:text-indigo-100"
 								title="{banner.title} · {slash(banner.windowStart)}–{slash(banner.windowEnd)}"
 							>
 								{banner.title}
@@ -374,7 +376,7 @@
 							the tone fill and past hatch then cover the whole cell even
 							when the card content (e.g. no note box on an off day) is
 							shorter than its neighbours. -->
-							<div class="flex min-h-30 min-w-0 flex-col bg-white">
+							<div class="bg-card flex min-h-30 min-w-0 flex-col">
 								{#each cardsByWeekday[day] ?? [] as card, cardIndex (`${card.date}-p${card.period}`)}
 									{@const newMonth =
 										cardIndex > 0 &&
@@ -399,7 +401,7 @@
 											<div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
 												{#if card.countdown}
 													<span
-														class="inline-flex shrink-0 items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-800"
+														class="inline-flex shrink-0 items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-800 dark:bg-sky-950/30 dark:text-sky-200"
 													>
 														<Timer class="size-3.5" aria-label="Classes until exam" />
 														{countdownLabel(card.countdown)}
@@ -413,7 +415,7 @@
 											</div>
 											{#if card.cause && card.status !== 'off' && card.status !== 'exam' && card.status !== 'oral'}
 												<span
-													class="mx-2 min-w-0 shrink truncate text-center text-xs font-semibold text-stone-600"
+													class="text-muted-foreground mx-2 min-w-0 shrink truncate text-center text-xs font-semibold"
 													title={card.cause}
 												>
 													{card.cause}
@@ -437,18 +439,18 @@
 													{formatDay(card.date, true)}
 												</span>
 											{:else if !card.isToday}
-												<span class="shrink-0 text-sm font-semibold text-stone-900">
+												<span class="text-foreground shrink-0 text-sm font-semibold">
 													{formatDay(card.date, false)}
 												</span>
 											{/if}
 										</header>
 										{#each card.badges as badge (badge)}
 											{#if card.status !== 'oral'}
-												<p class="mt-1 text-xs text-indigo-700">{badge}</p>
+												<p class="mt-1 text-xs text-indigo-700 dark:text-indigo-300">{badge}</p>
 											{/if}
 										{/each}
 										{#each card.dues as due (`${due.title}|${due.windowStart}`)}
-											<p class="mt-1 text-xs font-semibold text-indigo-700">
+											<p class="mt-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
 												{due.title} · {slash(due.windowStart)}–{slash(due.windowEnd)}
 											</p>
 										{/each}
@@ -457,7 +459,7 @@
 												{#if notes[card.date]?.trim()}
 													<button
 														type="button"
-														class="w-full min-w-0 overflow-hidden rounded p-2 text-left transition-colors hover:bg-stone-100"
+														class="hover:bg-muted w-full min-w-0 overflow-hidden rounded p-2 text-left transition-colors"
 														onclick={() => openNoteDialog(card.date, formatWeekday(card.date))}
 														aria-label="Edit note for {card.date}"
 													>
@@ -470,7 +472,7 @@
 												{:else}
 													<button
 														type="button"
-														class="flex items-center rounded bg-white px-2 py-2 text-stone-400 transition-colors hover:border-stone-400 hover:bg-stone-50"
+														class="bg-card text-muted-foreground hover:border-border hover:bg-muted flex items-center rounded px-2 py-2 transition-colors"
 														onclick={() => openNoteDialog(card.date, formatWeekday(card.date))}
 														aria-label="Add lesson note for {card.date}"
 													>

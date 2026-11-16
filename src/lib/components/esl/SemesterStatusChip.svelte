@@ -9,10 +9,10 @@
 	);
 	const tint = $derived(
 		status === 'upcoming'
-			? 'border-amber-300 bg-amber-50 text-amber-900'
+			? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100'
 			: status === 'current'
-				? 'border-emerald-300 bg-emerald-50 text-emerald-900'
-				: 'border-gray-300 bg-gray-100 text-gray-700'
+				? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-100'
+				: 'border-border bg-muted text-foreground'
 	);
 </script>
 

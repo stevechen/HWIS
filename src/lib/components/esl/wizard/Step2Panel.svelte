@@ -113,7 +113,7 @@
 	<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
 		<div class="space-y-4">
 			<div>
-				<h2 class="mb-2 text-sm font-semibold text-gray-800">
+				<h2 class="text-foreground mb-2 text-sm font-semibold">
 					{term}
 					{schoolYear} · Pick semester end day
 				</h2>
@@ -130,13 +130,13 @@
 			{#if endBeforeStart}
 				<p
 					data-testid="wizard.step-2-end-error"
-					class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+					class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 				>
 					The end date ({endDate}) is before the start ({startDate}) — pick a later date.
 				</p>
 			{:else}
 				<div class="flex items-center gap-2">
-					<p data-testid="wizard.step-2-end-summary" class="text-sm text-gray-700">
+					<p data-testid="wizard.step-2-end-summary" class="text-foreground text-sm">
 						End date: <strong>{endDate ?? '—'}</strong>
 					</p>
 					{#if showRecalculateHint()}
@@ -170,23 +170,24 @@
 
 			<!-- Event list right below import -->
 			<div data-testid="wizard.step-2-event-list" class="space-y-2">
-				<h3 class="text-sm font-semibold text-gray-800">Events</h3>
+				<h3 class="text-foreground text-sm font-semibold">Events</h3>
 				{#if sortedOffDays.length === 0}
-					<p class="text-sm text-gray-500">No events yet. Import holidays to add off days.</p>
+					<p class="text-muted-foreground text-sm">
+						No events yet. Import holidays to add off days.
+					</p>
 				{:else}
 					<ul class="space-y-1.5 text-sm">
 						{#each sortedOffDays as day (day.date)}
 							<li
 								data-testid={`wizard.step-2-event-${day.date}`}
-								class="flex items-center gap-2 rounded border border-stone-200 bg-stone-50 px-2 py-1.5"
+								class="border-border bg-muted flex items-center gap-2 rounded border px-2 py-1.5"
 							>
 								<span class="flex items-center gap-1">
-									<span class="inline-block size-3 rounded border border-stone-300 bg-stone-200"
-									></span>
-									<strong class="text-stone-800">{day.name}</strong>
+									<span class="border-border bg-muted inline-block size-3 rounded border"></span>
+									<strong class="text-foreground">{day.name}</strong>
 								</span>
-								<span class="text-stone-600">{day.date}</span>
-								<span class="text-xs text-stone-500">Off day</span>
+								<span class="text-muted-foreground">{day.date}</span>
+								<span class="text-muted-foreground text-xs">Off day</span>
 							</li>
 						{/each}
 					</ul>
@@ -195,7 +196,7 @@
 		</div>
 
 		<div class="min-w-0">
-			<h2 class="mb-2 text-sm font-semibold text-gray-800">Semester preview (read-only)</h2>
+			<h2 class="text-foreground mb-2 text-sm font-semibold">Semester preview (read-only)</h2>
 			<CalendarPreview {weeks} testId="wizard.step-2-calendar" />
 		</div>
 	</div>

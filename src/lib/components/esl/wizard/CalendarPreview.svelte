@@ -17,12 +17,12 @@
 	 * row 1 and each week row a `display: contents` wrapper, so a month
 	 * band can `grid-row: r / span n` and merge vertically across the
 	 * week rows it owns. Bands come from `monthRuns` (last in-range
-	 * weekday wins a straddle row), are light slate `bg-slate-200
-	 * text-slate-700` so they recede beside the dark week gutter, and
+	 * weekday wins a straddle row), are light slate `bg-muted
+	 * text-foreground` so they recede beside the dark week gutter, and
 	 * carry a 2px margin top and bottom — inside the run the band is
 	 * continuous; the separation is per BAND, not per week. A run whose
-	 * days are all out of range desaturates to `bg-gray-100
-	 * text-gray-400`. Labels are plain 3-letter badges, VERTICALLY
+	 * days are all out of range desaturates to `bg-muted
+	 * text-muted-foreground`. Labels are plain 3-letter badges, VERTICALLY
 	 * CENTERED in the band, with no year suffix; the `title` is the bare
 	 * badge. The weekday headers are right-aligned on `px-1` so each label
 	 * sits directly over its day numbers (also right-aligned).
@@ -98,13 +98,14 @@
 		isOldHighlighted: boolean,
 		isDisabled: boolean
 	): string {
-		if (!inRange) return 'border-gray-100 bg-gray-50 text-gray-300';
+		if (!inRange) return 'border-border bg-muted text-gray-300';
 		// Feedback F28: a CONFIRMED exam date keeps its red identity even
 		// when taken relative to the active tab (still unclickable there —
 		// `clickable` below is unchanged — but never grey). Grey/disabled
 		// reads are reserved for unclickable starts with no exam chip
 		// (F37: free days whose fan-out would cross another exam).
-		if (hasExam) return 'border-red-500 bg-red-100 text-red-900';
+		if (hasExam)
+			return 'border-red-500 bg-red-100 dark:bg-red-900/40 text-red-900 dark:text-red-100';
 		// Feedback F23: refuse-by-construction — a day taken by another
 		// exam reads as greyed/disabled. No conflict
 		// badges exist; the mistake is impossible, so there is nothing to
@@ -116,15 +117,17 @@
 		// (forbid, not warn). Feedback F46: free starts whose fan-out would
 		// overflow the term window are the exception — those arrive DISABLED
 		// (grey, via the parent disabled set) with an overflow tooltip.
-		if (isDisabled) return 'border-gray-300 bg-gray-200 text-gray-500';
-		if (isHighlighted) return 'border-emerald-600 bg-emerald-100 text-emerald-950';
+		if (isDisabled) return 'border-border bg-muted text-muted-foreground';
+		if (isHighlighted)
+			return 'border-emerald-600 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-950 dark:text-emerald-100';
 		// Old/current selection — washed out.
-		if (isOldHighlighted) return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-		if (hasOff) return 'border-stone-300 bg-stone-200 text-stone-600';
+		if (isOldHighlighted)
+			return 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300';
+		if (hasOff) return 'border-border bg-muted text-muted-foreground';
 		// Feedback F5: weekends read as red text on a plain background —
 		// no shaded weekend fill, so off/exam chips stay unambiguous.
-		if (isWeekend) return 'border-gray-200 bg-white text-red-600';
-		return 'border-gray-200 bg-white text-gray-800';
+		if (isWeekend) return 'border-border bg-card text-red-600';
+		return 'border-border bg-card text-foreground';
 	}
 
 	const WEEKDAY_HEADER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -157,22 +160,25 @@
 {/snippet}
 
 <div data-testid={testId} class="space-y-3">
-	<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
+	<div class="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
 		<span class="flex items-center gap-1">
-			<span class="inline-block size-3 rounded border border-stone-300 bg-stone-200"></span> Off day
+			<span class="border-border bg-muted inline-block size-3 rounded border"></span> Off day
 		</span>
 		<span class="flex items-center gap-1">
-			<span class="inline-block size-3 rounded border border-red-500 bg-red-100"></span> Exam
+			<span class="inline-block size-3 rounded border border-red-500 bg-red-100 dark:bg-red-900/40"
+			></span> Exam
 		</span>
 		{#if interactive}
 			<span class="flex items-center gap-1">
-				<span class="inline-block size-3 rounded border border-emerald-500 bg-emerald-100"></span>
+				<span
+					class="inline-block size-3 rounded border border-emerald-500 bg-emerald-100 dark:bg-emerald-900/40"
+				></span>
 				Hover preview
 			</span>
 		{/if}
 		{#if interactive || disabled.size > 0}
 			<span class="flex items-center gap-1">
-				<span class="inline-block size-3 rounded border border-gray-300 bg-gray-200"></span>
+				<span class="border-border bg-muted inline-block size-3 rounded border"></span>
 				Taken in another exam
 			</span>
 		{/if}
@@ -183,12 +189,12 @@
 		class="grid w-max grid-cols-[2.5rem_2.5rem_repeat(5,7.2rem)] gap-0"
 	>
 		<!-- Header is grid row 1. Month bands and week rows sit below it. -->
-		<div style="grid-column: 1; grid-row: 1;" class="{HEADER_LABEL} text-slate-600">MTH</div>
-		<div style="grid-column: 2; grid-row: 1;" class="{HEADER_LABEL} text-slate-600">WK</div>
+		<div style="grid-column: 1; grid-row: 1;" class="{HEADER_LABEL} text-muted-foreground">MTH</div>
+		<div style="grid-column: 2; grid-row: 1;" class="{HEADER_LABEL} text-muted-foreground">WK</div>
 		{#each WEEKDAY_HEADER as label, col (label)}
 			<div
 				style="grid-column: {3 + col}; grid-row: 1;"
-				class="min-w-0 px-1 py-0.5 text-right text-[11px] font-semibold text-gray-500"
+				class="text-muted-foreground min-w-0 px-1 py-0.5 text-right text-[11px] font-semibold"
 			>
 				{label}
 			</div>
@@ -207,8 +213,8 @@
 				title={run.label}
 				style="grid-column: 1; grid-row: {run.startRow + 2} / span {run.rows};"
 				class="mt-0.5 flex min-w-0 items-center justify-center overflow-hidden px-1 text-center text-[10px] font-bold tracking-widest {run.outOfRange
-					? 'bg-gray-100 text-gray-400'
-					: 'bg-slate-200 text-slate-700'} {runIndex === runs.length - 1 ? 'mb-0.5' : ''}"
+					? 'bg-muted text-muted-foreground'
+					: 'bg-muted text-foreground'} {runIndex === runs.length - 1 ? 'mb-0.5' : ''}"
 			>
 				{run.label}
 			</div>
@@ -229,7 +235,7 @@
 					data-testid={`${testId}.week-${week.weekIndex}-number`}
 					title={`School week ${week.weekIndex}, starting ${week.monday}`}
 					style="grid-column: 2; grid-row: {row + 2};"
-					class="flex items-center justify-center overflow-hidden border-b border-gray-200 border-r-slate-800 bg-emerald-950 text-xs font-extrabold tracking-wide text-white"
+					class="border-border flex items-center justify-center overflow-hidden border-b border-r-slate-800 bg-emerald-950 text-xs font-extrabold tracking-wide text-white"
 				>
 					{week.weekIndex}
 				</div>

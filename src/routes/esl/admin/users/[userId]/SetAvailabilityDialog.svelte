@@ -178,7 +178,7 @@
 		{#if saveError}
 			<p
 				data-testid="esl-admin-user-profile.availability.error"
-				class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+				class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 			>
 				{saveError}
 			</p>
@@ -208,7 +208,7 @@
 							class={[
 								'-mt-px -ml-px flex h-6 cursor-pointer items-center justify-center border text-xs',
 								blocked
-									? 'border-gray-300 bg-gray-100 font-medium text-gray-600'
+									? 'border-border bg-muted text-muted-foreground font-medium'
 									: 'border-input text-muted-foreground hover:bg-muted'
 							]}
 						>
@@ -262,7 +262,7 @@
 		{#if confirmingDiscard}
 			<div
 				data-testid="esl-admin-user-profile.availability.discard"
-				class="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900"
+				class="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"
 			>
 				<p class="font-medium">Discard unsaved changes?</p>
 				<p class="mt-0.5 text-xs">The toggles and notes you entered will be lost.</p>

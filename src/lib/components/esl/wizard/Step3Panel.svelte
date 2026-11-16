@@ -312,7 +312,7 @@
 <div data-testid="wizard.step-3-panel" class="space-y-4">
 	<!-- Exam tabs -->
 	<div class="flex flex-wrap items-center gap-2">
-		<span class="text-sm font-medium text-gray-700">Setting:</span>
+		<span class="text-foreground text-sm font-medium">Setting:</span>
 		{#each ['Exam 1', 'Exam 2', 'Final'] as slot (slot)}
 			{@const done = exams.some((exam) => exam.label === slot && exam.dates.length > 0)}
 			<Button
@@ -341,7 +341,7 @@
 	<!-- Calendar + Exam list side by side -->
 	<div class="grid gap-4 lg:grid-cols-[1fr_280px]">
 		<div>
-			<h2 class="mb-2 text-sm font-semibold text-gray-800">
+			<h2 class="text-foreground mb-2 text-sm font-semibold">
 				Click a class day to set the {activeExam} range ({rangeLength} class days) — reselect anytime
 				to move it
 			</h2>
@@ -358,9 +358,9 @@
 		</div>
 
 		<aside class="space-y-2">
-			<h2 class="text-sm font-semibold text-gray-800">Exam dates</h2>
+			<h2 class="text-foreground text-sm font-semibold">Exam dates</h2>
 			{#if exams.length === 0}
-				<p data-testid="wizard.step-3-exams-empty" class="text-sm text-gray-500">
+				<p data-testid="wizard.step-3-exams-empty" class="text-muted-foreground text-sm">
 					No exams set yet.
 				</p>
 			{:else}
@@ -371,27 +371,27 @@
 							{#if confirmed !== undefined}
 								<div
 									data-testid={`wizard.step-3-exam-${slot.toLowerCase().replace(' ', '-')}`}
-									class="rounded border border-red-200 bg-red-50 p-2 text-sm"
+									class="rounded border border-red-200 bg-red-50 p-2 text-sm dark:border-red-800 dark:bg-red-950/30"
 								>
 									<div class="flex items-center justify-between gap-2">
-										<strong class="text-red-900">{confirmed.label}</strong>
+										<strong class="text-red-900 dark:text-red-100">{confirmed.label}</strong>
 										<button
 											type="button"
 											onclick={() => removeExam(confirmed.label)}
 											data-testid={`wizard.step-3-exam-${slot.toLowerCase().replace(' ', '-')}-remove`}
-											class="text-xs font-medium text-red-700 hover:underline"
+											class="text-xs font-medium text-red-700 hover:underline dark:text-red-300"
 										>
 											Remove
 										</button>
 									</div>
-									<div class="text-red-800">
+									<div class="text-red-800 dark:text-red-200">
 										{confirmed.dates.join(', ')}
 									</div>
 								</div>
 							{:else}
 								<div
 									data-testid={`wizard.step-3-exam-${slot.toLowerCase().replace(' ', '-')}-empty`}
-									class="rounded border border-gray-200 bg-gray-50 p-2 text-sm text-gray-500"
+									class="border-border bg-muted text-muted-foreground rounded border p-2 text-sm"
 								>
 									<strong>{slot}</strong> — not set yet.
 								</div>
@@ -412,14 +412,14 @@
 			data-testid="wizard.step-3-confirm-dialog"
 			class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
 		>
-			<div class="w-full max-w-md space-y-3 rounded-lg bg-white p-4 shadow-xl">
+			<div class="bg-card w-full max-w-md space-y-3 rounded-lg p-4 shadow-xl">
 				<h3
-					class="text-base font-semibold text-emerald-900"
+					class="text-base font-semibold text-emerald-900 dark:text-emerald-100"
 					data-testid="wizard.step-3-confirm-dialog.title"
 				>
 					Confirm {activeExam} range
 				</h3>
-				<p class="text-sm text-gray-700" data-testid="wizard.step-3-confirm-dialog.message">
+				<p class="text-foreground text-sm" data-testid="wizard.step-3-confirm-dialog.message">
 					Set {activeExam}: {formatDateRange(confirmDialog.dates)}
 				</p>
 				<div class="flex justify-end gap-2">

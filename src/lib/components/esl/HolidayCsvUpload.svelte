@@ -68,20 +68,22 @@
 	}
 </script>
 
-<section data-testid="esl-holiday-upload.root" class="space-y-3 rounded-lg border bg-white p-4">
+<section data-testid="esl-holiday-upload.root" class="bg-card space-y-3 rounded-lg border p-4">
 	<div class="flex flex-wrap items-baseline justify-between gap-2">
-		<h2 class="text-base font-semibold text-emerald-900">Holiday calendar CSV</h2>
+		<h2 class="text-base font-semibold text-emerald-900 dark:text-emerald-100">
+			Holiday calendar CSV
+		</h2>
 		<a
 			href="https://data.gov.tw/dataset/14718"
 			target="_blank"
 			rel="noopener noreferrer"
 			data-testid="esl-holiday-upload.dataset-link"
-			class="text-sm font-medium text-emerald-800 hover:underline"
+			class="text-sm font-medium text-emerald-800 hover:underline dark:text-emerald-200"
 		>
 			Dataset 14718
 		</a>
 	</div>
-	<p data-testid="esl-holiday-upload.format-hint" class="text-sm text-gray-600">
+	<p data-testid="esl-holiday-upload.format-hint" class="text-muted-foreground text-sm">
 		Upload the official calendar CSV for the year above. Headers 西元日期,星期,是否放假,備註; dates
 		in YYYYMMDD; 是否放假=2 marks an off day. Re-uploading a year overwrites it.
 	</p>
@@ -126,7 +128,7 @@
 	{#if error}
 		<p
 			data-testid="esl-holiday-upload.error"
-			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 		>
 			{error}
 		</p>
@@ -134,7 +136,7 @@
 	{#if report}
 		<p
 			data-testid="esl-holiday-upload.success"
-			class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900"
+			class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 		>
 			{report.year}: {report.days} rows ({report.holidays} off) — {report.inserted} inserted,
 			{report.updated} updated, {report.deleted} deleted.

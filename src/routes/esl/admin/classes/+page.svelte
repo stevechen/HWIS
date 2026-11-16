@@ -642,7 +642,7 @@
 	<header class="flex flex-wrap items-center gap-3">
 		<h1
 			data-testid="esl-admin-classes.title"
-			class="flex items-baseline gap-2 text-2xl font-bold text-emerald-900"
+			class="flex items-baseline gap-2 text-2xl font-bold text-emerald-900 dark:text-emerald-100"
 		>
 			Classes
 			<span
@@ -830,10 +830,10 @@
         -->
 		{#if pendingYear !== null}
 			<div
-				class="rounded border border-amber-300 bg-amber-50 p-4"
+				class="rounded border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950/30"
 				data-testid="esl-admin-classes.archiveConfirm"
 			>
-				<p class="text-sm text-amber-900">
+				<p class="text-sm text-amber-900 dark:text-amber-100">
 					{#if pendingIsArchive}
 						Archive every class in <strong>{pendingYear}</strong>? They will be hidden from every
 						list, and their rosters kept as history. You can restore the year afterwards.
@@ -872,7 +872,7 @@
 		{#if rowError}
 			<p
 				data-testid="esl-admin-classes.error"
-				class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+				class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 			>
 				{rowError}
 			</p>
@@ -880,7 +880,7 @@
 		{#if notice}
 			<p
 				data-testid="esl-admin-classes.notice"
-				class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800"
+				class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
 			>
 				{notice}
 			</p>
@@ -888,30 +888,30 @@
 
 		{#if rosterLocked && readiness}
 			<section
-				class="rounded-lg border border-amber-300 bg-amber-50 p-6"
+				class="rounded-lg border border-amber-300 bg-amber-50 p-6 dark:border-amber-700 dark:bg-amber-950/30"
 				data-testid="esl-admin-classes.rosterGate"
 			>
-				<h2 class="text-lg font-semibold text-amber-900">
+				<h2 class="text-lg font-semibold text-amber-900 dark:text-amber-100">
 					Roster not confirmed for {scheduleYear}
 				</h2>
-				<p class="mt-1 text-sm text-amber-900">
+				<p class="mt-1 text-sm text-amber-900 dark:text-amber-100">
 					Classes stays locked until an admin confirms the year's roster is complete. Import or
 					correct the roster on the Students page, then confirm here.
 				</p>
 
 				<div class="mt-4 grid gap-4 md:grid-cols-2">
 					<div>
-						<h3 class="text-sm font-medium text-red-800">Blockers</h3>
+						<h3 class="text-sm font-medium text-red-800 dark:text-red-200">Blockers</h3>
 						{#if readiness.blockers.length === 0}
 							<p
-								class="mt-1 text-sm text-amber-900"
+								class="mt-1 text-sm text-amber-900 dark:text-amber-100"
 								data-testid="esl-admin-classes.rosterGate.blockers"
 							>
 								None.
 							</p>
 						{:else}
 							<ul
-								class="mt-1 list-disc space-y-1 pl-5 text-sm text-red-800"
+								class="mt-1 list-disc space-y-1 pl-5 text-sm text-red-800 dark:text-red-200"
 								data-testid="esl-admin-classes.rosterGate.blockers"
 							>
 								{#each readiness.blockers as blocker (blocker.kind)}
@@ -921,11 +921,11 @@
 						{/if}
 					</div>
 					<div>
-						<h3 class="text-sm font-medium text-amber-900">Warnings</h3>
+						<h3 class="text-sm font-medium text-amber-900 dark:text-amber-100">Warnings</h3>
 						{#if readiness.warnings.length === 0}
-							<p class="mt-1 text-sm text-amber-900">None.</p>
+							<p class="mt-1 text-sm text-amber-900 dark:text-amber-100">None.</p>
 						{:else}
-							<ul class="mt-1 list-disc space-y-1 pl-5 text-sm text-amber-900">
+							<ul class="mt-1 list-disc space-y-1 pl-5 text-sm text-amber-900 dark:text-amber-100">
 								{#each readiness.warnings as warning (warning.kind)}
 									<li>{warning.message}</li>
 								{/each}
@@ -953,18 +953,21 @@
 				</div>
 
 				{#if gateError}
-					<p class="mt-3 text-sm text-red-700" data-testid="esl-admin-classes.rosterGate.error">
+					<p
+						class="mt-3 text-sm text-red-700 dark:text-red-300"
+						data-testid="esl-admin-classes.rosterGate.error"
+					>
 						{gateError}
 					</p>
 				{/if}
 			</section>
 		{:else if readinessPending}
 			<section
-				class="rounded-lg border bg-white p-6"
+				class="bg-card rounded-lg border p-6"
 				data-testid="esl-admin-classes.rosterGate.pending"
 			>
 				{#if readinessQuery.error}
-					<p class="text-sm text-red-700">
+					<p class="text-sm text-red-700 dark:text-red-300">
 						Could not check the roster for {scheduleYear}. Reload the page or check the deployment.
 					</p>
 				{:else}
@@ -977,7 +980,7 @@
 			</p>
 		{:else if visibleCohorts.length === 0}
 			<p
-				class="text-muted-foreground rounded-lg border border-dashed bg-white py-12 text-center"
+				class="text-muted-foreground bg-card rounded-lg border border-dashed py-12 text-center"
 				data-testid="esl-admin-classes.empty"
 			>
 				{showArchived

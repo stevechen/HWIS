@@ -198,7 +198,7 @@
 </script>
 
 <section
-	class="rounded-lg border border-emerald-200 bg-white p-4"
+	class="bg-card rounded-lg border border-emerald-200 p-4 dark:border-emerald-800"
 	data-testid="esl-import.card.g{draft.grade}"
 	aria-label="Grade {draft.grade} dry run"
 >
@@ -211,7 +211,9 @@
 	</header>
 
 	{#if draft.rejected.length > 0 || draft.skipped.length > 0}
-		<details class="mb-3 rounded border border-amber-300 bg-amber-50 p-2 text-sm">
+		<details
+			class="mb-3 rounded border border-amber-300 bg-amber-50 p-2 text-sm dark:border-amber-700 dark:bg-amber-950/30"
+		>
 			<summary class="cursor-pointer font-medium" data-testid="esl-import.problems.toggle">
 				{draft.rejected.length} row(s) could not be read,
 				{draft.skipped.length} sheet(s) set aside
@@ -244,7 +246,7 @@
 	{:else}
 		{#if plan.duplicateIds.length > 0 || plan.ambiguousIds.length > 0}
 			<div
-				class="mb-3 flex gap-2 rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900"
+				class="mb-3 flex gap-2 rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900 dark:border-red-700 dark:bg-red-950/30 dark:text-red-100"
 				data-testid="esl-import.plan.blocked"
 			>
 				<AlertTriangle class="size-4 shrink-0" />
@@ -297,7 +299,9 @@
 		</details>
 
 		{#if nameChanges.length > 0}
-			<div class="mb-3 rounded border border-amber-300 bg-amber-50 p-2">
+			<div
+				class="mb-3 rounded border border-amber-300 bg-amber-50 p-2 dark:border-amber-700 dark:bg-amber-950/30"
+			>
 				<p class="mb-1 text-sm font-medium">
 					{nameChanges.length} English name change(s). Tick the ones to apply.
 				</p>
@@ -329,7 +333,7 @@
 
 		{#if error}
 			<p
-				class="mb-2 rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900"
+				class="mb-2 rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900 dark:border-red-700 dark:bg-red-950/30 dark:text-red-100"
 				data-testid="esl-import.error"
 			>
 				{error}

@@ -599,20 +599,27 @@
 
 <div data-testid="wizard-step4.root" class="mx-auto w-full max-w-6xl space-y-6 p-8">
 	<div>
-		<h1 data-testid="wizard-step4.title" class="text-2xl font-bold text-emerald-900">
+		<h1
+			data-testid="wizard-step4.title"
+			class="text-2xl font-bold text-emerald-900 dark:text-emerald-100"
+		>
 			Semester setup — Step 4 prototype (Events tabs)
 		</h1>
-		<p class="mt-2 text-sm text-gray-600">
+		<p class="text-muted-foreground mt-2 text-sm">
 			Throwaway UX prototype: mock {term}
 			{schoolYear} context ({startDate} → {endDate}) with three mock exam periods. Nothing is saved.
 		</p>
-		<a href="../" data-testid="wizard-step4.back" class="text-sm text-emerald-700 hover:underline">
+		<a
+			href="../"
+			data-testid="wizard-step4.back"
+			class="text-sm text-emerald-700 hover:underline dark:text-emerald-300"
+		>
 			← Back to Steps 1–3 prototype
 		</a>
 	</div>
 
 	<div class="flex flex-wrap items-center gap-2">
-		<span class="text-sm font-medium text-gray-700">Term (mock):</span>
+		<span class="text-foreground text-sm font-medium">Term (mock):</span>
 		{#each ['S1', 'S2'] as option (option)}
 			<Button
 				size="sm"
@@ -623,7 +630,7 @@
 				{option}
 			</Button>
 		{/each}
-		<span class="text-sm text-gray-600">{schoolYear} · {startDate} → {endDate}</span>
+		<span class="text-muted-foreground text-sm">{schoolYear} · {startDate} → {endDate}</span>
 	</div>
 
 	<div class="flex gap-2" role="tablist" aria-label="Event tabs">
@@ -642,7 +649,7 @@
 	</div>
 
 	<div class="space-y-1">
-		<h2 class="text-sm font-semibold text-gray-800">
+		<h2 class="text-foreground text-sm font-semibold">
 			{armed === null
 				? 'Pick an event row (click its button), then click a calendar date to set it'
 				: armed === 'q1'
@@ -659,25 +666,25 @@
 				<section data-testid="wizard-step4.school-tab" class="space-y-3">
 					<div
 						data-testid="wizard-step4.start-school"
-						class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900"
+						class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 					>
 						<strong>First day of school</strong> — {startDate} · Periods 1–2 have no class (display only,
 						pinned to the start date).
 					</div>
 
-					<div class="rounded border bg-white">
+					<div class="bg-card rounded border">
 						<button
 							type="button"
 							onclick={() => toggle('offdays')}
 							data-testid="wizard-step4.group-offdays"
-							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
+							class="text-foreground w-full px-3 py-2 text-left text-sm font-semibold"
 						>
 							{(open['offdays'] ?? false) ? '▾' : '▸'} Days off (imported, read-only) — {offDays.length}
 						</button>
 						{#if open['offdays'] ?? false}
 							<ul
 								data-testid="wizard-step4.offdays-list"
-								class="space-y-0.5 px-3 pb-3 text-xs text-gray-500"
+								class="text-muted-foreground space-y-0.5 px-3 pb-3 text-xs"
 							>
 								{#each offDays as day (day.date)}
 									<li>{day.date} — 🎉 {day.name}</li>
@@ -686,12 +693,12 @@
 						{/if}
 					</div>
 
-					<div class="rounded border bg-white">
+					<div class="bg-card rounded border">
 						<button
 							type="button"
 							onclick={() => toggle('schoolFest')}
 							data-testid="wizard-step4.group-fest"
-							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
+							class="text-foreground w-full px-3 py-2 text-left text-sm font-semibold"
 						>
 							{(open['schoolFest'] ?? false) ? '▾' : '▸'}{isS1
 								? ' Sports Day'
@@ -703,8 +710,8 @@
 									<div
 										data-testid="wizard-step4.row-anniv-pair"
 										class="rounded border p-2 text-sm {armed === 'anniv' || armed === 'makeup'
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
+											? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+											: 'border-border'}"
 									>
 										<div
 											data-testid="wizard-step4.row-anniv"
@@ -746,15 +753,17 @@
 										</div>
 										<div
 											data-testid="wizard-step4.row-makeup"
-											class="mt-2 flex flex-wrap items-center justify-between gap-2 border-l-2 border-emerald-300 pl-3"
+											class="mt-2 flex flex-wrap items-center justify-between gap-2 border-l-2 border-emerald-300 pl-3 dark:border-emerald-700"
 										>
 											<span
 												><strong>Anniversary makeup date</strong> · Day off · {fmt(
 													singles['makeup'] == null ? [] : [singles['makeup'] as string]
 												)}
-												<span class="ml-1 text-xs text-gray-500">(paired with Anniversary)</span>
-												{#if singles['anniv'] == null}<span class="ml-1 text-xs text-gray-500"
-														>· Set Anniversary first</span
+												<span class="text-muted-foreground ml-1 text-xs"
+													>(paired with Anniversary)</span
+												>
+												{#if singles['anniv'] == null}<span
+														class="text-muted-foreground ml-1 text-xs">· Set Anniversary first</span
 													>{/if}</span
 											>
 											{#if armed === 'makeup'}
@@ -780,8 +789,8 @@
 								<div
 									data-testid="wizard-step4.row-sports"
 									class="rounded border p-2 text-sm {armed === 'sports'
-										? 'border-emerald-500 bg-emerald-50'
-										: 'border-gray-200'} {sportsOn ? '' : 'opacity-60'}"
+										? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+										: 'border-border'} {sportsOn ? '' : 'opacity-60'}"
 								>
 									<div class="flex flex-wrap items-center justify-between gap-2">
 										<span
@@ -790,7 +799,7 @@
 												: 'off this term'}</span
 										>
 										<span class="flex items-center gap-2">
-											<label class="flex items-center gap-1 text-xs text-gray-600">
+											<label class="text-muted-foreground flex items-center gap-1 text-xs">
 												<input
 													type="checkbox"
 													bind:checked={sportsOn}
@@ -820,12 +829,12 @@
 						{/if}
 					</div>
 
-					<div class="rounded border bg-white">
+					<div class="bg-card rounded border">
 						<button
 							type="button"
 							onclick={() => toggle('schoolTerm')}
 							data-testid="wizard-step4.group-term"
-							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
+							class="text-foreground w-full px-3 py-2 text-left text-sm font-semibold"
 						>
 							{(open['schoolTerm'] ?? false) ? '▾' : '▸'}{isS1
 								? ' G9 Mocks'
@@ -837,8 +846,8 @@
 									<div
 										data-testid={`wizard-step4.row-${id}`}
 										class="rounded border p-2 text-sm {armed === id
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
+											? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+											: 'border-border'}"
 									>
 										<div class="flex flex-wrap items-center justify-between gap-2">
 											<span
@@ -863,14 +872,15 @@
 									<div
 										data-testid="wizard-step4.row-grad"
 										class="rounded border p-2 text-sm {armed === 'grad'
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
+											? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+											: 'border-border'}"
 									>
 										<div class="flex flex-wrap items-center justify-between gap-2">
 											<span
 												><strong>Graduation</strong> · No class · Grade 9 only · {fmt(
 													singles['grad'] == null ? [] : [singles['grad'] as string]
-												)} <span class="ml-1 text-xs text-gray-500">· After Exam 2</span></span
+												)}
+												<span class="text-muted-foreground ml-1 text-xs">· After Exam 2</span></span
 											>
 											{#if armed === 'grad'}
 												<span
@@ -891,19 +901,19 @@
 				</section>
 			{:else}
 				<section data-testid="wizard-step4.esl-tab" class="space-y-3">
-					<div class="rounded border bg-white">
+					<div class="bg-card rounded border">
 						<button
 							type="button"
 							onclick={() => toggle('eslQuiz')}
 							data-testid="wizard-step4.group-quiz"
-							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
+							class="text-foreground w-full px-3 py-2 text-left text-sm font-semibold"
 						>
 							{(open['eslQuiz'] ?? false) ? '▾' : '▸'} CLIL Quizzes ×6 ({QUIZ_DAYS}-school-day
 							windows, one block each)
 						</button>
 						{#if open['eslQuiz'] ?? false}
 							<div class="space-y-2 px-3 pb-3">
-								<p class="text-xs text-gray-500">
+								<p class="text-muted-foreground text-xs">
 									Batch-fill: pick Quiz 1, then click a calendar date — all 6 auto-place ~2 weeks
 									apart, each inside its own block (Quizzes 1–2 → Block 1, 3–4 → Block 2, 5–6 →
 									Block 3), skipping weekends, days off and exam days. Each row stays adjustable
@@ -923,15 +933,16 @@
 									<div
 										data-testid={`wizard-step4.row-${id}`}
 										class="rounded border p-2 text-sm {armed === id
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
+											? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+											: 'border-border'}"
 									>
 										<div class="flex flex-wrap items-center justify-between gap-2">
 											<span>
 												<strong>Quiz {i + 1}</strong> · CLIL · {fmt(ranges[id])} · Block {blockOf(
 													id
 												)}
-												{#if id === 'q1'}<span class="ml-1 text-xs text-emerald-700"
+												{#if id === 'q1'}<span
+														class="ml-1 text-xs text-emerald-700 dark:text-emerald-300"
 														>(batch start)</span
 													>{/if}
 											</span>
@@ -952,19 +963,19 @@
 						{/if}
 					</div>
 
-					<div class="rounded border bg-white">
+					<div class="bg-card rounded border">
 						<button
 							type="button"
 							onclick={() => toggle('eslDues')}
 							data-testid="wizard-step4.group-dues"
-							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
+							class="text-foreground w-full px-3 py-2 text-left text-sm font-semibold"
 						>
 							{(open['eslDues'] ?? false) ? '▾' : '▸'} Passport & Recording Dues ({dueCount} each this
 							term)
 						</button>
 						{#if open['eslDues'] ?? false}
 							<div class="space-y-2 px-3 pb-3">
-								<p class="text-xs text-gray-500">
+								<p class="text-muted-foreground text-xs">
 									Batch-fill: pick Passport Due 1, then click a calendar date — the remaining dues
 									place ~3 weeks apart, each inside its own block, skipping weekends, days off and
 									exam days.
@@ -984,14 +995,15 @@
 									<div
 										data-testid={`wizard-step4.row-${id}`}
 										class="rounded border p-2 text-sm {armed === id
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
+											? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+											: 'border-border'}"
 									>
 										<div class="flex flex-wrap items-center justify-between gap-2">
 											<span>
 												<strong>Passport Due {i + 1}</strong> · Communication · {fmt(ranges[id])} · Block
 												{blockOf(id)}
-												{#if id === 'pd1'}<span class="ml-1 text-xs text-emerald-700"
+												{#if id === 'pd1'}<span
+														class="ml-1 text-xs text-emerald-700 dark:text-emerald-300"
 														>(batch start)</span
 													>{/if}
 											</span>
@@ -1012,8 +1024,8 @@
 									<div
 										data-testid={`wizard-step4.row-${id}`}
 										class="rounded border p-2 text-sm {armed === id
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
+											? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+											: 'border-border'}"
 									>
 										<div class="flex flex-wrap items-center justify-between gap-2">
 											<span
@@ -1034,7 +1046,7 @@
 									</div>
 								{/each}
 								{#if !isS1}
-									<p class="text-xs text-gray-500">
+									<p class="text-muted-foreground text-xs">
 										Grade 9 graduated — only 2 passport / 2 recording dues in S2.
 									</p>
 								{/if}
@@ -1042,12 +1054,12 @@
 						{/if}
 					</div>
 
-					<div class="rounded border bg-white">
+					<div class="bg-card rounded border">
 						<button
 							type="button"
 							onclick={() => toggle('eslCheck')}
 							data-testid="wizard-step4.group-checks"
-							class="w-full px-3 py-2 text-left text-sm font-semibold text-gray-800"
+							class="text-foreground w-full px-3 py-2 text-left text-sm font-semibold"
 						>
 							{(open['eslCheck'] ?? false) ? '▾' : '▸'} End-of-term Checks (5-school-day windows, Block
 							3 only)
@@ -1058,8 +1070,8 @@
 									<div
 										data-testid={`wizard-step4.row-${row.id}`}
 										class="rounded border p-2 text-sm {armed === row.id
-											? 'border-emerald-500 bg-emerald-50'
-											: 'border-gray-200'}"
+											? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+											: 'border-border'}"
 									>
 										<div class="flex flex-wrap items-center justify-between gap-2">
 											<span
@@ -1084,9 +1096,11 @@
 				</section>
 			{/if}
 
-			<section data-testid="wizard-step4.summary" class="rounded-lg border bg-white p-4">
-				<h2 class="mb-2 text-sm font-semibold text-gray-800">Summary (read-only, nothing saved)</h2>
-				<ul class="space-y-1 text-sm text-gray-700">
+			<section data-testid="wizard-step4.summary" class="bg-card rounded-lg border p-4">
+				<h2 class="text-foreground mb-2 text-sm font-semibold">
+					Summary (read-only, nothing saved)
+				</h2>
+				<ul class="text-foreground space-y-1 text-sm">
 					{#each summary as row, i (`${i}-${row.label}`)}
 						<li><strong>{row.label}:</strong> {row.value}</li>
 					{/each}
@@ -1098,7 +1112,7 @@
 			{#if armed !== null}
 				<div
 					data-testid="wizard-step4.placing-banner"
-					class="mb-2 flex items-center justify-between gap-2 rounded border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-900"
+					class="mb-2 flex items-center justify-between gap-2 rounded border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-100"
 				>
 					<span>Placing {eventLabel(armed)} — click a date to set</span>
 					<Button

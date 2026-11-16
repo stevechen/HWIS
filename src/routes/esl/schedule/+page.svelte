@@ -69,12 +69,18 @@
 </script>
 
 <div class="mx-auto w-full max-w-6xl p-8">
-	<h1 data-testid="esl-schedule.title" class="text-2xl font-bold text-emerald-900">
+	<h1
+		data-testid="esl-schedule.title"
+		class="text-2xl font-bold text-emerald-900 dark:text-emerald-100"
+	>
 		My Semester Schedule
 	</h1>
 	<p class="text-muted-foreground mt-2">
 		Your semester as a chronological table — countdown, date, description, and note.
-		<a href="/esl/schedule/calendar" class="font-medium text-emerald-800 hover:underline">
+		<a
+			href="/esl/schedule/calendar"
+			class="font-medium text-emerald-800 hover:underline dark:text-emerald-200"
+		>
 			Open the calendar view
 		</a>
 		.
@@ -125,7 +131,7 @@
 		{#if finalsTbd}
 			<p
 				data-testid="esl-schedule.finals-tbd"
-				class="mt-4 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+				class="mt-4 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"
 			>
 				Final exams TBD — showing {selected.startDate} through today until exams are entered.
 			</p>

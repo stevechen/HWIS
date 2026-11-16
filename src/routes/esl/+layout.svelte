@@ -35,7 +35,7 @@
 		></div>
 	</div>
 {:else if allowed}
-	<div class="min-h-screen bg-emerald-50/60">
+	<div class="bg-background min-h-screen">
 		<nav
 			aria-label="ESL department"
 			data-testid="esl.nav"
@@ -44,7 +44,7 @@
 			<div class="mx-auto flex h-12 max-w-6xl items-center gap-1 px-4">
 				<span
 					data-testid="esl.nav-badge"
-					class="mr-2 rounded bg-white px-2 py-0.5 text-xs font-bold tracking-wide text-emerald-900"
+					class="bg-card mr-2 rounded px-2 py-0.5 text-xs font-bold tracking-wide text-emerald-900 dark:text-emerald-100"
 					>ESL</span
 				>
 				<a

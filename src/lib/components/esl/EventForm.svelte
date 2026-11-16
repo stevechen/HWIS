@@ -276,7 +276,7 @@
 
 <form
 	data-testid="event-form"
-	class="space-y-3 rounded-lg border bg-white p-4"
+	class="bg-card space-y-3 rounded-lg border p-4"
 	onsubmit={(event) => {
 		event.preventDefault();
 		if (partial && draft.classPeriods.length === 0) return;
@@ -336,7 +336,7 @@
 					required
 					class="rounded border px-2 py-1 text-sm"
 				/>
-				<span class="text-xs text-gray-500"
+				<span class="text-muted-foreground text-xs"
 					>{#if isQuizKind}Quizzes take a numbered title (Unit 1 Quiz Due, Unit 2 Quiz Due) — edit
 						the number after creation when a unit shifts.{:else}Tasks take a free-text title —
 						always the banner.{/if}</span
@@ -360,9 +360,9 @@
 					disabled
 					readonly
 					aria-readonly="true"
-					class="rounded border bg-gray-50 px-2 py-1 text-sm text-gray-600"
+					class="bg-muted text-muted-foreground rounded border px-2 py-1 text-sm"
 				/>
-				<span class="text-xs text-gray-500"
+				<span class="text-muted-foreground text-xs"
 					>Locked for this type{#if !noteHidden}
 						— details go in the note{/if}.</span
 				>
@@ -378,9 +378,9 @@
 					disabled
 					readonly
 					aria-readonly="true"
-					class="rounded border bg-gray-50 px-2 py-1 text-sm text-gray-600"
+					class="bg-muted text-muted-foreground rounded border px-2 py-1 text-sm"
 				/>
-				<span class="text-xs text-gray-500">Locked for this type.</span>
+				<span class="text-muted-foreground text-xs">Locked for this type.</span>
 			{:else}
 				<select
 					id="event-form-target"
@@ -423,11 +423,11 @@
 					/>
 				{/if}
 				{#if isExam}
-					<span class="text-xs text-gray-500"
+					<span class="text-muted-foreground text-xs"
 						>Start date — saves {examDayCount} teaching-day rows, skipping weekends and off days.</span
 					>
 				{:else}
-					<span class="text-xs text-gray-500">Pick the week and day for this event.</span>
+					<span class="text-muted-foreground text-xs">Pick the week and day for this event.</span>
 				{/if}
 			</div>
 		</div>
@@ -459,7 +459,9 @@
 					disabled={busy}
 					class="rounded border px-2 py-1 text-sm"
 				/>
-				<span class="text-xs text-gray-500">Reminder windows only — reminders take ranges.</span>
+				<span class="text-muted-foreground text-xs"
+					>Reminder windows only — reminders take ranges.</span
+				>
 			</div>
 		{/if}
 		{#if isReminder}
@@ -502,7 +504,7 @@
 								period
 							)
 								? 'border-emerald-700 bg-emerald-700 text-white'
-								: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
+								: 'border-border bg-card text-foreground hover:bg-muted'}"
 						>
 							P{period}
 						</button>
@@ -532,7 +534,8 @@
 						class="rounded border px-1.5 py-0.5 text-[11px] font-medium {draft.classPeriods
 							.length === 4 && [1, 2, 3, 4].every((p) => draft.classPeriods.includes(p))
 							? 'border-emerald-700 bg-emerald-700 text-white'
-							: 'border-gray-300 bg-white text-gray-700 hover:bg-emerald-50'}">Morning</button
+							: 'border-border bg-card text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-950/30'}"
+						>Morning</button
 					>
 					<button
 						type="button"
@@ -557,7 +560,8 @@
 						class="rounded border px-1.5 py-0.5 text-[11px] font-medium {draft.classPeriods
 							.length === 4 && [5, 6, 7, 8].every((p) => draft.classPeriods.includes(p))
 							? 'border-emerald-700 bg-emerald-700 text-white'
-							: 'border-gray-300 bg-white text-gray-700 hover:bg-emerald-50'}">Afternoon</button
+							: 'border-border bg-card text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-950/30'}"
+						>Afternoon</button
 					>
 					{#if periodWarning}
 						<span class="text-xs text-red-600">A partial day needs 1–7 periods (not 0 or 8).</span>
@@ -584,7 +588,7 @@
 	{#if warning}
 		<p
 			data-testid="event-form.warning"
-			class="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900"
+			class="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"
 		>
 			{warning}
 		</p>
@@ -592,7 +596,7 @@
 	{#if serverError}
 		<p
 			data-testid="event-form.error"
-			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 		>
 			{serverError}
 		</p>

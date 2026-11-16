@@ -352,7 +352,7 @@
 	</div>
 	{#if transferNotice}
 		<p
-			class="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+			class="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 			role="status"
 			aria-live="polite"
 		>
@@ -364,17 +364,21 @@
 {#snippet taskCard()}
 	{#if rosterState === 'import'}
 		<section
-			class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm"
+			class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm dark:border-amber-700 dark:bg-amber-950/30"
 			aria-label="Roster task: import due"
 		>
 			<div class="flex items-start gap-3">
-				<div class="rounded-lg bg-amber-100 p-2"><FileUp class="size-5" /></div>
+				<div class="rounded-lg bg-amber-100 p-2 dark:bg-amber-900/40">
+					<FileUp class="size-5" />
+				</div>
 				<div class="min-w-0 flex-1">
-					<p class="text-xs font-bold tracking-[0.12em] text-amber-800 uppercase">
+					<p
+						class="text-xs font-bold tracking-[0.12em] text-amber-800 uppercase dark:text-amber-200"
+					>
 						2026–27 school year · roster setup
 					</p>
 					<h2 class="mt-1 text-base font-semibold">Import this year’s roster</h2>
-					<p class="mt-1 text-sm text-amber-900/80">
+					<p class="mt-1 text-sm text-amber-900 dark:text-amber-100/80">
 						Start with the approved roster file. We’ll check student IDs, Chinese classes, and ESL
 						class assignments before applying it.
 					</p>
@@ -383,7 +387,9 @@
 							class="inline-flex h-9 items-center gap-2 rounded-lg bg-amber-950 px-3 text-sm font-semibold text-white hover:bg-amber-900"
 							onclick={rosterAction}>Review import <ArrowRight class="size-4" /></button
 						>
-						<span class="text-xs text-amber-900/70">Last year: 184 students</span>
+						<span class="text-xs text-amber-900 dark:text-amber-100/70"
+							>Last year: 184 students</span
+						>
 					</div>
 				</div>
 				<span class="shrink-0 rounded-full bg-amber-200 px-2.5 py-1 text-xs font-semibold"
@@ -393,38 +399,42 @@
 		</section>
 	{:else if rosterState === 'confirm'}
 		<section
-			class="rounded-xl border border-sky-300 bg-sky-50 p-4 text-sky-950 shadow-sm"
+			class="rounded-xl border border-sky-300 bg-sky-50 p-4 text-sky-950 shadow-sm dark:border-sky-700 dark:bg-sky-950/30"
 			aria-label="Roster task: confirmation due"
 		>
 			<div class="flex items-start gap-3">
-				<div class="rounded-lg bg-sky-100 p-2"><ClipboardCheck class="size-5" /></div>
+				<div class="rounded-lg bg-sky-100 p-2 dark:bg-sky-900/40">
+					<ClipboardCheck class="size-5" />
+				</div>
 				<div class="min-w-0 flex-1">
-					<p class="text-xs font-bold tracking-[0.12em] text-sky-800 uppercase">
+					<p class="text-xs font-bold tracking-[0.12em] text-sky-800 uppercase dark:text-sky-200">
 						2026–27 school year · final review
 					</p>
 					<h2 class="mt-1 text-base font-semibold">Confirm roster readiness</h2>
-					<p class="mt-1 text-sm text-sky-900/80">
+					<p class="mt-1 text-sm text-sky-900 dark:text-sky-100/80">
 						Review the imported counts and resolve exceptions before you confirm this year’s roster.
 					</p>
 					<div class="mt-3 grid max-w-2xl grid-cols-2 gap-2 sm:grid-cols-4">
-						<div class="rounded-lg border border-sky-200 bg-white/70 px-3 py-2">
+						<div class="bg-card/70 rounded-lg border border-sky-200 px-3 py-2 dark:border-sky-800">
 							<span class="block text-lg font-semibold">184</span><span
-								class="text-xs text-sky-900/70">Active students</span
+								class="text-xs text-sky-900 dark:text-sky-100/70">Active students</span
 							>
 						</div>
-						<div class="rounded-lg border border-sky-200 bg-white/70 px-3 py-2">
+						<div class="bg-card/70 rounded-lg border border-sky-200 px-3 py-2 dark:border-sky-800">
 							<span class="block text-lg font-semibold">12</span><span
-								class="text-xs text-sky-900/70">ESL classes</span
+								class="text-xs text-sky-900 dark:text-sky-100/70">ESL classes</span
 							>
 						</div>
-						<div class="rounded-lg border border-sky-200 bg-white/70 px-3 py-2">
+						<div class="bg-card/70 rounded-lg border border-sky-200 px-3 py-2 dark:border-sky-800">
 							<span class="block text-lg font-semibold">3</span><span
-								class="text-xs text-sky-900/70">Missing English names</span
+								class="text-xs text-sky-900 dark:text-sky-100/70">Missing English names</span
 							>
 						</div>
-						<div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
-							<span class="block text-lg font-semibold text-rose-800">2</span><span
-								class="text-xs text-rose-800/80">Exceptions to resolve</span
+						<div
+							class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 dark:border-rose-800 dark:bg-rose-950/30"
+						>
+							<span class="block text-lg font-semibold text-rose-800 dark:text-rose-200">2</span
+							><span class="text-xs text-rose-800 dark:text-rose-200/80">Exceptions to resolve</span
 							>
 						</div>
 					</div>
@@ -533,13 +543,13 @@
 								><td class="px-4 py-3">{student.chineseClass}</td>{#if showEslClass}<td
 										class="px-4 py-3"
 										><span
-											class="rounded-md bg-violet-50 px-2 py-1 text-xs font-medium text-violet-800"
+											class="rounded-md bg-violet-50 px-2 py-1 text-xs font-medium text-violet-800 dark:bg-violet-950/30 dark:text-violet-200"
 											>{student.eslClass}</span
 										></td
 									>{/if}<td class="px-4 py-3"
 									><span
 										class="inline-flex items-center gap-1.5 text-xs {student.status === 'Active'
-											? 'text-emerald-700'
+											? 'text-emerald-700 dark:text-emerald-300'
 											: 'text-muted-foreground'}"
 										><span
 											class="size-1.5 rounded-full {student.status === 'Active'
@@ -586,7 +596,9 @@
 			class="border-border mb-6 flex flex-col gap-5 border-b pb-6 lg:flex-row lg:items-end lg:justify-between"
 		>
 			<div>
-				<p class="text-xs font-semibold tracking-[0.16em] text-violet-700 uppercase">
+				<p
+					class="text-xs font-semibold tracking-[0.16em] text-violet-700 uppercase dark:text-violet-300"
+				>
 					ESL · Administration
 				</p>
 				<h1 class="mt-2 text-3xl font-semibold tracking-tight">Students</h1>
@@ -649,7 +661,7 @@
 			<div class="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
 				<aside class="border-border bg-card h-fit rounded-xl border p-4 shadow-sm">
 					<div class="flex items-center gap-2">
-						<ClipboardCheck class="size-4 text-violet-700" />
+						<ClipboardCheck class="size-4 text-violet-700 dark:text-violet-300" />
 						<h2 class="font-semibold">Yearly roster setup</h2>
 					</div>
 					<p class="text-muted-foreground mt-1 text-xs">2026–27 · annual checklist</p>
@@ -658,8 +670,8 @@
 							<span
 								class="flex size-7 shrink-0 items-center justify-center rounded-full {rosterState ===
 								'import'
-									? 'bg-amber-100 text-amber-800'
-									: 'bg-emerald-100 text-emerald-800'}"
+									? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
+									: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'}"
 								>{#if rosterState === 'import'}1{:else}<Check class="size-4" />{/if}</span
 							>
 							<div>
@@ -671,9 +683,9 @@
 							<span
 								class="flex size-7 shrink-0 items-center justify-center rounded-full {rosterState ===
 								'confirm'
-									? 'bg-sky-100 text-sky-800'
+									? 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200'
 									: rosterState === 'complete'
-										? 'bg-emerald-100 text-emerald-800'
+										? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
 										: 'bg-muted text-muted-foreground'}"
 								>{#if rosterState === 'complete'}<Check class="size-4" />{:else}2{/if}</span
 							>
@@ -715,7 +727,7 @@
 							<span>Active students</span><Users class="size-4" />
 						</div>
 						<p class="mt-2 text-2xl font-semibold">184</p>
-						<p class="mt-1 text-xs text-emerald-700">+6 since last year</p>
+						<p class="mt-1 text-xs text-emerald-700 dark:text-emerald-300">+6 since last year</p>
 					</div>
 					<div class="border-border bg-card rounded-xl border p-4">
 						<div class="text-muted-foreground flex items-center justify-between text-sm">
@@ -731,7 +743,7 @@
 						<p class="mt-2 text-2xl font-semibold">{rosterState === 'confirm' ? '2' : '0'}</p>
 						<p
 							class="mt-1 text-xs {rosterState === 'confirm'
-								? 'text-rose-700'
+								? 'text-rose-700 dark:text-rose-300'
 								: 'text-muted-foreground'}"
 						>
 							{rosterState === 'confirm'
@@ -745,7 +757,7 @@
 		{/if}
 
 		{#if formMessage}<p
-				class="mt-4 rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm text-violet-950"
+				class="mt-4 rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm text-violet-950 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-100"
 				role="status"
 			>
 				{formMessage}
@@ -763,18 +775,23 @@
 		{/if}
 		{#if rosterState === 'complete'}
 			<section
-				class="mt-5 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950"
+				class="mt-5 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 				aria-label="Roster task completed"
 				transition:fly={{ y: 24, duration: 320 }}
 			>
-				<div class="rounded-full bg-emerald-100 p-2"><Check class="size-5" /></div>
+				<div class="rounded-full bg-emerald-100 p-2 dark:bg-emerald-900/40">
+					<Check class="size-5" />
+				</div>
 				<div class="min-w-0 flex-1">
 					<p class="font-semibold">2026–27 roster confirmed</p>
-					<p class="text-sm text-emerald-900/75">
+					<p class="text-sm text-emerald-900 dark:text-emerald-100/75">
 						Confirmed by Mei Chen on August 18, 2026 · 184 active students · 12 ESL classes
 					</p>
 				</div>
-				<span class="rounded-full bg-emerald-200 px-2.5 py-1 text-xs font-semibold">Complete</span>
+				<span
+					class="rounded-full bg-emerald-200 px-2.5 py-1 text-xs font-semibold dark:bg-emerald-800"
+					>Complete</span
+				>
 			</section>
 		{/if}
 	</div>
@@ -796,7 +813,9 @@
 		>
 			<div class="flex items-start justify-between gap-4">
 				<div>
-					<p class="text-xs font-semibold tracking-wider text-violet-700 uppercase">
+					<p
+						class="text-xs font-semibold tracking-wider text-violet-700 uppercase dark:text-violet-300"
+					>
 						Prototype interaction
 					</p>
 					<h2 id="prototype-dialog-title" class="mt-1 text-xl font-semibold">
@@ -945,7 +964,7 @@
 					>
 				{/if}
 				{#if formMessage}<p
-						class="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900"
+						class="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
 						role="status"
 					>
 						{formMessage}
@@ -976,7 +995,7 @@
 		aria-label="Prototype controls"
 	>
 		<button
-			class="rounded-full p-2 hover:bg-white/15"
+			class="hover:bg-card/15 rounded-full p-2"
 			aria-label="Previous layout"
 			onclick={() => cycleVariant(-1)}><ChevronLeft class="size-4" /></button
 		>
@@ -991,7 +1010,7 @@
 			</p>
 		</div>
 		<button
-			class="rounded-full p-2 hover:bg-white/15"
+			class="hover:bg-card/15 rounded-full p-2"
 			aria-label="Next layout"
 			onclick={() => cycleVariant(1)}><ChevronRight class="size-4" /></button
 		>

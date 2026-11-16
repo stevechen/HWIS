@@ -21,14 +21,14 @@
 
 <form
 	data-testid="semester-form"
-	class="space-y-3 rounded-lg border bg-white p-4"
+	class="bg-card space-y-3 rounded-lg border p-4"
 	onsubmit={(event) => {
 		event.preventDefault();
 		onsubmit({ year: year.trim(), term, startDate });
 	}}
 >
-	<h2 class="text-base font-semibold text-emerald-900">New semester</h2>
-	<p class="text-sm text-gray-600">
+	<h2 class="text-base font-semibold text-emerald-900 dark:text-emerald-100">New semester</h2>
+	<p class="text-muted-foreground text-sm">
 		S1 anchors on its start date; S2 can be created any time — no gate on S1's end. The end derives
 		later from final-exam events.
 	</p>
@@ -70,7 +70,7 @@
 	{#if error}
 		<p
 			data-testid="semester-form.error"
-			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 		>
 			{error}
 		</p>

@@ -96,8 +96,9 @@
 	 * filled chips already read well without it.
 	 */
 	const CHIP_STATE_CLASSES: Record<ChipState, string> = {
-		valid: 'border border-emerald-600 bg-emerald-50 text-emerald-800',
-		conflict: 'bg-red-100 text-red-900',
+		valid:
+			'border border-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200',
+		conflict: 'bg-red-100 dark:bg-red-900/40 text-red-900 dark:text-red-100',
 		empty: 'border border-current border-dashed text-muted-foreground justify-center'
 	};
 
@@ -880,12 +881,12 @@
 											// of merely unavailable. Lifted above its neighbours
 											// so all four sides of its border show.
 											conflict
-												? 'relative z-10 border-red-400 bg-red-100 font-medium text-red-800'
+												? 'relative z-10 border-red-400 bg-red-100 font-medium text-red-800 dark:bg-red-900/40 dark:text-red-200'
 												: selected
 													? 'slot-checked relative z-10'
 													: // A blocked cell is not interactive, but it is still readable.
 														blocked
-														? 'border-gray-300 bg-gray-100 text-gray-400 opacity-50'
+														? 'border-border bg-muted text-muted-foreground opacity-50'
 														: 'cursor-pointer',
 											// A divergent pair slot is outlined amber: it is not blocked, but
 											// saving will move the other section onto it.
@@ -946,10 +947,10 @@
 									// border show above the shared dividers.
 									'-mt-px -ml-px flex min-h-7 flex-col items-center justify-center border px-1 py-0.5 text-xs leading-tight hover:relative hover:z-10 focus-visible:ring-2 focus-visible:ring-emerald-600',
 									selectedRoom
-										? 'relative z-10 border-emerald-600 bg-emerald-100 font-medium text-emerald-900'
+										? 'relative z-10 border-emerald-600 bg-emerald-100 font-medium text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100'
 										: busyMark !== null
 											? // Gray: the room is taken, and red is reserved for conflicts.
-												'border-gray-300 bg-gray-100 text-gray-600'
+												'border-border bg-muted text-muted-foreground'
 											: 'border-input text-muted-foreground hover:border-emerald-400'
 								]}
 								title={busyMark !== null
@@ -982,7 +983,7 @@
 						{#if draftRoom && !roomOptions.some((option) => option.value === draftRoom)}
 							<button
 								type="button"
-								class="col-span-3 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900"
+								class="col-span-3 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"
 								data-testid="esl-admin-classes.schedule.room.unavailable"
 								disabled={busy}
 								onclick={() => pickRoom('')}
@@ -1004,8 +1005,8 @@
 					class={[
 						'rounded px-2 py-1.5 text-xs',
 						impactEntries.length > 0
-							? 'bg-amber-50 text-amber-900'
-							: 'bg-emerald-50 text-emerald-800'
+							? 'bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100'
+							: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
 					]}
 					data-testid="esl-admin-classes.schedule.impact"
 					role="status"
@@ -1050,7 +1051,7 @@
 
 				{#if error}
 					<p
-						class="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700"
+						class="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 						data-testid="esl-admin-classes.schedule.error"
 					>
 						{error}

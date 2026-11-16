@@ -207,15 +207,21 @@
 <div data-testid="wizard.root" class="mx-auto w-full max-w-6xl space-y-6 p-8">
 	<div class="flex flex-wrap items-start justify-between gap-3">
 		<div>
-			<h1 data-testid="wizard.title" class="text-2xl font-bold text-emerald-900">
+			<h1
+				data-testid="wizard.title"
+				class="text-2xl font-bold text-emerald-900 dark:text-emerald-100"
+			>
 				{edit ? 'Edit semester' : 'Semester setup'}
 			</h1>
 			{#if edit}
-				<p data-testid="wizard.edit-mode" class="mt-1 text-sm text-emerald-700">
+				<p
+					data-testid="wizard.edit-mode"
+					class="mt-1 text-sm text-emerald-700 dark:text-emerald-300"
+				>
 					Editing a saved semester — all steps are open, and saving reconciles with what exists.
 				</p>
 			{/if}
-			<p data-testid="wizard.progress" class="mt-1 text-sm text-gray-600">
+			<p data-testid="wizard.progress" class="text-muted-foreground mt-1 text-sm">
 				Step {step} of {WIZARD_STEPS.length} — {stepLabel}
 			</p>
 		</div>
@@ -225,14 +231,14 @@
 	{#if restored?.resumed && !resumeDismissed}
 		<div
 			data-testid="wizard.resumed"
-			class="flex flex-wrap items-center justify-between gap-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+			class="flex flex-wrap items-center justify-between gap-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 		>
 			<span>Resumed the setup you left earlier in this browser session.</span>
 			<button
 				type="button"
 				data-testid="wizard.resumed-dismiss"
 				onclick={() => (resumeDismissed = true)}
-				class="text-xs font-medium text-emerald-800 underline">Dismiss</button
+				class="text-xs font-medium text-emerald-800 underline dark:text-emerald-200">Dismiss</button
 			>
 		</div>
 	{/if}
@@ -240,7 +246,7 @@
 	{#if edit && visibleInferred.length > 0}
 		<div
 			data-testid="wizard.inferred"
-			class="space-y-1 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+			class="space-y-1 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
 		>
 			<p class="font-medium">
 				Loaded from the saved semester — these details were reconstructed, not stored:
@@ -271,8 +277,8 @@
 						class="rounded-full px-3 py-1 font-medium disabled:cursor-not-allowed disabled:opacity-60 {current
 							? 'bg-emerald-700 text-white'
 							: complete
-								? 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
-								: 'bg-gray-100 text-gray-500'}"
+								? 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-100 dark:hover:bg-emerald-800'
+								: 'bg-muted text-muted-foreground'}"
 					>
 						{definition.number}. {definition.label}{complete ? ' ✓' : ''}
 					</button>
@@ -281,7 +287,7 @@
 		</ol>
 	</nav>
 
-	<section data-testid={`wizard.step-${step}`} class="space-y-4 rounded-lg border bg-white p-4">
+	<section data-testid={`wizard.step-${step}`} class="bg-card space-y-4 rounded-lg border p-4">
 		{@render children({ state: wizardState, step, update, mode, markSaved })}
 	</section>
 

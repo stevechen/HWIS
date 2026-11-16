@@ -24,7 +24,7 @@
 
 <span
 	data-testid={testId}
-	class="inline-flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900"
+	class="inline-flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
 >
 	<span>Manually set</span>
 	<Button

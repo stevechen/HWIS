@@ -194,29 +194,35 @@
 	}
 </script>
 
-<section data-testid="esl-offday-import.root" class="space-y-4 rounded-lg border bg-white p-4">
+<section data-testid="esl-offday-import.root" class="bg-card space-y-4 rounded-lg border p-4">
 	<div class="flex flex-wrap items-baseline justify-between gap-2">
-		<h2 class="text-base font-semibold text-emerald-900">Holiday off days → events</h2>
+		<h2 class="text-base font-semibold text-emerald-900 dark:text-emerald-100">
+			Holiday off days → events
+		</h2>
 		<a
 			href="https://data.gov.tw/dataset/14718"
 			target="_blank"
 			rel="noopener noreferrer"
 			data-testid="esl-offday-import.dataset-link"
-			class="text-sm font-medium text-emerald-800 hover:underline"
+			class="text-sm font-medium text-emerald-800 hover:underline dark:text-emerald-200"
 		>
 			Dataset 14718
 		</a>
 	</div>
 
-	<div class="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
-		<h3 class="text-sm font-semibold text-emerald-900">Import automatically</h3>
-		<p class="text-sm text-gray-600">
+	<div
+		class="dark:bg-emerald-950/30/50 space-y-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/20"
+	>
+		<h3 class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+			Import automatically
+		</h3>
+		<p class="text-muted-foreground text-sm">
 			Pick the calendar years — the app reads the official files straight from the government and
 			shows what would be added before anything is written.
 		</p>
 		<div class="flex flex-wrap items-center gap-4">
 			{#each govYears as option (option.rocYear)}
-				<label class="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
+				<label class="text-foreground flex cursor-pointer items-center gap-2 text-sm">
 					<input
 						type="checkbox"
 						checked={option.checked}
@@ -241,7 +247,7 @@
 		{#if govError}
 			<p
 				data-testid="esl-offday-import.gov-error"
-				class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+				class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 			>
 				{govError}
 			</p>
@@ -249,38 +255,39 @@
 
 		{#if govPreview}
 			<div data-testid="esl-offday-import.gov-preview-result" class="space-y-2 text-sm">
-				<ul class="space-y-0.5 text-gray-700">
+				<ul class="text-foreground space-y-0.5">
 					{#each govPreview.years as year (year.rocYear)}
 						<li>
 							ROC {year.rocYear}:
 							{#if year.status === 'ok'}
 								{year.holidays} day{year.holidays === 1 ? '' : 's'} off in the file{#if year.fileName !== null}
-									<span class="text-gray-500">({year.fileName})</span>{/if}
+									<span class="text-muted-foreground">({year.fileName})</span>{/if}
 							{:else if year.status === 'missing'}
-								<span class="text-amber-800">not published yet — skipped</span>
+								<span class="text-amber-800 dark:text-amber-200">not published yet — skipped</span>
 							{:else}
-								<span class="text-amber-800">could not be read — skipped</span>
+								<span class="text-amber-800 dark:text-amber-200">could not be read — skipped</span>
 							{/if}
 						</li>
 					{/each}
 				</ul>
 				{#if govPreview.days.length > 0}
-					<p class="font-medium text-gray-800">
+					<p class="text-foreground font-medium">
 						{govPreview.days.length} would be added:
 					</p>
-					<ul class="max-h-40 space-y-0.5 overflow-y-auto pl-1 text-gray-700">
+					<ul class="text-foreground max-h-40 space-y-0.5 overflow-y-auto pl-1">
 						{#each govPreview.days as day (day.date)}
 							<li>
 								{day.date} — {day.name}{#if day.needsReview}
-									<span class="text-amber-800">(translation needs a check)</span>{/if}
+									<span class="text-amber-800 dark:text-amber-200">(translation needs a check)</span
+									>{/if}
 							</li>
 						{/each}
 					</ul>
 				{:else}
-					<p class="text-gray-600">Nothing new would be added.</p>
+					<p class="text-muted-foreground">Nothing new would be added.</p>
 				{/if}
 				{#if govPreview.skippedTaken > 0 || govPreview.outOfRange > 0 || govPreview.plainWeekends > 0 || govPreview.weekendHolidays > 0}
-					<p class="text-xs text-gray-500">
+					<p class="text-muted-foreground text-xs">
 						Skipped: {govPreview.skippedTaken} already have events, {govPreview.outOfRange}
 						outside this semester, {govPreview.plainWeekends} plain weekends,
 						{govPreview.weekendHolidays} named weekend days.
@@ -299,10 +306,12 @@
 
 		{#if govReport}
 			<div data-testid="esl-offday-import.gov-report" class="space-y-2 text-sm">
-				<p class="rounded border border-emerald-200 bg-emerald-50 p-2 text-emerald-900">
+				<p
+					class="rounded border border-emerald-200 bg-emerald-50 p-2 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
+				>
 					{govReport.events.inserted} off day{govReport.events.inserted === 1 ? '' : 's'} added.
 				</p>
-				<ul class="space-y-0.5 text-gray-700">
+				<ul class="text-foreground space-y-0.5">
 					{#each govReport.years as year (year.rocYear)}
 						<li>
 							ROC {year.rocYear}: holiday cache — {year.cache?.inserted ?? 0} inserted,
@@ -311,7 +320,9 @@
 					{/each}
 				</ul>
 				{#if govReport.events.needsReview.length > 0}
-					<p class="rounded border border-amber-300 bg-amber-50 p-2 text-amber-900">
+					<p
+						class="rounded border border-amber-300 bg-amber-50 p-2 text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"
+					>
 						Needs a human translation check: {govReport.events.needsReview.join('; ')}.
 					</p>
 				{/if}
@@ -320,15 +331,17 @@
 	</div>
 
 	<div class="space-y-3">
-		<h3 class="text-sm font-semibold text-emerald-900">Or upload the CSV manually</h3>
-		<ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
+		<h3 class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+			Or upload the CSV manually
+		</h3>
+		<ol class="text-foreground list-decimal space-y-1 pl-5 text-sm">
 			<li>
 				Open
 				<a
 					href="https://data.gov.tw/dataset/14718"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="font-medium text-emerald-800 hover:underline"
+					class="font-medium text-emerald-800 hover:underline dark:text-emerald-200"
 				>
 					Dataset 14718 (中華民國政府行政機關辦公日曆表)
 				</a>
@@ -352,15 +365,17 @@
 			onkeyup={handleKeyUp}
 			class={[
 				'cursor-pointer rounded-lg border-2 border-dashed text-center transition-colors',
-				isDraggingOver ? 'border-emerald-500 bg-emerald-50' : 'border-emerald-300 bg-slate-50'
+				isDraggingOver
+					? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+					: 'bg-muted border-emerald-300 dark:border-emerald-700'
 			]}
 		>
 			{#if file === null}
 				<div class="flex flex-col items-center gap-2 px-4 py-6">
 					<Download class="size-6 text-emerald-600" />
-					<p class="text-sm text-gray-700">
+					<p class="text-foreground text-sm">
 						Drag and drop the calendar CSV here
-						<span class="text-gray-500">— or —</span>
+						<span class="text-muted-foreground">— or —</span>
 					</p>
 					<Button
 						size="sm"
@@ -373,8 +388,8 @@
 				</div>
 			{:else}
 				<div class="flex items-center justify-center gap-2 px-4 py-6">
-					<FileText class="size-5 shrink-0 text-emerald-700" />
-					<span class="truncate text-sm font-medium text-gray-800" title={file.name}>
+					<FileText class="size-5 shrink-0 text-emerald-700 dark:text-emerald-300" />
+					<span class="text-foreground truncate text-sm font-medium" title={file.name}>
 						{file.name}
 					</span>
 					<Button
@@ -410,7 +425,7 @@
 			>
 				{importing ? 'Importing…' : 'Import off days as events'}
 			</Button>
-			<p data-testid="esl-offday-import.format-hint" class="text-xs text-gray-500">
+			<p data-testid="esl-offday-import.format-hint" class="text-muted-foreground text-xs">
 				Weekday named days off only — plain weekends and named weekend days carry no event, as do
 				dates that already hold one.
 			</p>
@@ -419,7 +434,7 @@
 		{#if error}
 			<p
 				data-testid="esl-offday-import.error"
-				class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+				class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 			>
 				{error}
 			</p>
@@ -427,7 +442,7 @@
 		{#if report}
 			<p
 				data-testid="esl-offday-import.success"
-				class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900"
+				class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
 			>
 				{report.inserted} off day{report.inserted === 1 ? '' : 's'} added{report.skippedTaken > 0
 					? `, ${report.skippedTaken} already had events and were skipped`
@@ -442,7 +457,7 @@
 			{#if report.needsReview.length > 0}
 				<p
 					data-testid="esl-offday-import.needs-review"
-					class="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900"
+					class="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"
 				>
 					Needs a human translation check: {report.needsReview.join('; ')}.
 				</p>

@@ -78,7 +78,7 @@
 	<a
 		href="/esl/admin/semesters"
 		data-testid="esl-admin-semester-detail.back"
-		class="text-sm font-medium text-emerald-800 hover:underline"
+		class="text-sm font-medium text-emerald-800 hover:underline dark:text-emerald-200"
 	>
 		← All semesters
 	</a>
@@ -93,7 +93,7 @@
 	{:else if selected === null || loaded === null}
 		<p
 			data-testid="esl-admin-semester-detail.missing"
-			class="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+			class="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 		>
 			Semester not found. It may have been removed — back up to the list and pick another.
 		</p>
@@ -102,7 +102,7 @@
 			<div
 				data-testid="esl-admin-semester-detail.status-warning"
 				role="status"
-				class="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+				class="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"
 			>
 				{status === 'current'
 					? 'This semester is currently running'

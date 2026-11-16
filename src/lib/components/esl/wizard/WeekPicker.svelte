@@ -53,7 +53,8 @@
 			<span class="mr-1 min-w-16"></span>
 		{/if}
 		{#each WEEKDAY_HEADER as label (label)}
-			<span class="min-w-8 flex-1 text-center text-[11px] font-semibold text-gray-500">{label}</span
+			<span class="text-muted-foreground min-w-8 flex-1 text-center text-[11px] font-semibold"
+				>{label}</span
 			>
 		{/each}
 	</div>
@@ -62,15 +63,15 @@
 		<div
 			data-testid={`${testId}.row-${row + 1}`}
 			class="flex flex-wrap items-center gap-1 rounded-lg border p-2 {rowSelected
-				? 'border-emerald-500 bg-emerald-50'
-				: 'border-gray-200 bg-white'}"
+				? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+				: 'border-border bg-card'}"
 		>
 			{#if showWeekNumbers}
 				<span
 					data-testid={`${testId}.row-${row + 1}.label`}
 					class="mr-1 min-w-16 text-xs font-semibold {rowSelected
-						? 'text-emerald-900'
-						: 'text-gray-500'}"
+						? 'text-emerald-900 dark:text-emerald-100'
+						: 'text-muted-foreground'}"
 				>
 					Week {row + 1}{rowSelected ? ' ✓' : ''}
 				</span>
@@ -87,7 +88,7 @@
 					title={snapToMonday ? `Pick week of ${monday}` : `Pick ${date}`}
 					class="flex min-w-8 flex-1 flex-col items-center rounded-md border px-2 py-1 text-xs transition-colors {cellSelected
 						? 'border-emerald-600 bg-emerald-600 font-bold text-white'
-						: 'border-gray-200 bg-white text-gray-700 hover:border-emerald-400 hover:bg-emerald-50'}"
+						: 'border-border bg-card text-foreground hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'}"
 				>
 					<span class="font-medium">{short(date)}</span>
 				</button>

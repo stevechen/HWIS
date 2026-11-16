@@ -47,11 +47,11 @@
 		></div>
 	</div>
 {:else if allowed}
-	<div class="min-h-screen bg-emerald-50/60">
+	<div class="bg-background min-h-screen">
 		<nav
 			aria-label="ESL administration"
 			data-testid="esl-admin.nav"
-			class="border-b border-emerald-200 bg-white"
+			class="bg-card border-b border-emerald-200 dark:border-emerald-800"
 		>
 			<div class="mx-auto flex h-12 max-w-6xl items-center gap-1 px-4">
 				<span
@@ -68,14 +68,15 @@
 						data-testid={section.testId}
 						aria-current={active ? 'page' : undefined}
 						class="rounded px-3 py-1.5 text-sm font-medium {active
-							? 'bg-emerald-100 text-emerald-900'
-							: 'text-emerald-800 hover:bg-emerald-50'}">{section.label}</a
+							? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100'
+							: 'text-emerald-800 hover:bg-emerald-50 dark:text-emerald-200 dark:hover:bg-emerald-950/30'}"
+						>{section.label}</a
 					>
 				{/each}
 				<a
 					href="/esl"
 					data-testid="esl-admin.nav.back"
-					class="ml-auto rounded px-3 py-1.5 text-sm font-medium text-emerald-800 hover:bg-emerald-50"
+					class="ml-auto rounded px-3 py-1.5 text-sm font-medium text-emerald-800 hover:bg-emerald-50 dark:text-emerald-200 dark:hover:bg-emerald-950/30"
 					>Back to ESL</a
 				>
 			</div>

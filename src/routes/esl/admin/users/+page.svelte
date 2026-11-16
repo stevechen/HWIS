@@ -95,9 +95,12 @@
 	}
 
 	function eslBadgeClass(role: string): string {
-		if (role === 'admin') return 'border-emerald-300 bg-emerald-100 text-emerald-700';
-		if (role === 'teacher') return 'border-sky-300 bg-sky-100 text-sky-700';
-		if (role === 'super') return 'border-amber-300 bg-amber-100 text-amber-700';
+		if (role === 'admin')
+			return 'border-emerald-300 dark:border-emerald-700 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300';
+		if (role === 'teacher')
+			return 'border-sky-300 dark:border-sky-700 bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300';
+		if (role === 'super')
+			return 'border-amber-300 dark:border-amber-700 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300';
 		return '';
 	}
 
@@ -126,7 +129,10 @@
 
 <div class="mx-auto w-full max-w-6xl space-y-6 p-8">
 	<header>
-		<h1 data-testid="esl-admin-users.title" class="text-2xl font-bold text-emerald-900">
+		<h1
+			data-testid="esl-admin-users.title"
+			class="text-2xl font-bold text-emerald-900 dark:text-emerald-100"
+		>
 			ESL Department Users
 		</h1>
 		<p data-testid="esl-admin-users.summary" class="text-muted-foreground mt-2 text-sm">
@@ -155,7 +161,7 @@
 	{#if rowError}
 		<p
 			data-testid="esl-admin-users.error"
-			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 		>
 			{rowError}
 		</p>
@@ -163,7 +169,7 @@
 	{#if notice}
 		<p
 			data-testid="esl-admin-users.notice"
-			class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800"
+			class="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
 		>
 			{notice}
 		</p>
@@ -176,8 +182,8 @@
 			aria-modal="true"
 			data-testid="esl-admin-users.delete-dialog"
 		>
-			<div class="max-w-sm rounded-xl border bg-white p-6 shadow-2xl">
-				<h2 class="text-lg font-bold text-red-700">Delete {deleteTargetName}?</h2>
+			<div class="bg-card max-w-sm rounded-xl border p-6 shadow-2xl">
+				<h2 class="text-lg font-bold text-red-700 dark:text-red-300">Delete {deleteTargetName}?</h2>
 				<p class="text-muted-foreground mt-2 text-sm">
 					This will permanently remove the user and their ESL links.
 				</p>
@@ -205,7 +211,7 @@
 		</p>
 	{:else if visibleStaff.length === 0}
 		<p
-			class="text-muted-foreground rounded-lg border border-dashed bg-white py-12 text-center"
+			class="text-muted-foreground bg-card rounded-lg border border-dashed py-12 text-center"
 			data-testid="esl-admin-users.empty"
 		>
 			No staff match the current filters.
@@ -247,7 +253,7 @@
 							{#if person.role === 'super' && person.selected !== 'super'}
 								<Badge
 									variant="outline"
-									class="border-amber-300 bg-amber-100 text-[10px] text-amber-700"
+									class="border-amber-300 bg-amber-100 text-[10px] text-amber-700 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
 								>
 									Super
 								</Badge>
@@ -261,7 +267,7 @@
 										e.stopPropagation();
 										confirmDelete(person._id, person.name);
 									}}
-									class="text-xs text-red-600 underline hover:text-red-800"
+									class="text-xs text-red-600 underline hover:text-red-800 dark:hover:text-red-200"
 									data-testid="esl-admin-users.delete"
 									aria-label="Delete {person.name}"
 								>

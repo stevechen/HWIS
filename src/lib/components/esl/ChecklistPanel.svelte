@@ -40,17 +40,19 @@
 	}
 </script>
 
-<section data-testid="checklist-panel" class="space-y-3 rounded-lg border bg-white p-4">
+<section data-testid="checklist-panel" class="bg-card space-y-3 rounded-lg border p-4">
 	<div class="flex flex-wrap items-center gap-2">
-		<h2 class="text-base font-semibold text-emerald-900">Expected defaults</h2>
+		<h2 class="text-base font-semibold text-emerald-900 dark:text-emerald-100">
+			Expected defaults
+		</h2>
 		<span
-			class="rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
+			class="border-border bg-muted text-muted-foreground rounded-full border px-2 py-0.5 text-xs font-medium"
 		>
 			Advisory only
 		</span>
 	</div>
 	{#if status !== null}
-		<p class="text-xs text-gray-500">
+		<p class="text-muted-foreground text-xs">
 			Checking {status.window.start} → {status.window.end}. Missing rows are suggestions — create
 			them here or add rows by hand below.
 		</p>
@@ -68,12 +70,13 @@
 			>
 				<span aria-hidden="true">{status.off.ok ? '✓' : '⚠'}</span>
 				<span class="font-medium">Official off-days</span>
-				<span class="text-gray-600">
+				<span class="text-muted-foreground">
 					{status.off.present.length}/{status.off.expected.length} in {status.window.start} →
 					{status.window.end}
 				</span>
 				{#if !status.off.ok}
-					<span class="text-amber-800">missing {status.off.missing.length}</span>
+					<span class="text-amber-800 dark:text-amber-200">missing {status.off.missing.length}</span
+					>
 					<Button
 						size="sm"
 						variant="outline"
@@ -91,7 +94,7 @@
 			>
 				<span aria-hidden="true">{unitQuizOk ? '✓' : '⚠'}</span>
 				<span class="font-medium">Unit tests + quizzes</span>
-				<span class="text-gray-600">
+				<span class="text-muted-foreground">
 					quizzes {status.quiz.present}/{status.quiz.expected}
 				</span>
 				{#if status.quiz.present < status.quiz.expected}
@@ -112,7 +115,7 @@
 			>
 				<span aria-hidden="true">{passportRecordingOk ? '✓' : '⚠'}</span>
 				<span class="font-medium">Passport + recording dues</span>
-				<span class="text-gray-600">
+				<span class="text-muted-foreground">
 					passport {status.passport.present}/{status.passport.expected} · recording {status
 						.recording.present}/{status.recording.expected}
 				</span>
@@ -145,7 +148,7 @@
 			>
 				<span aria-hidden="true">{g9mockOk ? '✓' : '⚠'}</span>
 				<span class="font-medium">G9 mocks</span>
-				<span class="text-gray-600">
+				<span class="text-muted-foreground">
 					{status.g9mock.presentRows}/{status.g9mock.expectedRows} rows ({status.g9mock
 						.expectedStarts}
 					two-day starts)
@@ -168,13 +171,13 @@
 	{#if error}
 		<p
 			data-testid="checklist-panel.error"
-			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700"
+			class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
 		>
 			{error}
 		</p>
 	{/if}
 
-	<p data-testid="checklist-panel.task-note" class="text-xs text-gray-500">
+	<p data-testid="checklist-panel.task-note" class="text-muted-foreground text-xs">
 		Tasks stay manual — give each its own title below. They never appear in this checklist and
 		nothing here blocks saving.
 	</p>
